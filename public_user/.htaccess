@@ -1,0 +1,15 @@
+Options -Indexes
+
+<FilesMatch "\.(sql|md|ini|log|bak|dist)$">
+  Require all denied
+</FilesMatch>
+
+<Files "composer.json">
+  Require all denied
+</Files>
+
+<Files "composer.lock">
+  Require all denied
+</Files>
+
+RedirectMatch 403 ^/docs/

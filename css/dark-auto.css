@@ -1,0 +1,483 @@
+/* =====================================================
+   AUTO DARK MODE – ORGANIZATION (GLOBAL)
+   Background base: #24292d
+   ===================================================== */
+
+body.dark-auto,
+body.dark-auto *{
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+/* Base */
+body.dark-auto{
+  background:#24292d !important;
+  color:#e6edf3;
+}
+
+/* Panels & Layout */
+body.dark-auto .sh-pagetitle,
+/* body.dark-auto .sh-logopanel,
+body.dark-auto .sh-headpanel, */
+body.dark-auto .sh-mainpanel,
+body.dark-auto .tt-comments-head,
+body.dark-auto .tt-rm-head,
+body.dark-auto .ig-details,
+body.dark-auto .sh-sideleft-menu,
+body.dark-auto .tt-comments-wrap,
+body.dark-auto .tt-rm-body,
+body.dark-auto .tl-card,
+body.dark-auto .c-footer,
+body.dark-auto .c-overlay,
+body.dark-auto .c-modal,
+body.dark-auto .mt-2,
+body.dark-auto .chat-card-body,
+body.dark-auto .chat-list,
+body.dark-auto .chat-topbar,
+body.dark-auto .chat-right-col,
+body.dark-auto .chat-card,
+body.dark-auto .table-pro,
+body.dark-auto .pv-pill,
+body.dark-auto .chatBox,
+body.dark-auto .sidebar-pill,
+body.dark-auto .ig-topbar,
+body.dark-auto .members-list-wrap,
+body.dark-auto .composer-fixed,
+body.dark-auto .conv-history,
+body.dark-auto .conv-topbar,
+body.dark-auto .msg-scroll,
+body.dark-auto .right-sidebar-subject,
+body.dark-auto .feed-card,
+body.dark-auto .sh-pagetitle-left,
+body.dark-auto .sh-pagebody,
+body.dark-auto .row,
+body.dark-auto .row-sm,
+body.dark-auto .app-footer,
+body.dark-auto .col-lg-4,
+body.dark-auto .col-lg-8,
+body.dark-auto .col-md-4,
+body.dark-auto .hd,
+body.dark-auto .bd,
+body.dark-auto .app-main,
+body.dark-auto .signbox,
+body.dark-auto .col-md-8{
+  background:#24292d !important;
+  color:#e6edf3;
+}
+
+body.dark-auto .right-sidebar,
+body.dark-auto .tt-close,
+body.dark-auto .msgPlusBtn,
+body.dark-auto .emojiBtn,
+body.dark-auto .tt-iconbtn,
+body.dark-auto .feed-sidebar,
+body.dark-auto .right-sidebar-subject,
+body.dark-auto .btn-search,
+body.dark-auto .rows-scroll,
+body.dark-auto .msg-them-peer{
+    background:#24292d !important;
+  color:#e6edf3;
+}
+
+body.dark-auto .right-active,
+body.dark-auto .active{
+    background:#394451 !important;
+  color:#e6edf3;
+}
+
+/* Cards */
+body.dark-auto .card,
+body.dark-auto .card-body,
+body.dark-auto .card-header,
+body.dark-auto .card.bd-0{
+  background:#24292d !important;
+  color:#e6edf3;
+  border-color:rgba(255,255,255,.08);
+}
+
+/* Lists */
+body.dark-auto .tt-text,
+body.dark-auto .mf-body,
+body.dark-auto .sh-sideleft-menu,
+body.dark-auto .nav-link
+body.dark-auto .list-group,
+body.dark-auto .tt-rm-title,
+body.dark-auto .i,
+body.dark-auto .vrail-ico,
+body.dark-auto .list-group-flush,
+body.dark-auto .list-group-item{
+  background:#24292d !important;
+  color:#e6edf3;
+  border-color:rgba(255,255,255,.08);
+}
+
+body.dark-auto .list-group-item.active{
+  background:#2f363d !important;
+  color:#ffffff;
+}
+
+/* Chat */
+body.dark-auto .msg-box{
+  background:#24292d !important;
+  border-color:rgba(255,255,255,.08);
+}
+
+body.dark-auto .msg-me,
+body.dark-auto .cmt{
+  background:#30363d !important;
+  color:#e6edf3;
+}
+
+body.dark-auto .msg-them{
+  background:#2b3137 !important;
+  color:#e6edf3;
+}
+
+/* Inputs */
+body.dark-auto input,
+body.dark-auto .textarea,
+body.dark-auto .title,
+body.dark-auto .rm-title,
+body.dark-auto .rm-modal,
+body.dark-auto .rm-content,
+body.dark-auto .rm-body,
+body.dark-auto .rm-section,
+body.dark-auto .rm-footer,
+body.dark-auto .input-group,
+body.dark-auto  .txt,
+body.dark-auto .input-group-btn,
+body.dark-auto .form-control{
+  background:#1f2428 !important;
+  color:#e6edf3 !important;
+  border-color:rgba(255,255,255,.12);
+}
+
+body.dark-auto input::placeholder,
+body.dark-auto .card-title,
+body.dark-auto .chatLastMsg,
+body.dark-auto textarea::placeholder{
+  color:#9aa4ad;
+}
+
+/* Icons */
+body.dark-auto .sh-pagetitle-icon,
+body.dark-auto .icon,
+body.dark-auto .ion-ios-chatbubble{
+  color:#e6edf3 !important;
+}
+
+/* Buttons */
+body.dark-auto .btn,
+body.dark-auto .composer,
+body.dark-auto .button,
+body.dark-auto .iconbtn{
+  background:#30363d;
+  color:#e6edf3;
+  border-color:rgba(255,255,255,.12);
+}
+body.dark-auto .btn-primary{
+  background:#238636;
+  border-color:#238636;
+}
+
+/* Scrollbars */
+body.dark-auto ::-webkit-scrollbar{
+  width:8px;
+}
+body.dark-auto ::-webkit-scrollbar-thumb{
+  background:#3b4046;
+  border-radius:6px;
+}
+body.dark-auto ::-webkit-scrollbar-track{
+  background:#24292d;
+}
+
+body.dark-auto .stat-pill{ background:#0b1220; border-color:#334155; box-shadow:none; }
+body.dark-auto .mf-card{background: #4d4b4b; color:white;}
+body.dark-auto .stat-pill .num{ color:#f3f4f6; }
+body.dark-auto .stat-pill .lbl{ color:#cbd5e1; }
+body.dark-auto .stat-pill .sub{ color:#94a3b8; }
+body.dark-auto .stat-pill .icon{ background:#111827; color:#60a5fa; }
+
+/* Auto Dark Mode (Org) */
+html.dark-auto, html.dark-auto body{background:#24292d !important;color:#e6edf3;}
+/* Main layout blocks */
+html.dark-auto .sh-pagetitle,
+/* html.dark-auto .sh-logopanel, */
+/* html.dark-auto .sh-headpanel, */
+html.dark-auto .tt-rm-body,
+html.dark-auto .tt-rm-head,
+html.dark-auto .signbox,
+html.dark-auto .ig-details,
+html.dark-auto .tt-comments-head,
+html.dark-auto .tt-comments-foot,
+html.dark-auto .sh-sideleft-menu,
+html.dark-auto .tt-comments-wrap,
+html.dark-auto .c-overlay,
+html.dark-auto .app-main,
+html.dark-auto .c-modal,
+html.dark-auto .c-bodywrap,
+html.dark-auto .mt-2,
+html.dark-auto .sh-mainpanel,
+html.dark-auto .sidebar-pill,
+html.dark-auto .table-responsive,
+html.dark-auto .table,
+html.dark-auto .table-pro,
+html.dark-auto .ig-topbar,
+html.dark-auto .members-list-wrap,
+html.dark-auto .conv-history,
+html.dark-auto .chat-card-body,
+html.dark-auto .chat-list,
+html.dark-auto .chat-topbar,
+html.dark-auto .chat-right-col,
+html.dark-auto .chat-card,
+html.dark-auto .table-pro,
+html.dark-auto .pv-pill,
+html.dark-auto .chatBox,
+html.dark-auto .msg-scroll,
+html.dark-auto .feed-card,
+html.dark-auto .conv-topbar,
+html.dark-auto .composer-fixed,
+html.dark-auto .sh-pagetitle-left,
+html.dark-auto .sh-pagebody,
+html.dark-auto .row,
+html.dark-auto .tl-card,
+html.dark-auto .hd,
+html.dark-auto .bd,
+html.dark-auto .row-sm,
+html.dark-auto .app-footer,
+html.dark-auto .col-lg-4,
+html.dark-auto .col-lg-8,
+html.dark-auto .col-md-8,
+html.dark-auto .col-md-4{background:#24292d !important;color:#e6edf3;}
+
+/* btn */
+html.dark-auto .btn,
+html.dark-auto .composer,
+html.dark-auto .button,
+html.dark-auto .iconbtn{
+  background:#24292d !important;color:#e6edf3;
+}
+/* Cards */
+html.dark-auto .mf-card{background: #4d4b4b; color:white;}
+html.dark-auto .card,
+html.dark-auto .sh-sideleft-menu,
+html.dark-auto .rows-scroll,
+html.dark-auto .card-body,
+html.dark-auto .card-header,
+html.dark-auto .card.bd-0{background:#24292d !important;color:#e6edf3;border-color:rgba(255,255,255,.08) !important;}
+/* Lists */
+html.dark-auto .list-group,
+html.dark-auto .list-group-flush,
+html.dark-auto .list-group-item{background:#24292d !important;color:#e6edf3;border-color:rgba(255,255,255,.08) !important;}
+html.dark-auto .list-group-item.active{background:#2f363d !important;color:#fff;}
+/* Chat box */
+html.dark-auto .msg-box{background:#24292d !important;border-color:rgba(255,255,255,.10) !important;}
+/* Input groups + controls */
+html.dark-auto .input-group,
+html.dark-auto .input-group-btn{background:#24292d !important;}
+html.dark-auto .input,
+html.dark-auto .mf-body,
+html.dark-auto .textarea,
+html.dark-auto .form-control{background:#131c24 !important;color:#e6edf3 !important;border-color:rgba(255,255,255,.12) !important;}
+html.dark-auto input::placeholder,
+html.dark-auto .textarea::placeholder{color:#9aa4ad !important;}
+/* Icons */
+html.dark-auto .sh-pagetitle-icon,
+html.dark-auto .icon,
+html.dark-auto .mf-time,
+html.dark-auto .mf-comment,
+html.dark-auto .fa-thumbs-up,
+html.dark-auto .mf-cmt,
+html.dark-auto .mf-love,
+html.dark-auto .mf-like,
+html.dark-auto .fa-bookmark-o,
+html.dark-auto .mf-save,
+html.dark-auto .fa-share,
+html.dark-auto .mf-share,
+html.dark-auto .ion-ios-chatbubble{color:#e6edf3 !important;}
+
+html.dark-auto .msg-me{ background:#3a3c3d !important;
+  color:#e6edf3;}
+
+html.dark-auto .right-active{
+    background:#4a545f !important;
+  color:#e6edf3;
+}
+
+html.dark-auto .right-sidebar,
+html.dark-auto .right-sidebar-subject,
+html.dark-auto .msg-them-peer,
+html.dark-auto .btn-search{
+    background:#24292d !important;
+  color:#e6edf3;
+}
+
+/* =====================================================
+   FEED THEME (uses :root light + html.dark-auto dark)
+   This keeps feed.php clean — only layout CSS stays there.
+   ===================================================== */
+
+:root{
+  --bg-main: #f5f7fb;
+  --bg-card: #ffffff;
+  --bg-sidebar: #f0f2f7;
+
+  --text-primary: #25282f;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --border-color: rgba(15,23,42,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.04);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.10);
+}
+
+/* Dark (enabled by ../js/dark-auto.js adding html.dark-auto) */
+html.dark-auto{
+  --bg-main: #25282f;
+  --bg-card: #25282f;
+  --bg-sidebar: #24292d;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --border-color: rgba(255,255,255,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.35);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.45);
+}
+
+/* Apply variables */
+body{
+  background: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.sh-mainpanel, .sh-pagebody{
+  background: var(--bg-main) !important;
+}
+
+.feed-card{
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.feed-title{ color: var(--text-primary) !important; }
+.feed-desc{ color: var(--text-secondary) !important; }
+.feed-date, .feed-meta{ color: var(--text-muted) !important; }
+
+.feed-main{ box-shadow: var(--shadow) !important; }
+html.dark-auto .feed-main{ box-shadow: var(--shadow) !important; }
+
+html.dark-auto .stat-pill{ background:#0b1220; border-color:#334155; box-shadow:none; }
+html.dark-auto .stat-pill .num{ color:#f3f4f6; }
+html.dark-auto .stat-pill .lbl{ color:#cbd5e1; }
+html.dark-auto .stat-pill .sub{ color:#94a3b8; }
+html.dark-auto .stat-pill .icon{ background:#111827; color:#60a5fa; }
+/* =====================================================
+   PRO THEME TOKENS (GLOBAL)
+   - Light tokens in :root
+   - Dark tokens in html.dark-auto (set by ../js/dark-auto.js)
+   - Org accent can be overridden by header.php via --org-accent, --org-bg, etc.
+   ===================================================== */
+
+:root{
+  /* Core surfaces */
+  --bg: var(--org-bg, #f5f7fb);
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+
+  /* Text */
+  --text: #0f172a;
+  --muted: #64748b;
+
+  /* UI */
+  --border: rgba(15,23,42,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.04);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.10);
+  --radius: 14px;
+
+  /* Accent */
+  --accent: var(--org-accent, #0861bc);
+}
+
+/* Dark mode tokens */
+html.dark-auto{
+  --bg: #24292d;
+  --surface: #25282f;
+  --surface-2: #0f1a2e;
+
+  --text: #f8fafc;
+  --muted: #cbd5e1;
+
+  --border: rgba(255,255,255,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.35);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.45);
+}
+
+/* Compatibility tokens used by existing pages (feed.php etc.) */
+:root{
+  --bg-main: var(--bg);
+  --bg-card: var(--surface);
+  --bg-sidebar: #f0f2f7;
+
+  --text-primary: var(--text);
+  --text-secondary: #475569;
+  --text-muted: var(--muted);
+
+  --border-color: var(--border);
+}
+
+html.dark-auto{
+  --bg-sidebar: #24292d;
+  --text-secondary: #cbd5e1;
+}
+
+/* Apply base */
+body{
+  background: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.sh-mainpanel, .sh-pagebody{
+  background: var(--bg-main) !important;
+}
+
+/* Component defaults (token-based; no hard-coded dark duplication) */
+.feed-card{
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius);
+}
+
+.feed-title{ color: var(--text-primary) !important; }
+.feed-desc{ color: var(--text-secondary) !important; }
+.feed-date, .feed-meta, .mini-muted{ color: var(--text-muted) !important; }
+
+.feed-main{ box-shadow: var(--shadow) !important; }
+
+/* Sidebar tokens */
+.feed-sidebar,
+.right-sidebar,
+.right-sidebar-subject{
+  background: var(--bg-sidebar) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Modal / replies */
+.modal-clean .modal-content,
+.reply-box,
+.comment-item{
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Attachment tiles */
+.media-tile{
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+.media-tile .tile-icon{ color: var(--text-primary) !important; }

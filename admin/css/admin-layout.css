@@ -1,0 +1,71 @@
+/* Admin shell: fixed layout, no slide-in flash on navigation */
+html,
+body.admin-app {
+  background-color: #f8f9fa;
+}
+
+.sh-logopanel,
+.sh-sideleft-menu,
+.sh-headpanel,
+.sh-mainpanel {
+  transition: none !important;
+}
+
+@media (min-width: 1200px) {
+  .sh-logopanel {
+    left: 0;
+  }
+
+  .sh-sideleft-menu {
+    left: 0;
+  }
+
+  .sh-headpanel {
+    left: 240px;
+  }
+
+  .sh-mainpanel {
+    margin-left: 240px;
+  }
+}
+
+/* Smooth sidebar active state without click flash */
+.sh-sideleft-menu .nav > .nav-item > .nav-link {
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.16s ease, background-color 0.16s ease;
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link:active:not(.active) {
+  background-color: rgba(8, 102, 198, 0.08);
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link.is-nav-pending {
+  color: #0866c6;
+  background-color: rgba(8, 102, 198, 0.06);
+}
+
+/* Smooth main content transitions during ajax nav */
+.sh-mainpanel {
+  transition: opacity 0.18s ease !important;
+  will-change: opacity;
+}
+
+.sh-mainpanel.is-nav-busy {
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.sh-mainpanel.is-nav-enter {
+  opacity: 0;
+}
+
+.sh-mainpanel.is-nav-enter.is-nav-ready {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-mainpanel,
+  .sh-sideleft-menu .nav > .nav-item > .nav-link {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,450 @@
+/* =====================================================
+   Public User UI Best (Global)
+   Works with Shamcey / Bootstrap 4
+   ===================================================== */
+
+:root{
+  --pu-radius: 14px;
+  --pu-shadow: 0 10px 30px rgba(0,0,0,.08);
+  --pu-border: rgba(0,0,0,.10);
+  --pu-muted: rgba(0,0,0,.65);
+}
+
+/* ✅ prevents white page blink between navigation */
+html, body{
+  scroll-behavior:smooth;
+  background:#f5f7fb;
+}
+
+body{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a, button, .btn, input, textarea, select{
+  touch-action: manipulation;
+}
+
+/* =========================
+   Focus Styling
+   ========================= */
+:focus{ outline:none; }
+
+:focus-visible{
+  outline: 3px solid rgba(13,110,253,.35);
+  outline-offset: 2px;
+  /* border-radius: 8px; */
+}
+
+/* =========================
+   Cards
+   ========================= */
+.card{
+  /* border-radius: var(--pu-radius); */
+  /* box-shadow: var(--pu-shadow); */
+  border-color: var(--pu-border);
+}
+
+.card-header{
+  border-top-left-radius: var(--pu-radius);
+  border-top-right-radius: var(--pu-radius);
+}
+
+.card-footer{
+  border-bottom-left-radius: var(--pu-radius);
+  border-bottom-right-radius: var(--pu-radius);
+}
+
+/* =========================
+   Layout
+   ========================= */
+.sh-mainpanel{
+  min-height: calc(100vh - 60px);
+  margin-left: 340px;
+}
+
+.sh-pagebody{
+  padding-bottom: 24px;
+  margin-right: 24px;
+}
+
+html, body{
+  max-width:100%;
+  overflow-x:hidden;
+}
+
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+@media (max-width: 575.98px){
+  .sh-pagetitle{ padding: 12px 12px; }
+  .sh-pagebody{ padding: 12px; }
+  .card-body{ padding: 14px; }
+}
+
+/* =========================
+   Forms
+   ========================= */
+/* .form-control{ border-radius: 12px; } */
+
+.form-control:focus{
+  box-shadow: 0 0 0 3px rgba(13,110,253,.18);
+}
+
+/* .btn{ border-radius: 12px; } */
+
+.btn .fa,
+.btn .icon{
+  vertical-align: middle;
+}
+
+/* =========================
+   Media
+   ========================= */
+img, video{
+  max-width: 100%;
+  height: auto;
+}
+
+iframe,
+embed,
+object{
+  max-width:100%;
+}
+
+/* =========================
+   Tables
+   ========================= */
+.table{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table thead th{
+  font-weight: 700;
+  border-top: 0;
+}
+
+.table td,
+.table th{
+  vertical-align: middle;
+}
+
+.table-hover tbody tr:hover{
+  background: rgba(0,0,0,.03);
+}
+
+.table td{
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.table-responsive{
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  /* border-radius: 16px; */
+  border: 1px solid var(--pu-border);
+}
+
+.table-responsive > .table{
+  margin-bottom: 0;
+}
+
+.table-sticky thead th{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+}
+
+/* =========================
+   Misc
+   ========================= */
+.badge{
+  border-radius: 999px;
+  padding: .35em .6em;
+}
+
+.alert{
+  /* border-radius: 16px; */
+}
+
+/* .msg-box{ border-radius: 16px; } */
+/* .msg-me, .msg-them{ border-radius: 16px; } */
+
+.sh-sideleft-menu .nav-link span{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =====================================================
+   ✅ REMOVE SIDEBAR FLASH / LIGHT BLINK (NEW)
+   ===================================================== */
+
+/* Remove mobile tap highlight */
+.sh-sideleft-menu .nav-link,
+.sh-sideleft-menu .nav-link *{
+  -webkit-tap-highlight-color: transparent !important;
+  text-emphasis-color: transparent !important;
+}
+
+/* Remove bright active flash */
+.sh-sideleft-menu .nav-link:active,
+.sh-sideleft-menu .nav-link:focus{
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Keep accessibility for keyboard only */
+.sh-sideleft-menu .nav-link:focus:not(:focus-visible){
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.sh-sideleft-menu .nav-link:focus-visible{
+  outline: 3px solid rgba(13,110,253,.30) !important;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Remove tiny transition flicker */
+.sh-sideleft-menu .nav-link{
+  transition: none !important;
+}
+
+/* =====================================================
+   ✅ Dropdown Portal Polish (3-dots menu)
+   ===================================================== */
+.pl-dd-portal.pl-dd-anim{
+  opacity: 0;
+  transform: scale(.96) translateY(-4px);
+  transition: opacity .12s ease, transform .12s ease;
+  will-change: opacity, transform;
+}
+
+.pl-dd-portal.pl-dd-anim.is-open{
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.pl-dd-portal .pl-dd-x{
+  user-select: none;
+}
+
+.pl-dd-portal .pl-dd-focus{
+  outline: none;
+  filter: brightness(0.98);
+}
+
+
+/* QA layout */
+.post-card{background:#fff;border-radius:14px;padding:20px;margin-bottom:25px;}
+.post-title{font-size:22px;font-weight:600;}
+.post-actions-horizontal{display:flex;gap:18px;margin:12px 0;}
+.post-book-layout{display:flex;gap:20px;}
+.book-left{width:40%;}
+.book-center{width:50%;}
+.book-actions-vertical{width:10%;display:flex;flex-direction:column;gap:12px;}
+@media(max-width:575px){
+.post-book-layout{flex-direction:column;}
+.book-left,.book-center,.book-actions-vertical{width:100%;}
+}
+
+
+/* QA responsive improvements */
+.post-actions-horizontal{flex-wrap:wrap;row-gap:10px;}
+.post-actions-horizontal span{display:inline-flex;align-items:center;white-space:nowrap;}
+.media-image,.media-video,.media-pdf{max-width:100%;}
+.media-video{max-height:520px;}
+.media-pdf{min-height:520px;border:0;background:#f7f7f7;}
+
+/* Tablet */
+@media (min-width:576px) and (max-width:991px){
+  .post-card{padding:16px;}
+  .post-title{font-size:20px;}
+  .post-book-layout{gap:14px;}
+  .book-left{width:45%;}
+  .book-center{width:55%;}
+  .book-actions-vertical{display:none;} /* use horizontal actions on tablet */
+}
+
+/* Mobile */
+@media (max-width:575px){
+  .post-card{padding:14px;border-radius:12px;}
+  .post-title{font-size:18px;}
+  .post-actions-horizontal{gap:12px;}
+  .media-video{max-height:360px;}
+  .media-pdf{min-height:420px;}
+  .book-actions-vertical{display:none;} /* keep clean on mobile */
+}
+
+/* QA media sizing v6 */
+.post-media-full .media-video,
+.post-media-full video{width:100%;max-height:520px;background:#000;border-radius:10px;display:block;}
+.post-media-full .media-image,
+.post-media-full img{width:100%;height:auto;display:block;border-radius:10px;}
+.post-media-full .media-pdf,
+.post-media-full iframe{width:100%;min-height:520px;border:0;border-radius:10px;background:#f7f7f7;}
+
+.post-book-layout .book-left video,
+.post-book-layout .book-left .media-video{width:100%;max-height:520px;background:#000;border-radius:10px;display:block;}
+.post-book-layout .book-left img,
+.post-book-layout .book-left .media-image{width:100%;height:auto;display:block;border-radius:10px;object-fit:cover;}
+.post-book-layout .book-left iframe,
+.post-book-layout .book-left .media-pdf{width:100%;min-height:520px;border:0;border-radius:10px;background:#f7f7f7;}
+
+/* Tablet: stack book layout to avoid cramped right column */
+@media (min-width:576px) and (max-width:991px){
+  .post-book-layout{flex-direction:column;}
+  .book-left,.book-center,.book-actions-vertical{width:100%;}
+  .book-actions-vertical{display:none;}
+}
+
+/* Mobile: tighter media heights */
+@media (max-width:575px){
+  .post-media-full .media-video,
+  .post-media-full video,
+  .post-book-layout .book-left video{max-height:360px;}
+  .post-media-full .media-pdf,
+  .post-book-layout .book-left iframe{min-height:420px;}
+}
+
+.post-actions-horizontal.book-hide{display:none;}
+
+/* === MOBILE RESPONSIVE FIXES (iPhone) === */
+@media (max-width: 575.98px){
+  /* Prevent horizontal overflow */
+  html, body{ overflow-x:hidden !important; }
+  .sh-mainpanel, .sh-pagebody, .container, .container-fluid{ max-width:100% !important; overflow-x:hidden !important; }
+
+  /* Feed columns: reduce padding */
+  .sh-pagebody{ padding: 10px 10px 16px !important; }
+  .row.row-sm{ margin-left: -6px !important; margin-right: -6px !important; }
+  .row.row-sm > [class*='col-']{ padding-left: 6px !important; padding-right: 6px !important; }
+
+  /* Card spacing */
+  .card{ border-radius: 14px !important; }
+  .card-header{ padding: 10px 12px !important; }
+  .card-body{ padding: 12px !important; }
+
+  /* Headers/actions wrap instead of squeezing */
+  .card-header .d-flex{ flex-wrap: wrap !important; }
+  .card-header .d-flex[style*='gap']{ gap: 10px !important; }
+
+  /* Viewer: disable book vertical rail on small screens (it makes the center too narrow) */
+  .ig-viewer-body.mode-book .ig-vrail{ display:none !important; }
+  .ig-viewer-body.mode-book .ig-underbar{ display:flex !important; }
+  .ig-viewer-body.mode-book #pvBody{ padding-right: 0 !important; }
+
+  /* Underbar icons: tighter spacing */
+  .ig-underbar .ig-actions-icons{ gap: 14px !important; }
+  .ig-underbar .ig-count{ font-size: 16px !important; }
+
+  /* Media should never overflow */
+  img, video, iframe{ max-width:100% !important; height:auto !important; }
+  .embed-responsive, .embed-responsive-item{ max-width:100% !important; }
+
+  /* Left sidebar/nav: keep usable on mobile */
+  .sh-sideleft, .sh-sideleft-menu, .leftbar{ max-width: 86vw !important; width: 86vw !important; }
+}
+
+
+/* =========================================
+   MOBILE/TABLET: HIDE TOP POST HEADER ICONS
+   (Back, FindMe pin, FindAuthor compass, Eye, Fullscreen, Create/Edit, Clock pill)
+   Targets the exact IDs used in public_user/feed.php
+========================================= */
+@media (max-width: 1024px) {
+  #btnBackPost,
+  #btnFindMe,
+  #btnFindAuthor,
+  #btnOpenMedia,
+  #btnFullscreenMedia,
+  #btnCreateEdit,
+  #pvMetaPills {
+    display: none !important;
+  }
+}
+
+/* === shared responsive fallbacks for app pages === */
+@media (max-width: 1199.98px){
+  .sh-mainpanel{
+    margin-left:0 !important;
+    width:100% !important;
+    max-width:100% !important;
+  }
+  .sh-pagebody{
+    margin-right:0 !important;
+  }
+}
+
+@media (max-width: 991.98px){
+  html, body{
+    overflow-x:hidden !important;
+  }
+  .sh-mainpanel{
+    margin-left:0 !important;
+    min-height:100vh;
+    height:auto !important;
+    overflow:visible !important;
+  }
+  .sh-pagebody{
+    padding:12px !important;
+    margin-right:0 !important;
+    overflow:visible !important;
+  }
+  .container,
+  .container-fluid{
+    padding-left:12px !important;
+    padding-right:12px !important;
+  }
+  .row{
+    margin-left:-6px !important;
+    margin-right:-6px !important;
+  }
+  .row > [class*='col-']{
+    padding-left:6px !important;
+    padding-right:6px !important;
+  }
+  .table-responsive{
+    border-radius:14px;
+  }
+  .table{
+    min-width:680px;
+  }
+}
+
+@media (max-width: 575.98px){
+  .container,
+  .container-fluid{
+    padding-left:8px !important;
+    padding-right:8px !important;
+  }
+  .row{
+    margin-left:-4px !important;
+    margin-right:-4px !important;
+  }
+  .row > [class*='col-']{
+    padding-left:4px !important;
+    padding-right:4px !important;
+  }
+  .card,
+  .panel{
+    border-radius:14px !important;
+  }
+  .table{
+    min-width:620px;
+  }
+}
+
+@media (max-width: 430px){
+  .table{
+    min-width:560px;
+  }
+}

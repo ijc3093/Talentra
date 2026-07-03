@@ -1,0 +1,1378 @@
+/* =====================================================
+   AUTO DARK MODE – ORGANIZATION (GLOBAL)
+   Background base: #171d24
+   ===================================================== */
+
+html.dark-auto,
+html.dark-auto *,
+:is(html.dark-auto, body.dark-auto),
+:is(html.dark-auto, body.dark-auto) *{
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+/* Base */
+html.dark-auto,
+:is(html.dark-auto, body.dark-auto){
+  background:#171d24 !important;
+  color:#e6edf3;
+  color-scheme: dark;
+
+  /* video */
+  --studio-line:#394451;
+  --studio-text:#e6edf3;
+  --studio-muted:#9aa4ad;
+  --studio-bg:#171d24;
+  --studio-card:#2b3137;
+  --studio-border:rgba(255,255,255,.12);
+  --studio-input:#1e1f1f;
+  background:#171d24;
+  color:var(--studio-text);
+}
+
+html.dark-auto body{
+  background:#171d24 !important;
+  color:var(--studio-text) !important;
+}
+
+html[data-theme="dark"]:not([data-msb-appearance]) body{
+  background-color:var(--msb-palette-bg, #171d24) !important;
+  background-image:none !important;
+  color:var(--studio-text, #e6edf3) !important;
+}
+
+html:not(.dark-auto),
+html[data-theme="light"]{
+  color-scheme: light;
+}
+
+:is(html.dark-auto, body.dark-auto) a{
+  color:#93c5fd;
+}
+
+:is(html.dark-auto, body.dark-auto) a:hover{
+  color:#bfdbfe;
+}
+
+:is(html.dark-auto, body.dark-auto) small,
+:is(html.dark-auto, body.dark-auto) .small,
+:is(html.dark-auto, body.dark-auto) .text-muted,
+:is(html.dark-auto, body.dark-auto) .tx-gray-500,
+:is(html.dark-auto, body.dark-auto) .tx-gray-600,
+:is(html.dark-auto, body.dark-auto) .text-secondary{
+  color:#aeb8c2 !important;
+}
+
+/* Panels & Layout */
+:is(html.dark-auto, body.dark-auto) .sh-pagetitle,
+:is(html.dark-auto, body.dark-auto) .ig-card,
+:is(html.dark-auto, body.dark-auto) .pv-right,
+:is(html.dark-auto, body.dark-auto) .bestprofile-nav,
+:is(html.dark-auto, body.dark-auto) .dropdown-menu,
+/* :is(html.dark-auto, body.dark-auto) .sh-logopanel,
+:is(html.dark-auto, body.dark-auto) .sh-headpanel, */
+:is(html.dark-auto, body.dark-auto) .tt-comments-head,
+:is(html.dark-auto, body.dark-auto) .tt-comments-list,
+:is(html.dark-auto, body.dark-auto) .post,
+:is(html.dark-auto, body.dark-auto) .pv-actions,
+:is(html.dark-auto, body.dark-auto) .tt-rm-head,
+:is(html.dark-auto, body.dark-auto) .ig-details,
+:is(html.dark-auto, body.dark-auto) .sh-sideleft-menu,
+:is(html.dark-auto, body.dark-auto) .tt-comments-wrap,
+:is(html.dark-auto, body.dark-auto) .tt-rm-body,
+:is(html.dark-auto, body.dark-auto) .tl-card,
+:is(html.dark-auto, body.dark-auto) .c-footer,
+:is(html.dark-auto, body.dark-auto) .c-overlay,
+:is(html.dark-auto, body.dark-auto) .c-modal,
+:is(html.dark-auto, body.dark-auto) .mt-2,
+:is(html.dark-auto, body.dark-auto) .chat-card-body,
+:is(html.dark-auto, body.dark-auto) .chat-list,
+:is(html.dark-auto, body.dark-auto) .chat-topbar,
+:is(html.dark-auto, body.dark-auto) .chat-right-col,
+:is(html.dark-auto, body.dark-auto) .chat-card,
+:is(html.dark-auto, body.dark-auto) .table-pro,
+:is(html.dark-auto, body.dark-auto) .pv-pill,
+:is(html.dark-auto, body.dark-auto) .chatBox,
+:is(html.dark-auto, body.dark-auto) .sidebar-pill,
+:is(html.dark-auto, body.dark-auto) .ig-topbar,
+:is(html.dark-auto, body.dark-auto) .members-list-wrap,
+:is(html.dark-auto, body.dark-auto) .composer-fixed,
+:is(html.dark-auto, body.dark-auto) .conv-history,
+:is(html.dark-auto, body.dark-auto) .conv-topbar,
+:is(html.dark-auto, body.dark-auto) .msg-scroll,
+:is(html.dark-auto, body.dark-auto) .right-sidebar-subject,
+:is(html.dark-auto, body.dark-auto) .feed-card,
+:is(html.dark-auto, body.dark-auto) .sh-pagetitle-left,
+:is(html.dark-auto, body.dark-auto) .sh-pagebody,
+:is(html.dark-auto, body.dark-auto) .row,
+:is(html.dark-auto, body.dark-auto) .row-sm,
+:is(html.dark-auto, body.dark-auto) .app-footer,
+:is(html.dark-auto, body.dark-auto) .col-lg-4,
+:is(html.dark-auto, body.dark-auto) .col-lg-8,
+:is(html.dark-auto, body.dark-auto) .col-md-4,
+:is(html.dark-auto, body.dark-auto) .hd,
+:is(html.dark-auto, body.dark-auto) .bd,
+:is(html.dark-auto, body.dark-auto) .app-main,
+:is(html.dark-auto, body.dark-auto) .signbox,
+:is(html.dark-auto, body.dark-auto) .col-md-8{
+  background:var(--msb-palette-bg, #171d24) !important;
+  color:#e6edf3;
+}
+
+:is(html.dark-auto, body.dark-auto) .right-sidebar,
+:is(html.dark-auto, body.dark-auto) .tt-close,
+:is(html.dark-auto, body.dark-auto) .msgPlusBtn,
+:is(html.dark-auto, body.dark-auto) .emojiBtn,
+:is(html.dark-auto, body.dark-auto) .tt-iconbtn,
+:is(html.dark-auto, body.dark-auto) .feed-sidebar,
+:is(html.dark-auto, body.dark-auto) .right-sidebar-subject,
+:is(html.dark-auto, body.dark-auto) .btn-search,
+:is(html.dark-auto, body.dark-auto) .rows-scroll,
+:is(html.dark-auto, body.dark-auto) .msg-them-peer{
+    background:#171d24 !important;
+  color:#e6edf3;
+}
+
+/* :is(html.dark-auto, body.dark-auto) .chat-card,
+:is(html.dark-auto, body.dark-auto) .chat-card-right{
+  background: linear-gradient(180deg, rgb(154 161 175 / 98%), rgba(23, 24, 28, .98)) !important;
+  color: white;
+} */
+
+
+:is(html.dark-auto, body.dark-auto) .right-active,
+:is(html.dark-auto, body.dark-auto) .active{
+    background:#394451 !important;
+  color:#e6edf3;
+}
+
+/* Cards */
+:is(html.dark-auto, body.dark-auto) .card,
+:is(html.dark-auto, body.dark-auto) .card-body,
+:is(html.dark-auto, body.dark-auto) .card-header,
+:is(html.dark-auto, body.dark-auto) .card-footer,
+:is(html.dark-auto, body.dark-auto) .app-footer,
+:is(html.dark-auto, body.dark-auto) .card.bd-0,
+:is(html.dark-auto, body.dark-auto) .post,
+:is(html.dark-auto, body.dark-auto) .feed-ig-rail{
+  background:#171d24 !important;
+  color:#e6edf3;
+  border-color:var(--studio-border) !important;
+}
+
+/* Lists */
+:is(html.dark-auto, body.dark-auto) .tt-text,
+:is(html.dark-auto, body.dark-auto) .h3-txt,
+:is(html.dark-auto, body.dark-auto) .pv-likebar,
+:is(html.dark-auto, body.dark-auto) .caption-line,
+:is(html.dark-auto, body.dark-auto) .ig-username,
+:is(html.dark-auto, body.dark-auto) .name,
+:is(html.dark-auto, body.dark-auto) .ig-stat,
+:is(html.dark-auto, body.dark-auto) .pv-com,
+:is(html.dark-auto, body.dark-auto) .mf-body,
+:is(html.dark-auto, body.dark-auto) .sh-sideleft-menu,
+:is(html.dark-auto, body.dark-auto) .nav-link
+:is(html.dark-auto, body.dark-auto) .list-group,
+:is(html.dark-auto, body.dark-auto) .tt-rm-title,
+:is(html.dark-auto, body.dark-auto) .i,
+:is(html.dark-auto, body.dark-auto) .ig-title,
+:is(html.dark-auto, body.dark-auto) .vrail-ico,
+:is(html.dark-auto, body.dark-auto) .list-group-flush,
+:is(html.dark-auto, body.dark-auto) .list-group-item{
+  background:#171d24 !important;
+  color:#e6edf3;
+  border-color:var(--studio-border) !important;
+}
+
+:is(html.dark-auto, body.dark-auto) .list-group-item.active{
+  background:#2f363d !important;
+  color:#ffffff;
+}
+
+/* Chat */
+:is(html.dark-auto, body.dark-auto) .msg-box{
+  background:#171d24 !important;
+  border-color:rgba(255,255,255,.08);
+}
+
+:is(html.dark-auto, body.dark-auto) .msg-me,
+:is(html.dark-auto, body.dark-auto) .cmt{
+  background:#30363d !important;
+  color:#e6edf3;
+}
+
+:is(html.dark-auto, body.dark-auto) .msg-them{
+  background:#2b3137 !important;
+  color:#e6edf3;
+}
+
+/* Inputs */
+:is(html.dark-auto, body.dark-auto) input,
+:is(html.dark-auto, body.dark-auto) .pv-input,
+:is(html.dark-auto, body.dark-auto) .textarea,
+:is(html.dark-auto, body.dark-auto) .title,
+:is(html.dark-auto, body.dark-auto) .rm-title,
+:is(html.dark-auto, body.dark-auto) textarea,
+:is(html.dark-auto, body.dark-auto) select,
+:is(html.dark-auto, body.dark-auto) .form-control,
+:is(html.dark-auto, body.dark-auto) .custom-select{
+  background:var(--studio-input) !important;
+  color:#f8fafc !important;
+  border-color:var(--studio-border) !important;
+}
+
+:is(html.dark-auto, body.dark-auto) input::placeholder,
+:is(html.dark-auto, body.dark-auto) textarea::placeholder,
+:is(html.dark-auto, body.dark-auto) .form-control::placeholder{
+  color:#94a3b8 !important;
+}
+
+:is(html.dark-auto, body.dark-auto) hr,
+:is(html.dark-auto, body.dark-auto) .dropdown-divider,
+:is(html.dark-auto, body.dark-auto) .border,
+:is(html.dark-auto, body.dark-auto) [class*="border-"],
+:is(html.dark-auto, body.dark-auto) table th,
+:is(html.dark-auto, body.dark-auto) table td,
+:is(html.dark-auto, body.dark-auto) .modal-content,
+:is(html.dark-auto, body.dark-auto) .dropdown-menu,
+:is(html.dark-auto, body.dark-auto) .nav-tabs,
+:is(html.dark-auto, body.dark-auto) .nav-tabs .nav-link,
+:is(html.dark-auto, body.dark-auto) .table,
+:is(html.dark-auto, body.dark-auto) .table th,
+:is(html.dark-auto, body.dark-auto) .table td{
+  border-color:var(--studio-border) !important;
+}
+
+:is(html.dark-auto, body.dark-auto) .btn-light,
+:is(html.dark-auto, body.dark-auto) .btn-white,
+:is(html.dark-auto, body.dark-auto) .btn-outline-secondary{
+  background:#30363d !important;
+  color:#f8fafc !important;
+  border-color:var(--studio-border) !important;
+}
+
+:is(html.dark-auto, body.dark-auto) .btn-link{
+  color:#93c5fd !important;
+}
+
+:is(html.dark-auto, body.dark-auto) .badge-light{
+  background:#30363d !important;
+  color:#f8fafc !important;
+}
+:is(html.dark-auto, body.dark-auto) .rm-modal,
+:is(html.dark-auto, body.dark-auto) .rm-content,
+:is(html.dark-auto, body.dark-auto) .rm-body,
+:is(html.dark-auto, body.dark-auto) .rm-section,
+:is(html.dark-auto, body.dark-auto) .rm-footer,
+:is(html.dark-auto, body.dark-auto) .input-group,
+:is(html.dark-auto, body.dark-auto)  .txt,
+:is(html.dark-auto, body.dark-auto) .input-group-btn,
+:is(html.dark-auto, body.dark-auto) .form-control{
+  background:#131d25 !important;
+  color:#e6edf3 !important;
+  border-color:rgba(255,255,255,.12);
+}
+
+:is(html.dark-auto, body.dark-auto) input::placeholder,
+:is(html.dark-auto, body.dark-auto) .pv-meta,
+:is(html.dark-auto, body.dark-auto) .peerSub,
+:is(html.dark-auto, body.dark-auto) .chat-left-title,
+:is(html.dark-auto, body.dark-auto) .chat-left-head,
+:is(html.dark-auto, body.dark-auto) .chat-filter-tab,
+:is(html.dark-auto, body.dark-auto) .pv-cap-short,
+:is(html.dark-auto, body.dark-auto) .m,
+:is(html.dark-auto, body.dark-auto) .pv-cap-desc,
+:is(html.dark-auto, body.dark-auto) .card-title,
+:is(html.dark-auto, body.dark-auto) .chatLastMsg,
+:is(html.dark-auto, body.dark-auto) textarea::placeholder{
+  color:#9aa4ad;
+}
+
+/* Icons */
+:is(html.dark-auto, body.dark-auto) .sh-pagetitle-icon,
+:is(html.dark-auto, body.dark-auto) .pv-cap-title,
+:is(html.dark-auto, body.dark-auto) .t,
+:is(html.dark-auto, body.dark-auto) .icon,
+:is(html.dark-auto, body.dark-auto) .ion-ios-chatbubble{
+  color:#e6edf3 !important;
+}
+
+/* Buttons */
+:is(html.dark-auto, body.dark-auto) .btn,
+:is(html.dark-auto, body.dark-auto) .ig-btn,
+:is(html.dark-auto, body.dark-auto) .c,
+:is(html.dark-auto, body.dark-auto) .composer,
+:is(html.dark-auto, body.dark-auto) .button,
+:is(html.dark-auto, body.dark-auto) .iconbtn{
+  background:#30363d;
+  color:#e6edf3;
+  border-color:rgba(255,255,255,.12);
+}
+:is(html.dark-auto, body.dark-auto) .btn-primary{
+  background:#238636;
+  border-color:#238636;
+}
+
+
+/* video_live */
+:is(html.dark-auto, body.dark-auto) .live-page,
+:is(html.dark-auto, body.dark-auto) .studio-viewport,
+:is(html.dark-auto, body.dark-auto) .studio-shell,
+:is(html.dark-auto, body.dark-auto) .studio-column{
+  background:#171d24 !important;
+  color:var(--studio-text);
+}
+:is(html.dark-auto, body.dark-auto) .studio-box,
+:is(html.dark-auto, body.dark-auto) .studio-info-card,
+:is(html.dark-auto, body.dark-auto) .studio-source,
+:is(html.dark-auto, body.dark-auto) .live-device-card,
+:is(html.dark-auto, body.dark-auto) .studio-toggle-row,
+:is(html.dark-auto, body.dark-auto) .live-history-summary,
+:is(html.dark-auto, body.dark-auto) .history-modal-dialog,
+:is(html.dark-auto, body.dark-auto) .history-row,
+:is(html.dark-auto, body.dark-auto) .live-stat,
+:is(html.dark-auto, body.dark-auto) .live-stream-key,
+:is(html.dark-auto, body.dark-auto) .live-install code,
+:is(html.dark-auto, body.dark-auto) .live-modal-side,
+:is(html.dark-auto, body.dark-auto) .live-modal-head,
+:is(html.dark-auto, body.dark-auto) .live-modal-comments,
+:is(html.dark-auto, body.dark-auto) .live-modal-compose,
+:is(html.dark-auto, body.dark-auto) .live-confirm-card{
+  background:#2b3137 !important;
+  color:#e6edf3 !important;
+  border-color:#495463 !important;
+}
+:is(html.dark-auto, body.dark-auto) .history-modal-body,
+/* :is(html.dark-auto, body.dark-auto) .live-modal-dialog{
+  background:#171d24 !important;
+  color:#e6edf3 !important;
+} */
+:is(html.dark-auto, body.dark-auto) .studio-info-card p,
+:is(html.dark-auto, body.dark-auto) .studio-info-card .studio-panel-sub,
+:is(html.dark-auto, body.dark-auto) .studio-subtitle,
+:is(html.dark-auto, body.dark-auto) .studio-controls-copy,
+:is(html.dark-auto, body.dark-auto) .studio-toggle-note,
+:is(html.dark-auto, body.dark-auto) .live-list-meta,
+:is(html.dark-auto, body.dark-auto) .history-modal-head p,
+:is(html.dark-auto, body.dark-auto) .history-row-meta,
+:is(html.dark-auto, body.dark-auto) .live-stat-label,
+:is(html.dark-auto, body.dark-auto) .live-install,
+:is(html.dark-auto, body.dark-auto) .live-modal-host p,
+:is(html.dark-auto, body.dark-auto) .live-modal-stats,
+:is(html.dark-auto, body.dark-auto) .live-modal-empty,
+:is(html.dark-auto, body.dark-auto) .live-modal-compose-label{
+  color:#9aa4ad !important;
+}
+:is(html.dark-auto, body.dark-auto) .studio-info-card strong,
+:is(html.dark-auto, body.dark-auto) .live-list-title,
+:is(html.dark-auto, body.dark-auto) .history-modal-head h3,
+:is(html.dark-auto, body.dark-auto) .history-row-title,
+:is(html.dark-auto, body.dark-auto) .live-stat-value,
+:is(html.dark-auto, body.dark-auto) .live-modal-host strong,
+:is(html.dark-auto, body.dark-auto) .live-modal-comment strong,
+:is(html.dark-auto, body.dark-auto) .live-modal-comment p{
+  color:#e6edf3 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-page h1,
+:is(html.dark-auto, body.dark-auto) .live-page h2,
+:is(html.dark-auto, body.dark-auto) .live-page h3,
+:is(html.dark-auto, body.dark-auto) .studio-title,
+:is(html.dark-auto, body.dark-auto) .live-placeholder-copy h2,
+:is(html.dark-auto, body.dark-auto) .live-confirm-card h3{
+  color:#f3f5f7 !important;
+}
+:is(html.dark-auto, body.dark-auto) .setup-card-title,
+:is(html.dark-auto, body.dark-auto) .setup-step-name,
+:is(html.dark-auto, body.dark-auto) .studio-source-head,
+:is(html.dark-auto, body.dark-auto) .studio-video-label,
+:is(html.dark-auto, body.dark-auto) .studio-controls-head,
+:is(html.dark-auto, body.dark-auto) .studio-field label,
+:is(html.dark-auto, body.dark-auto) .studio-off-text,
+:is(html.dark-auto, body.dark-auto) .studio-camera-warning,
+:is(html.dark-auto, body.dark-auto) .live-camera-status strong,
+:is(html.dark-auto, body.dark-auto) .live-panel-camera-status strong{
+  color:#f3f5f7 !important;
+}
+:is(html.dark-auto, body.dark-auto) .studio-inline-icons,
+:is(html.dark-auto, body.dark-auto) .live-device-icon,
+:is(html.dark-auto, body.dark-auto) .live-device-toggle,
+:is(html.dark-auto, body.dark-auto) .history-modal-close{
+  color:#e6edf3 !important;
+}
+:is(html.dark-auto, body.dark-auto) .studio-input,
+:is(html.dark-auto, body.dark-auto) .studio-select,
+:is(html.dark-auto, body.dark-auto) .studio-textarea,
+:is(html.dark-auto, body.dark-auto) .live-modal-compose textarea{
+  background:#1f2428 !important;
+  color:#e6edf3 !important;
+  border:1px solid #4f5b69 !important;
+}
+:is(html.dark-auto, body.dark-auto) .studio-input::placeholder,
+:is(html.dark-auto, body.dark-auto) .studio-textarea::placeholder,
+:is(html.dark-auto, body.dark-auto) .live-modal-compose textarea::placeholder{
+  color:#9aa4ad !important;
+}
+:is(html.dark-auto, body.dark-auto) input[type="date"]::-webkit-calendar-picker-indicator,
+:is(html.dark-auto, body.dark-auto) input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+:is(html.dark-auto, body.dark-auto) .studio-input[type="date"]::-webkit-calendar-picker-indicator,
+:is(html.dark-auto, body.dark-auto) .studio-input[type="datetime-local"]::-webkit-calendar-picker-indicator{
+  filter:invert(1) brightness(1.2);
+  opacity:1;
+}
+:is(html.dark-auto, body.dark-auto) .studio-select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239aa4ad' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") !important;
+  background-position:calc(100% - 16px) 50% !important;
+  background-size:12px 8px !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-btn,
+:is(html.dark-auto, body.dark-auto) .live-history-trigger,
+:is(html.dark-auto, body.dark-auto) .history-row-delete,
+:is(html.dark-auto, body.dark-auto) .history-modal-close,
+:is(html.dark-auto, body.dark-auto) .live-confirm-btn{
+  border-color:#4f5b69 !important;
+  background:#30363d !important;
+  color:#e6edf3 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-reaction-btn,
+:is(html.dark-auto, body.dark-auto) .live-modal-reaction-btn{
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  color:#e6edf3 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-btn.primary,
+:is(html.dark-auto, body.dark-auto) .live-btn.secondary,
+:is(html.dark-auto, body.dark-auto) .live-modal-send,
+:is(html.dark-auto, body.dark-auto) .live-modal-finish,
+:is(html.dark-auto, body.dark-auto) .live-confirm-btn.primary{
+  color:#fff !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-list-item{
+  background:#2b3137 !important;
+  border-color:#495463 !important;
+  color:#e6edf3 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-list-item.active,
+:is(html.dark-auto, body.dark-auto) .history-row:hover{
+  background:#30363d !important;
+  border-color:#4f6b8a !important;
+}
+:is(html.dark-auto, body.dark-auto) .history-chip,
+:is(html.dark-auto, body.dark-auto) .live-modal-visibility{
+  background:#30363d !important;
+  color:#d0d7de !important;
+  border-color:#495463 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-stream-key code{
+  color:#8ab4ff !important;
+}
+:is(html.dark-auto, body.dark-auto) .studio-label .dot{
+  box-shadow:0 0 0 6px rgba(123,211,137,.12);
+}
+:is(html.dark-auto, body.dark-auto) .studio-label span[style],
+:is(html.dark-auto, body.dark-auto) .studio-source div[style]{
+  color:#e6edf3 !important;
+}
+:is(html.dark-auto, body.dark-auto) .studio-camera-warning,
+:is(html.dark-auto, body.dark-auto) .studio-submit-warning,
+:is(html.dark-auto, body.dark-auto) .live-host-alert{
+  background:#332b1f !important;
+  border-color:#7c5b2b !important;
+  color:#f3d9a2 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-modal-dialog{
+  background:#171d24 !important;
+  border-color:#4f5b69 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-page,
+:is(html.dark-auto, body.dark-auto) .live-page *,
+:is(html.dark-auto, body.dark-auto) .live-modal,
+:is(html.dark-auto, body.dark-auto) .live-modal *{
+  transition:none !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-modal-stage,
+:is(html.dark-auto, body.dark-auto) .live-modal-video,
+:is(html.dark-auto, body.dark-auto) .live-modal-fallback{
+  background:#101010 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-modal-badge{
+  background:rgba(17,17,17,.58) !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-modal-badge.live{
+  background:#ff4d4f !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-modal-reactions{
+  background:transparent !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-reaction-btn,
+:is(html.dark-auto, body.dark-auto) .live-modal-reaction-btn,
+:is(html.dark-auto, body.dark-auto) .live-reaction-icon,
+:is(html.dark-auto, body.dark-auto) .live-modal-reaction-icon{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-reaction-btn:hover,
+:is(html.dark-auto, body.dark-auto) .live-modal-reaction-btn:hover,
+:is(html.dark-auto, body.dark-auto) .live-reaction-btn:focus,
+:is(html.dark-auto, body.dark-auto) .live-modal-reaction-btn:focus{
+  background:transparent !important;
+  box-shadow:none !important;
+  outline:none;
+}
+:is(html.dark-auto, body.dark-auto) .live-reaction-btn [data-role="count"],
+:is(html.dark-auto, body.dark-auto) .live-modal-reaction-btn [data-role="count"]{
+  color:#e6edf3 !important;
+}
+:is(html.dark-auto, body.dark-auto) .live-reaction-btn.active [data-role="count"],
+:is(html.dark-auto, body.dark-auto) .live-modal-reaction-btn.active [data-role="count"]{
+  color:#ffffff !important;
+}
+
+
+
+
+/* Scrollbars */
+:is(html.dark-auto, body.dark-auto) ::-webkit-scrollbar{
+  width:8px;
+}
+:is(html.dark-auto, body.dark-auto) ::-webkit-scrollbar-thumb{
+  background:#3b4046;
+  border-radius:6px;
+}
+:is(html.dark-auto, body.dark-auto) ::-webkit-scrollbar-track{
+  background:#171d24;
+}
+
+:is(html.dark-auto, body.dark-auto) .stat-pill{ background:#0b1220; border-color:#334155; box-shadow:none; }
+:is(html.dark-auto, body.dark-auto) .mf-card{background: #4d4b4b; color:white;}
+:is(html.dark-auto, body.dark-auto) .stat-pill .num{ color:#f3f4f6; }
+:is(html.dark-auto, body.dark-auto) .stat-pill .lbl{ color:#cbd5e1; }
+:is(html.dark-auto, body.dark-auto) .stat-pill .sub{ color:#94a3b8; }
+:is(html.dark-auto, body.dark-auto) .stat-pill .icon{ background:#111827; color:#60a5fa; }
+
+
+/* html video */
+/* video_live */
+html.dark-auto .live-page,
+html.dark-auto .studio-viewport,
+html.dark-auto .studio-shell,
+html.dark-auto .studio-column{
+  background:#171d24 !important;
+  color:var(--studio-text);
+}
+html.dark-auto .studio-box,
+html.dark-auto .studio-info-card,
+html.dark-auto .studio-source,
+html.dark-auto .live-device-card,
+html.dark-auto .studio-toggle-row,
+html.dark-auto .live-history-summary,
+html.dark-auto .history-modal-dialog,
+html.dark-auto .history-row,
+html.dark-auto .live-stat,
+html.dark-auto .live-stream-key,
+html.dark-auto .live-install code,
+html.dark-auto .live-modal-side,
+html.dark-auto .live-modal-head,
+html.dark-auto .live-modal-comments,
+html.dark-auto .live-modal-compose,
+html.dark-auto .live-confirm-card{
+  background:#2b3137 !important;
+  color:#e6edf3 !important;
+  border-color:#495463 !important;
+}
+html.dark-auto .history-modal-body,
+/* html.dark-auto .live-modal-dialog{
+  background:#171d24 !important;
+  color:#e6edf3 !important;
+} */
+html.dark-auto .studio-info-card p,
+html.dark-auto .studio-info-card .studio-panel-sub,
+html.dark-auto .studio-subtitle,
+html.dark-auto .studio-controls-copy,
+html.dark-auto .studio-toggle-note,
+html.dark-auto .live-list-meta,
+html.dark-auto .history-modal-head p,
+html.dark-auto .history-row-meta,
+html.dark-auto .live-stat-label,
+html.dark-auto .live-install,
+html.dark-auto .live-modal-host p,
+html.dark-auto .live-modal-stats,
+html.dark-auto .live-modal-empty,
+html.dark-auto .live-modal-compose-label{
+  color:#9aa4ad !important;
+}
+html.dark-auto .studio-info-card strong,
+html.dark-auto .live-list-title,
+html.dark-auto .history-modal-head h3,
+html.dark-auto .history-row-title,
+html.dark-auto .live-stat-value,
+html.dark-auto .live-modal-host strong,
+html.dark-auto .live-modal-comment strong,
+html.dark-auto .live-modal-comment p{
+  color:#e6edf3 !important;
+}
+html.dark-auto .live-page h1,
+html.dark-auto .live-page h2,
+html.dark-auto .live-page h3,
+html.dark-auto .studio-title,
+html.dark-auto .live-placeholder-copy h2,
+html.dark-auto .live-confirm-card h3{
+  color:#f3f5f7 !important;
+}
+html.dark-auto .setup-card-title,
+html.dark-auto .setup-step-name,
+html.dark-auto .studio-source-head,
+html.dark-auto .studio-video-label,
+html.dark-auto .studio-controls-head,
+html.dark-auto .studio-field label,
+html.dark-auto .studio-off-text,
+html.dark-auto .studio-camera-warning,
+html.dark-auto .live-camera-status strong,
+html.dark-auto .live-panel-camera-status strong{
+  color:#f3f5f7 !important;
+}
+html.dark-auto .studio-inline-icons,
+html.dark-auto .live-device-icon,
+html.dark-auto .live-device-toggle,
+html.dark-auto .history-modal-close{
+  color:#e6edf3 !important;
+}
+html.dark-auto .studio-input,
+html.dark-auto .studio-select,
+html.dark-auto .studio-textarea,
+html.dark-auto .live-modal-compose textarea{
+  background:#1f2428 !important;
+  color:#e6edf3 !important;
+  border:1px solid #4f5b69 !important;
+}
+html.dark-auto .studio-input::placeholder,
+html.dark-auto .studio-textarea::placeholder,
+html.dark-auto .live-modal-compose textarea::placeholder{
+  color:#9aa4ad !important;
+}
+html.dark-auto input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark-auto input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+html.dark-auto .studio-input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark-auto .studio-input[type="datetime-local"]::-webkit-calendar-picker-indicator{
+  filter:invert(1) brightness(1.2);
+  opacity:1;
+}
+html.dark-auto .studio-select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239aa4ad' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") !important;
+  background-position:calc(100% - 16px) 50% !important;
+  background-size:12px 8px !important;
+}
+html.dark-auto .live-btn,
+html.dark-auto .live-history-trigger,
+html.dark-auto .history-row-delete,
+html.dark-auto .history-modal-close,
+html.dark-auto .live-confirm-btn{
+  border-color:#4f5b69 !important;
+  background:#30363d !important;
+  color:#e6edf3 !important;
+}
+html.dark-auto .live-reaction-btn,
+html.dark-auto .live-modal-reaction-btn{
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  color:#e6edf3 !important;
+}
+html.dark-auto .live-btn.primary,
+html.dark-auto .live-btn.secondary,
+html.dark-auto .live-modal-send,
+html.dark-auto .live-modal-finish,
+html.dark-auto .live-confirm-btn.primary{
+  color:#fff !important;
+}
+html.dark-auto .live-list-item{
+  background:#2b3137 !important;
+  border-color:#495463 !important;
+  color:#e6edf3 !important;
+}
+html.dark-auto .live-list-item.active,
+html.dark-auto .history-row:hover{
+  background:#30363d !important;
+  border-color:#4f6b8a !important;
+}
+html.dark-auto .history-chip,
+html.dark-auto .live-modal-visibility{
+  background:#30363d !important;
+  color:#d0d7de !important;
+  border-color:#495463 !important;
+}
+html.dark-auto .live-stream-key code{
+  color:#8ab4ff !important;
+}
+html.dark-auto .studio-label .dot{
+  box-shadow:0 0 0 6px rgba(123,211,137,.12);
+}
+html.dark-auto .studio-label span[style],
+html.dark-auto .studio-source div[style]{
+  color:#e6edf3 !important;
+}
+html.dark-auto .studio-camera-warning,
+html.dark-auto .studio-submit-warning,
+html.dark-auto .live-host-alert{
+  background:#332b1f !important;
+  border-color:#7c5b2b !important;
+  color:#f3d9a2 !important;
+}
+html.dark-auto .live-modal-dialog{
+  background:#171d24 !important;
+  border-color:#4f5b69 !important;
+}
+html.dark-auto .live-page,
+html.dark-auto .live-page *,
+html.dark-auto .live-modal,
+html.dark-auto .live-modal *{
+  transition:none !important;
+}
+html.dark-auto .live-modal-stage,
+html.dark-auto .live-modal-video,
+html.dark-auto .live-modal-fallback{
+  background:#101010 !important;
+}
+html.dark-auto .live-modal-badge{
+  background:rgba(17,17,17,.58) !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+}
+html.dark-auto .live-modal-badge.live{
+  background:#ff4d4f !important;
+}
+html.dark-auto .live-modal-reactions{
+  background:transparent !important;
+}
+html.dark-auto .live-reaction-btn,
+html.dark-auto .live-modal-reaction-btn,
+html.dark-auto .live-reaction-icon,
+html.dark-auto .live-modal-reaction-icon{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+html.dark-auto .live-reaction-btn:hover,
+html.dark-auto .live-modal-reaction-btn:hover,
+html.dark-auto .live-reaction-btn:focus,
+html.dark-auto .live-modal-reaction-btn:focus{
+  background:transparent !important;
+  box-shadow:none !important;
+  outline:none;
+}
+html.dark-auto .live-reaction-btn [data-role="count"],
+html.dark-auto .live-modal-reaction-btn [data-role="count"]{
+  color:#e6edf3 !important;
+}
+html.dark-auto .live-reaction-btn.active [data-role="count"],
+html.dark-auto .live-modal-reaction-btn.active [data-role="count"]{
+  color:#ffffff !important;
+}
+
+/* Auto Dark Mode (Org) */
+html.dark-auto, html.dark-auto body{background:#171d24 !important;color:#f3f5f7;}
+/* Main layout blocks */
+html.dark-auto .sh-pagetitle,
+/* html.dark-auto .sh-logopanel, */
+/* html.dark-auto .sh-headpanel, */
+html.dark-auto .ig-card,
+html.dark-auto .ig-main,
+html.dark-auto .feed-ig-rail,
+html.dark-auto .ig-wrap,
+html.dark-auto .tt-rm-body,
+html.dark-auto .tt-rm-head,
+html.dark-auto .signbox,
+html.dark-auto .ig-details,
+html.dark-auto .tt-comments-head,
+html.dark-auto .tt-comments-list,
+html.dark-auto .tt-comments-foot,
+html.dark-auto .sh-sideleft-menu,
+html.dark-auto .tt-comments-wrap,
+html.dark-auto .c-overlay,
+html.dark-auto .app-main,
+html.dark-auto .c-modal,
+html.dark-auto .c-bodywrap,
+html.dark-auto .mt-2,
+html.dark-auto .sh-mainpanel,
+html.dark-auto .sidebar-pill,
+html.dark-auto .table-responsive,
+html.dark-auto .table,
+html.dark-auto .table-pro,
+html.dark-auto .ig-topbar,
+html.dark-auto .members-list-wrap,
+html.dark-auto .conv-history,
+html.dark-auto .chat-card-body,
+html.dark-auto .chat-list,
+html.dark-auto .chat-topbar,
+html.dark-auto .chat-right-col,
+html.dark-auto .chat-card,
+html.dark-auto .table-pro,
+html.dark-auto .pv-pill,
+html.dark-auto .chatBox,
+html.dark-auto .msg-scroll,
+html.dark-auto .feed-card,
+html.dark-auto .conv-topbar,
+html.dark-auto .composer-fixed,
+html.dark-auto .sh-pagetitle-left,
+html.dark-auto .sh-pagebody,
+html.dark-auto .row,
+html.dark-auto .post,
+html.dark-auto .tl-card,
+html.dark-auto .hd,
+html.dark-auto .bd,
+html.dark-auto .row-sm,
+html.dark-auto .app-footer,
+html.dark-auto .col-lg-4,
+html.dark-auto .col-lg-8,
+html.dark-auto .col-md-8,
+html.dark-auto .col-md-4{background:var(--msb-palette-bg, #171d24) !important;color:#e6edf3;}
+
+/* Leftbar overlay doors — match Appearance dark (#171d24 or custom palette) */
+html.dark-auto #ttLeftbarOverlays .tt-comments-wrap,
+html.dark-auto #ttLeftbarOverlays .tt-comments-head,
+html.dark-auto #ttLeftbarOverlays .tt-comments-list,
+html.dark-auto #ttLeftbarOverlays .tt-comments-foot,
+html.dark-auto #ttLeftbarOverlays .tt-readmore-wrap,
+html.dark-auto #ttLeftbarOverlays .tt-rm-head,
+html.dark-auto #ttLeftbarOverlays .tt-rm-body,
+html.dark-auto #ttLeftbarOverlays .tt-menu-wrap,
+html.dark-auto #ttLeftbarOverlays .tt-menu-head,
+html.dark-auto #ttLeftbarOverlays .tt-menu-body,
+html.dark-auto #ttLeftbarOverlays .tt-profile-wrap,
+html.dark-auto #ttLeftbarOverlays .tt-profile-head,
+html.dark-auto #ttLeftbarOverlays .tt-profile-body,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-wrap,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-head,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-list,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-foot,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-readmore-wrap,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-rm-head,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-rm-body,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-menu-wrap,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-menu-head,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-menu-body,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-wrap,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-head,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-body{
+  background-color:var(--msb-palette-bg, #171d24) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text, #e6edf3) !important;
+}
+
+/* text */
+html.dark-auto .tt-text,
+html.dark-auto .h3-txt,
+html.dark-auto .caption-line,
+html.dark-auto .ig-username,
+html.dark-auto .name,
+
+html.dark-auto .chat-filter-tab.active {
+    background: rgba(59, 130, 246, .24);
+    color: #eff0f1;
+}
+
+html.dark-auto .chat-filter-tab {
+  border: 0;
+  background: transparent;
+  color: #d1d5db;
+}
+
+html.dark-auto .chat-name,
+html.dark-auto .feed-ig-logo-label,
+html.dark-auto .feed-ig-rail .feed-ig-logo-label,
+html[data-theme="dark"] .feed-ig-rail .feed-ig-logo-label,
+html.dark-auto .likes-line {
+  color: var(--msb-palette-text-on-nav, var(--msb-palette-text, #f3f6fb)) !important;
+}
+html.dark-auto .feed-ig-rail,
+html[data-theme="dark"] .feed-ig-rail {
+  color: var(--msb-palette-text-on-nav, var(--msb-palette-text, #f3f6fb)) !important;
+}
+
+html.dark-auto .chat-meta, 
+html.dark-auto .chatLastMsg,
+html.dark-auto .chat-item{
+  color: rgba(255, 255, 255, .62) !important;
+}
+
+html.dark-auto .a,
+html.dark-auto .vcall-sidebar-close {
+  color: #6a6e72;
+
+}
+
+html.dark-auto .a:not([href]):not([tabindex]) {
+  color: inherit;
+  text-decoration: none;
+}
+/* btn */
+html.dark-auto .btn,
+html.dark-auto .msg-pill,
+html.dark-auto .c,
+html.dark-auto .ig-btn,
+html.dark-auto .ig-hl,
+html.dark-auto .composer,
+html.dark-auto .button,
+html.dark-auto .iconbtn{
+  background:#171d24 !important;color:#e6edf3;
+}
+/* Cards */
+html.dark-auto .mf-card,
+:is(html.dark-auto, body.dark-auto) .feed-ig-rail{background: #4d4b4b; color:white;}
+html.dark-auto .card,
+html.dark-auto .messages-shell,
+html.dark-auto .messages-shell-head,
+html.dark-auto .chat-left-head,
+html.dark-auto .chat-info-panel,
+html.dark-auto .sh-sideleft-menu,
+html.dark-auto .rows-scroll,
+html.dark-auto .card-body,
+html.dark-auto .card-header,
+html.dark-auto .feed-ig-rail,
+html.dark-auto .card.bd-0{background:#171d24 !important;color:#e6edf3;border-color:rgba(255,255,255,.08) !important;}
+/* Lists */
+html.dark-auto .list-group,
+html.dark-auto .list-group-flush,
+html.dark-auto .list-group-item{background:#171d24 !important;color:#e6edf3;border-color:rgba(255,255,255,.08) !important;}
+html.dark-auto .list-group-item.active{background:#2f363d !important;color:#fff;}
+/* Chat box */
+html.dark-auto .msg-box{background:#171d24 !important;border-color:rgba(255,255,255,.10) !important;}
+/* Input groups + controls */
+html.dark-auto .input-group,
+html.dark-auto .input-group-btn{background:#171d24 !important;}
+html.dark-auto .input,
+html.dark-auto .textarea,
+html.dark-auto .ig-username,
+html.dark-auto .ig-stat,
+html.dark-auto .form-control{background:#131d25 !important;color:#e6edf3 !important;border-color:rgba(255,255,255,.12) !important;}
+html.dark-auto .mf-body,
+html.dark-auto .mf-title,
+html.dark-auto .mf-card .mf-foot,
+html.dark-auto .mf-card .mf-actions,
+body.dark-auto .mf-body,
+body.dark-auto .mf-title,
+body.dark-auto .mf-card .mf-foot,
+body.dark-auto .mf-card .mf-actions{
+  background-color:var(--msb-palette-bg, #171d24) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text, #e6edf3) !important;
+  border-color:var(--msb-palette-border, rgba(255,255,255,.12)) !important;
+}
+html.dark-auto input::placeholder,
+html.dark-auto .textarea::placeholder{color:#9aa4ad !important;}
+/* Icons */
+html.dark-auto .sh-pagetitle-icon,
+html.dark-auto .icon,
+html.dark-auto .mf-time,
+html.dark-auto .mf-comment,
+html.dark-auto .mf-cmt,
+html.dark-auto .chat-round-btn,
+html.dark-auto .ion-ios-chatbubble{color:#e6edf3 !important;}
+
+html.dark-auto .msg-me
+{ background:#3a3c3d !important;
+  color:#e6edf3;}
+
+html.dark-auto .right-active{
+    background:#4a545f !important;
+  color:#e6edf3;
+}
+
+/* html.dark-auto .chat-card,
+html.dark-auto .chat-card-right{
+  background: linear-gradient(180deg, rgb(154 161 175 / 98%), rgba(23, 24, 28, .98)) !important;
+  color: white;
+} */
+
+.vcall-sidebar {
+  background:#4a545f !important;
+  color:#e6edf3;
+  border-left: 1px solid rgba(8, 16, 30, .06);
+}
+html.dark-auto .right-sidebar,
+html.dark-auto .right-sidebar-subject,
+html.dark-auto .msg-them-peer,
+html.dark-auto .btn-search{
+  background:#171d24 !important;
+  color:#e6edf3;
+}
+
+html.dark-auto .vcall-compose {
+  border-top: 1px solid rgba(15, 23, 42, .08);
+  background:#4a545f !important;
+}
+
+
+/* =====================================================
+   FEED THEME (uses :root light + html.dark-auto dark)
+   This keeps feed.php clean — only layout CSS stays there.
+   ===================================================== */
+
+:root{
+  --bg-main: #f5f7fb;
+  --bg-card: #ffffff;
+  --bg-sidebar: #f0f2f7;
+
+  --text-primary: #25282f;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --border-color: rgba(15,23,42,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.04);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.10);
+}
+
+/* Dark (enabled by ../js/dark-auto.js adding html.dark-auto) */
+html.dark-auto{
+  --bg-main: #171d24;
+  --bg-card: #171d24;
+  --bg-sidebar: #171d24;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --border-color: rgba(255,255,255,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.35);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.45);
+}
+
+/* Apply variables */
+body{
+  background: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.sh-mainpanel, .sh-pagebody{
+  background: var(--bg-main) !important;
+}
+
+.feed-card{
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.feed-title{ color: var(--text-primary) !important; }
+.feed-desc{ color: var(--text-secondary) !important; }
+.feed-date, .feed-meta{ color: var(--text-muted) !important; }
+
+.feed-main{ box-shadow: var(--shadow) !important; }
+html.dark-auto .feed-main{ box-shadow: var(--shadow) !important; }
+
+html.dark-auto .stat-pill{ background:#0b1220; border-color:#334155; box-shadow:none; }
+html.dark-auto .stat-pill .num{ color:#f3f4f6; }
+html.dark-auto .stat-pill .lbl{ color:#cbd5e1; }
+html.dark-auto .stat-pill .sub{ color:#94a3b8; }
+html.dark-auto .stat-pill .icon{ background:#111827; color:#60a5fa; }
+/* =====================================================
+   PRO THEME TOKENS (GLOBAL)
+   - Light tokens in :root
+   - Dark tokens in html.dark-auto (set by ../js/dark-auto.js)
+   - Org accent can be overridden by header.php via --org-accent, --org-bg, etc.
+   ===================================================== */
+
+:root{
+  /* Core surfaces */
+  --bg: var(--org-bg, #f5f7fb);
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+
+  /* Text */
+  --text: #0f172a;
+  --muted: #64748b;
+
+  /* UI */
+  --border: rgba(15,23,42,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.04);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.10);
+  --radius: 14px;
+
+  /* Accent */
+  --accent: var(--org-accent, #0861bc);
+}
+
+/* Dark mode tokens */
+html.dark-auto{
+  --bg: #171d24;
+  --surface: #171d24;
+  --surface-2: #0f1a2e;
+
+  --text: #f8fafc;
+  --muted: #cbd5e1;
+
+  --border: rgba(255,255,255,0.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.35);
+  --shadow-strong: 0 14px 24px rgba(0,0,0,.45);
+}
+
+/* Compatibility tokens used by existing pages (feed.php etc.) */
+:root{
+  --bg-main: var(--bg);
+  --bg-card: var(--surface);
+  --bg-sidebar: #f0f2f7;
+
+  --text-primary: var(--text);
+  --text-secondary: #475569;
+  --text-muted: var(--muted);
+
+  --border-color: var(--border);
+}
+
+html.dark-auto{
+  --bg-sidebar: #171d24;
+  --text-secondary: #cbd5e1;
+}
+
+/* Apply base */
+body{
+  background: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.sh-mainpanel, .sh-pagebody{
+  background: var(--bg-main) !important;
+}
+
+/* Component defaults (token-based; no hard-coded dark duplication) */
+.feed-card{
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius);
+}
+
+.feed-title{ color: var(--text-primary) !important; }
+.feed-desc{ color: var(--text-secondary) !important; }
+.feed-date, .feed-meta, .mini-muted{ color: var(--text-muted) !important; }
+
+.feed-main{ box-shadow: var(--shadow) !important; }
+
+/* Sidebar tokens */
+.feed-sidebar,
+.right-sidebar,
+.chat-main-pane,
+.right-sidebar-subject{
+  background: var(--bg-sidebar) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Modal / replies */
+.modal-clean .modal-content,
+.reply-box,
+.comment-item{
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Attachment tiles */
+.media-tile{
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+.media-tile .tile-icon{ color: var(--text-primary) !important; }
+
+
+/* dark-auto for messages.php */
+body.dark-auto{
+    background:#171d24 !important;
+    color:#e6edf3 !important;
+  }
+  body.dark-auto .sh-pagebody,
+  body.dark-auto .messages-shell,
+  body.dark-auto .messages-shell-head,
+  body.dark-auto .chat-card,
+  body.dark-auto .chat-card-right,
+  body.dark-auto .chat-left-head,
+  body.dark-auto .chat-topbar,
+  body.dark-auto .chat-info-panel{
+    background:#171d24 !important;
+    color:#e6edf3 !important;
+    border-color:rgba(255,255,255,.08) !important;
+  }
+  body.dark-auto .messages-shell-search,
+  body.dark-auto .chat-search-wrap,
+  body.dark-auto .composer,
+  body.dark-auto .composer-bar,
+  body.dark-auto #msgPreviewInline,
+  body.dark-auto .floatMenu,
+  body.dark-auto .msg-menu,
+  body.dark-auto .msg-react-picker{
+    background:#2b3137 !important;
+    color:#e6edf3 !important;
+    border-color:rgba(255,255,255,.10) !important;
+  }
+  body.dark-auto .messages-shell-title,
+  body.dark-auto .chat-name,
+  body.dark-auto .peerTitle,
+  body.dark-auto .peerTitle span,
+  body.dark-auto .chat-info-name,
+  body.dark-auto .chat-file-name,
+  body.dark-auto .chat-member-name,
+  body.dark-auto .reply-preview,
+  body.dark-auto .reply-preview-close{
+    color:#f3f5f7 !important;
+  }
+  body.dark-auto .messages-shell-icon,
+  body.dark-auto .messages-shell-avatar,
+  body.dark-auto .avatar,
+  body.dark-auto .peerAvatar,
+  body.dark-auto .msg-avatar-mini,
+  body.dark-auto .chat-info-avatar,
+  body.dark-auto .chat-member-avatar{
+    background:#30363d !important;
+  }
+  body.dark-auto .chat-item,
+  body.dark-auto .chat-item:hover,
+  body.dark-auto .chat-item.active{
+    background:#171d24 !important;
+    color:#e6edf3 !important;
+    border-color:rgba(255,255,255,.06) !important;
+  }
+  body.dark-auto .chat-item.active::after{
+    background:#7c8cff;
+  }
+  body.dark-auto .chat-meta,
+  body.dark-auto .chatLastMsg,
+  body.dark-auto .chat-file-meta,
+  body.dark-auto .chat-member-meta,
+  body.dark-auto .reply-preview-text,
+  body.dark-auto .peerSub,
+  body.dark-auto .messages-shell-search input::placeholder,
+  body.dark-auto #chatSearch::placeholder,
+  body.dark-auto #messageInput::placeholder{
+    color:#9aa4ad !important;
+  }
+  body.dark-auto .messages-shell-search input,
+  body.dark-auto #chatSearch,
+  body.dark-auto #messageInput,
+  body.dark-auto #plusMenuBody button,
+  body.dark-auto #emojiGrid button,
+  body.dark-auto .msg-menu button,
+  body.dark-auto .reply-preview-close,
+  body.dark-auto #msgPlusBtn,
+  body.dark-auto #emojiBtn,
+  body.dark-auto #composerLocationBtn,
+  body.dark-auto #composerMicBtn{
+    color:#e6edf3 !important;
+  }
+  body.dark-auto #chatBox{
+    background:#1f2428 !important;
+  }
+  body.dark-auto .day-divider{
+    color:#9aa4ad !important;
+  }
+  body.dark-auto .day-divider::before,
+  body.dark-auto .day-divider::after{
+    background:rgba(255,255,255,.08) !important;
+  }
+  body.dark-auto .bubble{
+    background:#2b3137 !important;
+    color:#e6edf3 !important;
+  }
+  body.dark-auto .bubble.me{
+    background:linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+    color:#fff !important;
+  }
+  body.dark-auto .msg-side-btn:hover,
+  body.dark-auto .msg-menu button:hover,
+  body.dark-auto .msg-react-picker button:hover,
+  body.dark-auto .reply-preview-close:hover{
+    background:#394451 !important;
+    color:#fff !important;
+  }
+  body.dark-auto .msg-reaction-pill{
+    background:#30363d !important;
+    color:#e6edf3 !important;
+    border-color:rgba(255,255,255,.10) !important;
+  }
+  body.dark-auto .msg-edited,
+  body.dark-auto .msg-dot-btn,
+  body.dark-auto .msg-side-actions,
+  body.dark-auto .msg-peer-actions{
+    color:#9aa4ad !important;
+  }
+  body.dark-auto .msg-reply-line{
+    background:rgba(255,255,255,.06) !important;
+    border-left-color:rgba(255,255,255,.25) !important;
+  }
+  body.dark-auto .msg-row:not(.me) .msg-reply-line-title,
+  body.dark-auto .msg-row:not(.me) .msg-reply-line-text{
+    color:#d0d7de !important;
+  }
+  body.dark-auto .presenceDot{
+    box-shadow:0 0 0 3px #171d24 !important;
+  }
+
+
+  /* html dark-auto for messages.php */
+  html.dark-auto .chat-meta,
+  html.dark-auto .chatLastMsg,
+  html.dark-auto .chat-file-meta,
+  html.dark-auto .chat-member-meta,
+  html.dark-auto .reply-preview-text,
+  html.dark-auto .peerSub,
+  html.dark-auto .messages-shell-search input::placeholder,
+  html.dark-auto #chatSearch::placeholder,
+  html.dark-auto #messageInput::placeholder{
+    color:#9aa4ad !important;
+  }
+  html.dark-auto .messages-shell-search input,
+  html.dark-auto #chatSearch,
+  html.dark-auto #messageInput,
+  html.dark-auto #plusMenuBody button,
+  html.dark-auto #emojiGrid button,
+  html.dark-auto .msg-menu button,
+  html.dark-auto .reply-preview-close,
+  html.dark-auto #msgPlusBtn,
+  html.dark-auto #emojiBtn,
+  html.dark-auto #composerLocationBtn,
+  html.dark-auto #composerMicBtn{
+    color:#e6edf3 !important;
+  }
+
+/* Feed media overlay — keep shell/stage transparent (beat card wheat/dark-auto) */
+html.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+html.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+html.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media,
+body.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+body.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+body.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-head--on-media,
+body.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-head--on-media {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage,
+html.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > img,
+html.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > video,
+html.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > .media-carousel,
+body.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage,
+body.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > img,
+body.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > video,
+body.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > .media-carousel,
+html.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .standard-media-topbar,
+body.dark-auto .news-page .post.public-post-card:has(.standard-media-topbar) .standard-media-topbar {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+html.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+html.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media,
+body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media,
+html.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-head--on-media,
+body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-head--on-media {
+  background: transparent !important;
+  background-color: transparent !important;
+}

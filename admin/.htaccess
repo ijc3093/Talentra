@@ -1,0 +1,8 @@
+# Optional extra HTTP basic auth for production hosting.
+# Disabled on localhost so MAMP can load admin (PHP login in index.php still applies).
+<If "%{HTTP_HOST} !~ /^(localhost|127\.0\.0\.1)(:\d+)?$/i">
+  AuthType Basic
+  AuthName "Admin Area"
+  AuthUserFile /home/uXXXXXXXX/domains/talentra.pro/public_html/admin/.htpasswd
+  Require valid-user
+</If>

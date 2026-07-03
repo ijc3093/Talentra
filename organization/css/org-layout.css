@@ -1,0 +1,189 @@
+/* Organization shell: fixed layout, no slide-in flash on navigation */
+.sh-logopanel,
+.sh-sideleft-menu,
+.sh-headpanel,
+.sh-mainpanel {
+  transition: none !important;
+}
+
+@media (min-width: 1200px) {
+  .sh-logopanel {
+    left: 0;
+  }
+
+  .sh-sideleft-menu {
+    left: 0;
+  }
+
+  .sh-headpanel {
+    left: 240px;
+  }
+
+  .sh-mainpanel {
+    margin-left: 240px;
+  }
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link {
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.16s ease, background-color 0.16s ease;
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link:active:not(.active) {
+  background-color: rgba(79, 70, 229, 0.08);
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link.is-nav-pending {
+  color: #4f46e5;
+  background-color: rgba(79, 70, 229, 0.06);
+}
+
+/* Shield covers main content during nav — hides any orphan feed/video ghosts */
+#org-nav-shield {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2147483000;
+  background: #f5f7fb;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+}
+
+@media (min-width: 1200px) {
+  #org-nav-shield {
+    left: 240px;
+  }
+}
+
+body.org-app.is-navigating #org-nav-shield {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Never show stray feed media outside the feed page */
+body.org-app:not(.org-page-feed) video,
+body.org-app:not(.org-page-feed) audio {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  position: fixed !important;
+  left: -10000px !important;
+  top: -10000px !important;
+  z-index: -1 !important;
+}
+
+html.dark-auto body.org-app.is-navigating #org-nav-shield,
+html[data-theme="dark"] body.org-app.is-navigating #org-nav-shield {
+  background: #0b1220;
+}
+
+body.org-app .sh-mainpanel {
+  transition: opacity 0.12s ease !important;
+}
+
+body.org-app.is-navigating .sh-mainpanel {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+body.org-app .sh-mainpanel.is-nav-ready {
+  opacity: 1 !important;
+}
+
+/* Kill stray feed/video on every non-feed org page */
+html[data-org-feed="0"] video,
+html[data-org-feed="0"] audio,
+html[data-org-feed="0"] .feed-post-media,
+html[data-org-feed="0"] .feed-post,
+html[data-org-feed="0"] .feed-layout,
+html[data-org-feed="0"] .feed-sidebar,
+html[data-org-feed="0"] .feed-main,
+html[data-org-feed="0"] .feed-card,
+html[data-org-feed="0"] .media-strip,
+html[data-org-feed="0"] #mainMedia,
+html[data-org-feed="0"] #readMoreModal,
+html[data-org-feed="0"] #repliesModal,
+html[data-org-feed="0"] #editPostModal,
+html[data-org-feed="0"] .read-more-modal,
+body.org-app:not(.org-page-feed) video,
+body.org-app:not(.org-page-feed) audio,
+body.org-app:not(.org-page-feed) .feed-post-media,
+body.org-app:not(.org-page-feed) .feed-post,
+body.org-app:not(.org-page-feed) .feed-layout,
+body.org-app:not(.org-page-feed) .feed-sidebar,
+body.org-app:not(.org-page-feed) .feed-main,
+body.org-app:not(.org-page-feed) #readMoreModal,
+body.org-app:not(.org-page-feed) #repliesModal,
+body.org-app:not(.org-page-feed) #editPostModal,
+body.org-app:not(.org-page-feed) .read-more-modal {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  position: fixed !important;
+  left: -10000px !important;
+  top: -10000px !important;
+  z-index: -1 !important;
+}
+
+html[data-org-feed="0"] body.org-app.org-page-messages .msg-attach video,
+body.org-app.org-page-messages .msg-attach video {
+  display: block !important;
+  visibility: visible !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.org-app .sh-mainpanel,
+  #org-nav-shield,
+  .sh-sideleft-menu .nav > .nav-item > .nav-link {
+    transition: none !important;
+  }
+}
+
+/* appearance-palette.css styles .avatar for the public feed — keep it off org manager pages */
+body.org-app:not(.org-page-feed) .members-card .member-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  border-radius: 12px !important;
+  background: rgba(79, 70, 229, 0.12) !important;
+  background-image: none !important;
+  color: #4f46e5 !important;
+  aspect-ratio: auto !important;
+  flex: 0 0 auto !important;
+  overflow: hidden !important;
+}
+
+body.org-app:not(.org-page-feed) .members-card .member-avatar .icon {
+  font-size: 18px !important;
+  line-height: 1 !important;
+}

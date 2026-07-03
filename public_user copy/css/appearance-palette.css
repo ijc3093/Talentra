@@ -1,0 +1,2357 @@
+/* =====================================================
+   UNIFIED APPEARANCE PALETTE — one background, high-contrast foreground
+   ===================================================== */
+
+html[data-msb-appearance],
+html[data-msb-appearance] body {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+/* Accent tokens — replace page-level hardcoded blues when a palette is active */
+html[data-msb-appearance] {
+  --blue: var(--msb-palette-action);
+  --public-accent: var(--msb-palette-action);
+  --public-accent-soft: var(--msb-palette-action-soft);
+  --public-accent-strong: var(--msb-palette-action-strong);
+  --feed-accent: var(--msb-palette-action);
+  --feed-accent-soft: var(--msb-palette-action-soft);
+  --feed-accent-strong: var(--msb-palette-action-strong);
+}
+
+html[data-msb-appearance] .sh-mainpanel,
+html[data-msb-appearance] .sh-pagebody,
+html[data-msb-appearance] .sh-headpanel,
+html[data-msb-appearance] .sh-logopanel,
+html[data-msb-appearance] .sh-sideleft-menu,
+html[data-msb-appearance] #ttNavLeftbar,
+html[data-msb-appearance] .feed-ig-rail,
+html[data-msb-appearance] .feed-sidebar,
+html[data-msb-appearance] .right-sidebar,
+html[data-msb-appearance] .feed-top-search,
+html[data-msb-appearance] .feed-desktop-layout,
+html[data-msb-appearance] .feed-desktop-center,
+html[data-msb-appearance] .ig-feed-header,
+html[data-msb-appearance] .hero,
+html[data-msb-appearance] .card,
+html[data-msb-appearance] .card-body,
+html[data-msb-appearance] .card-header,
+html[data-msb-appearance] .panel,
+html[data-msb-appearance] .panel-body,
+html[data-msb-appearance] .modal-content,
+html[data-msb-appearance] .modal-body,
+html[data-msb-appearance] .dropdown-menu,
+html[data-msb-appearance] .dropdown-bestnoti-menu,
+html[data-msb-appearance] .dropdown-bestchat-menu,
+html[data-msb-appearance] .dropdown-bestnoti-empty,
+html[data-msb-appearance] .dropdown-bestchat-empty,
+html[data-msb-appearance] .messages-shell,
+html[data-msb-appearance] .messages-shell-head,
+html[data-msb-appearance] .messages-shell-search,
+html[data-msb-appearance] .chat-card,
+html[data-msb-appearance] .chat-card-right,
+html[data-msb-appearance] .chat-card-left,
+html[data-msb-appearance] .chat-card-body,
+html[data-msb-appearance] .mailbox-body,
+html[data-msb-appearance] #chatBox,
+html[data-msb-appearance] .chat-list,
+html[data-msb-appearance] .chat-topbar,
+html[data-msb-appearance] .chat-info-panel,
+html[data-msb-appearance] .composer,
+html[data-msb-appearance] .composer-bar,
+html[data-msb-appearance] .conv-history,
+html[data-msb-appearance] .chat-mode-empty,
+html[data-msb-appearance] .group-panel-card,
+html[data-msb-appearance] .group-list-empty,
+html[data-msb-appearance] .signbox,
+html[data-msb-appearance] .signbox-body,
+html[data-msb-appearance] .create-post-dialog,
+html[data-msb-appearance] .create-post-body,
+html[data-msb-appearance] .empty,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-readmore-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-wrap,
+html[data-msb-appearance] #ttRightbarOverlays .tt-stories-right-wrap,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-panel,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap,
+html[data-msb-appearance] .requests-panel,
+html[data-msb-appearance] .studio-main,
+html[data-msb-appearance] .studio-frame,
+html[data-msb-appearance] .step,
+html[data-msb-appearance] .source-card,
+html[data-msb-appearance] .feed-card,
+html[data-msb-appearance] .ig-card,
+html[data-msb-appearance] body.profile-page .ig-profile-head,
+html[data-msb-appearance] body.profile-page .ig-profile-scroll,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-card,
+html[data-msb-appearance] .gear-card,
+html[data-msb-appearance] .mf-feed,
+html[data-msb-appearance] .mf-card,
+html[data-msb-appearance] .mf-head:not(.mf-head--on-media),
+html[data-msb-appearance] .mf-foot,
+html[data-msb-appearance] .mf-actions,
+html[data-msb-appearance] .mf-menu,
+html[data-msb-appearance] .ig-post-shell,
+html[data-msb-appearance] .ig-insta-card,
+html[data-msb-appearance] .ig-insta-header,
+html[data-msb-appearance] .ig-insta-caption-block,
+html[data-msb-appearance] .ig-insta-actionbar,
+html[data-msb-appearance] .ig-insta-dots-host,
+html[data-msb-appearance] .ig-post-card,
+html[data-msb-appearance] .sh-pagetitle,
+html[data-msb-appearance] input:not([type=checkbox]):not([type=radio]),
+html[data-msb-appearance] textarea,
+html[data-msb-appearance] select,
+html[data-msb-appearance] .form-control,
+html[data-msb-appearance] .search-input {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+/* Very dark foreground on bright palettes */
+html[data-msb-appearance].msb-palette-dark-fg,
+html[data-msb-appearance].msb-palette-dark-fg body {
+  color: var(--msb-palette-text, #0a0a0a) !important;
+}
+
+html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo),
+html[data-msb-appearance] a.feed-ig-logo-label,
+html[data-msb-appearance] .feed-ig-logo-label {
+  color: var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.mf-peer-link):not(.post-author-link):hover,
+html[data-msb-appearance] a.feed-ig-logo-label:hover,
+html[data-msb-appearance] a.feed-ig-logo-label:focus {
+  color: var(--msb-palette-link-hover) !important;
+}
+
+html[data-msb-appearance] .icon,
+html[data-msb-appearance] i.icon,
+html[data-msb-appearance] [class*="ion-"],
+html[data-msb-appearance] .fa {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] .text-muted,
+html[data-msb-appearance] small,
+html[data-msb-appearance] .small,
+html[data-msb-appearance] .feed-desc,
+html[data-msb-appearance] .gear-sub,
+html[data-msb-appearance] .gear-card-desc,
+html[data-msb-appearance] .chat-meta,
+html[data-msb-appearance] .chatLastMsg {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] input::placeholder,
+html[data-msb-appearance] textarea::placeholder,
+html[data-msb-appearance] .form-control::placeholder {
+  color: var(--msb-palette-placeholder) !important;
+  opacity: 1 !important;
+}
+
+/* Interactive hovers — contrasting text/icons only while :hover */
+html[data-msb-appearance] .topicon-btn:hover,
+html[data-msb-appearance] .dropdown-link:hover,
+html[data-msb-appearance] .dropdown-item:hover,
+html[data-msb-appearance] .dropdown-menu-link:hover,
+html[data-msb-appearance] .dropdown-bestchat-link:hover,
+html[data-msb-appearance] .dropdown-bestprofile-link:hover,
+html[data-msb-appearance] .bestchat-menu-item:hover,
+html[data-msb-appearance] .dropdown-bestnoti-item:hover,
+html[data-msb-appearance] .bestnoti-footer-nav li a:hover,
+html[data-msb-appearance] .bestchat-footer-nav li a:hover,
+html[data-msb-appearance] .btn:hover,
+html[data-msb-appearance] .btn-light:hover,
+html[data-msb-appearance] .btn-white:hover,
+html[data-msb-appearance] .btn-soft:hover,
+html[data-msb-appearance] .btn-outline-secondary:hover,
+html[data-msb-appearance] .btn-link:hover,
+html[data-msb-appearance] .messages-shell-action-btn:hover,
+html[data-msb-appearance] .messages-shell-tab:not(.active):hover,
+html[data-msb-appearance] .ig-stories-menu-btn:hover,
+html[data-msb-appearance] .yt-icon-btn:hover,
+html[data-msb-appearance] .search-btn:hover,
+html[data-msb-appearance] .yt-mic-btn:hover,
+html[data-msb-appearance] .gear-quick a:hover,
+html[data-msb-appearance] .action-btn:hover,
+html[data-msb-appearance] .sh-icon-link:hover,
+html[data-msb-appearance] .tt-iconbtn:hover,
+html[data-msb-appearance] .iconbtn:hover,
+html[data-msb-appearance] .ig-btn:hover,
+html[data-msb-appearance] .msb-reaction-picker-item:hover {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text-on-hover) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] .topicon-btn:hover .icon,
+html[data-msb-appearance] .dropdown-item:hover .icon,
+html[data-msb-appearance] .dropdown-menu-link:hover .icon,
+html[data-msb-appearance] .bestchat-menu-item:hover .icon,
+html[data-msb-appearance] .dropdown-bestnoti-item:hover .icon,
+html[data-msb-appearance] .btn:hover .icon,
+html[data-msb-appearance] .btn-link:hover .icon,
+html[data-msb-appearance] .messages-shell-action-btn:hover .icon,
+html[data-msb-appearance] .messages-shell-tab:not(.active):hover .icon,
+html[data-msb-appearance] .ig-stories-menu-btn:hover .icon,
+html[data-msb-appearance] .yt-icon-btn:hover .icon,
+html[data-msb-appearance] .search-btn:hover .icon,
+html[data-msb-appearance] .yt-mic-btn:hover .icon,
+html[data-msb-appearance] .action-btn:hover .icon,
+html[data-msb-appearance] .dropdown-item:hover [class*="ion-"],
+html[data-msb-appearance] .btn:hover [class*="ion-"],
+html[data-msb-appearance] .topicon-btn:hover [class*="ion-"] {
+  color: var(--msb-palette-icon-on-hover) !important;
+  stroke: currentColor !important;
+}
+
+html[data-msb-appearance] .dropdown-item:hover .text-muted,
+html[data-msb-appearance] .dropdown-bestnoti-item:hover .text-muted,
+html[data-msb-appearance] .bestchat-menu-item:hover .text-muted,
+html[data-msb-appearance] .dropdown-item:hover small,
+html[data-msb-appearance] .dropdown-bestnoti-item:hover small,
+html[data-msb-appearance] .bestchat-menu-item:hover small {
+  color: var(--msb-palette-text-on-hover) !important;
+  opacity: 0.88 !important;
+}
+
+/* Sidebar nav — grey pill on :hover only */
+html[data-msb-appearance] #ttNavLeftbar .nav-link:hover,
+html[data-msb-appearance] body #ttNavLeftbar .nav-link:hover,
+html[data-msb-appearance] .sh-sideleft-menu .nav-link:hover,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html[data-msb-appearance] .sh-sideleft-menu .nav-sub .nav-link:hover,
+html[data-msb-appearance] .feed-left-nav-item:hover,
+html[data-msb-appearance] .feed-left-nav-item:focus,
+html[data-msb-appearance] .feed-right-nav-item:hover,
+html[data-msb-appearance] .feed-right-nav-item:focus,
+html[data-msb-appearance] .tt-menu-body .feed-left-nav-item:hover,
+html[data-msb-appearance] .tt-menu-body .feed-left-nav-item:focus,
+html[data-msb-appearance] .feed-ig-btn:hover,
+html[data-msb-appearance] .feed-ig-link:hover,
+html[data-msb-appearance] .ig-link:hover,
+html[data-msb-appearance] .bestprofile-nav li a:hover,
+html[data-msb-appearance] .right-sidebar a:hover,
+html[data-msb-appearance] .feed-sidebar a:hover {
+  background-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-text-on-nav-hover, var(--msb-palette-text-on-hover)) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  box-shadow: inset 0 0 0 1px var(--msb-palette-border-strong, rgba(15, 23, 42, 0.14)) !important;
+}
+
+html[data-msb-appearance] #ttNavLeftbar .nav-link:hover .icon,
+html[data-msb-appearance] body #ttNavLeftbar .nav-link:hover .icon,
+html[data-msb-appearance] .feed-left-nav-item:hover .feed-left-nav-ic,
+html[data-msb-appearance] .feed-left-nav-item:hover .feed-left-nav-label,
+html[data-msb-appearance] .feed-right-nav-item:hover .feed-right-nav-ic,
+html[data-msb-appearance] .feed-right-nav-item:hover .feed-right-nav-label,
+html[data-msb-appearance] .feed-left-nav-item:hover .feed-left-nav-ic svg,
+html[data-msb-appearance] .feed-right-nav-item:hover .feed-right-nav-ic svg,
+html[data-msb-appearance] .feed-ig-btn:hover .icon,
+html[data-msb-appearance] .feed-ig-link:hover .icon,
+html[data-msb-appearance] .ig-link:hover .icon,
+html[data-msb-appearance] .feed-left-nav-item:hover [class*="ion-"],
+html[data-msb-appearance] #ttNavLeftbar .nav-link:hover [class*="ion-"] {
+  color: var(--msb-palette-icon-on-nav-hover, var(--msb-palette-icon-on-hover)) !important;
+  stroke: currentColor !important;
+}
+
+/* Current page — visible text when not hovered */
+html[data-msb-appearance] #ttNavLeftbar .nav-link.active:not(:hover),
+html[data-msb-appearance] body #ttNavLeftbar .nav-link.active:not(:hover),
+html[data-msb-appearance] .sh-sideleft-menu .nav-link.active:not(:hover),
+html[data-msb-appearance] .feed-left-nav-item.is-active:not(:hover),
+html[data-msb-appearance] .feed-right-nav-item.is-active:not(:hover),
+html[data-msb-appearance] .tt-menu-body .feed-left-nav-item.is-active:not(:hover),
+html[data-msb-appearance] .feed-ig-btn.active:not(:hover),
+html[data-msb-appearance] .feed-ig-link.active:not(:hover),
+html[data-msb-appearance] .ig-link.active:not(:hover),
+html[data-msb-appearance] .bestprofile-nav li a.active:not(:hover),
+html[data-msb-appearance] .right-sidebar a.active:not(:hover),
+html[data-msb-appearance] .feed-sidebar a.active:not(:hover) {
+  background-color: var(--msb-palette-nav-active-bg) !important;
+  color: var(--msb-palette-nav-active-text) !important;
+}
+
+html[data-msb-appearance] #ttNavLeftbar .nav-link.active:not(:hover) .icon,
+html[data-msb-appearance] body #ttNavLeftbar .nav-link.active:not(:hover) .icon,
+html[data-msb-appearance] .feed-left-nav-item.is-active:not(:hover) .feed-left-nav-ic,
+html[data-msb-appearance] .feed-left-nav-item.is-active:not(:hover) .feed-left-nav-label,
+html[data-msb-appearance] .feed-right-nav-item.is-active:not(:hover) .feed-right-nav-ic,
+html[data-msb-appearance] .feed-right-nav-item.is-active:not(:hover) .feed-right-nav-label,
+html[data-msb-appearance] .feed-ig-btn.active:not(:hover) .icon,
+html[data-msb-appearance] .feed-ig-link.active:not(:hover) .icon,
+html[data-msb-appearance] .ig-link.active:not(:hover) .icon {
+  color: var(--msb-palette-nav-active-icon) !important;
+  stroke: currentColor !important;
+}
+
+/* Resting nav items — restore visible text after hover moves away */
+html[data-msb-appearance] #ttNavLeftbar .nav-link:not(:hover):not(.active),
+html[data-msb-appearance] body #ttNavLeftbar .nav-link:not(:hover):not(.active),
+html[data-msb-appearance] .sh-sideleft-menu .nav-link:not(:hover):not(.active),
+html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active),
+html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active),
+html[data-msb-appearance] .tt-menu-body .feed-left-nav-item:not(:hover):not(.is-active),
+html[data-msb-appearance] .feed-ig-btn:not(:hover):not(.active),
+html[data-msb-appearance] .feed-ig-link:not(:hover):not(.active),
+html[data-msb-appearance] .ig-link:not(:hover):not(.active),
+html[data-msb-appearance] .bestprofile-nav li a:not(:hover):not(.active),
+html[data-msb-appearance] .right-sidebar a:not(:hover):not(.active),
+html[data-msb-appearance] .feed-sidebar a:not(:hover):not(.active) {
+  color: var(--msb-palette-text-on-nav) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] #ttNavLeftbar .nav-link:not(:hover):not(.active) .icon,
+html[data-msb-appearance] body #ttNavLeftbar .nav-link:not(:hover):not(.active) .icon,
+html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active) .feed-left-nav-ic,
+html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active) .feed-left-nav-label,
+html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-ic,
+html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-label,
+html[data-msb-appearance] .feed-ig-btn:not(:hover):not(.active) .icon,
+html[data-msb-appearance] .feed-ig-link:not(:hover):not(.active) .icon,
+html[data-msb-appearance] .ig-link:not(:hover):not(.active) .icon,
+html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active) .feed-left-nav-ic svg,
+html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-ic svg,
+html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active) [class*="ion-"],
+html[data-msb-appearance] #ttNavLeftbar .nav-link:not(:hover):not(.active) [class*="ion-"] {
+  color: var(--msb-palette-icon) !important;
+  stroke: currentColor !important;
+}
+
+/* Organization portal — shamcey left nav + feed history sidebar */
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html[data-msb-appearance] .sh-sideleft-menu .nav-sub .nav-link:hover,
+html[data-msb-appearance] .feed-sidebar .sidebar-item:hover {
+  background-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-text-on-nav-hover, var(--msb-palette-text-on-hover)) !important;
+}
+
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:hover .icon,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"],
+html[data-msb-appearance] .feed-sidebar .sidebar-item:hover .sidebar-subject,
+html[data-msb-appearance] .feed-sidebar .sidebar-item:hover .sidebar-meta,
+html[data-msb-appearance] .feed-sidebar .sidebar-item:hover .sidebar-chip {
+  color: var(--msb-palette-icon-on-nav-hover, var(--msb-palette-icon-on-hover)) !important;
+}
+
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(:hover),
+html[data-msb-appearance] .feed-sidebar .sidebar-item.is-active:not(:hover) {
+  background-color: var(--msb-palette-nav-active-bg) !important;
+  color: var(--msb-palette-nav-active-text) !important;
+}
+
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(:hover) span,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(:hover) .icon,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(:hover) [class*="ion-"],
+html[data-msb-appearance] .feed-sidebar .sidebar-item.is-active:not(:hover) .sidebar-subject {
+  color: var(--msb-palette-nav-active-icon) !important;
+}
+
+html[data-msb-appearance] .feed-sidebar .sidebar-item.is-active:not(:hover) .sidebar-meta,
+html[data-msb-appearance] .feed-sidebar .sidebar-item.is-active:not(:hover) .sidebar-chip {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:not(:hover):not(.active),
+html[data-msb-appearance] .sh-sideleft-menu .nav-sub .nav-link:not(:hover):not(.active),
+html[data-msb-appearance] .feed-sidebar .sidebar-item:not(:hover):not(.is-active) {
+  color: var(--msb-palette-text-on-nav) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:not(:hover):not(.active) span,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:not(:hover):not(.active) .icon,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:not(:hover):not(.active) [class*="ion-"],
+html[data-msb-appearance] .feed-sidebar .sidebar-item:not(:hover):not(.is-active) .sidebar-subject {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .feed-sidebar .sidebar-item:not(:hover):not(.is-active) .sidebar-meta,
+html[data-msb-appearance] .feed-sidebar .sidebar-item:not(:hover):not(.is-active) .sidebar-chip {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+/* Reset shamcey :focus after hover moves to next item */
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:hover),
+html[data-msb-appearance] .sh-sideleft-menu .nav-sub .nav-link:focus:not(:hover),
+html[data-msb-appearance] .feed-sidebar .sidebar-item:focus:not(:hover) {
+  color: var(--msb-palette-text-on-nav) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:hover) span,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:hover) .icon,
+html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:hover) [class*="ion-"],
+html[data-msb-appearance] .feed-sidebar .sidebar-item:focus:not(:hover) .sidebar-subject {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .feed-sidebar .sidebar-item:focus:not(:hover) .sidebar-meta,
+html[data-msb-appearance] .feed-sidebar .sidebar-item:focus:not(:hover) .sidebar-chip {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+/* Feed stories header — icons/buttons contrast like nav */
+html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn,
+html[data-msb-appearance] .ig-feed-header .ig-stories-brand,
+html[data-msb-appearance] .ig-feed-header .ig-top-act {
+  color: var(--msb-palette-text) !important;
+  background: transparent !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn .fa,
+html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn .icon,
+html[data-msb-appearance] .ig-feed-header .ig-top-mic .fa,
+html[data-msb-appearance] .ig-feed-header .ig-top-live .fa,
+html[data-msb-appearance] .ig-feed-header .ig-top-live i {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-top-live span {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-top-mic,
+html[data-msb-appearance] .ig-feed-header .ig-top-live {
+  border: 1px solid var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-story-create .ig-story-ring-create {
+  background: transparent !important;
+  border: 2px solid var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-story-create .ig-story-ring-create .icon,
+html[data-msb-appearance] .ig-feed-header .ig-story-create .ig-story-ring-create [class*="ion-"] {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-story-ring-empty {
+  background: transparent !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-story-empty-icon {
+  background: transparent !important;
+  border: 2px solid var(--msb-palette-border-strong) !important;
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-story-empty-icon .icon,
+html[data-msb-appearance] .ig-feed-header .ig-story-empty-icon [class*="ion-"] {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-story-name,
+html[data-msb-appearance] .ig-feed-header .ig-story-empty .ig-story-name {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover,
+html[data-msb-appearance] .ig-feed-header .ig-top-mic:hover,
+html[data-msb-appearance] .ig-feed-header .ig-top-live:hover,
+html[data-msb-appearance] .ig-feed-header .ig-story-create:hover .ig-story-ring-create,
+html[data-msb-appearance] .ig-feed-header .ig-story-create:focus-visible .ig-story-ring-create {
+  background-color: var(--msb-palette-nav-hover) !important;
+  border-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-text-on-nav-hover) !important;
+  opacity: 1 !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover .fa,
+html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover .icon,
+html[data-msb-appearance] .ig-feed-header .ig-top-mic:hover .fa,
+html[data-msb-appearance] .ig-feed-header .ig-top-live:hover .fa,
+html[data-msb-appearance] .ig-feed-header .ig-top-live:hover i,
+html[data-msb-appearance] .ig-feed-header .ig-top-live:hover span,
+html[data-msb-appearance] .ig-feed-header .ig-story-create:hover .ig-story-ring-create .icon,
+html[data-msb-appearance] .ig-feed-header .ig-story-create:hover .ig-story-ring-create [class*="ion-"],
+html[data-msb-appearance] .ig-feed-header .ig-story-create:focus-visible .ig-story-ring-create .icon,
+html[data-msb-appearance] .ig-feed-header .ig-story-create:focus-visible .ig-story-ring-create [class*="ion-"] {
+  color: var(--msb-palette-icon-on-nav-hover) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-stories-next {
+  color: var(--msb-palette-icon) !important;
+  background: transparent !important;
+  border: 1px solid var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] .ig-feed-header .ig-stories-next:hover {
+  background-color: var(--msb-palette-nav-hover) !important;
+  border-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-icon-on-nav-hover) !important;
+}
+
+/* Feed chrome — icon rail, side nav, post actions use chromatic palette ink */
+html[data-msb-appearance] .feed-ig-rail .feed-ig-btn,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-link,
+html[data-msb-appearance] .feed-ig-rail .ig-stories-menu-btn,
+html[data-msb-appearance] .feed-ig-rail .ig-link {
+  color: var(--msb-palette-text-on-nav) !important;
+}
+html[data-msb-appearance] .feed-ig-rail .feed-ig-btn .icon,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-btn .fa,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-link .icon,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-link .fa,
+html[data-msb-appearance] .feed-ig-rail .ig-stories-menu-btn .fa,
+html[data-msb-appearance] .feed-ig-rail .ig-link .icon,
+html[data-msb-appearance] .feed-ig-rail .ig-link .fa {
+  color: var(--msb-palette-icon) !important;
+}
+html[data-msb-appearance] .feed-left-rail .feed-left-nav-item:not(:hover):not(.is-active),
+html[data-msb-appearance] .feed-right-rail .feed-right-nav-item:not(:hover):not(.is-active) {
+  color: var(--msb-palette-text-on-nav) !important;
+  background-color: transparent !important;
+}
+html[data-msb-appearance] .feed-left-rail .feed-left-nav-item:not(:hover):not(.is-active) .feed-left-nav-ic,
+html[data-msb-appearance] .feed-left-rail .feed-left-nav-item:not(:hover):not(.is-active) .feed-left-nav-label,
+html[data-msb-appearance] .feed-left-rail .feed-left-nav-item:not(:hover):not(.is-active) .feed-left-nav-ic svg,
+html[data-msb-appearance] .feed-right-rail .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-ic,
+html[data-msb-appearance] .feed-right-rail .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-label,
+html[data-msb-appearance] .feed-right-rail .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-ic svg {
+  color: var(--msb-palette-icon) !important;
+  stroke: currentColor !important;
+}
+html[data-msb-appearance] .feed-left-rail .feed-left-nav-item.is-active:not(:hover),
+html[data-msb-appearance] .feed-right-rail .feed-right-nav-item.is-active:not(:hover) {
+  background-color: var(--msb-palette-nav-active-bg) !important;
+  color: var(--msb-palette-nav-active-text) !important;
+}
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share),
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share) .fa,
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share) .icon,
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share) .mf-num {
+  color: var(--msb-palette-icon) !important;
+}
+
+/* Feed/mobile post cards — unified palette surface (not white) */
+html[data-msb-appearance] {
+  --feed-surface: var(--msb-palette-bg);
+  --feed-surface-alt: var(--msb-palette-bg);
+  --feed-surface-strong: var(--msb-palette-bg);
+  --feed-border: var(--msb-palette-border);
+  --feed-border-strong: var(--msb-palette-border-strong);
+  --feed-text: var(--msb-palette-text);
+  --feed-muted: var(--msb-palette-text-muted);
+  --feed-soft-text: var(--msb-palette-text-muted);
+  --feed-topbar-bg: var(--msb-palette-bg);
+  --feed-topbar-text: var(--msb-palette-text);
+  --feed-control-bg: var(--msb-palette-bg);
+  --feed-control-soft: var(--msb-palette-bg);
+  --feed-control-border: var(--msb-palette-border-strong);
+  --feed-control-placeholder: var(--msb-palette-placeholder);
+  --feed-page-bg: var(--msb-palette-bg);
+  --public-surface: var(--msb-palette-bg);
+  --public-surface-alt: var(--msb-palette-bg);
+  --public-surface-strong: var(--msb-palette-bg);
+  --public-post-card-surface: var(--msb-palette-bg);
+  --public-border: var(--msb-palette-border);
+  --public-border-strong: var(--msb-palette-border-strong);
+  --public-text: var(--msb-palette-text);
+  --public-muted: var(--msb-palette-text-muted);
+  --public-soft-text: var(--msb-palette-text-muted);
+  --public-topbar-bg: var(--msb-palette-bg);
+  --public-topbar-text: var(--msb-palette-text);
+  --public-sidebar-bg: var(--msb-palette-bg);
+  --public-sidebar-hover: var(--msb-palette-hover-bg);
+  --public-control-bg: var(--msb-palette-bg);
+  --public-control-soft: var(--msb-palette-bg);
+  --public-control-border: var(--msb-palette-border-strong);
+  --public-control-placeholder: var(--msb-palette-placeholder);
+  --public-post-card-border: var(--msb-palette-border);
+}
+
+html[data-msb-appearance] body,
+html[data-msb-appearance][data-theme="dark"] body,
+html[data-msb-appearance] body.dark-auto {
+  --feed-surface: var(--msb-palette-bg) !important;
+  --feed-surface-alt: var(--msb-palette-bg) !important;
+  --feed-surface-strong: var(--msb-palette-bg) !important;
+  --feed-text: var(--msb-palette-text) !important;
+  --feed-muted: var(--msb-palette-text-muted) !important;
+  --public-surface: var(--msb-palette-bg) !important;
+  --public-surface-alt: var(--msb-palette-bg) !important;
+  --public-surface-strong: var(--msb-palette-bg) !important;
+  --public-post-card-surface: var(--msb-palette-bg) !important;
+  --public-text: var(--msb-palette-text) !important;
+  --public-muted: var(--msb-palette-text-muted) !important;
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .mf-card,
+html[data-msb-appearance] .mf-feed .mf-card,
+html[data-msb-appearance] body .mf-feed .mf-card,
+html[data-msb-appearance] .ig-insta-card,
+html[data-msb-appearance] .ig-insta-card .ig-insta-header,
+html[data-msb-appearance] .ig-insta-card .ig-insta-caption-block,
+html[data-msb-appearance] .ig-insta-card .ig-insta-dots-host,
+html[data-msb-appearance] .ig-insta-card .ig-insta-actionbar,
+html[data-msb-appearance] .ig-post-card,
+html[data-msb-appearance] .ig-post-shell .card,
+html[data-msb-appearance] .ig-post-shell .card-body {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .mf-card .mf-name,
+html[data-msb-appearance] .mf-card .mf-time,
+html[data-msb-appearance] .ig-insta-card .ig-insta-username,
+html[data-msb-appearance] .ig-insta-card .ig-insta-username a,
+html[data-msb-appearance] .ig-insta-card .ig-insta-time,
+html[data-msb-appearance] .ig-insta-card .ig-insta-caption-block .ig-title {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .mf-card .mf-menu-btn,
+html[data-msb-appearance] .ig-insta-card .ig-insta-more {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] .mf-card .mf-actions .icon,
+html[data-msb-appearance] .mf-card .mf-actions [class*="ion-"],
+html[data-msb-appearance] .mf-card .mf-actions .fa,
+html[data-msb-appearance] .ig-insta-card .ig-insta-actions-left .ig-circle i,
+html[data-msb-appearance] .ig-insta-card .ig-insta-actions-right .ig-circle i {
+  color: var(--msb-palette-icon) !important;
+}
+
+/* Create post modal shell + dashboard iframe form */
+html[data-msb-appearance] .create-post-dialog,
+html[data-msb-appearance] .create-post-body,
+html[data-msb-appearance] .create-post-frame,
+html[data-msb-appearance] body.dashboard-page,
+html[data-msb-appearance] body.dashboard-page .sh-mainpanel,
+html[data-msb-appearance] body.dashboard-page .sh-pagebody,
+html[data-msb-appearance] body.dashboard-page .sh-pagetitle,
+html[data-msb-appearance] body.dashboard-page .row,
+html[data-msb-appearance] body.dashboard-page .row-sm,
+html[data-msb-appearance] body.dashboard-page .col-lg-12,
+html[data-msb-appearance] body.dashboard-page .card,
+html[data-msb-appearance] body.dashboard-page .card-body,
+html[data-msb-appearance] body.dashboard-page .card-header,
+html[data-msb-appearance] body.dashboard-page .card-footer,
+html[data-msb-appearance] body.dashboard-page .card.mb-3,
+html[data-msb-appearance] body.dashboard-modal-page,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .sh-mainpanel,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .sh-pagebody,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .row,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .row-sm,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .col-lg-12,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .card,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .card-body,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .card.mb-3 {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .create-post-topbar {
+  background-color: var(--msb-palette-btn-bg) !important;
+  color: var(--msb-palette-btn-text) !important;
+}
+
+html[data-msb-appearance] .create-post-title,
+html[data-msb-appearance] .create-post-close {
+  color: var(--msb-palette-btn-text) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page label,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page h6,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .card-title,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .form-check-label {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .text-muted,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page small,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .small {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .alert,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .alert-info {
+  background-color: var(--msb-palette-hover-bg) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .form-control,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page select.form-control,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page textarea.form-control {
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .form-control::placeholder {
+  color: var(--msb-palette-placeholder) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .msb-readonly-field {
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border: 2px solid var(--msb-palette-border-strong) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .btn-outline-primary {
+  color: var(--msb-palette-btn-secondary-text) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .btn-outline-primary:hover,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .btn-outline-primary:focus {
+  background-color: var(--msb-palette-nav-hover) !important;
+  border-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-text-on-hover) !important;
+}
+
+/* Primary / accent buttons — dark fill, light label on bright palettes */
+html[data-msb-appearance] .btn-primary,
+html[data-msb-appearance] .bg-primary,
+html[data-msb-appearance] .card-header.bg-primary,
+html[data-msb-appearance] .bubble.me {
+  background-color: var(--msb-palette-btn-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-btn-text) !important;
+  border-color: var(--msb-palette-btn-bg) !important;
+}
+
+/* Incoming chat bubbles — light palette tint + dark chromatic text */
+html[data-msb-appearance] .msg-row:not(.me) .bubble:not(.has-media),
+html[data-msb-appearance] .conv-history .bubble:not(.me):not(.has-media),
+html[data-msb-appearance] #chatBox .bubble:not(.me):not(.has-media) {
+  background-color: var(--msb-palette-bubble-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-bubble-text) !important;
+  border-color: var(--msb-palette-bubble-border) !important;
+  box-shadow: none !important;
+}
+html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msgText,
+html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msg-edited {
+  color: var(--msb-palette-bubble-text) !important;
+}
+html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msg-meta {
+  color: var(--msb-palette-bubble-meta) !important;
+}
+html[data-msb-appearance] .bubble:not(.me) .msg-reply-line {
+  background-color: var(--msb-palette-bubble-reply-bg) !important;
+  border-left-color: var(--msb-palette-border-strong) !important;
+}
+html[data-msb-appearance] .bubble:not(.me) .msg-reply-line-title {
+  color: var(--msb-palette-bubble-text) !important;
+}
+html[data-msb-appearance] .bubble:not(.me) .msg-reply-line-text {
+  color: var(--msb-palette-bubble-meta) !important;
+}
+
+/* Feed/public search — icon inside input follows palette ink */
+html[data-msb-appearance] .feed-top-search-icon,
+html[data-msb-appearance] .public-publisher-search button[type="submit"],
+html[data-msb-appearance] .public-publisher-search button {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--msb-palette-icon) !important;
+  border-color: transparent !important;
+}
+html[data-msb-appearance] .feed-top-search-icon:hover,
+html[data-msb-appearance] .feed-top-search-icon:focus,
+html[data-msb-appearance] .public-publisher-search button:hover,
+html[data-msb-appearance] .public-publisher-search button:focus {
+  background-color: var(--msb-palette-nav-hover) !important;
+  border-color: transparent !important;
+  color: var(--msb-palette-icon-on-nav-hover) !important;
+  filter: none !important;
+}
+html[data-msb-appearance] .feed-top-search-input:focus {
+  border-color: var(--msb-palette-border-strong) !important;
+  box-shadow: 0 0 0 3px var(--msb-palette-nav-hover) !important;
+}
+
+/* Messages tabs — light soft fill */
+html[data-msb-appearance] .messages-shell-tab.active {
+  background-color: var(--msb-palette-action-soft) !important;
+  background-image: none !important;
+  color: var(--msb-palette-action) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  box-shadow: none !important;
+}
+
+/* Profile edit actions — light soft fill, not dark primary */
+html[data-msb-appearance] .about-edit-btn,
+html[data-msb-appearance] .gear-open-edit {
+  background-color: var(--msb-palette-action-soft) !important;
+  background-image: none !important;
+  color: var(--msb-palette-action) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  box-shadow: none !important;
+}
+
+/* Brand logo — palette gradient + white mark */
+html[data-msb-appearance] .feed-ig-logo,
+html[data-msb-appearance] .ig-logo {
+  background: linear-gradient(135deg, var(--msb-palette-action), var(--msb-palette-accent)) !important;
+  background-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18) !important;
+  border: 0 !important;
+}
+
+html[data-msb-appearance] .feed-ig-logo:hover,
+html[data-msb-appearance] .feed-ig-logo:focus,
+html[data-msb-appearance] .ig-logo:hover,
+html[data-msb-appearance] .ig-logo:focus {
+  background: linear-gradient(135deg, var(--msb-palette-action-strong), var(--msb-palette-action)) !important;
+  color: #ffffff !important;
+}
+
+html[data-msb-appearance] .feed-ig-rail {
+  border-right:none !important;
+  background-color:var(--msb-palette-bg) !important;
+  color:var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] .feed-ig-rail .feed-ig-logo-label,
+html[data-msb-appearance] a.feed-ig-logo-label {
+  color: var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;
+  background: transparent !important;
+  display: block !important;
+  max-width: 72px !important;
+  width: 100% !important;
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+  text-decoration: none !important;
+}
+
+html[data-msb-appearance] .btn-primary:hover,
+html[data-msb-appearance] .btn-primary:focus,
+html[data-msb-appearance] .bg-primary:hover {
+  background-color: var(--msb-palette-btn-hover-bg) !important;
+  border-color: var(--msb-palette-btn-hover-bg) !important;
+  color: var(--msb-palette-btn-text) !important;
+}
+
+html[data-msb-appearance] .messages-shell-tab.active:hover {
+  background-color: var(--msb-palette-nav-hover) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  color: var(--msb-palette-action-strong) !important;
+}
+
+html[data-msb-appearance] .about-edit-btn:hover,
+html[data-msb-appearance] .about-edit-btn:focus,
+html[data-msb-appearance] .gear-open-edit:hover,
+html[data-msb-appearance] .gear-open-edit:focus {
+  background-color: var(--msb-palette-nav-hover) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  color: var(--msb-palette-action-strong) !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] .btn,
+html[data-msb-appearance] .btn-light,
+html[data-msb-appearance] .btn-white,
+html[data-msb-appearance] .btn-soft,
+html[data-msb-appearance] .btn-outline-secondary {
+  color: var(--msb-palette-btn-secondary-text) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] img,
+html[data-msb-appearance] video,
+html[data-msb-appearance] canvas,
+html[data-msb-appearance] iframe,
+html[data-msb-appearance] svg {
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] .create-post-modal,
+html[data-msb-appearance] .global-live-modal,
+html[data-msb-appearance] .modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.55) !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-left .ig-circle i,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-right .ig-circle i,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-more,
+html[data-msb-appearance] .mf-card .mf-actions .icon,
+html[data-msb-appearance] .mf-card .mf-actions .fa,
+html[data-msb-appearance] .mf-card .mf-actions [class*="ion-"],
+html[data-msb-appearance] .post.public-post-card .more-btn,
+html[data-msb-appearance] .post.public-post-card .standard-media-bottom .standard-media-more,
+html[data-msb-appearance] .post.public-post-card .action-btn i,
+html[data-msb-appearance] .standard-text-btn i {
+  color: var(--msb-palette-icon) !important;
+  fill: currentColor !important;
+}
+
+/* Beat dark-auto + feed.php hardcoded card surfaces when named palette is active */
+html[data-msb-appearance] body.dark-auto .card,
+html[data-msb-appearance] body.dark-auto .card-header,
+html[data-msb-appearance] body.dark-auto .card-body,
+html[data-msb-appearance] body.dark-auto .card-footer,
+html[data-msb-appearance] html.dark-auto .card-header,
+html[data-msb-appearance] body.dark-auto .mf-card,
+html[data-msb-appearance] body.feed-insta-ui .desktop-only .ig-insta-card.ig-post-card,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .card-header,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-caption-block,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actionbar,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actionbar.ig-underbar,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .card-body,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-viewer-body,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-details,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-tools-flyout,
+html[data-msb-appearance] body .mf-feed .mf-card,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-head:not(.mf-head--on-media),
+html[data-msb-appearance] body .mf-feed .mf-card .mf-foot,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-actions,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-title,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-body,
+html[data-msb-appearance] .post.public-post-card,
+html[data-msb-appearance] .post.public-post-card .post-header,
+html[data-msb-appearance] .post.public-post-card .actions,
+html[data-msb-appearance] .post.public-post-card .post-copy,
+html[data-msb-appearance] .standard-text-card,
+html[data-msb-appearance] .standard-text-topbar,
+html[data-msb-appearance] .ig-post-card .card-header,
+html[data-msb-appearance] .mf-card .mf-head:not(.mf-head--on-media),
+html[data-msb-appearance] .mf-card .mf-foot,
+html[data-msb-appearance] .mf-card .mf-actions,
+html[data-msb-appearance] .mf-card .mf-title,
+html[data-msb-appearance] .mf-card .mf-body {
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-actions,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-actions,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-actions,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-actions {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn .action-count,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn .action-count,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn .action-count,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn .action-count {
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55) !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-username,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-username a,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header .ig-insta-username a,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-more,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-left .ig-count,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-right .ig-count,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-likes-row,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-caption-block,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-name,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-title,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-menu-btn,
+html[data-msb-appearance] .post.public-post-card .head-meta .name,
+html[data-msb-appearance] .post.public-post-card .post-author-link,
+html[data-msb-appearance] .post.public-post-card .standard-text-name,
+html[data-msb-appearance] .mf-card .mf-name,
+html[data-msb-appearance] .mf-card .mf-title,
+html[data-msb-appearance] .mf-card .mf-menu-btn {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-time,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-dot,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-time,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-dot,
+html[data-msb-appearance] .mf-card .mf-time,
+html[data-msb-appearance] .mf-card .mf-dot,
+html[data-msb-appearance] .post.public-post-card .head-meta .time,
+html[data-msb-appearance] .post.public-post-card .standard-media-bottom .standard-media-time,
+html[data-msb-appearance] .post.public-post-card .standard-text-time {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-left .ig-circle,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-right .ig-circle,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-underbar .ig-circle {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-left .ig-circle i,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-right .ig-circle i,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-more,
+html[data-msb-appearance] .mf-card .mf-actions .icon,
+html[data-msb-appearance] .mf-card .mf-actions .fa,
+html[data-msb-appearance] .mf-card .mf-actions [class*="ion-"],
+html[data-msb-appearance] .post.public-post-card .more-btn,
+html[data-msb-appearance] .post.public-post-card .standard-media-bottom .standard-media-more,
+html[data-msb-appearance] .post.public-post-card .action-btn i,
+html[data-msb-appearance] .standard-text-btn i {
+  color: var(--msb-palette-icon) !important;
+  fill: currentColor !important;
+}
+
+html[data-msb-appearance].dark-auto,
+html[data-msb-appearance].dark-auto body,
+html[data-msb-appearance].dark-auto .sh-mainpanel,
+html[data-msb-appearance].dark-auto .sh-pagebody,
+html[data-msb-appearance].dark-auto .feed-card,
+html[data-msb-appearance].dark-auto .card,
+html[data-msb-appearance].dark-auto .card-header,
+html[data-msb-appearance].dark-auto .card-body,
+html[data-msb-appearance].dark-auto .card-footer,
+html[data-msb-appearance] body.dark-auto .card,
+html[data-msb-appearance] body.dark-auto .card-header,
+html[data-msb-appearance] body.dark-auto .card-body,
+html[data-msb-appearance] body.dark-auto .card-footer {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+/* Feed post cards — beat feed.php hardcoded white/black + dark-auto */
+html[data-msb-appearance] body.feed-insta-ui .desktop-only .ig-insta-card.ig-post-card,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-caption-block,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actionbar,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actionbar.ig-underbar,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .card-body,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-viewer-body,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-details,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-tools-flyout,
+html[data-msb-appearance] .ig-post-card .card-header,
+html[data-msb-appearance] .mf-card .mf-head:not(.mf-head--on-media),
+html[data-msb-appearance] .mf-card .mf-foot,
+html[data-msb-appearance] .mf-card .mf-actions,
+html[data-msb-appearance] .mf-card .mf-title,
+html[data-msb-appearance] .mf-card .mf-body {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-username,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-username a,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header .ig-insta-username a,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-more,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-left .ig-count,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-right .ig-count,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-likes-row,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-caption-block,
+html[data-msb-appearance] .mf-card .mf-name,
+html[data-msb-appearance] .mf-card .mf-title,
+html[data-msb-appearance] .mf-card .mf-menu-btn {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-time,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-dot,
+html[data-msb-appearance] .mf-card .mf-time,
+html[data-msb-appearance] .mf-card .mf-dot {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-left .ig-circle,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-right .ig-circle,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-underbar .ig-circle {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-left .ig-circle i,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-actions-right .ig-circle i,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-more,
+html[data-msb-appearance] .mf-card .mf-actions .icon,
+html[data-msb-appearance] .mf-card .mf-actions .fa,
+html[data-msb-appearance] .mf-card .mf-actions [class*="ion-"] {
+  color: var(--msb-palette-icon) !important;
+  fill: currentColor !important;
+}
+
+/* Light foreground on dark named palettes */
+html[data-msb-appearance].msb-palette-light-fg .icon,
+html[data-msb-appearance].msb-palette-light-fg i.icon,
+html[data-msb-appearance].msb-palette-light-fg [class*="ion-"],
+html[data-msb-appearance].msb-palette-light-fg .fa {
+  color: var(--msb-palette-icon, #f8fafc) !important;
+}
+
+/* Media overlay header — transparent on image, not palette wheat */
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar .standard-media-author,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar a:hover,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar .standard-media-author:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar .standard-media-name,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar .standard-media-time,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar .standard-media-author,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar a:hover .standard-media-name,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar a:hover .standard-media-time {
+  color: #fff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .34);
+}
+
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar .standard-media-more,
+html[data-msb-appearance] body .post.public-post-card .standard-media-topbar .standard-media-more i {
+  color: #fff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .34);
+  margin-right: -20px;
+}
+
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-peer-link,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-meta,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media a:hover,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-peer-link:hover,
+html[data-msb-appearance] body .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+html[data-msb-appearance] body .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+html[data-msb-appearance] body .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media,
+html[data-msb-appearance] body.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+html[data-msb-appearance] body.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+html[data-msb-appearance] body.dark-auto .mf-feed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-name,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-time,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-dot,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-menu-btn,
+html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head--on-media .mf-menu-btn i {
+  color: #fff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .34);
+}
+
+html[data-msb-appearance] body.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage,
+html[data-msb-appearance] body.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > img,
+html[data-msb-appearance] body.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > video,
+html[data-msb-appearance] body.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > .media-carousel,
+html[data-msb-appearance] body.dark-auto.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage,
+html[data-msb-appearance] body.dark-auto.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > img,
+html[data-msb-appearance] body.dark-auto.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > video,
+html[data-msb-appearance] body.dark-auto.news-page .post.public-post-card:has(.standard-media-topbar) .media-stage > .media-carousel {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-actions,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-actions,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-actions,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-actions {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn .action-count,
+html[data-msb-appearance] .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn .action-count,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn i,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-bottom .standard-media-btn .action-count,
+html[data-msb-appearance] body.news-page .post.public-post-card[data-is-publisher="1"] .public-media-shell > .standard-media-bottom .standard-media-btn .action-count {
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55) !important;
+}
+
+html[data-msb-appearance] body #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+html[data-msb-appearance] body #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+html[data-msb-appearance] body #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media,
+html[data-msb-appearance] body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell,
+html[data-msb-appearance] body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .media-stage,
+html[data-msb-appearance] body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-media-shell .mf-media {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Post card header — no dark hover background on author row */
+html[data-msb-appearance] body .mf-feed .mf-card .mf-head:not(.mf-head--on-media) a:hover,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-head:not(.mf-head--on-media) .mf-peer-link:hover,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header a:hover,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .card-header a:hover,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header .ig-insta-username a:hover,
+html[data-msb-appearance] body .post.public-post-card .post-header a:hover,
+html[data-msb-appearance] body .post.public-post-card .post-author-link:hover,
+html[data-msb-appearance] body .post.public-post-card .standard-text-topbar a:hover {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body .mf-feed .mf-card .mf-head:not(.mf-head--on-media) a:hover .mf-name,
+html[data-msb-appearance] body .mf-feed .mf-card .mf-head:not(.mf-head--on-media) a:hover .mf-time,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header a:hover,
+html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-header .ig-insta-username a:hover,
+html[data-msb-appearance] body .post.public-post-card .post-header a:hover .name,
+html[data-msb-appearance] body .post.public-post-card .post-author-link:hover .name,
+html[data-msb-appearance] body .post.public-post-card .standard-text-topbar a:hover .standard-text-name {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body .mf-feed .mf-card .mf-head:not(.mf-head--on-media) a:hover .mf-time,
+html[data-msb-appearance] body .post.public-post-card .post-header a:hover .time {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+/* Profile page — use selected appearance palette instead of hardcoded white */
+html[data-msb-appearance] body.profile-page,
+html[data-msb-appearance] body.profile-page .sh-mainpanel,
+html[data-msb-appearance] body.profile-page .sh-pagebody,
+html[data-msb-appearance] body.profile-page .ig-wrap,
+html[data-msb-appearance] body.profile-page .ig-profile-shell,
+html[data-msb-appearance] body.profile-page .ig-profile-head,
+html[data-msb-appearance] body.profile-page .ig-profile-scroll,
+html[data-msb-appearance] body.profile-page .ig-highlights,
+html[data-msb-appearance] body.profile-page .ig-tabs,
+html[data-msb-appearance] body.profile-page .profile-panel,
+html[data-msb-appearance] body.profile-page .coming-wrap,
+html[data-msb-appearance] body.profile-page .ig-card,
+html[data-msb-appearance] body.profile-page .ig-gallery-search input,
+html[data-msb-appearance] body.profile-page .ig-gallery-filter select,
+html[data-msb-appearance] body.profile-page .ig-btn:not(.publisher-follow-btn.is-following),
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-card,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-head:not(.mf-head--on-media),
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-title,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-actions,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-foot,
+html[data-msb-appearance] body.profile-page .mf-feed-empty,
+html[data-msb-appearance] body.profile-page .about-head,
+html[data-msb-appearance] body.profile-page .about-card,
+html[data-msb-appearance] body.profile-page .about-note,
+html[data-msb-appearance] body.profile-page .about-wrap,
+html[data-msb-appearance] body.profile-page .coming-card,
+html[data-msb-appearance] body.profile-page .gear-wrap,
+html[data-msb-appearance] body.profile-page .gear-shell,
+html[data-msb-appearance] body.profile-page .gear-sidebar,
+html[data-msb-appearance] body.profile-page .gear-sidebar-head,
+html[data-msb-appearance] body.profile-page .gear-main,
+html[data-msb-appearance] body.profile-page .gear-hero,
+html[data-msb-appearance] body.profile-page .gear-quick a,
+html[data-msb-appearance] body.profile-page .gear-card,
+html[data-msb-appearance] body.profile-page .gear-row,
+html[data-msb-appearance] body.profile-page .gear-control,
+html[data-msb-appearance] body.profile-page .gear-note,
+html[data-msb-appearance] body.profile-page .profile-cover-badge {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.profile-page .about-ico,
+html[data-msb-appearance] body.profile-page .about-head .mini-avatar,
+html[data-msb-appearance] body.profile-page .gear-hero-icon,
+html[data-msb-appearance] body.profile-page .gear-card-icon,
+html[data-msb-appearance] body.profile-page .gear-row-icon,
+html[data-msb-appearance] body.profile-page .gear-chip,
+html[data-msb-appearance] body.profile-page .gear-tag {
+  background-color: var(--msb-palette-hover-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-link) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.profile-page .about-note,
+html[data-msb-appearance] body.profile-page .gear-note,
+html[data-msb-appearance] body.profile-page .coming-card {
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text-muted) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-username,
+html[data-msb-appearance] body.profile-page .ig-stat,
+html[data-msb-appearance] body.profile-page .ig-bio,
+html[data-msb-appearance] body.profile-page .ig-tab,
+html[data-msb-appearance] body.profile-page .ig-tab.active,
+html[data-msb-appearance] body.profile-page .about-head .nm,
+html[data-msb-appearance] body.profile-page .about-card .v,
+html[data-msb-appearance] body.profile-page .about-title,
+html[data-msb-appearance] body.profile-page .gear-title,
+html[data-msb-appearance] body.profile-page .gear-card-title,
+html[data-msb-appearance] body.profile-page .gear-row-title,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-name,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-title,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-bio .muted,
+html[data-msb-appearance] body.profile-page .ig-tab:not(.active),
+html[data-msb-appearance] body.profile-page .about-head .sub,
+html[data-msb-appearance] body.profile-page .about-card .k,
+html[data-msb-appearance] body.profile-page .gear-sub,
+html[data-msb-appearance] body.profile-page .gear-card-desc,
+html[data-msb-appearance] body.profile-page .gear-row-meta,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-time {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act .mf-num,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act .fa {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-love,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-love .fa,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-love .mf-num {
+  color: #ea445a !important;
+}
+
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-save .fa {
+  color: #f5c518 !important;
+}
+
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-share .fa {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab.active {
+  border-top-color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tabs {
+  border-top-color: var(--msb-palette-border) !important;
+}
+
+/* Leftbar doors (comments / read-more / menu) — match selected appearance palette */
+html[data-msb-appearance] #ttLeftbarOverlays{
+  background:transparent !important;
+  background-color:transparent !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-readmore-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-list,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-foot,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-body,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-head,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-body,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-head,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-body {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-name,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-text,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-body,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-head .title {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head .count,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-name,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-meta,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-sub,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-list .text-muted {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-email,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-code,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-close,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-iconbtn {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-close:hover,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-iconbtn:hover {
+  background-color: var(--msb-palette-nav-hover) !important;
+}
+
+/* Rightbar story door — match selected appearance palette */
+html[data-msb-appearance] #ttRightbarOverlays{
+  background:transparent !important;
+  background-color:transparent !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap.tt-stories-right-wrap,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-scroll-panel.is-full,
+html[data-msb-appearance] #tt-stories-wrap.has-story-text .tt-stories-media.is-text-backdrop,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-panel,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-foot {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-stage,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-media,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-media-buffer {
+  background-color: #000 !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap.has-story-text .tt-stories-media.is-text-backdrop .tt-stories-media-buffer.is-front {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-meta,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-name,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-scroll-inner,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-textarea,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-send,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-pill,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action .tt-stories-action-count,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-head h3,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-name,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-text,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-input-wrap input {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-gif {
+  color: var(--msb-palette-text-muted) !important;
+  border-color: var(--msb-palette-border) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-send {
+  color: var(--msb-palette-icon) !important;
+  background-color: var(--msb-palette-hover-bg) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-close {
+  color: var(--msb-palette-icon) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav {
+  color: var(--msb-palette-icon) !important;
+  background-color: var(--msb-palette-hover-bg) !important;
+  border-color: var(--msb-palette-border) !important;
+  box-shadow: inset 0 0 0 1px var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-empty,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-time,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-empty,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-reply-btn,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-view-replies,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-like-count,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-replying {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-textarea,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-pill,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-input-wrap,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-avatar,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-avatar,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-me-avatar {
+  background-color: var(--msb-palette-hover-bg) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-textarea::placeholder,
+html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-input-wrap input::placeholder {
+  color: var(--msb-palette-placeholder) !important;
+}
+
+/* Friend requests bottom sheet — match story comments popup palette */
+html[data-msb-appearance] .msb-fr-panel {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+html[data-msb-appearance] .msb-fr-head h3,
+html[data-msb-appearance] .msb-fr-name,
+html[data-msb-appearance] .msb-fr-close {
+  color: var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] .msb-fr-time,
+html[data-msb-appearance] .msb-fr-sub,
+html[data-msb-appearance] .msb-fr-empty {
+  color: var(--msb-palette-text-muted) !important;
+}
+html[data-msb-appearance] .msb-fr-decline {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] .msb-fr-row {
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-pill i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-send i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl i {
+  color: var(--msb-palette-icon) !important;
+}
+
+/* Messages — selected appearance palette on the main panel ("door"), not hardcoded white */
+html[data-msb-appearance] body,
+html[data-msb-appearance] .sh-pagebody,
+html[data-msb-appearance] .messages-shell,
+html[data-msb-appearance] .messages-shell-head,
+html[data-msb-appearance] .chat-card,
+html[data-msb-appearance] .chat-card-right,
+html[data-msb-appearance] .chat-card-left,
+html[data-msb-appearance] .chat-card-body,
+html[data-msb-appearance] .mailbox-body,
+html[data-msb-appearance] #chatBox,
+html[data-msb-appearance] .chat-list,
+html[data-msb-appearance] .chat-topbar,
+html[data-msb-appearance] .chat-info-panel,
+html[data-msb-appearance] .composer,
+html[data-msb-appearance] .composer-bar,
+html[data-msb-appearance] .conv-history,
+html[data-msb-appearance] .group-panel-card,
+html[data-msb-appearance] .group-list-empty,
+html[data-msb-appearance] .chat-mode-empty,
+html[data-msb-appearance] .chat-left-head {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .messages-shell-search,
+html[data-msb-appearance] .chat-search-wrap,
+html[data-msb-appearance] .messages-shell-tabs {
+  background-color: var(--msb-palette-hover-bg) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .messages-shell-action-btn,
+html[data-msb-appearance] #msgPreviewInline,
+html[data-msb-appearance] .group-panel-card,
+html[data-msb-appearance] .group-list-empty {
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .messages-shell-title,
+html[data-msb-appearance] .chat-mode-empty h3 {
+  color: var(--msg-text, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] .chat-item:hover {
+  background-color: var(--msg-panel-3, var(--msb-palette-hover-bg)) !important;
+}
+
+html[data-msb-appearance] .chat-item.active {
+  background-color: var(--msb-palette-action-soft) !important;
+}
+
+/* Messages modals / doors — selected appearance palette, not hardcoded white */
+html[data-msb-appearance] .group-create-dialog,
+html[data-msb-appearance] .gif-picker,
+html[data-msb-appearance] #emojiMenu,
+html[data-msb-appearance] #mediaModal > div > div {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .group-create-close,
+html[data-msb-appearance] .group-form-grid input[type="text"],
+html[data-msb-appearance] .group-member-option,
+html[data-msb-appearance] .group-member-chip,
+html[data-msb-appearance] .gif-search,
+html[data-msb-appearance] #emojiMenuBodyHead {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .group-create-head h3,
+html[data-msb-appearance] .group-member-option strong,
+html[data-msb-appearance] #emojiMenuBodyHead strong {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .group-create-head p,
+html[data-msb-appearance] .group-member-option span {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .group-create-dialog .btn-primary {
+  background-color: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] .group-create-dialog .btn-primary:hover {
+  background-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-action-strong) !important;
+}
+
+/* Video / voice call — selected appearance palette instead of hardcoded black */
+html[data-msb-appearance] #videoCallOverlay,
+html[data-msb-appearance] .vcall-shell,
+html[data-msb-appearance] .vcall-header,
+html[data-msb-appearance] .vcall-stage-wrap,
+html[data-msb-appearance] .vcall-stage,
+html[data-msb-appearance] .vcall-shell.voice-mode .vcall-stage,
+html[data-msb-appearance] .vcall-empty,
+html[data-msb-appearance] .vcall-incoming,
+html[data-msb-appearance] .vcall-sidebar,
+html[data-msb-appearance] .vcall-shell.group-mode,
+html[data-msb-appearance] .vcall-shell.group-mode .vcall-stage-wrap,
+html[data-msb-appearance] .vcall-shell.group-mode .vcall-meta,
+html[data-msb-appearance] .vcall-shell.group-mode .vcall-close,
+html[data-msb-appearance] .vcall-remote-tile:not(.has-video),
+html[data-msb-appearance] .vcall-shell.group-mode.host-layout .vcall-remote-tile:not(.has-video) {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+/* Keep video tiles see-through so webcam feed is visible */
+html[data-msb-appearance] .vcall-remote-tile.has-video {
+  background-color: #0b0f16 !important;
+}
+
+html[data-msb-appearance] .vcall-remote-tile.has-video .vcall-remote-card {
+  background: transparent !important;
+  background-image: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html[data-msb-appearance] .vcall-shell.group-mode.host-layout .vcall-remote-tile.has-video .vcall-remote-card {
+  background: linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.42) 100%) !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+html[data-msb-appearance] .vcall-shell.group-mode.host-layout .vcall-remote-tile.has-video .vcall-remote-name {
+  background: rgba(15, 23, 42, 0.72) !important;
+  color: #ffffff !important;
+}
+
+html[data-msb-appearance] .vcall-kicker,
+html[data-msb-appearance] .vcall-stage-status,
+html[data-msb-appearance] .vcall-clock,
+html[data-msb-appearance] .vcall-empty-text,
+html[data-msb-appearance] .vcall-remote-status,
+html[data-msb-appearance] .vcall-sidebar-subtitle {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .vcall-name,
+html[data-msb-appearance] .vcall-empty-title,
+html[data-msb-appearance] .vcall-remote-name,
+html[data-msb-appearance] .vcall-stage-name,
+html[data-msb-appearance] .vcall-stage-local-label,
+html[data-msb-appearance] .vcall-empty-card,
+html[data-msb-appearance] .vcall-timer-chip,
+html[data-msb-appearance] .vcall-stage-chip,
+html[data-msb-appearance] .vcall-sidebar-title {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .vcall-controls,
+html[data-msb-appearance] .vcall-icon-btn,
+html[data-msb-appearance] .vcall-shell.group-mode .vcall-icon-btn,
+html[data-msb-appearance] .vcall-stage-action,
+html[data-msb-appearance] .vcall-timer-chip,
+html[data-msb-appearance] .vcall-stage-chip,
+html[data-msb-appearance] .vcall-stage-name,
+html[data-msb-appearance] .vcall-close,
+html[data-msb-appearance] .vcall-sidebar-close {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] .vcall-meeting-badge {
+  background: linear-gradient(135deg, var(--msb-palette-action), var(--msb-palette-accent)) !important;
+  color: #ffffff !important;
+}
+
+html[data-msb-appearance] .vcall-end-btn,
+html[data-msb-appearance] .vcall-shell.group-mode .vcall-end-btn {
+  background-color: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .vcall-icon-btn.is-off,
+html[data-msb-appearance] .vcall-shell.group-mode .vcall-icon-btn.is-off {
+  background-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .vcall-remote-tile.has-video video,
+html[data-msb-appearance] .vcall-remote-tile.has-video .vcall-remote-snapshot,
+html[data-msb-appearance] .vcall-local,
+html[data-msb-appearance] .vcall-remote:not(.vcall-remote-card) {
+  background-color: #0b0f16 !important;
+  object-fit: cover !important;
+}
+
+html[data-msb-appearance] .vcall-local-tile.has-video .vcall-local {
+  z-index: 1 !important;
+}
+
+html[data-msb-appearance] .vcall-local-tile.has-video .vcall-remote-card {
+  z-index: 2 !important;
+}
+
+/* Global accent — buttons, links, likes, avatars (replaces hardcoded blues on all pages) */
+html[data-msb-appearance] .friend-btn.primary,
+html[data-msb-appearance] .publisher-follow-btn.primary,
+html[data-msb-appearance] .mf-friend-btn.primary,
+html[data-msb-appearance] .pv-input button {
+  background-color: var(--msb-palette-btn-bg) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-btn-bg) !important;
+  color: var(--msb-palette-btn-text) !important;
+}
+
+html[data-msb-appearance] .friend-btn.primary:hover,
+html[data-msb-appearance] .publisher-follow-btn.primary:hover,
+html[data-msb-appearance] .mf-friend-btn.primary:hover,
+html[data-msb-appearance] .pv-input button:hover {
+  background-color: var(--msb-palette-btn-hover-bg) !important;
+  border-color: var(--msb-palette-btn-hover-bg) !important;
+  color: var(--msb-palette-btn-text) !important;
+}
+
+html[data-msb-appearance] .pv-readmore,
+html[data-msb-appearance] .mf-body .mf-readmore,
+html[data-msb-appearance] #profilePostsFeed .mf-body .mf-readmore,
+html[data-msb-appearance] .pv-com .m .link,
+html[data-msb-appearance] .pv-com .m .replies-toggle,
+html[data-msb-appearance] .c-list .c-replies-toggle,
+html[data-msb-appearance] .sheet-btn.primary,
+html[data-msb-appearance] .news-pub-panel-link,
+html[data-msb-appearance] .pub-discover-link {
+  color: var(--msb-palette-link) !important;
+}
+
+html[data-msb-appearance] .pv-act.is-like,
+html[data-msb-appearance] .pv-act.is-like i,
+html[data-msb-appearance] .pv-com .m .likebtn.is-liked,
+html[data-msb-appearance] .c-list .clikebtn.liked,
+html[data-msb-appearance] .standard-text-btn.is-like i,
+html[data-msb-appearance] .standard-media-btn.is-like i,
+html[data-msb-appearance] .action-btn.is-like i,
+html[data-msb-appearance] .reel-inline-btn.is-like i {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .about-ico,
+html[data-msb-appearance] .gear-hero-icon,
+html[data-msb-appearance] .gear-card-icon,
+html[data-msb-appearance] .gear-quick i,
+html[data-msb-appearance] .gear-chip,
+html[data-msb-appearance] .gear-upload-btn {
+  background-color: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .about-note,
+html[data-msb-appearance] .gear-note {
+  color: var(--msb-palette-link) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] .gear-control:focus {
+  border-color: var(--msb-palette-action) !important;
+  box-shadow: 0 0 0 4px var(--msb-palette-action-soft) !important;
+}
+
+html[data-msb-appearance] .mf-friend-btn:not(.is-friends):not(.is-pending):not(.is-accept),
+html[data-msb-appearance] .mf-friend-btn.primary {
+  background-color: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] .ig-insta-card .ig-insta-strip .ig-strip-item.active {
+  background: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .post-author-link:focus-visible {
+  outline-color: var(--msb-palette-action-soft) !important;
+}
+
+html[data-msb-appearance] body:not(.org-app) .ig-avatar-mini,
+html[data-msb-appearance] body:not(.org-app) .news-pub-avatar,
+html[data-msb-appearance] body:not(.org-app) [class*="avatar-gradient"],
+html[data-msb-appearance] body:not(.org-app) .mf-avatar-fallback,
+html[data-msb-appearance] body:not(.org-app) .post-avatar-fallback,
+html[data-msb-appearance] body:not(.org-app) .mf-avatar,
+html[data-msb-appearance] body:not(.org-app) .avatar,
+html[data-msb-appearance] body:not(.org-app) #profilePostsFeed .mf-avatar,
+html[data-msb-appearance] .messages-shell .avatar,
+html[data-msb-appearance] .messages-shell .peerAvatar {
+  background: linear-gradient(135deg, var(--msb-palette-action), var(--msb-palette-accent)) !important;
+  background-color: transparent !important;
+  color: #ffffff !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  aspect-ratio: 1 / 1 !important;
+  flex: 0 0 auto !important;
+}
+
+html[data-msb-appearance] .messages-shell .avatar img,
+html[data-msb-appearance] .messages-shell .peerAvatar img,
+html[data-msb-appearance] .messages-shell .msg-avatar-mini img {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: 50% !important;
+  display: block !important;
+}
+
+/* Messages composer + header icons — appearance palette (blue/purple → light pink) */
+html[data-msb-appearance] .messages-shell-icon,
+html[data-msb-appearance] .chat-round-btn {
+  background-color: var(--msb-palette-nav-hover) !important;
+  color: var(--msb-palette-icon) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .messages-shell-icon i,
+html[data-msb-appearance] .chat-round-btn i {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] .iconbar i,
+html[data-msb-appearance] .iconbar .chat-info-toggle i {
+  color: var(--msb-palette-icon) !important;
+  background: transparent !important;
+}
+
+html[data-msb-appearance] .iconbar .chat-info-toggle.is-active i {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] #msgPlusBtn,
+html[data-msb-appearance] #emojiBtn,
+html[data-msb-appearance] #composerLocationBtn,
+html[data-msb-appearance] #composerMicBtn,
+html[data-msb-appearance] .group-composer-btn {
+  color: var(--msb-palette-icon) !important;
+  background: transparent !important;
+}
+
+html[data-msb-appearance] #msgPlusBtn i,
+html[data-msb-appearance] #emojiBtn i,
+html[data-msb-appearance] #composerLocationBtn i,
+html[data-msb-appearance] #composerMicBtn i,
+html[data-msb-appearance] .group-composer-btn i {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] #sendForm button[type="submit"],
+html[data-msb-appearance] .group-send-form button[type="submit"] {
+  background: var(--msb-palette-nav-hover) !important;
+  background-image: none !important;
+  color: var(--msb-palette-action) !important;
+  border: 1px solid var(--msb-palette-border-strong) !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] #sendForm button[type="submit"] i,
+html[data-msb-appearance] .group-send-form button[type="submit"] i {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] #messageInput:focus,
+html[data-msb-appearance] .group-message-input:focus {
+  border-color: var(--msb-palette-border-strong) !important;
+  box-shadow: 0 0 0 4px var(--msb-palette-action-soft) !important;
+}
+
+/* Messages empty-state FAB — blue/purple → light pink */
+html[data-msb-appearance] .chat-empty-plus {
+  background: var(--msb-palette-nav-hover) !important;
+  background-image: none !important;
+  color: var(--msb-palette-action) !important;
+  border: 1px solid var(--msb-palette-border-strong) !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] .chat-empty-plus i {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .chat-empty-plus:hover {
+  background: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+}
+
+/* Built-in Dark appearance (#171d24) — page canvas on every route */
+html.dark-auto:not([data-msb-appearance]),
+html.dark-auto:not([data-msb-appearance]) body,
+html[data-theme="dark"]:not([data-msb-appearance]),
+html[data-theme="dark"]:not([data-msb-appearance]) body {
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  background-image: none !important;
+}
+
+/* Built-in Light appearance (#f5f7fb) — page canvas on every route */
+html[data-theme="light"]:not([data-msb-appearance]),
+html[data-theme="light"]:not([data-msb-appearance]) body {
+  background-color: var(--msb-palette-bg, #f5f7fb) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .sh-mainpanel,
+html[data-theme="light"]:not([data-msb-appearance]) .sh-pagebody,
+html[data-theme="light"]:not([data-msb-appearance]) .live-main,
+html[data-theme="light"]:not([data-msb-appearance]) .live-wrap,
+html[data-theme="light"]:not([data-msb-appearance]) .messages-shell,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-desktop-layout,
+html[data-theme="light"]:not([data-msb-appearance]) .ig-wrap,
+html[data-theme="light"]:not([data-msb-appearance]) .ig-main {
+  background-color: var(--msb-palette-bg, #f5f7fb) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .ig-feed-header,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-top-search,
+html[data-theme="light"]:not([data-msb-appearance]) body.feed-insta-ui .sh-pagebody,
+html[data-theme="light"]:not([data-msb-appearance]) body.public-page.feed-insta-ui .sh-pagebody,
+html[data-theme="light"]:not([data-msb-appearance]) body.feed-page.feed-insta-ui .sh-pagebody {
+  background-color: var(--msb-palette-bg, #f5f7fb) !important;
+  background-image: none !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .ig-feed-header .ig-stories-brand,
+html[data-theme="light"]:not([data-msb-appearance]) .ig-feed-header .ig-feed-user-name,
+html[data-theme="light"]:not([data-msb-appearance]) .ig-feed-header .ig-top-act,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail a:not(.feed-ig-logo-label),
+html[data-theme="light"]:not([data-msb-appearance]) .feed-left-nav-item,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-right-nav-item {
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail {
+  background-color: var(--msb-palette-bg, #f5f7fb) !important;
+  border-right: none !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-logo-label,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label {
+  color: var(--msb-palette-text-on-nav, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label:hover,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label:focus {
+  color: var(--msb-palette-link, #2563eb) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn .fa,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn .icon,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link .fa,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link .icon {
+  color: var(--msb-palette-text-on-nav, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
+html[data-theme="light"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live {
+  background: var(--msb-palette-surface-2, #ffffff) !important;
+  border: 1px solid var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .sec-card,
+html[data-theme="light"]:not([data-msb-appearance]) .sec-wrap > .card,
+html[data-theme="light"]:not([data-msb-appearance]) .wrap > .card,
+html[data-theme="light"]:not([data-msb-appearance]) .acc-wrap > .card,
+html[data-theme="light"]:not([data-msb-appearance]) .edit-card,
+html[data-theme="light"]:not([data-msb-appearance]) .door-card,
+html[data-theme="light"]:not([data-msb-appearance]) .stat,
+html[data-theme="light"]:not([data-msb-appearance]) .device,
+html[data-theme="light"]:not([data-msb-appearance]) .tool,
+html[data-theme="light"]:not([data-msb-appearance]) .row {
+  background: var(--msb-palette-surface-2, #ffffff) !important;
+  border-color: var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .sec-sub,
+html[data-theme="light"]:not([data-msb-appearance]) .sub,
+html[data-theme="light"]:not([data-msb-appearance]) .small,
+html[data-theme="light"]:not([data-msb-appearance]) .meta,
+html[data-theme="light"]:not([data-msb-appearance]) .field label {
+  color: var(--msb-palette-text-muted, #64748b) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .ig-card,
+html[data-theme="light"]:not([data-msb-appearance]) .gear-card,
+html[data-theme="light"]:not([data-msb-appearance]) .gear-hero,
+html[data-theme="light"]:not([data-msb-appearance]) .gear-row,
+html[data-theme="light"]:not([data-msb-appearance]) .gear-quick a,
+html[data-theme="light"]:not([data-msb-appearance]) .about-card,
+html[data-theme="light"]:not([data-msb-appearance]) .about-head,
+html[data-theme="light"]:not([data-msb-appearance]) .coming-card,
+html[data-theme="light"]:not([data-msb-appearance]) .feed-card {
+  background: var(--msb-palette-bg, #f5f7fb) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card,
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card .post-header,
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card .post-copy,
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card .actions,
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card .standard-media-bottom,
+html[data-theme="light"]:not([data-msb-appearance]) .mf-card {
+  background: var(--msb-palette-bg, #f5f7fb) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card .action-btn i,
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card .standard-media-btn i,
+html[data-theme="light"]:not([data-msb-appearance]) .post.public-post-card .action-count {
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) .create-post-dialog,
+html[data-theme="light"]:not([data-msb-appearance]) .create-post-body,
+html[data-theme="light"]:not([data-msb-appearance]) .create-post-frame,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .sh-mainpanel,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .sh-pagebody,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .sh-pagetitle,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .row,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .row-sm,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .col-lg-12,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-body,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-header,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-footer,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card.mb-3,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .sh-mainpanel,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .sh-pagebody,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .card,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .card-body {
+  background: var(--msb-palette-bg, #f5f7fb) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .form-control {
+  background: var(--msb-palette-surface-2, #ffffff) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+  border-color: var(--msb-palette-border, rgba(15,23,42,.14)) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page label,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-title,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page h6,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .form-check-label,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page label,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .form-check-label {
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .text-muted,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page small,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .text-muted,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page small {
+  color: var(--msb-palette-text-muted, #64748b) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .alert-info,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .alert-info {
+  background: rgba(37, 99, 235, .08) !important;
+  border-color: rgba(37, 99, 235, .18) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-card.ig-profile-shell,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-wrap,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-shell,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-sidebar,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-sidebar-head,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-main,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-card,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-row,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-hero {
+  background-color: var(--msb-palette-bg, #f5f7fb) !important;
+  background-image: none !important;
+}
+
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .sh-mainpanel,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .sh-pagebody,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-wrap,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-profile-shell,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-profile-head,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-profile-scroll,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-highlights,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-tabs,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .profile-panel,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .coming-wrap,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .ig-card,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .mf-feed-empty,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-card,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .about-head,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .about-card,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .about-wrap,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .coming-card,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-wrap,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-shell,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-sidebar,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-sidebar-head,
+html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-main {
+  background-color: var(--msb-palette-bg, #f5f7fb) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .sh-mainpanel,
+html.dark-auto:not([data-msb-appearance]) .sh-pagebody,
+html.dark-auto:not([data-msb-appearance]) .live-main,
+html.dark-auto:not([data-msb-appearance]) .live-wrap,
+html.dark-auto:not([data-msb-appearance]) .messages-shell,
+html.dark-auto:not([data-msb-appearance]) .feed-desktop-layout,
+html.dark-auto:not([data-msb-appearance]) .ig-wrap,
+html.dark-auto:not([data-msb-appearance]) .ig-main,
+html.dark-auto:not([data-msb-appearance]) .notifications-page,
+html[data-theme="dark"]:not([data-msb-appearance]) .sh-mainpanel,
+html[data-theme="dark"]:not([data-msb-appearance]) .sh-pagebody,
+html[data-theme="dark"]:not([data-msb-appearance]) .live-main,
+html[data-theme="dark"]:not([data-msb-appearance]) .live-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .messages-shell,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-desktop-layout,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-main {
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  background-image: none !important;
+}
+
+/* Built-in Dark — public/feed header chrome */
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header,
+html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui .sh-pagebody,
+html[data-theme="dark"]:not([data-msb-appearance]) body.feed-insta-ui .sh-pagebody,
+html.dark-auto:not([data-msb-appearance]) body.public-page.feed-insta-ui .sh-pagebody,
+html[data-theme="dark"]:not([data-msb-appearance]) body.public-page.feed-insta-ui .sh-pagebody,
+html.dark-auto:not([data-msb-appearance]) body.feed-page.feed-insta-ui .sh-pagebody,
+html[data-theme="dark"]:not([data-msb-appearance]) body.feed-page.feed-insta-ui .sh-pagebody {
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  background-image: none !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-stories-brand,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-stories-brand,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-feed-user-name,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-feed-user-name,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-act,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-act {
+  color: var(--msb-palette-text, #eef4ff) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail {
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  border-right: none !important;
+  color: var(--msb-palette-text-on-nav, #f3f6fb) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-logo-label,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-logo-label,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label {
+  color: var(--msb-palette-text-on-nav, #f3f6fb) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label:hover,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label:focus,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail a.feed-ig-logo-label:focus {
+  color: var(--msb-palette-link, #93c5fd) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn .fa,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn .fa,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn .icon,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link .fa,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link .fa,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link .icon {
+  color: var(--msb-palette-text-on-nav, #f3f6fb) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-live,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live {
+  background: var(--msb-palette-surface-2, #1a222c) !important;
+  border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
+  color: var(--msb-palette-text, #eef4ff) !important;
+}
+
+/* Built-in Dark — gear / account tool pages (user + publisher) */
+html.dark-auto:not([data-msb-appearance]) .sec-wrap,
+html.dark-auto:not([data-msb-appearance]) .wrap,
+html.dark-auto:not([data-msb-appearance]) .acc-wrap,
+html.dark-auto:not([data-msb-appearance]) .edit-wrap,
+html.dark-auto:not([data-msb-appearance]) .door-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .sec-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .acc-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .edit-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .door-wrap {
+  color: var(--msb-palette-text, #e6edf3);
+}
+
+html.dark-auto:not([data-msb-appearance]) .sec-card,
+html.dark-auto:not([data-msb-appearance]) .sec-wrap > .card,
+html.dark-auto:not([data-msb-appearance]) .wrap > .card,
+html.dark-auto:not([data-msb-appearance]) .acc-wrap > .card,
+html.dark-auto:not([data-msb-appearance]) .edit-card,
+html.dark-auto:not([data-msb-appearance]) .door-card,
+html.dark-auto:not([data-msb-appearance]) .stat,
+html.dark-auto:not([data-msb-appearance]) .device,
+html.dark-auto:not([data-msb-appearance]) .tool,
+html.dark-auto:not([data-msb-appearance]) .row,
+html[data-theme="dark"]:not([data-msb-appearance]) .sec-card,
+html[data-theme="dark"]:not([data-msb-appearance]) .sec-wrap > .card,
+html[data-theme="dark"]:not([data-msb-appearance]) .wrap > .card,
+html[data-theme="dark"]:not([data-msb-appearance]) .acc-wrap > .card,
+html[data-theme="dark"]:not([data-msb-appearance]) .edit-card,
+html[data-theme="dark"]:not([data-msb-appearance]) .door-card,
+html[data-theme="dark"]:not([data-msb-appearance]) .stat,
+html[data-theme="dark"]:not([data-msb-appearance]) .device,
+html[data-theme="dark"]:not([data-msb-appearance]) .tool,
+html[data-theme="dark"]:not([data-msb-appearance]) .row {
+  background: var(--msb-palette-surface-2, #1d2530) !important;
+  border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+  box-shadow: none !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .sec-sub,
+html.dark-auto:not([data-msb-appearance]) .sub,
+html.dark-auto:not([data-msb-appearance]) .small,
+html.dark-auto:not([data-msb-appearance]) .meta,
+html.dark-auto:not([data-msb-appearance]) .field label,
+html[data-theme="dark"]:not([data-msb-appearance]) .sec-sub,
+html[data-theme="dark"]:not([data-msb-appearance]) .sub,
+html[data-theme="dark"]:not([data-msb-appearance]) .small,
+html[data-theme="dark"]:not([data-msb-appearance]) .meta,
+html[data-theme="dark"]:not([data-msb-appearance]) .field label {
+  color: var(--msb-palette-text-muted, #a9b6c8) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .input,
+html.dark-auto:not([data-msb-appearance]) .field input,
+html.dark-auto:not([data-msb-appearance]) .field textarea,
+html.dark-auto:not([data-msb-appearance]) .field select,
+html.dark-auto:not([data-msb-appearance]) .msgbox,
+html[data-theme="dark"]:not([data-msb-appearance]) .input,
+html[data-theme="dark"]:not([data-msb-appearance]) .field input,
+html[data-theme="dark"]:not([data-msb-appearance]) .field textarea,
+html[data-theme="dark"]:not([data-msb-appearance]) .field select,
+html[data-theme="dark"]:not([data-msb-appearance]) .msgbox {
+  background: var(--msb-palette-bg, #171d24) !important;
+  border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+}

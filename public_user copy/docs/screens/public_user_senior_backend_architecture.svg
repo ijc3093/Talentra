@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="2200" viewBox="0 0 1200 2200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7f4ec"/>
+      <stop offset="100%" stop-color="#eef3f8"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#204a6d"/>
+      <stop offset="100%" stop-color="#2c6f7c"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#233142" flood-opacity="0.18"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5f6b79"/>
+    </marker>
+    <style>
+      .title { font: 700 34px 'Helvetica Neue', Arial, sans-serif; fill: #ffffff; }
+      .subtitle { font: 400 18px 'Helvetica Neue', Arial, sans-serif; fill: #dbe7ef; }
+      .section { font: 700 28px 'Helvetica Neue', Arial, sans-serif; fill: #243447; }
+      .boxTitle { font: 700 22px 'Helvetica Neue', Arial, sans-serif; fill: #17212b; }
+      .boxText { font: 400 17px 'Helvetica Neue', Arial, sans-serif; fill: #334155; }
+      .small { font: 400 15px 'Helvetica Neue', Arial, sans-serif; fill: #526274; }
+      .pill { font: 700 17px 'Helvetica Neue', Arial, sans-serif; fill: #475569; }
+      .line { stroke: #5f6b79; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1200" height="2200" fill="url(#bg)"/>
+
+  <rect x="50" y="40" width="1100" height="150" rx="28" fill="url(#hero)" filter="url(#shadow)"/>
+  <text x="90" y="102" class="title">public_user: Senior Backend Engineer</text>
+  <text x="90" y="145" class="title">System Design &amp; Behavior Architecture</text>
+  <text x="90" y="178" class="subtitle">A readable vertical architecture screen showing how the engineer owns behavior, backend rules, data truth, and safe change.</text>
+
+  <text x="70" y="260" class="section">1. Product Behavior the Engineer Protects</text>
+  <rect x="70" y="285" width="1060" height="170" rx="24" fill="#fff9f0" stroke="#ddb66d" stroke-width="2" filter="url(#shadow)"/>
+  <text x="100" y="330" class="boxTitle">User Behavior and Product Surface</text>
+  <text x="100" y="365" class="boxText">• Login and resume session</text>
+  <text x="460" y="365" class="boxText">• Browse feed and profiles</text>
+  <text x="790" y="365" class="boxText">• Watch public or friends live</text>
+  <text x="100" y="398" class="boxText">• Create posts, comments, reactions, saves</text>
+  <text x="460" y="398" class="boxText">• Open chats and message threads</text>
+  <text x="790" y="398" class="boxText">• See notifications and unread state</text>
+  <text x="100" y="430" class="small">The Senior Backend Engineer starts from expected user behavior, not only from PHP files.</text>
+
+  <line x1="600" y1="455" x2="600" y2="520" class="line"/>
+
+  <text x="70" y="570" class="section">2. Request Path Through the System</text>
+  <rect x="70" y="595" width="1060" height="230" rx="24" fill="#ffffff" stroke="#c8d2de" stroke-width="2" filter="url(#shadow)"/>
+
+  <rect x="100" y="655" width="180" height="80" rx="20" fill="#e9f2ff" stroke="#8db1da"/>
+  <text x="155" y="705" class="pill">User Request</text>
+
+  <rect x="330" y="655" width="180" height="80" rx="20" fill="#edf9ef" stroke="#93be9a"/>
+  <text x="373" y="705" class="pill">Page or AJAX</text>
+
+  <rect x="560" y="655" width="180" height="80" rx="20" fill="#fff4e9" stroke="#d8af78"/>
+  <text x="588" y="705" class="pill">Shared Rules</text>
+
+  <rect x="790" y="655" width="140" height="80" rx="20" fill="#f5f0ff" stroke="#af99d8"/>
+  <text x="830" y="705" class="pill">Database</text>
+
+  <rect x="980" y="655" width="120" height="80" rx="20" fill="#f3fbf4" stroke="#96c28b"/>
+  <text x="1001" y="705" class="pill">Response</text>
+
+  <line x1="280" y1="695" x2="330" y2="695" class="line"/>
+  <line x1="510" y1="695" x2="560" y2="695" class="line"/>
+  <line x1="740" y1="695" x2="790" y2="695" class="line"/>
+  <line x1="930" y1="695" x2="980" y2="695" class="line"/>
+
+  <text x="100" y="775" class="small">Pages: feed.php, public.php, profile.php, messages.php, public_live.php, live_watch.php</text>
+  <text x="100" y="805" class="small">AJAX: feed_api.php, chat endpoints, live_watch_room.php, host/live action endpoints</text>
+
+  <line x1="600" y1="825" x2="600" y2="890" class="line"/>
+
+  <text x="70" y="940" class="section">3. Shared Backend Logic the Engineer Must Control</text>
+  <rect x="70" y="965" width="500" height="260" rx="24" fill="#f4fbff" stroke="#86add0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="100" y="1010" class="boxTitle">Session and Identity Layer</text>
+  <text x="100" y="1045" class="boxText">• session_user.php starts and validates sessions</text>
+  <text x="100" y="1078" class="boxText">• user_identity.php resolves the current user safely</text>
+  <text x="100" y="1111" class="boxText">• controller.php creates the shared PDO connection</text>
+  <text x="100" y="1144" class="boxText">• wrong identity logic can affect the whole app</text>
+  <text x="100" y="1184" class="small">Question: who is the user and are they allowed in?</text>
+
+  <rect x="630" y="965" width="500" height="260" rx="24" fill="#f8fcff" stroke="#9bb7d2" stroke-width="2" filter="url(#shadow)"/>
+  <text x="660" y="1010" class="boxTitle">Ownership, Visibility, and Friend Rules</text>
+  <text x="660" y="1045" class="boxText">• public/friends visibility checks</text>
+  <text x="660" y="1078" class="boxText">• profile access and relationship checks</text>
+  <text x="660" y="1111" class="boxText">• owner-only update/delete actions</text>
+  <text x="660" y="1144" class="boxText">• live watch permissions and guest logic</text>
+  <text x="660" y="1184" class="small">Question: what can this user see or change?</text>
+
+  <line x1="600" y1="1225" x2="600" y2="1290" class="line"/>
+
+  <text x="70" y="1340" class="section">4. Data Truth and Derived State</text>
+  <rect x="70" y="1365" width="500" height="330" rx="24" fill="#f5fff7" stroke="#7cb789" stroke-width="2" filter="url(#shadow)"/>
+  <text x="100" y="1410" class="boxTitle">Source-of-Truth Tables</text>
+  <text x="100" y="1445" class="boxText">Identity:</text>
+  <text x="210" y="1445" class="boxText">users, user_sessions</text>
+  <text x="100" y="1478" class="boxText">Social:</text>
+  <text x="210" y="1478" class="boxText">contacts, contact_requests, public_follows</text>
+  <text x="100" y="1511" class="boxText">Feed:</text>
+  <text x="210" y="1511" class="boxText">public_posts, comments, reactions, views</text>
+  <text x="100" y="1544" class="boxText">Messaging:</text>
+  <text x="210" y="1544" class="boxText">messages, groups, typing</text>
+  <text x="100" y="1577" class="boxText">Live:</text>
+  <text x="210" y="1577" class="boxText">user_video_lives and child tables</text>
+  <text x="100" y="1620" class="small">These are the canonical rows the engineer must trust first.</text>
+
+  <rect x="630" y="1365" width="500" height="330" rx="24" fill="#fcfff9" stroke="#b4c57d" stroke-width="2" filter="url(#shadow)"/>
+  <text x="660" y="1410" class="boxTitle">Derived State and Cached Counters</text>
+  <text x="660" y="1445" class="boxText">• views_count</text>
+  <text x="660" y="1478" class="boxText">• viewer_count and peak_viewers</text>
+  <text x="660" y="1511" class="boxText">• unread summaries and notifications</text>
+  <text x="660" y="1544" class="boxText">• feed rollups and reporting tables</text>
+  <text x="660" y="1577" class="boxText">• UI summaries built for speed</text>
+  <text x="660" y="1620" class="small">These help performance, but they should come from real source-of-truth data.</text>
+
+  <line x1="600" y1="1695" x2="600" y2="1760" class="line"/>
+
+  <text x="70" y="1810" class="section">5. Senior Backend Engineer Safe-Change Flow</text>
+  <rect x="70" y="1835" width="1060" height="230" rx="24" fill="#ffffff" stroke="#c8d2de" stroke-width="2" filter="url(#shadow)"/>
+
+  <rect x="95" y="1910" width="130" height="70" rx="18" fill="#e9f2ff" stroke="#8db1da"/>
+  <text x="138" y="1954" class="pill">Issue</text>
+  <rect x="255" y="1910" width="150" height="70" rx="18" fill="#edf9ef" stroke="#93be9a"/>
+  <text x="283" y="1954" class="pill">Entry Point</text>
+  <rect x="435" y="1910" width="150" height="70" rx="18" fill="#fff4e9" stroke="#d8af78"/>
+  <text x="474" y="1954" class="pill">Behavior</text>
+  <rect x="615" y="1910" width="180" height="70" rx="18" fill="#f5f0ff" stroke="#af99d8"/>
+  <text x="643" y="1954" class="pill">Policy / Access</text>
+  <rect x="825" y="1910" width="150" height="70" rx="18" fill="#f3fbf4" stroke="#96c28b"/>
+  <text x="849" y="1954" class="pill">Data Truth</text>
+  <rect x="1005" y="1910" width="95" height="70" rx="18" fill="#fff5f5" stroke="#d9a1a1"/>
+  <text x="1028" y="1954" class="pill">Ship</text>
+
+  <line x1="225" y1="1945" x2="255" y2="1945" class="line"/>
+  <line x1="405" y1="1945" x2="435" y2="1945" class="line"/>
+  <line x1="585" y1="1945" x2="615" y2="1945" class="line"/>
+  <line x1="795" y1="1945" x2="825" y2="1945" class="line"/>
+  <line x1="975" y1="1945" x2="1005" y2="1945" class="line"/>
+
+  <text x="95" y="2025" class="small">The engineer should define the expected behavior, find the write path, check side effects, and only then change code or schema.</text>
+
+  <rect x="70" y="2100" width="1060" height="70" rx="20" fill="#233142" filter="url(#shadow)"/>
+  <text x="95" y="2145" class="subtitle" style="font-size:22px;">Core idea: the Senior Backend Engineer owns the full path from user behavior to backend policy to database truth.</text>
+</svg>
