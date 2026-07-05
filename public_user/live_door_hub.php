@@ -28,6 +28,13 @@ $hubDoorQuery = ['hub_surface' => $hubSurface];
 if ($canStudio) {
     $hubDoorQuery['can_studio'] = '1';
 }
+$hubDoor = strtolower(trim((string)($_GET['hub_door'] ?? '')));
+if (!in_array($hubDoor, ['left', 'right'], true)) {
+    $hubDoor = '';
+}
+if ($hubDoor !== '') {
+    $hubDoorQuery['hub_door'] = $hubDoor;
+}
 $hubDoorBaseUrl = 'live_door_hub.php?' . http_build_query($hubDoorQuery);
 
 $doorLists = live_browse_door_rows($dbh, $meId, 50);
@@ -47,6 +54,45 @@ if ($ownLiveId > 0) {
     }
 } elseif ($browseLives) {
     $featured = $browseLives[0];
+}
+
+if ($featured && $hubDoor !== '') {
+    $featuredHostDoor = strtolower(trim((string)($featured['host_door'] ?? '')));
+    $featuredStudioSource = strtolower(trim((string)($featured['studio_source'] ?? '')));
+    $featuredOwnerDoor = ($featuredHostDoor === 'right' || $featuredStudioSource === 'software')
+        ? 'right'
+        : ($featuredHostDoor === 'left' ? 'left' : $featuredHostDoor);
+    if ($featuredOwnerDoor !== '' && $featuredOwnerDoor !== $hubDoor) {
+        $featured = null;
+    }
+}
+
+if ($hubDoor !== '') {
+    $chatLives = array_values(array_filter($chatLives, static function (array $row) use ($meId, $hubDoor): bool {
+        $isOwner = (int)($row['user_id'] ?? 0) === $meId || !empty($row['is_owner']);
+        if (!$isOwner) {
+            return false;
+        }
+        $hostDoor = strtolower(trim((string)($row['host_door'] ?? '')));
+        $studioSource = strtolower(trim((string)($row['studio_source'] ?? '')));
+        $ownerDoor = ($hostDoor === 'right' || $studioSource === 'software')
+            ? 'right'
+            : ($hostDoor === 'left' ? 'left' : $hostDoor);
+        if ($ownerDoor === 'right') {
+            return $hubDoor === 'right';
+        }
+        if ($ownerDoor === 'left') {
+            return $hubDoor === 'left';
+        }
+        return $hubDoor === 'left';
+    }));
+    $ownLiveId = 0;
+    foreach ($chatLives as $row) {
+        $ownLiveId = (int)($row['id'] ?? 0);
+        if ($ownLiveId > 0) {
+            break;
+        }
+    }
 }
 
 $featuredTitle = trim((string)($featured['title'] ?? ''));
@@ -149,7 +195,7 @@ if ($featured) {
       line-height:1.35;
       transition:background-color .22s ease, color .22s ease, border-color .22s ease;
     }
-    .hub-shell{ min-height:100%; display:flex; flex-direction:column; background:var(--hub-bg); --hub-stage-inset-x:10px; }
+    .hub-shell{ min-height:100%; height:100%; display:flex; flex-direction:column; background:var(--hub-bg); --hub-stage-inset-x:10px; }
     .hub-top{
       display:flex; align-items:center; justify-content:space-between; gap:8px;
       padding:8px 10px 6px; background:var(--hub-bg);
@@ -343,10 +389,30 @@ if ($featured) {
     .hub-shell.is-studio-tab .hub-stage-wrap{
       display:none;
     }
+    .hub-shell.is-studio-tab .hub-body{
+      flex:1 1 auto;
+      min-height:280px;
+    }
     .hub-panel-studio{
       padding:0;
       overflow:hidden;
       gap:0;
+      display:flex;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:280px;
+    }
+    .hub-studio-loading{
+      flex:1 1 auto;
+      min-height:200px;
+      display:grid;
+      place-items:center;
+      color:var(--hub-muted);
+      font-size:12px;
+      font-weight:700;
+    }
+    .hub-panel-studio.is-frame-ready .hub-studio-loading{
+      display:none;
     }
     .hub-public-browse{
       display:flex;
@@ -358,16 +424,11 @@ if ($featured) {
     .hub-studio-frame{
       width:100%;
       flex:1 1 auto;
-      min-height:0;
+      min-height:280px;
       height:100%;
       border:0;
       display:block;
       background:var(--hub-bg);
-      opacity:0;
-      transition:opacity .22s ease;
-    }
-    .hub-studio-frame.is-ready{
-      opacity:1;
     }
     .hub-body.is-switching .hub-panel{
       pointer-events:none;
@@ -913,7 +974,7 @@ if ($featured) {
       <div class="hub-top-actions">
         <?php if ($canStudio): ?>
           <button type="button" class="hub-end-btn" id="hubEndBtn" aria-label="End live"<?= $ownLiveId > 0 ? '' : ' hidden' ?>>End</button>
-          <button type="button" class="hub-studio-top-btn" id="hubTopStudioBtn" data-hub-tab="studio">Live Studio</button>
+          <button type="button" class="hub-studio-top-btn" id="hubTopStudioBtn" data-hub-tab="studio">Create Live</button>
         <?php endif; ?>
         <button type="button" class="hub-icon-btn" id="hubCloseBtn" aria-label="Close"><i class="fa fa-times"></i></button>
       </div>
@@ -928,11 +989,14 @@ if ($featured) {
             if (is_file($featuredSnapshotPath)) {
                 $featuredSnapshotVersion = (string)(@md5_file($featuredSnapshotPath) ?: '');
             }
+            $featuredVisibility = strtolower(trim((string)($featured['visibility'] ?? ($hubSurface === 'feed' ? 'friends' : 'public'))));
+            $featuredHostDoor = strtolower(trim((string)($featured['host_door'] ?? '')));
+            $featuredStudioSource = strtolower(trim((string)($featured['studio_source'] ?? '')));
           ?>
           <div class="hub-stage-placeholder">
             <i class="fa fa-video-camera"></i>
             <div><?= h($featuredTitle) ?></div>
-            <button type="button" class="hub-live-pick" data-live-id="<?= (int)$featured['id'] ?>" data-owner-id="<?= (int)($featured['user_id'] ?? 0) ?>" data-is-owner="<?= ((int)($featured['user_id'] ?? 0) === $meId) ? '1' : '0' ?>" data-host="<?= h($featuredHost) ?>" data-title="<?= h($featuredTitle) ?>" data-snapshot-version="<?= h($featuredSnapshotVersion) ?>">
+            <button type="button" class="hub-live-pick" data-live-id="<?= (int)$featured['id'] ?>" data-owner-id="<?= (int)($featured['user_id'] ?? 0) ?>" data-is-owner="<?= ((int)($featured['user_id'] ?? 0) === $meId) ? '1' : '0' ?>" data-host="<?= h($featuredHost) ?>" data-title="<?= h($featuredTitle) ?>" data-snapshot-version="<?= h($featuredSnapshotVersion) ?>" data-visibility="<?= h($featuredVisibility) ?>" data-watch-panel="public" data-host-door="<?= h($featuredHostDoor) ?>" data-studio-source="<?= h($featuredStudioSource) ?>">
               <span class="hub-live-tag"><span class="dot"></span> LIVE</span>
               <span class="hub-live-pick-gap">Tap to watch</span>
             </button>
@@ -956,9 +1020,12 @@ if ($featured) {
     </div>
 
     <div class="hub-tabs" role="tablist" aria-label="Live sections">
-      <button type="button" class="is-active" data-hub-tab="chat">Chat <span class="hub-tab-count" id="hubChatTabCount">0</span></button>
+      <button type="button" class="is-active" data-hub-tab="chat">Host</button>
       <button type="button" data-hub-tab="description">Description</button>
       <button type="button" data-hub-tab="public"><?= h($hubBrowseTabLabel) ?></button>
+      <?php if ($canStudio): ?>
+      <button type="button" data-hub-tab="software">Streaming software</button>
+      <?php endif; ?>
       <button type="button" data-hub-tab="settings">Settings</button>
       <button type="button" class="hub-tab-device" data-hub-tab="microphone" id="hubTabMic" aria-label="Microphone">
         <i class="fa fa-microphone" aria-hidden="true"></i> Microphone
@@ -1036,8 +1103,10 @@ if ($featured) {
               if (is_file($snapshotPath)) {
                   $snapshotVersion = (string)(@md5_file($snapshotPath) ?: '');
               }
+              $hostDoor = strtolower(trim((string)($row['host_door'] ?? '')));
+              $studioSource = strtolower(trim((string)($row['studio_source'] ?? '')));
             ?>
-            <button type="button" class="hub-live-pick" data-live-id="<?= $lid ?>" data-owner-id="<?= (int)($row['user_id'] ?? 0) ?>" data-is-owner="0" data-host="<?= h($host) ?>" data-title="<?= h($title) ?>" data-visibility="<?= h($visibility) ?>" data-watch-panel="public" data-snapshot-version="<?= h($snapshotVersion) ?>">
+            <button type="button" class="hub-live-pick" data-live-id="<?= $lid ?>" data-owner-id="<?= (int)($row['user_id'] ?? 0) ?>" data-is-owner="0" data-host="<?= h($host) ?>" data-title="<?= h($title) ?>" data-visibility="<?= h($visibility) ?>" data-watch-panel="public" data-snapshot-version="<?= h($snapshotVersion) ?>" data-host-door="<?= h($hostDoor) ?>" data-studio-source="<?= h($studioSource) ?>">
               <span class="hub-msg-avatar"><?= h(strtoupper(substr($host, 0, 1))) ?></span>
               <span class="hub-msg-body">
                 <span class="hub-msg-user"><?= h($host) ?><?= $views > 0 ? ' · ' . h((string)$views) . ' watching' : '' ?><?= $visibilityLabel !== '' ? ' · ' . h($visibilityLabel) : '' ?></span>
@@ -1069,6 +1138,7 @@ if ($featured) {
 
       <?php if ($canStudio): ?>
       <div class="hub-panel hub-panel-studio is-hidden" id="hubStudio" data-hub-panel="studio">
+        <div class="hub-studio-loading" id="hubStudioLoading">Opening Live Studio...</div>
         <iframe
           id="hubStudioFrame"
           class="hub-studio-frame"
@@ -1173,7 +1243,7 @@ if ($featured) {
     var hubWatchingLiveId = 0;
     var hubHostStreamPromise = null;
     var ownLiveId = <?= (int)$ownLiveId ?>;
-    var hubMeId = <?= (int)$meId ?>;
+    var hubDoorSide = <?= json_encode($hubDoor, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     var hubEndBusy = false;
     var hubLiveStartedAt = 0;
     var hubPublicPollTimer = null;
@@ -1188,7 +1258,7 @@ if ($featured) {
     var hubChatCache = [];
     var hubWatchPanelKey = 'chat';
     var hubBrowseRefreshSeq = 0;
-    var hubHostLiveActive = ownLiveId > 0;
+    var hubHostLiveActive = false;
     var hubRoomReactionCounts = { love:0, like:0, fire:0, wow:0, clap:0 };
     var hubMicOn = true;
     var hubCameraOn = true;
@@ -1197,12 +1267,36 @@ if ($featured) {
     var hubDoorBaseUrl = <?= json_encode($hubDoorBaseUrl, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     var hubOwnLiveMeta = {
       title: <?= json_encode($ownLiveId > 0 ? $featuredTitle : '', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
-      visibility: <?= json_encode(($ownLiveId > 0 && $featured) ? strtolower(trim((string)($featured['visibility'] ?? 'friends'))) : 'friends', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
+      visibility: <?= json_encode(($ownLiveId > 0 && $featured) ? strtolower(trim((string)($featured['visibility'] ?? 'friends'))) : 'friends', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+      host_door: <?= json_encode(($ownLiveId > 0 && $featured) ? strtolower(trim((string)($featured['host_door'] ?? ''))) : '', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+      studio_source: <?= json_encode(($ownLiveId > 0 && $featured) ? strtolower(trim((string)($featured['studio_source'] ?? ''))) : '', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
     };
 
     function readHubBrandTitle(){
       var brandSpan = document.querySelector('.hub-brand-text span');
       return brandSpan ? String(brandSpan.textContent || '').trim() : '';
+    }
+
+    function parseHubJsonResponse(response){
+      return response.text().then(function(raw){
+        var data = null;
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch (error) {
+          var trimmed = String(raw || '').trim().toLowerCase();
+          if (trimmed.indexOf('<!doctype') === 0 || trimmed.indexOf('<html') === 0 || trimmed.indexOf('<h') === 0) {
+            throw new Error('Server returned HTML instead of JSON. Refresh and try again.');
+          }
+          throw new Error('Server returned an invalid response. Refresh and try again.');
+        }
+        return data;
+      });
+    }
+
+    function isHubSoftwareHost(meta){
+      meta = meta || {};
+      return hubStudioSource === 'software'
+        || String(meta.studio_source || '').toLowerCase() === 'software';
     }
 
     function buildOwnLiveBrowseRow(){
@@ -1233,7 +1327,9 @@ if ($featured) {
     function filterHubChatRows(rows){
       rows = Array.isArray(rows) ? rows.slice() : [];
       return rows.filter(function(row){
-        return !!row.is_owner || parseInt((row && row.user_id) || '0', 10) === hubMeId;
+        var isOwner = !!row.is_owner || parseInt((row && row.user_id) || '0', 10) === hubMeId;
+        if (!isOwner) return false;
+        return canHostChatInThisDoor(row);
       });
     }
 
@@ -1365,7 +1461,7 @@ if ($featured) {
     function syncHubEndButton(){
       var btn = document.getElementById('hubEndBtn');
       if (!btn) return;
-      btn.hidden = ownLiveId <= 0;
+      btn.hidden = ownLiveId <= 0 || !canHostChatInThisDoor();
     }
 
     function setHubEndConfirmOpen(isOpen){
@@ -1398,12 +1494,18 @@ if ($featured) {
       try {
         var formData = new FormData();
         formData.append('action', 'end_live');
+        if (ownLiveId > 0) {
+          formData.append('live_id', String(ownLiveId));
+        }
         var response = await fetch('ajax/live_studio_host_action.php', {
           method: 'POST',
           body: formData,
           credentials: 'same-origin'
         });
-        var data = await response.json();
+        var data = await parseHubJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(data && data.error ? data.error : 'Unable to end live');
+        }
         if (!data || !data.ok) {
           throw new Error(data && data.error ? data.error : 'Unable to end live');
         }
@@ -1412,6 +1514,9 @@ if ($featured) {
         stopHubHostStream();
         hubWatchingLiveId = 0;
         ownLiveId = 0;
+        hubHostLiveActive = false;
+        setSessionHostLiveDoor('');
+        clearSessionHostLiveDoors();
         window.location.href = hubDoorBaseUrl;
       } catch (error) {
         setHubEndConfirmOpen(false);
@@ -1456,6 +1561,506 @@ if ($featured) {
         return !!(window.frameElement && window.frameElement.id === 'ttLiveDoorFrame');
       } catch (e) {
         return false;
+      }
+    }
+
+    function getSessionHostStageDoor(){
+      try {
+        return String(sessionStorage.getItem('msbHostLiveStageDoor') || sessionStorage.getItem('msbHostLiveDoor') || '').toLowerCase();
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function getSessionHostChatDoor(){
+      try {
+        return String(sessionStorage.getItem('msbHostLiveChatDoor') || '').toLowerCase();
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function setSessionHostStageDoor(door){
+      try {
+        door = String(door || '').toLowerCase();
+        if (!door) {
+          sessionStorage.removeItem('msbHostLiveStageDoor');
+          sessionStorage.removeItem('msbHostLiveDoor');
+          return;
+        }
+        sessionStorage.setItem('msbHostLiveStageDoor', door);
+        sessionStorage.setItem('msbHostLiveDoor', door);
+      } catch (e) {}
+    }
+
+    function setSessionHostChatDoor(door){
+      try {
+        door = String(door || '').toLowerCase();
+        if (!door) sessionStorage.removeItem('msbHostLiveChatDoor');
+        else sessionStorage.setItem('msbHostLiveChatDoor', door);
+      } catch (e) {}
+    }
+
+    function clearSessionHostLiveDoors(){
+      try {
+        sessionStorage.removeItem('msbHostLiveStageDoor');
+        sessionStorage.removeItem('msbHostLiveChatDoor');
+        sessionStorage.removeItem('msbHostLiveDoor');
+      } catch (e) {}
+    }
+
+    function getSessionHostLiveDoor(){
+      return getSessionHostStageDoor();
+    }
+
+    function setSessionHostLiveDoor(door){
+      door = String(door || '').toLowerCase();
+      setSessionHostStageDoor(door);
+      if (door) setSessionHostChatDoor(door);
+      else setSessionHostChatDoor('');
+    }
+
+    var hubMeId = <?= (int)$meId ?>;
+
+    function getHubDoorSide(){
+      if (isHubInRightDoor()) return 'right';
+      if (isHubInLeftDoor()) return 'left';
+      return String(hubDoorSide || '').toLowerCase();
+    }
+
+    function resolveOwnerDoor(meta){
+      meta = meta || hubOwnLiveMeta || {};
+      var hostDoor = String(meta.host_door || meta.hostDoor || '').toLowerCase();
+      var studioSource = String(meta.studio_source || meta.studioSource || '').toLowerCase();
+      if (hostDoor === 'right' || (studioSource === 'software' && hostDoor !== 'left')) return 'right';
+      if (hostDoor === 'left') return 'left';
+      return hostDoor || 'left';
+    }
+
+    function resolveEventOwnerDoor(payload){
+      payload = payload || {};
+      var hostDoor = String(payload.hostLiveDoor || '').toLowerCase();
+      var studioSource = String(payload.studioSource || payload.studio_source || '').toLowerCase();
+      if (hostDoor === 'right' || studioSource === 'software') return 'right';
+      if (hostDoor === 'left') return 'left';
+      return '';
+    }
+
+    function canHostChatInThisDoor(meta){
+      var myDoor = getHubDoorSide();
+      if (!myDoor) return true;
+      return resolveOwnerDoor(meta) === myDoor;
+    }
+
+    function refreshHubHostLiveActive(){
+      hubHostLiveActive = ownLiveId > 0 && canHostChatInThisDoor(hubOwnLiveMeta);
+    }
+
+    function isHostLiveOwnedByOtherDoor(){
+      if (ownLiveId <= 0 && !hubHostLiveActive) return false;
+      return !canHostChatInThisDoor();
+    }
+
+    function shouldSkipHostLiveStageInThisDoor(payload){
+      payload = payload || {};
+      var eventDoor = resolveEventOwnerDoor(payload);
+      var myDoor = getHubDoorSide();
+      if (myDoor && eventDoor && eventDoor !== myDoor) return true;
+      if (myDoor && !eventDoor) {
+        var studioSource = String(payload.studioSource || payload.studio_source || '').toLowerCase();
+        if (studioSource === 'software' && myDoor === 'left') return true;
+        if (myDoor === 'right' && studioSource !== 'software' && String(payload.hostLiveDoor || '').toLowerCase() === 'left') return true;
+      }
+      return false;
+    }
+
+    function shouldSkipHostLiveInThisDoor(payload){
+      return shouldSkipHostLiveStageInThisDoor(payload) && !canHostChatInThisDoor();
+    }
+
+    function syncHostLiveDoorsFromMeta(meta){
+      meta = meta || {};
+      if (ownLiveId <= 0 || !canHostChatInThisDoor(meta)) return;
+      hubOwnLiveMeta.host_door = String(meta.host_door || meta.hostDoor || hubOwnLiveMeta.host_door || '').toLowerCase();
+      hubOwnLiveMeta.studio_source = String(meta.studio_source || meta.studioSource || hubOwnLiveMeta.studio_source || '').toLowerCase();
+      refreshHubHostLiveActive();
+    }
+
+    function syncHubChatIdleDoorVisibility(){
+      if (canHostChatInThisDoor()) return;
+      var chatIdle = document.getElementById('hubChatIdle');
+      if (!chatIdle) return;
+      chatIdle.querySelectorAll('[data-live-id][data-is-owner="1"]').forEach(function(pick){
+        pick.remove();
+      });
+      ensureHubChatIdlePlaceholder();
+    }
+
+    function ensureHubChatIdlePlaceholder(){
+      var chatIdle = document.getElementById('hubChatIdle');
+      if (!chatIdle) return;
+      if (chatIdle.querySelector('[data-live-id], .hub-msg.system, .hub-empty')) return;
+      var ownerDoor = resolveOwnerDoor(hubOwnLiveMeta);
+      var liveOnOtherDoor = ownLiveId > 0 && ((ownerDoor === 'right' && isHubInLeftDoor()) || (ownerDoor === 'left' && isHubInRightDoor()));
+      var hint = liveOnOtherDoor
+        ? (isHubInLeftDoor()
+          ? 'Your streaming software live is on the right sidebar. Start a separate live here in Live Studio when you are ready.'
+          : 'Your streaming software live is on the left sidebar. Chat for that session stays on the left.')
+        : (hubCanStudio
+          ? 'Start your live in Live Studio. Your broadcast appears here in Chat.'
+          : 'Your live sessions appear here in Chat when you go live.');
+      chatIdle.innerHTML = ''
+        + '<div class="hub-msg system">'
+        + '<div class="hub-msg-avatar">LV</div>'
+        + '<div class="hub-msg-body">'
+        + '<div class="hub-msg-user">Talentra Live</div>'
+        + '<div class="hub-msg-text">' + escapeHubText(hint) + '</div>'
+        + '</div></div>'
+        + (hubCanStudio
+          ? '<div class="hub-empty"><button type="button" class="hub-empty-link" data-hub-tab-switch="studio">Open Live Studio</button> to start your broadcast.</div>'
+          : '');
+    }
+
+    function openLiveStudioInHub(){
+      if (!canUseHubStudioTabs()) return;
+      hubStudioSource = '';
+      var studioPanel = document.getElementById('hubStudio');
+      var studioLoading = document.getElementById('hubStudioLoading');
+      if (studioPanel) studioPanel.classList.remove('is-frame-ready');
+      if (studioLoading) studioLoading.textContent = 'Opening Live Studio...';
+      switchHubTab('studio');
+    }
+
+    function openFriendBrowseForDoor(door){
+      door = String(door || 'left').toLowerCase();
+      if (door === 'right') {
+        if (isHubInRightDoor()) {
+          switchHubTab('public');
+          refreshHubBrowseLives(true);
+          return;
+        }
+        try {
+          var rightUrl = new URL('live_door_hub.php', window.location.href);
+          rightUrl.searchParams.set('hub_door', 'right');
+          rightUrl.searchParams.set('hub_tab', 'public');
+          rightUrl.searchParams.set('hub_surface', hubSurface);
+          if (hubCanStudio) rightUrl.searchParams.set('can_studio', '1');
+          (window.top || window.parent).postMessage({ type: 'msb-live-right-door-open', url: rightUrl.href }, '*');
+        } catch (error) {}
+        return;
+      }
+      if (isHubInLeftDoor()) {
+        switchHubTab('public');
+        refreshHubBrowseLives(true);
+        return;
+      }
+      try {
+        var leftUrl = new URL('live_door_hub.php', window.location.href);
+        leftUrl.searchParams.set('hub_door', 'left');
+        leftUrl.searchParams.set('hub_tab', 'public');
+        leftUrl.searchParams.set('hub_surface', hubSurface);
+        if (hubCanStudio) leftUrl.searchParams.set('can_studio', '1');
+        (window.top || window.parent).postMessage({ type: 'msb-live-door-open', url: leftUrl.href }, '*');
+      } catch (error2) {}
+    }
+
+    function openLiveStudioBrowseEntry(){
+      if (!isHubHostLive()) {
+        openFriendBrowseForDoor('left');
+        return;
+      }
+      openLiveStudioInHub();
+    }
+
+    function openLiveSoftwareBrowseEntry(){
+      if (!isHubHostLive()) {
+        openFriendBrowseForDoor('right');
+        return;
+      }
+      if (isHubInLeftDoor()) {
+        openLiveRightDoorForSoftware();
+        return;
+      }
+      if (!canUseHubStudioTabs()) return;
+      hubStudioSource = 'software';
+      switchHubTab('software');
+    }
+
+    function markHubStudioFrameReady(){
+      var frame = document.getElementById('hubStudioFrame');
+      var studioPanel = document.getElementById('hubStudio');
+      var studioLoading = document.getElementById('hubStudioLoading');
+      if (frame) frame.classList.add('is-ready');
+      if (studioPanel) studioPanel.classList.add('is-frame-ready');
+      if (studioLoading) studioLoading.textContent = '';
+    }
+
+    function buildHubStudioFrameSrc(){
+      var nextSrc = 'live_studio.php?door_panel=1&hub_embed=1';
+      if (hubStudioSource) {
+        nextSrc += '&source=' + encodeURIComponent(hubStudioSource);
+      }
+      try {
+        if (window.frameElement && window.frameElement.id === 'ttLiveRightDoorFrame') {
+          nextSrc += '&right_door=1';
+        } else if (isHubInLeftDoor()) {
+          nextSrc += '&left_door=1';
+        }
+      } catch (error) {}
+      return nextSrc;
+    }
+
+    function ensureStudioFrame(forceReload){
+      var frame = document.getElementById('hubStudioFrame');
+      var studioPanel = document.getElementById('hubStudio');
+      var studioLoading = document.getElementById('hubStudioLoading');
+      if (!frame) return;
+      var nextSrc = buildHubStudioFrameSrc();
+      var currentSrc = String(frame.getAttribute('src') || '').trim();
+      var normalizedCurrent = currentSrc.replace(/([&?])_ts=\d+/g, '$1').replace(/[?&]$/, '');
+      var wantsSoftware = hubStudioSource === 'software';
+      var currentHasSoftware = /[?&]source=software(?:&|$)/.test(normalizedCurrent);
+      var sourceMatches = wantsSoftware ? currentHasSoftware : !currentHasSoftware;
+      var doorMatches = (isHubInLeftDoor() && /[?&]left_door=1(?:&|$)/.test(normalizedCurrent))
+        || (isHubInRightDoor() && /[?&]right_door=1(?:&|$)/.test(normalizedCurrent))
+        || (!isHubInLeftDoor() && !isHubInRightDoor());
+      if (!forceReload && currentSrc && currentSrc !== 'about:blank' && normalizedCurrent.indexOf('live_studio.php') !== -1 && sourceMatches && doorMatches) {
+        markHubStudioFrameReady();
+        return;
+      }
+      if (studioPanel) studioPanel.classList.remove('is-frame-ready');
+      if (studioLoading) studioLoading.textContent = 'Opening Live Studio...';
+      frame.classList.remove('is-ready');
+      var loadUrl = nextSrc + (nextSrc.indexOf('?') >= 0 ? '&' : '?') + '_ts=' + String(Date.now());
+      var loadTimer = window.setTimeout(function(){
+        markHubStudioFrameReady();
+      }, 3500);
+      frame.addEventListener('load', function onStudioFrameLoad(){
+        frame.removeEventListener('load', onStudioFrameLoad);
+        window.clearTimeout(loadTimer);
+        markHubStudioFrameReady();
+      });
+      frame.setAttribute('src', loadUrl);
+    }
+
+    syncHostLiveDoorsFromMeta(hubOwnLiveMeta);
+    refreshHubHostLiveActive();
+    syncHubChatIdleDoorVisibility();
+
+    function readHubLivePickMeta(btn){
+      btn = btn || null;
+      return {
+        host: btn ? (btn.getAttribute('data-host') || '') : '',
+        title: btn ? (btn.getAttribute('data-title') || '') : '',
+        snapshot_version: btn ? (btn.getAttribute('data-snapshot-version') || '') : '',
+        visibility: btn ? String(btn.getAttribute('data-visibility') || '').toLowerCase() : '',
+        host_door: btn ? String(btn.getAttribute('data-host-door') || '').toLowerCase() : '',
+        studio_source: btn ? String(btn.getAttribute('data-studio-source') || '').toLowerCase() : ''
+      };
+    }
+
+    function isSoftwareRightDoorLive(meta){
+      return resolveFriendWatchDoor(meta) === 'right';
+    }
+
+    function resolveFriendWatchDoor(meta){
+      meta = meta || {};
+      var hostDoor = String(meta.host_door || meta.hostLiveDoor || '').toLowerCase();
+      var studioSource = String(meta.studio_source || meta.studioSource || '').toLowerCase();
+      if (hostDoor === 'right' || (studioSource === 'software' && hostDoor !== 'left')) {
+        return 'right';
+      }
+      if (hostDoor === 'left') {
+        return 'left';
+      }
+      return hostDoor !== '' ? hostDoor : 'left';
+    }
+
+    function buildLiveLeftDoorWatchUrl(liveId, meta){
+      liveId = parseInt(liveId || '0', 10) || 0;
+      meta = meta || {};
+      var url;
+      try {
+        url = new URL('live_door_hub.php', window.location.href);
+      } catch (e) {
+        url = new URL('live_door_hub.php', window.location.href);
+      }
+      url.searchParams.set('hub_surface', hubSurface);
+      if (hubCanStudio) {
+        url.searchParams.set('can_studio', '1');
+      }
+      url.searchParams.set('hub_door', 'left');
+      url.searchParams.set('hub_tab', 'public');
+      if (liveId > 0) {
+        url.searchParams.set('watch_live', String(liveId));
+      }
+      if (meta.visibility) {
+        url.searchParams.set('watch_visibility', String(meta.visibility));
+      }
+      if (meta.host) {
+        url.searchParams.set('watch_host', String(meta.host));
+      }
+      if (meta.title) {
+        url.searchParams.set('watch_title', String(meta.title));
+      }
+      if (meta.snapshot_version) {
+        url.searchParams.set('watch_snapshot', String(meta.snapshot_version));
+      }
+      if (meta.host_door) {
+        url.searchParams.set('watch_host_door', String(meta.host_door));
+      }
+      if (meta.studio_source) {
+        url.searchParams.set('watch_studio_source', String(meta.studio_source));
+      }
+      return url.href;
+    }
+
+    function buildLiveRightDoorWatchUrl(liveId, meta){
+      liveId = parseInt(liveId || '0', 10) || 0;
+      meta = meta || {};
+      var url;
+      try {
+        url = new URL('live_door_hub.php', window.location.href);
+      } catch (e) {
+        url = new URL('live_door_hub.php', window.location.href);
+      }
+      url.searchParams.set('hub_surface', hubSurface);
+      url.searchParams.set('can_studio', '1');
+      url.searchParams.set('hub_door', 'right');
+      url.searchParams.set('hub_tab', 'public');
+      if (liveId > 0) {
+        url.searchParams.set('watch_live', String(liveId));
+      }
+      if (meta.visibility) {
+        url.searchParams.set('watch_visibility', String(meta.visibility));
+      }
+      if (meta.host) {
+        url.searchParams.set('watch_host', String(meta.host));
+      }
+      if (meta.title) {
+        url.searchParams.set('watch_title', String(meta.title));
+      }
+      if (meta.snapshot_version) {
+        url.searchParams.set('watch_snapshot', String(meta.snapshot_version));
+      }
+      if (meta.host_door) {
+        url.searchParams.set('watch_host_door', String(meta.host_door));
+      }
+      if (meta.studio_source) {
+        url.searchParams.set('watch_studio_source', String(meta.studio_source));
+      }
+      return url.href;
+    }
+
+    function openLiveRightDoorWithUrl(rightUrl){
+      rightUrl = String(rightUrl || '').trim();
+      if (!rightUrl) return false;
+      var hosts = [];
+      try {
+        if (window.top && window.top !== window) hosts.push(window.top);
+      } catch (e) {}
+      try {
+        if (window.parent && window.parent !== window) hosts.push(window.parent);
+      } catch (e2) {}
+      for (var i = 0; i < hosts.length; i += 1) {
+        try {
+          var hostWin = hosts[i];
+          if (hostWin && hostWin.TTLiveRight && typeof hostWin.TTLiveRight.open === 'function') {
+            hostWin.TTLiveRight.open(rightUrl);
+            return true;
+          }
+        } catch (e3) {}
+      }
+      try {
+        (window.top || window.parent).postMessage({ type: 'msb-live-right-door-open', url: rightUrl }, '*');
+        return true;
+      } catch (e4) {}
+      return false;
+    }
+
+    function openLiveRightDoorForWatch(liveId, meta){
+      liveId = parseInt(liveId || '0', 10) || 0;
+      if (liveId <= 0) return;
+      meta = meta || {};
+      if (isHubInRightDoor()) {
+        embedLiveInHub(liveId, meta, 'public');
+        return;
+      }
+      openLiveRightDoorWithUrl(buildLiveRightDoorWatchUrl(liveId, meta));
+    }
+
+    function openLiveLeftDoorWithUrl(leftUrl){
+      leftUrl = String(leftUrl || '').trim();
+      if (!leftUrl) return false;
+      var hosts = [];
+      try {
+        if (window.top && window.top !== window) hosts.push(window.top);
+      } catch (e) {}
+      try {
+        if (window.parent && window.parent !== window) hosts.push(window.parent);
+      } catch (e2) {}
+      for (var i = 0; i < hosts.length; i += 1) {
+        try {
+          var hostWin = hosts[i];
+          if (hostWin && hostWin.TTLive && typeof hostWin.TTLive.open === 'function') {
+            hostWin.TTLive.open(leftUrl);
+            return true;
+          }
+        } catch (e3) {}
+      }
+      try {
+        (window.top || window.parent).postMessage({ type: 'msb-live-door-open', url: leftUrl }, '*');
+        return true;
+      } catch (e4) {}
+      return false;
+    }
+
+    function openLiveLeftDoorForWatch(liveId, meta){
+      liveId = parseInt(liveId || '0', 10) || 0;
+      if (liveId <= 0) return;
+      meta = meta || {};
+      if (isHubInLeftDoor()) {
+        embedLiveInHub(liveId, meta, 'public');
+        return;
+      }
+      openLiveLeftDoorWithUrl(buildLiveLeftDoorWatchUrl(liveId, meta));
+    }
+
+    function routeFriendWatch(liveId, meta, panelKey){
+      liveId = parseInt(liveId || '0', 10) || 0;
+      if (liveId <= 0) return;
+      meta = meta || {};
+      panelKey = panelKey || 'public';
+      if (resolveFriendWatchDoor(meta) === 'right') {
+        openLiveRightDoorForWatch(liveId, meta);
+        return;
+      }
+      openLiveLeftDoorForWatch(liveId, meta);
+    }
+
+    function buildLiveRightDoorSoftwareUrl(){
+      var url;
+      try {
+        url = new URL('live_door_hub.php', window.location.href);
+      } catch (e) {
+        url = new URL('live_door_hub.php', window.location.href);
+      }
+      url.searchParams.set('hub_surface', hubSurface);
+      url.searchParams.set('can_studio', '1');
+      url.searchParams.set('hub_door', 'right');
+      url.searchParams.set('hub_tab', 'software');
+      return url.href;
+    }
+
+    function openLiveRightDoorForSoftware(){
+      if (isHubInLeftDoor()) {
+        activateHubTab('chat');
+        setHubPanel('chat');
+        setHubShellMode('chat');
+      }
+      var opened = openLiveRightDoorWithUrl(buildLiveRightDoorSoftwareUrl());
+      if (isHubInLeftDoor() && opened) {
+        showHubToast('Streaming software opened in the right sidebar.');
       }
     }
 
@@ -1556,52 +2161,49 @@ if ($featured) {
     function setHubShellMode(key){
       var shell = document.querySelector('.hub-shell');
       if (!shell) return;
-      shell.classList.toggle('is-studio-tab', key === 'studio');
+      shell.classList.toggle('is-studio-tab', key === 'studio' || key === 'software');
     }
 
     var hubStudioSource = '';
+    var hubCanStudio = <?= $canStudio ? 'true' : 'false' ?>;
+
+    function canUseHubStudioTabs(){
+      return !!hubCanStudio;
+    }
 
     function readHubUrlParams(){
       var params = new URLSearchParams(window.location.search);
       return {
         tab: String(params.get('hub_tab') || '').trim(),
-        studioSource: String(params.get('studio_source') || '').trim()
+        studioSource: String(params.get('studio_source') || '').trim(),
+        watchLive: parseInt(params.get('watch_live') || '0', 10) || 0,
+        watchVisibility: String(params.get('watch_visibility') || '').trim().toLowerCase(),
+        watchHost: String(params.get('watch_host') || '').trim(),
+        watchTitle: String(params.get('watch_title') || '').trim(),
+        watchSnapshot: String(params.get('watch_snapshot') || '').trim(),
+        watchHostDoor: String(params.get('watch_host_door') || '').trim().toLowerCase(),
+        watchStudioSource: String(params.get('watch_studio_source') || '').trim().toLowerCase()
       };
-    }
-
-    function ensureStudioFrame(forceReload){
-      var frame = document.getElementById('hubStudioFrame');
-      if (!frame) return;
-      var nextSrc = 'live_studio.php?door_panel=1&hub_embed=1';
-      if (hubStudioSource) {
-        nextSrc += '&source=' + encodeURIComponent(hubStudioSource);
-      }
-      try {
-        if (window.frameElement && window.frameElement.id === 'ttLiveRightDoorFrame') {
-          nextSrc += '&right_door=1';
-        }
-      } catch (error) {}
-      var currentSrc = String(frame.getAttribute('src') || '').trim();
-      var needsSourceReload = false;
-      if (hubStudioSource && currentSrc && currentSrc !== 'about:blank') {
-        needsSourceReload = currentSrc.indexOf('source=' + encodeURIComponent(hubStudioSource)) === -1
-          && currentSrc.indexOf('source=' + hubStudioSource) === -1;
-      }
-      if (forceReload || !currentSrc || currentSrc === 'about:blank' || needsSourceReload) {
-        frame.addEventListener('load', function onStudioFrameLoad(){
-          frame.classList.add('is-ready');
-          frame.removeEventListener('load', onStudioFrameLoad);
-        });
-        frame.setAttribute('src', nextSrc);
-      } else {
-        frame.classList.add('is-ready');
-      }
     }
 
     function setHubStudioSource(source){
       source = String(source || '').trim();
       if (!source) return;
       hubStudioSource = source;
+      if (source === 'software') {
+        if (!isHubHostLive()) {
+          openFriendBrowseForDoor('right');
+          return;
+        }
+        if (isHubInLeftDoor()) {
+          openLiveRightDoorForSoftware();
+          return;
+        }
+        if (!canUseHubStudioTabs()) return;
+        switchHubTab('software');
+        return;
+      }
+      if (!canUseHubStudioTabs()) return;
       switchHubTab('studio');
       ensureStudioFrame(true);
     }
@@ -1671,8 +2273,8 @@ if ($featured) {
     }
 
     function shouldShowHubLiveChat(){
-      if (hubWatchingLiveId > 0) return true;
-      return ownLiveId > 0 && hubHostLiveActive;
+      if (isHubHostLive()) return true;
+      return hubWatchingLiveId > 0;
     }
 
     function shouldShowHubComposeDock(){
@@ -1720,6 +2322,11 @@ if ($featured) {
       var status = String(live.status || '').toLowerCase();
       if (liveId > 0 && status === 'live') {
         ownLiveId = liveId;
+        syncHostLiveDoorsFromMeta(live);
+        if (!canHostChatInThisDoor(live)) {
+          syncHubEndButton();
+          return;
+        }
         hubHostLiveActive = true;
         hubOwnLiveMeta.title = String(live.title || hubOwnLiveMeta.title || '');
         if (hubWatchingLiveId <= 0 || hubWatchingLiveId === ownLiveId) {
@@ -1749,19 +2356,43 @@ if ($featured) {
     function switchHubTab(key){
       key = String(key || 'chat');
       if (key === 'react' || key === 'watching') key = 'chat';
+      if (key === 'software') {
+        if (isHubInLeftDoor()) {
+          if (!isHubHostLive()) {
+            openFriendBrowseForDoor('right');
+            return;
+          }
+          openLiveRightDoorForSoftware();
+          return;
+        }
+        if (!isHubHostLive()) {
+          openFriendBrowseForDoor('right');
+          return;
+        }
+        if (!canUseHubStudioTabs()) return;
+      }
+      if (key === 'studio' && !canUseHubStudioTabs()) return;
       var body = document.querySelector('.hub-body');
       if (body) body.classList.add('is-switching');
       activateHubTab(key);
       setHubShellMode(key);
       if (key === 'studio') {
-        ensureStudioFrame();
+        hubStudioSource = '';
+        ensureStudioFrame(true);
         setHubPanel('studio');
+      } else if (key === 'software') {
+        hubStudioSource = 'software';
+        ensureStudioFrame(true);
+        setHubPanel('studio');
+        stopHubPublicPoll();
       } else if (key === 'chat' || key === 'public' || key === 'description' || key === 'settings' || key === 'microphone' || key === 'camera') {
         setHubPanel(key === 'public' ? 'public' : key);
         if (key === 'public') {
           startHubPublicPoll();
           refreshHubBrowseLives(true).then(function(){
-            maybeAutoStartHubWatch();
+            if (!isHubHostLive()) {
+              maybeAutoStartHubWatch();
+            }
           });
         } else {
           stopHubPublicPoll();
@@ -2034,7 +2665,7 @@ if ($featured) {
         body: formData,
         credentials: 'same-origin'
       }).then(function(response){
-        return response.json();
+        return parseHubJsonResponse(response);
       }).catch(function(){
         return null;
       });
@@ -2055,7 +2686,7 @@ if ($featured) {
     }
 
     function isHubHostLive(){
-      return ownLiveId > 0 && hubHostLiveActive;
+      return ownLiveId > 0 && hubHostLiveActive && canHostChatInThisDoor();
     }
 
     function sendHubComment(){
@@ -2081,7 +2712,12 @@ if ($featured) {
         body: formData,
         credentials: 'same-origin'
       }).then(function(response){
-        return response.json();
+        return parseHubJsonResponse(response).then(function(data){
+          if (!response.ok) {
+            throw new Error((data && data.error) ? data.error : 'Unable to send comment');
+          }
+          return data;
+        });
       }).then(function(data){
         if (!data || !data.ok) {
           throw new Error((data && data.error) ? data.error : 'Unable to send comment');
@@ -2111,7 +2747,7 @@ if ($featured) {
         body: formData,
         credentials: 'same-origin'
       }).then(function(response){
-        return response.json();
+        return parseHubJsonResponse(response);
       }).then(function(data){
         if (!data || !data.ok) return;
         renderHubRoomPayload(isHubHostLive() ? normalizeHubStudioPayload(data) : data);
@@ -2135,7 +2771,7 @@ if ($featured) {
     function focusHubPanel(key){
       key = String(key || 'chat');
       if (key === 'studio') {
-        switchHubTab('studio');
+        openLiveStudioInHub();
         return;
       }
       activateHubTab(key);
@@ -2153,12 +2789,7 @@ if ($featured) {
         if (!watchPanel) {
           watchPanel = isOwner ? 'chat' : 'public';
         }
-        openLive(btn.getAttribute('data-live-id'), {
-          host: btn.getAttribute('data-host') || '',
-          title: btn.getAttribute('data-title') || '',
-          snapshot_version: btn.getAttribute('data-snapshot-version') || '',
-          visibility: visibility
-        }, isOwner, watchPanel);
+        openLive(btn.getAttribute('data-live-id'), readHubLivePickMeta(btn), isOwner, watchPanel);
       });
     }
 
@@ -2187,6 +2818,7 @@ if ($featured) {
 
     function maybeAutoStartHubWatch(){
       if (hubWatchingLiveId > 0) return;
+      if (ownLiveId > 0 || isHubHostLive()) return;
       var stage = document.getElementById('hubStage');
       if (stage && stage.classList.contains('is-watching')) return;
       if (getActiveHubTabKey() !== 'public') return;
@@ -2196,12 +2828,8 @@ if ($featured) {
       if (picks.length !== 1) return;
       var btn = picks[0];
       if (btn.getAttribute('data-is-owner') === '1') return;
-      openLive(btn.getAttribute('data-live-id'), {
-        host: btn.getAttribute('data-host') || '',
-        title: btn.getAttribute('data-title') || '',
-        snapshot_version: btn.getAttribute('data-snapshot-version') || '',
-        visibility: btn.getAttribute('data-visibility') || 'public'
-      }, false, 'public');
+      var meta = readHubLivePickMeta(btn);
+      openLive(btn.getAttribute('data-live-id'), meta, false, 'public');
     }
 
     function ensureOwnLiveInPublicList(liveId, title, visibility){
@@ -2300,6 +2928,10 @@ if ($featured) {
         } else if (visibility !== 'public') {
           return;
         }
+        var myDoor = getHubDoorSide();
+        if (myDoor && resolveFriendWatchDoor(row) !== myDoor) {
+          return;
+        }
         var visibilityLabel = hubSurface === 'feed' ? 'Friends' : 'Public';
         var pick = document.createElement('button');
         pick.type = 'button';
@@ -2312,6 +2944,8 @@ if ($featured) {
         pick.setAttribute('data-visibility', visibility);
         pick.setAttribute('data-watch-panel', 'public');
         pick.setAttribute('data-snapshot-version', String(row.snapshot_version || ''));
+        pick.setAttribute('data-host-door', String(row.host_door || ''));
+        pick.setAttribute('data-studio-source', String(row.studio_source || ''));
         pick.innerHTML = '<span class="hub-msg-avatar">' + escapeHubText(host.charAt(0).toUpperCase()) + '</span>'
           + '<span class="hub-msg-body">'
           + '<span class="hub-msg-user">' + escapeHubText(host)
@@ -2323,7 +2957,9 @@ if ($featured) {
         browsePanel.appendChild(pick);
         bindHubLivePick(pick);
       });
-      maybeAutoStartHubWatch();
+      if (!isHubHostLive()) {
+        maybeAutoStartHubWatch();
+      }
     }
 
     async function refreshHubBrowseLives(force){
@@ -2331,6 +2967,9 @@ if ($featured) {
       try {
         var browseUrl = new URL('ajax/live_door_browse.php', window.location.href);
         browseUrl.searchParams.set('hub_surface', hubSurface);
+        if (getHubDoorSide()) {
+          browseUrl.searchParams.set('hub_door', getHubDoorSide());
+        }
         browseUrl.searchParams.set('t', String(Date.now()));
         var response = await fetch(browseUrl.toString(), {
           method: 'GET',
@@ -2339,7 +2978,7 @@ if ($featured) {
         });
         if (seq !== hubBrowseRefreshSeq) return;
         if (!response.ok) return;
-        var data = await response.json();
+        var data = await parseHubJsonResponse(response);
         if (seq !== hubBrowseRefreshSeq) return;
         if (!data || !data.ok) return;
         if (data.own_live_id) {
@@ -2361,14 +3000,19 @@ if ($featured) {
           hubChatFingerprint = nextChatFingerprint;
           renderHubChatLives(chatLives);
         }
-        if (getActiveHubTabKey() === 'public') {
+        if (getActiveHubTabKey() === 'public' && !isHubHostLive()) {
           maybeAutoStartHubWatch();
         }
         var featured = data.featured || browseLives[0] || chatLives[0] || null;
         var ownRow = null;
         chatLives.some(function(row){
-          if (row && row.is_owner) {
+          if (row && row.is_owner && canHostChatInThisDoor(row)) {
             ownRow = row;
+            ownLiveId = parseInt(row.id || '0', 10) || ownLiveId;
+            hubOwnLiveMeta.title = String(row.title || hubOwnLiveMeta.title || '');
+            hubOwnLiveMeta.visibility = String(row.visibility || hubOwnLiveMeta.visibility || 'friends');
+            hubOwnLiveMeta.host_door = String(row.host_door || '').toLowerCase();
+            hubOwnLiveMeta.studio_source = String(row.studio_source || '').toLowerCase();
             return true;
           }
           return false;
@@ -2380,8 +3024,10 @@ if ($featured) {
           stageLive = featured;
         }
         if (ownLiveId > 0 && ownRow && String(ownRow.status || 'live').toLowerCase() === 'live') {
-          hubHostLiveActive = true;
-          if (getActiveHubTabKey() === 'chat') {
+          syncHostLiveDoorsFromMeta(ownRow);
+          refreshHubHostLiveActive();
+          syncHubChatIdleDoorVisibility();
+          if (getActiveHubTabKey() === 'chat' && isHubHostLive()) {
             syncHubLiveSessionUi(true);
             requestHubStudioRoomData();
             fetchHubViewerRoom(ownLiveId, null).catch(function(){});
@@ -2455,7 +3101,7 @@ if ($featured) {
 
     function ensureOwnLiveInChatList(liveId, title){
       liveId = parseInt(liveId || '0', 10) || 0;
-      if (liveId <= 0) return;
+      if (liveId <= 0 || !canHostChatInThisDoor()) return;
       var chatIdle = document.getElementById('hubChatIdle');
       if (!chatIdle) return;
       if (chatIdle.querySelector('[data-live-id="' + liveId + '"]')) return;
@@ -2733,7 +3379,7 @@ if ($featured) {
         cache: 'no-store',
         headers: { 'Accept': 'application/json' }
       }).then(function(response){
-        return response.json().then(function(data){
+        return parseHubJsonResponse(response).then(function(data){
           if (!response.ok) {
             throw new Error((data && data.error) ? data.error : 'Unable to join live room.');
           }
@@ -2853,6 +3499,8 @@ if ($featured) {
     function embedHostLiveInHub(id, meta, streamPromise, panelKey){
       id = parseInt(id || '0', 10) || 0;
       if (id <= 0) return;
+      meta = meta || {};
+      var softwareHost = isHubSoftwareHost(meta);
       stopFriendWatchInHub(true);
       hubWatchingLiveId = id;
       switchHubTab('chat');
@@ -2861,7 +3509,7 @@ if ($featured) {
       var stageMeta = document.querySelector('.hub-stage-meta');
       var stageWrap = document.querySelector('.hub-stage-wrap');
       if (!stage) return;
-      stage.classList.remove('has-webrtc-video');
+      stage.classList.remove('has-webrtc-video', 'use-snapshot-stage', 'has-snapshot-stage', 'hub-friend-watch');
       stage.classList.add('is-watching');
       if (stageWrap) stageWrap.classList.add('is-watching');
       stage.innerHTML = '';
@@ -2878,23 +3526,43 @@ if ($featured) {
       var retryBtn = document.createElement('button');
       retryBtn.type = 'button';
       retryBtn.className = 'hub-host-cam-retry';
-      retryBtn.textContent = 'Tap to enable camera';
-      retryBtn.setAttribute('aria-label', 'Enable camera');
+      retryBtn.textContent = softwareHost ? 'Waiting for software feed...' : 'Tap to enable camera';
+      retryBtn.setAttribute('aria-label', softwareHost ? 'Waiting for software feed' : 'Enable camera');
 
       stage.appendChild(video);
+      var snap = null;
+      if (softwareHost) {
+        snap = document.createElement('img');
+        snap.className = 'hub-watch-snapshot';
+        snap.alt = 'Live stream';
+        stage.appendChild(snap);
+        hubSnapshotLiveActive = true;
+        restartHubSnapshotLoop();
+        pullHubSnapshotFrame(true);
+      }
       stage.appendChild(retryBtn);
       hubHostVideo = video;
 
-      var resolveStream = streamPromise || ensureHubHostStream(id);
+      var resolveStream = streamPromise || ensureHubHostStream(id, meta);
       resolveStream.then(function(stream){
-        return attachHubHostStream(video, stream, id, retryBtn);
+        if (stream) {
+          return attachHubHostStream(video, stream, id, retryBtn);
+        }
+        showHubHostCamRetry(retryBtn, softwareHost);
+        return false;
       }).catch(function(){
         showHubHostCamRetry(retryBtn, true);
       });
 
       retryBtn.addEventListener('click', function(){
+        if (softwareHost) {
+          requestHubStudioRoomData();
+          postHubStudioMessage({ type: 'msb-hub-request-room-data' });
+          pullHubSnapshotFrame(true);
+          return;
+        }
         showHubHostCamRetry(retryBtn, false);
-        ensureHubHostStream(id).then(function(stream){
+        ensureHubHostStream(id, meta).then(function(stream){
           return attachHubHostStream(video, stream, id, retryBtn);
         }).catch(function(){
           showHubHostCamRetry(retryBtn, true);
@@ -2935,17 +3603,20 @@ if ($featured) {
       return null;
     }
 
-    function ensureHubHostStream(liveId){
+    function ensureHubHostStream(liveId, meta){
       liveId = parseInt(liveId || '0', 10) || 0;
+      meta = meta || {};
       if (liveId <= 0) {
         return Promise.resolve(null);
       }
+      var softwareHost = isHubSoftwareHost(meta);
       var borrowed = readBorrowedHubHostStream(liveId);
       if (borrowed) {
         return Promise.resolve(borrowed);
       }
       return new Promise(function(resolve){
         var attempts = 0;
+        var maxAttempts = softwareHost ? 80 : 20;
         function pollBorrowed(){
           var stream = readBorrowedHubHostStream(liveId);
           if (stream) {
@@ -2953,8 +3624,12 @@ if ($featured) {
             return;
           }
           attempts += 1;
-          if (attempts < 20) {
+          if (attempts < maxAttempts) {
             window.setTimeout(pollBorrowed, 100);
+            return;
+          }
+          if (softwareHost) {
+            resolve(null);
             return;
           }
           stopHubHostStream();
@@ -3061,10 +3736,14 @@ if ($featured) {
       stopHubHostSnapshotLoop();
       hubHostVideo = null;
       if (isOwner) {
+        if (!canHostChatInThisDoor(meta)) return;
         hubWatchPanelKey = 'chat';
         if (ownLiveId <= 0) ownLiveId = id;
-        hubHostStreamPromise = ensureHubHostStream(id);
-        embedHostLiveInHub(id, meta || {}, hubHostStreamPromise, 'chat');
+        var hostMeta = Object.assign({}, meta || {}, {
+          studio_source: String((meta && meta.studio_source) || hubStudioSource || '').toLowerCase()
+        });
+        hubHostStreamPromise = ensureHubHostStream(id, hostMeta);
+        embedHostLiveInHub(id, hostMeta, hubHostStreamPromise, 'chat');
         syncHubEndButton();
         return;
       }
@@ -3076,36 +3755,90 @@ if ($featured) {
         if (visibility === 'public' && hubSurface !== 'public') return;
         if (visibility === 'friends' && hubSurface !== 'feed') return;
       }
-      embedLiveInHub(id, meta || {}, panelKey);
+      routeFriendWatch(id, meta || {}, panelKey);
       syncHubEndButton();
     }
 
     function openStudio(){
-      switchHubTab('studio');
+      openLiveStudioInHub();
     }
 
     function handleHubLiveStarted(payload){
       payload = payload || {};
       var hostUserId = parseInt(payload.hostUserId || payload.userId || '0', 10) || 0;
+      var nextId = parseInt(payload.liveId || '0', 10) || 0;
+      if (hostUserId > 0 && hostUserId === hubMeId) {
+        var eventDoor = resolveEventOwnerDoor(payload);
+        if (!eventDoor) {
+          eventDoor = isHubInRightDoor() ? 'right' : 'left';
+        }
+        var myDoor = getHubDoorSide();
+        if (myDoor && eventDoor !== myDoor) {
+          refreshHubBrowseLives(true);
+          return;
+        }
+        if (shouldSkipHostLiveStageInThisDoor(payload)) {
+          if (nextId > 0) ownLiveId = nextId;
+          refreshHubHostLiveActive();
+          syncHubEndButton();
+          syncHubLiveSessionUi(false);
+          syncHubChatIdleDoorVisibility();
+          refreshHubBrowseLives(true);
+          return;
+        }
+      }
       if (hostUserId > 0 && hostUserId !== hubMeId) {
         var hostVisibility = String(payload.visibility || 'friends').toLowerCase();
+        var hostLiveDoor = String(payload.hostLiveDoor || '').toLowerCase();
+        var studioSource = String(payload.studioSource || payload.studio_source || '').toLowerCase();
+        var watchMeta = {
+          title: String(payload.title || 'Live session'),
+          host: String(payload.host || payload.hostName || 'Host'),
+          visibility: hostVisibility,
+          host_door: hostLiveDoor,
+          studio_source: studioSource
+        };
         var matchesSurface = (hostVisibility === 'public' && hubSurface === 'public')
           || (hostVisibility === 'friends' && hubSurface === 'feed');
         refreshHubBrowseLives(true).then(function(){
-          if (matchesSurface) {
-            switchHubTab('public');
+          if (!matchesSurface) return;
+          var liveId = parseInt(payload.liveId || '0', 10) || 0;
+          if (liveId <= 0) return;
+          if (hubWatchingLiveId > 0) return;
+          switchHubTab('public');
+          var watchDoor = resolveFriendWatchDoor(watchMeta);
+          if (watchDoor === 'right') {
+            if (isHubInRightDoor()) {
+              maybeAutoStartHubWatch();
+            } else {
+              openLiveRightDoorForWatch(liveId, watchMeta);
+            }
+            return;
+          }
+          if (isHubInLeftDoor()) {
             maybeAutoStartHubWatch();
+          } else {
+            openLiveLeftDoorForWatch(liveId, watchMeta);
           }
         });
         return;
       }
-      var nextId = parseInt(payload.liveId || '0', 10) || 0;
       var now = Date.now();
       if (nextId > 0 && nextId === ownLiveId && hubLiveStartedAt && (now - hubLiveStartedAt) < 2000) {
-        hubHostLiveActive = true;
+        hubHostLiveActive = canHostChatInThisDoor(payload);
         syncHubLiveSessionUi(true);
         requestHubStudioRoomData();
         refreshHubBrowseLives(true);
+        if (!canHostChatInThisDoor(payload)) return;
+        var stage = document.getElementById('hubStage');
+        if (stage && !stage.classList.contains('is-watching')) {
+          openLive(nextId, {
+            title: String(payload.title || hubOwnLiveMeta.title || 'Live session'),
+            host: 'You',
+            ownerId: hubMeId,
+            studio_source: String(payload.studioSource || payload.studio_source || hubStudioSource || 'software').toLowerCase()
+          }, true, 'chat');
+        }
         return;
       }
       if (nextId > 0) {
@@ -3117,6 +3850,7 @@ if ($featured) {
       hubOwnLiveMeta = { title: title, visibility: visibility };
       syncHubEndButton();
       hubHostLiveActive = true;
+      refreshHubHostLiveActive();
       updateHubBrand({ host: 'You', title: title });
       ensureOwnLiveInChatList(ownLiveId, title);
       if ((visibility === 'public' && hubSurface === 'public')
@@ -3125,13 +3859,18 @@ if ($featured) {
       }
       refreshHubBrowseLives(true);
       switchHubTab('chat');
-      if (ownLiveId > 0) {
+      if (ownLiveId > 0 && canHostChatInThisDoor(payload)) {
         openLive(ownLiveId, {
           title: title,
           host: 'You',
-          ownerId: hubMeId
+          ownerId: hubMeId,
+          studio_source: String(payload.studioSource || payload.studio_source || hubStudioSource || '').toLowerCase()
         }, true, 'chat');
         requestHubStudioRoomData();
+      } else {
+        refreshHubHostLiveActive();
+        syncHubLiveSessionUi(false);
+        syncHubChatIdleDoorVisibility();
       }
     }
 
@@ -3162,13 +3901,16 @@ if ($featured) {
     });
     syncHubEndButton();
     var hubUrlParams = readHubUrlParams();
-    if (hubUrlParams.studioSource && hubUrlParams.tab === 'studio') {
+    if (hubUrlParams.studioSource && hubUrlParams.tab === 'studio' && canUseHubStudioTabs()) {
       setHubStudioSource(hubUrlParams.studioSource);
+    } else if (hubUrlParams.tab === 'software') {
+      openLiveSoftwareBrowseEntry();
     } else if (hubUrlParams.tab) {
       switchHubTab(hubUrlParams.tab);
-    } else if (ownLiveId <= 0 && document.querySelector('#hubPublicBrowse .hub-live-pick[data-is-owner="0"]')) {
+    } else if (ownLiveId <= 0 && !canUseHubStudioTabs() && document.querySelector('#hubPublicBrowse .hub-live-pick[data-is-owner="0"]')) {
       switchHubTab('public');
     } else {
+      activateHubTab('chat');
       setHubPanel('chat');
       setHubShellMode('chat');
     }
@@ -3179,19 +3921,43 @@ if ($featured) {
 
     if (ownLiveId > 0 && <?= $canStudio ? 'true' : 'false' ?>) {
       window.setTimeout(function(){
-        if (hubWatchingLiveId > 0) return;
+        if (!canHostChatInThisDoor()) {
+          syncHubLiveSessionUi(false);
+          syncHubChatIdleDoorVisibility();
+          return;
+        }
+        if (hubWatchingLiveId > 0 && hubWatchingLiveId !== ownLiveId) return;
         var stage = document.getElementById('hubStage');
-        if (stage && stage.classList.contains('is-watching')) return;
+        if (stage && stage.classList.contains('is-watching') && hubWatchingLiveId !== ownLiveId) return;
         openLive(ownLiveId, {
           title: hubOwnLiveMeta.title || readHubBrandTitle() || 'Live session',
           host: 'You',
-          ownerId: hubMeId
+          ownerId: hubMeId,
+          studio_source: hubStudioSource || hubOwnLiveMeta.studio_source || ''
         }, true, 'chat');
       }, 500);
+    } else if (hubUrlParams.watchLive > 0) {
+      window.setTimeout(function(){
+        if (hubWatchingLiveId > 0) return;
+        var stage = document.getElementById('hubStage');
+        if (stage && stage.classList.contains('is-watching')) return;
+        openLive(hubUrlParams.watchLive, {
+          host: hubUrlParams.watchHost || '',
+          title: hubUrlParams.watchTitle || 'Live session',
+          snapshot_version: hubUrlParams.watchSnapshot || '',
+          visibility: hubUrlParams.watchVisibility || (hubSurface === 'feed' ? 'friends' : 'public'),
+          host_door: hubUrlParams.watchHostDoor || '',
+          studio_source: hubUrlParams.watchStudioSource || ''
+        }, false, 'public');
+      }, 450);
     }
 
     window.addEventListener('message', function(event){
       if (!event || !event.data || typeof event.data !== 'object') return;
+      if (event.data.type === 'msb-hub-open-friend-browse') {
+        openFriendBrowseForDoor(String(event.data.door || 'left'));
+        return;
+      }
       if (event.data.type === 'msb-hub-watch-close') {
         clearHubWatch();
         return;
@@ -3230,7 +3996,38 @@ if ($featured) {
         return;
       }
       if (event.data.type === 'msb-hub-set-studio-source') {
+        if (hubWatchingLiveId > 0 && !isHubHostLive()) return;
         setHubStudioSource(String(event.data.source || ''));
+        return;
+      }
+      if (event.data.type === 'msb-live-door-open') {
+        var leftUrl = String(event.data.url || '').trim();
+        if (!leftUrl) return;
+        var insideLeftDoor = false;
+        try {
+          insideLeftDoor = !!(window.frameElement && window.frameElement.id === 'ttLiveDoorFrame');
+        } catch (error) {}
+        if (insideLeftDoor) {
+          var leftTab = '';
+          try {
+            leftTab = String(new URL(leftUrl, window.location.href).searchParams.get('hub_tab') || '').trim().toLowerCase();
+          } catch (parseErr) {}
+          if (leftTab === 'software' && canUseHubStudioTabs()) {
+            setHubStudioSource('software');
+          } else if (leftTab) {
+            switchHubTab(leftTab);
+          }
+          return;
+        }
+        try {
+          if (window.parent && window.parent.TTLive && typeof window.parent.TTLive.open === 'function') {
+            window.parent.TTLive.open(leftUrl);
+            return;
+          }
+        } catch (error) {}
+        try {
+          (window.top || window.parent).postMessage({ type: 'msb-live-door-open', url: leftUrl }, '*');
+        } catch (error2) {}
         return;
       }
       if (event.data.type === 'msb-live-right-door-open') {
@@ -3241,7 +4038,15 @@ if ($featured) {
           insideRightDoor = !!(window.frameElement && window.frameElement.id === 'ttLiveRightDoorFrame');
         } catch (error) {}
         if (insideRightDoor) {
-          setHubStudioSource('software');
+          var rightTab = '';
+          try {
+            rightTab = String(new URL(rightUrl, window.location.href).searchParams.get('hub_tab') || '').trim().toLowerCase();
+          } catch (parseErr) {}
+          if (rightTab === 'software' && canUseHubStudioTabs()) {
+            setHubStudioSource('software');
+          } else if (rightTab) {
+            switchHubTab(rightTab);
+          }
           return;
         }
         try {
@@ -3268,15 +4073,38 @@ if ($featured) {
       }
     });
 
+    document.getElementById('hubTopStudioBtn')?.addEventListener('click', function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      openLiveStudioInHub();
+    });
+
     document.querySelectorAll('[data-hub-tab]').forEach(function(tab){
-      tab.addEventListener('click', function(){
-        switchHubTab(tab.getAttribute('data-hub-tab') || '');
+      tab.addEventListener('click', function(event){
+        var tabKey = tab.getAttribute('data-hub-tab') || '';
+        if (tabKey === 'studio') {
+          event.preventDefault();
+          openLiveStudioInHub();
+          return;
+        }
+        if (tabKey === 'software') {
+          event.preventDefault();
+          openLiveSoftwareBrowseEntry();
+          return;
+        }
+        switchHubTab(tabKey);
       });
     });
 
     document.querySelectorAll('[data-hub-tab-switch]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        switchHubTab(btn.getAttribute('data-hub-tab-switch') || 'chat');
+      btn.addEventListener('click', function(event){
+        event.preventDefault();
+        var tabKey = btn.getAttribute('data-hub-tab-switch') || 'chat';
+        if (tabKey === 'studio') {
+          openLiveStudioInHub();
+          return;
+        }
+        switchHubTab(tabKey);
       });
     });
 
@@ -3291,6 +4119,13 @@ if ($featured) {
 
     startHubDoorPoll();
     refreshHubBrowseLives(true);
+
+    if (hubCanStudio && (isHubInLeftDoor() || hubDoorSide === 'left')) {
+      window.setTimeout(function(){
+        if (getActiveHubTabKey() === 'studio') return;
+        ensureStudioFrame(false);
+      }, 250);
+    }
 
     var input = document.getElementById('hubCommentInput');
     input?.addEventListener('keydown', function(e){

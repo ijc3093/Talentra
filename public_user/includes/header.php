@@ -990,7 +990,7 @@ iframe{
     position:fixed; left:0; top:0; bottom:0; width:var(--feedRailW); z-index:1200;
     background-color:var(--msb-palette-bg, #f5f7fb);
     color:var(--msb-palette-text-on-nav, var(--msb-palette-text, #111827));
-    border-right:none; border-radius:0;
+    border-right:1px solid var(--msb-palette-border-strong, #d1d5db); border-radius:0;
     display:flex; flex-direction:column;
     align-items:center; padding:18px 10px 16px; gap:14px;
     --msb-feed-chrome-size:40px;
@@ -1172,8 +1172,11 @@ iframe{
 
     <a class="feed-ig-link" href="dashboard.php?modal=1" id="headerCreatePostTrigger" data-create-post-modal="1" title="Create Post" aria-label="Create Post"><i class="icon ion-plus-round"></i></a>
     <a class="feed-ig-link<?php echo $railIsPublic ? ' active' : ''; ?>" href="public.php" title="Public"><i class="icon ion-ios-world-outline"></i></a>
+    <?php if ($meId > 0): ?>
+    <button type="button" class="feed-ig-link js-open-live-studio-browse<?php echo $railIsStudio ? ' active' : ''; ?>" title="Live Studio" aria-label="Live Studio"><i class="icon ion-ios-videocam"></i></button>
     <?php if ($headerCanLiveStudio): ?>
-    <a class="feed-ig-link<?php echo $railIsStudio ? ' active' : ''; ?>" href="live_studio.php" title="Live Studio"><i class="icon ion-ios-videocam"></i></a>
+    <button type="button" class="feed-ig-link js-open-live-software-browse" title="Streaming software" aria-label="Streaming software"><i class="icon ion-wand"></i></button>
+    <?php endif; ?>
     <?php endif; ?>
     <?php if (!$headerStaffReadonly): ?>
     <a class="feed-ig-link<?php echo $railIsCompose ? ' active' : ''; ?>" href="compose.php" title="New Compose"><i class="icon ion-compose"></i></a>
@@ -1330,6 +1333,30 @@ iframe{
     .msb-global-call-name{font-size:16px;}
     .msb-global-call-action{width:42px;height:42px;}
   }
+</style>
+<style id="msb-modal-fouc-guard">
+/* Must load before modal markup is parsed — prevents live/create modal flash on refresh/nav. */
+.global-live-modal:not(.is-open),
+#createPostModal:not(.is-open){
+  display:none !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+.global-live-modal:not(.is-open) .global-live-modal-dialog,
+.global-live-modal:not(.is-open) iframe,
+.global-live-modal:not(.is-open) video,
+.global-live-modal:not(.is-open) img,
+.global-live-modal:not(.is-open) aside,
+#createPostModal:not(.is-open) .create-post-dialog,
+#createPostModal:not(.is-open) iframe{
+  display:none !important;
+}
+.msb-global-call-banner[aria-hidden="true"]{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
 </style>
 <div
   class="msb-global-call-banner"
@@ -3518,6 +3545,13 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
   function paintIcon(icon, reaction, active, outline){
     if (!icon) return;
     const key = normalize(reaction);
+    if (icon.classList && icon.classList.contains('msb-pact')) {
+      if (key === 'love') {
+        icon.classList.toggle('is-active', !!active);
+        icon.style.color = active ? defs.love.color : '';
+      }
+      return;
+    }
     icon.className = '';
     icon.textContent = '';
     icon.removeAttribute('style');
@@ -4195,6 +4229,112 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     const id = parseInt(liveId || 0, 10) || 0;
     return id > 0 ? ('live_watch.php?live=' + encodeURIComponent(String(id))) : '';
   }
+
+  function detectHubSurfaceForLiveDoor(){
+    const path = String(window.location.pathname || '').toLowerCase();
+    if (path.endsWith('/feed.php') || path.includes('/feed.php')) return 'feed';
+    return 'public';
+  }
+
+  function resolveHeaderFriendWatchDoor(meta){
+    meta = meta || {};
+    const hostDoor = String(meta.host_door || meta.hostLiveDoor || meta.watch_door || '').toLowerCase();
+    const studioSource = String(meta.studio_source || meta.studioSource || '').toLowerCase();
+    if (hostDoor === 'right' || (studioSource === 'software' && hostDoor !== 'left')) {
+      return 'right';
+    }
+    if (hostDoor === 'left') return 'left';
+    return hostDoor !== '' ? hostDoor : 'left';
+  }
+
+  function buildHeaderLeftDoorWatchUrl(liveId, meta, surface){
+    liveId = parseInt(liveId || 0, 10) || 0;
+    meta = meta || {};
+    surface = String(surface || detectHubSurfaceForLiveDoor());
+    const url = new URL('live_door_hub.php', window.location.href);
+    url.searchParams.set('hub_surface', surface);
+    url.searchParams.set('can_studio', '1');
+    url.searchParams.set('hub_door', 'left');
+    url.searchParams.set('hub_tab', 'public');
+    if (liveId > 0) url.searchParams.set('watch_live', String(liveId));
+    if (meta.visibility) url.searchParams.set('watch_visibility', String(meta.visibility));
+    if (meta.host) url.searchParams.set('watch_host', String(meta.host));
+    if (meta.title) url.searchParams.set('watch_title', String(meta.title));
+    if (meta.host_door) url.searchParams.set('watch_host_door', String(meta.host_door));
+    if (meta.studio_source) url.searchParams.set('watch_studio_source', String(meta.studio_source));
+    return url.href;
+  }
+
+  function buildHeaderRightDoorWatchUrl(liveId, meta, surface){
+    liveId = parseInt(liveId || 0, 10) || 0;
+    meta = meta || {};
+    surface = String(surface || detectHubSurfaceForLiveDoor());
+    const url = new URL('live_door_hub.php', window.location.href);
+    url.searchParams.set('hub_surface', surface);
+    url.searchParams.set('can_studio', '1');
+    url.searchParams.set('hub_door', 'right');
+    url.searchParams.set('hub_tab', 'public');
+    if (liveId > 0) url.searchParams.set('watch_live', String(liveId));
+    if (meta.visibility) url.searchParams.set('watch_visibility', String(meta.visibility));
+    if (meta.host) url.searchParams.set('watch_host', String(meta.host));
+    if (meta.title) url.searchParams.set('watch_title', String(meta.title));
+    if (meta.host_door) url.searchParams.set('watch_host_door', String(meta.host_door));
+    if (meta.studio_source) url.searchParams.set('watch_studio_source', String(meta.studio_source));
+    return url.href;
+  }
+
+  async function fetchHeaderLiveWatchMeta(liveId){
+    liveId = parseInt(liveId || 0, 10) || 0;
+    if (liveId <= 0) return null;
+    try {
+      const res = await fetch('ajax/live_watch_meta.php?live_id=' + encodeURIComponent(String(liveId)), {
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      if (!data || !data.ok || !data.live) return null;
+      return data.live;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function openHeaderLiveDoorWatch(liveId, partialMeta){
+    liveId = parseInt(liveId || 0, 10) || 0;
+    if (liveId <= 0) return false;
+    let meta = partialMeta && typeof partialMeta === 'object' ? Object.assign({}, partialMeta) : {};
+    if (!meta.host_door && !meta.studio_source && !meta.watch_door) {
+      const fetched = await fetchHeaderLiveWatchMeta(liveId);
+      if (fetched) meta = Object.assign({}, fetched, meta);
+    }
+    const surface = detectHubSurfaceForLiveDoor();
+    const watchDoor = resolveHeaderFriendWatchDoor(meta);
+    const watchUrl = watchDoor === 'right'
+      ? buildHeaderRightDoorWatchUrl(liveId, meta, surface)
+      : buildHeaderLeftDoorWatchUrl(liveId, meta, surface);
+    if (watchDoor === 'right') {
+      if (window.TTLiveRight && typeof window.TTLiveRight.open === 'function') {
+        window.TTLiveRight.open(watchUrl);
+        return true;
+      }
+      try {
+        window.postMessage({ type: 'msb-live-right-door-open', url: watchUrl }, '*');
+        return true;
+      } catch (error) {}
+      return false;
+    }
+    if (window.TTLive && typeof window.TTLive.open === 'function') {
+      window.TTLive.open(watchUrl);
+      return true;
+    }
+    try {
+      window.postMessage({ type: 'msb-live-door-open', url: watchUrl }, '*');
+      return true;
+    } catch (error) {}
+    return false;
+  }
+
+  window.openHeaderLiveDoorWatch = openHeaderLiveDoorWatch;
 
   function syncGlobalLiveFrameSize(){
     if (!liveModalFrame || !liveModalSurface) return;
@@ -5152,7 +5292,11 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
             } catch (err) {}
           }
           if (item) item.classList.remove('is-unread');
-          openHeaderLiveModal(url || liveWatchUrlFromId(liveId), liveId);
+          openHeaderLiveDoorWatch(liveId).then(function(opened){
+            if (!opened) {
+              openHeaderLiveModal(url || liveWatchUrlFromId(liveId), liveId);
+            }
+          });
           return;
         }
         if (id && navigator.sendBeacon) {
@@ -5484,12 +5628,16 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
   const autoOpenLiveWatchId = <?php echo (int)$autoOpenLiveWatchId; ?>;
   if (autoOpenLiveWatchId > 0) {
     window.setTimeout(function(){
-      openHeaderLiveModal('live_watch.php?live=' + encodeURIComponent(String(autoOpenLiveWatchId)));
-      if (window.history && typeof window.history.replaceState === 'function') {
-        const nextUrl = new URL(window.location.href);
-        nextUrl.searchParams.delete('open_live_watch');
-        window.history.replaceState({}, document.title, nextUrl.toString());
-      }
+      openHeaderLiveDoorWatch(autoOpenLiveWatchId).then(function(opened){
+        if (!opened) {
+          openHeaderLiveModal('live_watch.php?live=' + encodeURIComponent(String(autoOpenLiveWatchId)));
+        }
+        if (window.history && typeof window.history.replaceState === 'function') {
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.delete('open_live_watch');
+          window.history.replaceState({}, document.title, nextUrl.toString());
+        }
+      });
     }, 180);
   }
 })();

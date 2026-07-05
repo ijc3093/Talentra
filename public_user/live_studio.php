@@ -7,6 +7,7 @@ require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/publisher_organization_bridge.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
+require_once __DIR__ . '/includes/live_browse.php';
 
 $controller = new Controller();
 $dbh = $controller->pdo();
@@ -237,14 +238,25 @@ if ($parts) {
 $controller = new Controller();
 $dbh = $controller->pdo();
 studioEnsureLiveShareCountColumn($dbh);
+$studioDoor = '';
+if (isset($_GET['right_door']) && (string)$_GET['right_door'] === '1') {
+    $studioDoor = 'right';
+} elseif (isset($_GET['left_door']) && (string)$_GET['left_door'] === '1') {
+    $studioDoor = 'left';
+}
 $currentLive = null;
 $historyCount = 0;
 $historySummary = null;
 
 if (studioTableExists($dbh, 'user_video_lives')) {
+    if ($studioDoor !== '') {
+        $currentLive = live_fetch_owner_live_for_door($dbh, $meId, $studioDoor);
+    } else {
     try {
         $stCurrent = $dbh->prepare("
-            SELECT id, title, description, stream_key, status, visibility, viewer_count, share_count, started_at, scheduled_for, updated_at, created_at
+            SELECT id, title, description, stream_key, status, visibility, viewer_count, share_count, started_at, scheduled_for, updated_at, created_at,
+                   COALESCE(host_door, '') AS host_door,
+                   COALESCE(studio_source, '') AS studio_source
             FROM user_video_lives
             WHERE user_id = :uid
               AND status IN ('draft','scheduled','live')
@@ -255,6 +267,7 @@ if (studioTableExists($dbh, 'user_video_lives')) {
         $currentLive = $stCurrent->fetch(PDO::FETCH_ASSOC) ?: null;
     } catch (Throwable $e) {
         $currentLive = null;
+    }
     }
 
     try {
@@ -5286,7 +5299,7 @@ $studioBodyClasses = array_filter([
 </head>
 <body<?php echo $studioBodyClasses ? ' class="' . h(implode(' ', $studioBodyClasses)) . '"' : ''; ?>>
   <?php $skipHeaderThemeBootstrap = true; include __DIR__.'/includes/header.php'; ?>
-  <?php include __DIR__.'/includes/live_right_door.php'; ?>
+  <?php if (!$hubEmbedMode): include __DIR__.'/includes/live_right_door.php'; endif; ?>
   <div class="studio-shell">
     <aside class="studio-rail" aria-label="Studio navigation">
       <a class="brand-mark" href="feed.php" aria-label="Talentra">t</a>
@@ -6025,6 +6038,8 @@ $studioBodyClasses = array_filter([
         'stream_key' => (string)($currentLive['stream_key'] ?? ''),
         'share_count' => (int)($currentLive['share_count'] ?? 0),
         'schedule_input' => $prefillSchedule,
+        'host_door' => (string)($currentLive['host_door'] ?? ''),
+        'studio_source' => (string)($currentLive['studio_source'] ?? ''),
       ], JSON_UNESCAPED_SLASHES); ?>,
       historyCount: <?php echo (int)$historyCount; ?>,
       historySummary: <?php echo json_encode($historySummary ?: new stdClass(), JSON_UNESCAPED_SLASHES); ?>,
@@ -8025,16 +8040,16 @@ $studioBodyClasses = array_filter([
         stepHint.textContent = sourceConfig.inactiveHint;
       } else if (!detailsReady()) {
         stepHint.textContent = sourceConfig.readyHint;
-      } else if (state.live && state.live.status === 'live') {
+      } else if (isLiveActiveOnThisDoor(state.live)) {
         stepHint.textContent = 'Live room is running. You can keep hosting here or end the live when you are done.';
       } else {
         stepHint.textContent = 'All setup checks are ready. You can start live now or schedule this room for later.';
       }
 
-      startLiveButton.disabled = state.busy || !state.cameraOn || !detailsReady() || (state.live && state.live.status === 'live');
+      startLiveButton.disabled = state.busy || !state.cameraOn || !detailsReady() || isLiveActiveOnThisDoor(state.live);
       scheduleLiveButton.disabled = state.busy || !detailsReady();
       saveDraftButton.disabled = state.busy || !detailsReady();
-      endLiveButton.disabled = state.busy || !(state.live && state.live.status === 'live');
+      endLiveButton.disabled = state.busy || !isLiveActiveOnThisDoor(state.live);
     }
 
     function stopCameraStream() {
@@ -8607,11 +8622,16 @@ $studioBodyClasses = array_filter([
         formData.append('device_label', profile.label || '');
         formData.append('device_viewport', profile.viewport || '');
       }
+      formData.append('studio_source', String(state.source || 'webcam'));
+      formData.append('host_door', getHostLiveDoor());
+      if (action === 'end_live' && state.live && Number(state.live.id || 0) > 0) {
+        formData.append('live_id', String(state.live.id));
+      }
       return formData;
     }
 
     function buildLiveRightDoorUrl(extraQuery){
-      var path = 'live_door_hub.php?can_studio=1&hub_tab=studio&studio_source=software';
+      var path = 'live_door_hub.php?can_studio=1&hub_door=right&hub_tab=software';
       if (extraQuery) {
         path += '&' + String(extraQuery).replace(/^[?&]/, '');
       }
@@ -8646,6 +8666,59 @@ $studioBodyClasses = array_filter([
       } catch (error) {
         return false;
       }
+    }
+
+    function isInsideLeftLiveDoor(){
+      try {
+        if (!window.frameElement || window.frameElement.id !== 'hubStudioFrame') {
+          return false;
+        }
+        var hubWindow = window.parent;
+        if (!hubWindow || !hubWindow.frameElement) {
+          return false;
+        }
+        return hubWindow.frameElement.id === 'ttLiveDoorFrame';
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function getHostLiveDoor(){
+      if (isInsideRightLiveDoor()) return 'right';
+      if (isInsideLeftLiveDoor()) return 'left';
+      return '';
+    }
+
+    function resolveStudioOwnerDoor(live){
+      live = live || state.live || {};
+      var hostDoor = String(live.host_door || '').toLowerCase();
+      var studioSource = String(live.studio_source || '').toLowerCase();
+      if (hostDoor === 'right' || (studioSource === 'software' && hostDoor !== 'left')) return 'right';
+      if (hostDoor === 'left') return 'left';
+      return hostDoor || 'left';
+    }
+
+    function isLiveActiveOnThisDoor(live){
+      live = live || state.live || {};
+      if (String(live.status || '').toLowerCase() !== 'live') return false;
+      var door = getHostLiveDoor();
+      if (!door) return true;
+      return resolveStudioOwnerDoor(live) === door;
+    }
+
+    function setSessionHostLiveDoor(door){
+      try {
+        door = String(door || '').toLowerCase();
+        if (!door) {
+          sessionStorage.removeItem('msbHostLiveDoor');
+          sessionStorage.removeItem('msbHostLiveStageDoor');
+          sessionStorage.removeItem('msbHostLiveChatDoor');
+          return;
+        }
+        sessionStorage.setItem('msbHostLiveStageDoor', door);
+        sessionStorage.setItem('msbHostLiveDoor', door);
+        sessionStorage.setItem('msbHostLiveChatDoor', door);
+      } catch (error) {}
     }
 
     function applySoftwareSourceLocally(){
@@ -8700,7 +8773,7 @@ $studioBodyClasses = array_filter([
         if (!window.parent || window.parent === window) return;
         const id = Number(liveId || (state.live && state.live.id) || 0);
         const isLive = String((state.live && state.live.status) || '').toLowerCase() === 'live';
-        if (isLive && id > 0 && state.mediaStream && state.cameraOn) {
+        if (isLive && id > 0 && state.mediaStream) {
           window.parent.__msbHubHostStream = state.mediaStream;
           window.parent.__msbHubHostStreamLiveId = id;
         } else {
@@ -8827,6 +8900,10 @@ $studioBodyClasses = array_filter([
           throw new Error(data && data.error ? data.error : 'Request failed');
         }
         state.live = data.live || { status: 'draft', snapshot_version: '' };
+        if (state.live && data.live) {
+          state.live.host_door = String(data.live.host_door || state.live.host_door || '');
+          state.live.studio_source = String(data.live.studio_source || state.live.studio_source || '');
+        }
         state.historyCount = Number(data.history_count || 0);
         state.historySummary = data.history_summary || state.historySummary || {};
         if (state.live.schedule_input && !scheduleInput.value) {
@@ -8843,13 +8920,25 @@ $studioBodyClasses = array_filter([
           state.justEnded = false;
           if (isDoorPanelMode && isHubEmbedMode) {
             publishHubHostStreamToParent(Number(state.live.id || 0));
+            window.setTimeout(function() {
+              publishHubHostStreamToParent(Number(state.live.id || 0));
+            }, 300);
+            window.setTimeout(function() {
+              publishHubHostStreamToParent(Number(state.live.id || 0));
+            }, 1200);
             try {
+              var hostLiveDoor = getHostLiveDoor();
+              if (hostLiveDoor) {
+                setSessionHostLiveDoor(hostLiveDoor);
+              }
               var liveStartedPayload = {
                 type: 'msb-hub-live-started',
                 liveId: Number(state.live.id || 0),
                 title: String(state.live.title || ''),
                 visibility: String(state.live.visibility || visibilityInput.value || 'friends'),
-                hostUserId: Number(<?php echo (int)$meId; ?>)
+                hostUserId: Number(<?php echo (int)$meId; ?>),
+                hostLiveDoor: hostLiveDoor,
+                studioSource: String(state.source || 'webcam')
               };
               var refreshPayload = { type: 'msb-hub-live-refresh' };
               function postHubLiveMessages(target){
@@ -8889,6 +8978,9 @@ $studioBodyClasses = array_filter([
             openLiveModalForHost(state.live.id);
           }, 180);
           return true;
+        }
+        if (action === 'end_live') {
+          setSessionHostLiveDoor('');
         }
         if (action === 'end_live' && !options.skipModalClose) {
           stopCameraStream();

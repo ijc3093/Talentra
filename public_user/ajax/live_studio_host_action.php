@@ -107,6 +107,8 @@ function studio_ensure_live_table(PDO $dbh): bool
             'ended_at' => "ALTER TABLE user_video_lives ADD COLUMN ended_at DATETIME NULL DEFAULT NULL AFTER scheduled_for",
             'created_at' => "ALTER TABLE user_video_lives ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER ended_at",
             'updated_at' => "ALTER TABLE user_video_lives ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER created_at",
+            'host_door' => "ALTER TABLE user_video_lives ADD COLUMN host_door VARCHAR(10) NOT NULL DEFAULT ''",
+            'studio_source' => "ALTER TABLE user_video_lives ADD COLUMN studio_source VARCHAR(20) NOT NULL DEFAULT ''",
         ];
 
         foreach ($requiredColumns as $columnName => $sql) {
@@ -150,6 +152,18 @@ function studio_ensure_live_table(PDO $dbh): bool
         // keep live table resilient
     }
 
+    try {
+        $descMeta = studio_column_meta($dbh, 'user_video_lives', 'description');
+        if ($descMeta) {
+            $columnType = strtolower(trim((string)($descMeta['COLUMN_TYPE'] ?? '')));
+            if ($columnType !== '' && strpos($columnType, 'text') === false) {
+                $dbh->exec('ALTER TABLE user_video_lives MODIFY description TEXT NULL');
+            }
+        }
+    } catch (Throwable $e) {
+        // keep live table resilient
+    }
+
     return true;
 }
 
@@ -170,6 +184,18 @@ function studio_fetch_user_friend_code(PDO $dbh, int $userId): string
 function studio_make_stream_key(): string
 {
     return 'studio_' . bin2hex(random_bytes(8));
+}
+
+function studio_fit_db_text(string $value, int $maxLen): string
+{
+    $value = trim($value);
+    if ($maxLen <= 0 || $value === '') {
+        return $value;
+    }
+    if (mb_strlen($value) <= $maxLen) {
+        return $value;
+    }
+    return mb_substr($value, 0, $maxLen);
 }
 
 function studio_live_post_marker(int $liveId): string
@@ -213,6 +239,9 @@ function studio_sync_live_feed_post(PDO $dbh, int $liveId, int $userId, string $
         return;
     }
 
+    $feedTitle = studio_fit_db_text($title, 120);
+    $feedDescription = studio_fit_db_text($description, 255);
+
     $stFind = $dbh->prepare("
         SELECT id
         FROM public_posts
@@ -244,8 +273,8 @@ function studio_sync_live_feed_post(PDO $dbh, int $liveId, int $userId, string $
             LIMIT 1
         ");
         $stUpdate->execute([
-            ':title' => $title,
-            ':description' => $description,
+            ':title' => $feedTitle,
+            ':description' => $feedDescription !== '' ? $feedDescription : null,
             ':body' => $body,
             ':visibility' => $feedVisibility,
             ':device_label' => $deviceLabel,
@@ -264,8 +293,8 @@ function studio_sync_live_feed_post(PDO $dbh, int $liveId, int $userId, string $
     ");
     $stInsert->execute([
         ':uid' => $userId,
-        ':title' => $title,
-        ':description' => $description,
+        ':title' => $feedTitle,
+        ':description' => $feedDescription !== '' ? $feedDescription : null,
         ':body' => $body,
         ':visibility' => $feedVisibility,
         ':device_label' => $deviceLabel,
@@ -336,7 +365,7 @@ function studio_fetch_current_live(PDO $dbh, int $meId): ?array
     try {
         $st = $dbh->prepare("
             SELECT id, user_id, title, description, stream_key, status, visibility, viewer_count, started_at, scheduled_for, ended_at, created_at, updated_at
-                   , share_count
+                   , share_count, host_door, studio_source
             FROM user_video_lives
             WHERE user_id = :uid
               AND status IN ('draft','scheduled','live')
@@ -439,6 +468,8 @@ function studio_payload_live(?array $row): ?array
         'started_at' => (string)($row['started_at'] ?? ''),
         'scheduled_for' => (string)($row['scheduled_for'] ?? ''),
         'schedule_input' => (string)($row['schedule_input'] ?? studio_fmt_dt_local((string)($row['scheduled_for'] ?? ''))),
+        'host_door' => (string)($row['host_door'] ?? ''),
+        'studio_source' => (string)($row['studio_source'] ?? ''),
     ];
 }
 
@@ -585,15 +616,23 @@ if ($meId <= 0) {
 if (!studio_ensure_live_table($dbh)) {
     json_out(['ok' => false, 'error' => 'Live storage is not available']);
 }
+require_once __DIR__ . '/../includes/live_browse.php';
 device_profile_ensure_live_columns($dbh);
 if ($meCode === '') {
     $meCode = studio_fetch_user_friend_code($dbh, $meId);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $fetchDoor = strtolower(trim((string)($_GET['host_door'] ?? '')));
+    if (!in_array($fetchDoor, ['left', 'right'], true)) {
+        $fetchDoor = '';
+    }
+    $liveRow = $fetchDoor !== ''
+        ? live_fetch_owner_live_for_door($dbh, $meId, $fetchDoor)
+        : studio_fetch_current_live($dbh, $meId);
     json_out([
         'ok' => true,
-        'live' => studio_payload_live(studio_fetch_current_live($dbh, $meId)),
+        'live' => studio_payload_live($liveRow),
         'history_count' => studio_fetch_history_count($dbh, $meId),
         'history_summary' => studio_fetch_latest_finished_summary($dbh, $meId),
     ]);
@@ -607,6 +646,14 @@ $scheduledForInput = trim((string)($_POST['scheduled_for'] ?? ''));
 $deviceProfile = device_profile_read_from_request();
 $deviceLabel = (string)($deviceProfile['label'] ?? '');
 $deviceViewport = (string)($deviceProfile['viewport'] ?? '');
+$studioSource = strtolower(trim((string)($_POST['studio_source'] ?? '')));
+if (!in_array($studioSource, ['webcam', 'software'], true)) {
+    $studioSource = '';
+}
+$hostDoor = strtolower(trim((string)($_POST['host_door'] ?? '')));
+if (!in_array($hostDoor, ['left', 'right'], true)) {
+    $hostDoor = '';
+}
 
 if ($title === '' && $action !== 'end_live') {
     $title = 'My live session';
@@ -708,6 +755,21 @@ try {
             ]);
         }
     } elseif ($action === 'start_live') {
+        if ($hostDoor === '' && $studioSource === 'software') {
+            $hostDoor = 'right';
+        } elseif ($hostDoor === '') {
+            $hostDoor = 'left';
+        }
+        $requestedDoor = live_resolve_owner_door([
+            'host_door' => $hostDoor,
+            'studio_source' => $studioSource !== '' ? $studioSource : 'webcam',
+        ]);
+        if ($previousStatus === 'live' && $currentId > 0) {
+            $existingDoor = live_resolve_owner_door($currentLive);
+            if ($existingDoor !== '' && $requestedDoor !== '' && $existingDoor !== $requestedDoor) {
+                $currentId = 0;
+            }
+        }
         if ($currentId > 0) {
             $st = $dbh->prepare("
                 UPDATE user_video_lives
@@ -716,6 +778,8 @@ try {
                     visibility = :visibility,
                     device_label = :device_label,
                     device_viewport = :device_viewport,
+                    host_door = :host_door,
+                    studio_source = :studio_source,
                     status = 'live',
                     started_at = COALESCE(started_at, NOW()),
                     scheduled_for = NULL,
@@ -731,6 +795,8 @@ try {
                 ':visibility' => $visibility,
                 ':device_label' => $deviceLabel,
                 ':device_viewport' => $deviceViewport,
+                ':host_door' => $hostDoor,
+                ':studio_source' => $studioSource !== '' ? $studioSource : 'webcam',
                 ':id' => $currentId,
                 ':uid' => $meId,
             ]);
@@ -738,9 +804,9 @@ try {
         } else {
             $st = $dbh->prepare("
                 INSERT INTO user_video_lives
-                    (user_id, friend_code, title, description, stream_key, status, visibility, device_label, device_viewport, started_at, created_at, updated_at)
+                    (user_id, friend_code, title, description, stream_key, status, visibility, device_label, device_viewport, host_door, studio_source, started_at, created_at, updated_at)
                 VALUES
-                    (:uid, :friend_code, :title, :description, :stream_key, 'live', :visibility, :device_label, :device_viewport, NOW(), NOW(), NOW())
+                    (:uid, :friend_code, :title, :description, :stream_key, 'live', :visibility, :device_label, :device_viewport, :host_door, :studio_source, NOW(), NOW(), NOW())
             ");
             $st->execute([
                 ':uid' => $meId,
@@ -751,12 +817,18 @@ try {
                 ':visibility' => $visibility,
                 ':device_label' => $deviceLabel,
                 ':device_viewport' => $deviceViewport,
+                ':host_door' => $hostDoor,
+                ':studio_source' => $studioSource !== '' ? $studioSource : 'webcam',
             ]);
             $liveId = (int)$dbh->lastInsertId();
         }
         studio_sync_live_feed_post($dbh, $liveId, $meId, $title, $description, $visibility, $deviceLabel, $deviceViewport);
 
     } elseif ($action === 'end_live') {
+        $endLiveId = (int)($_POST['live_id'] ?? 0);
+        if ($endLiveId > 0) {
+            $currentId = $endLiveId;
+        }
         if ($currentId <= 0) {
             json_out(['ok' => false, 'error' => 'No live session to end']);
         }

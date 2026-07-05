@@ -24,7 +24,17 @@ if (!empty($_SESSION['user_id'])) {
     }
 }
 
-$__liveRightDefaultSrc = 'live_door_hub.php' . ($__liveRightCanStudio ? '?can_studio=1' : '');
+$__liveRightHubSurface = 'public';
+$__rightDoorPage = strtolower(trim((string)($__currentPage ?? basename((string)($_SERVER['PHP_SELF'] ?? '')))));
+if ($__rightDoorPage === 'feed.php') {
+    $__liveRightHubSurface = 'feed';
+}
+
+$__liveRightDefaultSrc = 'live_door_hub.php?' . http_build_query(array_filter([
+    'can_studio' => $__liveRightCanStudio ? '1' : null,
+    'hub_door' => 'right',
+    'hub_surface' => $__liveRightHubSurface,
+]));
 $__liveRightInsideOverlays = !empty($GLOBALS['msb_stories_right_door_included']);
 ?>
 <style>
@@ -155,7 +165,9 @@ body.tt-live-right-open{ overflow:hidden; }
 (function(){
   var wrap = document.getElementById('tt-live-right-wrap');
   var frame = document.getElementById('ttLiveRightDoorFrame');
-  if (!wrap || (window.TTLiveRight && typeof window.TTLiveRight.open === 'function')) return;
+  if (!wrap) return;
+  if (window.__msbLiveRightDoorInit) return;
+  window.__msbLiveRightDoorInit = true;
 
   var overlaysRoot = document.getElementById('ttRightbarOverlays');
   if (!overlaysRoot) {
@@ -184,6 +196,78 @@ body.tt-live-right-open{ overflow:hidden; }
     return resolveLiveDoorUrl(wrap.getAttribute('data-default-src') || 'live_door_hub.php');
   }
 
+  function liveRightDoorFriendBrowseSrc(){
+    try {
+      var url = new URL(defaultSrc(), window.location.href);
+      url.searchParams.set('hub_door', 'right');
+      url.searchParams.set('hub_tab', 'public');
+      if (document.body && document.body.classList.contains('feed-page')) {
+        url.searchParams.set('hub_surface', 'feed');
+      }
+      return url.href;
+    } catch (error) {
+      var base = defaultSrc();
+      var join = base.indexOf('?') >= 0 ? '&' : '?';
+      return base + join + 'hub_door=right&hub_tab=public';
+    }
+  }
+
+  function isRightLiveDoorOpen(){
+    return !!(wrap && wrap.classList.contains('is-open'));
+  }
+
+  function notifyHubFriendBrowse(){
+    if (!frame || !isRightLiveDoorOpen()) return;
+    try {
+      frame.contentWindow.postMessage({ type: 'msb-hub-open-friend-browse', door: 'right' }, '*');
+    } catch (error) {}
+  }
+
+  function fetchHostingLiveOnRight(){
+    return fetch('ajax/live_studio_host_action.php?host_door=right', {
+      credentials: 'same-origin',
+      cache: 'no-store'
+    }).then(function(res){
+      return res.json();
+    }).then(function(data){
+      if (!data || !data.ok || !data.live) return false;
+      var live = data.live || {};
+      if (String(live.status || '').toLowerCase() !== 'live') return false;
+      var studioSource = String(live.studio_source || '').toLowerCase();
+      var hostDoor = String(live.host_door || '').toLowerCase();
+      return studioSource === 'software' || hostDoor === 'right';
+    }).catch(function(){
+      return false;
+    });
+  }
+
+  function setRightLiveDoorOpen(nextSrc){
+    if (!wrap) return false;
+    closeOtherRightPanels();
+    wrap.classList.add('is-open');
+    wrap.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('tt-live-right-open');
+    if (!frame) return true;
+    var currentSrc = resolveLiveDoorUrl(frame.getAttribute('src') || '');
+    var normalizedCurrent = '';
+    var normalizedNext = '';
+    try {
+      if (currentSrc && currentSrc !== 'about:blank') {
+        normalizedCurrent = new URL(currentSrc, window.location.href).toString().split('#')[0];
+      }
+      normalizedNext = new URL(String(nextSrc || liveRightDoorFriendBrowseSrc()), window.location.href).toString().split('#')[0];
+    } catch (e) {
+      normalizedCurrent = String(currentSrc || '').split('#')[0];
+      normalizedNext = String(nextSrc || '').split('#')[0];
+    }
+    if (!currentSrc || currentSrc === 'about:blank' || normalizedCurrent !== normalizedNext) {
+      frame.setAttribute('src', nextSrc || liveRightDoorFriendBrowseSrc());
+    } else {
+      notifyHubFriendBrowse();
+    }
+    return true;
+  }
+
   function closeOtherRightPanels(){
     if (window.TTStories && typeof window.TTStories.close === 'function') {
       window.TTStories.close();
@@ -191,36 +275,81 @@ body.tt-live-right-open{ overflow:hidden; }
   }
 
   function closeLiveRightPanel(){
+    if (!wrap) return;
     wrap.classList.remove('is-open');
     wrap.setAttribute('aria-hidden', 'true');
     if (frame) frame.setAttribute('src', 'about:blank');
     document.body.classList.remove('tt-live-right-open');
   }
 
+  function buildLiveRightDoorSoftwareSrc(){
+    try {
+      var url = new URL(defaultSrc(), window.location.href);
+      url.searchParams.set('hub_door', 'right');
+      url.searchParams.set('hub_tab', 'software');
+      if (document.body && document.body.classList.contains('feed-page')) {
+        url.searchParams.set('hub_surface', 'feed');
+      }
+      return url.href;
+    } catch (error) {
+      var base = defaultSrc();
+      var join = base.indexOf('?') >= 0 ? '&' : '?';
+      return base + join + 'hub_door=right&hub_tab=software';
+    }
+  }
+
   function openLiveRightPanel(liveUrl){
-    closeOtherRightPanels();
-    var nextSrc = resolveLiveDoorUrl(liveUrl || defaultSrc()) || defaultSrc();
-    wrap.classList.add('is-open');
-    wrap.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('tt-live-right-open');
-    if (!frame) return;
-    var currentSrc = resolveLiveDoorUrl(frame.getAttribute('src') || '');
-    if (!currentSrc || currentSrc.split('#')[0] !== nextSrc.split('#')[0]) {
-      frame.setAttribute('src', nextSrc);
+    var nextSrc = resolveLiveDoorUrl(liveUrl || '') || '';
+    if (!nextSrc) {
+      setRightLiveDoorOpen(liveRightDoorFriendBrowseSrc());
+      fetchHostingLiveOnRight().then(function(isHosting){
+        if (isHosting && isRightLiveDoorOpen()) {
+          setRightLiveDoorOpen(buildLiveRightDoorSoftwareSrc());
+        }
+      });
       return;
     }
+    setRightLiveDoorOpen(nextSrc);
     try {
-      frame.contentWindow.postMessage({ type: 'msb-hub-set-studio-source', source: 'software' }, '*');
-      frame.contentWindow.postMessage({ type: 'msb-hub-live-refresh' }, '*');
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'msb-hub-live-refresh' }, '*');
+      }
     } catch (e) {}
   }
 
+  function openLiveSoftwareBrowsePanel(){
+    if (isRightLiveDoorOpen()) {
+      try {
+        var src = frame ? new URL(String(frame.getAttribute('src') || ''), window.location.href) : null;
+        if (src && String(src.searchParams.get('hub_tab') || '').toLowerCase() === 'software') {
+          closeLiveRightPanel();
+          return;
+        }
+      } catch (e) {}
+      setRightLiveDoorOpen(buildLiveRightDoorSoftwareSrc());
+      return;
+    }
+    setRightLiveDoorOpen(buildLiveRightDoorSoftwareSrc());
+    fetchHostingLiveOnRight().then(function(isHosting){
+      if (isHosting && isRightLiveDoorOpen()) {
+        setRightLiveDoorOpen(buildLiveRightDoorSoftwareSrc());
+      }
+    });
+  }
+
   function toggleLiveRightPanel(){
-    if (wrap.classList.contains('is-open')) closeLiveRightPanel();
+    if (isRightLiveDoorOpen()) closeLiveRightPanel();
     else openLiveRightPanel('');
   }
 
   document.addEventListener('click', function(e){
+    var softwareBrowseBtn = e.target && e.target.closest ? e.target.closest('.js-open-live-software-browse') : null;
+    if (softwareBrowseBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      openLiveSoftwareBrowsePanel();
+      return;
+    }
     var btn = e.target && e.target.closest ? e.target.closest('.js-open-live-right-door') : null;
     if (!btn) return;
     e.preventDefault();
@@ -249,5 +378,6 @@ body.tt-live-right-open{ overflow:hidden; }
   window.TTLiveRight.open = openLiveRightPanel;
   window.TTLiveRight.close = closeLiveRightPanel;
   window.TTLiveRight.toggle = toggleLiveRightPanel;
+  window.MSBOpenLiveSoftwareBrowse = openLiveSoftwareBrowsePanel;
 })();
 </script>

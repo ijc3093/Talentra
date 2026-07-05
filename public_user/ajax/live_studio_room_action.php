@@ -274,7 +274,7 @@ function room_fetch_current_live(PDO $dbh, int $meId): ?array
 {
     try {
         $st = $dbh->prepare("
-            SELECT id, status, title, viewer_count, share_count
+            SELECT id, status, title, description, viewer_count, share_count
             FROM user_video_lives
             WHERE user_id = :uid
               AND status IN ('draft','scheduled','live')
@@ -553,6 +553,7 @@ function room_fetch_payload(PDO $dbh, int $meId): array
             'id' => (int)($live['id'] ?? 0),
             'status' => (string)($live['status'] ?? 'draft'),
             'title' => (string)($live['title'] ?? ''),
+            'description' => (string)($live['description'] ?? ''),
             'viewer_count' => (int)($live['viewer_count'] ?? 0),
             'share_count' => (int)($live['share_count'] ?? 0),
             'snapshot_version' => $snapshotVersion,

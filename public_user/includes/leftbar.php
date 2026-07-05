@@ -15,8 +15,15 @@ requireUserLogin();
    These drawers sit on top of the existing left sidebar.
    ============================================================ */
 #ttLeftbarOverlays{
-  position:fixed; left:5.2%; top:0%; height:100vh; width:25%; z-index:990; pointer-events:none;
+  position:fixed;
+  left:var(--feedRailW, 84px);
+  top:0;
+  height:100vh;
+  width:min(400px, 30vw);
+  z-index:990;
+  pointer-events:none;
   background:transparent;
+  box-sizing:border-box;
   --tt-panel-bg:var(--msb-palette-bg, #ffffff);
   --tt-panel-bg-alt:var(--msb-palette-surface-2, #f7f8fa);
   --tt-panel-bg-strong:var(--msb-palette-surface, #eef2f6);
@@ -42,6 +49,12 @@ requireUserLogin();
   --tt-focus-shadow:none;
   --tt-send-bg:#7c1730;
   --tt-send-bg-hover:#991c3d;
+}
+@media (max-width: 991.98px){
+  #ttLeftbarOverlays{
+    left:0;
+    width:min(400px, 88vw);
+  }
 }
 html[data-msb-appearance] #ttLeftbarOverlays{
   --tt-panel-bg:var(--msb-palette-bg);
@@ -71,7 +84,8 @@ html[data-msb-appearance] #ttLeftbarOverlays{
 #ttLeftbarOverlays .tt-profile-wrap,
 #ttLeftbarOverlays .tt-messages-wrap,
 #ttLeftbarOverlays .tt-notifications-wrap,
-#ttLeftbarOverlays .tt-friend-requests-wrap{
+#ttLeftbarOverlays .tt-friend-requests-wrap,
+#ttLeftbarOverlays .tt-live-wrap{
   position:absolute !important;
   inset:0 !important;
   pointer-events:none;
@@ -82,7 +96,13 @@ html[data-msb-appearance] #ttLeftbarOverlays{
 #ttLeftbarOverlays .tt-profile-wrap.is-open,
 #ttLeftbarOverlays .tt-messages-wrap.is-open,
 #ttLeftbarOverlays .tt-notifications-wrap.is-open,
-#ttLeftbarOverlays .tt-friend-requests-wrap.is-open{ pointer-events:auto; }
+#ttLeftbarOverlays .tt-friend-requests-wrap.is-open,
+#ttLeftbarOverlays .tt-live-wrap.is-open{
+  pointer-events:auto;
+  border-left:1px solid var(--tt-panel-border-strong, #d1d5db);
+  border-right:1px solid var(--tt-panel-border-strong, #d1d5db);
+  box-sizing:border-box;
+}
 
 /* ============================================================
    ONE Shamcey sidebar container
@@ -319,7 +339,6 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   opacity: 0;
   pointer-events: none;
   transition: transform .18s ease, opacity .18s ease;
-  margin-left:7px;
 }
 .tt-readmore-wrap.is-open{
   transform: translateX(0);
@@ -433,27 +452,43 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   color:var(--tt-text);
   letter-spacing:.01em;
 }
+.tt-menu-panel{
+  flex:0 0 auto;
+  display:flex;
+  flex-direction:column;
+  width:236px;
+  max-width:calc(100% - 56px);
+  height:min(340px, calc(100vh - 280px));
+  max-height:min(340px, calc(100vh - 220px));
+  margin:clamp(12px, 10vh, 120px) 0 24px 40px;
+  overflow:hidden;
+  box-sizing:border-box;
+}
 .tt-menu-body{
   flex:1 1 auto !important;
   min-height:0 !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
-  padding:8px 16px 24px;
+  padding:0 2px 0 0;
   -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
-  background:var(--tt-panel-bg);
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:center !important;
+  touch-action:pan-y;
+  background:transparent;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(0,0,0,.18) transparent;
+}
+.tt-menu-body::-webkit-scrollbar{width:5px;}
+.tt-menu-body::-webkit-scrollbar-thumb{
+  background:rgba(0,0,0,.18);
+  border-radius:999px;
 }
 .tt-menu-body .feed-left-nav{
   display:flex;
   flex-direction:column;
   gap:2px;
-  margin:120px 36px auto 0;
+  margin:0;
   padding:0;
-  width:min(100%, 236px);
-  align-self:center;
+  width:100%;
 }
 .tt-menu-body .feed-left-nav-item{
   display:flex;
@@ -532,6 +567,58 @@ html[data-msb-appearance] #ttLeftbarOverlays{
 }
 .tt-menu-body .feed-left-nav-item-publisher.is-self-publisher .feed-left-nav-label{
   color:var(--tt-text);
+}
+.tt-menu-scroll-rail{
+  flex:0 0 auto;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  padding:10px 2px 0;
+  background:transparent;
+}
+.tt-menu-scroll-btn{
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:50%;
+  background:#111827;
+  color:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 6px 16px rgba(15,23,42,.18);
+  padding:0;
+}
+.tt-menu-scroll-btn svg{
+  display:block;
+  width:16px;
+  height:16px;
+  stroke:currentColor;
+  fill:none;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.tt-menu-scroll-btn:hover,
+.tt-menu-scroll-btn:focus{
+  background:#0f172a;
+  outline:none;
+}
+.tt-menu-scroll-btn:disabled{
+  opacity:.35;
+  cursor:default;
+  box-shadow:none;
+}
+@media (max-width: 991.98px){
+  .tt-menu-panel{
+    width:min(236px, calc(100% - 32px));
+    max-width:calc(100% - 32px);
+    margin-left:16px;
+    margin-right:auto;
+    height:min(340px, calc(100vh - 200px));
+    max-height:min(340px, calc(100vh - 160px));
+  }
 }
 
 /* Profile drawer — same leftbar door as comments */
@@ -731,12 +818,22 @@ html[data-msb-appearance] #ttLeftbarOverlays{
         <i class="icon ion-close"></i>
       </button>
     </div>
-    <div class="tt-menu-body">
-      <?php
-        $feedLeftRailActive = strtolower(basename((string)($_SERVER['PHP_SELF'] ?? '')));
-        $feedLeftRailEmbed = true;
-        include __DIR__ . '/feed_left_rail.php';
-      ?>
+    <div class="tt-menu-panel">
+      <div class="tt-menu-body js-tt-menu-scroll">
+        <?php
+          $feedLeftRailActive = strtolower(basename((string)($_SERVER['PHP_SELF'] ?? '')));
+          $feedLeftRailEmbed = true;
+          include __DIR__ . '/feed_left_rail.php';
+        ?>
+      </div>
+      <div class="tt-menu-scroll-rail" aria-label="Scroll menu">
+        <button type="button" class="tt-menu-scroll-btn js-tt-menu-scroll-up" aria-label="Scroll up">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
+        </button>
+        <button type="button" class="tt-menu-scroll-btn js-tt-menu-scroll-down" aria-label="Scroll down">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1312,6 +1409,34 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   window.TTReadMore = window.TTReadMore || {};
   const $menuWrap = document.getElementById('tt-menu-wrap');
   const $menuClose = document.getElementById('ttMenuClose');
+  const $menuScroll = document.querySelector('.js-tt-menu-scroll');
+  const $menuScrollUp = document.querySelector('.js-tt-menu-scroll-up');
+  const $menuScrollDown = document.querySelector('.js-tt-menu-scroll-down');
+  const $menuScrollRail = document.querySelector('.tt-menu-scroll-rail');
+
+  function syncMenuScroll(){
+    if(!$menuScroll || !$menuScrollUp || !$menuScrollDown) return;
+    var max = Math.max(0, $menuScroll.scrollHeight - $menuScroll.clientHeight);
+    $menuScrollUp.disabled = $menuScroll.scrollTop <= 1;
+    $menuScrollDown.disabled = $menuScroll.scrollTop >= max - 1;
+    var show = max > 2;
+    $menuScrollUp.style.display = show ? '' : 'none';
+    $menuScrollDown.style.display = show ? '' : 'none';
+    if($menuScrollRail) $menuScrollRail.style.display = show ? '' : 'none';
+  }
+
+  if($menuScroll && $menuScrollUp && $menuScrollDown){
+    var menuScrollStep = 120;
+    $menuScrollUp.addEventListener('click', function(){
+      $menuScroll.scrollBy({top:-menuScrollStep, behavior:'smooth'});
+    });
+    $menuScrollDown.addEventListener('click', function(){
+      $menuScroll.scrollBy({top:menuScrollStep, behavior:'smooth'});
+    });
+    $menuScroll.addEventListener('scroll', syncMenuScroll, {passive:true});
+    window.addEventListener('resize', syncMenuScroll);
+    syncMenuScroll();
+  }
 
   function closeMenuPanel(){
     if($menuWrap) $menuWrap.classList.remove('is-open');
@@ -1324,6 +1449,7 @@ html[data-msb-appearance] #ttLeftbarOverlays{
     if(window.TTNotifications && typeof window.TTNotifications.close === 'function') window.TTNotifications.close();
     if(window.TTFriendRequests && typeof window.TTFriendRequests.close === 'function') window.TTFriendRequests.close();
     if($menuWrap) $menuWrap.classList.add('is-open');
+    requestAnimationFrame(syncMenuScroll);
   }
 
   $menuClose?.addEventListener('click', closeMenuPanel);
@@ -1474,6 +1600,7 @@ html[data-msb-appearance] #ttLeftbarOverlays{
     var messagesWrap = document.getElementById('tt-messages-wrap');
     var notificationsWrap = document.getElementById('tt-notifications-wrap');
     var friendRequestsWrap = document.getElementById('tt-friend-requests-wrap');
+    var liveWrap = document.getElementById('tt-live-wrap');
     var menuOpen = !!(menuWrap && menuWrap.classList.contains('is-open'));
     var commentsOpen = !!(commentsWrap && commentsWrap.classList.contains('is-open'));
     var readOpen = !!(readWrap && readWrap.classList.contains('is-open'));
@@ -1481,10 +1608,11 @@ html[data-msb-appearance] #ttLeftbarOverlays{
     var messagesOpen = !!(messagesWrap && messagesWrap.classList.contains('is-open'));
     var notificationsOpen = !!(notificationsWrap && notificationsWrap.classList.contains('is-open'));
     var friendRequestsOpen = !!(friendRequestsWrap && friendRequestsWrap.classList.contains('is-open'));
-    if(!menuOpen && !commentsOpen && !readOpen && !profileOpen && !messagesOpen && !notificationsOpen && !friendRequestsOpen) return;
+    var liveOpen = !!(liveWrap && liveWrap.classList.contains('is-open'));
+    if(!menuOpen && !commentsOpen && !readOpen && !profileOpen && !messagesOpen && !notificationsOpen && !friendRequestsOpen && !liveOpen) return;
 
-    if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-messages-wrap, #tt-notifications-wrap, #tt-friend-requests-wrap, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttMessagesClose, #ttNotificationsClose, #ttFriendRequestsClose')) return;
-    if(target.closest('.ig-stories-menu-btn, .ig-story-item, .js-open-comments, .js-open-readmore, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .feed-ig-avatar')) return;
+    if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-messages-wrap, #tt-notifications-wrap, #tt-friend-requests-wrap, #tt-live-wrap, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttMessagesClose, #ttNotificationsClose, #ttFriendRequestsClose')) return;
+    if(target.closest('.ig-stories-menu-btn, .ig-story-item, .js-open-comments, .js-open-readmore, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .js-open-live-studio-browse, .js-open-live-software-browse, .feed-ig-avatar')) return;
     if(target.closest('#tt-stories-wrap, #tt-live-right-wrap, #ttStoriesClose')) return;
     if(target.closest('.mf-comment, #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"], #pvCapReadMore, .ig-cap-readmore, #pvFooterReadMore, #pvInlineReadMore, #btnReadMore, #btnOpenCommentsDrawer')) return;
 
@@ -1512,6 +1640,10 @@ html[data-msb-appearance] #ttLeftbarOverlays{
     if(friendRequestsOpen){
       if(window.TTFriendRequests && typeof window.TTFriendRequests.close === 'function') window.TTFriendRequests.close();
       else if(friendRequestsWrap) friendRequestsWrap.classList.remove('is-open');
+    }
+    if(liveOpen){
+      if(window.TTLive && typeof window.TTLive.close === 'function') window.TTLive.close();
+      else if(liveWrap) liveWrap.classList.remove('is-open');
     }
   });
 

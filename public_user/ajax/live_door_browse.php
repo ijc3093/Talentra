@@ -13,7 +13,11 @@ header('Pragma: no-cache');
 $dbh = (new Controller())->pdo();
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $hubSurface = live_browse_hub_surface($_GET['hub_surface'] ?? null);
-$payload = live_browse_hub_payload($dbh, $meId, 50, $hubSurface);
+$hubDoor = strtolower(trim((string)($_GET['hub_door'] ?? '')));
+if (!in_array($hubDoor, ['left', 'right'], true)) {
+    $hubDoor = '';
+}
+$payload = live_browse_hub_payload($dbh, $meId, 50, $hubSurface, $hubDoor !== '' ? $hubDoor : null);
 
 echo json_encode([
     'ok' => true,
