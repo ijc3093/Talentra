@@ -56,6 +56,41 @@ if (!$org) {
     exit;
 }
 
+require_once __DIR__ . '/../public_user/includes/platform_rent.php';
+platform_rent_ensure_schema($dbh);
+$adminId = (int)($_SESSION['admin_id'] ?? $_SESSION['idadmin'] ?? 0);
+$rentPlans = platform_rent_list_plans($dbh, false);
+$paidRentPlans = array_values(array_filter($rentPlans, static fn(array $p): bool => (int)($p['price_cents'] ?? 0) > 0));
+$rentSnapshot = platform_rent_org_snapshot($dbh, $orgId);
+$rentPayments = platform_rent_list_payments($dbh, $orgId, 10);
+$isShopOrg = $rentSnapshot ? platform_rent_org_is_shop($rentSnapshot) : false;
+
+if ($isShopOrg && isset($_POST['mark_rent_paid'])) {
+    $planId = (int)($_POST['plan_id'] ?? 0);
+    $months = (int)($_POST['months_paid'] ?? 1);
+    $method = trim((string)($_POST['payment_method'] ?? 'manual'));
+    $reference = trim((string)($_POST['payment_reference'] ?? ''));
+    $notes = trim((string)($_POST['notes'] ?? ''));
+    if ($planId <= 0) {
+        $error = 'Choose a rent plan.';
+    } elseif (platform_rent_mark_paid($dbh, $orgId, $planId, $months, $adminId, $method, $reference, $notes)) {
+        $msg = 'Rent payment recorded.';
+        $rentSnapshot = platform_rent_org_snapshot($dbh, $orgId);
+        $rentPayments = platform_rent_list_payments($dbh, $orgId, 10);
+    } else {
+        $error = 'Could not record rent payment.';
+    }
+}
+
+if ($isShopOrg && isset($_POST['suspend_rent'])) {
+    if (platform_rent_suspend($dbh, $orgId)) {
+        $msg = 'Shop rent suspended.';
+        $rentSnapshot = platform_rent_org_snapshot($dbh, $orgId);
+    } else {
+        $error = 'Could not suspend rent.';
+    }
+}
+
 $members = org_admin_list_org_members($dbh, $orgId);
 $orgStatus = (int)($org['status'] ?? 0);
 $managerStatus = (int)($org['manager_status'] ?? 0);
@@ -161,6 +196,99 @@ org_admin_render_head('Organization · ' . (string)($org['name'] ?? ''));
           <?php endif; ?>
         </div>
       </div>
+
+      <?php if ($isShopOrg && $rentSnapshot): ?>
+      <div class="pro-tools" style="margin-top:18px;">
+        <strong>Shop rent</strong>
+        <span class="muted">Seller pays you monthly to keep this shop live on public_user</span>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-box">
+          <div class="label">Rent status</div>
+          <div class="value"><?= platform_rent_status_badge((string)($rentSnapshot['rent_status_live'] ?? $rentSnapshot['rent_status'] ?? 'trial')) ?></div>
+          <div class="muted" style="margin-top:8px;">
+            Shop on public feed:
+            <?= !empty($rentSnapshot['shop_visible']) ? '<span class="pill ok">Visible</span>' : '<span class="pill bad">Hidden</span>' ?>
+          </div>
+        </div>
+        <div class="detail-box">
+          <div class="label">Current plan</div>
+          <div class="value"><?= org_admin_h($rentSnapshot['plan_name'] ?? 'Shop Trial') ?></div>
+          <div class="muted" style="margin-top:6px;">
+            <?= org_admin_h(platform_rent_format_money((int)($rentSnapshot['plan_price_cents'] ?? 0), (string)($rentSnapshot['plan_currency'] ?? 'USD'))) ?>
+          </div>
+        </div>
+        <div class="detail-box">
+          <div class="label">Paid until / trial ends</div>
+          <div class="value">
+            <?php
+              $until = trim((string)($rentSnapshot['rent_paid_until'] ?? ''));
+              if ($until === '') {
+                  $until = trim((string)($rentSnapshot['rent_trial_ends_at'] ?? ''));
+              }
+              echo $until !== '' ? org_admin_h(org_admin_fmt_dt($until)) : '—';
+            ?>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:0 16px 16px;">
+        <form method="post" style="margin-bottom:12px;">
+          <div class="form-row">
+            <div class="form-group col-md-3">
+              <label class="mini-muted">Plan</label>
+              <select name="plan_id" class="form-control" required>
+                <?php foreach ($paidRentPlans as $plan): ?>
+                  <option value="<?= (int)$plan['id'] ?>"><?= org_admin_h($plan['name'] ?? '') ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="form-group col-md-2">
+              <label class="mini-muted">Months</label>
+              <select name="months_paid" class="form-control">
+                <option value="1">1</option>
+                <option value="3">3</option>
+                <option value="6">6</option>
+                <option value="12">12</option>
+              </select>
+            </div>
+            <div class="form-group col-md-2">
+              <label class="mini-muted">Method</label>
+              <input type="text" name="payment_method" class="form-control" value="manual">
+            </div>
+            <div class="form-group col-md-3">
+              <label class="mini-muted">Reference</label>
+              <input type="text" name="payment_reference" class="form-control" placeholder="Transfer #">
+            </div>
+            <div class="form-group col-md-2" style="display:flex;align-items:flex-end;gap:8px;">
+              <button type="submit" name="mark_rent_paid" class="btn-mini primary">Mark paid</button>
+              <button type="submit" name="suspend_rent" class="btn-mini warn" onclick="return confirm('Suspend shop rent?');">Suspend</button>
+            </div>
+          </div>
+          <input type="text" name="notes" class="form-control" placeholder="Payment notes (optional)">
+        </form>
+
+        <?php if ($rentPayments): ?>
+        <div class="mini-muted" style="margin-bottom:8px;">Recent rent payments</div>
+        <table class="table admin-table">
+          <thead>
+            <tr><th>Date</th><th>Plan</th><th>Amount</th><th>Months</th><th>Method</th></tr>
+          </thead>
+          <tbody>
+            <?php foreach ($rentPayments as $pay): ?>
+            <tr>
+              <td class="muted"><?= org_admin_h(org_admin_fmt_dt($pay['paid_at'] ?? '')) ?></td>
+              <td><?= org_admin_h($pay['plan_name'] ?? '') ?></td>
+              <td><?= org_admin_h(platform_rent_format_money((int)($pay['amount_cents'] ?? 0), (string)($pay['currency'] ?? 'USD'))) ?></td>
+              <td><?= (int)($pay['months_paid'] ?? 0) ?></td>
+              <td class="muted"><?= org_admin_h($pay['payment_method'] ?? '') ?></td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+        <?php endif; ?>
+      </div>
+      <?php endif; ?>
 
       <div class="pro-tools">
         <strong>Members</strong>

@@ -215,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     #attachStatus.err .attach-inline{background:#fff5f5;border-color:#f1b0b7;}
   </style>
 </head>
-<body>
+<body class="org-app">
 
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>

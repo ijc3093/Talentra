@@ -7,7 +7,8 @@ ini_set('display_errors','1');
 require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 
-if (!isOrgManager()) { header("Location: dashboard.php"); exit; }
+require_once __DIR__ . '/includes/org_manager_guard.php';
+org_require_manager();
 
 $err = '';
 $ok  = '';
@@ -77,8 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <link href="../lib/bootstrap/bootstrap.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
+  <?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_head_assets(); ?>
 </head>
-<body>
+<body class="org-app">
 
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>

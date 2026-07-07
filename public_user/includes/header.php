@@ -459,6 +459,8 @@ if (!function_exists('render_header_profile_dropdown')) {
 
 $railProfileMenuItems = [
   ['href' => 'profile.php', 'icon' => 'ion-ios-person', 'label' => 'Profile'],
+  ['href' => 'my_orders.php', 'icon' => 'ion-bag', 'label' => 'My Orders'],
+  ['href' => 'cart.php', 'icon' => 'ion-ios-cart', 'label' => 'Cart'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
   ['href' => 'change-password.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],

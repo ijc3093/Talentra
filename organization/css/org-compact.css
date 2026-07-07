@@ -1,0 +1,1103 @@
+/* Organization workspace — compact typography, icons, and chrome (v2) */
+body.org-app {
+  --org-header-h: 48px;
+  --org-font-base: 12px;
+  --org-font-sm: 10px;
+  --org-font-xs: 9px;
+  --org-icon-sm: 12px;
+  --org-icon-md: 14px;
+  --org-icon-lg: 16px;
+  --org-btn-fs: 11px;
+  --org-btn-py: 0.22rem;
+  --org-btn-px: 0.5rem;
+  font-size: var(--org-font-base);
+  line-height: 1.4;
+}
+
+/* ----- Shell chrome ----- */
+body.org-app .sh-logopanel,
+body.org-app .sh-headpanel {
+  height: var(--org-header-h) !important;
+}
+
+body.org-app .sh-sideleft-menu {
+  top: var(--org-header-h) !important;
+}
+
+body.org-app .sh-mainpanel {
+  padding-top: var(--org-header-h) !important;
+}
+
+body.org-app .sh-logopanel {
+  padding: 0 14px !important;
+}
+
+body.org-app .sh-logopanel .sh-logo-text {
+  font-size: 18px !important;
+}
+
+body.org-app .org-logo-label {
+  font-size: 15px !important;
+  max-width: 130px !important;
+}
+
+body.org-app .sh-headpanel-right {
+  height: var(--org-header-h) !important;
+  padding: 0 10px !important;
+}
+
+body.org-app .sh-icon-link {
+  width: auto !important;
+  min-width: 64px !important;
+  height: var(--org-header-h) !important;
+  padding: 0 8px !important;
+}
+
+body.org-app .sh-icon-link i {
+  font-size: var(--org-icon-lg) !important;
+  line-height: 1 !important;
+}
+
+body.org-app .sh-icon-link span {
+  font-size: var(--org-font-xs) !important;
+  margin-top: 2px !important;
+  font-weight: 500 !important;
+}
+
+body.org-app .org-pill {
+  padding: 4px 10px !important;
+  font-size: var(--org-font-sm) !important;
+  gap: 5px !important;
+}
+
+body.org-app .org-pill .caret {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .org-pill small {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .sh-headpanel-right .ig-feed-account-badge {
+  min-height: 24px !important;
+  padding: 0 8px !important;
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .msg-badge {
+  min-width: 15px !important;
+  height: 15px !important;
+  padding: 0 4px !important;
+  font-size: 9px !important;
+  top: -4px !important;
+  right: -6px !important;
+}
+
+body.org-app .org-inline-flash {
+  top: calc(var(--org-header-h) + 6px) !important;
+  padding: 7px 10px !important;
+  font-size: var(--org-font-sm) !important;
+  font-weight: 700 !important;
+}
+
+body.org-app .org-inline-flash .x {
+  font-size: var(--org-icon-md) !important;
+}
+
+body.org-app .dropdown-menu {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .dropdown-menu .dropdown-item {
+  padding: 0.35rem 0.85rem !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .dropdown-menu .dropdown-header {
+  font-size: var(--org-font-xs) !important;
+  padding: 0.4rem 0.85rem !important;
+}
+
+body.org-app .dropdown-profile .wd-60.ht-60 {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+body.org-app .dropdown-profile h6.tx-15 {
+  font-size: 13px !important;
+}
+
+body.org-app .dropdown-profile-nav a {
+  font-size: var(--org-font-sm) !important;
+  padding: 0.35rem 0 !important;
+}
+
+body.org-app .dropdown-profile-nav .icon {
+  font-size: var(--org-icon-sm) !important;
+}
+
+/* ----- Sidebar ----- */
+body.org-app .sh-sidebar-label {
+  font-size: 9px !important;
+  padding: 0 12px 4px !important;
+  letter-spacing: 0.08em !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link {
+  height: 30px !important;
+  padding: 0 10px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i:first-child,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .icon {
+  font-size: var(--org-icon-md) !important;
+  width: 18px !important;
+  margin-right: 6px !important;
+}
+
+body.org-app .sh-sideleft-menu .nav-sub .nav-link {
+  padding: 7px 16px 7px 36px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+/* ----- Page content ----- */
+body.org-app .sh-pagebody {
+  padding: 8px 10px !important;
+}
+
+body.org-app .sh-pagetitle {
+  padding: 6px 10px !important;
+  min-height: auto !important;
+  border-bottom-width: 1px !important;
+}
+
+body.org-app .sh-pagetitle-left {
+  margin-top: 0 !important;
+}
+
+body.org-app .sh-pagetitle-icon {
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 14px !important;
+  border-width: 1px !important;
+}
+
+body.org-app .sh-pagetitle-title {
+  margin-left: 8px !important;
+}
+
+body.org-app .sh-pagetitle-title h2 {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+body.org-app .sh-pagetitle-title span {
+  font-size: 9px !important;
+}
+
+@media (min-width: 576px) {
+  body.org-app .sh-pagetitle {
+    height: auto !important;
+    min-height: 36px !important;
+    padding: 6px 10px !important;
+  }
+}
+
+body.org-app h1 { font-size: 1.35rem; }
+body.org-app h2 { font-size: 1.2rem; }
+body.org-app h3 { font-size: 1.05rem; }
+body.org-app h4 { font-size: 0.95rem; }
+body.org-app h5 { font-size: 0.88rem; }
+body.org-app h6 { font-size: 0.82rem; }
+
+body.org-app p,
+body.org-app li,
+body.org-app label,
+body.org-app .form-group label {
+  font-size: var(--org-font-sm);
+}
+
+/* ----- Buttons ----- */
+body.org-app .btn,
+body.org-app .sp-container button {
+  font-size: var(--org-btn-fs) !important;
+  padding: var(--org-btn-py) var(--org-btn-px) !important;
+  line-height: 1.35 !important;
+}
+
+body.org-app .btn-sm {
+  font-size: var(--org-font-xs) !important;
+  padding: 0.18rem 0.45rem !important;
+}
+
+body.org-app .btn-lg {
+  font-size: var(--org-font-sm) !important;
+  padding: 0.35rem 0.75rem !important;
+}
+
+body.org-app .btn .icon,
+body.org-app .btn i {
+  font-size: var(--org-icon-sm) !important;
+}
+
+/* ----- Icons & Shamcey utilities ----- */
+body.org-app .icon {
+  font-size: var(--org-icon-md);
+  line-height: 1;
+}
+
+body.org-app .tx-8 { font-size: 8px !important; }
+body.org-app .tx-9 { font-size: 9px !important; }
+body.org-app .tx-10 { font-size: 9px !important; }
+body.org-app .tx-11 { font-size: 10px !important; }
+body.org-app .tx-12 { font-size: 11px !important; }
+body.org-app .tx-13 { font-size: 12px !important; }
+body.org-app .tx-14 { font-size: 12px !important; }
+body.org-app .tx-15 { font-size: 13px !important; }
+body.org-app .tx-16 { font-size: 13px !important; }
+body.org-app .tx-18 { font-size: 14px !important; }
+body.org-app .tx-20 { font-size: 15px !important; }
+body.org-app .tx-22 { font-size: 16px !important; }
+body.org-app .tx-24 { font-size: 17px !important; }
+body.org-app .tx-26 { font-size: 18px !important; }
+body.org-app .tx-30 { font-size: 20px !important; }
+body.org-app .tx-32 { font-size: 21px !important; }
+body.org-app .tx-36 { font-size: 22px !important; }
+body.org-app .tx-40 { font-size: 24px !important; }
+
+body.org-app .wd-40 { width: 32px !important; }
+body.org-app .ht-40 { height: 32px !important; }
+body.org-app .wd-60 { width: 42px !important; }
+body.org-app .ht-60 { height: 42px !important; }
+
+/* ----- Cards & tables ----- */
+body.org-app .card-header {
+  padding: 0.55rem 0.85rem !important;
+}
+
+body.org-app .card-body {
+  padding: 0.75rem 0.85rem !important;
+}
+
+body.org-app .card-title,
+body.org-app .card-header .card-title {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .table {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .table th,
+body.org-app .table td {
+  padding: 0.35rem 0.5rem !important;
+  vertical-align: middle !important;
+}
+
+body.org-app .badge {
+  font-size: 9px !important;
+  padding: 0.2em 0.45em !important;
+  font-weight: 600 !important;
+}
+
+body.org-app .nav-tabs .nav-link {
+  font-size: var(--org-font-sm) !important;
+  padding: 0.45rem 0.75rem !important;
+}
+
+body.org-app .alert {
+  font-size: var(--org-font-sm) !important;
+  padding: 0.55rem 0.75rem !important;
+}
+
+/* ----- Forms ----- */
+body.org-app .form-control,
+body.org-app .custom-select {
+  font-size: var(--org-font-sm) !important;
+  padding: 0.32rem 0.55rem !important;
+  height: calc(1.4em + 0.65rem) !important;
+}
+
+body.org-app .form-control-sm {
+  font-size: var(--org-font-xs) !important;
+  padding: 0.2rem 0.45rem !important;
+  height: calc(1.3em + 0.45rem) !important;
+}
+
+body.org-app textarea.form-control {
+  height: auto !important;
+}
+
+body.org-app .input-group-text {
+  font-size: var(--org-font-sm) !important;
+  padding: 0.32rem 0.55rem !important;
+}
+
+/* ----- Commerce hub ----- */
+body.org-app .commerce-page {
+  padding-bottom: 16px !important;
+}
+
+body.org-app .commerce-hero {
+  padding: 16px 18px 14px !important;
+  margin-bottom: 14px !important;
+  border-radius: 12px !important;
+}
+
+body.org-app .commerce-hero h1 {
+  font-size: 1.25rem !important;
+  margin-bottom: 4px !important;
+}
+
+body.org-app .commerce-hero p {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .commerce-pill {
+  padding: 4px 9px !important;
+  font-size: var(--org-font-xs) !important;
+  gap: 4px !important;
+}
+
+body.org-app .commerce-pill .icon {
+  font-size: var(--org-icon-sm) !important;
+}
+
+body.org-app .commerce-quick {
+  gap: 8px !important;
+}
+
+body.org-app .ch-btn-primary,
+body.org-app .ch-btn-ghost {
+  font-size: var(--org-font-sm) !important;
+  padding: 7px 12px !important;
+}
+
+body.org-app .ch-btn-primary .icon,
+body.org-app .ch-btn-ghost .icon {
+  font-size: var(--org-icon-sm) !important;
+}
+
+body.org-app .commerce-kpi {
+  padding: 12px 14px !important;
+}
+
+body.org-app .commerce-kpi-value {
+  font-size: 1.35rem !important;
+}
+
+body.org-app .commerce-kpi-label,
+body.org-app .commerce-kpi-sub {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .commerce-kpi-icon .icon {
+  font-size: var(--org-icon-md) !important;
+}
+
+body.org-app .commerce-panel {
+  padding: 12px 14px !important;
+}
+
+body.org-app .commerce-panel-head h2 {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .commerce-panel-head span,
+body.org-app .commerce-panel-head a {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .commerce-int-item {
+  padding: 10px 12px !important;
+  gap: 10px !important;
+}
+
+body.org-app .commerce-int-icon {
+  width: 34px !important;
+  height: 34px !important;
+  font-size: var(--org-icon-md) !important;
+}
+
+body.org-app .commerce-int-body strong {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .commerce-int-body p {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .commerce-channel {
+  padding: 10px 12px !important;
+}
+
+body.org-app .commerce-channel .icon {
+  font-size: var(--org-icon-lg) !important;
+}
+
+body.org-app .commerce-channel strong {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .commerce-channel span {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .commerce-order {
+  padding: 8px 0 !important;
+}
+
+body.org-app .commerce-order-price {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .commerce-order-badge {
+  font-size: 9px !important;
+}
+
+body.org-app .commerce-action-tile {
+  padding: 12px 14px !important;
+}
+
+body.org-app .commerce-action-tile .icon {
+  font-size: var(--org-icon-lg) !important;
+}
+
+body.org-app .commerce-action-tile strong {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .commerce-action-tile span {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .commerce-empty .icon {
+  font-size: 28px !important;
+}
+
+/* ----- CRM lifecycle ----- */
+body.org-app .crm-stage {
+  min-width: 120px !important;
+  max-width: 170px !important;
+  padding: 10px 8px !important;
+}
+
+body.org-app .crm-stage strong {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .crm-stage .crm-count {
+  font-size: 18px !important;
+}
+
+body.org-app .crm-stage .crm-sub {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app .crm-hub {
+  max-width: 400px !important;
+  padding: 16px !important;
+}
+
+body.org-app .crm-hub-modules a {
+  font-size: var(--org-font-xs) !important;
+  padding: 3px 7px !important;
+}
+
+/* ----- Dashboard / feed helpers ----- */
+body.org-app .dashboard-card .card-body-fixed,
+body.org-app .members-card .card-body-fixed {
+  font-size: var(--org-font-sm);
+}
+
+body.org-app .member-row {
+  gap: 8px !important;
+}
+
+body.org-app .member-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+}
+
+body.org-app .member-avatar .icon {
+  font-size: var(--org-icon-sm) !important;
+}
+
+/* ----- Auth pages (login, select org) ----- */
+body.org-app .signbox-header h2 {
+  font-size: 1.2rem !important;
+}
+
+body.org-app .signbox-header p {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app .signbox-body {
+  font-size: var(--org-font-sm);
+}
+
+body.org-app .form-control-label {
+  font-size: var(--org-font-sm) !important;
+}
+
+@media (max-width: 575px) {
+  body.org-app .sh-icon-link {
+    min-width: 52px !important;
+    padding: 0 6px !important;
+  }
+
+  body.org-app .sh-pagebody {
+    padding: 8px !important;
+  }
+}
+
+/* ----- Footer ----- */
+body.org-app .sh-footer {
+  padding: 0 10px 10px !important;
+  font-size: var(--org-font-xs) !important;
+}
+
+/* ----- List groups ----- */
+body.org-app .list-group-item {
+  padding: 0.4rem 0.6rem !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+/* ----- Messages page ----- */
+body.org-app.org-page-messages .chat-shell {
+  gap: 6px !important;
+  padding: 6px !important;
+}
+
+body.org-app.org-page-messages .card-header,
+body.org-app.org-page-messages .fixed-head {
+  padding: 4px 8px !important;
+}
+
+body.org-app.org-page-messages .card-header .card-title,
+body.org-app.org-page-messages .fixed-head .card-title {
+  font-size: var(--org-font-xs) !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+body.org-app.org-page-messages .fixed-body {
+  padding: 6px !important;
+}
+
+body.org-app.org-page-messages .members-search,
+body.org-app.org-page-messages .history-search {
+  padding: 6px !important;
+}
+
+body.org-app.org-page-messages .members-search input,
+body.org-app.org-page-messages .history-search input,
+body.org-app.org-page-messages #chatSearch {
+  height: 28px !important;
+  padding: 4px 8px !important;
+  font-size: var(--org-font-sm) !important;
+  border-radius: 6px !important;
+}
+
+body.org-app.org-page-messages .peer-meta img {
+  width: 30px !important;
+  height: 30px !important;
+  border-width: 1px !important;
+}
+
+body.org-app.org-page-messages .peer-name {
+  font-size: var(--org-font-sm) !important;
+  font-weight: 600 !important;
+}
+
+body.org-app.org-page-messages .peer-sub,
+body.org-app.org-page-messages .peer-time,
+body.org-app.org-page-messages .search-hint,
+body.org-app.org-page-messages .msg-status {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app.org-page-messages .unread-pill {
+  min-width: 16px !important;
+  height: 16px !important;
+  padding: 0 4px !important;
+  font-size: 9px !important;
+}
+
+body.org-app.org-page-messages .conv-split {
+  gap: 6px !important;
+  padding: 6px !important;
+}
+
+body.org-app.org-page-messages .conv-topbar,
+body.org-app.org-page-messages .search-bar {
+  padding: 6px 8px !important;
+  margin: 6px !important;
+  border-radius: 6px !important;
+  gap: 6px !important;
+}
+
+body.org-app.org-page-messages .conv-title strong {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-messages .conv-title small {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app.org-page-messages .msg-me,
+body.org-app.org-page-messages .msg-them {
+  padding: 5px 8px !important;
+  border-radius: 8px !important;
+  margin: 4px 0 !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-messages .msg-scroll {
+  padding: 6px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-messages .composer-row {
+  gap: 6px !important;
+  padding: 6px !important;
+}
+
+body.org-app.org-page-messages .composer-row textarea {
+  font-size: var(--org-font-sm) !important;
+  min-height: 52px !important;
+  padding: 6px 8px 36px !important;
+}
+
+body.org-app.org-page-messages .composer-row .btn {
+  min-width: 56px !important;
+  padding: 6px 10px !important;
+}
+
+body.org-app.org-page-messages .composer-tools .btn,
+body.org-app.org-page-messages .composer-tools a {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  font-size: var(--org-icon-md) !important;
+}
+
+body.org-app.org-page-messages .history-item {
+  padding: 6px 8px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-messages .history-item small {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app.org-page-messages .msg-attach img,
+body.org-app.org-page-messages .msg-attach video {
+  max-width: 180px !important;
+  max-height: 140px !important;
+}
+
+body.org-app.org-page-messages #attachStatus {
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app.org-page-messages #attachStatus .attach-thumb {
+  width: 26px !important;
+  height: 26px !important;
+}
+
+body.org-app.org-page-messages #emojiGrid {
+  font-size: 16px !important;
+  gap: 4px !important;
+}
+
+body.org-app.org-page-messages .conv-history {
+  min-width: 180px !important;
+}
+
+/* ----- Dashboard / publisher hub ----- */
+body.org-app.org-page-dashboard .rows-scroll,
+body.org-app.org-page-feed .rows-scroll {
+  padding: 8px 10px !important;
+}
+
+body.org-app.org-page-dashboard .mini-muted,
+body.org-app.org-page-dashboard .tx-gray-600 {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-dashboard .stat-pill {
+  gap: 5px !important;
+  padding: 4px 8px !important;
+  font-size: var(--org-font-sm) !important;
+  border-width: 1px !important;
+}
+
+body.org-app.org-page-dashboard .stat-pill .icon {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: var(--org-icon-sm) !important;
+}
+
+body.org-app.org-page-dashboard .stat-pill .num,
+body.org-app.org-page-dashboard .stat-pill .lbl,
+body.org-app.org-page-dashboard .stat-pill .sub {
+  font-size: var(--org-font-sm) !important;
+  font-weight: 700 !important;
+}
+
+body.org-app.org-page-dashboard .publisher-hub {
+  padding: 8px 10px !important;
+  margin: 8px 0 4px !important;
+  border-radius: 8px !important;
+  border-width: 1px !important;
+}
+
+body.org-app.org-page-dashboard .publisher-hub-title {
+  font-size: var(--org-font-sm) !important;
+  font-weight: 800 !important;
+}
+
+body.org-app.org-page-dashboard .publisher-hub-sub {
+  font-size: var(--org-font-xs) !important;
+  margin-top: 2px !important;
+}
+
+body.org-app.org-page-dashboard .publisher-stat {
+  padding: 3px 7px !important;
+  font-size: var(--org-font-xs) !important;
+  gap: 4px !important;
+}
+
+body.org-app.org-page-dashboard .publisher-stat .fa,
+body.org-app.org-page-dashboard .publisher-stat .icon {
+  font-size: var(--org-icon-sm) !important;
+}
+
+body.org-app.org-page-dashboard .publisher-check {
+  padding: 6px 8px !important;
+  margin-bottom: 6px !important;
+  border-radius: 6px !important;
+}
+
+body.org-app.org-page-dashboard .dash-toprow {
+  gap: 6px !important;
+  margin: 8px 0 4px !important;
+}
+
+body.org-app.org-page-dashboard .dash-toprow .left-actions,
+body.org-app.org-page-dashboard .dash-toprow .right-stats {
+  gap: 6px !important;
+}
+
+body.org-app.org-page-dashboard .compliance-head {
+  margin-top: 10px !important;
+  margin-bottom: 6px !important;
+  gap: 6px !important;
+}
+
+body.org-app.org-page-dashboard .compliance-table th,
+body.org-app.org-page-dashboard .compliance-table td {
+  padding: 6px 8px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-dashboard .pill,
+body.org-app.org-page-dashboard .comp-badge {
+  padding: 3px 8px !important;
+  font-size: var(--org-font-xs) !important;
+  border-width: 1px !important;
+  font-weight: 700 !important;
+}
+
+body.org-app.org-page-dashboard .feed-tabs {
+  gap: 6px !important;
+  margin: 10px 0 6px !important;
+}
+
+body.org-app.org-page-dashboard .feed-tabs a {
+  padding: 5px 9px !important;
+  font-size: var(--org-font-sm) !important;
+  border-radius: 6px !important;
+  border-width: 1px !important;
+  font-weight: 700 !important;
+}
+
+body.org-app.org-page-dashboard .comp-sub {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-dashboard .btn-close-x {
+  width: 28px !important;
+  height: 28px !important;
+  border-width: 1px !important;
+}
+
+body.org-app.org-page-dashboard .alert {
+  margin-top: 8px !important;
+  padding: 6px 10px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-feed .feed-card,
+body.org-app.org-page-feed .feed-card {
+  padding: 10px !important;
+  margin: 8px 0 !important;
+  border-radius: 8px !important;
+}
+
+body.org-app.org-page-dashboard .feed-meta,
+body.org-app.org-page-dashboard .feed-badge,
+body.org-app.org-page-dashboard .mini-muted,
+body.org-app.org-page-dashboard .comp-sub,
+body.org-app.org-page-feed .feed-author-meta,
+body.org-app.org-page-feed .feed-post-title {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-dashboard .publisher-check label,
+body.org-app.org-page-dashboard .publisher-check .hint {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-dashboard .dash-toprow .btn,
+body.org-app.org-page-posts .dash-toprow .btn {
+  font-size: var(--org-font-xs) !important;
+  padding: 0.2rem 0.45rem !important;
+}
+
+body.org-app .dash-toprow {
+  gap: 6px !important;
+  margin-bottom: 8px !important;
+}
+
+body.org-app .searchbar .form-control {
+  font-size: var(--org-font-sm) !important;
+  height: calc(1.3em + 0.5rem) !important;
+}
+
+body.org-app .pager .btn,
+body.org-app .pager a {
+  font-size: var(--org-font-xs) !important;
+  padding: 0.15rem 0.4rem !important;
+}
+
+/* ----- Feed page ----- */
+/* ----- Feed page ----- */
+body.org-app.org-page-feed .feed-toolbar {
+  flex: 0 0 auto !important;
+  padding: 6px 8px 4px !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar .left-actions > a.btn {
+  display: none !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar .dash-toprow {
+  margin: 2px 0 !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar .feed-tabs--toolbar {
+  display: inline-flex !important;
+  gap: 6px !important;
+  margin: 0 !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+}
+
+body.org-app.org-page-feed .feed-tabs--toolbar a {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: var(--org-font-sm) !important;
+  padding: 4px 9px !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  text-decoration: none !important;
+  border: 1px solid var(--border-color) !important;
+  color: #6b7280 !important;
+  background: var(--bg-sidebar) !important;
+}
+
+body.org-app.org-page-feed .feed-tabs--toolbar a.active {
+  background: #0b5ed7 !important;
+  color: #fff !important;
+  border-color: #0b5ed7 !important;
+}
+
+body.org-app.org-page-feed .feed-tabs--toolbar .stat-pill {
+  padding: 4px 8px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar .feed-tabs:not(.feed-tabs--toolbar) {
+  display: none !important;
+}
+
+body.org-app.org-page-feed .feed-tabs:not(.feed-tabs--toolbar) {
+  display: none !important;
+}
+
+body.org-app.org-page-feed .dash-toprow {
+  margin: 4px 0 !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar-split {
+  display: flex !important;
+  gap: 14px !important;
+  align-items: center !important;
+  margin: 4px 0 2px !important;
+  padding: 0 5px !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar-main {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar-side {
+  flex: 0 0 340px !important;
+  width: 340px !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar-stats {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+}
+
+body.org-app.org-page-feed .dash-toprow .right-stats {
+  display: flex !important;
+}
+
+body.org-app.org-page-feed .stat-pill {
+  padding: 4px 8px !important;
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-feed .stat-pill .icon {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: var(--org-icon-sm) !important;
+}
+
+body.org-app.org-page-feed .feed-post-body,
+body.org-app.org-page-feed .feed-post-text {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-feed .feed-avatar,
+body.org-app.org-page-feed .feed-author-avatar {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+}
+
+body.org-app.org-page-feed .media-tile {
+  height: 360px !important;
+}
+
+/* Taller center post + history sidebar on feed */
+body.org-app.org-page-feed .rows-scroll {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: calc(100vh - var(--feed-chrome-offset, 160px)) !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-main,
+body.org-app.org-page-feed .feed-layout--tall .feed-sidebar {
+  max-height: none !important;
+  height: 100% !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-card {
+  height: 100% !important;
+  min-height: calc(100vh - var(--feed-chrome-offset, 160px)) !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-post-media {
+  width: 100% !important;
+  flex: 1 1 auto !important;
+  height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px)) !important;
+  min-height: 300px !important;
+  max-height: none !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-post-detail {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  height: var(--feed-info-h, 190px) !important;
+  max-height: var(--feed-info-h, 190px) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+body.org-app.org-page-feed .read-more-modal .rm-title {
+  font-size: 14px !important;
+}
+
+body.org-app.org-page-feed .posts-tabs .nav-link {
+  font-size: var(--org-font-sm) !important;
+  padding: 0.35rem 0.6rem !important;
+}
+
+/* ----- Posts list ----- */
+body.org-app.org-page-posts .mini-muted,
+body.org-app.org-page-posts .count-line {
+  font-size: var(--org-font-sm) !important;
+}
+
+body.org-app.org-page-posts .post-title {
+  font-size: 13px !important;
+  margin-top: 6px !important;
+}
+
+body.org-app.org-page-posts .post-body {
+  font-size: var(--org-font-sm) !important;
+  margin-top: 4px !important;
+}
+
+body.org-app.org-page-posts .post-card {
+  padding: 8px 10px !important;
+  margin: 6px 0 !important;
+  border-radius: 8px !important;
+}
+
+body.org-app.org-page-posts .badge-pill {
+  padding: 3px 7px !important;
+  font-size: var(--org-font-xs) !important;
+}
+
+body.org-app.org-page-posts .bulkbar {
+  padding: 6px 8px !important;
+  margin: 6px 0 !important;
+  border-radius: 8px !important;
+}
+
+body.org-app.org-page-posts .post-foot {
+  margin-top: 6px !important;
+  padding-top: 6px !important;
+}
+
+body.org-app.org-page-posts .searchbar input {
+  min-width: 180px !important;
+  max-width: 360px !important;
+}
+
+body.org-app.org-page-posts .pager {
+  gap: 6px !important;
+  margin-top: 8px !important;
+}

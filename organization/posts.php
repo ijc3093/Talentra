@@ -1002,18 +1002,18 @@ function url_with(array $add): string {
       font-size:13px;
       border:1px solid #e5e7eb;
     }
-    .mini-muted{ color:#6b7280; font-size:14px; font-weight:600; }
+    .mini-muted{ color:#6b7280; font-size:11px; font-weight:600; }
     .post-title{
-      font-weight:900;
-      font-size:18px;
+      font-weight:800;
+      font-size:13px;
       color:#111827;
-      margin-top:10px;
+      margin-top:6px;
     }
     .post-body{
       color:#374151;
-      margin-top:8px;
+      margin-top:4px;
       white-space:pre-wrap;
-      font-size:15px;
+      font-size:11px;
     }
     .post-foot{
       display:flex;
@@ -1029,7 +1029,7 @@ function url_with(array $add): string {
       display:flex; gap:14px; flex-wrap:wrap; align-items:center;
       font-weight:800;
       color:#6b7280;
-      font-size:14px;
+      font-size:11px;
     }
     .locked{
       background:#fff3cd;
@@ -1098,7 +1098,7 @@ function url_with(array $add): string {
 
 </head>
 
-<body>
+<body class="org-app">
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 

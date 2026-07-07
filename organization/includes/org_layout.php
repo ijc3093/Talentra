@@ -40,7 +40,8 @@ if (!function_exists('org_layout_head_assets')) {
                 . '</style>' . "\n";
         }
 
-        echo '<link rel="stylesheet" href="css/org-layout.css?v=10">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-layout.css?v=13">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-compact.css?v=14">' . "\n";
     }
 }
 
@@ -53,7 +54,7 @@ if (!function_exists('org_layout_footer_assets')) {
         }
         $emitted = true;
         require __DIR__ . '/org_footer_scripts.php';
-        echo '<script src="js/org-nav.js?v=11" defer></script>' . "\n";
+        echo '<script src="js/org-nav.js?v=13" defer></script>' . "\n";
     }
 }
 
@@ -95,11 +96,29 @@ if (!function_exists('org_layout_nav_attrs')) {
 
         // Form/manager tool pages: full reload avoids feed video ghosts flashing during SPA swap.
         static $hardNavPages = [
+            'compose_post.php',
             'create_staff.php',
             'create_org.php',
             'settings.php',
             'members.php',
             'posts.php',
+            'commerce.php',
+            'products.php',
+            'orders.php',
+            'shop_settings.php',
+            'commerce_analytics.php',
+            'crm.php',
+            'crm_contacts.php',
+            'crm_contact.php',
+            'crm_tickets.php',
+            'crm_ticket.php',
+            'crm_deals.php',
+            'crm_capture.php',
+            'crm_convert.php',
+            'crm_bookings.php',
+            'crm_invoices.php',
+            'crm_retain.php',
+            'dashboard.php',
         ];
         if (in_array($base, $hardNavPages, true)) {
             return '';

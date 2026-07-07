@@ -27,31 +27,44 @@ body.feed-insta-ui .feed-right-nav-ic svg{
   stroke-linejoin:round;
 }
 @media (min-width:1025px){
+  body.feed-insta-ui{
+    --feed-left-nav-box-h:min(340px, calc(100vh - 280px));
+  }
   body.feed-insta-ui .feed-left-rail{
-    display:block;
+    display:flex;
+    flex-direction:column;
     position:fixed;
     left:calc(var(--feedRailW, 84px) + 40px);
-    top:220px;
+    top:var(--feed-left-rail-top, 220px);
     width:236px;
-    max-height:calc(100vh - 136px);
-    overflow-y:auto;
-    overflow-x:hidden;
+    height:var(--feed-left-nav-box-h);
+    max-height:var(--feed-left-nav-box-h);
+    overflow:hidden;
     z-index:90;
-    padding:4px 0 16px;
+    padding:4px 0 8px;
     box-sizing:border-box;
-    scrollbar-width:thin;
-    scrollbar-color:rgba(0,0,0,.18) transparent;
-  }
-  body.feed-insta-ui .feed-left-rail::-webkit-scrollbar{width:5px;}
-  body.feed-insta-ui .feed-left-rail::-webkit-scrollbar-thumb{
-    background:rgba(0,0,0,.18);
-    border-radius:999px;
   }
   body.feed-insta-ui .feed-left-nav{
     display:flex;
     flex-direction:column;
     gap:2px;
-    padding:0;
+    flex:1 1 auto;
+    min-height:0;
+    height:100%;
+    max-height:100%;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding:0 2px 0 0;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(0,0,0,.18) transparent;
+  }
+  body.feed-insta-ui .feed-left-nav::-webkit-scrollbar{width:5px;}
+  body.feed-insta-ui .feed-left-nav::-webkit-scrollbar-thumb{
+    background:rgba(0,0,0,.18);
+    border-radius:999px;
   }
   body.feed-insta-ui .feed-left-nav-item{
     display:flex;
@@ -87,6 +100,18 @@ body.feed-insta-ui .feed-right-nav-ic svg{
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
+  }
+  body.feed-insta-ui .feed-left-nav-badge{
+    flex:0 0 auto;
+    margin-left:8px;
+    padding:3px 8px;
+    border-radius:999px;
+    background:#f3f4f6;
+    color:#6b7280;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.04em;
+    line-height:1;
   }
   body.feed-insta-ui .feed-left-nav-item-under-public{
     margin-left:12px;

@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/session_user.php';
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/post_categories.php';
 require_once __DIR__ . '/includes/post_layout.php';
+require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
@@ -20,6 +21,7 @@ $meId = (int)($_SESSION['user_id'] ?? 0);
 $isModalCreate = (string)($_GET['modal'] ?? '') === '1';
 $isStoryCreate = ((string)($_GET['story'] ?? '') === '1');
 ensurePostCategorySchema($dbh);
+device_profile_ensure_post_columns($dbh);
 publisher_ensure_schema($dbh);
 $isPublisherAccount = publisher_account_is($dbh, $meId);
 
@@ -722,6 +724,19 @@ body.dashboard-page .card{
                         <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isStoryCreate ? 'Public (story circle on public.php)' : 'Public (goes to public.php only)' ?></option>
                       </select>
                       <?php endif; ?>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-6">
+                      <label>Music title (optional)</label>
+                      <input type="text" name="music_title" class="form-control" maxlength="120"
+                        value="<?= h((string)($editPost['music_title'] ?? '')) ?>" placeholder="e.g., Me &amp; My Jesus">
+                      <small class="text-muted">Shown under your name on feed and public post cards.</small>
+                    </div>
+                    <div class="form-group col-md-6">
+                      <label>Music artist (optional)</label>
+                      <input type="text" name="music_artist" class="form-control" maxlength="120"
+                        value="<?= h((string)($editPost['music_artist'] ?? '')) ?>" placeholder="e.g., Noël Mio">
                     </div>
                   </div>
                   <?php if (!$isStoryCreate): ?>

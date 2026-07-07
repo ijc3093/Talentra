@@ -38,6 +38,87 @@
   background-color: rgba(79, 70, 229, 0.06);
 }
 
+/* Sidebar: fixed Home (top) + Sign out (bottom), scrollable middle in a boxed panel */
+body.org-app .sh-sideleft-menu.org-sideleft-shell {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+  height: calc(100vh - var(--org-header-h, 52px));
+}
+
+body.org-app .org-sideleft-top,
+body.org-app .org-sideleft-bottom {
+  flex: 0 0 auto;
+}
+
+body.org-app .org-sideleft-top {
+  padding-bottom: 4px;
+}
+
+body.org-app .org-sideleft-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  margin: 6px 8px;
+  padding: 4px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(7, 101, 199, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(7, 101, 199, 0.06),
+    0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+body.org-app .org-sideleft-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+body.org-app .org-sideleft-scroll::-webkit-scrollbar-thumb {
+  background: rgba(7, 101, 199, 0.28);
+  border-radius: 3px;
+}
+
+body.org-app .org-sideleft-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.org-app .org-sideleft-scroll .org-sideleft-nav > .nav-item > .nav-link {
+  border-radius: 0;
+}
+
+body.org-app .org-sideleft-scroll .org-sideleft-nav > .nav-item:first-child > .nav-link {
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+}
+
+body.org-app .org-sideleft-scroll .org-sideleft-nav > .nav-item:last-child > .nav-link {
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+
+body.org-app .org-sideleft-nav {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+body.org-app .org-sideleft-bottom {
+  border-top: 1px solid rgba(7, 101, 199, 0.12);
+  background: inherit;
+  padding: 4px 0 6px;
+  margin-top: 2px;
+}
+
+body.org-app .org-sideleft-signout:hover,
+body.org-app .org-sideleft-signout:focus {
+  color: #c0392b;
+}
+
 /* Shield covers main content during nav — hides any orphan feed/video ghosts */
 #org-nav-shield {
   position: fixed;
@@ -85,7 +166,7 @@ body.org-app:not(.org-page-feed) audio {
 
 html.dark-auto body.org-app.is-navigating #org-nav-shield,
 html[data-theme="dark"] body.org-app.is-navigating #org-nav-shield {
-  background: #0b1220;
+  background: var(--msb-palette-bg, #f5f7fb);
 }
 
 body.org-app .sh-mainpanel {

@@ -38,6 +38,15 @@ if (!class_exists('Config', false)) {
         ========================= */
         public string $ADMIN_ALERT_EMAIL = "isaaccuma3093@gmail.com";
 
+        /* =========================
+           STRIPE (shop checkout)
+           Set secret + publishable keys from Stripe Dashboard.
+           Webhook endpoint: /public_user/ajax/stripe_webhook.php
+        ========================= */
+        public string $STRIPE_SECRET_KEY = '';
+        public string $STRIPE_PUBLISHABLE_KEY = '';
+        public string $STRIPE_WEBHOOK_SECRET = '';
+
         public function __construct()
         {
             $socket = '/Applications/MAMP/tmp/mysql/mysql.sock';

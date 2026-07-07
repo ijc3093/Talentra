@@ -45,10 +45,10 @@ $orgHeaderChrome = account_display_name_parts($displayName, true, $dbh);
 $orgPortalRoleBadge = trim((string)($orgHeaderChrome['badge'] ?? ''));
 $displayName = (string)($orgHeaderChrome['display_name'] ?? $displayName);
 
-// Theme CSS variables (optional)
-$bg = $ORG_THEME_BG !== '' ? $ORG_THEME_BG : '#0b1220';
+// Theme CSS variables (optional) — defer page bg to profile appearance palette when set
+$bg = $ORG_THEME_BG !== '' ? $ORG_THEME_BG : '';
 $accent = $ORG_THEME_ACCENT !== '' ? $ORG_THEME_ACCENT : '#4f46e5';
-$fontSz = $ORG_FONT_SIZE !== '' ? $ORG_FONT_SIZE : '16px';
+$fontSz = $ORG_FONT_SIZE !== '' ? $ORG_FONT_SIZE : '12px';
 
 // --- Unread badge count (org_messages.is_read = 0 where receiver = me) ---
 $unreadCount = 0;
@@ -104,19 +104,23 @@ if ($isManager) {
 
 <style>
   :root{
-    --org-bg: <?= h($bg) ?>;
+    <?php if ($bg !== ''): ?>--org-bg: <?= h($bg) ?>;<?php endif; ?>
+
     --org-accent: <?= h($accent) ?>;
     --org-font: <?= h($fontSz) ?>;
   }
-  body{ background: var(--org-bg); font-size: var(--org-font); }
+  body{
+    background: var(--msb-palette-bg, var(--org-bg, #f5f7fb));
+    font-size: var(--org-font);
+  }
   .sh-logo-text{ text-transform: none !important; }
   .org-logo-label{
-    font-size: 27px;
+    font-size: 18px;
     font-weight: 600;
     font-family: cursive;
     line-height: 1.25;
     color: #fff;
-    max-width: 160px;
+    max-width: 140px;
     word-break: break-word;
   }
 
@@ -154,14 +158,14 @@ if ($isManager) {
   .org-pill{
     display:inline-flex;
     align-items:center;
-    gap:8px;
-    padding:6px 12px;
+    gap:5px;
+    padding:4px 10px;
     border-radius:999px;
     background: rgba(255,255,255,.14);
     border:1px solid rgba(255,255,255,.20);
     color:#fff !important;
     font-weight:700;
-    font-size:13px;
+    font-size:11px;
     line-height:1;
     white-space:nowrap;
     text-decoration:none !important;
@@ -172,6 +176,112 @@ if ($isManager) {
     opacity:.95;
     font-size:12px;
     margin-left:2px;
+  }
+
+  /* 7-day feed stats in blue header (feed page) */
+  .header-feed-stats{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+    margin-right:10px;
+  }
+  .sh-headpanel-right .header-feed-stats .stat-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 8px;
+    border-radius:999px;
+    background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.20);
+    color:#fff;
+    font-size:11px;
+    line-height:1;
+    white-space:nowrap;
+    box-shadow:none;
+  }
+  .sh-headpanel-right .header-feed-stats .stat-pill .icon{
+    width:18px;
+    height:18px;
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    font-size:10px;
+  }
+  .sh-headpanel-right .header-feed-stats .stat-pill .num,
+  .sh-headpanel-right .header-feed-stats .stat-pill .lbl,
+  .sh-headpanel-right .header-feed-stats .stat-pill .sub{
+    color:#fff !important;
+    font-weight:700;
+  }
+  .sh-headpanel-right .header-feed-stats .stat-pill .sub{
+    opacity:.85;
+    margin-left:2px;
+    font-size:10px;
+  }
+
+  .header-feed-tabs{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+    margin-right:10px;
+  }
+  .header-feed-tab{
+    display:inline-flex;
+    align-items:center;
+    padding:3px 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.20);
+    color:#fff !important;
+    font-weight:700;
+    font-size:11px;
+    line-height:1;
+    text-decoration:none !important;
+    white-space:nowrap;
+  }
+  .header-feed-tab:hover{
+    background:rgba(255,255,255,.22);
+    color:#fff !important;
+  }
+  .header-feed-tab.active{
+    background:#fff;
+    color:#0b5cab !important;
+    border-color:#fff;
+  }
+  .sh-headpanel-right .header-feed-unread.stat-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 8px;
+    border-radius:999px;
+    background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.20);
+    color:#fff;
+    font-size:11px;
+    line-height:1;
+    white-space:nowrap;
+    box-shadow:none;
+  }
+  .sh-headpanel-right .header-feed-unread .icon{
+    width:18px;
+    height:18px;
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    font-size:10px;
+  }
+  .sh-headpanel-right .header-feed-unread .num,
+  .sh-headpanel-right .header-feed-unread .lbl{
+    color:#fff !important;
+    font-weight:700;
   }
 
   /* Keep dropdown menu readable */
@@ -316,7 +426,7 @@ if ($isManager) {
     <?php if ($isManager): ?>
       <a href="create_org.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('create_org.php'); ?>><div><i class="icon ion-ios-plus-outline"></i><span>New Org</span></div></a>
       <a href="create_staff.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('create_staff.php'); ?>><div><i class="icon ion-person-add"></i><span>Create Staff</span></div></a>
-      <a href="settings.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('settings.php'); ?>><div><i class="icon ion-gear-b"></i><span>Setting</span></div></a>
+      <!-- <a href="settings.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('settings.php'); ?>><div><i class="icon ion-gear-b"></i><span>Setting</span></div></a> -->
     <?php else: ?>
       <a href="#" class="sh-icon-link"><div><i class="icon ion-ios-information-outline"></i><span><?= h((string)($ORG['org_code'] ?? '')) ?></span></div></a>
     <?php endif; ?>
@@ -329,7 +439,6 @@ if ($isManager) {
       $myAvatar = 'includes/avatar.php?type=' . urlencode($myType) . '&id=' . $myId;
     ?>
 
-    <!-- ✅ Org dropdown pill (matches screenshot position) -->
     <?php if ($isManager && $activeOrgId > 0): ?>
       <div class="dropdown" style="margin-right:12px;">
         <a href="#" class="org-pill dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">

@@ -10,6 +10,16 @@ function post_card_actions_menu_h(string $value): string
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function post_card_menu_fries_icon_html(): string
+{
+    return '<span class="pcm-fries-icon" aria-hidden="true">'
+        . '<span class="pcm-fries-bar"></span>'
+        . '<span class="pcm-fries-bar pcm-fries-bar--short"></span>'
+        . '<span class="pcm-fries-bar"></span>'
+        . '<span class="pcm-fries-bar pcm-fries-bar--short"></span>'
+        . '</span>';
+}
+
 function publisher_media_follow_btn_html(int $publisherId, bool $isFollowing = false, bool $viewerCanFollow = true): string
 {
     if ($publisherId <= 0 || $isFollowing || !$viewerCanFollow) {
@@ -103,9 +113,6 @@ function post_card_actions_menu_items_html(array $ctx): string
     $isPublisher = !empty($ctx['is_publisher']);
     $friendStatus = (string)($ctx['friend_status'] ?? 'none');
     $isFollowing = !empty($ctx['is_following']);
-    $contactId = (int)($ctx['contact_id'] ?? 0);
-    $contactName = (string)($ctx['contact_name'] ?? '');
-    $authorName = (string)($ctx['author_name'] ?? '');
     $profileUrl = trim((string)($ctx['profile_url'] ?? ''));
     $messageUrl = trim((string)($ctx['message_url'] ?? ''));
     $timelineUrl = trim((string)($ctx['timeline_url'] ?? ''));
@@ -134,6 +141,10 @@ function post_card_actions_menu_items_html(array $ctx): string
         $items[] = '<a class="pcm-item pcm-view" href="' . $h($profileUrl) . '" role="menuitem"><i class="fa fa-user" aria-hidden="true"></i><span>View</span></a>';
     }
 
+    if (!$feedSurface && !$isPublisher && $friendStatus === 'friends') {
+        $items[] = '<a class="pcm-item pcm-friends" href="contacts.php" role="menuitem"><i class="fa fa-users" aria-hidden="true"></i><span>Friends</span></a>';
+    }
+
     if ($friendStatus === 'friends' && $messageUrl !== '') {
         $items[] = '<a class="pcm-item pcm-message" href="' . $h($messageUrl) . '" role="menuitem"><i class="fa fa-comments" aria-hidden="true"></i><span>Message</span></a>';
     }
@@ -150,18 +161,9 @@ function post_card_actions_menu_items_html(array $ctx): string
         $items[] = '<button type="button" class="pcm-item pcm-unfollow" data-publisher-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-times" aria-hidden="true"></i><span>Unfollow</span></button>';
     }
 
-    if ($contactId > 0) {
-        $items[] = '<a class="pcm-item pcm-edit-contact" href="add_contact.php?edit=1&id=' . $contactId . '" role="menuitem"><i class="fa fa-edit" aria-hidden="true"></i><span>Edit</span></a>';
-    }
-
     $showTimeline = !$feedSurface && $peerId > 0 && $timelineUrl !== '' && (!$isPublisher || $publisherWorkspaceViewer);
     if ($showTimeline) {
         $items[] = '<a class="pcm-item pcm-timeline" href="' . $h($timelineUrl) . '" role="menuitem"><i class="icon ion-ios-locked" aria-hidden="true"></i><span>Timeline</span></a>';
-    }
-
-    if ($contactId > 0) {
-        $items[] = '<button type="button" class="pcm-item pcm-undo-rename" data-contact-id="' . $contactId . '" role="menuitem"><i class="fa fa-undo" aria-hidden="true"></i><span>Undo Rename</span></button>';
-        $items[] = '<button type="button" class="pcm-item pcm-rename" data-contact-id="' . $contactId . '" data-rename-name="' . $h($contactName !== '' ? $contactName : $authorName) . '" role="menuitem"><i class="fa fa-pencil" aria-hidden="true"></i><span>Rename</span></button>';
     }
 
     return implode('', $items);
@@ -185,11 +187,10 @@ function post_card_actions_menu_shell_html(array $ctx, string $wrapClass = ''): 
     }
 
     $onMedia = (bool)preg_match('/(?:standard-media-topbar|on-media)/i', $wrapClass);
-    $iconClass = $onMedia ? 'fa fa-ellipsis-h' : 'fa fa-ellipsis-v';
 
     return '<div class="' . post_card_actions_menu_h($wrapClass) . '" ' . implode(' ', $attrs) . '>'
         . '<button type="button" class="post-card-menu-btn mf-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false">'
-        . '<i class="' . post_card_actions_menu_h($iconClass) . '" aria-hidden="true"></i>'
+        . post_card_menu_fries_icon_html()
         . '</button>'
         . '<div class="post-card-menu mf-menu" role="menu">' . $items . '</div>'
         . '</div>';

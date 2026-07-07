@@ -231,7 +231,7 @@ require_once __DIR__ . '/includes/org_context.php';
   </style>
 </head>
 
-<body>
+<body class="org-app">
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 

@@ -10,6 +10,7 @@ declare(strict_types=1);
   background-color:var(--msb-palette-bg, #f5f7fb) !important;
   color:var(--msb-palette-text-on-nav, var(--msb-palette-text, #111827)) !important;
   border-radius:0 !important;
+  border-right:1px solid var(--msb-palette-border-strong, #d1d5db) !important;
 }
 .feed-ig-rail .feed-ig-logo{
   width:var(--msb-feed-chrome-size) !important;
@@ -234,6 +235,7 @@ body.feed-insta-ui .ig-feed-top-lead,
 body.feed-page.feed-insta-ui .ig-feed-top-lead,
 body.public-page.feed-insta-ui .ig-feed-top-lead{
   margin-bottom:var(--msb-feed-user-name-menu-gap, 14px) !important;
+  max-width:min(72vw, 520px) !important;
 }
 body.feed-insta-ui .ig-stories-menu-btn,
 body.feed-page.feed-insta-ui .ig-stories-menu-btn,
@@ -319,6 +321,7 @@ body.public-page.feed-insta-ui .ig-feed-account-badge{
   overflow:hidden !important;
   text-overflow:ellipsis !important;
   flex-shrink:1 !important;
+  margin-left: 30px;
 }
 body.feed-insta-ui .ig-feed-user-name:hover,
 body.feed-insta-ui .ig-feed-user-name:focus,
@@ -343,10 +346,16 @@ body.public-page.feed-insta-ui .ig-feed-user-name:focus{
   }
 }
 body.feed-insta-ui .ig-top-mic,
+body.feed-insta-ui .ig-top-shop,
+body.feed-insta-ui .ig-top-cart,
 body.feed-insta-ui .ig-top-more,
 body.feed-page.feed-insta-ui .ig-top-mic,
+body.feed-page.feed-insta-ui .ig-top-shop,
+body.feed-page.feed-insta-ui .ig-top-cart,
 body.feed-page.feed-insta-ui .ig-top-more,
 body.public-page.feed-insta-ui .ig-top-mic,
+body.public-page.feed-insta-ui .ig-top-shop,
+body.public-page.feed-insta-ui .ig-top-cart,
 body.public-page.feed-insta-ui .ig-top-more{
   width:var(--msb-top-action-h) !important;
   height:var(--msb-top-action-h) !important;
@@ -647,7 +656,9 @@ body.public-page.feed-insta-ui .public-publisher-search button:hover{
     max-height:var(--msb-feed-chrome-icon) !important;
   }
   body.feed-insta-ui .feed-right-nav-badge,
-  body.public-page.feed-insta-ui .feed-right-nav-badge{
+  body.public-page.feed-insta-ui .feed-right-nav-badge,
+  body.feed-insta-ui .feed-left-nav-badge,
+  body.public-page.feed-insta-ui .feed-left-nav-badge{
     border-radius:var(--msb-feed-chrome-pill) !important;
     font-size:10px !important;
   }

@@ -94,6 +94,41 @@ try {
 } catch (Throwable $e) {
     $flrStaffReadonly = false;
 }
+
+$flrCanFollow = !empty($feedLeftRailCanFollow);
+if (!isset($feedLeftRailCanFollow) && $flrMeId > 0) {
+    try {
+        require_once __DIR__ . '/publisher_accounts.php';
+        if (!isset($flrDbh) || !($flrDbh instanceof PDO)) {
+            require_once __DIR__ . '/../controller.php';
+            $flrDbh = (new Controller())->pdo();
+        }
+        $flrCanFollow = publisher_can_follow_as_viewer($flrDbh, $flrMeId);
+    } catch (Throwable $e) {
+        $flrCanFollow = false;
+    }
+}
+
+$flrPendingCount = (int)($feedLeftRailPendingCount ?? -1);
+if ($flrPendingCount < 0 && $flrMeId > 0) {
+    $flrPendingCount = 0;
+    try {
+        if (!isset($flrDbh) || !($flrDbh instanceof PDO)) {
+            require_once __DIR__ . '/../controller.php';
+            $flrDbh = (new Controller())->pdo();
+        }
+        $stFriendReq = $flrDbh->prepare("
+          SELECT COUNT(*)
+          FROM contact_requests
+          WHERE to_user_id = :me
+            AND status = 'pending'
+        ");
+        $stFriendReq->execute([':me' => $flrMeId]);
+        $flrPendingCount = (int)($stFriendReq->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        $flrPendingCount = 0;
+    }
+}
 ?>
 <?php if (!$feedLeftRailEmbed): ?><aside class="feed-left-rail" aria-label="Main navigation"><?php endif; ?>
   <nav class="feed-left-nav" aria-label="Sidebar menu">
@@ -136,8 +171,50 @@ try {
     <a class="feed-left-nav-item<?= $flrActive('contact_requests.php') ?>" href="contact_requests.php">
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 12v9"/><path d="M21 3l-7 7"/><path d="M3 3l7 7"/><rect x="8" y="14" width="8" height="7" rx="1.5"/></svg></span>
       <span class="feed-left-nav-label">Friend Requests</span>
+      <?php if ($flrPendingCount > 0): ?>
+      <span class="feed-left-nav-badge" aria-label="<?= (int)$flrPendingCount ?> pending"><?= (int)$flrPendingCount ?></span>
+      <?php endif; ?>
+    </a>
+    <a class="feed-left-nav-item<?= $flrActive('contacts.php') ?>" href="contacts.php">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3 2.2-5.5 6-5.5"/><path d="M14 20c0-2.2 1.6-4 4-4.5"/></svg></span>
+      <span class="feed-left-nav-label">Friends</span>
     </a>
     <?php endif; ?>
+    <?php if ($flrCanFollow): ?>
+    <a class="feed-left-nav-item<?= $flrActive('news.php') ?>" href="news.php">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span class="feed-left-nav-label">Follow</span>
+    </a>
+    <?php endif; ?>
+    <a class="feed-left-nav-item<?= $flrActive('news.php') ?>" href="news.php">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>
+      <span class="feed-left-nav-label">News</span>
+    </a>
+    <a class="feed-left-nav-item<?= $flrActive('shop.php') ?>" href="shop.php">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+      <span class="feed-left-nav-label">Shop</span>
+    </a>
+    <a class="feed-left-nav-item<?= $flrActive('cart.php') ?>" href="cart.php">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></span>
+      <span class="feed-left-nav-label">Cart</span>
+    </a>
+    <a class="feed-left-nav-item<?= $flrActive('library') ?>" href="#">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 17V9"/><path d="M12 17V7"/><path d="M16 17v-5"/></svg></span>
+      <span class="feed-left-nav-label">Library</span>
+    </a>
+    <a class="feed-left-nav-item<?= $flrActive('apps') ?>" href="#">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+      <span class="feed-left-nav-label">Apps</span>
+    </a>
+    <a class="feed-left-nav-item<?= $flrActive('agents') ?>" href="#">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="3"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="10" cy="13" r="1"/><circle cx="14" cy="13" r="1"/><path d="M10 16h4"/></svg></span>
+      <span class="feed-left-nav-label">Agents</span>
+      <span class="feed-left-nav-badge">NEW</span>
+    </a>
+    <a class="feed-left-nav-item<?= $flrActive('research') ?>" href="#">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20l6-6"/><path d="M14 4l6 6"/><path d="M9 15l-2 5 5-2 8-8-3-3-8 8z"/><circle cx="18" cy="6" r="2"/></svg></span>
+      <span class="feed-left-nav-label">Deep research</span>
+    </a>
     <a class="feed-left-nav-item" href="logout.php">
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2"/><path d="M15 12H3"/><path d="M6 9l-3 3 3 3"/></svg></span>
       <span class="feed-left-nav-label">Sign Out</span>

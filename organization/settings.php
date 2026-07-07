@@ -7,11 +7,9 @@ ini_set('display_errors','1');
 
 require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
+require_once __DIR__ . '/includes/org_manager_guard.php';
 
-if (!isOrgManager()) {
-    header("Location: dashboard.php");
-    exit;
-}
+org_require_manager();
 
 if (!function_exists('h')) {
     function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
@@ -346,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .actions-fixed .btn{ font-weight:800; }
   </style>
 </head>
-<body>
+<body class="org-app">
 
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>

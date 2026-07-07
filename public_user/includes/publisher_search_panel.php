@@ -24,7 +24,7 @@ if (!function_exists('user_avatar_url')) {
 
 $searchHits = publisher_attach_follow_state(
     $pubDbh,
-    publisher_search($pubDbh, (string)$publisherSearchQuery, 12),
+    publisher_search($pubDbh, (string)$publisherSearchQuery, 12, true),
     (int)($meId ?? 0)
 );
 if (!$searchHits) {

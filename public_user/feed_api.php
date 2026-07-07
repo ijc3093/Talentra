@@ -15,6 +15,7 @@ requireUserLogin();
 
 $controller = new Controller();
 $dbh = $controller->pdo();
+device_profile_ensure_post_columns($dbh);
 
 // DEBUG mode (only when you add ?debug=1)
 $DEBUG = (isset($_GET['debug']) && (string)$_GET['debug'] === '1');
@@ -420,6 +421,8 @@ try {
         {$layoutSelect}
         COALESCE(p.device_label,'') AS device_label,
         COALESCE(p.device_viewport,'') AS device_viewport,
+        COALESCE(p.music_title,'') AS music_title,
+        COALESCE(p.music_artist,'') AS music_artist,
         LENGTH(TRIM(COALESCE(p.body,''))) AS body_len,
         p.created_at,
         COALESCE(p.updated_at, p.created_at) AS updated_at,
@@ -521,6 +524,9 @@ try {
       if (trim((string)($r['declared_layout'] ?? '')) === '') {
         $r['declared_layout'] = post_declared_layout($r);
       }
+      $musicMeta = post_music_from_row($r);
+      $r['music_title'] = (string)($musicMeta['title'] ?? '');
+      $r['music_artist'] = (string)($musicMeta['artist'] ?? '');
       $r['is_story'] = post_is_story_only($r) ? 1 : 0;
       $authorId = (int)($r['user_id'] ?? 0);
       $r['friend_status'] = ($authorId > 0 && $authorId !== $meId)
@@ -803,6 +809,10 @@ try {
       unset($c);
     }
     }
+
+    $musicMeta = post_music_from_row($post);
+    $post['music_title'] = (string)($musicMeta['title'] ?? '');
+    $post['music_artist'] = (string)($musicMeta['artist'] ?? '');
 
     jexit([
       'ok'=>true,

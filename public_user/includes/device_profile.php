@@ -31,6 +31,12 @@ function device_profile_ensure_post_columns(PDO $dbh): void
         if (!device_profile_table_has_column($dbh, 'public_posts', 'device_viewport')) {
             $dbh->exec("ALTER TABLE public_posts ADD COLUMN device_viewport VARCHAR(32) NOT NULL DEFAULT '' AFTER device_label");
         }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'music_title')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN music_title VARCHAR(120) NOT NULL DEFAULT '' AFTER device_viewport");
+        }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'music_artist')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN music_artist VARCHAR(120) NOT NULL DEFAULT '' AFTER music_title");
+        }
     } catch (Throwable $e) {
         // keep callers resilient
     }

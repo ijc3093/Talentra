@@ -4,7 +4,6 @@
   var MEDIA_PAGES = {
     'feed.php': true,
     'messages.php': true,
-    'groupchat.php': true,
     'dashboard.php': true
   };
 
@@ -46,7 +45,7 @@
   var FEED_STYLE_RE = /\.feed-post-media|\.feed-layout|\.feed-sidebar|\.feed-main|\.feed-card|\.feed-post\b|\.feed-tabs|\.media-strip|#mainMedia|\.post-media\b/;
 
   // Shared layout class names used outside feed.php — keep these style blocks when importing.
-  var ORG_PAGE_LAYOUT_RE = /\.(dashboard-card|rows-scroll|post-card|posts-tabs|members-card|bulkbar|sh-mainpanel|sh-pagebody|card-body-fixed|dash-toprow|searchbar|pager|member-row)\b/;
+  var ORG_PAGE_LAYOUT_RE = /\.(dashboard-card|rows-scroll|post-card|posts-tabs|members-card|bulkbar|sh-mainpanel|sh-pagebody|card-body-fixed|dash-toprow|feed-toolbar|searchbar|pager|member-row)\b/;
 
   function shouldSkipImportedStyle(css, allowFeedStyles) {
     if (allowFeedStyles) return false;
@@ -639,6 +638,7 @@
     ensureNavShield();
     destroyAllFeedMedia(window.location.href);
     teardownForTarget(window.location.href);
+    syncBodyPageClass(window.location.href);
 
     document.head.querySelectorAll('style').forEach(function (style) {
       if (style.id === 'org-layout-critical' || style.id === 'org-no-feed-media') return;

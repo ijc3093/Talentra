@@ -410,6 +410,8 @@ html[data-msb-appearance] .ig-feed-header .ig-top-act {
 html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn .fa,
 html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn .icon,
 html[data-msb-appearance] .ig-feed-header .ig-top-mic .fa,
+html[data-msb-appearance] .ig-feed-header .ig-top-shop .icon,
+html[data-msb-appearance] .ig-feed-header .ig-top-cart .icon,
 html[data-msb-appearance] .ig-feed-header .ig-top-live .fa,
 html[data-msb-appearance] .ig-feed-header .ig-top-live i {
   color: var(--msb-palette-icon) !important;
@@ -420,6 +422,8 @@ html[data-msb-appearance] .ig-feed-header .ig-top-live span {
 }
 
 html[data-msb-appearance] .ig-feed-header .ig-top-mic,
+html[data-msb-appearance] .ig-feed-header .ig-top-shop,
+html[data-msb-appearance] .ig-feed-header .ig-top-cart,
 html[data-msb-appearance] .ig-feed-header .ig-top-live {
   border: 1px solid var(--msb-palette-border-strong) !important;
 }
@@ -456,6 +460,8 @@ html[data-msb-appearance] .ig-feed-header .ig-story-empty .ig-story-name {
 
 html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover,
 html[data-msb-appearance] .ig-feed-header .ig-top-mic:hover,
+html[data-msb-appearance] .ig-feed-header .ig-top-shop:hover,
+html[data-msb-appearance] .ig-feed-header .ig-top-cart:hover,
 html[data-msb-appearance] .ig-feed-header .ig-top-live:hover,
 html[data-msb-appearance] .ig-feed-header .ig-story-create:hover .ig-story-ring-create,
 html[data-msb-appearance] .ig-feed-header .ig-story-create:focus-visible .ig-story-ring-create {
@@ -468,6 +474,8 @@ html[data-msb-appearance] .ig-feed-header .ig-story-create:focus-visible .ig-sto
 html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover .fa,
 html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover .icon,
 html[data-msb-appearance] .ig-feed-header .ig-top-mic:hover .fa,
+html[data-msb-appearance] .ig-feed-header .ig-top-shop:hover .icon,
+html[data-msb-appearance] .ig-feed-header .ig-top-cart:hover .icon,
 html[data-msb-appearance] .ig-feed-header .ig-top-live:hover .fa,
 html[data-msb-appearance] .ig-feed-header .ig-top-live:hover i,
 html[data-msb-appearance] .ig-feed-header .ig-top-live:hover span,
@@ -821,7 +829,7 @@ html[data-msb-appearance] .ig-logo:focus {
 }
 
 html[data-msb-appearance] .feed-ig-rail {
-  border-right:none !important;
+  border-right:1px solid var(--msb-palette-border-strong) !important;
   background-color:var(--msb-palette-bg) !important;
   color:var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;
 }
@@ -1395,6 +1403,17 @@ html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-body {
   background-image: none !important;
   color: var(--msb-palette-text) !important;
   border-color: var(--msb-palette-border) !important;
+}
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-wrap.is-open,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-readmore-wrap.is-open,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-wrap.is-open,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap.is-open,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-messages-wrap.is-open,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-notifications-wrap.is-open,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-friend-requests-wrap.is-open,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-live-wrap.is-open {
+  border-left: 1px solid var(--msb-palette-border-strong) !important;
+  border-right: 1px solid var(--msb-palette-border-strong) !important;
 }
 
 html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head .title,

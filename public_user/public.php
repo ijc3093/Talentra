@@ -12,6 +12,7 @@ require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
+require_once __DIR__ . '/includes/post_action_thin_icons.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
@@ -19,6 +20,7 @@ ini_set('display_errors', '0');
 $controller = new Controller();
 $dbh = $controller->pdo();
 publisher_ensure_schema($dbh);
+device_profile_ensure_post_columns($dbh);
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $isPublisherWorkspaceViewer = publisher_workspace_viewer($dbh, $meId);
@@ -315,6 +317,14 @@ $where = "p.is_deleted = 0 AND p.visibility = 'public' AND COALESCE(p.updated_at
 $params = [];
 $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, $isNewsSurface);
 $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, $isNewsSurface));
+if (publisher_public_stranger_surface($dbh, $meId)) {
+    $where .= " AND (
+        COALESCE(u.account_kind, 'personal') <> 'publisher'
+        OR p.user_id = :pubBrandOwn
+        OR " . publisher_public_discoverable_publisher_sql($dbh, 'u') . '
+    )';
+    $params[':pubBrandOwn'] = $meId;
+}
 if ($q !== '') {
     $where .= " AND (COALESCE(p.title,'') LIKE :qTitle OR COALESCE(p.body,'') LIKE :qBody OR COALESCE(u.name,u.username,'') LIKE :qName OR COALESCE(u.username,'') LIKE :qUser)";
     $qLike = '%' . $q . '%';
@@ -332,6 +342,7 @@ SELECT
   p.id, p.user_id, COALESCE(p.title,'') AS title, COALESCE(p.description,'') AS description, COALESCE(p.body,'') AS body,
   COALESCE(p.views_count,0) AS views_count, p.created_at, COALESCE(p.updated_at,p.created_at) AS updated_at,
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
+  COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
   COALESCE(u.name, u.username, CONCAT('User ', u.id)) AS display_name, COALESCE(u.username,'') AS username, COALESCE(u.friend_code,'') AS friend_code,
   COALESCE(u.account_kind, 'personal') AS account_kind,
   EXISTS(SELECT 1 FROM public_follows pf WHERE pf.follower_id = :meFollow AND pf.following_id = p.user_id) AS is_following,
@@ -1314,7 +1325,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       gap:10px;
       width:100%;
       box-sizing:border-box;
-      padding:22px 14px 12px;
+      padding:2px 5px 12px;
       pointer-events:none;
       background:transparent;
     }
@@ -1334,10 +1345,19 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       min-width:0;
       flex:1 1 auto;
       display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      justify-content:center;
+      gap:0;
+      overflow:hidden;
+    }
+    .standard-media-name-row{
+      display:flex;
       align-items:center;
       gap:6px;
+      min-width:0;
+      max-width:100%;
       flex-wrap:nowrap;
-      overflow:hidden;
     }
     .standard-media-name{
       color:#fff;
@@ -1360,6 +1380,31 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       white-space:nowrap;
       text-shadow:0 2px 10px rgba(0,0,0,.34);
     }
+    .standard-media-topbar .mf-music-row{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      min-width:0;
+      max-width:100%;
+      margin-top:1px;
+      font-size:11px;
+      line-height:1.2;
+      font-weight:500;
+      color:rgba(255,255,255,.88);
+      text-shadow:0 2px 10px rgba(0,0,0,.34);
+      overflow:hidden;
+    }
+    .standard-media-topbar .mf-music-ic{font-size:10px;flex:0 0 auto}
+    .standard-media-topbar .mf-music-title,
+    .standard-media-topbar .mf-music-artist{
+      min-width:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .standard-media-topbar .mf-music-title{flex:1 1 auto}
+    .standard-media-topbar .mf-music-artist{flex:0 1 auto;max-width:46%}
+    .standard-media-topbar .mf-music-dot{flex:0 0 auto;font-size:11px;opacity:.85}
     .standard-media-top-actions{
       display:flex;
       align-items:center;
@@ -2437,8 +2482,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         align-self:start;
         justify-self:stretch;
         width:calc(100% - 12px);
-        margin:10px 6px 0;
-        padding:12px 14px;
+        margin:20px 15px 20px;
+        padding:2px 5px;
         box-sizing:border-box;
         z-index:5;
         pointer-events:none;
@@ -2556,10 +2601,19 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         min-width:0;
         flex:1 1 auto;
         display:flex;
+        flex-direction:column;
+        align-items:flex-start;
+        justify-content:center;
+        overflow:hidden;
+      }
+
+      body .standard-media-topbar .standard-media-name-row{
+        display:flex;
         align-items:center;
         gap:6px;
+        min-width:0;
+        max-width:100%;
         flex-wrap:nowrap;
-        overflow:hidden;
       }
 
       body .standard-media-topbar .standard-media-name{
@@ -2880,6 +2934,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   z-index:2;
   padding:0;
   box-sizing:border-box;
+  max-width:min(72vw, 520px);
 }
 .ig-feed-top-actions{
   position:absolute;
@@ -2984,14 +3039,16 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   transition:background .15s ease,opacity .15s ease;
 }
 .ig-top-act:hover{opacity:.85;}
-.ig-top-mic{
+.ig-top-mic,
+.ig-top-shop{
   width:44px;
   height:44px;
   border-radius:50%;
   background:var(--public-control-soft, #eef2f7);
   font-size:18px;
 }
-.ig-top-mic:hover{background:var(--public-surface-alt, #e2e8f0);opacity:1;}
+.ig-top-mic:hover,
+.ig-top-shop:hover{background:var(--public-surface-alt, #e2e8f0);opacity:1;}
 .ig-top-live{
   gap:8px;
   min-height:44px;
@@ -3251,23 +3308,42 @@ body.feed-insta-ui .avatar-thumb img{
 }
 /* [FEED_LEFT_RAIL_UI] — desktop left nav panel beside icon rail (visual only) */
 @media (min-width:1025px){
+  body.feed-insta-ui{
+    --feed-left-nav-box-h:min(340px, calc(100vh - 280px));
+  }
   body.feed-insta-ui .feed-left-rail{
-    display:block;
+    display:flex;
+    flex-direction:column;
     position:fixed;
     left:calc(var(--feedRailW, 84px) + 40px);
-    top:220px;
+    top:var(--feed-left-rail-top, 220px);
     width:236px;
-    max-height:calc(100vh - 136px);
+    height:var(--feed-left-nav-box-h);
+    max-height:var(--feed-left-nav-box-h);
+    overflow:hidden;
+    z-index:90;
+    padding:4px 0 8px;
+    box-sizing:border-box;
+  }
+  body.feed-insta-ui .feed-left-nav{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    flex:1 1 auto;
+    min-height:0;
+    height:100%;
+    max-height:100%;
     overflow-y:auto;
     overflow-x:hidden;
-    z-index:90;
-    padding:4px 0 16px;
-    box-sizing:border-box;
+    padding:0 2px 0 0;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
     scrollbar-width:thin;
     scrollbar-color:rgba(0,0,0,.18) transparent;
   }
-  body.feed-insta-ui .feed-left-rail::-webkit-scrollbar{width:5px;}
-  body.feed-insta-ui .feed-left-rail::-webkit-scrollbar-thumb{
+  body.feed-insta-ui .feed-left-nav::-webkit-scrollbar{width:5px;}
+  body.feed-insta-ui .feed-left-nav::-webkit-scrollbar-thumb{
     background:rgba(0,0,0,.18);
     border-radius:999px;
   }
@@ -3278,13 +3354,6 @@ body.feed-insta-ui .avatar-thumb img{
     letter-spacing:.14em;
     text-transform:uppercase;
     color:#94a3b8;
-  }
-  body.feed-insta-ui .feed-left-nav{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-    /* margin:0; */
-    padding:0;
   }
   body.feed-insta-ui .feed-left-nav-item{
     display:flex;
@@ -3339,6 +3408,18 @@ body.feed-insta-ui .avatar-thumb img{
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
+  }
+  body.feed-insta-ui .feed-left-nav-badge{
+    flex:0 0 auto;
+    margin-left:8px;
+    padding:3px 8px;
+    border-radius:999px;
+    background:#f3f4f6;
+    color:#6b7280;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.04em;
+    line-height:1;
   }
   body.feed-insta-ui .feed-left-nav-section{
     padding:14px 12px 4px;
@@ -3405,11 +3486,18 @@ body.feed-insta-ui .avatar-thumb img{
     display:block;
     position:fixed;
     right:24px;
-    top:250px;
-    width:248px;
+    top:200px;
+    width:320px;
+    max-width:calc(100vw - 720px);
     z-index:90;
     padding:0;
     box-sizing:border-box;
+  }
+  body.feed-insta-ui .jump-rail{
+    top:auto;
+    bottom:120px;
+    right:24px;
+    transform:none;
   }
   body.feed-insta-ui .feed-right-nav{
     display:flex;
@@ -3756,14 +3844,17 @@ body.feed-insta-ui .avatar-thumb img{
 </style>
 <style><?php include __DIR__ . '/includes/feed_page_chrome.css.php'; ?></style>
 <?php post_card_actions_menu_render_css(); ?>
+<?php post_action_thin_icons_render_css(); ?>
 <style id="public-user-menu-on-media-css">
 .post.public-post-card .standard-media-topbar > .post-card-menu-wrap,
 html[data-msb-appearance] body .post.public-post-card .standard-media-topbar > .post-card-menu-wrap,
 html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar > .post-card-menu-wrap{
-  margin-right:-20px !important;
-  margin-left:auto !important;
-  flex:0 0 34px !important;
-  width:34px !important;
+  position:absolute !important;
+  top:var(--pcm-on-media-topbar-menu-top, 2px) !important;
+  right:var(--pcm-on-media-topbar-menu-right, 4px) !important;
+  margin:0 !important;
+  flex:0 0 auto !important;
+  width:auto !important;
   z-index:61 !important;
 }
 .post.public-post-card:not(.is-reel-post) .media-stage:has(> .standard-media-topbar) > .standard-media-top-actions,
@@ -3793,10 +3884,161 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
   }
 }
 </style>
+<style id="public-post-card-menu-css">
+/* public.php — fries menu (no circle) */
+body.public-page .post.public-post-card .post-card-menu-btn,
+body.news-page .post.public-post-card .post-card-menu-btn{
+  width:auto!important;
+  height:auto!important;
+  min-width:var(--pcm-menu-btn-size, 28px)!important;
+  min-height:var(--pcm-menu-btn-size, 28px)!important;
+  padding:6px 4px!important;
+  flex:0 0 auto!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  line-height:1!important;
+}
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn{
+  color:#fff!important;
+  --pcm-fries-filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(0,0,0,.5));
+}
+body.public-page .post.public-post-card .standard-text-topbar .post-card-menu-btn,
+body.public-page .post.public-post-card .post-card-head-actions .post-card-menu-btn,
+body.news-page .post.public-post-card .standard-text-topbar .post-card-menu-btn{
+  color:#5c3d2e!important;
+}
+body.public-page .post.public-post-card .post-card-menu-btn:hover,
+body.public-page .post.public-post-card .post-card-menu-btn:focus,
+body.news-page .post.public-post-card .post-card-menu-btn:hover,
+body.news-page .post.public-post-card .post-card-menu-btn:focus{
+  outline:none!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  opacity:.72!important;
+}
+body.public-page .post.public-post-card .post-card-menu-btn i,
+body.news-page .post.public-post-card .post-card-menu-btn i,
+body.public-page .post.public-post-card .post-card-menu-btn .pcm-fries-icon,
+body.news-page .post.public-post-card .post-card-menu-btn .pcm-fries-icon{
+  font-size:16px!important;
+  line-height:1!important;
+  transform:none!important;
+}
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn i,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn i,
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn .pcm-fries-icon,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn .pcm-fries-icon{
+  color:inherit!important;
+  text-shadow:none!important;
+}
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media{
+  background:transparent!important;
+  border:0!important;
+  color:#fff!important;
+  box-shadow:none!important;
+}
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-light-media,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-light-media{
+  background:transparent!important;
+  border:0!important;
+  color:#0f172a!important;
+  box-shadow:none!important;
+  --pcm-fries-filter:drop-shadow(0 1px 1px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.75));
+}
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media i,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media i,
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media .pcm-fries-icon,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media .pcm-fries-icon{
+  color:#fff!important;
+  text-shadow:none!important;
+}
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-light-media i,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-light-media i,
+body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-light-media .pcm-fries-icon,
+body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-light-media .pcm-fries-icon{
+  color:#0f172a!important;
+  text-shadow:none!important;
+}
+</style>
+<style id="public-page-modal-fouc-guard">
+/* Keep shared header modals fully hidden on Public until JS opens them (matches feed.php). */
+body.public-page #globalLiveModal:not(.is-open),
+body.public-page #createPostModal:not(.is-open),
+body.news-page #globalLiveModal:not(.is-open),
+body.news-page #createPostModal:not(.is-open){
+  display:none !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+body.public-page #globalLiveModal:not(.is-open) .global-live-modal-dialog,
+body.public-page #globalLiveModal:not(.is-open) iframe,
+body.public-page #globalLiveModal:not(.is-open) video,
+body.public-page #globalLiveModal:not(.is-open) img,
+body.public-page #globalLiveModal:not(.is-open) aside,
+body.public-page #createPostModal:not(.is-open) .create-post-dialog,
+body.public-page #createPostModal:not(.is-open) iframe,
+body.news-page #globalLiveModal:not(.is-open) .global-live-modal-dialog,
+body.news-page #globalLiveModal:not(.is-open) iframe,
+body.news-page #globalLiveModal:not(.is-open) video,
+body.news-page #globalLiveModal:not(.is-open) img,
+body.news-page #globalLiveModal:not(.is-open) aside,
+body.news-page #createPostModal:not(.is-open) .create-post-dialog,
+body.news-page #createPostModal:not(.is-open) iframe{
+  display:none !important;
+}
+html.dark-auto body.public-page #globalLiveModal:not(.is-open),
+html.dark-auto body.public-page #createPostModal:not(.is-open),
+body.dark-auto.public-page #globalLiveModal:not(.is-open),
+body.dark-auto.public-page #createPostModal:not(.is-open),
+html.dark-auto body.news-page #globalLiveModal:not(.is-open),
+html.dark-auto body.news-page #createPostModal:not(.is-open),
+body.dark-auto.news-page #globalLiveModal:not(.is-open),
+body.dark-auto.news-page #createPostModal:not(.is-open){
+  display:none !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+</style>
+<style id="public-media-load-screen-fix">
+/* In head so refresh/nav never flash empty brown media boxes before JS runs. */
+.post.public-post-card.is-single-video-post:not(.mf-video-ready),
+.post.public-post-card.is-single-image-post:not(.mf-image-ready){
+  display:none !important;
+}
+.post.public-post-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized),
+.post.public-post-card.is-single-image-post .media-stage.standard-image-stage:not(.mf-media-sized){
+  display:none !important;
+}
+.post.public-post-card.is-single-video-post:not(.mf-video-ready) .media-stage.standard-video-stage > video,
+.post.public-post-card.is-single-image-post:not(.mf-image-ready) .media-stage.standard-image-stage > img{
+  visibility:hidden !important;
+  opacity:0 !important;
+}
+@media (max-width:767.98px){
+  .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot:not(.mf-media-sized),
+  .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-video-stage:not(.mf-media-sized),
+  .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-image-stage:not(.mf-media-sized),
+  .media-stage.phone-shot:not(.mf-media-sized){
+    aspect-ratio:auto !important;
+    max-height:none !important;
+    box-shadow:none !important;
+    width:100% !important;
+  }
+}
+</style>
 </head>
 <body class="public-page feed-insta-ui<?= $isNewsSurface ? ' news-page' : '' ?>">
 <?php $GLOBALS['msb_skip_header_leftbar'] = true; $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
-<?php $feedLeftRailActive = $selfPage; include __DIR__ . '/includes/feed_left_rail.php'; ?>
+<?php $feedLeftRailActive = $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__ . '/includes/feed_left_rail.php'; ?>
   <div class="sh-mainpanel">
   <?php include __DIR__ . '/includes/leftbar.php'; ?>
   <?php include __DIR__ . '/includes/stories_right_door.php'; ?>
@@ -3810,10 +4052,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
         </div>
       </div>
       <div class="ig-feed-top-actions" aria-label="Header actions">
-        <?php $feedTopChromePart = 'badge'; include __DIR__ . '/includes/feed_top_user_lead.php'; ?>
-        <button type="button" class="ig-top-act ig-top-mic" aria-label="Voice"><i class="fa fa-microphone"></i></button>
-        <button type="button" class="ig-top-act ig-top-live js-open-live-door" aria-label="Go live"><i class="fa fa-video-camera"></i><span>Live</span></button>
-        <!-- <button type="button" class="ig-top-act ig-top-more" aria-label="More options"><i class="fa fa-ellipsis-v"></i></button> -->
+        <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
       </div>
     </div>
     <div class="feed-top-search" aria-label="Search posts">
@@ -3836,12 +4075,6 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     </div>
     <div class="feed-desktop-layout">
       <div class="feed-desktop-center">
-        <?php if ($canFollowPublishers && !$isNewsSurface && $q === ''): ?>
-          <?php
-            $pubDbh = $dbh;
-            include __DIR__ . '/includes/publisher_discover_panel.php';
-          ?>
-        <?php endif; ?>
         <?php if ($canFollowPublishers && !$isNewsSurface): ?>
           <?php
             $publisherSearchQuery = $q;
@@ -3995,6 +4228,8 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
           data-is-publisher="<?= $isPublisher ? '1' : '0' ?>"
           data-is-following="<?= $isFollowing ? '1' : '0' ?>"
           data-friend-status="<?= h($friendStatus) ?>"
+          data-contact-id="<?= (int)($post['contact_id'] ?? 0) ?>"
+          data-contact-name="<?= h((string)($post['contact_name'] ?? '')) ?>"
           data-edit-url="dashboard.php?modal=1&edit=<?= (int)$post['id'] ?>"
           data-comment-count="<?= (int)$post['comment_count'] ?>"
           data-like-count="<?= (int)$post['like_count'] ?>"
@@ -4028,14 +4263,14 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                   class="publisher-follow-btn<?= $isFollowing ? ' is-following' : ' primary' ?>"
                   data-publisher-id="<?= (int)$post['user_id'] ?>"
                 ><?= $isFollowing ? 'Following' : 'Follow' ?></button>
-                <?php elseif (!$isPublisher): ?>
+                <?php elseif (!$isPublisher && $friendStatus !== 'friends'): ?>
                 <button
                   type="button"
-                  class="friend-btn<?= $friendStatus === 'friends' ? ' is-friends' : '' ?><?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
+                  class="friend-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
                   data-peer-id="<?= (int)$post['user_id'] ?>"
                   data-status="<?= h($friendStatus) ?>"
                 >
-                  <?= $friendStatus === 'friends' ? 'Friends' : ($friendStatus === 'incoming_pending' ? 'Accept' : ($friendStatus === 'outgoing_pending' ? 'Sent' : '+')) ?>
+                  <?= $friendStatus === 'incoming_pending' ? 'Accept' : ($friendStatus === 'outgoing_pending' ? 'Sent' : '+') ?>
                 </button>
                 <?php endif; ?>
               <?php else: ?>
@@ -4074,14 +4309,14 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                   <?php if (!$isOwner && (!$isPublisher || $canFollowPublishers)): ?>
                     <?php if ($isPublisher && $canFollowPublishers): ?>
                     <button type="button" class="publisher-follow-btn<?= $isFollowing ? ' is-following' : ' primary' ?>" data-publisher-id="<?= (int)$post['user_id'] ?>"><?= $isFollowing ? 'Following' : 'Follow' ?></button>
-                    <?php elseif (!$isPublisher): ?>
+                    <?php elseif (!$isPublisher && $friendStatus !== 'friends'): ?>
                     <button
                       type="button"
-                      class="friend-btn<?= $friendStatus === 'friends' ? ' is-friends' : '' ?><?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
+                      class="friend-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
                       data-peer-id="<?= (int)$post['user_id'] ?>"
                       data-status="<?= h($friendStatus) ?>"
                     >
-                      <?= $friendStatus === 'friends' ? 'Friends' : ($friendStatus === 'incoming_pending' ? 'Accept' : ($friendStatus === 'outgoing_pending' ? 'Sent' : '+')) ?>
+                      <?= $friendStatus === 'incoming_pending' ? 'Accept' : ($friendStatus === 'outgoing_pending' ? 'Sent' : '+') ?>
                     </button>
                     <?php endif; ?>
                   <?php endif; ?>
@@ -4115,7 +4350,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                 <div class="standard-text-left">
                   <div class="standard-text-row">
                     <a class="standard-text-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                      <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'love') ? 'fa-heart' : 'fa-heart-o' ?>"></i>
+                      <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                       <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
                     </a>
                     <!-- <a class="standard-text-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
@@ -4123,11 +4358,11 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                       <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
                     </a> -->
                     <a class="standard-text-btn js-open-comments" type="button" aria-label="Comment" data-post-id="<?= (int)$post['id'] ?>">
-                      <i class="fa fa-comment-o"></i>
+                      <?= post_action_thin_icon('comment') ?>
                       <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                     </a>
                     <a class="standard-text-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                      <i class="fa <?= !empty($post['my_shared']) ? 'fa-paper-plane' : 'fa-paper-plane-o' ?>"></i>
+                      <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
                       <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
                     </a>
                   </div>
@@ -4137,7 +4372,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                 </div>
                 <div class="standard-text-right">
                   <a class="standard-text-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                    <i class="fa <?= !empty($post['my_saved']) ? 'fa-bookmark' : 'fa-bookmark-o' ?>"></i>
+                    <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
                     <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
                   </a>
                   <div class="standard-text-views"><?= (int)$post['views_count'] ?> views</div>
@@ -4205,7 +4440,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                       <div class="public-live-action-left">
                         <div class="public-live-action-row">
                           <a class="public-live-action-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                            <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'love') ? 'fa-heart' : 'fa-heart-o' ?>"></i>
+                            <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                             <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
                           </a>
                           <a class="public-live-action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
@@ -4213,16 +4448,16 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                             <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
                           </a>
                           <a class="public-live-action-btn js-open-comments" type="button" aria-label="Comment" data-post-id="<?= (int)$post['id'] ?>">
-                            <i class="fa fa-comment-o"></i>
+                            <?= post_action_thin_icon('comment') ?>
                             <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                           </a>
                           <a class="public-live-action-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                            <i class="fa <?= !empty($post['my_shared']) ? 'fa-paper-plane' : 'fa-paper-plane-o' ?>"></i>
+                            <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
                             <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
                           </a>
                           <span class="public-live-action-spacer">
                             <a class="public-live-action-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                              <i class="fa <?= !empty($post['my_saved']) ? 'fa-bookmark' : 'fa-bookmark-o' ?>"></i>
+                              <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
                               <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
                             </a>
                           </span>
@@ -4252,14 +4487,14 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                 <?php if (!$isOwner && (!$isPublisher || $canFollowPublishers)): ?>
                   <?php if ($isPublisher && $canFollowPublishers): ?>
                   <button type="button" class="publisher-follow-btn<?= $isFollowing ? ' is-following' : ' primary' ?>" data-publisher-id="<?= (int)$post['user_id'] ?>"><?= $isFollowing ? 'Following' : 'Follow' ?></button>
-                  <?php elseif (!$isPublisher): ?>
+                  <?php elseif (!$isPublisher && $friendStatus !== 'friends'): ?>
                   <button
                     type="button"
-                    class="friend-btn<?= $friendStatus === 'friends' ? ' is-friends' : '' ?><?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
+                    class="friend-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
                     data-peer-id="<?= (int)$post['user_id'] ?>"
                     data-status="<?= h($friendStatus) ?>"
                   >
-                    <?= $friendStatus === 'friends' ? 'Friends' : ($friendStatus === 'incoming_pending' ? 'Accept' : ($friendStatus === 'outgoing_pending' ? 'Sent' : '+')) ?>
+                    <?= $friendStatus === 'incoming_pending' ? 'Accept' : ($friendStatus === 'outgoing_pending' ? 'Sent' : '+') ?>
                   </button>
                   <?php endif; ?>
                 <?php endif; ?>
@@ -4309,7 +4544,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                 <div class="reel-inline-left">
                   <div class="reel-inline-row">
                     <a class="reel-inline-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                      <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'love') ? 'fa-heart' : 'fa-heart-o' ?>"></i>
+                      <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                       <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
                     </a>
                     <a class="reel-inline-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
@@ -4317,11 +4552,11 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                       <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
                     </a>
                     <a class="reel-inline-btn js-open-comments" type="button" aria-label="Comment" data-post-id="<?= (int)$post['id'] ?>">
-                      <i class="fa fa-comment-o"></i>
+                      <?= post_action_thin_icon('comment') ?>
                       <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                     </a>
                     <a class="reel-inline-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                      <i class="fa <?= !empty($post['my_shared']) ? 'fa-paper-plane' : 'fa-paper-plane-o' ?>"></i>
+                      <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
                       <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
                     </a>
                   </div>
@@ -4331,7 +4566,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                 </div>
                 <div class="reel-inline-right">
                   <a class="reel-inline-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                    <i class="fa <?= !empty($post['my_saved']) ? 'fa-bookmark' : 'fa-bookmark-o' ?>"></i>
+                    <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
                     <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
                   </a>
                   <div class="reel-inline-views"><?= (int)$post['views_count'] ?> views</div>
@@ -4402,20 +4637,23 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                   <a class="standard-media-author" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h((string)$post['display_name']) ?> profile">
                     <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>"></span></div>
                     <div class="standard-media-meta">
-                      <span class="standard-media-name"><?= h((string)$post['display_name']) ?></span>
-                      <span class="standard-media-time">• <?= h((string)date('M j', strtotime((string)$post['updated_at']))) ?></span>
+                      <div class="standard-media-name-row">
+                        <span class="standard-media-name"><?= h((string)$post['display_name']) ?></span>
+                        <span class="standard-media-time">• <?= h((string)date('M j', strtotime((string)$post['updated_at']))) ?></span>
+                      </div>
+                      <?= post_music_row_html($post) ?>
                     </div>
                   </a>
                   <?= post_card_actions_menu_shell_html($pcmCtx, 'standard-media-topbar-menu') ?>
                 </div>
-                <?php if (!$isOwner && (!$isPublisher || $canFollowPublishers)): ?>
+                <?php if (!$isOwner && (($isPublisher && $canFollowPublishers && !$isFollowing) || (!$isPublisher && $friendStatus !== 'friends'))): ?>
                 <div class="standard-media-top-actions post-card-head-actions">
                   <?php if ($isPublisher && $canFollowPublishers): ?>
                   <?= publisher_media_follow_btn_html((int)$post['user_id'], $isFollowing, $canFollowPublishers) ?>
                   <?php elseif (!$isPublisher): ?>
                   <button
                     type="button"
-                    class="friend-btn mf-media-action-circle mf-media-follow-btn<?= $friendStatus === 'friends' ? ' is-friends' : '' ?><?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
+                    class="friend-btn mf-media-action-circle mf-media-follow-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
                     data-peer-id="<?= (int)$post['user_id'] ?>"
                     data-status="<?= h($friendStatus) ?>"
                     aria-label="<?= $friendStatus === 'outgoing_pending' ? 'Request sent' : ($friendStatus === 'incoming_pending' ? 'Accept friend request' : 'Add friend') ?>"
@@ -4426,8 +4664,6 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                     <span class="mf-media-action-label">Sent</span>
                     <?php elseif ($friendStatus === 'incoming_pending'): ?>
                     <span class="mf-media-action-label">Accept</span>
-                    <?php elseif ($friendStatus === 'friends'): ?>
-                    Friends
                     <?php else: ?>
                     <i class="fa fa-plus" aria-hidden="true"></i>
                     <?php endif; ?>
@@ -4464,7 +4700,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                     <div class="standard-media-left">
                       <div class="standard-media-row">
                         <a class="standard-media-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                          <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'love') ? 'fa-heart' : 'fa-heart-o' ?>"></i>
+                          <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                           <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
                         </a>
                         <!-- <a class="standard-media-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
@@ -4472,11 +4708,11 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                           <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
                         </a> -->
                         <a class="standard-media-btn js-open-comments" type="button" aria-label="Comment" data-post-id="<?= (int)$post['id'] ?>">
-                          <i class="fa fa-comment-o"></i>
+                          <?= post_action_thin_icon('comment') ?>
                           <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                         </a>
                         <a class="standard-media-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                          <i class="fa <?= !empty($post['my_shared']) ? 'fa-paper-plane' : 'fa-paper-plane-o' ?>"></i>
+                          <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
                           <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
                         </a>
                       </div>
@@ -4486,7 +4722,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                     </div>
                     <div class="standard-media-right">
                       <a class="standard-media-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                        <i class="fa <?= !empty($post['my_saved']) ? 'fa-bookmark' : 'fa-bookmark-o' ?>"></i>
+                        <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
                         <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
                       </a>
                       <!-- <div class="standard-media-views"><?= (int)$post['views_count'] ?> views</div> -->
@@ -4502,7 +4738,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
               <div class="action-row">
                 <div class="action-left">
                   <a class="action-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                    <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'love') ? 'fa-heart' : 'fa-heart-o' ?>"></i>
+                    <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                     <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
                   </a>
 
@@ -4512,19 +4748,19 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
                   </a>
 
                   <a class="action-btn js-open-comments" type="button" aria-label="Comment" data-post-id="<?= (int)$post['id'] ?>">
-                    <i class="fa fa-comment"></i>
+                    <?= post_action_thin_icon('comment') ?>
                     <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                   </a>
 
                   <a class="action-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                    <i class="fa <?= !empty($post['my_shared']) ? 'fa-paper-plane' : 'fa-paper-plane-o' ?>"></i>
+                    <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
                     <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
                   </a>
                 </div>
 
                 <div class="action-right">
                   <a class="action-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                    <i class="fa <?= !empty($post['my_saved']) ? 'fa-bookmark' : 'fa-bookmark-o' ?>"></i>
+                    <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
                     <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
                   </a>
                 </div>
@@ -4543,7 +4779,10 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
         </section>
       </div>
     </div>
-    <?php $feedRightRailActive = $selfPage; include __DIR__ . '/includes/feed_right_rail.php'; ?>
+    <?php
+      $suggestedForYouStaffReadonly = $staffReadonly;
+      include __DIR__ . '/includes/suggested_for_you.php';
+    ?>
   </div><!-- /.sh-pagebody -->
   </div><!-- /.sh-mainpanel -->
 
@@ -4848,34 +5087,72 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     bindPublicAutoAdvance(card);
   }
 
+  function removePublicFriendActionBtn(btn){
+    if(!btn || !btn.parentNode) return;
+    var peerId = Number(btn.getAttribute('data-peer-id') || 0);
+    var wrap = btn.closest('.standard-media-top-actions, .post-card-head-actions, .standard-text-top-actions, .reel-top-right');
+    btn.remove();
+    if(wrap){
+      var hasPeerAction = wrap.querySelector('.friend-btn, .publisher-follow-btn, .mf-media-action-circle, .mf-publisher-follow-circle');
+      var hasMenu = wrap.querySelector('.post-card-menu-wrap, .mf-menu-wrap');
+      if(!hasPeerAction && !hasMenu){
+        wrap.remove();
+      } else if(wrap.classList.contains('standard-media-top-actions') && !hasPeerAction){
+        wrap.remove();
+      }
+    }
+    if(peerId > 0){
+      syncPostCardPeerAttrs(peerId, { 'data-friend-status': 'friends' });
+    }
+  }
+
   function applyStatus(btn, status){
+    status = String(status || 'none');
+    if(status === 'friends'){
+      removePublicFriendActionBtn(btn);
+      return;
+    }
     if(typeof window.msbApplyFriendActionBtnState === 'function' && btn.classList && (btn.classList.contains('mf-media-action-circle') || btn.classList.contains('mf-publisher-follow-circle'))){
       window.msbApplyFriendActionBtnState(btn, status);
       btn.dataset.status = status;
       var card = btn.closest ? btn.closest('.public-post-card') : null;
-      if(card) card.setAttribute('data-friend-status', String(status || 'none'));
+      if(card) card.setAttribute('data-friend-status', status);
       return;
     }
     btn.classList.remove('primary','is-friends','is-pending','is-accept');
 
-    if(status === 'friends'){
-      btn.textContent = 'Friends';
-      btn.classList.add('is-friends');
-    } else if(status === 'incoming_pending'){
-      btn.textContent = 'Accept';
+    if(status === 'incoming_pending'){
+      if(btn.querySelector('.mf-media-action-label')){
+        btn.innerHTML = '<span class="mf-media-action-label">Accept</span>';
+      } else {
+        btn.textContent = 'Accept';
+      }
       btn.classList.add('is-accept');
     } else if(status === 'outgoing_pending'){
-      btn.textContent = 'Sent';
+      if(btn.querySelector('.mf-media-action-label') || btn.classList.contains('mf-media-action-circle')){
+        btn.innerHTML = '<span class="mf-media-action-label">Sent</span>';
+        btn.disabled = true;
+      } else {
+        btn.textContent = 'Sent';
+      }
       btn.classList.add('is-pending');
     } else {
-      btn.textContent = '+';
+      if(btn.classList.contains('sfy-action') || btn.classList.contains('frl-suggest-action')){
+        btn.textContent = '+';
+        btn.disabled = false;
+      } else if(btn.classList.contains('mf-media-action-circle')){
+        btn.innerHTML = '<i class="fa fa-plus" aria-hidden="true"></i>';
+        btn.disabled = false;
+      } else {
+        btn.textContent = '+';
+      }
       btn.classList.add('primary');
     }
 
     btn.dataset.status = status;
 
     var card = btn.closest ? btn.closest('.public-post-card') : null;
-    if(card) card.setAttribute('data-friend-status', String(status || 'none'));
+    if(card) card.setAttribute('data-friend-status', status);
   }
 
   function applyStatusForPeer(peerId, status){
@@ -4931,10 +5208,6 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     var $btn = $(this), peerId = Number($btn.data('peer-id') || 0), status = String($btn.data('status') || '');
     if(!peerId) return;
 
-    if(status === 'friends') {
-      window.location.href = 'contacts.php';
-      return;
-    }
     if(status === 'incoming_pending') {
       window.location.href = 'contact_requests.php';
       return;
@@ -4988,13 +5261,16 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     return true;
   }
 
-  function syncPublicActionIcon(btn, activeClass, inactiveIcon, activeIcon){
+  function syncPublicActionIcon(btn, activeClass){
     if(!btn) return;
+    var pact = btn.querySelector('.msb-pact');
+    if(pact){
+      pact.classList.toggle('is-active', btn.classList.contains(activeClass));
+      return;
+    }
     var icon = btn.querySelector('i');
     if(!icon) return;
-    var active = btn.classList.contains(activeClass);
-    icon.classList.remove(inactiveIcon, activeIcon);
-    icon.classList.add(active ? activeIcon : inactiveIcon);
+    icon.classList.toggle('is-active', btn.classList.contains(activeClass));
   }
 
   function publicCardReaction(card){
@@ -5016,10 +5292,10 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     if(!card) return;
     syncPublicReactionButtons(card);
     card.querySelectorAll('.js-share-post').forEach(function(btn){
-      syncPublicActionIcon(btn, 'is-share', 'fa-paper-plane-o', 'fa-paper-plane');
+      syncPublicActionIcon(btn, 'is-share');
     });
     card.querySelectorAll('.js-save-post').forEach(function(btn){
-      syncPublicActionIcon(btn, 'is-save', 'fa-bookmark-o', 'fa-bookmark');
+      syncPublicActionIcon(btn, 'is-save');
     });
   }
 
@@ -5430,7 +5706,9 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
           return;
         }
       }
-      if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.buildItems === 'function' && patch['data-friend-status'] != null){
+      if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.buildItems === 'function' && (
+        patch['data-friend-status'] != null || patch['data-is-following'] != null
+      )){
         var pid = Number(card.getAttribute('data-post-id') || 0);
         var isOwner = String(card.getAttribute('data-post-owner') || '') === '1';
         var it = {
@@ -5439,14 +5717,27 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
           account_kind: String(card.getAttribute('data-account-kind') || 'personal'),
           is_following: Number(card.getAttribute('data-is-following') || 0),
           friend_status: String(card.getAttribute('data-friend-status') || 'none'),
-          is_publisher: Number(card.getAttribute('data-is-publisher') || 0)
+          is_publisher: Number(card.getAttribute('data-is-publisher') || 0),
+          contact_id: Number(card.getAttribute('data-contact-id') || 0),
+          contact_name: String(card.getAttribute('data-contact-name') || '')
         };
         var html = window.MSBPostCardMenu.buildItems(it, isOwner, pid, {});
         var menu = card.querySelector('.mf-menu.post-card-menu, .post-card-menu');
-        if(menu) menu.innerHTML = html;
+        var wrap = card.querySelector('.post-card-menu-wrap, .mf-menu-wrap.post-card-menu-wrap');
+        if(menu) menu.innerHTML = html || '';
+        if(wrap) wrap.style.display = html ? '' : 'none';
       }
     });
   }
+
+  window.msbSyncContactDisplayName = function(contactId, displayName){
+    contactId = Number(contactId || 0);
+    displayName = String(displayName || '');
+    if(!contactId) return;
+    document.querySelectorAll('.post.public-post-card[data-contact-id="'+String(contactId)+'"]').forEach(function(card){
+      card.setAttribute('data-contact-name', displayName);
+    });
+  };
 
   var confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
   if(confirmDeleteBtn){
@@ -5629,15 +5920,19 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     var dims = parseDeviceAspectFromStyle(media.getAttribute('style') || '');
     if(!dims || !dims.w || !dims.h) return;
     applyPublicVideoCardWidth(card, dims.w, dims.h);
-    if(card.classList.contains('is-single-image-post')){
-      media.classList.add('mf-media-sized');
-    }
   }
 
   function preflightAllSingleMediaCards(){
     document.querySelectorAll('.is-single-video-post, .is-single-image-post').forEach(function(card){
       preflightSingleMediaCard(card);
     });
+  }
+
+  function markPublicMediaReady(card, stage){
+    if(stage) stage.classList.add('mf-media-sized');
+    if(!card) return;
+    if(card.classList.contains('is-single-video-post')) card.classList.add('mf-video-ready');
+    if(card.classList.contains('is-single-image-post')) card.classList.add('mf-image-ready');
   }
 
   function syncStandardMediaCard(el){
@@ -5656,9 +5951,25 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     }
     if(!w || !h) return;
 
-    var stage = el.closest('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
-    if(stage) stage.classList.add('mf-media-sized');
     applyPublicVideoCardWidth(card, w, h);
+  }
+
+  function revealPublicVideoCard(video){
+    if(!video) return;
+    if(Number(video.readyState || 0) < 2) return;
+    var card = video.closest('.is-single-video-post');
+    var stage = video.closest('.media-stage.standard-video-stage');
+    syncStandardMediaCard(video);
+    markPublicMediaReady(card, stage);
+  }
+
+  function revealPublicImageCard(img){
+    if(!img) return;
+    if(!img.complete || !Number(img.naturalWidth || 0)) return;
+    var card = img.closest('.is-single-image-post');
+    var stage = img.closest('.media-stage.standard-image-stage');
+    syncStandardMediaCard(img);
+    markPublicMediaReady(card, stage);
   }
 
   function syncStandardVideoCard(video){
@@ -5685,11 +5996,9 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
   function primePublicStandardVideos(){
     document.querySelectorAll('.is-single-video-post .media-stage.standard-video-stage > video').forEach(function(video){
       var stage = video.closest('.media-stage.standard-video-stage');
-      var reveal = function(){
-        if(stage) stage.classList.add('mf-media-sized');
-        syncStandardVideoCard(video);
-      };
-      if(video.readyState >= 1){
+      var card = video.closest('.is-single-video-post');
+      var reveal = function(){ revealPublicVideoCard(video); };
+      if(video.readyState >= 2){
         reveal();
         return;
       }
@@ -5699,31 +6008,52 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
         }
         video.load();
       }catch(e){}
-      video.addEventListener('loadedmetadata', reveal, { once:true });
       video.addEventListener('loadeddata', reveal, { once:true });
+      video.addEventListener('canplay', reveal, { once:true });
       video.addEventListener('error', function(){
-        if(stage) stage.classList.add('mf-media-sized');
+        markPublicMediaReady(card, stage);
       }, { once:true });
     });
   }
 
+  function bindPublicStandardImages(){
+    document.querySelectorAll('.is-single-image-post .media-stage.standard-image-stage > img').forEach(function(img){
+      var card = img.closest('.is-single-image-post');
+      var stage = img.closest('.media-stage.standard-image-stage');
+      if(img.complete && img.naturalWidth){
+        revealPublicImageCard(img);
+      }
+      img.addEventListener('load', function(){ revealPublicImageCard(img); });
+      img.addEventListener('error', function(){
+        markPublicMediaReady(card, stage);
+      }, { once:true });
+    });
+  }
+
+  function resetPublicMediaReadyState(){
+    document.querySelectorAll('.is-single-video-post, .is-single-image-post').forEach(function(card){
+      card.classList.remove('mf-video-ready', 'mf-image-ready');
+      var stage = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
+      if(stage) stage.classList.remove('mf-media-sized');
+    });
+  }
+
+  function bootPublicMediaCards(){
+    resetPublicMediaReadyState();
+    preflightAllSingleMediaCards();
+    primePublicStandardVideos();
+    bindPublicStandardImages();
+    syncAllStandardMediaCards();
+  }
+
   document.querySelectorAll('.is-single-video-post .media-stage.standard-video-stage > video').forEach(function(video){
-    if(video.readyState >= 1){
-      syncStandardVideoCard(video);
-    }
-    video.addEventListener('loadedmetadata', function(){ syncStandardVideoCard(video); });
-    video.addEventListener('loadeddata', function(){ syncStandardVideoCard(video); });
     video.addEventListener('loadedmetadata', function(){
+      syncStandardVideoCard(video);
       var card = video.closest('.public-post-card');
       if(card && card === currentCard()) bindPublicAutoAdvance(card);
     });
-  });
-
-  document.querySelectorAll('.is-single-image-post .media-stage.standard-image-stage > img').forEach(function(img){
-    if(img.complete && img.naturalWidth){
-      syncStandardImageCard(img);
-    }
-    img.addEventListener('load', function(){ syncStandardImageCard(img); });
+    video.addEventListener('loadeddata', function(){ revealPublicVideoCard(video); });
+    video.addEventListener('canplay', function(){ revealPublicVideoCard(video); });
   });
 
   function debouncePublic(fn, wait){
@@ -5739,8 +6069,11 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
     };
   }
 
-  preflightAllSingleMediaCards();
-  primePublicStandardVideos();
+  bootPublicMediaCards();
+  window.addEventListener('pageshow', function(ev){
+    if(!ev.persisted) return;
+    bootPublicMediaCards();
+  });
   window.addEventListener('resize', debouncePublic(function(){
     preflightAllSingleMediaCards();
     syncAllStandardMediaCards();
@@ -5978,6 +6311,11 @@ html[data-msb-appearance] body.dark-auto.news-page .post.public-post-card:has(.s
 }
 html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .standard-media-name,
 html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .standard-media-time,
+html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .mf-music-row,
+html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .mf-music-ic,
+html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .mf-music-title,
+html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .mf-music-artist,
+html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .mf-music-dot,
 html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .standard-media-name,
 html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar .standard-media-time,
 html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar a:hover .standard-media-name,
@@ -5995,6 +6333,9 @@ html[data-msb-appearance] body.news-page .post.public-post-card .media-stage > .
 html[data-msb-appearance] body .post.public-post-card .standard-media-topbar > .post-card-menu-wrap,
 html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-topbar > .post-card-menu-wrap{
   margin-right:0 !important;
+  position:absolute !important;
+  top:var(--pcm-on-media-topbar-menu-top, 2px) !important;
+  right:var(--pcm-on-media-topbar-menu-right, 4px) !important;
 }
 </style>
 <?php post_card_actions_menu_render_modals(); ?>

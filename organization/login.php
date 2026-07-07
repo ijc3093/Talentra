@@ -126,8 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <link href="../lib/Ionicons/css/ionicons.css" rel="stylesheet">
   <link href="../lib/bootstrap/bootstrap.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
+  <link rel="stylesheet" href="css/org-compact.css?v=3">
 </head>
-<body>
+<body class="org-app">
 
   <div class="sh-signup-wrapper">
     <div class="signpanel-wrapper">

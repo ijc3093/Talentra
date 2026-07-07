@@ -354,7 +354,116 @@ function publisher_attach_follow_state(PDO $dbh, array $publishers, int $viewerI
     return $publishers;
 }
 
-function publisher_search(PDO $dbh, string $query, int $limit = 20): array
+/** Personal viewers on public.php / news.php — not publisher workspace staff. */
+function publisher_public_stranger_surface(PDO $dbh, int $viewerId): bool
+{
+    return $viewerId > 0 && !publisher_workspace_viewer($dbh, $viewerId);
+}
+
+function publisher_public_discoverable_catalog_names_lower(): array
+{
+    static $names = null;
+    if ($names !== null) {
+        return $names;
+    }
+
+    $names = [];
+    foreach (publisher_registry_catalog_names() as $row) {
+        $name = mb_strtolower(publisher_registry_normalize_name((string)($row['name'] ?? '')));
+        if ($name !== '') {
+            $names[$name] = true;
+        }
+    }
+
+    return $names;
+}
+
+/**
+ * SQL true when a publisher account is a public brand (catalog or authority-approved).
+ * Use for strangers on public.php / news.php — hides admin/manager/staff workspace publishers.
+ */
+function publisher_public_discoverable_publisher_sql(PDO $dbh, string $alias = 'u'): string
+{
+    require_once __DIR__ . '/publisher_authority.php';
+    publisher_authority_ensure_schema($dbh);
+
+    $catalogNames = publisher_public_discoverable_catalog_names_lower();
+    $inList = "''";
+    if ($catalogNames) {
+        $quoted = [];
+        foreach (array_keys($catalogNames) as $name) {
+            $quoted[] = $dbh->quote($name);
+        }
+        $inList = implode(',', $quoted);
+    }
+
+    $nameExpr = "LOWER(TRIM(COALESCE({$alias}.name, '')))";
+
+    return "(
+        {$nameExpr} IN ({$inList})
+        OR EXISTS (
+            SELECT 1
+            FROM publisher_name_authority pna
+            WHERE LOWER(pna.publisher_name) = {$nameExpr}
+              AND pna.status = 'approved'
+        )
+    )";
+}
+
+function publisher_row_is_public_discoverable_publisher(PDO $dbh, array $row): bool
+{
+    if (!publisher_is_publisher_row($row)) {
+        return false;
+    }
+
+    require_once __DIR__ . '/publisher_authority.php';
+
+    $name = publisher_registry_normalize_name((string)($row['name'] ?? ''));
+    if ($name === '') {
+        return false;
+    }
+    if (publisher_registry_is_catalog_name($name)) {
+        return true;
+    }
+
+    return publisher_authority_is_approved($dbh, $name);
+}
+
+function publisher_is_public_discoverable_publisher(PDO $dbh, int $publisherUserId): bool
+{
+    if ($publisherUserId <= 0) {
+        return false;
+    }
+    if (!publisher_is_publisher_user($dbh, $publisherUserId)) {
+        return true;
+    }
+
+    try {
+        $st = $dbh->prepare("
+            SELECT id, name, username, friend_code, image, publisher_category, publisher_tagline, designation,
+                   COALESCE(account_kind, 'personal') AS account_kind
+            FROM users
+            WHERE id = :id
+            LIMIT 1
+        ");
+        $st->execute([':id' => $publisherUserId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return false;
+    }
+
+    return publisher_row_is_public_discoverable_publisher($dbh, $row);
+}
+
+/** @param array<int, array<string, mixed>> $rows */
+function publisher_filter_public_discoverable_publishers(PDO $dbh, array $rows): array
+{
+    return array_values(array_filter($rows, static function (array $row) use ($dbh): bool {
+        return publisher_row_is_public_discoverable_publisher($dbh, $row);
+    }));
+}
+
+function publisher_search(PDO $dbh, string $query, int $limit = 20, bool $publicDiscoverableOnly = false): array
 {
     publisher_ensure_schema($dbh);
     $query = trim($query);
@@ -362,6 +471,9 @@ function publisher_search(PDO $dbh, string $query, int $limit = 20): array
         return [];
     }
     $limit = max(1, min($limit, 50));
+    $discoverableSql = $publicDiscoverableOnly
+        ? (' AND ' . publisher_public_discoverable_publisher_sql($dbh, 'users'))
+        : '';
     try {
         $st = $dbh->prepare("
             SELECT id, name, username, friend_code, image, publisher_category, publisher_tagline, designation,
@@ -374,7 +486,7 @@ function publisher_search(PDO $dbh, string $query, int $limit = 20): array
               )
               AND (
                 name LIKE :q1 OR username LIKE :q2 OR publisher_tagline LIKE :q3 OR designation LIKE :q4
-              )
+              ){$discoverableSql}
             ORDER BY name ASC
             LIMIT {$limit}
         ");
@@ -421,6 +533,12 @@ function publisher_workspace_viewer(PDO $dbh, int $meId): bool
 function publisher_can_follow_as_viewer(PDO $dbh, int $meId): bool
 {
     return $meId > 0 && !publisher_workspace_viewer($dbh, $meId);
+}
+
+/** Browse publisher suggestions in public.php / suggested_for_you (not personal friend lists). */
+function publisher_can_browse_publisher_suggestions(PDO $dbh, int $meId): bool
+{
+    return $meId > 0 && (publisher_can_follow_as_viewer($dbh, $meId) || publisher_workspace_viewer($dbh, $meId));
 }
 
 function publisher_author_is_publisher_sql(string $alias = 'u'): string

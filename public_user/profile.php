@@ -28,6 +28,7 @@ require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/user_phone.php';
 require_once __DIR__ . '/includes/publisher_authority.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
+require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
@@ -510,6 +511,13 @@ $isViewedPublisher = ($viewId > 0 && $meId !== $viewId && publisher_is_publisher
 $isFollowingPublisher = $isViewedPublisher && publisher_user_is_followed($dbh, $meId, $viewId);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $profileIsPublisher = publisher_is_publisher_user($dbh, $viewId);
+require_once __DIR__ . '/includes/platform_rent.php';
+require_once __DIR__ . '/includes/org_shop.php';
+$profileShopOrgId = $profileIsPublisher ? org_shop_org_id_for_publisher($dbh, $viewId) : 0;
+$profileShopVisible = $profileShopOrgId > 0 && platform_rent_shop_is_visible($dbh, $profileShopOrgId);
+$profileShopProducts = $profileShopVisible ? org_shop_list_products($dbh, $profileShopOrgId, true) : [];
+require_once __DIR__ . '/includes/stripe_shop.php';
+$profileShopStripeEnabled = stripe_shop_is_configured();
 $statSocialCount = $profileIsPublisher ? publisher_follower_count($dbh, $viewId) : $statFriends;
 $statSocialLabel = $profileIsPublisher ? publisher_social_stat_label($statSocialCount) : 'friends';
 
@@ -565,10 +573,13 @@ if ($selectedTab === 'tagged') {
   $selectedTab = 'tags';
 }
 $profileContentTabs = ['gallery', 'posts', 'tags', 'about', 'preserve', 'gear'];
+if ($profileIsPublisher && $profileShopOrgId > 0) {
+  $profileContentTabs[] = 'shop';
+}
 if (!in_array($selectedTab, $profileContentTabs, true)) {
   $selectedTab = 'posts';
 }
-if ($liveVisitorMode && !in_array($selectedTab, ['gallery', 'posts', 'tags', 'about'], true)) {
+if ($liveVisitorMode && !in_array($selectedTab, ['gallery', 'posts', 'tags', 'about', 'shop'], true)) {
   $selectedTab = 'posts';
 }
 if (!$canManageProfilePrivate && in_array($selectedTab, ['gear', 'preserve'], true)) {
@@ -2156,6 +2167,36 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .profile-panel{display:none;background-color:var(--msb-palette-bg, #f5f7fb);}
     .profile-panel.active{display:block;}
 
+    .profile-shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:16px;max-width:980px;margin:0 auto;}
+    .profile-shop-card{background:var(--msb-palette-panel, #fff);border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));border-radius:16px;overflow:hidden;display:flex;flex-direction:column;}
+    .profile-shop-cover{aspect-ratio:1/1;background:rgba(15,23,42,.04);display:flex;align-items:center;justify-content:center;}
+    .profile-shop-cover img{width:100%;height:100%;object-fit:cover;display:block;}
+    .profile-shop-cover-fallback{font-size:42px;color:#9ca3af;}
+    .profile-shop-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;flex:1;}
+    .profile-shop-body h3{margin:0;font-size:16px;line-height:1.3;}
+    .profile-shop-body p{margin:0;font-size:13px;color:#6b7280;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+    .profile-shop-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:#6b7280;}
+    .profile-shop-meta strong{font-size:16px;color:#111827;}
+    .profile-shop-buy-btn{margin-top:auto;border:0;border-radius:10px;background:#2563eb;color:#fff;font-weight:700;padding:10px 12px;cursor:pointer;}
+    .profile-shop-buy-btn:disabled{opacity:.55;cursor:not-allowed;}
+    .profile-shop-empty{text-align:center;padding:48px 16px;color:#6b7280;}
+    .profile-shop-empty i{font-size:42px;display:block;margin-bottom:10px;}
+
+    .shop-buy-modal{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.45);}
+    .shop-buy-modal.is-open{display:flex;}
+    .shop-buy-card{width:min(420px,100%);background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.18);overflow:hidden;}
+    .shop-buy-head{padding:18px 20px 8px;font-size:18px;font-weight:700;}
+    .shop-buy-sub{padding:0 20px 12px;color:#6b7280;font-size:14px;}
+    .shop-buy-body{padding:0 20px 16px;display:grid;gap:12px;}
+    .shop-buy-body label{display:block;font-size:13px;font-weight:600;margin-bottom:4px;}
+    .shop-buy-body input,.shop-buy-body textarea{width:100%;border:1px solid rgba(15,23,42,.14);border-radius:10px;padding:10px 12px;font-size:14px;}
+    .shop-buy-foot{display:flex;gap:10px;padding:0 20px 18px;}
+    .shop-buy-foot button{flex:1;border:0;border-radius:10px;padding:12px;font-weight:700;cursor:pointer;}
+    .shop-buy-cancel{background:#f3f4f6;color:#111827;}
+    .shop-buy-submit{background:#2563eb;color:#fff;}
+    .shop-buy-submit:disabled{opacity:.55;cursor:not-allowed;}
+    .shop-buy-msg{padding:0 20px 12px;font-size:13px;color:#b45309;}
+
     /* Posts tab feed — match feed.php card column (614px) and dimensions */
     #profilePostsFeed.mf-feed{
       width:100%;max-width:614px;margin:0 auto;padding:10px 10px 26px;box-sizing:border-box;
@@ -2250,17 +2291,23 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       }
     }
     #profilePostsFeed .mf-head{padding:1px 22px 1px;display:flex;align-items:center;gap:12px;}
-    #profilePostsFeed .mf-peer-link{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 auto;text-decoration:none;color:inherit;}
+    #profilePostsFeed .mf-peer-link{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto;text-decoration:none;color:inherit;}
     #profilePostsFeed .mf-avatar{
       width:45px;height:45px;border-radius:999px;display:flex;align-items:center;justify-content:center;
       flex:0 0 45px;overflow:hidden;padding:2px;
       background:linear-gradient(135deg,#0ea5e9 0%,#2563eb 58%,#f8fafc 100%);
     }
     #profilePostsFeed .mf-avatar img{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;border:2px solid #fff;background:#fff;}
-    #profilePostsFeed .mf-meta{min-width:0;flex:1 1 auto;}
-    #profilePostsFeed .mf-name-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}
-    #profilePostsFeed .mf-name{font-size:16px;font-weight:800;line-height:1.2;margin:0;color:#111827;}
-    #profilePostsFeed .mf-dot,#profilePostsFeed .mf-time{font-size:14px;color:#667085;margin:0;}
+    #profilePostsFeed .mf-meta{min-width:0;flex:1 1 auto;margin-left:-10px;display:flex;flex-direction:column;justify-content:center;}
+    #profilePostsFeed .mf-name-row{display:flex;align-items:center;gap:5px;min-width:0;flex-wrap:nowrap;}
+    #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;margin:0;color:#111827;min-width:0;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #profilePostsFeed .mf-dot,#profilePostsFeed .mf-time{font-size:12px;color:#667085;margin:0;flex:0 0 auto;white-space:nowrap;}
+    #profilePostsFeed .mf-music-row{display:flex;align-items:center;gap:4px;min-width:0;max-width:100%;margin-top:1px;font-size:11px;line-height:1.2;font-weight:500;color:#667085;overflow:hidden;}
+    #profilePostsFeed .mf-music-ic{flex:0 0 auto;font-size:10px;line-height:1;color:#667085;}
+    #profilePostsFeed .mf-music-title,#profilePostsFeed .mf-music-artist{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #profilePostsFeed .mf-music-title{flex:1 1 auto;}
+    #profilePostsFeed .mf-music-artist{flex:0 1 auto;max-width:46%;}
+    #profilePostsFeed .mf-music-dot{flex:0 0 auto;color:#98a2b3;font-size:11px;line-height:1;}
     #profilePostsFeed .mf-menu-wrap{position:relative;flex:0 0 auto;margin-left:auto;}
     #profilePostsFeed .mf-menu-btn:not(.post-card-menu-btn){
       width:38px;height:38px;border:0;background:transparent;border-radius:999px;
@@ -2327,7 +2374,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       }
       #profilePostsFeed .mf-head{padding:1px 22px 1px;gap:14px;}
       #profilePostsFeed .mf-avatar{width:45px;height:45px;flex:0 0 45px;}
-      #profilePostsFeed .mf-name{font-size:18px;font-weight:800;line-height:1.2;color:#111827;}
+      #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;color:#111827;}
       #profilePostsFeed .mf-title{padding:2px 22px 14px;font-size:24px;line-height:1.25;font-weight:900;}
       #profilePostsFeed .mf-body{padding:16px 22px 20px;font-size:15px;line-height:1.75;}
     }
@@ -2342,7 +2389,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
         max-width:min(calc(100% - 20px), 430px) !important;
         margin-left:auto !important;margin-right:auto !important;
       }
-      #profilePostsFeed .mf-name{font-size:17px;color:#101828;}
+      #profilePostsFeed .mf-name{font-size:13px;color:#101828;}
       #profilePostsFeed .mf-title{padding:0 22px 12px;font-size:18px;line-height:1.3;}
       #profilePostsFeed .mf-body{padding:12px 12px 6px;font-size:14px;line-height:1.7;}
     }
@@ -2751,16 +2798,77 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 }
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-peer-link,
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-meta,
-#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-menu-wrap,
-#profilePostsFeed .mf-media-shell > .mf-head--on-media .post-card-menu-wrap{
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-menu-wrap{
   pointer-events:auto!important;
   background:transparent!important;
   z-index:60!important;position:relative;
-  margin-top: -10px;
+  margin-top:0!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media > .post-card-menu-wrap,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media > .mf-menu-wrap.post-card-menu-wrap{
+  pointer-events:auto!important;
+  background:transparent!important;
+  z-index:61!important;
+  position:absolute!important;
+  top:var(--pcm-on-media-menu-top, 18px)!important;
+  right:var(--pcm-on-media-menu-right, 10px)!important;
+  margin:0!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-peer-link{
+  align-items:center!important;
+  gap:8px!important;
+  padding-right:44px!important;
+  box-sizing:border-box!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-name-row{
+  padding-right:0!important;
+  max-width:100%!important;
+  gap:3px!important;
+  width:auto!important;
+  justify-content:flex-start!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-name{
+  flex:0 1 auto!important;
+  min-width:0!important;
+  max-width:calc(100% - 64px)!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-dot{
+  margin-left:0!important;
+  flex:0 0 auto!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-time{
+  flex:0 0 auto!important;
+  white-space:nowrap!important;
+  margin-left:0!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-row{
+  width:auto!important;
+  max-width:100%!important;
+  align-self:flex-start!important;
+  justify-content:flex-start!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-title{
+  flex:0 1 auto!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-artist{
+  flex:0 1 auto!important;
+  max-width:none!important;
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-meta{
+  margin-left:-5px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  min-height:45px!important;
 }
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-name,
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-time,
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-dot,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-row,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-ic,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-title,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-artist,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-dot,
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-menu-btn:not(.post-card-menu-btn),
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-menu-btn:not(.post-card-menu-btn) i{
   color:#fff!important;text-shadow:0 2px 10px rgba(0,0,0,.34);
@@ -2781,31 +2889,37 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 #profilePostsFeed .mf-card .mf-media-shell > .mf-head--on-media > .mf-menu-wrap.post-card-menu-wrap{
   margin-right:0!important;
   margin-left:auto!important;
+  position:absolute!important;
+  top:var(--pcm-on-media-menu-top, 18px)!important;
+  right:var(--pcm-on-media-menu-right, 10px)!important;
+  margin:0!important;
+  z-index:61!important;
 }
 #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-wrap,
 #profilePostsFeed .mf-head:not(.mf-head--on-media) .mf-menu-wrap.post-card-menu-wrap{
-  flex:0 0 var(--pcm-on-media-circle-size, 36px)!important;
-  width:var(--pcm-on-media-circle-size, 36px)!important;
+  flex:0 0 auto!important;
+  width:auto!important;
   margin-left:auto!important;
 }
 #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn{
-  width:var(--pcm-on-media-circle-size, 36px)!important;
-  height:var(--pcm-on-media-circle-size, 36px)!important;
-  min-width:var(--pcm-on-media-circle-size, 36px)!important;
-  min-height:var(--pcm-on-media-circle-size, 36px)!important;
-  padding:0!important;
-  flex:0 0 var(--pcm-on-media-circle-size, 36px)!important;
-  border-radius:50%!important;
-  border:1px solid var(--msb-palette-border, rgba(147,197,253,.85))!important;
-  background:var(--msb-palette-surface-2, rgba(255,255,255,.94))!important;
+  width:auto!important;
+  height:auto!important;
+  min-width:var(--pcm-menu-btn-size, 28px)!important;
+  min-height:var(--pcm-menu-btn-size, 28px)!important;
+  padding:6px 4px!important;
+  flex:0 0 auto!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
   color:var(--msb-palette-text, #5c3d2e)!important;
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  box-shadow:0 2px 8px rgba(15,23,42,.08)!important;
+  box-shadow:none!important;
   line-height:1!important;
 }
-#profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn i{
+#profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn i,
+#profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn .pcm-fries-icon{
   font-size:16px!important;
   line-height:1!important;
   color:inherit!important;
@@ -2813,9 +2927,10 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 }
 #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn:hover,
 #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn:focus{
-  background:var(--msb-palette-surface, #fff)!important;
+  background:transparent!important;
   outline:none!important;
-  box-shadow:0 4px 12px rgba(15,23,42,.12)!important;
+  box-shadow:none!important;
+  opacity:.72!important;
 }
 #profilePostsFeed .mf-menu.post-card-menu,
 #profilePostsFeed .post-card-menu{
@@ -2823,6 +2938,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 }
 </style>
 <?php post_card_actions_menu_render_css(); ?>
+<?php post_action_thin_icons_render_css(); ?>
 
 </head>
 
@@ -2979,6 +3095,11 @@ include __DIR__ . '/includes/header.php';
       <div class="ig-tab<?php echo $selectedTab === 'about' ? ' active' : ''; ?>" data-panel="about" role="tab" tabindex="<?php echo $selectedTab === 'about' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'about' ? 'true' : 'false'; ?>">
         <i class="icon ion-ios-person"></i>About
       </div>
+      <?php if ($profileIsPublisher && $profileShopOrgId > 0): ?>
+        <div class="ig-tab<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>" data-panel="shop" role="tab" tabindex="<?php echo $selectedTab === 'shop' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'shop' ? 'true' : 'false'; ?>">
+          <i class="icon ion-bag"></i>Shop
+        </div>
+      <?php endif; ?>
       <?php if (!$liveVisitorMode && $canManageProfilePrivate): ?>
         <div class="ig-tab<?php echo $selectedTab === 'preserve' ? ' active' : ''; ?>" data-panel="preserve" role="tab" tabindex="<?php echo $selectedTab === 'preserve' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'preserve' ? 'true' : 'false'; ?>">
           <i class="icon ion-ios-book"></i>Preserve
@@ -3034,6 +3155,57 @@ include __DIR__ . '/includes/header.php';
         );
       ?>
     </div>
+
+    <?php if ($profileIsPublisher && $profileShopOrgId > 0): ?>
+    <div id="panel-shop" class="profile-panel<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>">
+      <?php if (!$profileShopVisible): ?>
+        <div class="profile-shop-empty">
+          <i class="icon ion-bag"></i>
+          <p>Shop is temporarily unavailable.</p>
+        </div>
+      <?php elseif (!$profileShopProducts): ?>
+        <div class="profile-shop-empty">
+          <i class="icon ion-bag"></i>
+          <p>No products listed yet.</p>
+        </div>
+      <?php else: ?>
+        <div class="profile-shop-grid">
+          <?php foreach ($profileShopProducts as $shopProduct): ?>
+            <?php
+              $shopCover = org_shop_cover_url((string)($shopProduct['cover_image_path'] ?? ''));
+              $shopPrice = org_shop_format_price((int)($shopProduct['price_cents'] ?? 0), (string)($shopProduct['currency'] ?? 'USD'));
+              $shopStock = $shopProduct['stock_qty'];
+              $shopOutOfStock = ($shopStock !== null && $shopStock !== '' && (int)$shopStock <= 0);
+            ?>
+            <article class="profile-shop-card" data-product-id="<?php echo (int)$shopProduct['id']; ?>">
+              <div class="profile-shop-cover">
+                <?php if ($shopCover !== ''): ?>
+                  <img src="<?php echo h($shopCover); ?>" alt="">
+                <?php else: ?>
+                  <span class="profile-shop-cover-fallback"><i class="icon ion-bag"></i></span>
+                <?php endif; ?>
+              </div>
+              <div class="profile-shop-body">
+                <h3><?php echo h((string)$shopProduct['title']); ?></h3>
+                <?php if (trim((string)($shopProduct['description'] ?? '')) !== ''): ?>
+                  <p><?php echo h((string)$shopProduct['description']); ?></p>
+                <?php endif; ?>
+                <div class="profile-shop-meta">
+                  <strong><?php echo h($shopPrice); ?></strong>
+                  <?php if ($shopStock !== null && $shopStock !== ''): ?>
+                    <span><?php echo (int)$shopStock > 0 ? (int)$shopStock . ' in stock' : 'Out of stock'; ?></span>
+                  <?php endif; ?>
+                </div>
+                <?php if (!$isOwnProfile && !$shopOutOfStock): ?>
+                  <button type="button" class="profile-shop-buy-btn" data-shop-buy="<?php echo (int)$shopProduct['id']; ?>" data-shop-title="<?php echo h((string)$shopProduct['title']); ?>" data-shop-price="<?php echo h($shopPrice); ?>">Buy</button>
+                <?php endif; ?>
+              </div>
+            </article>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <div id="panel-about" class="profile-panel<?php echo $selectedTab === 'about' ? ' active' : ''; ?>">
       <div class="about-wrap">
@@ -3585,6 +3757,95 @@ include __DIR__ . '/includes/header.php';
         if (mirror) mirror.value = String(galleryFilter.value || '0');
         window.location.href = url.toString();
       } catch (e) {}
+    });
+  }
+})();
+
+(function(){
+  const modal = document.getElementById('profileShopBuyModal');
+  if (!modal) return;
+
+  const titleEl = document.getElementById('profileShopBuyTitle');
+  const priceEl = document.getElementById('profileShopBuyPrice');
+  const qtyEl = document.getElementById('profileShopBuyQty');
+  const addrEl = document.getElementById('profileShopBuyAddress');
+  const notesEl = document.getElementById('profileShopBuyNotes');
+  const phoneEl = document.getElementById('profileShopBuyPhone');
+  const msgEl = document.getElementById('profileShopBuyMsg');
+  const submitBtn = document.getElementById('profileShopBuySubmit');
+  const cancelBtn = document.getElementById('profileShopBuyCancel');
+  const stripeEnabled = <?php echo $profileShopStripeEnabled ? 'true' : 'false'; ?>;
+  const profileViewId = <?php echo (int)$viewId; ?>;
+  let activeProductId = 0;
+
+  function openModal(btn){
+    activeProductId = parseInt(btn.getAttribute('data-shop-buy') || '0', 10);
+    if (!activeProductId) return;
+    if (titleEl) titleEl.textContent = btn.getAttribute('data-shop-title') || 'Product';
+    if (priceEl) priceEl.textContent = btn.getAttribute('data-shop-price') || '';
+    if (qtyEl) qtyEl.value = '1';
+    if (addrEl) addrEl.value = '';
+    if (notesEl) notesEl.value = '';
+    if (phoneEl) phoneEl.value = '';
+    if (msgEl) {
+      msgEl.textContent = stripeEnabled
+        ? 'You will be redirected to Stripe for secure payment.'
+        : 'Order will be placed; the seller confirms payment manually.';
+    }
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModal(){
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    activeProductId = 0;
+    if (submitBtn) submitBtn.disabled = false;
+  }
+
+  document.querySelectorAll('[data-shop-buy]').forEach((btn) => {
+    btn.addEventListener('click', () => openModal(btn));
+  });
+
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async function(){
+      if (!activeProductId) return;
+      const quantity = Math.max(1, Math.min(99, parseInt(qtyEl && qtyEl.value ? qtyEl.value : '1', 10) || 1));
+      submitBtn.disabled = true;
+      try {
+        const body = new URLSearchParams();
+        body.set('product_id', String(activeProductId));
+        body.set('quantity', String(quantity));
+        body.set('delivery_address', addrEl ? addrEl.value.trim() : '');
+        body.set('buyer_notes', notesEl ? notesEl.value.trim() : '');
+        body.set('buyer_phone', phoneEl ? phoneEl.value.trim() : '');
+        body.set('profile_id', String(profileViewId));
+
+        const res = await fetch('ajax/shop_buy.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+          body: body.toString(),
+          credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (data.ok && data.checkout_url) {
+          window.location.href = data.checkout_url;
+          return;
+        }
+        if (data.ok) {
+          closeModal();
+          window.alert(data.message || 'Order placed.');
+          return;
+        }
+        window.alert(data.message || 'Order failed.');
+      } catch (e) {
+        window.alert('Could not place order. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+      }
     });
   }
 })();
@@ -4995,6 +5256,7 @@ pv.text.addEventListener('keydown', (e)=>{
   var PROFILE_CAN_FOLLOW_PUBLISHERS = <?php echo $canFollowPublishers ? 'true' : 'false'; ?>;
   var PROFILE_HIDE_PRIVATE_CONTACT = <?php echo $canViewProfilePrivateContact ? 'false' : 'true'; ?>;
   var API_URL = 'feed_api.php';
+  var PCM_FRIES_ICON = <?= json_encode(post_card_menu_fries_icon_html(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   var loaded = false;
   var loading = false;
   var profileCommentsCache = {};
@@ -5257,9 +5519,8 @@ pv.text.addEventListener('keydown', (e)=>{
     if(my === 'love') $card.find('.mf-act.mf-love').addClass('is-love');
     if(Number(counts.is_saved || 0) === 1) $card.find('.mf-act.mf-save').addClass('is-save');
     if(Number(counts.is_shared || 0) === 1) $card.find('.mf-act.mf-share').addClass('is-share');
-    $card.find('.mf-act.mf-love i').removeClass('fa-heart fa-heart-o').addClass(my === 'love' ? 'fa-heart' : 'fa-heart-o');
-    $card.find('.mf-act.mf-save i').removeClass('fa-bookmark fa-bookmark-o').addClass(Number(counts.is_saved || 0) === 1 ? 'fa-bookmark' : 'fa-bookmark-o');
-    $card.find('.mf-act.mf-share i').removeClass('fa-paper-plane fa-paper-plane-o').addClass(Number(counts.is_shared || 0) === 1 ? 'fa-paper-plane' : 'fa-paper-plane-o');
+    $card.find('.mf-act.mf-love .msb-pact-heart').toggleClass('is-active', my === 'love');
+    $card.find('.mf-act.mf-save .msb-pact-bookmark').toggleClass('is-active', Number(counts.is_saved || 0) === 1);
   }
   function cardCountsFromDom($card){
     return {
@@ -5518,11 +5779,11 @@ pv.text.addEventListener('keydown', (e)=>{
   }
   function normalActions(){
     return '<div class="mf-actions"><div class="mf-left">'+
-      '<a class="mf-act mf-love" type="button" title="Love"><i class="fa fa-heart-o"></i><span class="mf-num mf-love">0</span></a>'+
-      '<a class="mf-act mf-comment" type="button" title="Comment"><i class="fa fa-comment-o"></i><span class="mf-num mf-cmt">0</span></a>'+
-      '<a class="mf-act mf-share" type="button" title="Share"><i class="fa fa-paper-plane-o"></i><span class="mf-num mf-share">0</span></a>'+
+      '<a class="mf-act mf-love" type="button" title="Love"><i class="msb-pact msb-pact-heart" aria-hidden="true"></i><span class="mf-num mf-love">0</span></a>'+
+      '<a class="mf-act mf-comment" type="button" title="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt">0</span></a>'+
+      '<a class="mf-act mf-share" type="button" title="Share"><i class="msb-pact msb-pact-share" aria-hidden="true"></i><span class="mf-num mf-share">0</span></a>'+
       '</div><div class="mf-right">'+
-      '<a class="mf-act mf-save" type="button" title="Save"><i class="fa fa-bookmark-o"></i><span class="mf-num mf-save">0</span></a>'+
+      '<a class="mf-act mf-save" type="button" title="Save"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num mf-save">0</span></a>'+
       '</div></div>';
   }
   function profileFriendBtnHtml(it, isOwner){
@@ -5566,21 +5827,31 @@ pv.text.addEventListener('keydown', (e)=>{
     }
     return '';
   }
+  function profileMusicRowHtml(it){
+    var title = String((it && it.music_title) || '').trim();
+    var artist = String((it && it.music_artist) || '').trim();
+    if(!title && !artist) return '';
+    var html = '<div class="mf-music-row" aria-label="Music"><i class="fa fa-music mf-music-ic" aria-hidden="true"></i>';
+    if(title) html += '<span class="mf-music-title">'+esc(title)+'</span>';
+    if(title && artist) html += '<span class="mf-music-dot">&middot;</span>';
+    if(artist) html += '<span class="mf-music-artist">'+esc(artist)+'</span>';
+    html += '</div>';
+    return html;
+  }
   function profileBuildHeadHtml(it, isOwner, pid, onMedia){
     var name = it.display_name || it.username || '';
     var avatarUrl = avatarUrlFor(it);
     var time = mfDeviceTimeLabel(it, postDate(it));
     var headClass = 'mf-head' + (onMedia ? ' mf-head--on-media' : '');
-    var iconClass = 'fa fa-ellipsis-h';
     return '<div class="'+headClass+'">'+
       '<a class="mf-peer-link" href="'+esc(peerProfileHref(it))+'">'+
         '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name)+'"></div>'+
         '<div class="mf-meta"><div class="mf-name-row">'+
           '<div class="mf-name">'+esc(name)+'</div>'+
           (time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time)+'</div>' : '')+
-        '</div></div></a>'+
+        '</div>'+profileMusicRowHtml(it)+'</div></a>'+
       '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'">'+
-        '<button type="button" class="mf-menu-btn post-card-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false"><i class="'+iconClass+'" aria-hidden="true"></i></button>'+
+        '<button type="button" class="mf-menu-btn post-card-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false">'+PCM_FRIES_ICON+'</button>'+
         '<div class="mf-menu post-card-menu" role="menu">'+profileBuildMenuItems(it, isOwner, pid)+'</div>'+
       '</div></div>';
   }
@@ -5873,6 +6144,36 @@ pv.text.addEventListener('keydown', (e)=>{
 })(window.jQuery);
 </script>
 
+<div class="shop-buy-modal" id="profileShopBuyModal" aria-hidden="true" role="dialog" aria-labelledby="profileShopBuyTitle">
+  <div class="shop-buy-card">
+    <div class="shop-buy-head" id="profileShopBuyTitle">Product</div>
+    <div class="shop-buy-sub" id="profileShopBuyPrice"></div>
+    <div class="shop-buy-msg" id="profileShopBuyMsg"></div>
+    <div class="shop-buy-body">
+      <div>
+        <label for="profileShopBuyQty">Quantity</label>
+        <input type="number" id="profileShopBuyQty" min="1" max="99" value="1">
+      </div>
+      <div>
+        <label for="profileShopBuyAddress">Delivery address</label>
+        <textarea id="profileShopBuyAddress" rows="2" placeholder="Optional"></textarea>
+      </div>
+      <div>
+        <label for="profileShopBuyPhone">Phone</label>
+        <input type="text" id="profileShopBuyPhone" placeholder="Optional">
+      </div>
+      <div>
+        <label for="profileShopBuyNotes">Notes for seller</label>
+        <textarea id="profileShopBuyNotes" rows="2" placeholder="Optional"></textarea>
+      </div>
+    </div>
+    <div class="shop-buy-foot">
+      <button type="button" class="shop-buy-cancel" id="profileShopBuyCancel">Cancel</button>
+      <button type="button" class="shop-buy-submit" id="profileShopBuySubmit">Place order</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade confirm-sheet" id="profileDeleteConfirmModal" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
@@ -5945,6 +6246,11 @@ html[data-msb-appearance] body.dark-auto #profilePostsFeed .mf-card:has(.mf-head
 html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-name,
 html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-time,
 html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-dot,
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-row,
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-ic,
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-title,
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-artist,
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-dot,
 html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-menu-btn:not(.post-card-menu-btn),
 html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-menu-btn:not(.post-card-menu-btn) i,
 html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media a:hover .mf-name,
@@ -5964,19 +6270,51 @@ html[data-msb-appearance] body #profilePostsFeed .mf-card[data-account-kind="pub
   margin-right:0 !important;
 }
 html[data-msb-appearance] body #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn{
-  background:var(--msb-palette-surface-2)!important;
-  border-color:var(--msb-palette-border)!important;
+  background:transparent!important;
+  border:0!important;
   color:var(--msb-palette-text)!important;
-  box-shadow:0 2px 10px rgba(15,23,42,.12)!important;
+  box-shadow:none!important;
 }
-html[data-msb-appearance] body #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn i{
+html[data-msb-appearance] body #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn i,
+html[data-msb-appearance] body #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn .pcm-fries-icon{
   color:var(--msb-palette-text)!important;
 }
 html[data-msb-appearance] body.dark-auto #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn,
 html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-head:not(.mf-head--on-media) .post-card-menu-btn{
-  background:var(--msb-palette-surface-2, #1d2530)!important;
-  border-color:var(--msb-palette-border, rgba(255,255,255,.12))!important;
+  background:transparent!important;
+  border:0!important;
   color:var(--msb-palette-text, #e6edf3)!important;
+  box-shadow:none!important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-peer-link{
+  padding-right:44px !important;
+  box-sizing:border-box !important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-name-row{
+  gap:3px !important;
+  width:auto !important;
+  justify-content:flex-start !important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-name{
+  flex:0 1 auto !important;
+  max-width:calc(100% - 64px) !important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-dot,
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-time{
+  margin-left:0 !important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-music-row{
+  width:auto !important;
+  max-width:100% !important;
+  align-self:flex-start !important;
+  justify-content:flex-start !important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-music-title{
+  flex:0 1 auto !important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-head--on-media .mf-music-artist{
+  flex:0 1 auto !important;
+  max-width:none !important;
 }
 </style>
 

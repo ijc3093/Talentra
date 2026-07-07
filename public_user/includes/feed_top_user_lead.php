@@ -39,16 +39,13 @@ if (!empty($meCode)) {
 $feedTopChrome['profile_href'] = $profileHref;
 
 if ($feedTopChromePart === 'badge') {
-    if (($feedTopChrome['badge'] ?? '') === '') {
-        return;
-    }
-    ?>
-    <span class="ig-feed-account-badge" aria-label="Account type"><?= htmlspecialchars((string)$feedTopChrome['badge'], ENT_QUOTES, 'UTF-8') ?></span>
-    <?php
     return;
 }
 
 ?>
 <div class="ig-feed-top-lead">
   <a href="<?= htmlspecialchars((string)$feedTopChrome['profile_href'], ENT_QUOTES, 'UTF-8') ?>" class="ig-feed-user-name" aria-label="Your profile"><?= htmlspecialchars((string)$feedTopChrome['display_name'], ENT_QUOTES, 'UTF-8') ?></a>
+  <?php if (($feedTopChrome['badge'] ?? '') !== ''): ?>
+    <span class="ig-feed-account-badge" aria-label="Account type"><?= htmlspecialchars((string)$feedTopChrome['badge'], ENT_QUOTES, 'UTF-8') ?></span>
+  <?php endif; ?>
 </div>

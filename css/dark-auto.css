@@ -481,3 +481,18 @@ body{
   border-color: var(--border-color) !important;
 }
 .media-tile .tile-icon{ color: var(--text-primary) !important; }
+
+/* Profile appearance palette wins over auto-dark org shell chrome */
+html[data-msb-appearance],
+html[data-msb-appearance] body,
+html[data-msb-appearance] body.dark-auto,
+html.dark-auto[data-msb-appearance] body,
+html[data-msb-appearance] .sh-sideleft-menu,
+html[data-msb-appearance] .sh-logopanel,
+html[data-msb-appearance] .sh-headpanel,
+html[data-msb-appearance] .sh-mainpanel,
+html[data-msb-appearance] .sh-pagebody {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}

@@ -111,6 +111,7 @@ function post_label(string $type): string {
         case 'announcement': return 'Announcement';
         case 'direction':    return 'Direction';
         case 'update':       return 'Update';
+        case 'weekly_update': return 'Weekly Update';
         case 'recognition':  return 'Recognition';
         default:             return ucfirst($type);
     }
@@ -130,6 +131,14 @@ function post_subject_row(array $p): string {
     // ✅ make it unique + clear
     $id = (int)($p['id'] ?? 0);
     return $title . ' · ' . $when . ($id > 0 ? " · #{$id}" : '');
+}
+
+function post_card_title(array $p): string {
+    $title = trim((string)($p['title'] ?? ''));
+    if ($title !== '') {
+        return $title;
+    }
+    return post_label((string)($p['post_type'] ?? 'update'));
 }
 
 /**
@@ -897,6 +906,13 @@ $flashOk  = (string)($_SESSION['feed_flash_ok'] ?? '');
 $flashErr = (string)($_SESSION['feed_flash_err'] ?? '');
 unset($_SESSION['feed_flash_ok'], $_SESSION['feed_flash_err']);
 
+if (!empty($_GET['posted'])) {
+    $flashOk = 'Announcement posted to your organization feed.';
+    if (!empty($_GET['public'])) {
+        $flashOk = 'Posted to organization feed and shared to your public feed.';
+    }
+}
+
 // -------------------- Route: Home list OR single post view --------------------
 $postId = (int)($_GET['id'] ?? 0);
 $isView = ($postId > 0);
@@ -1095,35 +1111,6 @@ if ($action === 'ack') {
     $flashErr = $e->getMessage();
 }
 
-// -------------------- Pulse stats (small pills) --------------------
-$pulse = ['posts_7d'=>0,'comments_7d'=>0,'acks_7d'=>0];
-try {
-    $stP = $dbh->prepare("
-        SELECT
-          (SELECT COUNT(*) FROM org_posts p
-           WHERE p.org_id = :org_id AND p.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-          ) AS posts_7d,
-
-          (SELECT COUNT(*) FROM org_post_comments c
-           JOIN org_posts p2 ON p2.id = c.post_id
-           WHERE p2.org_id = :org_id AND c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-          ) AS comments_7d,
-
-          (SELECT COUNT(*) FROM org_post_acknowledgements a
-           JOIN org_posts p3 ON p3.id = a.post_id
-           WHERE p3.org_id = :org_id AND a.acknowledged_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-          ) AS acks_7d
-    ");
-    $stP->execute([':org_id' => $orgId]);
-    $rowPulse = $stP->fetch(PDO::FETCH_ASSOC);
-    if (is_array($rowPulse)) {
-        $pulse['posts_7d']    = (int)($rowPulse['posts_7d'] ?? 0);
-        $pulse['comments_7d'] = (int)($rowPulse['comments_7d'] ?? 0);
-        $pulse['acks_7d']     = (int)($rowPulse['acks_7d'] ?? 0);
-    }
-} catch (Throwable $e) { /* keep defaults */ }
-
-
 // -------------------- Feed tab --------------------
 $tab = (string)($_GET['tab'] ?? 'work'); // work|culture|all
 if ($tab !== 'work' && $tab !== 'culture' && $tab !== 'all') $tab = 'work';
@@ -1132,7 +1119,7 @@ $whereType = '';
 if ($tab === 'culture') {
     $whereType = " AND p.post_type = 'recognition' ";
 } elseif ($tab === 'work') {
-    $whereType = " AND p.post_type IN ('announcement','direction','update') ";
+    $whereType = " AND p.post_type IN ('announcement','direction','update','weekly_update') ";
 }
 
 // -------------------- Feed NEW baseline (first visit) + public file base --------------------
@@ -1753,6 +1740,8 @@ if ($isView) {
       --accent:#2563eb;
       --shadow: 0 10px 18px rgba(0,0,0,.04);
       --shadow-strong: 0 14px 24px rgba(0,0,0,.10);
+      --feed-chrome-offset: 160px;
+      --feed-info-h: 190px;
     }
     html.dark-auto{
       --bg-main:#0b1220;
@@ -1837,11 +1826,55 @@ if ($isView) {
   .sh-pagebody{ flex:1 1 auto; overflow:hidden; display:flex; flex-direction:column; min-height:0; padding-bottom:0!important; }
   .dashboard-card{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
   .card-body-fixed{ flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
-  .rows-scroll{ flex:1 1 auto; min-height:0; overflow:auto; padding: 1px; }
+  .feed-toolbar{
+    flex:0 0 auto;
+    padding:6px 8px 4px;
+    border-bottom:1px solid var(--border-color, #e5e7eb);
+    background:var(--bg-card, #fff);
+    z-index:2;
+  }
+  .rows-scroll{
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+    padding: 6px 8px;
+    display:flex;
+    flex-direction:column;
+  }
 
   .dash-toprow{
     display:flex; align-items:center; justify-content:space-between;
     gap:10px; flex-wrap:wrap; margin: 10px 0 6px;
+  }
+  .feed-toolbar-split{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:nowrap;
+    margin:6px 0 4px;
+    padding:0 5px;
+  }
+  .feed-toolbar-main{
+    flex:1 1 auto;
+    min-width:0;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .feed-toolbar-side{
+    flex:0 0 340px;
+    width:340px;
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+  }
+  .feed-toolbar-stats{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    align-items:center;
   }
   .dash-toprow .left-actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .dash-toprow .right-stats{ margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
@@ -1863,44 +1896,52 @@ if ($isView) {
   .stat-pill .sub{ color:#9ca3af; font-weight:700; margin-left:6px; }
 
     
-/* ✅ Instagram-style feed card (left image, right details) */
+/* ✅ Feed card: wide media on top, details below */
 .feed-card{
-  /* border:1px solid var(--border-color); */
-  /* border-radius:16px; */
   overflow:hidden;
-  /* margin:14px 0; */
-  height: 460px;
+  min-height: 420px;
   background:var(--bg-card);
   box-shadow: var(--shadow);
+  display:flex;
+  flex-direction:column;
 }
 .feed-post{
   display:flex;
+  flex-direction:column;
   align-items:stretch;
-  /* min-height: 420px; */
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 
 .feed-post-media {
-  flex: 0 0 52%;
-  width: 52%;
-  min-width: 320px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px));
+  min-height: 300px;
+  max-height: none;
   background: #000;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(0,0,0,.08);
 }
 .feed-post-media img{
   width:100%;
-  /* height:100%; */
-  object-fit:cover;
+  height:100%;
+  object-fit:contain;
   display:block;
+  background:#000;
 }
 
 .feed-post-media video{
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:contain;
   display:block;
   background:#000;
 }
@@ -1946,18 +1987,37 @@ if ($isView) {
 
 
 .feed-post-detail{
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  padding: 14px 14px 12px;
+  width: 100%;
+  height: var(--feed-info-h, 190px);
+  max-height: var(--feed-info-h, 190px);
+  padding: 10px 14px 12px;
   display:flex;
   flex-direction:column;
+  overflow: hidden;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color, #e5e7eb);
 }
 .feed-detail-head{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   justify-content:space-between;
   gap:10px;
-  margin-bottom:10px;
+  margin-bottom:6px;
+}
+.feed-head-tools{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  flex:0 0 auto;
+  margin-left:auto;
+}
+.feed-head-tools .btn{
+  padding: 4px 8px;
+  line-height: 1;
 }
 .feed-author{
   display:flex;
@@ -1981,13 +2041,13 @@ if ($isView) {
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
-  max-width: 420px;
+  max-width: 100%;
 }
 .feed-author-meta{ font-size:12px; color:#6b7280; font-weight:700; display:flex; gap:8px; flex-wrap:wrap; }
 
 .feed-title{
   font-weight:900;
-  margin: 4px 0 8px;
+  margin: 2px 0 6px;
   color:#111827;
   font-size: 14px;
   line-height:1.25;
@@ -2002,7 +2062,10 @@ if ($isView) {
 }
 
 /* --- Description clamp + Read more --- */
-.feed-desc-wrapper{ position:relative; margin: 0 0 12px; }
+.feed-desc-wrapper{
+  position:relative;
+  margin: 0 0 8px;
+}
 .feed-desc.clamp-7{
   display:-webkit-box;
   -webkit-box-orient:vertical;
@@ -2065,16 +2128,29 @@ if ($isView) {
   gap:10px;
   flex-wrap:wrap;
   align-items:center;
-  margin-top: 10px;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+.feed-actions-liked{
+  white-space: nowrap;
+}
+.feed-actions-right{
+  margin-left: auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 
 /* Comments preview */
 .feed-comments{
-  margin-top: 8px;
-  padding-top: 10px;
+  margin-top: 6px;
+  padding-top: 8px;
   border-top: 1px solid #eef0f4;
   min-height: 0;
-  overflow:auto;
+  overflow:hidden;
+  flex-shrink: 0;
 }
 .feed-comment{
   display:flex;
@@ -2114,9 +2190,11 @@ if ($isView) {
 .feed-viewall:hover{ text-decoration:underline; }
 
 @media (max-width: 992px){
-  .feed-post{ flex-direction:column; min-height:0; }
-  .feed-post-media{ width:100%; flex:0 0 auto; min-height: 260px; }
-  .feed-author-name{ max-width: 100%; }
+  .feed-post-media{
+    min-height: 220px;
+    height: calc(100vh - 300px);
+  }
+  .feed-post-detail{ height: 170px; max-height: 170px; overflow: hidden; }
 }
     .feed-meta{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:12px; color:#6b7280; margin-bottom:8px; }
     .feed-badge{ font-size:12px; padding:3px 8px; border-radius:999px; background:#f2f4f7; color:#374151; font-weight:800; }
@@ -2182,16 +2260,44 @@ if ($isView) {
     
 
     /* ✅ Feed layout with right sidebar */
-    .feed-layout{ display:flex; gap:14px; align-items:stretch; min-height:0; overflow:hidden; padding:5px}
-    /* ✅ Center column fits height like the right sidebar (no inner overflow on the panel itself) */
+    .feed-layout{
+      display:flex;
+      gap:14px;
+      align-items:stretch;
+      flex:1 1 auto;
+      min-height:0;
+      overflow:hidden;
+      padding:5px;
+    }
+    .feed-layout--tall{
+      height: calc(100vh - var(--feed-chrome-offset, 160px));
+    }
+    .feed-layout--tall .feed-card{
+      height: 100%;
+      min-height: calc(100vh - var(--feed-chrome-offset, 160px));
+    }
+    .feed-layout--tall .feed-post-media{
+      flex: 1 1 auto;
+      height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px));
+      min-height: 300px;
+      max-height: none;
+    }
+    .feed-layout--tall .feed-post-detail{
+      flex: 0 0 auto;
+      height: var(--feed-info-h, 190px);
+      max-height: var(--feed-info-h, 190px);
+      min-height: 0;
+      overflow: hidden;
+    }
+    /* ✅ Center column fills available viewport height */
     .feed-main{
       flex:1 1 auto;
       min-width:0;
-      min-height:260px;
-      max-height: calc(75vh - 220px); /* keep consistent with sidebar height */
-      overflow:hidden;               /* prevent feed-main from scrolling */
+      min-height:0;
+      height: 100%;
+      max-height: none;
+      overflow:hidden;
       box-shadow: var(--shadow);
-      /* display:flex; */
       flex-direction:column;
     }
 
@@ -2199,28 +2305,27 @@ if ($isView) {
     .feed-scroll{
       flex:1 1 auto;
       min-height:0;
-      /* overflow:auto; */
+      height: 100%;
+      overflow:auto;
       padding-right:6px;
       box-shadow: var(--shadow);
     }
 
-    /* ✅ Media preview frame: images/videos/pdfs/pptx fit without pushing layout */
+    /* ✅ Media preview frame: tall wide band at top of card */
     .post-media,
     .feed-post-media{
-      /* border-radius: 12px; */
-      border: 1px solid rgba(0,0,0,.08);
-      background: rgba(0,0,0,.02);
+      border: 0;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      background: #000;
       overflow: hidden;
-      /* default frame height */
-      height: 500px;
-      /* adapt to viewport */
-      max-height: 90vh;
-      min-height: 180px;
-      background: black;
+      width: 100%;
+      flex: 1 1 auto;
+      height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px));
+      min-height: 300px;
+      max-height: none;
       display:flex;
       align-items:center;
       justify-content:center;
-      /* margin-top:10px; */
     }
     .post-media img,
     .feed-post-media img,
@@ -2233,35 +2338,33 @@ if ($isView) {
     .post-media object,
     .feed-post-media object{
       width:100%;
-      /* height:600px; */
+      height:100%;
       max-height:100%;
       display:block;
-      /* IMPORTANT: fit (no crop) */
-      /* object-fit:contain;    */
+      object-fit:contain;
     }
     .post-media video,
     .feed-post-media video{ background:#000; }
-/* ✅ Right sidebar: clean card UI */
+/* ✅ Right sidebar: clean card UI — full height beside main post */
     .feed-sidebar{
       flex:0 0 340px;
       width:340px;
 
-      position: sticky;
-      top: 12px;
-      align-self:flex-start;
+      position: relative;
+      top: auto;
+      align-self:stretch;
 
-      max-height: calc(75vh - 220px); /* adjust if needed */
+      height: 100%;
+      max-height: none;
+      min-height: 0;
       overflow: hidden;
 
       border-radius: 2px;
       border:1px solid var(--border-color);
-      /* background: var(--bg-sidebar); */
       box-shadow: 0 10px 18px rgba(0,0,0,.04);
 
-      /* ✅ IMPORTANT: makes header fixed + list scroll */
       display: flex;
       flex-direction: column;
-      min-height: 260px;
     }
 
     .sidebar-head{
@@ -2296,6 +2399,20 @@ if ($isView) {
       font-size: 11px;
       color:#6b7280;
       font-weight: 700;
+    }
+    .sidebar-head-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:0 0 auto;
+      margin-left:auto;
+    }
+    .sidebar-refresh-btn{
+      padding:2px 8px !important;
+      font-size:11px !important;
+      line-height:1.2 !important;
+      border-radius:999px !important;
+      white-space:nowrap;
     }
 
     /* Search */
@@ -2493,14 +2610,19 @@ if ($isView) {
         top:auto;
         max-height:none;
       }
+      .feed-toolbar-side{
+        width:100%;
+        flex:0 0 auto;
+        justify-content:flex-start;
+      }
       .sidebar-list{ max-height:none; }
     }
 
-    .feed-tabs{ display:flex; gap:10px; margin: 12px 0 6px; }
+    .feed-tabs{ display:flex; gap:8px; margin:6px 0 2px; flex-wrap:wrap; align-items:center; }
     .feed-tabs a{
-      padding:7px 10px; border-radius:10px; text-decoration:none;
-      border:1px solid var(--border-color); color:#6b7280; font-weight:800; background: var(--bg-sidebar);
-      font-size:12px;
+      padding:5px 10px; border-radius:8px; text-decoration:none;
+      border:1px solid var(--border-color); color:#6b7280; font-weight:700; background: var(--bg-sidebar);
+      font-size:11px;
     }
     .feed-tabs a.active{ background: var(--bg-sidebar); color:#1a69b1; border-color:#0b5ed7; }
   
@@ -2615,7 +2737,7 @@ if ($isView) {
 </style>
 </head>
 
-<body data-theme=\"<?= h($themeMode ?? 'auto') ?>\">
+<body class="org-app org-page-feed" data-theme="<?= h($themeMode ?? 'auto') ?>">
 
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
@@ -2625,17 +2747,17 @@ if ($isView) {
   <div class="sh-pagebody" style="padding:1px;">
     <div class="card bd-0 dashboard-card">
       <div class="card-body card-body-fixed">
-        <div class="rows-scroll">
+        <div class="feed-toolbar">
 
           <?php if ($flashOk): ?>
-            <div class="alert alert-success" style="margin-top:6px;"><?= h($flashOk) ?></div>
+            <div class="alert alert-success" style="margin-top:4px;margin-bottom:4px;"><?= h($flashOk) ?></div>
           <?php endif; ?>
           <?php if ($flashErr): ?>
-            <div class="alert alert-danger" style="margin-top:6px;"><?= h($flashErr) ?></div>
+            <div class="alert alert-danger" style="margin-top:4px;margin-bottom:4px;"><?= h($flashErr) ?></div>
           <?php endif; ?>
 
-          <div class="dash-toprow">
-            <div class="left-actions">
+          <div class="dash-toprow feed-toolbar-split">
+            <div class="feed-toolbar-main left-actions">
               <a href="feed.php" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-home mg-r-5"></i> Home
               </a>
@@ -2643,13 +2765,9 @@ if ($isView) {
                 <i class="fa fa-refresh mg-r-5"></i> Refresh
               </a>
 
-              <a href="feed.php?tab=<?= h($tab) ?>&refresh=1<?= $isView && $postId>0 ? '&id='.(int)$postId : '' ?>" class="btn btn-sm btn-outline-secondary" title="Refresh">
-                <i class="fa fa-refresh mg-r-5"></i> Refresh
-              </a>
-
               <?php if (is_managerish($meRole)): ?>
-                <a href="dashboard.php" class="btn btn-sm btn-outline-secondary">
-                  <i class="ion-person-add mg-r-5"></i> Create New Post
+                <a href="compose_post.php" class="btn btn-sm btn-primary">
+                  <i class="fa fa-paper-plane mg-r-5"></i> New announcement
                 </a>
                 <a href="create_staff.php" class="btn btn-sm btn-outline-secondary">
                   <i class="ion-person-add mg-r-5"></i> Create Staff
@@ -2657,63 +2775,27 @@ if ($isView) {
                 <a href="settings.php" class="btn btn-sm btn-outline-secondary">
                   <i class="ion-ios-gear mg-r-5"></i> Settings
                 </a>
-                <a href="messages.php" class="btn btn-sm btn-outline-secondary">
-                  <i class="ion-chatboxes mg-r-5"></i> Messages
-                </a>
               <?php else: ?>
-                <a href="messages.php" class="btn btn-sm btn-outline-secondary">
-                  <i class="ion-chatboxes mg-r-5"></i> Messages
-                </a>
                 <a href="members.php" class="btn btn-sm btn-outline-secondary">
                   <i class="ion-ios-people mg-r-5"></i> Members
                 </a>
               <?php endif; ?>
+              <?php
+                require_once __DIR__ . '/includes/org_header_feed_tabs.php';
+                org_render_feed_toolbar_tabs($tab, (int)$unreadPostsCount);
+              ?>
             </div>
-
-            <div class="right-stats">
-              <?php if (!is_managerish($meRole)): ?>
-                <span class="stat-pill" title="Posts since you joined that you haven't acknowledged yet">
-                  <span class="icon"><i class="fa fa-bell"></i></span>
-                  <span class="num"><?= (int)$unreadCount ?></span>
-                  <span class="lbl">Unread</span>
-                </span>
-              <?php endif; ?>
-
-              <span class="stat-pill">
-                <span class="icon"><i class="fa fa-file-text-o"></i></span>
-                <span class="num"><?= (int)$pulse['posts_7d'] ?></span>
-                <span class="lbl">Posts</span>
-                <span class="sub">7d</span>
-              </span>
-
-              <span class="stat-pill">
-                <span class="icon"><i class="fa fa-comments-o"></i></span>
-                <span class="num"><?= (int)$pulse['comments_7d'] ?></span>
-                <span class="lbl">Replies</span>
-                <span class="sub">7d</span>
-              </span>
-
-              <span class="stat-pill">
-                <span class="icon"><i class="fa fa-lightbulb-o"></i></span>
-                <span class="num"><?= (int)$pulse['acks_7d'] ?></span>
-                <span class="lbl">Likes</span>
-                <span class="sub">7d</span>
-              </span>
+            <div class="feed-toolbar-side">
+              <?php
+                require_once __DIR__ . '/includes/org_header_feed_stats.php';
+                org_render_feed_toolbar_stats($dbh, $orgId);
+              ?>
             </div>
           </div>
+        </div><!-- /.feed-toolbar -->
 
-          <div class="feed-tabs">
-            <a class="<?= $tab==='work'?'active':'' ?>" href="feed.php?tab=work">Work</a>
-            <a class="<?= $tab==='culture'?'active':'' ?>" href="feed.php?tab=culture">Culture</a>
-            <a class="<?= $tab==='all'?'active':'' ?>" href="feed.php?tab=all">All</a>
-            <span class="stat-pill" title="Posts newer than your last successful load">
-                <span class="icon"><i class="fa fa-envelope-open-o"></i></span>
-                <span class="num" id="unreadPostsNum"><?= (int)$unreadPostsCount ?></span>
-                <span class="lbl">Unread</span>
-              </span>
-          </div>
-
-          <div class="feed-layout">
+        <div class="rows-scroll">
+          <div class="feed-layout<?= ($isView || !empty($currentPost)) ? ' feed-layout--tall' : '' ?>">
             <!-- ✅ Main post view area -->
             <div class="feed-main">
               <div class="feed-scroll">
@@ -2866,14 +2948,20 @@ if ($isView) {
                           </div>
                         </div>
                       </div>
-                      <div>
+                      <div class="feed-head-tools">
                         <?php if ($locked): ?>
                           <span class="feed-badge" style="background: var(--bg-sidebar);">Comments Closed</span>
                         <?php endif; ?>
+                        <a class="btn btn-sm btn-outline-secondary" href="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>" title="Full View">
+                          <i class="fa fa-folder-open"></i>
+                        </a>
+                        <a class="btn btn-sm btn-outline-secondary jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>" title="Open comments">
+                          <i class="fa fa-eye"></i>
+                        </a>
                       </div>
                     </div>
 
-                    <div class="feed-title"><?= h($title) ?></div>
+                    <div class="feed-title"><?= h(post_card_title($post)) ?></div>
                     <?php
                       // Prevent long descriptions from pushing actions off-screen.
                       $fullText = (string)($desc !== '' ? $desc : strip_tags((string)$body));
@@ -2892,31 +2980,6 @@ if ($isView) {
                       <?php endif; ?>
                     </div>
 
-                    <?php if (!empty($attachments)): ?>
-                      <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
-                        <?php foreach ($attachments as $att): ?>
-                          <?php
-                            $attPath = normalize_media_url((string)($att['file_path'] ?? ''));
-                            $attName = (string)($att['original_name'] ?? 'file');
-                            $attMime = (string)($att['mime_type'] ?? '');
-                            $attExt  = (string)($att['ext'] ?? '');
-                            $kind    = attachment_kind($attMime, $attExt);
-
-                            $icon = 'fa-file-o';
-                            if ($kind === 'image') $icon = 'fa-picture-o';
-                            elseif ($kind === 'video') $icon = 'fa-video-camera';
-                            elseif ($kind === 'pdf') $icon = 'fa-file-pdf-o';
-                            elseif ($kind === 'ppt') $icon = 'fa-file-powerpoint-o';
-                          ?>
-                          <a href="<?= h($attPath) ?>" target="_blank" rel="noopener"
-                              style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border-color); border-radius:999px; text-decoration:none; font-weight:800; font-size:12px; background: var(--bg-sidebar); color:#334155;">
-                            <i class="fa <?= h($icon) ?>"></i>
-                            <span style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><?= h($attName) ?></span>
-                          </a>
-                        <?php endforeach; ?>
-                      </div>
-                    <?php endif; ?>
-
                     <div class="feed-actions">
                       <form method="post" action="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>" style="margin:0;">
                         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
@@ -2933,9 +2996,12 @@ if ($isView) {
                         <span class="jsReplyCount" data-pid="<?= (int)$pid ?>"><?= (int)$commentCount ?></span> comments
                       </a>
 
-                      <span class="mini-muted"><i class="fa fa-lightbulb-o"></i> <?= $ackCount ?> liked</span>
-
-                      
+                      <div class="feed-actions-right">
+                        <a class="feed-viewall jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>">
+                          View all <?= (int)$commentCount ?> comments
+                        </a>
+                        <span class="mini-muted feed-actions-liked"><i class="fa fa-lightbulb-o"></i> <?= $ackCount ?> liked</span>
+                      </div>
                     </div>
 
                     <div class="feed-comments">
@@ -2956,32 +3022,6 @@ if ($isView) {
                           </div>
                         <?php endforeach; ?>
                       <?php endif; ?> -->
-                        <div style="display:flex;gap:8px;margin: 8px 0;">
-                          <a class="feed-viewall jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>">
-                            View all <?= (int)$commentCount ?> comments
-                          </a>
-                          <a class="btn btn-sm btn-outline-secondary jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>">
-                            <i class="fa fa-eye mg-r-5"></i> Open
-                          </a>
-                        </div>
-                      <!-- <?php if ($canManagePosts): ?>
-                        <button type="button"
-                                class="btn btn-sm btn-outline-primary"
-                                onclick="openEditPostModal(<?= (int)$pid ?>, <?= json_encode((string)($post['title'] ?? '')) ?>, <?= json_encode((string)($post['body'] ?? '')) ?>)">
-                          <i class="fa fa-pencil mg-r-5"></i> Edit
-                        </button>
-
-                        <form method="post" action="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>" style="margin:0;" onsubmit="return confirm('Delete this post?');">
-                          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                          <input type="hidden" name="action" value="delete_post">
-                          <input type="hidden" name="post_id" value="<?= (int)$pid ?>">
-                          <input type="hidden" name="back_to" value="<?= h('feed.php?tab='.$tab) ?>">
-                          <button type="submit" class="btn btn-sm btn-outline-danger">
-                            <i class="fa fa-trash mg-r-5"></i> Delete
-                          </button>
-                        </form>
-                      <?php endif; ?> -->
-
                       <a class="btn btn-sm btn-outline-secondary" href="feed.php?tab=<?= h($tab) ?>">
                         <i class="fa fa-arrow-left mg-r-5"></i> Back
                       </a>
@@ -3063,14 +3103,20 @@ if ($isView) {
                             </div>
                           </div>
                         </div>
-                        <div>
+                        <div class="feed-head-tools">
                           <?php if ($locked): ?>
                             <span class="feed-badge" style="background: var(--bg-sidebar);">Comments Closed</span>
                           <?php endif; ?>
+                          <a class="btn btn-sm btn-outline-secondary" href="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>" title="Full View">
+                            <i class="fa fa-folder-open"></i>
+                          </a>
+                          <a class="btn btn-sm btn-outline-secondary jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>" title="Open comments">
+                            <i class="fa fa-eye"></i>
+                          </a>
                         </div>
                       </div>
 
-                      <div class="feed-title"><?= h($title) ?></div>
+                      <div class="feed-title"><?= h(post_card_title($currentPost)) ?></div>
                       <?php
                         // Prevent long descriptions from pushing actions off-screen.
                         $fullText = (string)($desc !== '' ? $desc : strip_tags((string)$body));
@@ -3084,31 +3130,6 @@ if ($isView) {
                           </button>
                         <?php endif; ?>
                       </div>
-
-                      <?php if (!empty($attachments)): ?>
-                        <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
-                          <?php foreach ($attachments as $att): ?>
-                            <?php
-                              $attPath = normalize_media_url((string)($att['file_path'] ?? ''));
-                              $attName = (string)($att['original_name'] ?? 'file');
-                              $attMime = (string)($att['mime_type'] ?? '');
-                              $attExt  = (string)($att['ext'] ?? '');
-                              $kind    = attachment_kind($attMime, $attExt);
-
-                              $icon = 'fa-file-o';
-                              if ($kind === 'image') $icon = 'fa-picture-o';
-                              elseif ($kind === 'video') $icon = 'fa-video-camera';
-                              elseif ($kind === 'pdf') $icon = 'fa-file-pdf-o';
-                              elseif ($kind === 'ppt') $icon = 'fa-file-powerpoint-o';
-                            ?>
-                            <a href="<?= h($attPath) ?>" target="_blank" rel="noopener"
-                               style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border-color); border-radius:999px; text-decoration:none; font-weight:800; font-size:12px; background: var(--bg-sidebar); color:#334155;">
-                              <i class="fa <?= h($icon) ?>"></i>
-                              <span style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><?= h($attName) ?></span>
-                            </a>
-                          <?php endforeach; ?>
-                        </div>
-                      <?php endif; ?>
 
                       <div class="feed-actions">
                         <form method="post" action="feed.php?tab=<?= h($tab) ?>" style="margin:0;">
@@ -3125,13 +3146,17 @@ if ($isView) {
                           <i class="fa fa-comments"></i>
                           <span class="jsReplyCount" data-pid="<?= (int)$pid ?>"><?= (int)$commentCount ?></span> comments
                         </a>
-                        <span class="mini-muted"><i class="fa fa-lightbulb-o"></i> <?= $ackCount ?> liked</span>
+
+                        <div class="feed-actions-right">
+                          <a class="feed-viewall jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>">
+                            View all <?= (int)$commentCount ?> comments
+                          </a>
+                          <span class="mini-muted feed-actions-liked"><i class="fa fa-lightbulb-o"></i> <?= $ackCount ?> liked</span>
+                        </div>
                       </div>
 
+                      <?php if ($preview): ?>
                       <div class="feed-comments">
-                        <?php if (!$preview): ?>
-                          <div class="mini-muted">No comments yet.</div>
-                        <?php else: ?>
                           <?php foreach ($preview as $pc): ?>
                             <?php
                               $who = (string)($pc['user_name'] ?? 'Member');
@@ -3145,20 +3170,8 @@ if ($isView) {
                               <span class="time"><?= h($t) ?></span>
                             </div>
                           <?php endforeach; ?>
-                        <?php endif; ?>
-
-                        <a class="feed-viewall jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>" style="margin-right:75px;">
-                          View all <?= (int)$commentCount ?> comments
-                        </a>
-
-                        <a class="btn btn-sm btn-outline-secondary jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>">
-                          <i class="fa fa-eye mg-r-5"></i> Open
-                        </a>
-
-                        <a class="btn btn-sm btn-outline-secondary" href="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>">
-                          <i class="fa fa-folder-open mg-r-5"></i> Full View
-                        </a>
                       </div>
+                      <?php endif; ?>
                     </div>
                   </div>
                 </div>
@@ -3194,7 +3207,14 @@ if ($isView) {
                   <div class="sidebar-title">
                     <i class="fa fa-clock-o"></i> History
                   </div>
-                  <div class="sidebar-subtitle">Old subjects</div>
+                  <div class="sidebar-head-actions">
+                    <a href="feed.php?tab=<?= h($tab) ?>&refresh=1<?= $isView && $postId>0 ? '&id='.(int)$postId : '' ?>"
+                       class="btn btn-sm btn-outline-secondary sidebar-refresh-btn"
+                       title="Refresh feed">
+                      <i class="fa fa-refresh mg-r-5"></i> Refresh
+                    </a>
+                    <div class="sidebar-subtitle">Old subjects</div>
+                  </div>
                 </div>
 
                 <input id="sidebarSearch" class="sidebar-search" type="text" placeholder="Search history…" autocomplete="off">

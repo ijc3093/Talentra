@@ -149,6 +149,15 @@ $isPublisherPoster = publisher_account_is($dbh, $meId)
     || ((string)($_POST['publisher_account'] ?? '') === '1' && (int)($_SESSION['user_id'] ?? 0) === $meId);
 $visibility = publisher_post_visibility($dbh, $meId, $visibility);
 $description = stripLayoutOverrideMarker($description);
+$description = post_strip_music_marker($description);
+
+$musicTitle = mb_substr(trim((string)($_POST['music_title'] ?? '')), 0, 120);
+$musicArtist = mb_substr(trim((string)($_POST['music_artist'] ?? '')), 0, 120);
+if ($musicTitle === '' && $musicArtist === '') {
+    $musicFromMarker = post_extract_music_marker($description . "\n" . $body . "\n" . $title);
+    $musicTitle = (string)($musicFromMarker['title'] ?? '');
+    $musicArtist = (string)($musicFromMarker['artist'] ?? '');
+}
 
 if (mb_strlen($title) > 120) $title = mb_substr($title, 0, 120);
 if (mb_strlen($description) > 255) $description = mb_substr($description, 0, 255);
@@ -206,21 +215,21 @@ try {
         }
 
         if ($layoutColumn) {
-            $stU = $dbh->prepare("UPDATE public_posts SET title=:t, description=:d, body=:b, visibility=:v, {$layoutColumn}=:layoutv, category_id=:cid, updated_at=NOW() WHERE id=:id LIMIT 1");
-            $stU->execute([':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':layoutv'=>$layoutOverride ?: null, ':cid'=>$resolvedCategoryId ?: null, ':id'=>$postId]);
+            $stU = $dbh->prepare("UPDATE public_posts SET title=:t, description=:d, body=:b, visibility=:v, music_title=:mt, music_artist=:ma, {$layoutColumn}=:layoutv, category_id=:cid, updated_at=NOW() WHERE id=:id LIMIT 1");
+            $stU->execute([':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':mt'=>$musicTitle, ':ma'=>$musicArtist, ':layoutv'=>$layoutOverride ?: null, ':cid'=>$resolvedCategoryId ?: null, ':id'=>$postId]);
         } else {
-            $stU = $dbh->prepare("UPDATE public_posts SET title=:t, description=:d, body=:b, visibility=:v, category_id=:cid, updated_at=NOW() WHERE id=:id LIMIT 1");
-            $stU->execute([':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':cid'=>$resolvedCategoryId ?: null, ':id'=>$postId]);
+            $stU = $dbh->prepare("UPDATE public_posts SET title=:t, description=:d, body=:b, visibility=:v, music_title=:mt, music_artist=:ma, category_id=:cid, updated_at=NOW() WHERE id=:id LIMIT 1");
+            $stU->execute([':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':mt'=>$musicTitle, ':ma'=>$musicArtist, ':cid'=>$resolvedCategoryId ?: null, ':id'=>$postId]);
         }
     } else {
         if ($layoutColumn) {
-            $stI = $dbh->prepare("INSERT INTO public_posts (user_id, title, description, body, visibility, device_label, device_viewport, {$layoutColumn}, category_id, created_at, updated_at, is_deleted)
-                                  VALUES (:uid, :t, :d, :b, :v, :dl, :dv, :layoutv, :cid, NOW(), NOW(), 0)");
-            $stI->execute([':uid'=>$meId, ':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':dl'=>$deviceLabel, ':dv'=>$deviceViewport, ':layoutv'=>$layoutOverride ?: null, ':cid'=>$resolvedCategoryId ?: null]);
+            $stI = $dbh->prepare("INSERT INTO public_posts (user_id, title, description, body, visibility, device_label, device_viewport, music_title, music_artist, {$layoutColumn}, category_id, created_at, updated_at, is_deleted)
+                                  VALUES (:uid, :t, :d, :b, :v, :dl, :dv, :mt, :ma, :layoutv, :cid, NOW(), NOW(), 0)");
+            $stI->execute([':uid'=>$meId, ':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':dl'=>$deviceLabel, ':dv'=>$deviceViewport, ':mt'=>$musicTitle, ':ma'=>$musicArtist, ':layoutv'=>$layoutOverride ?: null, ':cid'=>$resolvedCategoryId ?: null]);
         } else {
-            $stI = $dbh->prepare("INSERT INTO public_posts (user_id, title, description, body, visibility, device_label, device_viewport, category_id, created_at, updated_at, is_deleted)
-                                  VALUES (:uid, :t, :d, :b, :v, :dl, :dv, :cid, NOW(), NOW(), 0)");
-            $stI->execute([':uid'=>$meId, ':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':dl'=>$deviceLabel, ':dv'=>$deviceViewport, ':cid'=>$resolvedCategoryId ?: null]);
+            $stI = $dbh->prepare("INSERT INTO public_posts (user_id, title, description, body, visibility, device_label, device_viewport, music_title, music_artist, category_id, created_at, updated_at, is_deleted)
+                                  VALUES (:uid, :t, :d, :b, :v, :dl, :dv, :mt, :ma, :cid, NOW(), NOW(), 0)");
+            $stI->execute([':uid'=>$meId, ':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':dl'=>$deviceLabel, ':dv'=>$deviceViewport, ':mt'=>$musicTitle, ':ma'=>$musicArtist, ':cid'=>$resolvedCategoryId ?: null]);
         }
         $postId = (int)$dbh->lastInsertId();
     }

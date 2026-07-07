@@ -22,6 +22,11 @@
     return !!(wrap && wrap.closest && wrap.closest('.mf-head--on-media, .standard-media-topbar'));
   }
 
+  function shouldUsePortalMenu(wrap){
+    if(opts.always_portal) return true;
+    return isOnMediaWrap(wrap);
+  }
+
   function menuActionEls(menu){
     if(!menu) return [];
     return Array.prototype.slice.call(menu.querySelectorAll('.pcm-item'));
@@ -89,16 +94,12 @@
     clone.style.minWidth = '220px';
     clone.style.display = 'block';
 
-    var origItems = menuActionEls(menu);
     var cloneItems = menuActionEls(clone);
-    cloneItems.forEach(function(ci, idx){
+    cloneItems.forEach(function(ci){
       ci.addEventListener('click', function(ev){
         ev.preventDefault();
         ev.stopPropagation();
-        var oi = origItems[idx];
-        if(oi){
-          try { oi.click(); } catch(err){}
-        }
+        handleMenuItemAction(ci, ev);
         closeMenus();
       }, true);
     });
@@ -132,6 +133,17 @@
   function linkItem(cls, href, icon, label, extraAttrs){
     return '<a class="pcm-item ' + cls + '" href="' + escHtml(href) + '" role="menuitem"' + (extraAttrs || '') + '>' +
       '<i class="' + escHtml(icon) + '" aria-hidden="true"></i><span>' + escHtml(label) + '</span></a>';
+  }
+
+  function menuItemSel(suffix){
+    return '.post-card-menu ' + suffix + ', .mf-menu.post-card-menu ' + suffix + ', .pcm-menu-portal ' + suffix;
+  }
+
+  function followMenuLink(linkEl){
+    var href = String(linkEl.getAttribute('href') || '').trim();
+    if(!href) return;
+    closeMenus();
+    window.location.href = href;
   }
 
   function isFeedSurface(){
@@ -195,8 +207,6 @@
     var friendStatus = friendStatusFn ? String(friendStatusFn(it) || 'none') : String(it.friend_status || 'none');
     var isPublisher = isPublisherFn ? !!isPublisherFn(it) : (Number(it.is_publisher || 0) === 1 || String(it.account_kind || '') === 'publisher');
     var isFollowing = isFollowingFn ? !!isFollowingFn(it) : Number(it.is_following || 0) === 1;
-    var contactId = Number(it.contact_id || 0);
-    var contactName = String(it.contact_name || it.display_name || it.username || '').trim();
     var profileUrl = profileHrefFn ? String(profileHrefFn(it, pid) || '') : String(it.profile_url || '');
     if(!profileUrl && peerId > 0){
       if(friendCode){
@@ -215,6 +225,9 @@
     if((!feedSurface || showPublisherView) && profileUrl){
       html += linkItem('pcm-view', profileUrl, 'fa fa-user', 'View');
     }
+    if(!feedSurface && !isPublisher && friendStatus === 'friends'){
+      html += linkItem('pcm-friends', 'contacts.php', 'fa fa-users', 'Friends');
+    }
     if(friendStatus === 'friends'){
       html += linkItem('pcm-message', messageUrl, 'fa fa-comments', 'Message');
     }
@@ -232,18 +245,9 @@
       html += '<button type="button" class="pcm-item pcm-unfollow" data-publisher-id="' + esc(String(peerId)) + '" role="menuitem">' +
         '<i class="fa fa-user-times" aria-hidden="true"></i><span>Unfollow</span></button>';
     }
-    if(contactId > 0){
-      html += linkItem('pcm-edit-contact', 'add_contact.php?edit=1&id=' + String(contactId), 'fa fa-edit', 'Edit');
-    }
     var showTimeline = !feedSurface && peerId > 0 && (!isPublisher || publisherWorkspaceViewer);
     if(showTimeline){
       html += linkItem('pcm-timeline', 'timeline.php?u=' + String(peerId), 'icon ion-ios-locked', 'Timeline');
-    }
-    if(contactId > 0){
-      html += '<button type="button" class="pcm-item pcm-undo-rename" data-contact-id="' + esc(String(contactId)) + '" role="menuitem">' +
-        '<i class="fa fa-undo" aria-hidden="true"></i><span>Undo Rename</span></button>';
-      html += '<button type="button" class="pcm-item pcm-rename" data-contact-id="' + esc(String(contactId)) + '" data-rename-name="' + esc(contactName) + '" role="menuitem">' +
-        '<i class="fa fa-pencil" aria-hidden="true"></i><span>Rename</span></button>';
     }
     return html;
   }
@@ -292,6 +296,8 @@
       it.account_kind = it.account_kind || 'publisher';
       it.is_publisher = 1;
     }
+    it.contact_id = Number(card.getAttribute('data-contact-id') || it.contact_id || 0);
+    it.contact_name = String(card.getAttribute('data-contact-name') || it.contact_name || '');
     var pid = Number((wrap && wrap.getAttribute('data-post-id')) || card.getAttribute('data-id') || card.getAttribute('data-post-id') || 0);
     var isOwner = resolveIsOwner(it, String((wrap && wrap.getAttribute('data-is-owner')) || card.getAttribute('data-post-owner') || '0') === '1');
     var html = buildItems(it, isOwner, pid, getMenuHelpers(pid));
@@ -346,8 +352,8 @@
       }
       if(!menu.innerHTML.trim()) hydrateEmptyMenus(document);
     }
-    var onMedia = isOnMediaWrap(wrap);
-    var isOpen = onMedia
+    var usePortal = shouldUsePortalMenu(wrap);
+    var isOpen = usePortal
       ? (wrap.classList.contains('pcm-wrap-open') || (activePortalWrap === wrap && !!activePortal))
       : menu.classList.contains('open');
     if(isOpen){
@@ -355,7 +361,7 @@
       return;
     }
     closeMenus(menu);
-    if(onMedia){
+    if(usePortal){
       openPortalMenu(wrap, btn, menu);
       return;
     }
@@ -448,50 +454,49 @@
     if(typeof done === 'function') done({ok:false});
   }
 
-  function onDocumentClick(e){
-    var target = e.target;
-    if(!target) return;
+  function handleMenuItemAction(target, e){
+    if(!target) return false;
+    e = e || {};
 
-    var menuBtn = closest(target, '.post-card-menu-btn');
-    if(menuBtn){
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-      toggleMenuBtn(menuBtn);
-      return;
-    }
-
-    var editLink = closest(target, '.post-card-menu .pcm-edit, .mf-menu.post-card-menu .pcm-edit');
+    var editLink = closest(target, menuItemSel('.pcm-edit'));
     if(editLink){
-      e.preventDefault();
-      e.stopPropagation();
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       var href = String(editLink.getAttribute('href') || '').trim();
-      if(!href) return;
+      if(!href) return true;
       if(window.MSBCreatePostModal && typeof window.MSBCreatePostModal.open === 'function'){
         window.MSBCreatePostModal.open(href);
-        return;
+      } else {
+        window.location.href = href;
       }
-      window.location.href = href;
-      return;
+      return true;
     }
 
-    var delBtn = closest(target, '.post-card-menu .pcm-delete, .mf-menu.post-card-menu .pcm-delete');
+    var navLink = closest(target, menuItemSel('.pcm-view, .pcm-friends, .pcm-message, .pcm-edit-contact, .pcm-timeline'));
+    if(navLink){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      followMenuLink(navLink);
+      return true;
+    }
+
+    var delBtn = closest(target, menuItemSel('.pcm-delete'));
     if(delBtn){
-      e.preventDefault();
-      e.stopPropagation();
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       confirmDelete(delBtn.getAttribute('data-post-id'));
-      return;
+      return true;
     }
 
-    var unfollowBtn = closest(target, '.post-card-menu .pcm-follow, .mf-menu.post-card-menu .pcm-follow, .post-card-menu .pcm-unfollow, .mf-menu.post-card-menu .pcm-unfollow');
+    var unfollowBtn = closest(target, menuItemSel('.pcm-follow, .pcm-unfollow'));
     if(unfollowBtn){
-      e.preventDefault();
-      e.stopPropagation();
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       var pubId = Number(unfollowBtn.getAttribute('data-publisher-id') || 0);
-      if(!pubId) return;
+      if(!pubId) return true;
       var fd = new FormData();
       fd.append('target_id', String(pubId));
       fetch('publisher_follow_toggle.php', { method:'POST', body: fd, cache:'no-store' })
@@ -504,16 +509,16 @@
             window.applyFollowForPublisher(pubId, !!res.following);
           }
         });
-      return;
+      return true;
     }
 
-    var addFriendBtn = closest(target, '.post-card-menu .pcm-add-friend, .mf-menu.post-card-menu .pcm-add-friend');
+    var addFriendBtn = closest(target, menuItemSel('.pcm-add-friend'));
     if(addFriendBtn){
-      e.preventDefault();
-      e.stopPropagation();
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       var peerId = Number(addFriendBtn.getAttribute('data-peer-id') || 0);
-      if(!peerId) return;
+      if(!peerId) return true;
       var body = new URLSearchParams({ action: 'send', peer_id: String(peerId) });
       fetch('ajax/friend_action.php', {
         method: 'POST',
@@ -529,17 +534,17 @@
           });
         }
       });
-      return;
+      return true;
     }
 
-    var renameBtn = closest(target, '.post-card-menu .pcm-rename, .mf-menu.post-card-menu .pcm-rename');
+    var renameBtn = closest(target, menuItemSel('.pcm-rename'));
     if(renameBtn){
-      e.preventDefault();
-      e.stopPropagation();
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       var id = Number(renameBtn.getAttribute('data-contact-id') || 0);
       var name = String(renameBtn.getAttribute('data-rename-name') || '');
-      if(!id) return;
+      if(!id) return true;
       var idEl = document.getElementById('pcmRenameId');
       var inputEl = document.getElementById('pcmRenameInput');
       var errEl = document.getElementById('pcmRenameErr');
@@ -548,16 +553,16 @@
       if(errEl){ errEl.style.display = 'none'; errEl.textContent = ''; }
       showModal('pcmRenameModal');
       setTimeout(function(){ if(inputEl) inputEl.focus(); }, 250);
-      return;
+      return true;
     }
 
-    var undoBtn = closest(target, '.post-card-menu .pcm-undo-rename, .mf-menu.post-card-menu .pcm-undo-rename');
+    var undoBtn = closest(target, menuItemSel('.pcm-undo-rename'));
     if(undoBtn){
-      e.preventDefault();
-      e.stopPropagation();
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       var undoId = Number(undoBtn.getAttribute('data-contact-id') || 0);
-      if(!undoId) return;
+      if(!undoId) return true;
       fetch('ajax/contact_undo_rename.php', {
         method:'POST',
         headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
@@ -568,11 +573,32 @@
         document.querySelectorAll('.pcm-rename[data-contact-id="'+String(undoId)+'"]').forEach(function(btn){
           btn.setAttribute('data-rename-name', label);
         });
+        if(typeof window.msbSyncContactDisplayName === 'function'){
+          window.msbSyncContactDisplayName(undoId, label);
+        }
       }).catch(function(ex){
         window.alert((ex && ex.message) ? ex.message : 'Nothing to undo.');
       });
+      return true;
+    }
+
+    return false;
+  }
+
+  function onDocumentClick(e){
+    var target = e.target;
+    if(!target) return;
+
+    var menuBtn = closest(target, '.post-card-menu-btn');
+    if(menuBtn){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      toggleMenuBtn(menuBtn);
       return;
     }
+
+    if(handleMenuItemAction(target, e)) return;
 
     if(closest(target, '.post-card-menu-wrap, .mf-menu-wrap.post-card-menu-wrap, .' + PORTAL_CLASS)) return;
     closeMenus();
@@ -623,6 +649,9 @@
       document.querySelectorAll('.pcm-rename[data-contact-id="'+String(id)+'"]').forEach(function(btn){
         btn.setAttribute('data-rename-name', newName);
       });
+      if(typeof window.msbSyncContactDisplayName === 'function'){
+        window.msbSyncContactDisplayName(id, newName);
+      }
       hideModal('pcmRenameModal');
     }).catch(function(ex){
       if(errEl){
@@ -700,14 +729,14 @@
     btn.classList.remove('pcm-on-dark-media', 'pcm-on-light-media');
     var mediaEl = findOnMediaMenuMedia(btn);
     if(!mediaEl){
-      btn.classList.add('pcm-on-light-media');
+      btn.classList.add('pcm-on-dark-media');
       return;
     }
 
     function measure(){
       var lum = sampleMediaLuminance(mediaEl, btn);
       if(lum == null){
-        btn.classList.add('pcm-on-light-media');
+        btn.classList.add('pcm-on-dark-media');
         return;
       }
       if(lum < 128){
@@ -720,6 +749,7 @@
     if(mediaEl.complete === false || (mediaEl.tagName === 'VIDEO' && !mediaEl.videoWidth)){
       mediaEl.addEventListener('load', measure, { once: true });
       mediaEl.addEventListener('loadeddata', measure, { once: true });
+      mediaEl.addEventListener('loadedmetadata', measure, { once: true });
       return;
     }
     measure();
@@ -760,6 +790,7 @@
       var shell = t.closest ? t.closest('.mf-media-shell, .media-stage, .post.public-post-card') : null;
       if(shell) schedule(shell);
     }, true);
+    window.addEventListener('resize', function(){ schedule(document); }, { passive: true });
   }
 
   function isMediaActionCircle(el){

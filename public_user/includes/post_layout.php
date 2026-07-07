@@ -37,6 +37,73 @@ function post_strip_layout_marker(string $description): string
     return trim((string)preg_replace('/\[\[layout:[a-z0-9_]+\]\]/i', '', $description));
 }
 
+function post_extract_music_marker(string $text): array
+{
+    $text = (string)$text;
+    if (preg_match('/\[\[music:([^|\]]+)\|([^\]]+)\]\]/iu', $text, $m)) {
+        return [
+            'title' => trim((string)($m[1] ?? '')),
+            'artist' => trim((string)($m[2] ?? '')),
+        ];
+    }
+    if (preg_match('/\[\[music:([^\]]+)\]\]/iu', $text, $m)) {
+        return [
+            'title' => trim((string)($m[1] ?? '')),
+            'artist' => '',
+        ];
+    }
+
+    return ['title' => '', 'artist' => ''];
+}
+
+function post_strip_music_marker(string $text): string
+{
+    return trim((string)preg_replace('/\[\[music:[^\]]+\]\]/iu', '', (string)$text));
+}
+
+function post_music_from_row(array $post): array
+{
+    $title = trim((string)($post['music_title'] ?? ''));
+    $artist = trim((string)($post['music_artist'] ?? ''));
+    if ($title !== '' || $artist !== '') {
+        return ['title' => $title, 'artist' => $artist];
+    }
+
+    foreach (['description', 'body', 'title'] as $key) {
+        $found = post_extract_music_marker((string)($post[$key] ?? ''));
+        if ($found['title'] !== '' || $found['artist'] !== '') {
+            return $found;
+        }
+    }
+
+    return ['title' => '', 'artist' => ''];
+}
+
+function post_music_row_html(array $post, string $class = 'mf-music-row'): string
+{
+    $meta = post_music_from_row($post);
+    $title = trim((string)($meta['title'] ?? ''));
+    $artist = trim((string)($meta['artist'] ?? ''));
+    if ($title === '' && $artist === '') {
+        return '';
+    }
+
+    $class = trim($class) !== '' ? trim($class) : 'mf-music-row';
+    $html = '<div class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '" aria-label="Music">';
+    $html .= '<i class="fa fa-music mf-music-ic" aria-hidden="true"></i>';
+    if ($title !== '') {
+        $html .= '<span class="mf-music-title">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
+    if ($title !== '' && $artist !== '') {
+        $html .= '<span class="mf-music-dot">&middot;</span>';
+    }
+    if ($artist !== '') {
+        $html .= '<span class="mf-music-artist">' . htmlspecialchars($artist, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
+    $html .= '</div>';
+    return $html;
+}
+
 function post_declared_layout(array $post): string
 {
     foreach (['declared_layout', 'layout_type', 'layout', 'post_type', 'type'] as $key) {
@@ -64,6 +131,7 @@ function post_is_story_only(array $post): bool
 function post_normalize_card_plain_text(string $text): string
 {
     $text = post_strip_layout_marker($text);
+    $text = post_strip_music_marker($text);
     $text = str_replace(["\r\n", "\r"], "\n", $text);
     $text = preg_replace('/<\/p>\s*<p[^>]*>/i', "\n\n", $text) ?? $text;
     $text = preg_replace('/<br\s*\/?>/i', "\n", $text) ?? $text;

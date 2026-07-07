@@ -521,6 +521,12 @@ function publisher_org_provision_publisher_account(
         publisher_org_registry_set_org_id($dbh, $publisherName, $orgId);
 
         $dbh->commit();
+
+        if (is_file(__DIR__ . '/platform_rent.php')) {
+            require_once __DIR__ . '/platform_rent.php';
+            platform_rent_start_trial_for_org($dbh, $orgId);
+        }
+
         return $orgId;
     } catch (Throwable $e) {
         if ($dbh->inTransaction()) {
@@ -1160,6 +1166,11 @@ function publisher_org_create(PDO $dbh, string $name, string $category = 'news')
 
         $dbh->commit();
         publisher_org_registry_set_org_id($dbh, $name, $orgId);
+
+        if (is_file(__DIR__ . '/platform_rent.php')) {
+            require_once __DIR__ . '/platform_rent.php';
+            platform_rent_start_trial_for_org($dbh, $orgId);
+        }
 
         return $orgId;
     } catch (Throwable $e) {

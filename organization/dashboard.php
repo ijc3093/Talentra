@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
+require_once __DIR__ . '/includes/org_manager_guard.php';
+
+org_require_manager();
+
+require_once __DIR__ . '/includes/org_public_publish.php';
+require_once __DIR__ . '/../admin/includes/org_admin_helpers.php';
+require_once __DIR__ . '/../public_user/includes/platform_rent.php';
 
 // ✅ DB connection (org_context.php usually sets $dbh; keep safe fallback)
 if (!isset($dbh) || !($dbh instanceof PDO)) {
@@ -161,141 +168,6 @@ try {
     }
 } catch (Throwable $e) { /* keep default */ }
 
-// -------------------- Attachments (images/videos/pdf/ppt) --------------------
-function ensure_post_attachments_table(PDO $dbh): bool {
-    try {
-        $dbh->exec("
-            CREATE TABLE IF NOT EXISTS org_post_attachments (
-              id BIGINT NOT NULL AUTO_INCREMENT,
-              org_id BIGINT NOT NULL,
-              post_id BIGINT NOT NULL,
-              file_name VARCHAR(255) NOT NULL,
-              file_path VARCHAR(500) NOT NULL,
-              mime_type VARCHAR(120) NOT NULL,
-              file_size BIGINT NOT NULL DEFAULT 0,
-              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-              PRIMARY KEY (id),
-              KEY idx_post (post_id),
-              KEY idx_org_post (org_id, post_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        ");
-        return true;
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-
-function safe_basename(string $name): string {
-    $name = basename($name);
-    $name = preg_replace('/[^a-zA-Z0-9\.\-\_\s]+/', '', $name);
-    $name = trim(preg_replace('/\s+/', '_', $name));
-    if ($name === '') $name = 'file';
-    return $name;
-}
-
-function attachment_kind_from_ext(string $ext): string {
-    $e = strtolower(ltrim($ext, '.'));
-    if (in_array($e, ['jpg','jpeg','png','gif','webp'], true)) return 'image';
-    if (in_array($e, ['mp4','webm','ogg','mov'], true)) return 'video';
-    if ($e === 'pdf') return 'pdf';
-    if (in_array($e, ['ppt','pptx'], true)) return 'ppt';
-    return 'file';
-}
-
-function handle_post_attachments(PDO $dbh, int $orgId, int $postId): int {
-    if (empty($_FILES['attachments']) || !is_array($_FILES['attachments'])) return 0;
-
-    // Upload folder (relative URLs will use this)
-    $uploadDir = __DIR__ . '/uploads/feed';
-    if (!is_dir($uploadDir)) @mkdir($uploadDir, 0775, true);
-    if (!is_dir($uploadDir) || !is_writable($uploadDir)) {
-        throw new RuntimeException('Upload folder is not writable: ' . $uploadDir);
-    }
-
-    $names = $_FILES['attachments']['name'] ?? [];
-    $tmp   = $_FILES['attachments']['tmp_name'] ?? [];
-    $err   = $_FILES['attachments']['error'] ?? [];
-    $size  = $_FILES['attachments']['size'] ?? [];
-    $type  = $_FILES['attachments']['type'] ?? [];
-
-    $count = 0;
-    $maxFiles = 8;
-    $maxBytes = 35 * 1024 * 1024;
-
-    $n = is_array($names) ? count($names) : 0;
-
-    // ✅ Your actual table schema (all these fields exist & many are NOT NULL)
-    $sql = "INSERT INTO org_post_attachments
-            (org_id, post_id, file_name, file_path, mime_type, stored_name, original_name, mime, ext, file_size)
-            VALUES
-            (:org_id, :post_id, :file_name, :file_path, :mime_type, :stored_name, :original_name, :mime, :ext, :file_size)";
-    $stIns = $dbh->prepare($sql);
-
-    for ($i = 0; $i < $n && $count < $maxFiles; $i++) {
-        $e = (int)($err[$i] ?? UPLOAD_ERR_NO_FILE);
-        if ($e === UPLOAD_ERR_NO_FILE) continue;
-        if ($e !== UPLOAD_ERR_OK) continue;
-
-        $origName = (string)($names[$i] ?? '');
-        $tmpName  = (string)($tmp[$i] ?? '');
-        $fsize    = (int)($size[$i] ?? 0);
-        $mime     = (string)($type[$i] ?? '');
-
-        if ($tmpName === '' || !is_uploaded_file($tmpName)) continue;
-        if ($fsize <= 0 || $fsize > $maxBytes) continue;
-
-        $safeName = safe_basename($origName);
-        $ext = strtolower(pathinfo($safeName, PATHINFO_EXTENSION));
-        $kind = attachment_kind_from_ext($ext);
-
-        // allowlist
-        if (!in_array($kind, ['image','video','pdf','ppt'], true)) continue;
-
-        // build stored filename
-        $uniq = date('Ymd_His') . '_' . bin2hex(random_bytes(6));
-        $stored = $uniq . ($ext !== '' ? ('.' . $ext) : '');
-        $destAbs = $uploadDir . '/' . $stored;
-
-        if (!@move_uploaded_file($tmpName, $destAbs)) continue;
-
-        // relative path stored in DB
-        $relPath = 'uploads/feed/' . $stored;
-
-        // best-effort mime detection
-        if (function_exists('finfo_open')) {
-            try {
-                $fi = finfo_open(FILEINFO_MIME_TYPE);
-                if ($fi) {
-                    $det = (string)finfo_file($fi, $destAbs);
-                    if ($det !== '') $mime = $det;
-                    finfo_close($fi);
-                }
-            } catch (Throwable $ex) { /* ignore */ }
-        }
-        if ($mime === '') $mime = 'application/octet-stream';
-
-        // Insert row (fill every NOT NULL column)
-        $stIns->execute([
-            ':org_id'        => $orgId,
-            ':post_id'       => $postId,
-            ':file_name'     => $safeName,      // sanitized
-            ':file_path'     => $relPath,
-            ':mime_type'     => $mime,
-            ':stored_name'   => $stored,        // required
-            ':original_name' => $origName !== '' ? $origName : $safeName, // required
-            ':mime'          => $mime,          // required
-            ':ext'           => $ext !== '' ? $ext : 'bin', // required
-            ':file_size'     => $fsize,
-        ]);
-
-        $count++;
-    }
-
-    return $count;
-}
-
-
-
 // -------------------- Actions --------------------
 $flashOk  = '';
 $flashErr = '';
@@ -327,51 +199,6 @@ try {
 
             $feedFirstVisitDays = $days;
             $flashOk = 'Feed NEW window updated.';
-        }
-        elseif ($action === 'create_post') {
-            if (!is_managerish($meRole)) throw new RuntimeException('Only Manager/Admin can create feed posts.');
-
-            $postType = (string)($_POST['post_type'] ?? '');
-            $title    = trim((string)($_POST['title'] ?? ''));
-            $body     = trim((string)($_POST['body'] ?? ''));
-            $vis      = (string)($_POST['visibility'] ?? 'organization');
-
-            $allowedTypes = ['announcement','direction','update','weekly_update','recognition'];
-            if (!in_array($postType, $allowedTypes, true)) throw new RuntimeException('Invalid post type.');
-            if ($vis !== 'organization' && $vis !== 'team') $vis = 'organization';
-            if ($body === '') throw new RuntimeException('Message is required.');
-
-            if (mb_strlen($title) > 200) $title = mb_substr($title, 0, 200);
-            if (mb_strlen($body) > 20000) $body = mb_substr($body, 0, 20000);
-
-            $authorRole = ($meRole === 'admin') ? 'admin' : 'manager';
-
-            $st = $dbh->prepare("
-                INSERT INTO org_posts (
-                    org_id, author_id, author_role,
-                    post_type, title, body, visibility,
-                    comments_locked, created_at, updated_at
-                )
-                VALUES (
-                    :org, :aid, :ar,
-                    :pt, :t, :b, :v,
-                    0, NOW(), NOW()
-                )
-            ");
-            $st->execute([
-                ':org' => $orgId,
-                ':aid' => $meMemberId,
-                ':ar'  => $authorRole,
-                ':pt'  => $postType,
-                ':t'   => ($title === '' ? null : $title),
-                ':b'   => $body,
-                ':v'   => $vis,
-            ]);
-
-            $postId = (int)$dbh->lastInsertId();
-            $attachmentsPosted = handle_post_attachments($dbh, $orgId, $postId);
-
-            $flashOk = ($attachmentsPosted > 0) ? ('Update posted with ' . $attachmentsPosted . ' attachment(s).') : 'Update posted.';
         }
     }
 } catch (Throwable $e) {
@@ -492,6 +319,42 @@ try {
 }
 
 $preview = array_slice($complianceRows, 0, 1);
+
+// -------------------- Linked publisher (public brand) --------------------
+$publisherUserId = org_public_publish_publisher_user_id($dbh);
+$rentSnapshot = ($orgId > 0) ? platform_rent_org_snapshot($dbh, $orgId) : null;
+$shopRentVisible = $rentSnapshot ? !empty($rentSnapshot['shop_visible']) : true;
+$publisherStats = [
+    'name' => '',
+    'username' => '',
+    'posts' => 0,
+    'followers' => 0,
+    'posts_7d' => 0,
+];
+if ($publisherUserId > 0) {
+    try {
+        $stPub = $dbh->prepare('SELECT name, username FROM users WHERE id = :id LIMIT 1');
+        $stPub->execute([':id' => $publisherUserId]);
+        $pubRow = $stPub->fetch(PDO::FETCH_ASSOC) ?: [];
+        $publisherStats['name'] = trim((string)($pubRow['name'] ?? ''));
+        $publisherStats['username'] = trim((string)($pubRow['username'] ?? ''));
+    } catch (Throwable $e) {
+        // ignore
+    }
+    $publisherStats['posts'] = org_admin_user_post_count($dbh, $publisherUserId);
+    $publisherStats['followers'] = org_admin_user_follower_count($dbh, $publisherUserId);
+    try {
+        $st7 = $dbh->prepare('
+            SELECT COUNT(*) FROM public_posts
+            WHERE user_id = :uid AND (is_deleted = 0 OR is_deleted IS NULL)
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ');
+        $st7->execute([':uid' => $publisherUserId]);
+        $publisherStats['posts_7d'] = (int)($st7->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        // ignore
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -519,73 +382,106 @@ $preview = array_slice($complianceRows, 0, 1);
     }
     .dashboard-card{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
     .card-body-fixed{ flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
-    .rows-scroll{ flex:1 1 auto; min-height:0; overflow:auto; padding: 20px; }
+    .rows-scroll{ flex:1 1 auto; min-height:0; overflow:auto; padding: 8px 10px; }
 
     .dash-toprow{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
+      gap:6px;
       flex-wrap:wrap;
-      margin: 12px 0 6px;
+      margin: 8px 0 4px;
     }
-    .dash-toprow .left-actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .dash-toprow .right-stats{ margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
+    .dash-toprow .left-actions{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .dash-toprow .right-stats{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
 
-    /* ✅ Small pills like your screenshot */
     .stat-pill{
       display:inline-flex;
       align-items:center;
-      gap:10px;
-      padding:8px 12px;
+      gap:5px;
+      padding:4px 8px;
       border-radius:999px;
-      border:2px solid #d1d5db;
+      border:1px solid #d1d5db;
       background:#fff;
-      font-size:14px;
+      font-size:11px;
       line-height:1;
       white-space:nowrap;
     }
     .stat-pill .icon{
-      width:34px; height:34px; border-radius:999px;
+      width:22px; height:22px; border-radius:999px;
       display:inline-flex; align-items:center; justify-content:center;
-      background:#eef2ff; color:#2563eb; font-size:16px;
+      background:#eef2ff; color:#2563eb; font-size:11px;
     }
-    .stat-pill .num{ font-weight:900; color:#111827; }
-    .stat-pill .lbl{ color:#4b5563; font-weight:900; }
-    .stat-pill .sub{ color:#9ca3af; font-weight:800; margin-left:6px; }
+    .stat-pill .num{ font-weight:800; color:#111827; }
+    .stat-pill .lbl{ color:#4b5563; font-weight:700; }
+    .stat-pill .sub{ color:#9ca3af; font-weight:700; margin-left:4px; font-size:10px; }
 
-    .feed-card{ border:2px solid #6b7280; border-radius:12px; padding:14px; margin:12px 0; background:#fff; }
-    .feed-meta{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:14px; color:#6b7280; margin-bottom:8px; }
-    .feed-badge{ font-size:14px; padding:8px 14px; border-radius:999px; background:#eef2f7; color:#374151; font-weight:900; }
-    .mini-muted{ color:#6b7280; font-size:14px; font-weight:700; }
+    .publisher-hub{
+      border:1px solid #2563eb;
+      border-radius:8px;
+      padding:8px 10px;
+      margin:8px 0 4px;
+      background:linear-gradient(135deg,#eff6ff 0%,#fff 58%);
+    }
+    .publisher-hub-head{
+      display:flex; align-items:flex-start; justify-content:space-between;
+      gap:8px; flex-wrap:wrap; margin-bottom:6px;
+    }
+    .publisher-hub-title{
+      font-size:12px; font-weight:800; color:#1e3a8a; margin:0;
+    }
+    .publisher-hub-sub{
+      font-size:10px; color:#4b5563; font-weight:600; margin-top:2px;
+    }
+    .publisher-hub-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+    .publisher-hub-stats{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+    .publisher-stat{
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 7px; border-radius:999px;
+      border:1px solid #bfdbfe; background:#fff;
+      font-size:10px; font-weight:700; color:#1e40af;
+    }
+    .publisher-check{
+      display:flex; align-items:flex-start; gap:6px;
+      padding:6px 8px; border-radius:6px;
+      border:1px dashed #93c5fd; background:#f8fbff;
+      margin-bottom:6px;
+    }
+    .publisher-check label{ margin:0; font-size:11px; font-weight:700; color:#1e40af; cursor:pointer; }
+    .publisher-check .hint{ display:block; font-size:10px; font-weight:600; color:#6b7280; margin-top:1px; }
+
+    .feed-card{ border:1px solid #6b7280; border-radius:8px; padding:8px 10px; margin:8px 0; background:#fff; }
+    .feed-meta{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:11px; color:#6b7280; margin-bottom:6px; }
+    .feed-badge{ font-size:11px; padding:4px 8px; border-radius:999px; background:#eef2f7; color:#374151; font-weight:700; }
+    .mini-muted{ color:#6b7280; font-size:11px; font-weight:600; }
 
     .compliance-head{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
+      gap:8px;
       flex-wrap:wrap;
-      margin-top:18px;
-      margin-bottom:10px;
+      margin-top:10px;
+      margin-bottom:6px;
     }
-    .compliance-head-left{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+    .compliance-head-left{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
-    .compliance-table{ width:100%; border-collapse:collapse; margin-top:10px; }
+    .compliance-table{ width:100%; border-collapse:collapse; margin-top:6px; }
     .compliance-table th,.compliance-table td{
       border-bottom:1px solid #eef0f4;
-      padding:16px 12px;
-      font-size:16px;
+      padding:6px 8px;
+      font-size:11px;
       vertical-align:middle;
     }
-    .compliance-table th{ color:#111827; font-weight:900; }
+    .compliance-table th{ color:#111827; font-weight:800; }
     .pill{
       display:inline-block;
-      padding:8px 14px;
+      padding:3px 8px;
       border-radius:999px;
-      border:2px solid #e5e7eb;
+      border:1px solid #e5e7eb;
       background:#fff;
-      font-size:14px;
-      font-weight:900;
+      font-size:10px;
+      font-weight:700;
       color:#6b7280;
     }
 
@@ -608,35 +504,35 @@ $preview = array_slice($complianceRows, 0, 1);
       max-height:70vh;
       overflow:auto;
     }
-    .comp-head{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    .comp-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .comp-badge{
       display:inline-flex; align-items:center;
-      padding:8px 14px;
+      padding:3px 8px;
       border-radius:999px;
       background:#eef2f7;
       color:#374151;
-      font-weight:900;
-      font-size:14px;
+      font-weight:700;
+      font-size:10px;
     }
-    .comp-sub{ color:#6b7280; font-weight:800; font-size:14px; }
+    .comp-sub{ color:#6b7280; font-weight:700; font-size:11px; }
     .btn-close-x{
-      width:40px; height:40px; border-radius:999px;
-      border:2px solid #e5e7eb; background:#fff;
+      width:28px; height:28px; border-radius:999px;
+      border:1px solid #e5e7eb; background:#fff;
       display:flex; align-items:center; justify-content:center;
       cursor:pointer;
     }
     .btn-close-x:hover{ background:#f3f4f6; }
 
-    /* ✅ Tabs now go to posts.php (dashboard should not list/view) */
-    .feed-tabs{ display:flex; gap:10px; margin: 18px 0 10px; }
+    .feed-tabs{ display:flex; gap:6px; margin: 10px 0 6px; }
     .feed-tabs a{
-      padding:10px 14px;
-      border-radius:10px;
+      padding:5px 9px;
+      border-radius:6px;
       text-decoration:none;
-      border:2px solid #d1d5db;
+      border:1px solid #d1d5db;
       color:#6b7280;
-      font-weight:900;
+      font-weight:700;
       background:#fff;
+      font-size:11px;
     }
     .feed-tabs a.active{ background:#0b5ed7; color:#fff; border-color:#0b5ed7; }
 
@@ -662,20 +558,20 @@ $preview = array_slice($complianceRows, 0, 1);
   </style>
 </head>
 
-<body>
+<body class="org-app org-page-dashboard">
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 
 <div class="sh-mainpanel">
 
-  <div class="sh-pagetitle" style="border-bottom:1px solid #4a535c;">
+  <!-- <div class="sh-pagetitle" style="border-bottom:1px solid #4a535c;">
     <div class="input-group"></div>
 
     <div class="sh-pagetitle-left">
       <div class="sh-pagetitle-icon"><i class="icon ion-ios-home"></i></div>
       <div class="sh-pagetitle-title"><h2>Home Page</h2></div>
     </div>
-  </div>
+  </div> -->
 
   <div class="sh-pagebody">
     <div class="card bd-0 dashboard-card">
@@ -697,31 +593,105 @@ $preview = array_slice($complianceRows, 0, 1);
             <div class="alert alert-danger" style="margin-top:12px;"><?= h($flashErr) ?></div>
           <?php endif; ?>
 
+          <?php if ($rentSnapshot && platform_rent_org_is_shop($rentSnapshot)): ?>
+            <?php
+              $rentLive = (string)($rentSnapshot['rent_status_live'] ?? $rentSnapshot['rent_status'] ?? 'trial');
+              $rentUntil = trim((string)($rentSnapshot['rent_paid_until'] ?? ''));
+              if ($rentUntil === '') {
+                  $rentUntil = trim((string)($rentSnapshot['rent_trial_ends_at'] ?? ''));
+              }
+            ?>
+            <?php if (!$shopRentVisible): ?>
+            <div class="alert alert-danger" style="margin-top:12px;">
+              <strong>Shop hidden from customers.</strong>
+              Monthly platform rent is <?= h($rentLive) ?>.
+              Contact the platform admin to pay rent and restore your public shop.
+            </div>
+            <?php elseif ($rentLive === 'trial'): ?>
+            <div class="alert alert-warning" style="margin-top:12px;">
+              <strong>Free trial.</strong>
+              Your shop is live<?= $rentUntil !== '' ? (' until ' . h(date('M j, Y', strtotime($rentUntil)))) : '' ?>.
+              After trial, pay monthly rent to keep selling on the public feed.
+            </div>
+            <?php elseif ($rentLive === 'active' && $rentUntil !== ''): ?>
+            <div class="alert alert-success" style="margin-top:12px;">
+              <strong>Rent active</strong> until <?= h(date('M j, Y', strtotime($rentUntil))) ?>.
+              Your shop is visible to customers.
+            </div>
+            <?php endif; ?>
+          <?php endif; ?>
+
+          <?php if ($publisherUserId > 0): ?>
+            <div class="publisher-hub">
+              <div class="publisher-hub-head">
+                <div>
+                  <h3 class="publisher-hub-title">Public Publisher</h3>
+                  <div class="publisher-hub-sub">
+                    Your team workspace is linked to
+                    <strong><?= h($publisherStats['name'] !== '' ? $publisherStats['name'] : 'your brand page') ?></strong>
+                    on the public feed.
+                  </div>
+                </div>
+                <div class="publisher-hub-actions">
+                  <?php if ($shopRentVisible): ?>
+                  <a href="publisher_public_enter.php?to=compose" class="btn btn-primary btn-sm">
+                    <i class="fa fa-pencil mg-r-5"></i> Publish to Public
+                  </a>
+                  <a href="publisher_public_enter.php?to=feed" class="btn btn-outline-primary btn-sm">
+                    <i class="fa fa-globe mg-r-5"></i> View Public Feed
+                  </a>
+                  <?php else: ?>
+                  <span class="btn btn-outline-secondary btn-sm disabled" title="Pay platform rent to restore shop">Shop hidden — rent overdue</span>
+                  <?php endif; ?>
+                  <?php if ($publisherStats['username'] !== ''): ?>
+                    <a href="publisher_public_enter.php?to=profile" class="btn btn-outline-secondary btn-sm">
+                      <i class="fa fa-user mg-r-5"></i> Brand Profile
+                    </a>
+                  <?php endif; ?>
+                </div>
+              </div>
+              <div class="publisher-hub-stats">
+                <span class="publisher-stat" title="Total public posts">
+                  <i class="fa fa-file-text-o"></i>
+                  <?= (int)$publisherStats['posts'] ?> posts
+                </span>
+                <span class="publisher-stat" title="Public posts in last 7 days">
+                  <i class="fa fa-clock-o"></i>
+                  <?= (int)$publisherStats['posts_7d'] ?> this week
+                </span>
+                <span class="publisher-stat" title="Followers">
+                  <i class="fa fa-users"></i>
+                  <?= (int)$publisherStats['followers'] ?> followers
+                </span>
+              </div>
+            </div>
+          <?php endif; ?>
+
           <!-- ✅ Buttons left + pills right -->
           <div class="dash-toprow">
             <div class="left-actions">
-              <a href="feed.php" class="btn btn-outline-secondary">
+              <a href="feed.php" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-home"></i> Home
               </a>
-              <a href="posts.php?tab=work" class="btn btn-outline-secondary">
+              <a href="posts.php?tab=work" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-list mg-r-5"></i> Posts List
               </a>
 
               <?php if (is_managerish($meRole)): ?>
-                <a href="create_staff.php" class="btn btn-outline-secondary">
+                <a href="create_staff.php" class="btn btn-outline-secondary btn-sm">
                   <i class="ion-person-add mg-r-5"></i> Create Staff
                 </a>
-                <a href="settings.php" class="btn btn-outline-secondary">
+                <a href="settings.php" class="btn btn-outline-secondary btn-sm">
                   <i class="ion-ios-gear mg-r-5"></i> Org Settings
                 </a>
                 <!-- <a href="messages.php" class="btn btn-outline-secondary">
                   <i class="ion-chatboxes mg-r-5"></i> Messages
                 </a> -->
               <?php else: ?>
-                <a href="messages.php" class="btn btn-outline-secondary">
+                <a href="messages.php" class="btn btn-outline-secondary btn-sm">
                   <i class="ion-chatboxes mg-r-5"></i> Messages
                 </a>
-                <a href="members.php" class="btn btn-outline-secondary">
+                <a href="members.php" class="btn btn-outline-secondary btn-sm">
                   <i class="ion-ios-people mg-r-5"></i> Members
                 </a>
               <?php endif; ?>
@@ -835,67 +805,19 @@ $preview = array_slice($complianceRows, 0, 1);
           </div>
 
           <?php if (is_managerish($meRole)): ?>
-            <!-- Manager Quick Update (create only) -->
             <div class="feed-card" style="margin-top:16px;">
               <div class="feed-meta">
-                <span class="feed-badge">Manager Update</span>
-                <span class="mini-muted">Keep it short & clear. Comments are for clarity, not debate.</span>
+                <span class="feed-badge">Organization feed</span>
+                <span class="mini-muted">Post announcements to your team feed (not the public social feed).</span>
               </div>
-
-              <form method="post" action="" enctype="multipart/form-data">
-                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <input type="hidden" name="action" value="create_post">
-
-                <div class="form-row">
-                  <div class="form-group col-md-3">
-                    <label class="mini-muted">Type</label>
-                    <select name="post_type" class="form-control" required>
-                      <option value="announcement">Announcement</option>
-                      <option value="direction">Direction</option>
-                      <option value="update" selected>Update</option>
-                      <option value="weekly_update">Weekly Update</option>
-                      <option value="recognition">Recognition</option>
-                    </select>
-                  </div>
-
-                  <div class="form-group col-md-3">
-                    <label class="mini-muted">Visibility</label>
-                    <select name="visibility" class="form-control">
-                      <option value="organization" selected>Organization</option>
-                      <option value="team">Team</option>
-                    </select>
-                  </div>
-
-                  <div class="form-group col-md-6">
-                    <label class="mini-muted">Title (optional)</label>
-                    <input type="text" name="title" maxlength="200" class="form-control" placeholder="Short title (optional)">
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label class="mini-muted">Message</label>
-                  <textarea name="body" class="form-control" rows="3" required
-                    placeholder="Share an update, direction, or recognition…"></textarea>
-                </div>
-
-
-                <div class="form-group">
-                  <label class="mini-muted">Attachments (optional)</label>
-                  <input
-                    type="file"
-                    name="attachments[]"
-                    class="form-control"
-                    multiple
-                    accept="image/*,video/*,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation">
-                  <div class="mini-muted" style="margin-top:6px;">
-                    Allowed: images, videos, PDF, PowerPoint. Max 35MB each (server limits still apply).
-                  </div>
-                </div>
-
-                <button class="btn btn-primary" type="submit">
-                  <i class="fa fa-paper-plane mg-r-5"></i> Post Update
-                </button>
-              </form>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+                <a href="compose_post.php" class="btn btn-primary btn-sm">
+                  <i class="fa fa-paper-plane mg-r-5"></i> New announcement
+                </a>
+                <a href="feed.php" class="btn btn-outline-secondary btn-sm">
+                  <i class="fa fa-home mg-r-5"></i> View feed
+                </a>
+              </div>
             </div>
 
             <!-- ✅ Compliance header + preview + modal button -->
@@ -980,7 +902,7 @@ $preview = array_slice($complianceRows, 0, 1);
         </div>
 
         <button type="button" class="btn-close-x" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true" style="font-size:22px; font-weight:900;">&times;</span>
+          <span aria-hidden="true" style="font-size:16px; font-weight:700;">&times;</span>
         </button>
       </div>
 

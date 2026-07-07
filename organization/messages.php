@@ -409,8 +409,8 @@ if ($peerMid > 0) {
       min-height:0;
       overflow:hidden;
       display:flex;
-      gap:10px;
-      padding: 8px;
+      gap:6px;
+      padding: 6px;
     }
 
     .chat-left, .chat-right{
@@ -441,9 +441,9 @@ if ($peerMid > 0) {
     }
 
     /* ========= your existing styles (kept) ========= */
-    .msg-me{background:#eef2ff; padding:8px 10px; border-radius:10px; margin:6px 0 6px auto; max-width:70%;}
-    .msg-them{background:#4f535b;;color:white;padding:8px 10px; border-radius:10px; margin:6px auto 6px 0; max-width:70%;}
-    .composer-row{display:flex; gap:10px; align-items:flex-end;}
+    .msg-me{background:#eef2ff; padding:5px 8px; border-radius:8px; margin:4px 0 4px auto; max-width:70%; font-size:11px;}
+    .msg-them{background:#4f535b;color:white;padding:5px 8px; border-radius:8px; margin:4px auto 4px 0; max-width:70%; font-size:11px;}
+    .composer-row{display:flex; gap:6px; align-items:flex-end;}
     .composer-row .form-group{flex:1; margin:0;}
 
     .msg-row{display:flex;margin:6px 0;}
@@ -461,16 +461,16 @@ if ($peerMid > 0) {
     .msg-attach{display:inline-block;width:fit-content;max-width:100%;}
     .msg-attach img{
       width:auto !important;height:auto !important;
-      max-width:260px;max-height:260px;display:block;border-radius:10px;
+      max-width:180px;max-height:140px;display:block;border-radius:8px;
     }
     .msg-attach video{
       width:auto !important;height:auto !important;
-      max-width:260px;max-height:260px;display:block;border-radius:10px;
+      max-width:180px;max-height:140px;display:block;border-radius:8px;
     }
 
     /* Attachment preview inside textarea */
     .composer-row .form-group{ position:relative; }
-    .composer-row .form-group textarea{ padding-bottom:44px; }
+    .composer-row .form-group textarea{ padding-bottom:36px; font-size:11px; min-height:52px; }
 
     #attachStatus{
       position:absolute;
@@ -479,7 +479,7 @@ if ($peerMid > 0) {
       z-index:5;
       display:none;
       border-radius:10px;
-      font-size:12px;
+      font-size:10px;
       line-height:1.2;
       background:rgba(0,0,0,.06);
       border:1px solid rgba(0,0,0,.10);
@@ -489,45 +489,46 @@ if ($peerMid > 0) {
     #attachStatus .attach-left{display:flex;align-items:center;gap:10px;min-width:0;}
     #attachStatus .attach-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
     #attachStatus .attach-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;display:block;border:1px solid rgba(0,0,0,.10);}
-    #attachStatus .attach-x{border:0;background:transparent;font-size:18px;line-height:1;opacity:.7;cursor:pointer;padding:0 4px;}
+    #attachStatus .attach-x{border:0;background:transparent;font-size:14px;line-height:1;opacity:.7;cursor:pointer;padding:0 4px;}
     #attachStatus .attach-x:hover{ opacity:1; }
     #attachStatus.err{ background:rgba(220,53,69,.12); border-color:rgba(220,53,69,.25); }
 
     #emojiBoxFixed{position: fixed; z-index: 20000; width: 320px; display: none; box-shadow: 0 10px 30px rgba(0,0,0,.25);}
     #emojiBoxFixed .card-body{ padding:10px; }
-    #emojiGrid{display:grid;grid-template-columns:repeat(10, 1fr);gap:6px;font-size:20px;max-height:220px;overflow:auto;}
+    #emojiGrid{display:grid;grid-template-columns:repeat(10, 1fr);gap:4px;font-size:16px;max-height:180px;overflow:auto;}
     #emojiGrid button{ padding:6px; line-height:1; }
 
     .peer-row{display:flex; justify-content:space-between; gap:10px;}
     .peer-meta{min-width:0;}
     .peer-name{font-weight:600; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-    .peer-sub{margin:0; opacity:.75; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .peer-sub{margin:0; opacity:.75; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
     .peer-right{display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex:0 0 auto;}
-    .peer-time{font-size:11px; opacity:.65; white-space:nowrap;}
+    .peer-time{font-size:9px; opacity:.65; white-space:nowrap;}
 
-    .unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#dc3545;color:#fff;font-size:11px;font-weight:700;line-height:1;}
+    .unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc3545;color:#fff;font-size:9px;font-weight:700;line-height:1;}
     .attach-click{ cursor:pointer; }
 
-    .msg-status{font-size:12px;font-weight:700;margin-left:8px;letter-spacing:1px;user-select:none;}
+    .msg-status{font-size:10px;font-weight:700;margin-left:6px;letter-spacing:1px;user-select:none;}
     .msg-status.sent{ opacity:.55; }
     .msg-status.read{ opacity:.9; }
 
     /* ✅ Search bar inside page (fixed, not scrolling) */
     .search-bar{
-      padding:10px 12px;
+      padding:6px 8px;
       border:1px solid rgba(0,0,0,.10);
-      border-radius:10px;
+      border-radius:6px;
       background:#fff;
       display:flex;
       align-items:center;
-      gap:10px;
-      margin: 10px;
+      gap:6px;
+      margin: 6px;
     }
     #chatSearch{
-      height:42px;
-      border-radius:10px;
+      height:28px;
+      border-radius:6px;
+      font-size:11px;
     }
-    .search-hint{font-size:12px;opacity:.7;white-space:nowrap;}
+    .search-hint{font-size:10px;opacity:.7;white-space:nowrap;}
 
     /* ✅ right side split */
     .conv-split{
@@ -535,8 +536,8 @@ if ($peerMid > 0) {
       min-height:0;
       overflow:hidden;
       display:flex;
-      gap:10px;
-      padding: 10px;
+      gap:6px;
+      padding: 6px;
     }
     .conv-main{
       flex:1 1 auto;
@@ -558,15 +559,15 @@ if ($peerMid > 0) {
 
     .conv-topbar{
       flex:0 0 auto;
-      padding: 10px 12px;
+      padding: 6px 8px;
       border: 1px solid rgba(0,0,0,.10);
-      border-radius: 10px;
+      border-radius: 6px;
       /* background: #fff; */
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:10px;
-      margin: 10px;
+      margin: 6px;
       margin-bottom:0;
     }
     .conv-title{ min-width:0; }
@@ -576,31 +577,33 @@ if ($peerMid > 0) {
     /* ✅ Only left sidebar search */
     .members-search{
       flex:0 0 auto;
-      padding:10px;
+      padding:6px;
       border-bottom:1px solid rgba(0,0,0,.08);
     }
     .members-search input{
       width:100%;
-      height:34px;
+      height:28px;
       border:1px solid rgba(0,0,0,.12);
-      border-radius:10px;
-      padding:6px 10px;
+      border-radius:6px;
+      padding:4px 8px;
       outline:none;
+      font-size:11px;
     }
 
     /* ✅ Only right history search */
     .history-search{
       flex:0 0 auto;
-      padding:10px;
+      padding:6px;
       border-bottom:1px solid rgba(0,0,0,.08);
     }
     .history-search input{
       width:100%;
-      height:34px;
+      height:28px;
       border:1px solid rgba(0,0,0,.12);
-      border-radius:10px;
-      padding:6px 10px;
+      border-radius:6px;
+      padding:4px 8px;
       outline:none;
+      font-size:11px;
     }
 
     /* ✅ Only messages scroll */
@@ -609,9 +612,9 @@ if ($peerMid > 0) {
       min-height:0;
       overflow:auto;
       border:1px solid rgba(0,0,0,.1);
-      border-radius:10px;
+      border-radius:6px;
       /* background:#fff; */
-      padding:12px;
+      padding:6px;
     }
 
     /* ✅ Composer fixed */
@@ -620,7 +623,7 @@ if ($peerMid > 0) {
       border:1px solid rgba(0,0,0,.10);
       border-radius:10px;
       /* background:#fff; */
-      padding: 10px;
+      padding: 6px;
     }
 
     .history-card{
@@ -628,7 +631,7 @@ if ($peerMid > 0) {
       min-height:0;
       overflow:hidden;
       border:1px solid rgba(0,0,0,.10);
-      border-radius:10px;
+      border-radius:6px;
       /* background:#fff; */
       display:flex;
       flex-direction:column;
@@ -636,23 +639,24 @@ if ($peerMid > 0) {
     }
     .history-head{
       flex:0 0 auto;
-      padding:10px;
+      padding:6px 8px;
       border-bottom:1px solid rgba(0,0,0,.08);
       display:flex;
       justify-content:space-between;
       align-items:center;
-      gap:10px;
+      gap:6px;
+      font-size:11px;
     }
     .history-scroll{
       flex:1 1 auto;
       min-height:0;
       overflow:auto;
-      padding:10px;
+      padding:6px;
     }
 
     .members-list-wrap{
       border:1px solid rgba(0,0,0,.10);
-      border-radius:10px;
+      border-radius:6px;
       overflow:hidden;
       display:flex;
       flex-direction:column;
@@ -675,7 +679,7 @@ if ($peerMid > 0) {
   </style>
 </head>
 
-<body>
+<body class="org-app">
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 
@@ -695,10 +699,10 @@ if ($peerMid > 0) {
         <div class="card bd-0 fixed-card">
 
           <div class="card-header bg-transparent pd-y-15 fixed-head">
-            <h6 class="card-title mg-b-0" style="color:#a0a3a7">Members</h6>
+            <h6 class="card-title mg-b-0" style="color:#a0a3a7;font-size:10px;text-transform:uppercase;">Members</h6>
           </div>
 
-          <div class="fixed-body" style="padding:10px;">
+          <div class="fixed-body" style="padding:6px;">
 
             <div class="members-list-wrap">
               <!-- ✅ members search -->
@@ -738,9 +742,9 @@ if ($peerMid > 0) {
                     <li class="list-group-item <?= $active ? 'active' : '' ?>" data-peer-row>
                       <a href="messages.php?peer=<?= $peerId ?>" style="<?= $active ? 'color:#fff' : '' ?>">
                         <div class="peer-row">
-                          <div class="peer-meta" style="display:flex;gap:10px;align-items:center;min-width:0;">
-                            <img src="<?= h($peerAvatar) ?>" alt=""
-                                 style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,0,0,.08);">
+                          <div class="peer-meta" style="display:flex;gap:6px;align-items:center;min-width:0;">
+                            <img src="<?= h($peerAvatar) ?>" alt="" class="peer-avatar"
+                                 style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid rgba(0,0,0,.08);">
                             <div style="min-width:0;">
                               <p class="peer-name" data-peer-name><?= h($name) ?></p>
                               <?php if ($preview !== ''): ?>
@@ -775,8 +779,8 @@ if ($peerMid > 0) {
       <div class="chat-right">
         <div class="card bd-0 fixed-card">
 
-          <div class="card-header bg-transparent fixed-head" style="padding:5px;margin:10px;">
-            <h6 class="card-title mg-b-0" style="color:#a0a3a7">Conversation</h6>
+          <div class="card-header bg-transparent fixed-head" style="padding:4px 8px;margin:6px;">
+            <h6 class="card-title mg-b-0" style="color:#a0a3a7;font-size:10px;text-transform:uppercase;">Conversation</h6>
           </div>
 
           <div class="fixed-body">
@@ -785,7 +789,7 @@ if ($peerMid > 0) {
               <div class="alert alert-danger" style="margin:10px;"><?= h($msgErr) ?></div>
             <?php endif; ?>
 
-            <div style="padding:10px;">
+            <div style="padding:6px;">
               <?php if ($threadingEnabled && $peerMid > 0): ?>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:1px;">
                   <div style="min-width:0;padding: 10px;">
@@ -919,8 +923,8 @@ if ($peerMid > 0) {
                     <input type="hidden" name="attachment_id" id="attachmentId" value="0">
 
                     <div class="composer-row">
-                      <i class="icon ion-happy-outline" style="font-size:35px;cursor:pointer;" id="emojiBtn" title="Emoji"></i>
-                      <i class="icon ion-paperclip" style="font-size:35px;cursor:pointer;" id="attachBtn" title="Attach"></i>
+                      <i class="icon ion-happy-outline" style="font-size:18px;cursor:pointer;" id="emojiBtn" title="Emoji"></i>
+                      <i class="icon ion-paperclip" style="font-size:18px;cursor:pointer;" id="attachBtn" title="Attach"></i>
 
                       <input type="file" id="attachFile" class="d-none" accept="image/*,video/*,application/pdf">
 
@@ -933,7 +937,7 @@ if ($peerMid > 0) {
 
                       <div style="white-space:nowrap;">
                         <button class="btn btn-primary" type="submit">
-                          <i class="fa fa-send" style="font-size:35px;"></i>
+                          <i class="fa fa-send" style="font-size:14px;"></i>
                         </button>
                       </div>
                     </div>

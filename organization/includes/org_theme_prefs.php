@@ -108,6 +108,49 @@ function org_theme_css_was_printed(): bool
     return !empty($GLOBALS['__MSB_ORG_THEME_CSS_PRINTED']);
 }
 
+function org_theme_is_named_palette(string $mode): bool
+{
+    $mode = appearance_palette_normalize_mode($mode);
+    return !in_array($mode, ['system', 'light', 'dark'], true);
+}
+
+/** Paint org shell chrome from DB before JS/CSS load (sidebar, header, body). */
+function org_theme_print_shell_palette_critical(PDO $dbh): void
+{
+    if (!empty($GLOBALS['__MSB_ORG_SHELL_PALETTE_PRINTED'])) {
+        return;
+    }
+    $GLOBALS['__MSB_ORG_SHELL_PALETTE_PRINTED'] = true;
+
+    $userId = org_theme_viewer_user_id($dbh);
+    if ($userId <= 0) {
+        return;
+    }
+
+    $mode = org_theme_appearance_mode($dbh, $userId);
+    if (!org_theme_is_named_palette($mode)) {
+        return;
+    }
+
+    $hex = appearance_palette_hex_for_slug($mode);
+    $usesDarkChrome = appearance_palette_uses_dark_chrome($mode);
+    $text = $usesDarkChrome ? '#f3f6fb' : '#0f172a';
+    $modeJson = json_encode($mode, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    $hexAttr = htmlspecialchars($hex, ENT_QUOTES, 'UTF-8');
+    $textAttr = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+
+    echo '<script>document.documentElement.setAttribute("data-msb-appearance",' . $modeJson . ');</script>' . "\n";
+    echo '<style id="org-shell-palette-critical">'
+        . 'html[data-msb-appearance]{--msb-palette-bg:' . $hexAttr . ';--org-bg:' . $hexAttr . ';--msb-palette-text:' . $textAttr . ';}'
+        . 'html[data-msb-appearance],html[data-msb-appearance] body,'
+        . 'html[data-msb-appearance] .sh-sideleft-menu,'
+        . 'html[data-msb-appearance] .sh-logopanel,'
+        . 'html[data-msb-appearance] .sh-headpanel{'
+        . 'background-color:var(--msb-palette-bg)!important;background-image:none!important;'
+        . 'color:var(--msb-palette-text)!important;}'
+        . '</style>' . "\n";
+}
+
 function org_theme_print_head_bootstrap(PDO $dbh): void
 {
     if (!empty($GLOBALS['__MSB_ORG_THEME_HEAD_PRINTED'])) {
@@ -116,6 +159,8 @@ function org_theme_print_head_bootstrap(PDO $dbh): void
     $GLOBALS['__MSB_ORG_THEME_HEAD_PRINTED'] = true;
 
     $userId = org_theme_viewer_user_id($dbh);
+
+    org_theme_print_shell_palette_critical($dbh);
 
     echo '<script>window.__MSB_THEME_DISABLE_LOCAL = true;</script>' . "\n";
 
@@ -132,8 +177,8 @@ function org_theme_print_head_bootstrap(PDO $dbh): void
         }
     }
 
-    echo '<script src="../js/theme-bootstrap.js?v=26"></script>' . "\n";
-    echo '<link rel="stylesheet" href="../css/appearance-palette.css?v=27">' . "\n";
-    echo '<link rel="stylesheet" href="../css/dark-auto.css">' . "\n";
+    echo '<script src="../public_user/js/theme-bootstrap.js?v=56"></script>' . "\n";
+    echo '<link rel="stylesheet" href="../public_user/css/appearance-palette.css?v=73">' . "\n";
+    echo '<link rel="stylesheet" href="../css/dark-auto.css?v=2">' . "\n";
     $GLOBALS['__MSB_ORG_THEME_CSS_PRINTED'] = true;
 }
