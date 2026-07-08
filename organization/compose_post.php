@@ -146,18 +146,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .card-body-fixed { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
     .rows-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 15px; }
     .actions-fixed {
-      flex: 0 0 auto; padding: 12px 15px; border-top: 1px solid rgba(17,24,39,.10);
-      background: rgba(248,250,252,.96); display: flex; gap: 10px; flex-wrap: wrap;
+      flex: 0 0 auto; padding: 12px 15px; border-top: 1px solid rgba(177,188,206,.12);
+      background: #171d24; display: flex; gap: 10px; flex-wrap: wrap;
       justify-content: flex-end; align-items: center;
     }
     .compose-intro {
       margin-bottom: 14px; padding: 12px 14px; border-radius: 10px;
-      background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.18);
+      background: #171d24; border: 1px solid rgba(177,188,206,.18);
       font-size: 12px; line-height: 1.45;
     }
     .compose-preview {
       margin-top: 14px; padding: 12px 14px; border-radius: 10px;
-      border: 1px dashed rgba(17,24,39,.18); background: #fff;
+      border: 1px dashed rgba(177,188,206,.25); background: #171d24;
     }
     .compose-preview .feed-badge { display: inline-block; margin-bottom: 6px; }
     .publisher-check { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; }

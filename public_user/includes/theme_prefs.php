@@ -5,6 +5,7 @@ require_once __DIR__ . '/session_user.php';
 require_once __DIR__ . '/publisher_accounts.php';
 require_once __DIR__ . '/profile_access.php';
 require_once __DIR__ . '/appearance_palettes.php';
+require_once __DIR__ . '/appearance_bridge.php';
 
 function theme_prefs_viewer_user_id(): int
 {
@@ -70,32 +71,11 @@ function theme_prefs_print_head_bootstrap(PDO $dbh, int $userId = 0): void
     if ($userId <= 0) {
         $userId = theme_prefs_viewer_user_id();
     }
-
-    $cfg = theme_prefs_js_config($dbh, $userId);
-    $uid = (int)($cfg['userId'] ?? 0);
-    if ($uid <= 0) {
+    if ($userId <= 0) {
         return;
     }
 
-    $autoEnabled = !empty($cfg['autoEnabled']) ? 'true' : 'false';
-    $manualMode = json_encode((string)($cfg['manualMode'] ?? 'dark'));
-    $appearanceMode = json_encode((string)($cfg['appearanceMode'] ?? 'system'));
-    $paletteJson = json_encode(appearance_palette_js_map(), JSON_UNESCAPED_SLASHES);
-
-    echo '<script>window.__MSB_APPEARANCE_PALETTES = ' . $paletteJson . ';window.__MSB_THEME_USER_ID = ' . $uid . ';window.__MSB_THEME_DEFAULTS = {autoEnabled: ' . $autoEnabled . ', manualMode: ' . $manualMode . ', appearanceMode: ' . $appearanceMode . '};window.__MSB_THEME_DB_MODE = ' . $appearanceMode . ';window.__MSBThemePrefsUserId = ' . $uid . ';window.__MSBThemePrefs = {autoEnabled: ' . $autoEnabled . ', manualMode: ' . $manualMode . ', appearanceMode: ' . $appearanceMode . '};</script>' . "\n";
-    echo '<script src="./js/theme-bootstrap.js?v=56"></script>' . "\n";
-    if (!defined('MSB_THEME_DARK_CSS')) {
-        define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="./css/dark-auto.css">' . "\n";
-    }
-    if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
-        define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="./css/appearance-palette.css?v=73">' . "\n";
-    }
-    if (!defined('MSB_THEME_DARK_JS')) {
-        define('MSB_THEME_DARK_JS', true);
-        echo '<script src="./js/dark-auto.js?v=6" defer></script>' . "\n";
-    }
+    appearance_bridge_print_theme_stack($dbh, $userId, './', false);
 }
 
 function theme_prefs_is_named_palette(string $mode): bool

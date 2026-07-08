@@ -135,6 +135,203 @@
       '<i class="' + escHtml(icon) + '" aria-hidden="true"></i><span>' + escHtml(label) + '</span></a>';
   }
 
+  function buttonItem(cls, icon, label, extraAttrs){
+    return '<button type="button" class="pcm-item ' + cls + '" role="menuitem"' + (extraAttrs || '') + '>' +
+      '<i class="' + escHtml(icon) + '" aria-hidden="true"></i><span>' + escHtml(label) + '</span></button>';
+  }
+
+  function menuDivider(){
+    return '<div class="pcm-divider" role="separator"></div>';
+  }
+
+  function trackApiUrl(){
+    return String(opts.api_url || 'feed_api.php');
+  }
+
+  function absolutePostUrl(postId, wrap){
+    postId = Number(postId || 0);
+    if(!postId) return '';
+    var surface = '';
+    if(wrap && wrap.getAttribute){
+      surface = String(wrap.getAttribute('data-menu-surface') || '').trim();
+    }
+    if(!surface) surface = String(opts.menu_surface || 'public');
+    if(surface === 'feed'){
+      return (window.location.origin || '') + (window.location.pathname || '') + '?post=' + encodeURIComponent(String(postId));
+    }
+    var page = surface === 'profile' ? 'profile.php' : 'public.php';
+    return (window.location.origin || '') + '/' + page.replace(/^\//, '') + '?post=' + encodeURIComponent(String(postId));
+  }
+
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject){
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        resolve();
+      } catch(err){ reject(err); }
+    });
+  }
+
+  function pcmToast(msg){
+    var el = document.getElementById('pcmActionToast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'pcmActionToast';
+      el.setAttribute('role', 'status');
+      el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#262626;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:100001;opacity:0;transition:opacity .2s ease;pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    el.textContent = String(msg || '');
+    el.style.opacity = '1';
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function(){ el.style.opacity = '0'; }, 1800);
+  }
+
+  function syncBookmarkMenuState(postId, saved){
+    postId = Number(postId || 0);
+    saved = !!saved;
+    document.querySelectorAll('.pcm-bookmark[data-post-id="'+String(postId)+'"]').forEach(function(btn){
+      btn.classList.toggle('is-active', saved);
+      btn.setAttribute('data-saved', saved ? '1' : '0');
+      var icon = btn.querySelector('i');
+      if(icon){
+        icon.className = saved ? 'fa fa-bookmark' : 'fa fa-bookmark-o';
+      }
+    });
+  }
+
+  function syncPostTrackState(postId, res){
+    postId = Number(postId || 0);
+    if(!postId || !res) return;
+
+    var state = res.state || {};
+    var counts = res.counts || res;
+    var saved = Number(
+      state.saved != null ? state.saved :
+      (counts.is_saved != null ? counts.is_saved :
+      (counts.my_saved != null ? counts.my_saved : 0))
+    ) === 1;
+    var shared = Number(
+      state.shared != null ? state.shared :
+      (counts.is_shared != null ? counts.is_shared :
+      (counts.my_shared != null ? counts.my_shared : 0))
+    ) === 1;
+
+    document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"]').forEach(function(card){
+      card.setAttribute('data-my-saved', saved ? '1' : '0');
+    });
+
+    document.querySelectorAll('.js-save-post[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"] .mf-save').forEach(function(btn){
+      btn.classList.toggle('is-save', saved);
+    });
+    document.querySelectorAll('.js-share-post[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"] .mf-share').forEach(function(btn){
+      btn.classList.toggle('is-share', shared);
+    });
+    document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-act.mf-save .msb-pact-bookmark').forEach(function(icon){
+      icon.classList.toggle('is-active', saved);
+    });
+
+    if(typeof res.share_count !== 'undefined'){
+      document.querySelectorAll('.public-post-card[data-post-id="'+String(postId)+'"] .js-share-count').forEach(function(el){
+        el.textContent = String(res.share_count || 0);
+      });
+      document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-share .mf-num').forEach(function(el){
+        el.textContent = String(res.share_count || 0);
+      });
+    }
+    if(typeof res.save_count !== 'undefined'){
+      document.querySelectorAll('.public-post-card[data-post-id="'+String(postId)+'"] .js-save-count').forEach(function(el){
+        el.textContent = String(res.save_count || 0);
+      });
+      document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-save .mf-num').forEach(function(el){
+        el.textContent = String(res.save_count || 0);
+      });
+    }
+
+    syncBookmarkMenuState(postId, saved);
+
+    if(typeof window.mfHydrateCard === 'function'){
+      try { window.mfHydrateCard(postId, res.post || {}, counts, res.attachments || []); } catch(e){}
+    }
+  }
+
+  function postTrack(action, postId, done){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    var url = trackApiUrl();
+    if($){
+      $.post(url, { ajax: action, post_id: postId }, function(res){
+        if(res && res.ok !== false) syncPostTrackState(postId, res);
+        if(typeof done === 'function') done(res);
+      }, 'json');
+      return;
+    }
+    var body = new URLSearchParams({ ajax: action, post_id: String(postId) });
+    fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(res && res.ok !== false) syncPostTrackState(postId, res);
+        if(typeof done === 'function') done(res);
+      })
+      .catch(function(){ if(typeof done === 'function') done(null); });
+  }
+
+  function buildOwnerItems(it, pid, helpers){
+    helpers = helpers || {};
+    var esc = helpers.esc || escHtml;
+    pid = Number(pid || it.id || 0);
+    if(pid <= 0) return '';
+
+    var isArchived = Number(
+      it.is_archived != null ? it.is_archived :
+      (it.my_archived != null ? it.my_archived : 0)
+    ) === 1;
+    var editHref = 'dashboard.php?modal=1&edit=' + String(pid);
+    var html = linkItem('pcm-edit', editHref, 'fa fa-edit', 'Edit', ' data-create-post-modal="1"');
+    html += buttonItem(
+      'pcm-archive',
+      'fa fa-archive',
+      isArchived ? 'Unarchive' : 'Archive',
+      ' data-post-id="'+esc(String(pid))+'" data-archived="'+(isArchived ? '1' : '0')+'"'
+    );
+    html += buttonItem('pcm-delete', 'fa fa-trash', 'Delete', ' data-post-id="'+esc(String(pid))+'"');
+    return html;
+  }
+
+  function buildCommonItems(it, isOwner, pid, helpers){
+    helpers = helpers || {};
+    var esc = helpers.esc || escHtml;
+    pid = Number(pid || it.id || 0);
+    if(pid <= 0) return '';
+
+    var isSaved = Number(it.my_saved != null ? it.my_saved : (it.is_saved != null ? it.is_saved : 0)) === 1;
+    var html = '';
+
+    if(!isOwner){
+      html += buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+esc(String(pid))+'"');
+    }
+    html += buttonItem(
+      'pcm-bookmark' + (isSaved ? ' is-active' : ''),
+      isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o',
+      'Bookmark',
+      ' data-post-id="'+esc(String(pid))+'" data-saved="'+(isSaved ? '1' : '0')+'"'
+    );
+    html += buttonItem('pcm-share', 'fa fa-share', 'Share', ' data-post-id="'+esc(String(pid))+'"');
+    html += buttonItem('pcm-copy-link', 'fa fa-link', 'Copy link', ' data-post-id="'+esc(String(pid))+'"');
+    return html;
+  }
+
   function menuItemSel(suffix){
     return '.post-card-menu ' + suffix + ', .mf-menu.post-card-menu ' + suffix + ', .pcm-menu-portal ' + suffix;
   }
@@ -195,11 +392,10 @@
     var staffReadonly = !!opts.staff_readonly;
 
     if(isOwner && !staffReadonly){
-      var editHref = 'dashboard.php?modal=1&edit=' + String(pid);
-      return linkItem('pcm-edit', editHref, 'fa fa-edit', 'Edit', ' data-create-post-modal="1"') +
-        '<div class="pcm-divider" role="separator"></div>' +
-        '<button type="button" class="pcm-item pcm-delete" data-post-id="' + esc(String(pid)) + '" role="menuitem">' +
-        '<i class="fa fa-trash" aria-hidden="true"></i><span>Delete</span></button>';
+      var ownerHtml = buildOwnerItems(it, pid, helpers);
+      var ownerCommon = buildCommonItems(it, true, pid, helpers);
+      if(ownerCommon) ownerHtml += menuDivider() + ownerCommon;
+      return ownerHtml;
     }
 
     var peerId = Number(it.user_id || 0);
@@ -249,6 +445,13 @@
     if(showTimeline){
       html += linkItem('pcm-timeline', 'timeline.php?u=' + String(peerId), 'icon ion-ios-locked', 'Timeline');
     }
+
+    var commonHtml = buildCommonItems(it, isOwner, pid, helpers);
+    if(commonHtml){
+      if(html) html += menuDivider();
+      html += commonHtml;
+    }
+
     return html;
   }
 
@@ -279,7 +482,11 @@
       is_publisher: Number(card.getAttribute('data-is-publisher') || 0),
       contact_id: Number(card.getAttribute('data-contact-id') || 0),
       contact_name: String(card.getAttribute('data-contact-name') || ''),
-      profile_url: String(card.getAttribute('data-profile-url') || '')
+      profile_url: String(card.getAttribute('data-profile-url') || ''),
+      my_saved: Number(card.getAttribute('data-my-saved') || 0),
+      is_saved: Number(card.getAttribute('data-my-saved') || 0),
+      is_archived: Number(card.getAttribute('data-is-archived') || 0),
+      my_archived: Number(card.getAttribute('data-is-archived') || 0)
     };
   }
 
@@ -387,6 +594,66 @@
     if(el) el.style.display = 'none';
   }
 
+  function removePostFromSurfaces(postId){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"]').forEach(function(el){
+      try { el.remove(); } catch(e){}
+    });
+    if(window.TTStories && typeof window.TTStories.removePost === 'function'){
+      try { window.TTStories.removePost(postId); } catch(e){}
+    }
+  }
+
+  function syncArchiveMenuState(postId, archived){
+    postId = Number(postId || 0);
+    archived = !!archived;
+    document.querySelectorAll('.pcm-archive[data-post-id="'+String(postId)+'"]').forEach(function(btn){
+      btn.setAttribute('data-archived', archived ? '1' : '0');
+      var label = btn.querySelector('span');
+      if(label) label.textContent = archived ? 'Unarchive' : 'Archive';
+    });
+    document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"]').forEach(function(card){
+      card.setAttribute('data-is-archived', archived ? '1' : '0');
+    });
+  }
+
+  function runArchive(postId, archived, done){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    var url = trackApiUrl();
+    var body = new URLSearchParams({ ajax: 'archive', post_id: String(postId), archived: archived ? '1' : '0' });
+    fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(res && res.ok !== false){
+          var nextArchived = Number(
+            res.archived != null ? res.archived :
+            (res.state && res.state.archived != null ? res.state.archived : (archived ? 1 : 0))
+          ) === 1;
+          syncArchiveMenuState(postId, nextArchived);
+          if(nextArchived){
+            removePostFromSurfaces(postId);
+            pcmToast('Post archived.');
+          } else {
+            pcmToast('Post unarchived.');
+          }
+        }
+        if(typeof done === 'function') done(res);
+      })
+      .catch(function(){ if(typeof done === 'function') done(null); });
+  }
+
+  function confirmArchive(btn){
+    if(!btn) return;
+    var postId = Number(btn.getAttribute('data-post-id') || 0);
+    if(!postId) return;
+    var isArchived = String(btn.getAttribute('data-archived') || '0') === '1';
+    var nextArchived = !isArchived;
+    if(nextArchived && !window.confirm('Archive this post? It will be hidden from feeds.')) return;
+    runArchive(postId, nextArchived);
+  }
+
   function confirmDelete(postId, done){
     postId = Number(postId || 0);
     if(!postId) return;
@@ -415,7 +682,7 @@
       if($){
         $.post(opts.api_url, { ajax:'delete_post', post_id: postId }, function(res){
           if(res && res.ok !== false){
-            $('.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"]').remove();
+            removePostFromSurfaces(postId);
             try { if(typeof window.refreshList === 'function') window.refreshList(false); } catch(e){}
           }
           if(typeof done === 'function') done(res);
@@ -427,7 +694,7 @@
         .then(function(r){ return r.json(); })
         .then(function(res){
           if(res && res.ok !== false){
-            document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"]').forEach(function(el){ el.remove(); });
+            removePostFromSurfaces(postId);
             try { if(typeof window.refreshList === 'function') window.refreshList(false); } catch(e){}
           }
           if(typeof done === 'function') done(res);
@@ -487,6 +754,15 @@
       if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       confirmDelete(delBtn.getAttribute('data-post-id'));
+      return true;
+    }
+
+    var archiveBtn = closest(target, menuItemSel('.pcm-archive'));
+    if(archiveBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      closeMenus();
+      confirmArchive(archiveBtn);
       return true;
     }
 
@@ -578,6 +854,53 @@
         }
       }).catch(function(ex){
         window.alert((ex && ex.message) ? ex.message : 'Nothing to undo.');
+      });
+      return true;
+    }
+
+    var reportBtn = closest(target, menuItemSel('.pcm-report'));
+    if(reportBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      closeMenus();
+      pcmToast('Thanks for your report.');
+      return true;
+    }
+
+    var bookmarkBtn = closest(target, menuItemSel('.pcm-bookmark'));
+    if(bookmarkBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      closeMenus();
+      var bookmarkPid = Number(bookmarkBtn.getAttribute('data-post-id') || 0);
+      if(!bookmarkPid) return true;
+      postTrack('save', bookmarkPid);
+      return true;
+    }
+
+    var shareBtn = closest(target, menuItemSel('.pcm-share'));
+    if(shareBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      closeMenus();
+      var sharePid = Number(shareBtn.getAttribute('data-post-id') || 0);
+      if(!sharePid) return true;
+      var shareWrap = closest(shareBtn, '.post-card-menu-wrap, .mf-menu-wrap');
+      copyText(absolutePostUrl(sharePid, shareWrap));
+      postTrack('share', sharePid);
+      return true;
+    }
+
+    var copyBtn = closest(target, menuItemSel('.pcm-copy-link'));
+    if(copyBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      closeMenus();
+      var copyPid = Number(copyBtn.getAttribute('data-post-id') || 0);
+      if(!copyPid) return true;
+      var copyWrap = closest(copyBtn, '.post-card-menu-wrap, .mf-menu-wrap');
+      copyText(absolutePostUrl(copyPid, copyWrap)).then(function(){
+        pcmToast('Link copied to clipboard.');
       });
       return true;
     }
@@ -889,7 +1212,10 @@
     hydrate: hydrateEmptyMenus,
     syncOnMediaContrast: syncOnMediaMenuContrast,
     syncCardPublisher: syncCardPublisher,
-    syncPublisherCards: syncPublisherCards
+    syncPublisherCards: syncPublisherCards,
+    syncBookmarkMenuState: syncBookmarkMenuState,
+    syncArchiveMenuState: syncArchiveMenuState,
+    syncPostTrackState: syncPostTrackState
   };
 
   document.addEventListener('click', onDocumentClick, true);

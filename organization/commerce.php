@@ -52,7 +52,7 @@ function commerce_order_badge_class(string $status): string
 
 $pageTitle = 'Shop & commerce';
 require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=2">');
+org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=3">');
 ?>
 <div class="sh-pagebody commerce-page">
   <section class="commerce-hero">

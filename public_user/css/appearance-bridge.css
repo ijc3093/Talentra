@@ -1,0 +1,850 @@
+/* =====================================================
+   APPEARANCE BRIDGE — Gear (profile.php) → all surfaces
+   Maps local page tokens to --msb-palette-* for public_user + organization
+   ===================================================== */
+
+html {
+  --bg-main: var(--msb-palette-bg, #f5f7fb);
+  --bg-card: var(--msb-palette-surface, #ffffff);
+  --bg-sidebar: var(--msb-palette-sidebar, var(--msb-palette-bg, #f0f2f7));
+  --text-primary: var(--msb-palette-text, #111827);
+  --text-secondary: var(--msb-palette-text-muted, #6b7280);
+  --text-muted: var(--msb-palette-text-muted, #64748b);
+  --muted: var(--msb-palette-text-muted, #64748b);
+  --border-color: var(--msb-palette-border, #e5e7eb);
+  --accent: var(--msb-palette-action, var(--msb-palette-accent, #2563eb));
+  --org-accent: var(--msb-palette-action, var(--msb-palette-accent, #2563eb));
+  --org-bg: var(--msb-palette-bg, #f5f7fb);
+  --blue: var(--msb-palette-action, #2563eb);
+  --shadow: var(--msb-palette-shadow, 0 10px 18px rgba(0, 0, 0, 0.04));
+}
+
+html[data-msb-appearance] body {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+/* Common muted / meta text */
+html[data-msb-appearance] .mini-muted,
+html[data-msb-appearance] .text-muted,
+html[data-msb-appearance] .muted,
+html[data-msb-appearance] .feed-meta,
+html[data-msb-appearance] .feed-date,
+html[data-msb-appearance] .meta,
+html[data-msb-appearance] .rm-date,
+html[data-msb-appearance] .stat-pill .sub {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .stat-pill .num,
+html[data-msb-appearance] .feed-title,
+html[data-msb-appearance] .post-title {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .stat-pill .lbl,
+html[data-msb-appearance] .feed-desc,
+html[data-msb-appearance] .post-body {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .stat-pill .icon {
+  background: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .link,
+html[data-msb-appearance] .read-more-btn,
+html[data-msb-appearance] .feed-viewall,
+html[data-msb-appearance] a.link {
+  color: var(--msb-palette-link, var(--msb-palette-action)) !important;
+}
+
+html[data-msb-appearance] .btn-primary {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #fff) !important;
+}
+
+html[data-msb-appearance] .card,
+html[data-msb-appearance] .card-body,
+html[data-msb-appearance] .feed-card,
+html[data-msb-appearance] .post-card,
+html[data-msb-appearance] .dashboard-card {
+  background-color: var(--msb-palette-surface, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] input,
+html[data-msb-appearance] textarea,
+html[data-msb-appearance] select {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface)) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+/* Organization commerce hub */
+html[data-msb-appearance] body.org-app .commerce-page {
+  --ch-accent: var(--msb-palette-action);
+  --ch-accent-soft: var(--msb-palette-action-soft);
+  --ch-accent-deep: var(--msb-palette-action-strong);
+  --ch-ink: var(--msb-palette-text);
+  --ch-muted: var(--msb-palette-text-muted);
+  --ch-line: var(--msb-palette-border);
+  --ch-surface: #171d24;
+  --ch-bg: #171d24;
+}
+
+html[data-msb-appearance] .commerce-hero {
+  background: linear-gradient(
+    135deg,
+    var(--msb-palette-action-strong) 0%,
+    var(--msb-palette-action) 42%,
+    var(--msb-palette-accent, var(--msb-palette-action)) 100%
+  ) !important;
+}
+
+/* App footer */
+html[data-msb-appearance] body:has(.app-footer) {
+  background-color: var(--msb-palette-bg) !important;
+}
+
+/* =====================================================
+   ORGANIZATION — match public_user canvas (#171d24)
+   Accents still follow Gear; page/shell backgrounds are fixed.
+   ===================================================== */
+body.org-app {
+  --org-page-bg: #171d24;
+  --org-bg: #171d24;
+  --bg-main: #171d24;
+  --bg-card: #171d24;
+  --bg-sidebar: #171d24;
+  --org-accent: var(--msb-palette-action, var(--msb-palette-accent, var(--accent, #2563eb)));
+  --org-accent-soft: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.12));
+  --org-accent-strong: var(--msb-palette-action-strong, #1d4ed8);
+  --org-link: var(--msb-palette-link, var(--org-accent));
+  --org-icon: var(--msb-palette-icon, var(--org-accent));
+  background-color: #171d24 !important;
+  background-image: none !important;
+}
+
+body.org-app .sh-mainpanel,
+body.org-app .sh-pagebody,
+body.org-app .sh-sideleft-menu,
+body.org-app .sh-logopanel,
+body.org-app .sh-headpanel,
+body.org-app .card,
+body.org-app .card-body,
+body.org-app .dashboard-card,
+body.org-app .feed-card,
+body.org-app .post-card,
+body.org-app .stat-pill,
+body.org-app .pill,
+body.org-app .feed-badge,
+body.org-app .comp-badge,
+body.org-app .btn-close-x,
+body.org-app .feed-tabs a,
+body.org-app .posts-tabs a,
+body.org-app .bulkbar,
+body.org-app .xmodal,
+body.org-app .modal-content,
+body.org-app .publisher-hub,
+body.org-app .publisher-stat,
+body.org-app .publisher-check,
+body.org-app .crm-stage,
+body.org-app .org-sideleft-scroll,
+body.org-app .org-comments-door-panel,
+body.org-app .org-comments-door-head,
+body.org-app .org-comments-door-body,
+body.org-app .org-comments-door-foot,
+body.org-app .commerce-page,
+body.org-app .commerce-card,
+body.org-app .commerce-table-wrap,
+body.org-app .sh-pagetitle,
+body.org-app .compose-card,
+body.org-app .compose-preview,
+body.org-app .compose-intro,
+body.org-app .actions-fixed,
+body.org-app .rows-scroll,
+body.org-app .card-body-fixed,
+body.org-app .card-header,
+body.org-app .form-control,
+body.org-app .custom-select,
+body.org-app .input-group-text,
+body.org-app input[type="file"].form-control,
+body.org-app select,
+body.org-app textarea,
+body.org-app .attach-inline,
+body.org-app .shadow-base,
+body.org-app .fixed-card,
+body.org-app .create-card,
+body.org-app .settings-card,
+body.org-app .members-card,
+body.org-app .dropdown-menu,
+body.org-app .alert,
+body.org-app .table,
+body.org-app .table thead th,
+body.org-app .table td {
+  background-color: #171d24 !important;
+  background-image: none !important;
+}
+
+/* =====================================================
+   ORGANIZATION HEADER — icons & controls on #171d24
+   ===================================================== */
+body.org-app .sh-headpanel,
+body.org-app .sh-logopanel {
+  background-color: #171d24 !important;
+  background-image: none !important;
+  border-bottom: 1px solid rgba(177, 188, 206, 0.18) !important;
+  box-shadow: none !important;
+}
+
+body.org-app .sh-icon-link {
+  color: #b1bcce !important;
+  border-right-color: rgba(177, 188, 206, 0.18) !important;
+  background-color: transparent !important;
+}
+
+body.org-app .sh-icon-link i,
+body.org-app .sh-icon-link span {
+  color: inherit !important;
+}
+
+body.org-app .sh-icon-link:hover,
+body.org-app .sh-icon-link:focus {
+  color: #e8edf5 !important;
+  background-color: #2f3a4a !important;
+}
+
+body.org-app .sh-headpanel-right .org-header-chip {
+  background-color: #252f3d !important;
+  border-color: rgba(177, 188, 206, 0.32) !important;
+  color: #b1bcce !important;
+}
+
+body.org-app .sh-headpanel-right .org-header-chip__label {
+  color: #e8edf5 !important;
+}
+
+body.org-app .sh-headpanel-right .org-header-chip:hover,
+body.org-app .sh-headpanel-right .org-header-chip:focus {
+  background-color: #2f3a4a !important;
+  border-color: rgba(177, 188, 206, 0.55) !important;
+}
+
+body.org-app .sh-headpanel-right .org-header-chip--messages .org-header-chip__icon {
+  color: #5eead4 !important;
+}
+
+body.org-app .sh-headpanel-right .org-header-chip--alerts .org-header-chip__icon {
+  color: #fcd34d !important;
+}
+
+body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link img,
+body.org-app .sh-headpanel-right .dropdown-link img.rounded-circle {
+  border: 2px solid rgba(177, 188, 206, 0.55) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28) !important;
+}
+
+body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link:hover img,
+body.org-app .sh-headpanel-right .dropdown-link:hover img.rounded-circle {
+  border-color: #93c5fd !important;
+}
+
+body.org-app .org-pill {
+  background: #252f3d !important;
+  border: 1px solid rgba(177, 188, 206, 0.48) !important;
+  color: #e8edf5 !important;
+}
+
+body.org-app .org-pill:hover,
+body.org-app .org-pill:focus {
+  background: #2f3a4a !important;
+  color: #ffffff !important;
+}
+
+body.org-app .sh-headpanel-right .ig-feed-account-badge {
+  background: #252f3d !important;
+  border: 1px solid rgba(177, 188, 206, 0.35) !important;
+  color: #b1bcce !important;
+}
+
+body.org-app .msg-badge {
+  border-color: #171d24 !important;
+}
+
+body.org-app .sh-headpanel-right .header-feed-stats .stat-pill,
+body.org-app .sh-headpanel-right .header-feed-unread.stat-pill,
+body.org-app .header-feed-tab {
+  background: #252f3d !important;
+  border: 1px solid rgba(177, 188, 206, 0.48) !important;
+  color: #e8edf5 !important;
+}
+
+body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .icon,
+body.org-app .sh-headpanel-right .header-feed-unread .icon {
+  background: rgba(177, 188, 206, 0.14) !important;
+  color: #e8edf5 !important;
+}
+
+body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .num,
+body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .lbl,
+body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .sub,
+body.org-app .sh-headpanel-right .header-feed-unread .num,
+body.org-app .sh-headpanel-right .header-feed-unread .lbl {
+  color: #e8edf5 !important;
+}
+
+body.org-app .header-feed-tab:hover {
+  background: #2f3a4a !important;
+  color: #ffffff !important;
+}
+
+body.org-app .header-feed-tab.active {
+  background: var(--org-accent, #2563eb) !important;
+  border-color: var(--org-accent-strong, #2563eb) !important;
+  color: #ffffff !important;
+}
+
+html[data-msb-appearance] body.org-app {
+  --msb-palette-bg: #171d24;
+  background-color: #171d24 !important;
+}
+
+html[data-msb-appearance] body.org-app .card,
+html[data-msb-appearance] body.org-app .card-body,
+html[data-msb-appearance] body.org-app .feed-card,
+html[data-msb-appearance] body.org-app .post-card,
+html[data-msb-appearance] body.org-app .dashboard-card,
+html[data-msb-appearance] body.org-app .sh-mainpanel,
+html[data-msb-appearance] body.org-app .sh-pagebody,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu {
+  background-color: #171d24 !important;
+  background-image: none !important;
+}
+
+/* Left nav scroll panel */
+html[data-msb-appearance] body.org-app .org-sideleft-scroll {
+  background: #171d24 !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-sideleft-scroll::-webkit-scrollbar-thumb {
+  background: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.org-app .sh-sidebar-label {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(:hover):not(.active),
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(:hover):not(.active) span {
+  color: var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(:hover):not(.active) [class*="ion-"],
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(:hover):not(.active) .icon {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.org-app .publisher-hub {
+  background: #171d24 !important;
+  border-color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.org-app .dashboard-card .stat-pill,
+html[data-msb-appearance] body.org-app .dash-toprow .stat-pill {
+  background: #171d24 !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .btn-outline-secondary {
+  color: var(--org-btn-text, var(--msb-palette-text)) !important;
+  border-color: var(--org-btn-border, var(--msb-palette-border)) !important;
+  background: var(--org-btn-surface, #252f3d) !important;
+}
+
+html[data-msb-appearance] body.org-app .btn-outline-secondary:hover {
+  color: #f3f6fb !important;
+  border-color: var(--org-btn-border-strong, var(--msb-palette-action)) !important;
+  background: var(--org-btn-surface-hover, var(--msb-palette-nav-hover, #2f3a4a)) !important;
+}
+
+html[data-msb-appearance] body.org-app .btn-primary,
+html[data-msb-appearance] body.org-app a.btn-primary,
+html[data-msb-appearance] body.org-app .btn-success {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+/* =====================================================
+   ORGANIZATION BUTTONS — contrast on #171d24 canvas
+   ===================================================== */
+body.org-app {
+  --org-btn-surface: #252f3d;
+  --org-btn-surface-hover: #2f3a4a;
+  --org-btn-border: rgba(177, 188, 206, 0.48);
+  --org-btn-border-strong: rgba(177, 188, 206, 0.68);
+  --org-btn-text: #e8edf5;
+  --org-btn-text-muted: #b1bcce;
+  --org-btn-primary-text: #ffffff;
+}
+
+body.org-app .btn,
+body.org-app a.btn,
+body.org-app button.btn,
+body.org-app .sp-container button.btn {
+  background-color: var(--org-btn-surface) !important;
+  background-image: none !important;
+  border: 1px solid var(--org-btn-border) !important;
+  color: var(--org-btn-text) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+body.org-app .btn:hover,
+body.org-app .btn:focus,
+body.org-app a.btn:hover,
+body.org-app a.btn:focus,
+body.org-app button.btn:hover,
+body.org-app button.btn:focus {
+  background-color: var(--org-btn-surface-hover) !important;
+  border-color: var(--org-btn-border-strong) !important;
+  color: #f3f6fb !important;
+}
+
+body.org-app .btn .icon,
+body.org-app .btn i,
+body.org-app .btn .fa {
+  color: inherit !important;
+}
+
+body.org-app .btn-primary,
+body.org-app .btn-success,
+body.org-app .btn-info,
+body.org-app a.btn-primary,
+body.org-app a.btn-success,
+body.org-app .ch-btn-primary {
+  background-color: var(--org-accent, var(--msb-palette-action, #2563eb)) !important;
+  border-color: var(--org-accent-strong, var(--org-accent, #1d4ed8)) !important;
+  color: var(--org-btn-primary-text) !important;
+}
+
+body.org-app .btn-primary:hover,
+body.org-app .btn-primary:focus,
+body.org-app .btn-success:hover,
+body.org-app .btn-success:focus,
+body.org-app a.btn-primary:hover,
+body.org-app a.btn-success:hover,
+body.org-app .ch-btn-primary:hover,
+body.org-app .ch-btn-primary:focus {
+  background-color: var(--org-accent-strong, var(--msb-palette-action-strong, #1d4ed8)) !important;
+  border-color: var(--org-accent-strong, #1d4ed8) !important;
+  color: #ffffff !important;
+}
+
+body.org-app .btn-outline-primary,
+body.org-app .btn-outline-secondary,
+body.org-app .btn-outline-success,
+body.org-app .btn-outline-info,
+body.org-app .btn-outline-danger,
+body.org-app a.btn-outline-primary,
+body.org-app a.btn-outline-secondary,
+body.org-app a.btn-outline-success,
+body.org-app .pin-btn,
+body.org-app .sidebar-refresh-btn,
+body.org-app .btn-close-x,
+body.org-app .ch-btn-ghost {
+  background-color: var(--org-btn-surface) !important;
+  border: 1px solid var(--org-btn-border) !important;
+  color: var(--org-btn-text) !important;
+}
+
+body.org-app .btn-outline-primary {
+  border-color: var(--org-accent, var(--msb-palette-action, #2563eb)) !important;
+  color: var(--org-accent, var(--msb-palette-action, #60a5fa)) !important;
+}
+
+body.org-app .btn-outline-success {
+  border-color: rgba(74, 222, 128, 0.55) !important;
+  color: #86efac !important;
+}
+
+body.org-app .btn-outline-primary:hover,
+body.org-app .btn-outline-secondary:hover,
+body.org-app .btn-outline-success:hover,
+body.org-app .pin-btn:hover,
+body.org-app .sidebar-refresh-btn:hover,
+body.org-app .btn-close-x:hover,
+body.org-app .ch-btn-ghost:hover {
+  background-color: var(--org-btn-surface-hover) !important;
+  border-color: var(--org-btn-border-strong) !important;
+  color: #f3f6fb !important;
+}
+
+body.org-app .btn-outline-primary:hover {
+  background-color: var(--org-accent-soft, rgba(37, 99, 235, 0.16)) !important;
+  color: var(--org-accent, #93c5fd) !important;
+}
+
+body.org-app .btn-link,
+body.org-app .btn-link:hover,
+body.org-app .btn-link:focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--org-link, var(--org-accent, #93c5fd)) !important;
+  box-shadow: none !important;
+  text-decoration: underline;
+}
+
+body.org-app .btn:disabled,
+body.org-app .btn.disabled,
+body.org-app a.btn.disabled {
+  opacity: 0.45 !important;
+  background-color: var(--org-btn-surface) !important;
+  border-color: rgba(177, 188, 206, 0.22) !important;
+  color: var(--org-btn-text-muted) !important;
+}
+
+body.org-app .posts-tabs a,
+body.org-app .feed-tabs a {
+  background-color: var(--org-btn-surface) !important;
+  border: 1px solid var(--org-btn-border) !important;
+  color: var(--org-btn-text-muted) !important;
+}
+
+body.org-app .posts-tabs a.active,
+body.org-app .feed-tabs a.active {
+  background-color: var(--org-accent, var(--msb-palette-action, #2563eb)) !important;
+  border-color: var(--org-accent, var(--msb-palette-action, #2563eb)) !important;
+  color: #ffffff !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app a.btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app button.btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-outline-secondary,
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-outline-primary,
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-outline-success,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-refresh-btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app .pin-btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-close-x {
+  background-color: var(--org-btn-surface, #252f3d) !important;
+  border-color: var(--org-btn-border, rgba(177, 188, 206, 0.48)) !important;
+  color: var(--org-btn-text, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-primary,
+html.dark-auto:not([data-msb-appearance]) body.org-app a.btn-primary,
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-success {
+  background-color: var(--org-accent, #2563eb) !important;
+  border-color: var(--org-accent-strong, #1d4ed8) !important;
+  color: #ffffff !important;
+}
+
+body.org-app .stat-pill .icon {
+  background: var(--org-accent-soft) !important;
+  color: var(--org-accent) !important;
+}
+
+body.org-app .stat-pill .num {
+  color: var(--msb-palette-text, var(--text-primary, #111827)) !important;
+}
+
+body.org-app .stat-pill .lbl {
+  color: var(--msb-palette-text-muted, var(--text-secondary, #4b5563)) !important;
+}
+
+body.org-app .stat-pill .sub {
+  color: var(--msb-palette-text-muted, var(--text-muted, #9ca3af)) !important;
+}
+
+body.org-app .feed-actions-liked,
+body.org-app .feed-actions-liked i,
+body.org-app .feed-viewall,
+body.org-app .link,
+body.org-app .read-more-btn,
+body.org-app .js-open-comments-door {
+  color: var(--org-link) !important;
+}
+
+body.org-app .js-open-comments-door i,
+body.org-app .feed-actions .mini-muted i {
+  color: var(--org-icon) !important;
+}
+
+body.org-app .feed-actions .btn-outline-success {
+  color: #86efac !important;
+  border-color: rgba(74, 222, 128, 0.55) !important;
+  background: var(--org-btn-surface, #252f3d) !important;
+}
+
+body.org-app .feed-actions .btn-outline-success:hover {
+  background: var(--org-btn-surface-hover, #2f3a4a) !important;
+  color: #bbf7d0 !important;
+  border-color: rgba(134, 239, 172, 0.72) !important;
+}
+
+body.org-app .feed-actions .btn-success {
+  background-color: var(--org-accent) !important;
+  border-color: var(--org-accent) !important;
+  color: var(--msb-palette-btn-text, #fff) !important;
+}
+
+body.org-app .feed-compose-send {
+  background: var(--org-accent) !important;
+}
+
+body.org-app .feed-compose-send:hover:not(:disabled) {
+  background: var(--org-accent-strong) !important;
+}
+
+body.org-app .feed-compose-input:focus {
+  border-color: var(--org-accent) !important;
+  box-shadow: 0 0 0 3px var(--org-accent-soft) !important;
+}
+
+body.org-app .feed-tabs a.active {
+  color: var(--org-accent) !important;
+  border-color: var(--org-accent) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-sidebar,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-head,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-list {
+  background: #171d24 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-title,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-title i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-subtitle,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-section,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-meta,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-meta > span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-subject,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-chip,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-fries-btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-search {
+  color: #b1bcce !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-item-row.is-active {
+  border-left-color: #b1bcce !important;
+  background: linear-gradient(90deg, rgba(177, 188, 206, 0.14), rgba(177, 188, 206, 0)) !important;
+}
+
+body.org-app .sidebar-item-row.is-active .sidebar-item {
+  border-left-color: var(--org-accent) !important;
+}
+
+body.org-app .sidebar-item-row.is-active .sidebar-accent {
+  background: linear-gradient(90deg, var(--org-accent-soft), transparent) !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.is-nav-pending,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:active:not(.active) {
+  color: var(--org-accent) !important;
+  background-color: var(--org-accent-soft) !important;
+}
+
+body.org-app:not(.org-page-feed) .members-card .member-avatar {
+  background: var(--org-accent-soft) !important;
+  color: var(--org-accent) !important;
+}
+
+body.org-app .publisher-hub {
+  border-color: var(--org-accent) !important;
+}
+
+body.org-app .publisher-hub-title,
+body.org-app .publisher-stat,
+body.org-app .publisher-check label {
+  color: var(--org-accent) !important;
+}
+
+body.org-app .posts-tabs a.active {
+  background: var(--org-accent) !important;
+  border-color: var(--org-accent) !important;
+  color: var(--msb-palette-btn-text, #fff) !important;
+}
+
+body.org-app .crm-stage .crm-count,
+body.org-app .crm-hub {
+  color: var(--msb-palette-btn-text, #fff) !important;
+}
+
+html[data-msb-appearance] body.org-app .crm-stage .crm-count {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.org-app .crm-hub {
+  background: linear-gradient(
+    135deg,
+    var(--msb-palette-action-strong) 0%,
+    var(--msb-palette-action) 55%,
+    var(--msb-palette-accent, var(--msb-palette-action)) 100%
+  ) !important;
+}
+
+/* =====================================================
+   DARK AUTO — unified #b1bcce chrome (Gear Dark auto / Dark)
+   ===================================================== */
+html.dark-auto:not([data-msb-appearance]),
+html.dark-auto:not([data-msb-appearance]) body,
+body.dark-auto:not([data-msb-appearance]) {
+  --msb-dark-auto-chrome: #b1bcce;
+  --msb-palette-text: #b1bcce;
+  --msb-palette-text-muted: #b1bcce;
+  --msb-palette-icon: #b1bcce;
+  --msb-palette-link: #b1bcce;
+  --text-primary: #b1bcce;
+  --text-secondary: #b1bcce;
+  --text-muted: #b1bcce;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app {
+  --org-chrome-text: #b1bcce;
+  --org-accent: #60a5fa;
+  --org-accent-strong: #3b82f6;
+  --org-link: #93c5fd;
+  --org-icon: #b1bcce;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .stat-pill .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-actions-liked,
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-actions-liked i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .link,
+html.dark-auto:not([data-msb-appearance]) body.org-app .read-more-btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app .js-open-comments-door,
+html.dark-auto:not([data-msb-appearance]) body.org-app .js-open-comments-door i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(:hover):not(.active),
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(:hover):not(.active) {
+  color: #b1bcce !important;
+  background-color: transparent !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"],
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover [class*="ion-"] {
+  background-color: #2f3a4a !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active [class*="ion-"],
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active [class*="ion-"] {
+  background-color: rgba(96, 165, 250, 0.2) !important;
+  color: #ffffff !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-actions .mini-muted i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(:hover):not(.active),
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(:hover):not(.active) {
+  color: #b1bcce !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .posts-tabs a:not(.active),
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-tabs a:not(.active) {
+  background-color: var(--org-btn-surface, #252f3d) !important;
+  border-color: var(--org-btn-border, rgba(177, 188, 206, 0.48)) !important;
+  color: var(--org-btn-text, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .posts-tabs a.active,
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-tabs a.active {
+  background-color: var(--org-accent-strong, #2563eb) !important;
+  border-color: var(--org-accent-strong, #2563eb) !important;
+  color: #ffffff !important;
+}
+
+/* =====================================================
+   PUBLIC USER DASHBOARD — lock canvas to #171d24
+   ===================================================== */
+body.dashboard-page,
+body.dashboard-page .sh-mainpanel,
+body.dashboard-page .sh-pagebody,
+body.dashboard-page .sh-pagetitle,
+body.dashboard-page .row,
+body.dashboard-page .row-sm,
+body.dashboard-page .col-lg-12,
+body.dashboard-page .card,
+body.dashboard-page .card-body,
+body.dashboard-page .card-header,
+body.dashboard-page .card-footer,
+body.dashboard-page .form-control,
+body.dashboard-page select.form-control,
+body.dashboard-page textarea.form-control,
+body.dashboard-page .msb-readonly-field,
+body.dashboard-page .alert,
+body.dashboard-page .alert-info,
+body.dashboard-page #instructionBox,
+html[data-msb-appearance] body.dashboard-page,
+html[data-msb-appearance] body.dashboard-page .sh-mainpanel,
+html[data-msb-appearance] body.dashboard-page .sh-pagebody,
+html[data-msb-appearance] body.dashboard-page .card,
+html[data-msb-appearance] body.dashboard-page .card-body,
+html[data-msb-appearance] body.dashboard-page .alert,
+html[data-msb-appearance] body.dashboard-page .alert-info,
+html[data-msb-appearance] body.dashboard-page .form-control {
+  background-color: #171d24 !important;
+  background-image: none !important;
+}
+
+/* =====================================================
+   PUBLIC USER — map local tokens to Gear palette
+   ===================================================== */
+html {
+  --feed-accent: var(--msb-palette-action, #2563eb);
+  --feed-accent-soft: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.12));
+  --public-accent: var(--msb-palette-action, #2563eb);
+  --public-accent-soft: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.12));
+  --msg-accent: var(--msb-palette-action, #2563eb);
+}
+
+html[data-msb-appearance] .btn-outline-primary {
+  color: var(--msb-palette-action) !important;
+  border-color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .btn-outline-primary:hover {
+  background-color: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action-strong) !important;
+}
+
+html[data-msb-appearance] .mf-act.is-love,
+html[data-msb-appearance] .mf-act.is-love i,
+html[data-msb-appearance] .mf-act.is-love .mf-num,
+html[data-msb-appearance] .is-love .msb-pact-heart,
+html[data-msb-appearance] .ig-profile-love-btn.is-loved,
+html[data-msb-appearance] .ig-profile-love-btn.is-loved i {
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] .gear-control:focus,
+html[data-msb-appearance] input:focus,
+html[data-msb-appearance] textarea:focus,
+html[data-msb-appearance] select:focus {
+  border-color: var(--msb-palette-action) !important;
+  box-shadow: 0 0 0 3px var(--msb-palette-action-soft) !important;
+}
+

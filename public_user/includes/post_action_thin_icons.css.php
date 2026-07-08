@@ -2,6 +2,9 @@
 declare(strict_types=1);
 ?>
 /* Thin post-action icons (X-style line icons) */
+:root{
+  --msb-love-color:#7c3aed;
+}
 .msb-pact{
   display:inline-block;
   width:1.375em;
@@ -61,7 +64,7 @@ declare(strict_types=1);
 .post.public-post-card .public-live-action-btn.is-love .msb-pact-heart,
 .post.public-post-card .reel-inline-btn.is-love .msb-pact-heart,
 .mf-feed .mf-act.is-love .msb-pact-heart{
-  color:#ef2b7b !important;
+  color:var(--msb-love-color) !important;
 }
 .post.public-post-card .standard-media-btn.is-share .msb-pact-share,
 .post.public-post-card .standard-text-btn.is-share .msb-pact-share,
@@ -76,4 +79,41 @@ declare(strict_types=1);
 .post.public-post-card .reel-inline-btn.is-save .msb-pact-bookmark,
 .mf-feed .mf-act.is-save .msb-pact-bookmark{
   color:#f59e0b !important;
+}
+.mf-feed .mf-act.is-love,
+.mf-feed .mf-act.is-love i,
+.mf-feed .mf-act.is-love .mf-num,
+.ig-act.is-love i,
+.vrail-btn.is-love i,
+.pv-act.is-love,
+.pv-act.is-love i,
+.ig-profile-love-btn.is-loved,
+.ig-profile-love-btn.is-loved i,
+.tt-stories-lovebtn.is-loved,
+.tt-stories-lovebtn.liked,
+.tt-stories-lovebtn.rx-active,
+.tt-stories-action.is-loved,
+.tt-stories-action.is-loved i,
+.tt-stories-action.is-loved .tt-stories-action-count,
+.tt-stories-action.liked,
+.tt-stories-action.liked i,
+.tt-stories-action.rx-active,
+.tt-stories-action.rx-active i,
+#tt-stories-wrap .tt-stories-action.is-loved,
+#tt-stories-wrap .tt-stories-action.is-loved i,
+#tt-stories-wrap .tt-stories-action.is-loved .tt-stories-action-count,
+#tt-stories-wrap .tt-stories-action.liked,
+#tt-stories-wrap .tt-stories-action.liked i,
+#tt-stories-wrap .tt-stories-action.rx-active,
+#tt-stories-wrap .tt-stories-action.rx-active i,
+#tt-stories-wrap .tt-stories-action.rx-active .tt-stories-action-count,
+.post.public-post-card .standard-text-btn.is-love i,
+.post.public-post-card .standard-media-btn.is-love i,
+.post.public-post-card .public-live-action-btn.is-love i,
+.post.public-post-card .reel-inline-btn.is-love i,
+.post.public-post-card .action-btn.is-love i,
+body.profile-page #profilePostsFeed .mf-act.is-love,
+body.profile-page #profilePostsFeed .mf-act.is-love i,
+body.profile-page #profilePostsFeed .mf-act.is-love .mf-num{
+  color:var(--msb-love-color) !important;
 }

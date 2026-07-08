@@ -493,6 +493,20 @@ try {
   $statPosts = (int)$st->fetchColumn();
 } catch (Throwable $e) {}
 
+$statLoveCount = 0;
+try {
+  $st = $dbh->prepare("
+    SELECT COUNT(*)
+    FROM public_post_reactions r
+    INNER JOIN public_posts p ON p.id = r.post_id
+    WHERE p.user_id = :uid
+      AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
+      AND r.reaction = 'love'
+  ");
+  $st->execute([':uid' => $viewId]);
+  $statLoveCount = (int)$st->fetchColumn();
+} catch (Throwable $e) {}
+
 $statFriends = 0;
 try {
   $statFriends = fs_friend_count($dbh, $viewId);
@@ -523,6 +537,18 @@ $statSocialLabel = $profileIsPublisher ? publisher_social_stat_label($statSocial
 
 if (!function_exists('h')) {
   function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
+}
+
+function profile_love_btn_html(int $profileUserId = 0, int $loveCount = 0): string
+{
+  if ($profileUserId <= 0) {
+    return '';
+  }
+  return '<span class="ig-profile-love-wrap" role="group" aria-label="Total loves">'
+    . '<span class="ig-profile-love-count"><b>' . (int)$loveCount . '</b></span>'
+    . '<button type="button" class="ig-profile-love-btn" data-profile-id="' . (int)$profileUserId . '" title="Love" aria-label="Love" aria-pressed="false">'
+    . '<i class="fa fa-heart-o" aria-hidden="true"></i></button>'
+    . '</span>';
 }
 
 // ---- UTF-8 safe helpers ----
@@ -563,6 +589,9 @@ if ($ua !== '') $isMobile = (bool)preg_match('/(iphone|ipod|ipad|android|mobile|
 
 $isOwnProfile = profile_is_own_account($viewId);
 $canManageProfilePrivate = $isOwnProfile && profile_may_edit_account($dbh, $viewId);
+$profileLoveBtnHtml = profile_love_btn_html($viewId, $statLoveCount);
+$profileLoveAfterFollow = $profileLoveBtnHtml !== '' && $profileIsPublisher && !$isOwnProfile && $isViewedPublisher && $canFollowPublishers;
+$profileLoveInStats = $profileLoveBtnHtml !== '' && !$profileLoveAfterFollow;
 // Publisher email, phone, and friend code are visible only to the account owner (not staff or other viewers).
 $canViewProfilePrivateContact = !$profileIsPublisher || $canManageProfilePrivate;
 $fromLivePublic = (string)($_GET['from_live_public'] ?? '') === '1';
@@ -1718,6 +1747,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   <style>
     .ig-wrap{max-width:980px;width:100%;margin:0 auto;}
     .ig-card{background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));}
+    body.profile-page .ig-card.ig-profile-shell{border:none;}
     body.profile-page{
       overflow:hidden !important;
       height:100vh;
@@ -1752,15 +1782,29 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       flex-direction:column;
       flex:1 1 auto;
       min-height:0;
-      overflow:hidden;
+      overflow:visible;
       background-color:var(--msb-palette-bg, #f5f7fb);
     }
     .ig-profile-head{
       flex:0 0 auto;
       z-index:40;
       background:var(--msb-palette-bg, #f5f7fb);
-      border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));
-      box-shadow:0 4px 14px rgba(15,23,42,.04);
+      border-bottom:none;
+      box-shadow:none;
+    }
+    .ig-profile-head-rule{
+      flex:0 0 auto;
+      height:1px;
+      border:0;
+      margin:0;
+      padding:0;
+      background:var(--profile-post-divider, var(--msb-palette-border-strong, rgba(177,188,206,.42)));
+      width:calc(100vw - var(--feedRailW, 84px) - 16px);
+      max-width:none;
+      margin-left:calc((100% - (100vw - var(--feedRailW, 84px) - 16px)) / 2);
+      position:relative;
+      z-index:45;
+      pointer-events:none;
     }
     .ig-profile-scroll{
       flex:1 1 auto;
@@ -1783,7 +1827,56 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .ig-btn i{font-size:16px}
     .ig-btn.publisher-follow-btn{cursor:pointer;border-radius:999px}
     .ig-btn.publisher-follow-btn.is-following{background:#111827;border-color:#111827;color:#fff}
-    .ig-stats{display:flex;gap:26px;margin:14px 0 10px;flex-wrap:wrap;}
+    .ig-profile-love-wrap{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      flex:0 0 auto;
+    }
+    .ig-profile-love-count{
+      font-size:14px;
+      color:var(--msb-palette-text, #0b1220);
+      line-height:1;
+    }
+    .ig-profile-love-count b{font-weight:800;}
+    .ig-stats .ig-profile-love-wrap{
+      gap:8px;
+    }
+    .ig-profile-love-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:34px;
+      height:34px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:transparent;
+      color:#ea445a;
+      cursor:pointer;
+      line-height:1;
+      flex:0 0 auto;
+    }
+    .ig-profile-love-btn i{
+      font-size:22px;
+      line-height:1;
+    }
+    .ig-profile-love-btn:hover,
+    .ig-profile-love-btn:focus{
+      opacity:.82;
+      outline:none;
+    }
+    .ig-profile-love-btn.is-loved,
+    .ig-profile-love-btn.is-loved i{
+      color:var(--msb-love-color, #7c3aed);
+    }
+    .ig-stats{
+      display:flex;
+      align-items:center;
+      gap:26px;
+      margin:14px 0 10px;
+      flex-wrap:wrap;
+    }
     .ig-stat{font-size:14px;color:var(--msb-palette-text, #0b1220);}
     .ig-stat b{font-weight:800;}
     .ig-bio{font-size:14px;line-height:1.55;color:var(--msb-palette-text, #0b1220);max-width:560px;}
@@ -2154,7 +2247,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       }
     }
 
-    .ig-highlights{border-top:1px solid var(--msb-palette-border, rgba(15,23,42,.08));padding-top:22px;background-color:var(--msb-palette-bg, #f5f7fb);}
+    .ig-highlights{padding-top:22px;background-color:var(--msb-palette-bg, #f5f7fb);}
     .ig-story-item:focus-visible{
       outline:2px solid rgba(37,99,235,.35);
       outline-offset:3px;
@@ -2298,7 +2391,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       background:linear-gradient(135deg,#0ea5e9 0%,#2563eb 58%,#f8fafc 100%);
     }
     #profilePostsFeed .mf-avatar img{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;border:2px solid #fff;background:#fff;}
-    #profilePostsFeed .mf-meta{min-width:0;flex:1 1 auto;margin-left:-10px;display:flex;flex-direction:column;justify-content:center;}
+    #profilePostsFeed .mf-meta{min-width:0;flex:1 1 auto;margin-left:-3px;display:flex;flex-direction:column;justify-content:center;}
     #profilePostsFeed .mf-name-row{display:flex;align-items:center;gap:5px;min-width:0;flex-wrap:nowrap;}
     #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;margin:0;color:#111827;min-width:0;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     #profilePostsFeed .mf-dot,#profilePostsFeed .mf-time{font-size:12px;color:#667085;margin:0;flex:0 0 auto;white-space:nowrap;}
@@ -2353,11 +2446,15 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     #profilePostsFeed .mf-act i{font-size:20px;color:inherit;}
     #profilePostsFeed .mf-act .mf-num{font-size:14px;font-weight:800;color:var(--msb-palette-text, #101828);}
     #profilePostsFeed .mf-act.mf-save .mf-num,#profilePostsFeed .mf-act.mf-share .mf-num{display:none;}
-    #profilePostsFeed .mf-act.is-love i{color:#ea445a !important;}
+    #profilePostsFeed .mf-act.is-love i{color:var(--msb-love-color, #7c3aed) !important;}
     #profilePostsFeed .mf-act.is-save i{color:#f5c518 !important;}
     #profilePostsFeed .mf-act.is-share i{color:#555555 !important;}
     #profilePostsFeed .mf-feed-empty{padding:48px 24px 56px;}
-    body.profile-page.profile-leftbar-open{overflow-x:hidden;}
+    body.profile-page.profile-leftbar-open,
+    body.profile-page.public-leftbar-open{overflow-x:hidden;}
+    body.profile-page #ttLeftbarOverlays{
+      z-index:1295;
+    }
     @media (min-width:1025px){
       #profilePostsFeed.mf-feed{max-width:614px;margin:0 auto;padding:0 0 96px;}
       #profilePostsFeed .mf-card{
@@ -2599,7 +2696,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-love,
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-love i,
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-love .mf-num {
-      color: #ea445a !important;
+      color: var(--msb-love-color, #7c3aed) !important;
     }
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-save i {
       color: #f5c518 !important;
@@ -2631,7 +2728,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"]:not([data-msb-appearance]) .gear-tag {
       background: #111827 !important;
       border-color: rgba(255,255,255,.12) !important;
-      color: #93c5fd !important;
+      color: #b1bcce !important;
     }
 
     html.dark-auto .ig-username,
@@ -2658,7 +2755,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] .gear-nav-item,
     html.dark-auto .profile-panel,
     html[data-theme="dark"] .profile-panel {
-      color: #f3f6fb !important;
+      color: #b1bcce !important;
     }
 
     html.dark-auto .ig-bio .muted,
@@ -2683,12 +2780,12 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] .gear-save-state,
     html.dark-auto .mf-feed-empty i,
     html[data-theme="dark"] .mf-feed-empty i {
-      color: #a9b6c8 !important;
+      color: #b1bcce !important;
     }
 
     html.dark-auto .mf-feed-empty .mf-feed-empty-title,
     html[data-theme="dark"] .mf-feed-empty .mf-feed-empty-title {
-      color: #f3f6fb !important;
+      color: #b1bcce !important;
     }
 
     html.dark-auto .ig-tabs,
@@ -2715,14 +2812,14 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html.dark-auto:not([data-msb-appearance]) .about-edit-btn,
     html[data-theme="dark"]:not([data-msb-appearance]) .about-edit-btn {
       background: #1d4ed8 !important;
-      color: #fff !important;
-      border-color: rgba(96,165,250,.44) !important;
+      color: #b1bcce !important;
+      border-color: rgba(177, 188, 206, 0.44) !important;
     }
 
     html.dark-auto .ig-btn.icon,
     html[data-theme="dark"] .ig-btn.icon {
       background: #111827 !important;
-      color: #f3f6fb !important;
+      color: #b1bcce !important;
       border-color: rgba(255,255,255,.12) !important;
     }
 
@@ -2731,7 +2828,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html.dark-auto .gear-tag,
     html[data-theme="dark"] .gear-tag {
       background: #111827 !important;
-      color: #c7d2fe !important;
+      color: #b1bcce !important;
       border-color: rgba(255,255,255,.12) !important;
     }
 
@@ -2997,6 +3094,9 @@ include __DIR__ . '/includes/header.php';
             <button type="button" class="ig-btn publisher-follow-btn<?= $isFollowingPublisher ? ' is-following' : '' ?>" data-publisher-id="<?= (int)$viewId ?>">
               <?= $isFollowingPublisher ? 'Following' : 'Follow' ?>
             </button>
+            <?php if ($profileLoveAfterFollow): ?>
+              <?= $profileLoveBtnHtml ?>
+            <?php endif; ?>
           <?php else: ?>
             <?php if ($liveVisitorMode): ?>
               <?php if ($friendStatus === 'outgoing_pending'): ?>
@@ -3034,6 +3134,9 @@ include __DIR__ . '/includes/header.php';
         <div class="ig-stats">
           <div class="ig-stat"><b><?php echo (int)$statPosts; ?></b> posts</div>
           <div class="ig-stat"><b><?php echo (int)$statSocialCount; ?></b> <?php echo h($statSocialLabel); ?></div>
+          <?php if ($profileLoveInStats): ?>
+            <?= $profileLoveBtnHtml ?>
+          <?php endif; ?>
         </div>
 
         <div class="ig-bio">
@@ -3046,6 +3149,8 @@ include __DIR__ . '/includes/header.php';
         </div>
       </div>
     </div>
+
+    <div class="ig-profile-head-rule" aria-hidden="true"></div>
 
     <div class="ig-profile-scroll">
 
@@ -3139,7 +3244,9 @@ include __DIR__ . '/includes/header.php';
     </div>
 
     <div id="panel-posts" class="profile-panel<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>">
-      <div id="profilePostsFeed" class="mf-feed" aria-live="polite"></div>
+      <div class="profile-posts-feed-column" id="profilePostsFeedColumn">
+        <div id="profilePostsFeed" class="mf-feed" aria-live="polite"></div>
+      </div>
     </div>
 
     <div id="panel-tags" class="profile-panel<?php echo $selectedTab === 'tags' ? ' active' : ''; ?>">
@@ -3620,7 +3727,7 @@ include __DIR__ . '/includes/header.php';
   .pv-views{font-size:15px;line-height:1.25;color:#374151;white-space:nowrap;}
 
   /* ✅ toggled colors (icon only; counts stay neutral) */
-  .pv-act.is-love i{color:#ef4444;} /* red */
+  .pv-act.is-love i{color:var(--msb-love-color, #7c3aed);} /* purple */
   .pv-act.is-like i{color:#2563eb;} /* blue */
   .pv-act.is-save i{color:#facc15;} /* yellow */
   .pv-act.is-share i{color:#6b7280;} /* grey */
@@ -4658,13 +4765,37 @@ pv.comments.addEventListener('click', (e) => {
 });
 pv.replyCancel.addEventListener('click', () => pvSetReply(0,''));
 
-// Focus comment
-pv.focusComment.addEventListener('click', () => pv.text.focus());
-pv.commentsLink.addEventListener('click', () => {
+// Focus comment — open the same leftbar comments door as Posts tab / friend-requests rail
+pv.focusComment.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!pvPostId) return;
+  if (typeof window.openProfileCommentsTray === 'function') {
+    window.openProfileCommentsTray(pvPostId);
+    return;
+  }
+  if (window.TTComments && typeof window.TTComments.toggle === 'function') {
+    window.TTComments.toggle(pvPostId, pvCommentsCache || []);
+    return;
+  }
+  pv.text.focus();
+});
+pv.commentsLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!pvPostId) return;
+  if (typeof window.openProfileCommentsTray === 'function') {
+    window.openProfileCommentsTray(pvPostId);
+    return;
+  }
+  if (window.TTComments && typeof window.TTComments.toggle === 'function') {
+    window.TTComments.toggle(pvPostId, pvCommentsCache || []);
+    return;
+  }
   try {
     pv.comments.scrollIntoView({ block:'nearest', behavior:'smooth' });
     pv.text.focus();
-  } catch (e) {
+  } catch (err) {
     pv.text.focus();
   }
 });
@@ -5253,6 +5384,29 @@ pv.text.addEventListener('keydown', (e)=>{
   var AUTHOR_ID = <?php echo (int)$viewId; ?>;
   var ME_ID = <?php echo (int)$meId; ?>;
   var PROFILE_FRIEND_STATUS = <?php echo json_encode($isOwnProfile ? 'self' : $friendStatus); ?>;
+  var PROFILE_IS_OWN = <?php echo $isOwnProfile ? 'true' : 'false'; ?>;
+  var PROFILE_VIEW_ID = <?php echo (int)$viewId; ?>;
+  window.msbSyncProfileLoveCountDelta = function(delta){
+    delta = Number(delta || 0);
+    if(!delta) return;
+    document.querySelectorAll('.ig-profile-love-count b').forEach(function(el){
+      var n = Math.max(0, Number(el.textContent || 0) + delta);
+      el.textContent = String(n);
+    });
+  };
+  window.msbOnPostLoveCountChange = function(detail){
+    detail = detail || {};
+    if(Number(detail.ownerUserId || 0) !== PROFILE_VIEW_ID) return;
+    if(typeof detail.delta !== 'undefined'){
+      window.msbSyncProfileLoveCountDelta(detail.delta);
+      return;
+    }
+    if(typeof detail.loveCount !== 'undefined'){
+      document.querySelectorAll('.ig-profile-love-count b').forEach(function(el){
+        el.textContent = String(Math.max(0, Number(detail.loveCount || 0)));
+      });
+    }
+  };
   var PROFILE_CAN_FOLLOW_PUBLISHERS = <?php echo $canFollowPublishers ? 'true' : 'false'; ?>;
   var PROFILE_HIDE_PRIVATE_CONTACT = <?php echo $canViewProfilePrivateContact ? 'false' : 'true'; ?>;
   var API_URL = 'feed_api.php';
@@ -5265,43 +5419,23 @@ pv.text.addEventListener('keydown', (e)=>{
 
   function openProfileCommentsTray(postId){
     postId = Number(postId || 0);
-    if(!postId) return;
-    if(window.TTComments && typeof window.TTComments.isOpen === 'function' && window.TTComments.isOpen() && window.TTComments.getPostId() === postId){
-      window.TTComments.toggle(postId, profileCommentsCache[postId] || []);
+    if(!postId || !(window.TTComments && typeof window.TTComments.openForPost === 'function')) return;
+    if(window.TTComments.isOpen() && window.TTComments.getPostId() === postId){
+      window.TTComments.close();
       return;
     }
-    if(window.TTComments && typeof window.TTComments.clearFocusComment === 'function'){
-      window.TTComments.clearFocusComment();
-    }
-    if(window.TTComments && profileCommentsCache[postId]){
-      var opened = window.TTComments.toggle(postId, profileCommentsCache[postId]);
-      if(opened) document.body.classList.add('profile-leftbar-open');
-      return;
-    }
-    document.body.classList.add('profile-leftbar-open');
-    if(window.TTComments && typeof window.TTComments.setPost === 'function'){
-      window.TTComments.setPost(postId, [], true);
-      var list = document.getElementById('ttCommentsList');
-      if(list) list.innerHTML = '<div class="text-muted" style="padding:10px 6px;">Loading comments...</div>';
-    }
-    $.getJSON(API_URL, { ajax:'view', id: postId }, function(res){
-      if(!(res && res.ok)){
-        var failList = document.getElementById('ttCommentsList');
-        if(failList) failList.innerHTML = '<div class="text-danger" style="padding:10px 6px;">Unable to load comments.</div>';
-        return;
+    var cached = Object.prototype.hasOwnProperty.call(profileCommentsCache, postId)
+      ? profileCommentsCache[postId]
+      : null;
+    window.TTComments.openForPost(postId, cached, {
+      onLoaded: function(comments){
+        profileCommentsCache[postId] = comments;
+        var $card = $('#profilePostsFeed .mf-card[data-id="'+postId+'"]');
+        if($card.length) $card.find('.mf-cmt').text(String(comments.length));
       }
-      var comments = Array.isArray(res.comments) ? res.comments : [];
-      profileCommentsCache[postId] = comments;
-      var $card = $('#profilePostsFeed .mf-card[data-id="'+postId+'"]');
-      if($card.length) $card.find('.mf-cmt').text(String(comments.length));
-      if(window.TTComments && typeof window.TTComments.setPost === 'function'){
-        window.TTComments.setPost(postId, comments, true);
-      }
-    }).fail(function(){
-      var failList = document.getElementById('ttCommentsList');
-      if(failList) failList.innerHTML = '<div class="text-danger" style="padding:10px 6px;">Unable to load comments.</div>';
     });
   }
+  window.openProfileCommentsTray = openProfileCommentsTray;
 
   function mfOpenProfileReadMoreDrawer($card, bodyText){
     $card = $card && $card.jquery ? $card : $($card);
@@ -5326,7 +5460,6 @@ pv.text.addEventListener('keydown', (e)=>{
         avatarUrl: avatarUrl,
         body: body
       });
-      if(opened) document.body.classList.add('profile-leftbar-open');
     }
   }
 
@@ -5345,30 +5478,6 @@ pv.text.addEventListener('keydown', (e)=>{
       }
     });
   };
-
-  document.addEventListener('click', function(e){
-    var closeBtn = e.target && e.target.closest ? e.target.closest('#ttCommentsClose, #ttRmClose') : null;
-    if(closeBtn) document.body.classList.remove('profile-leftbar-open');
-  });
-
-  if(window.TTComments){
-    try{
-      var profileCommentsClose = window.TTComments.close;
-      window.TTComments.close = function(){
-        document.body.classList.remove('profile-leftbar-open');
-        if(typeof profileCommentsClose === 'function') profileCommentsClose();
-      };
-    }catch(err){}
-  }
-  if(window.TTReadMore){
-    try{
-      var profileReadMoreClose = window.TTReadMore.close;
-      window.TTReadMore.close = function(){
-        document.body.classList.remove('profile-leftbar-open');
-        if(typeof profileReadMoreClose === 'function') profileReadMoreClose();
-      };
-    }catch(err){}
-  }
 
   function esc(s){
     return String(s == null ? '' : s)
@@ -5780,7 +5889,7 @@ pv.text.addEventListener('keydown', (e)=>{
   function normalActions(){
     return '<div class="mf-actions"><div class="mf-left">'+
       '<a class="mf-act mf-love" type="button" title="Love"><i class="msb-pact msb-pact-heart" aria-hidden="true"></i><span class="mf-num mf-love">0</span></a>'+
-      '<a class="mf-act mf-comment" type="button" title="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt">0</span></a>'+
+      '<button type="button" class="mf-act mf-comment js-open-profile-comments-door" title="Comment" aria-label="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt">0</span></button>'+
       '<a class="mf-act mf-share" type="button" title="Share"><i class="msb-pact msb-pact-share" aria-hidden="true"></i><span class="mf-num mf-share">0</span></a>'+
       '</div><div class="mf-right">'+
       '<a class="mf-act mf-save" type="button" title="Save"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num mf-save">0</span></a>'+
@@ -5850,7 +5959,7 @@ pv.text.addEventListener('keydown', (e)=>{
           '<div class="mf-name">'+esc(name)+'</div>'+
           (time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time)+'</div>' : '')+
         '</div>'+profileMusicRowHtml(it)+'</div></a>'+
-      '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'">'+
+      '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'" data-menu-surface="profile">'+
         '<button type="button" class="mf-menu-btn post-card-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false">'+PCM_FRIES_ICON+'</button>'+
         '<div class="mf-menu post-card-menu" role="menu">'+profileBuildMenuItems(it, isOwner, pid)+'</div>'+
       '</div></div>';
@@ -5939,7 +6048,7 @@ pv.text.addEventListener('keydown', (e)=>{
       );
     }
 
-    return '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-peer-code="'+esc(PROFILE_HIDE_PRIVATE_CONTACT ? '' : String(it.friend_code || ''))+'" data-account-kind="'+esc(String(it.account_kind || 'personal'))+'" data-is-publisher="'+(profileIsPublisherItem(it) ? '1' : '0')+'" data-is-following="'+(profilePublisherFollowingFromItem(it) ? '1' : '0')+'" data-friend-status="'+esc(profileFriendStatusFromItem(it))+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
+    return '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-peer-code="'+esc(PROFILE_HIDE_PRIVATE_CONTACT ? '' : String(it.friend_code || ''))+'" data-account-kind="'+esc(String(it.account_kind || 'personal'))+'" data-is-publisher="'+(profileIsPublisherItem(it) ? '1' : '0')+'" data-is-following="'+(profilePublisherFollowingFromItem(it) ? '1' : '0')+'" data-my-saved="'+esc(String(Number(it.my_saved || 0)))+'" data-is-archived="'+esc(String(Number(it.is_archived || 0)))+'" data-friend-status="'+esc(profileFriendStatusFromItem(it))+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
       (useHeadOnMedia ? '' : profileBuildHeadHtml(it, isOwner, pid, false))+
       (title ? '<div class="mf-title">'+esc(title)+'</div>' : '')+
       mediaHtml + (hasBody ? mfBuildBodyHtml(body) : '') + normalActions()+
@@ -6034,6 +6143,16 @@ pv.text.addEventListener('keydown', (e)=>{
       });
   });
 
+  $(document).on('click', '.ig-profile-love-btn', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    if(PROFILE_IS_OWN) return;
+    var btn = $(this);
+    var loved = btn.toggleClass('is-loved').hasClass('is-loved');
+    btn.attr('aria-pressed', loved ? 'true' : 'false');
+    btn.find('i').toggleClass('fa-heart-o', !loved).toggleClass('fa-heart', loved);
+  });
+
   $(document).on('click', '#profilePostsFeed .mf-friend-btn:not(.mf-publisher-follow)', function(e){
     var btn = this;
     var peerId = Number(btn.getAttribute('data-peer-id') || 0);
@@ -6063,14 +6182,6 @@ pv.text.addEventListener('keydown', (e)=>{
 
   window.profileActionState = window.profileActionState || { postId: 0 };
   window.mfPost = mfPost;
-
-  $(document).on('click', '#profilePostsFeed .mf-comment', function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    var pid = Number($(this).closest('.mf-card').data('id') || 0);
-    if(!pid) return;
-    openProfileCommentsTray(pid);
-  });
   $(document).on('click', '#profilePostsFeed .mf-body .mf-readmore, #profilePostsFeed .js-open-readmore', function(e){
     e.preventDefault();
     e.stopPropagation();
@@ -6085,6 +6196,7 @@ pv.text.addEventListener('keydown', (e)=>{
     var $card = $(this).closest('.mf-card');
     var pid = Number($card.data('id') || 0);
     if(!pid || String($card.attr('data-my-reaction') || '') === 'love') return;
+    var loveBefore = cardCountsFromDom($card).love_count;
     mfPost('react', { post_id: pid, reaction: 'love' }, function(res){
       if(!res || !res.ok) return;
       var merged = cardCountsFromDom($card);
@@ -6093,6 +6205,9 @@ pv.text.addEventListener('keydown', (e)=>{
         merged.my_reaction = String(res.counts.my_reaction || 'love');
       } else merged.my_reaction = 'love';
       applyCounts($card, merged);
+      if(typeof window.msbSyncProfileLoveCountDelta === 'function'){
+        window.msbSyncProfileLoveCountDelta(Number(merged.love_count || 0) - Number(loveBefore || 0));
+      }
     });
   });
   $(document).on('click', '#profilePostsFeed .mf-save', function(e){
@@ -6318,10 +6433,81 @@ html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head.mf-h
 }
 </style>
 
+<style id="profile-posts-feed-dividers-css">
+/* Profile Posts tab — vertical lines only on 614px post column edges */
+body.profile-page{
+  --profile-post-divider:rgba(177,188,206,.42);
+}
+body.profile-page .ig-profile-head-rule{
+  background:var(--profile-post-divider) !important;
+}
+body.profile-page.profile-posts-mode .profile-posts-feed-column,
+body.profile-page:has(#panel-posts.active) .profile-posts-feed-column{
+  width:100% !important;
+  max-width:614px !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+  box-sizing:border-box !important;
+  position:relative !important;
+  min-height:min(480px, calc(100vh - 420px));
+  border-left:1px solid var(--profile-post-divider) !important;
+  border-right:1px solid var(--profile-post-divider) !important;
+}
+body.profile-page.profile-posts-mode .ig-gallery-filter,
+body.profile-page:has(#panel-posts.active) .ig-gallery-filter{
+  border-bottom:1px solid var(--profile-post-divider) !important;
+}
+#profilePostsFeed.mf-feed{
+  container-type:inline-size;
+  box-sizing:border-box !important;
+  width:100% !important;
+  max-width:100% !important;
+  margin:0 !important;
+}
+#profilePostsFeed .mf-card{
+  position:relative !important;
+  overflow:visible !important;
+}
+#profilePostsFeed .mf-card::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  bottom:0;
+  transform:translateX(-50%);
+  width:100cqw;
+  border-bottom:1px solid var(--profile-post-divider, rgba(177,188,206,.42));
+  pointer-events:none;
+  z-index:2;
+}
+html[data-msb-appearance] body.profile-page{
+  --profile-post-divider:var(--msb-palette-border-strong, rgba(177,188,206,.42));
+}
+html[data-msb-appearance] body.profile-page .ig-profile-head-rule{
+  background:var(--msb-palette-border-strong, rgba(177,188,206,.42)) !important;
+}
+html[data-msb-appearance] body.profile-page.profile-posts-mode{
+  --profile-post-divider:var(--msb-palette-border-strong, rgba(177,188,206,.42));
+}
+html[data-msb-appearance] body.profile-page.profile-posts-mode .profile-posts-feed-column,
+html[data-msb-appearance] body.profile-page:has(#panel-posts.active) .profile-posts-feed-column{
+  border-left-color:var(--msb-palette-border-strong, rgba(177,188,206,.42)) !important;
+  border-right-color:var(--msb-palette-border-strong, rgba(177,188,206,.42)) !important;
+}
+html[data-msb-appearance] body.profile-page.profile-posts-mode .ig-gallery-filter,
+html[data-msb-appearance] body.profile-page:has(#panel-posts.active) .ig-gallery-filter{
+  border-bottom-color:var(--msb-palette-border-strong, rgba(177,188,206,.42)) !important;
+}
+html[data-msb-appearance] body #profilePostsFeed .mf-card::after{
+  border-bottom-color:var(--msb-palette-border-strong, rgba(177,188,206,.42)) !important;
+}
+</style>
+
 <?php post_card_actions_menu_render_modals(); ?>
 <?php post_card_actions_menu_render_js([
   'delete_mode' => 'profile',
   'staff_readonly' => false,
+  'menu_surface' => 'profile',
+  'api_url' => 'feed_api.php',
 ]); ?>
 
 </body>

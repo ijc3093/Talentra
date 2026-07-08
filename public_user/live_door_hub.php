@@ -37,6 +37,14 @@ if ($hubDoor !== '') {
 }
 $hubDoorBaseUrl = 'live_door_hub.php?' . http_build_query($hubDoorQuery);
 
+$hubPaintBg = '#171d24';
+$hubPaintText = '#b1bcce';
+$hubBgParam = trim((string)($_GET['hub_bg'] ?? ''));
+if ($hubBgParam !== '' && preg_match('/^#[0-9a-fA-F]{3,8}$/', $hubBgParam)) {
+    $hubPaintBg = $hubBgParam;
+    $hubPaintText = '#f3f6fb';
+}
+
 $doorLists = live_browse_door_rows($dbh, $meId, 50);
 $ownLiveId = (int)($doorLists['own_live_id'] ?? 0);
 $chatLives = $doorLists['chat_rows'];
@@ -124,18 +132,27 @@ if ($featured) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Live</title>
+  <style id="msb-live-hub-critical">
+    html,body{
+      background:var(--msb-palette-bg, <?= h($hubPaintBg) ?>) !important;
+      background-image:none !important;
+      color:var(--msb-palette-text, <?= h($hubPaintText) ?>) !important;
+    }
+  </style>
   <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <style>
     :root{
-      --hub-bg:var(--msb-palette-bg, #ffffff);
+      --hub-bg:var(--msb-palette-bg, #171d24);
       --hub-text:var(--msb-palette-text, #101828);
       --hub-muted:var(--msb-palette-text-muted, #667085);
       --hub-border:var(--msb-palette-border, rgba(15,23,42,.08));
       --hub-control-bg:var(--msb-palette-nav-hover, rgba(15,23,42,.06));
-      --hub-link:var(--msb-palette-link, #2563eb);
+      --hub-link:var(--msb-palette-action, var(--msb-palette-link, #2563eb));
       --hub-pick-bg:var(--msb-palette-hover-bg, rgba(15,23,42,.04));
       --hub-pick-hover:var(--msb-palette-nav-hover, rgba(15,23,42,.08));
+      --hub-pick-active-bg:var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft, rgba(15,23,42,.08)));
+      --hub-pick-active-text:var(--msb-palette-nav-active-text, var(--msb-palette-text));
       --hub-avatar-bg:var(--msb-palette-surface, #e2e8f0);
       --hub-input-bg:var(--msb-palette-input-bg, rgba(15,23,42,.06));
       --hub-placeholder:var(--msb-palette-placeholder, #98a2b3);
@@ -168,8 +185,8 @@ if ($featured) {
       --hub-live-send-bg:var(--msb-palette-action, #dc2626);
       --hub-live-send-text:var(--msb-palette-text-on-action, #ffffff);
     }
-    html.dark-auto,
-    html[data-theme="dark"]{
+    html.dark-auto:not([data-msb-appearance]),
+    html[data-theme="dark"]:not([data-msb-appearance]){
       --hub-stage-border:rgba(255,255,255,.1);
       --hub-stage-shadow:rgba(0,0,0,.42);
       --hub-stage-placeholder-text:var(--msb-palette-text, #f8fafc);
@@ -202,8 +219,9 @@ if ($featured) {
     }
     .hub-brand{ display:flex; align-items:center; gap:8px; min-width:0; }
     .hub-logo{
-      width:28px; height:28px; border-radius:999px; background:linear-gradient(135deg,#2563eb,#7c3aed);
-      display:grid; place-items:center; font-weight:900; font-size:11px; flex:0 0 auto;
+      width:28px; height:28px; border-radius:999px;
+      background:linear-gradient(135deg, var(--msb-palette-action, #2563eb), var(--msb-palette-accent, #7c3aed));
+      display:grid; place-items:center; font-weight:900; font-size:11px; flex:0 0 auto; color:#fff;
     }
     .hub-brand-text{ min-width:0; }
     .hub-brand-text strong{ display:block; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--hub-text); }
@@ -225,8 +243,8 @@ if ($featured) {
       cursor:pointer; flex:0 0 auto; white-space:nowrap;
     }
     .hub-studio-top-btn.is-active{
-      background:var(--hub-pick-hover);
-      color:var(--hub-link);
+      background:var(--hub-pick-active-bg);
+      color:var(--hub-pick-active-text);
     }
     .hub-stage-wrap{
       position:relative;
@@ -362,9 +380,10 @@ if ($featured) {
       border:0; background:transparent; color:var(--hub-muted); font-size:11px; font-weight:700;
       padding:8px 0 6px; cursor:pointer; white-space:nowrap; position:relative;
     }
-    .hub-tabs button.is-active{ color:var(--hub-text); }
+    .hub-tabs button.is-active{ color:var(--hub-pick-active-text, var(--hub-text)); }
     .hub-tabs button.is-active::after{
-      content:''; position:absolute; left:0; right:0; bottom:0; height:2px; background:var(--hub-text); border-radius:999px;
+      content:''; position:absolute; left:0; right:0; bottom:0; height:2px;
+      background:var(--msb-palette-action, var(--hub-link)); border-radius:999px;
     }
     .hub-chat{
       flex:1 1 auto; min-height:0; overflow:auto; padding:10px;
@@ -458,6 +477,11 @@ if ($featured) {
       font-size:12px;
     }
     .hub-live-pick:hover{ background:var(--hub-pick-hover); }
+    .hub-live-pick.is-active,
+    .hub-live-pick[aria-current="true"]{
+      background:var(--hub-pick-active-bg);
+      color:var(--hub-pick-active-text);
+    }
     .hub-live-pick + .hub-live-pick{ margin-top:6px; }
     .hub-empty{ padding:12px 6px; color:var(--hub-muted); font-size:12px; line-height:1.45; }
     .hub-empty a{ color:var(--hub-link); }
@@ -468,7 +492,7 @@ if ($featured) {
       font-weight:800;
       color:var(--hub-muted);
     }
-    .hub-tabs button.is-active .hub-tab-count{ color:var(--hub-text); }
+    .hub-tabs button.is-active .hub-tab-count{ color:var(--hub-pick-active-text, var(--hub-text)); }
     .hub-tabs button.hub-tab-device{
       display:inline-flex;
       align-items:center;
@@ -4185,6 +4209,30 @@ if ($featured) {
     syncHubComposeDock();
     syncHubPublicWatchUi();
     syncHubTabControls();
+
+    function notifyLiveDoorPainted(){
+      try {
+        window.parent.postMessage({ type: 'msb-live-hub-painted' }, '*');
+      } catch (error) {}
+    }
+    function scheduleLiveDoorPaintedNotify(){
+      window.requestAnimationFrame(function(){
+        window.requestAnimationFrame(notifyLiveDoorPainted);
+      });
+    }
+    if (!window.__msbLiveHubPaintListenerBound) {
+      window.__msbLiveHubPaintListenerBound = true;
+      window.addEventListener('message', function(paintEvent){
+        if (!paintEvent || !paintEvent.data || typeof paintEvent.data !== 'object') return;
+        if (paintEvent.data.type !== 'msb-live-hub-request-paint') return;
+        scheduleLiveDoorPaintedNotify();
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', scheduleLiveDoorPaintedNotify);
+    } else {
+      scheduleLiveDoorPaintedNotify();
+    }
   })();
   </script>
 </body>

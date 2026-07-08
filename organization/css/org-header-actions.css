@@ -1,0 +1,132 @@
+/* Org header — inbox & feed alert chips (replaces circular icon buttons) */
+.org-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+}
+
+.org-header-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 4px 10px 4px 5px;
+  border-radius: 10px;
+  text-decoration: none !important;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  border: 1px solid rgba(177, 188, 206, 0.32);
+  background: #252f3d;
+  color: #b1bcce;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.org-header-chip:hover,
+.org-header-chip:focus {
+  background: #2f3a4a;
+  border-color: rgba(177, 188, 206, 0.55);
+  color: #e8edf5;
+  text-decoration: none !important;
+  transform: translateY(-1px);
+}
+
+.org-header-chip__icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.org-header-chip--messages .org-header-chip__icon {
+  background: rgba(45, 212, 191, 0.14);
+  color: #5eead4;
+}
+
+.org-header-chip--alerts .org-header-chip__icon {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+}
+
+.org-header-chip__label {
+  color: #e8edf5;
+  white-space: nowrap;
+}
+
+.org-header-chip__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 1px;
+}
+
+.org-header-chip__count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.org-header-chip__count.is-visible {
+  display: inline-flex;
+}
+
+.org-header-chip--messages .org-header-chip__count {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+.org-header-chip--alerts .org-header-chip__count {
+  background: #d97706;
+  color: #ffffff;
+}
+
+.org-header-chip--messages.has-unread {
+  border-color: rgba(45, 212, 191, 0.42);
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.1);
+}
+
+.org-header-chip--alerts.has-unread {
+  border-color: rgba(251, 191, 36, 0.42);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.1);
+}
+
+.org-header-chip__count.pop {
+  animation: orgChipCountPop 0.35s ease;
+}
+
+@keyframes orgChipCountPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 575px) {
+  .org-header-chip__label {
+    display: none;
+  }
+
+  .org-header-chip {
+    padding: 4px 8px 4px 4px;
+    min-height: 30px;
+  }
+
+  .org-header-actions {
+    gap: 4px;
+    margin-right: 4px;
+  }
+}

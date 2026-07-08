@@ -417,7 +417,7 @@ if (!$isEdit && isset($_POST['add_contact'])) {
 </style>
   </head>
 
-  <body>
+  <body class="add-contact-page">
     <?php $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
     <!-- <div class="sh-pagetitle">
         <div class="input-group">

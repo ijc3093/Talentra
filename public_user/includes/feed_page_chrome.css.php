@@ -12,6 +12,18 @@ declare(strict_types=1);
   border-radius:0 !important;
   border-right:1px solid var(--msb-palette-border-strong, #d1d5db) !important;
 }
+body.feed-insta-ui .feed-ig-rail,
+body.feed-page.feed-insta-ui .feed-ig-rail,
+body.public-page.feed-insta-ui .feed-ig-rail,
+body.compose-page .feed-ig-rail,
+body.contact-requests-page .feed-ig-rail,
+body.contacts-page .feed-ig-rail,
+body.add-contact-page .feed-ig-rail{
+  border-right:1px solid var(--msb-palette-border-strong, #d1d5db) !important;
+}
+body.public-page.feed-insta-ui .feed-ig-rail{
+  border-right-color:var(--public-border-strong, rgba(15,23,42,.16)) !important;
+}
 .feed-ig-rail .feed-ig-logo{
   width:var(--msb-feed-chrome-size) !important;
   height:var(--msb-feed-chrome-size) !important;
@@ -99,7 +111,8 @@ html[data-theme="light"] .feed-ig-rail .feed-ig-logo-label{
   padding:0 !important;
 }
 .feed-ig-rail .feed-ig-menu-mobile .fa,
-.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile .fa{
+.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile .fa,
+.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile .icon{
   font-size:var(--msb-feed-chrome-icon) !important;
   line-height:1 !important;
   color:var(--msb-palette-icon, var(--msb-palette-text-on-nav, currentColor)) !important;
@@ -115,7 +128,11 @@ html[data-theme="light"] .feed-ig-rail .feed-ig-logo-label{
 .feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:hover .fa,
 .feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:focus .fa,
 .feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:hover .fa,
-.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:focus .fa{
+.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:focus .fa,
+.feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:hover .icon,
+.feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:focus .icon,
+.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:hover .icon,
+.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:focus .icon{
   color:var(--msb-palette-icon-on-nav-hover, var(--msb-palette-icon, currentColor)) !important;
 }
 html.dark-auto .feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile,
@@ -281,6 +298,14 @@ body.public-page.feed-insta-ui .ig-stories-brand{
 body.feed-insta-ui .ig-feed-user-name,
 body.feed-page.feed-insta-ui .ig-feed-user-name,
 body.public-page.feed-insta-ui .ig-feed-user-name{
+  appearance:none;
+  -webkit-appearance:none;
+  background:transparent;
+  border:0;
+  padding:0;
+  margin:0;
+  cursor:pointer;
+  text-align:left;
   display:inline-flex !important;
   align-items:center !important;
   max-width:min(52vw, 320px) !important;
@@ -593,12 +618,30 @@ body.public-page.feed-insta-ui .public-publisher-search button:hover{
   }
   body.feed-insta-ui .sh-pagebody > .feed-top-search,
   body.feed-page.feed-insta-ui .sh-pagebody > .feed-top-search,
-  body.public-page.feed-insta-ui .sh-pagebody > .feed-top-search{
+  body.public-page.feed-insta-ui .sh-pagebody > .feed-top-search,
+  body.feed-insta-ui .feed-desktop-center > .feed-top-search,
+  body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search,
+  body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
     flex:0 0 auto !important;
     position:relative !important;
     top:auto !important;
     z-index:105 !important;
     padding:var(--msb-top-search-pad-top) var(--msb-top-search-pad-x) var(--msb-top-search-pad-bottom) !important;
+  }
+  body.feed-insta-ui .feed-desktop-center > .feed-top-search,
+  body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
+    position:sticky !important;
+    top:0 !important;
+    width:100% !important;
+    margin:0 !important;
+    background:var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))) !important;
+  }
+  body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
+    position:sticky !important;
+    top:0 !important;
+    width:100% !important;
+    margin:0 !important;
+    background:var(--public-surface, var(--msb-palette-bg, #fff)) !important;
   }
   body.feed-insta-ui .ig-stories-wrap,
   body.feed-page.feed-insta-ui .ig-stories-wrap,
@@ -614,6 +657,13 @@ body.public-page.feed-insta-ui .public-publisher-search button:hover{
     display:flex !important;
     padding-left:0 !important;
     padding-right:0 !important;
+  }
+  body.feed-insta-ui .ig-feed-header,
+  body.feed-page.feed-insta-ui .ig-feed-header{
+    border-bottom:1px solid var(--feed-post-divider, var(--feed-border-strong, rgba(177, 188, 206, 0.22))) !important;
+  }
+  body.public-page.feed-insta-ui .ig-feed-header{
+    border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16)) !important;
   }
   body.feed-insta-ui .ig-feed-top-lead,
   body.feed-page.feed-insta-ui .ig-feed-top-lead,
@@ -662,4 +712,63 @@ body.public-page.feed-insta-ui .public-publisher-search button:hover{
     border-radius:var(--msb-feed-chrome-pill) !important;
     font-size:10px !important;
   }
+}
+
+/* [DARK_AUTO_FEED_NAV] — hover/active contrast on #171d24 */
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-shop,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-cart,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-live,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-more,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-stories-next,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-shop,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-cart,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-more,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-stories-next {
+  background: #252f3d !important;
+  border: 1px solid rgba(177, 188, 206, 0.42) !important;
+  color: #e8edf5 !important;
+  opacity: 1 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-shop:hover,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-cart:hover,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-mic:hover,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-live:hover,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-more:hover,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-stories-next:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-shop:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-cart:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-mic:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-more:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-stories-next:hover {
+  background: #2f3a4a !important;
+  color: #ffffff !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-act .icon,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-act .fa,
+html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-live span,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-act .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-act .fa,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live span {
+  color: inherit !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .mf-feed-empty,
+html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty {
+  color: #b1bcce !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .mf-feed-empty i,
+html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty i {
+  color: #b1bcce !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty-title,
+html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty-title {
+  color: #e8edf5 !important;
 }

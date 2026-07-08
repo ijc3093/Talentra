@@ -313,7 +313,7 @@ function public_caption_card_html(string $caption, int $maxChars = 170): string 
     return '<div class="' . $class . '">' . $formatted . '</div>';
 }
 
-$where = "p.is_deleted = 0 AND p.visibility = 'public' AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
+$where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND p.visibility = 'public' AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
 $params = [];
 $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, $isNewsSurface);
 $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, $isNewsSurface));
@@ -343,6 +343,7 @@ SELECT
   COALESCE(p.views_count,0) AS views_count, p.created_at, COALESCE(p.updated_at,p.created_at) AS updated_at,
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
   COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
+  COALESCE(p.is_archived,0) AS is_archived,
   COALESCE(u.name, u.username, CONCAT('User ', u.id)) AS display_name, COALESCE(u.username,'') AS username, COALESCE(u.friend_code,'') AS friend_code,
   COALESCE(u.account_kind, 'personal') AS account_kind,
   EXISTS(SELECT 1 FROM public_follows pf WHERE pf.follower_id = :meFollow AND pf.following_id = p.user_id) AS is_following,
@@ -464,7 +465,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   <style>
     :root{
       --bg:#f5f7fb; --card:#fff; --line:#dbdbdb; --text:#0f172a; --muted:#64748b;
-      --blue:#0095f6; --heart:#ff3040; --sidew:var(--feedRailW, 84px);
+      --blue:#0095f6; --heart:#7c3aed; --sidew:var(--feedRailW, 84px);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -517,6 +518,31 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       margin:0 0 26px;
       scroll-margin-top:24px
     }
+    /* Feed-style dividers (match look/feel of feed.php):
+       - vertical lines: container wrapper
+       - horizontal top line: search bar bottom border
+       - horizontal lines: each post card divider */
+    body.feed-insta-ui .feed-desktop-center{
+      border-left:1px solid var(--public-border-strong, rgba(15,23,42,.16));
+      border-right:1px solid var(--public-border-strong, rgba(15,23,42,.16));
+      box-sizing:border-box;
+    }
+    body.feed-insta-ui .feed-top-search{
+      border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16));
+    }
+    body.feed-insta-ui .post.public-post-card{
+      margin:0 !important;
+      border:0 !important;
+      border-bottom:0 !important;
+      border-radius:0 !important;
+      /* Reliable 1px bottom divider across different post layouts (reel overlaps etc). */
+      box-shadow:inset 0 -1px 0 var(--public-border-strong, rgba(15,23,42,.16)) !important;
+      position:relative;
+      width:100% !important;
+      max-width:100% !important;
+      display:block;
+      box-sizing:border-box;
+    }
     .post.is-single-video-post{
       width:min(100%,460px);
       max-width:100%;
@@ -538,7 +564,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .post.public-post-card:not(.is-reel-post){
       position:relative;
       background:var(--public-surface);
-      border:0px solid var(--public-border);
+      border:1px solid var(--public-border-strong, var(--public-border)) !important;
       box-shadow:none;
     }
     .public-auto-progress{
@@ -851,7 +877,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       cursor:pointer;
     }
     .standard-text-btn i{color:var(--public-text) !important}
-    .standard-text-btn.is-love i{color:#ef2b7b !important}
+    .standard-text-btn.is-love i{color:var(--msb-love-color, #7c3aed) !important}
     .standard-text-btn.is-like i{color:#2563eb !important}
     .standard-text-btn.is-share i{color:#9ca3af !important}
     .standard-text-btn.is-save i{color:#f59e0b !important}
@@ -1294,7 +1320,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       text-shadow:0 2px 12px rgba(0,0,0,.32);
     }
     .public-live-action-btn i{ color:#fff !important; }
-    .public-live-action-btn.is-love i{ color:#ef2b7b !important; }
+    .public-live-action-btn.is-love i{ color:var(--msb-love-color, #7c3aed) !important; }
     .public-live-action-btn.is-like i{ color:#60a5fa !important; }
     .public-live-action-btn.is-share i{ color:#d1d5db !important; }
     .public-live-action-btn.is-save i{ color:#fbbf24 !important; }
@@ -1558,7 +1584,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       text-shadow:0 1px 2px rgba(0,0,0,.55);
     }
     .standard-media-btn i{color:#fff !important}
-    .standard-media-btn.is-love i{color:#ef2b7b !important}
+    .standard-media-btn.is-love i{color:var(--msb-love-color, #7c3aed) !important}
     .standard-media-btn.is-like i{color:#2563eb !important}
     .standard-media-btn.is-share i{color:#9ca3af !important}
     .standard-media-btn.is-save i{color:#f59e0b !important}
@@ -1626,7 +1652,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       text-shadow:0 1px 2px rgba(0,0,0,.55);
     }
     .action-btn .action-count{font-size:13px;font-weight:700;color:var(--public-muted);line-height:1}
-    .action-btn.is-love i{color:#ef2b7b !important}
+    .action-btn.is-love i{color:var(--msb-love-color, #7c3aed) !important}
     .action-btn.is-like i{color:#2563eb !important}
     .action-btn.is-share i{color:#6b7280 !important}
     .action-btn.is-save i{color:#f59e0b !important}
@@ -1851,7 +1877,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       cursor:pointer;
     }
     .reel-inline-btn i{color:var(--public-text) !important}
-    .reel-inline-btn.is-love i{color:#ef2b7b !important}
+    .reel-inline-btn.is-love i{color:var(--msb-love-color, #7c3aed) !important}
     .reel-inline-btn.is-like i{color:#2563eb !important}
     .reel-inline-btn.is-share i{color:#9ca3af !important}
     .reel-inline-btn.is-save i{color:#f59e0b !important}
@@ -2130,6 +2156,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       --public-surface-alt:#eef3fb;
       --public-surface-strong:#eef3fb;
       --public-post-card-surface:#f5f7fb;
+      /* Reel posts use this variable for their outer border. */
+      --public-post-card-border:var(--public-border-strong, rgba(15,23,42,.16));
       --public-border:rgba(15,23,42,.12);
       --public-border-strong:rgba(15,23,42,.16);
       --public-text:#132033;
@@ -2449,7 +2477,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
 
       body .post.public-post-card:not(.is-reel-post){
         background:var(--public-post-card-surface);
-        border:0px solid var(--public-border);
+        /* border:1px solid var(--public-border-strong, var(--public-border)) !important; */
         border-radius:0;
         box-shadow:none;
         /* margin:0 0 0px; */
@@ -2917,10 +2945,10 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   justify-content:center;
   align-items:flex-start;
   width:100%;
-  margin:0 0 12px;
+  margin:0;
   padding:16px 16px 14px;
   background:var(--public-surface, var(--msb-palette-bg, #fff));
-  /* border-bottom:1px solid #dbdbdb; */
+  border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16));
   box-sizing:border-box;
 }
 .ig-feed-top-lead{
@@ -3196,11 +3224,24 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   top:0;
   z-index:105;
   background:var(--public-surface, #fff);
+  flex:0 0 auto;
+}
+body.feed-insta-ui .feed-desktop-center > .feed-top-search,
+body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
+  position:sticky;
+  top:0;
+  z-index:105;
+  width:100%;
+  margin:0;
 }
 .feed-top-search-form{
   width:100%;
   max-width:614px;
   margin:0 auto;
+}
+body.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-search-form,
+body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-search-form{
+  max-width:100%;
 }
 .feed-top-search-field{
   position:relative;
@@ -3479,7 +3520,7 @@ body.feed-insta-ui .avatar-thumb img{
   body.feed-insta-ui .feed-desktop-layout .ig-feed{
     max-width:100% !important;
     width:100% !important;
-    margin:8px 0 0 !important;
+    margin:0 !important;
     padding:0 0 96px !important;
   }
   body.feed-insta-ui .feed-right-rail{
@@ -3603,6 +3644,7 @@ body.feed-insta-ui .avatar-thumb img{
     z-index:110 !important;
     margin:0 !important;
     background:var(--public-surface, var(--msb-palette-bg, #fff)) !important;
+    border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16)) !important;
     /* border-bottom:1px solid #dbdbdb !important; */
   }
   body.feed-insta-ui .feed-top-search{
@@ -3612,6 +3654,18 @@ body.feed-insta-ui .avatar-thumb img{
     z-index:105 !important;
     background:var(--public-surface, #fff) !important;
     padding:12px 16px 8px !important;
+    border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16)) !important;
+  }
+  body.feed-insta-ui .feed-desktop-center > .feed-top-search,
+  body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
+    position:sticky !important;
+    top:0 !important;
+    z-index:105 !important;
+    flex:0 0 auto !important;
+    width:100% !important;
+    margin:0 !important;
+    background:var(--public-surface, #fff) !important;
+    border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16)) !important;
   }
   body.feed-insta-ui .feed-desktop-layout{
     flex:1 1 auto !important;
@@ -3727,14 +3781,23 @@ body.feed-insta-ui .avatar-thumb img{
     }
     .post.public-post-card.is-single-video-post:not(.is-reel-post),
     .post.public-post-card.is-single-image-post:not(.is-reel-post){
-      width:min(100%, var(--post-media-card-width, var(--post-media-max))) !important;
+      /* Full-width post card (divider line), media stage gets the width constraint below. */
+      width:100% !important;
       max-width:100% !important;
-      margin-left:auto !important;
-      margin-right:auto !important;
+      margin-left:0 !important;
+      margin-right:0 !important;
     }
     .post.public-post-card.is-multi-media-post:not(.is-reel-post){
       width:100% !important;
       max-width:100% !important;
+    }
+    /* Single standard media: constrain the media stage width only. */
+    .post.public-post-card.is-single-video-post:not(.is-reel-post) .media-stage.standard-video-stage,
+    .post.public-post-card.is-single-image-post:not(.is-reel-post) .media-stage.standard-image-stage{
+      width:min(100%, var(--post-media-card-width, var(--post-media-max))) !important;
+      max-width:100% !important;
+      margin-left:auto !important;
+      margin-right:auto !important;
     }
     .post.public-post-card:not(.is-reel-post) .media-stage{
       border-radius:var(--post-media-radius) !important;
@@ -3809,6 +3872,13 @@ body.feed-insta-ui .avatar-thumb img{
       }
       .post.public-post-card.is-single-video-post:not(.is-reel-post):has(.media-stage.phone-shot),
       .post.public-post-card.is-single-image-post:not(.is-reel-post):has(.media-stage.phone-shot){
+        width:100% !important;
+        max-width:100% !important;
+        margin-inline:0 !important;
+      }
+      /* Phone-shot wrapper gets the constraint; keep the post full-width for the divider. */
+      .post.public-post-card.is-single-video-post:not(.is-reel-post):has(.media-stage.phone-shot) .media-stage.phone-shot,
+      .post.public-post-card.is-single-image-post:not(.is-reel-post):has(.media-stage.phone-shot) .media-stage.phone-shot{
         width:min(100%,var(--post-media-card-width,var(--post-media-max))) !important;
         max-width:100% !important;
         margin-inline:auto !important;
@@ -3821,9 +3891,9 @@ body.feed-insta-ui .avatar-thumb img{
     @media (max-width:767.98px){
       .post.public-post-card.is-single-video-post:not(.is-reel-post),
       .post.public-post-card.is-single-image-post:not(.is-reel-post){
-        width:min(100%, var(--post-media-card-width, 100%)) !important;
+        width:100% !important;
         max-width:100% !important;
-        margin-inline:auto !important;
+        margin-inline:0 !important;
       }
       .post.public-post-card.is-multi-media-post:not(.is-reel-post){
         width:100% !important;
@@ -4055,26 +4125,26 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
       </div>
     </div>
-    <div class="feed-top-search" aria-label="Search posts">
-      <form class="feed-top-search-form" method="get" action="<?= h($selfPage) ?>">
-        <div class="feed-top-search-field">
-          <input
-            type="search"
-            name="q"
-            class="feed-top-search-input"
-            value="<?= h($q) ?>"
-            placeholder="<?= $isNewsSurface ? 'Search CNN, Fox News, ABC…' : 'Search posts and publishers…' ?>"
-            autocomplete="off"
-            enterkeyhint="search"
-          >
-          <button type="submit" class="feed-top-search-icon" aria-label="Search">
-            <i class="fa fa-search" aria-hidden="true"></i>
-          </button>
-        </div>
-      </form>
-    </div>
     <div class="feed-desktop-layout">
       <div class="feed-desktop-center">
+        <div class="feed-top-search" aria-label="Search posts">
+          <form class="feed-top-search-form" method="get" action="<?= h($selfPage) ?>">
+            <div class="feed-top-search-field">
+              <input
+                type="search"
+                name="q"
+                class="feed-top-search-input"
+                value="<?= h($q) ?>"
+                placeholder="<?= $isNewsSurface ? 'Search CNN, Fox News, ABC…' : 'Search posts and publishers…' ?>"
+                autocomplete="off"
+                enterkeyhint="search"
+              >
+              <button type="submit" class="feed-top-search-icon" aria-label="Search">
+                <i class="fa fa-search" aria-hidden="true"></i>
+              </button>
+            </div>
+          </form>
+        </div>
         <?php if ($canFollowPublishers && !$isNewsSurface): ?>
           <?php
             $publisherSearchQuery = $q;
@@ -4185,7 +4255,8 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                   $desiredWidth = (int)round($deviceAspect * $maxVideoH);
                   $maxByShape = $deviceAspect < 0.8 ? 520 : ($deviceAspect > 1.15 ? 760 : 620);
                   $safeCardWidth = max(280, min($desiredWidth, 680, $maxByShape));
-                  $singleMediaCardStyle = '--post-media-card-width:' . $safeCardWidth . 'px;width:min(100%,' . $safeCardWidth . 'px);margin-left:auto;margin-right:auto;';
+                  // Keep post card full-width (for dividers), constrain only the media stage.
+                  $singleMediaCardStyle = '--post-media-card-width:' . $safeCardWidth . 'px;';
               }
           }
 
@@ -4207,7 +4278,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         ?>
         <?php $peerProfileHref = public_profile_href($post); ?>
         <?php
-          $pcmCtx = post_card_actions_menu_context($post, $meId, $dbh, $peerProfileHref, $staffReadonly);
+          $pcmCtx = post_card_actions_menu_context($post, $meId, $dbh, $peerProfileHref, $staffReadonly, 'public');
           $pcmCtx['menu_surface'] = 'public';
           $pcmCtx['is_publisher'] = $isPublisher;
           $pcmCtx['is_following'] = $isFollowing;
@@ -5455,7 +5526,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     if(!menuOpen && !commentsOpen && !readOpen && !profileOpen && !storiesOpen) return;
 
     if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-stories-wrap, #tt-live-right-wrap, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttStoriesClose, .tt-story-cmt-sheet, .tt-story-cmt-panel, .tt-story-cmt-backdrop')) return;
-    if(target.closest('.ig-stories-menu-btn, .ig-story-item, .ig-story-empty, .js-open-comments, .js-open-readmore, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .feed-ig-avatar')) return;
+    if(target.closest('.js-open-menu-door, .ig-story-item, .ig-story-empty, .js-open-comments, .js-open-readmore, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .feed-ig-avatar')) return;
 
     if(menuOpen){
       if(window.TTMenu && typeof window.TTMenu.close === 'function') window.TTMenu.close();
@@ -6338,11 +6409,57 @@ html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-
   right:var(--pcm-on-media-topbar-menu-right, 4px) !important;
 }
 </style>
+<?php if ($isNewsSurface): ?>
+<style id="news-feed-dividers-css">
+/* news.php — match public.php / feed.php feed column dividers */
+body.news-page.feed-insta-ui .feed-desktop-center{
+  border-left:1px solid var(--public-border-strong, var(--msb-palette-border, rgba(15,23,42,.16))) !important;
+  border-right:1px solid var(--public-border-strong, var(--msb-palette-border, rgba(15,23,42,.16))) !important;
+  box-sizing:border-box !important;
+}
+body.news-page.feed-insta-ui .feed-top-search{
+  border-bottom:1px solid var(--public-border-strong, var(--msb-palette-border, rgba(15,23,42,.16))) !important;
+}
+body.news-page.feed-insta-ui .post.public-post-card{
+  margin:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:inset 0 -1px 0 var(--public-border-strong, var(--msb-palette-border, rgba(15,23,42,.16))) !important;
+  position:relative !important;
+  width:100% !important;
+  max-width:100% !important;
+  display:block !important;
+  box-sizing:border-box !important;
+  overflow:visible !important;
+}
+html[data-msb-appearance] body.news-page.feed-insta-ui .post.public-post-card{
+  box-shadow:inset 0 -1px 0 var(--msb-palette-border, var(--public-border-strong, rgba(15,23,42,.16))) !important;
+}
+body.news-page.feed-insta-ui .post.public-post-card.is-single-video-post:not(.is-reel-post),
+body.news-page.feed-insta-ui .post.public-post-card.is-single-image-post:not(.is-reel-post){
+  width:100% !important;
+  max-width:100% !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+body.news-page.feed-insta-ui .post.public-post-card.is-single-video-post:not(.is-reel-post) .media-stage.standard-video-stage,
+body.news-page.feed-insta-ui .post.public-post-card.is-single-image-post:not(.is-reel-post) .media-stage.standard-image-stage{
+  width:min(100%, var(--post-media-card-width, var(--post-media-max, 680px))) !important;
+  max-width:100% !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
+body.news-page.feed-insta-ui .feed-desktop-layout .ig-feed{
+  margin:0 !important;
+}
+</style>
+<?php endif; ?>
 <?php post_card_actions_menu_render_modals(); ?>
 <?php post_card_actions_menu_render_js([
   'delete_mode' => 'public',
   'staff_readonly' => $staffReadonly,
   'menu_surface' => 'public',
+  'api_url' => 'feed_api.php',
   'can_follow_publishers' => $canFollowOnPublicMenu,
   'publisher_workspace_viewer' => $isPublisherWorkspaceViewer,
 ]); ?>

@@ -201,18 +201,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     #attachStatus{margin-top:6px;}
     .attach-inline{
       display:flex;align-items:center;justify-content:space-between;
-      gap:10px;padding:8px;border-radius:10px;border:1px solid rgba(0,0,0,.1);
-      background:#f8f9fa;
+      gap:10px;padding:8px;border-radius:10px;border:1px solid rgba(177,188,206,.18);
+      background:#171d24;
     }
     .attach-left{display:flex;align-items:center;gap:10px;min-width:0;}
-    .attach-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;background:#fff;border:1px solid rgba(0,0,0,.08);}
+    .attach-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;background:#171d24;border:1px solid rgba(177,188,206,.18);}
     .attach-name{font-size:12px;opacity:.85;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .attach-x{
-      appearance:none;border:0;background:#fff;border:1px solid rgba(0,0,0,.15);
+      appearance:none;border:0;background:#171d24;border:1px solid rgba(177,188,206,.22);
       width:26px;height:26px;border-radius:999px;line-height:24px;
       text-align:center;cursor:pointer;font-size:16px;
     }
-    #attachStatus.err .attach-inline{background:#fff5f5;border-color:#f1b0b7;}
+    #attachStatus.err .attach-inline{background:#171d24;border-color:#f1b0b7;}
   </style>
 </head>
 <body class="org-app">

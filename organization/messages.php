@@ -1341,29 +1341,71 @@ if ($peerMid > 0) {
   var pollMs = 5000;
 
   function ensureHeaderBadge(count){
-    var link = document.querySelector('.dropdown-notification .dropdown-link-notification');
-    if (!link) return;
+    var chip = document.querySelector('.org-header-chip--messages');
+    if (!chip) return;
 
     var badge = document.getElementById('headerUnreadBadge');
+    var label = (count > 99) ? '99+' : String(count);
+    chip.classList.toggle('has-unread', count > 0);
+
     if (count <= 0) {
-      if (badge) badge.remove();
+      if (badge) {
+        badge.textContent = '';
+        badge.classList.remove('is-visible', 'pop');
+      }
       return;
     }
+
     if (!badge) {
-      badge = document.createElement('span');
-      badge.id = 'headerUnreadBadge';
-      badge.className = 'msg-badge pulse';
-      badge.textContent = String(count);
-      link.style.position = 'relative';
-      link.appendChild(badge);
-      return;
+      badge = chip.querySelector('.org-header-chip__count');
+      if (badge) badge.id = 'headerUnreadBadge';
     }
-    if (badge.textContent !== String(count)) {
-      badge.textContent = String(count);
+    if (!badge) return;
+
+    if (badge.textContent !== label) {
+      badge.textContent = label;
+      badge.classList.add('is-visible');
       badge.classList.remove('pop');
       void badge.offsetWidth;
       badge.classList.add('pop');
+      return;
     }
+
+    badge.classList.add('is-visible');
+  }
+
+  function ensureFeedBadge(count){
+    var chip = document.querySelector('.org-header-chip--alerts');
+    if (!chip) return;
+
+    var badge = document.getElementById('headerFeedUnreadBadge');
+    var label = (count > 99) ? '99+' : String(count);
+    chip.classList.toggle('has-unread', count > 0);
+
+    if (count <= 0) {
+      if (badge) {
+        badge.textContent = '';
+        badge.classList.remove('is-visible', 'pop');
+      }
+      return;
+    }
+
+    if (!badge) {
+      badge = chip.querySelector('.org-header-chip__count');
+      if (badge) badge.id = 'headerFeedUnreadBadge';
+    }
+    if (!badge) return;
+
+    if (badge.textContent !== label) {
+      badge.textContent = label;
+      badge.classList.add('is-visible');
+      badge.classList.remove('pop');
+      void badge.offsetWidth;
+      badge.classList.add('pop');
+      return;
+    }
+
+    badge.classList.add('is-visible');
   }
 
   function updatePeerPills(byPeer){
@@ -1389,6 +1431,7 @@ if ($peerMid > 0) {
       var data = await res.json();
       if (!data || !data.ok) return;
       ensureHeaderBadge(parseInt(data.total, 10) || 0);
+      ensureFeedBadge(parseInt(data.feedUnread, 10) || 0);
       updatePeerPills(data.byPeer || {});
     } catch (e) {}
   }

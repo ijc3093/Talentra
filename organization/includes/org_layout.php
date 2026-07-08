@@ -40,8 +40,9 @@ if (!function_exists('org_layout_head_assets')) {
                 . '</style>' . "\n";
         }
 
-        echo '<link rel="stylesheet" href="css/org-layout.css?v=13">' . "\n";
-        echo '<link rel="stylesheet" href="css/org-compact.css?v=14">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-layout.css?v=17">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-compact.css?v=26">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-header-actions.css?v=1">' . "\n";
     }
 }
 
@@ -54,7 +55,7 @@ if (!function_exists('org_layout_footer_assets')) {
         }
         $emitted = true;
         require __DIR__ . '/org_footer_scripts.php';
-        echo '<script src="js/org-nav.js?v=13" defer></script>' . "\n";
+        echo '<script src="js/org-nav.js?v=14" defer></script>' . "\n";
     }
 }
 

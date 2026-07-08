@@ -42,7 +42,7 @@ requireUserLogin();
   --tt-input-border:var(--msb-palette-border-strong, rgba(15,23,42,.08));
   --tt-input-placeholder:var(--msb-palette-placeholder, #98a2b3);
   --tt-accent:var(--msb-palette-action, var(--msb-palette-link, #2563eb));
-  --tt-accent-soft:var(--msb-palette-accent, rgba(37,99,235,.08));
+  --tt-accent-soft:var(--msb-palette-action-soft, var(--msb-palette-nav-active-bg, rgba(37,99,235,.08)));
   --tt-accent-strong:var(--msb-palette-link-hover, #1d4ed8);
   --tt-focus-bg:var(--msb-palette-hover-bg, rgba(37,99,235,.06));
   --tt-focus-border:var(--msb-palette-border-strong, rgba(37,99,235,.16));
@@ -55,6 +55,14 @@ requireUserLogin();
     left:0;
     width:min(400px, 88vw);
   }
+}
+html.dark-auto #ttLeftbarOverlays,
+html[data-theme="dark"] #ttLeftbarOverlays{
+  --tt-panel-bg:var(--msb-palette-bg, #171d24);
+  --tt-panel-bg-alt:var(--msb-palette-surface-2, #1f2630);
+  --tt-panel-bg-strong:var(--msb-palette-surface, #232b35);
+  --tt-text:var(--msb-palette-text, #f3f6fb);
+  --tt-muted:var(--msb-palette-text-muted, #b1bcce);
 }
 html[data-msb-appearance] #ttLeftbarOverlays{
   --tt-panel-bg:var(--msb-palette-bg);
@@ -72,14 +80,58 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   --tt-input-bg:var(--msb-palette-input-bg, #1f1f1f);
   --tt-input-border:var(--msb-palette-border-strong);
   --tt-input-placeholder:var(--msb-palette-placeholder);
-  --tt-accent:var(--msb-palette-link);
-  --tt-accent-soft:var(--msb-palette-accent);
+  --tt-accent:var(--msb-palette-action, var(--msb-palette-link));
+  --tt-accent-soft:var(--msb-palette-action-soft, var(--msb-palette-nav-active-bg));
   --tt-accent-strong:var(--msb-palette-link-hover);
   --tt-focus-bg:var(--msb-palette-hover-bg);
   --tt-focus-border:var(--msb-palette-border-strong);
 }
-#ttLeftbarOverlays .tt-comments-wrap,
-#ttLeftbarOverlays .tt-readmore-wrap,
+#ttLeftbarOverlays .tt-comments-wrap{
+  position:absolute !important;
+  inset:0 !important;
+  background:var(--tt-panel-bg);
+  z-index:999 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  min-height:0 !important;
+  box-shadow:18px 0 48px rgba(0,0,0,.32);
+  transform:translateX(-105%);
+  opacity:0;
+  pointer-events:none;
+  transition:transform .18s ease, opacity .18s ease;
+}
+#ttLeftbarOverlays .tt-comments-wrap.is-open{
+  transform:translateX(0);
+  opacity:1;
+  pointer-events:auto;
+  border-left:1px solid var(--tt-panel-border-strong, #d1d5db);
+  border-right:1px solid var(--tt-panel-border-strong, #d1d5db);
+  box-sizing:border-box;
+}
+#ttLeftbarOverlays .tt-readmore-wrap{
+  position:absolute !important;
+  inset:0 !important;
+  background:var(--tt-panel-bg);
+  z-index:998 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  min-height:0 !important;
+  box-shadow:18px 0 48px rgba(0,0,0,.32);
+  transform:translateX(-105%);
+  opacity:0;
+  pointer-events:none;
+  transition:transform .18s ease, opacity .18s ease;
+}
+#ttLeftbarOverlays .tt-readmore-wrap.is-open{
+  transform:translateX(0);
+  opacity:1;
+  pointer-events:auto;
+  border-left:1px solid var(--tt-panel-border-strong, #d1d5db);
+  border-right:1px solid var(--tt-panel-border-strong, #d1d5db);
+  box-sizing:border-box;
+}
 #ttLeftbarOverlays .tt-menu-wrap,
 #ttLeftbarOverlays .tt-profile-wrap,
 #ttLeftbarOverlays .tt-messages-wrap,
@@ -90,8 +142,6 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   inset:0 !important;
   pointer-events:none;
 }
-#ttLeftbarOverlays .tt-comments-wrap.is-open,
-#ttLeftbarOverlays .tt-readmore-wrap.is-open,
 #ttLeftbarOverlays .tt-menu-wrap.is-open,
 #ttLeftbarOverlays .tt-profile-wrap.is-open,
 #ttLeftbarOverlays .tt-messages-wrap.is-open,
@@ -115,29 +165,23 @@ html[data-msb-appearance] #ttLeftbarOverlays{
    ============================================================ */
 .tt-comments-wrap{
   position:absolute !important;
-  inset:0 !important;             /* top:0 right:0 bottom:0 left:0 */
+  inset:0 !important;
   background:var(--tt-panel-bg);
-  z-index:999 !important;         /* above nav */
-
+  z-index:999 !important;
   display:flex !important;
   flex-direction:column !important;
   overflow:hidden !important;
   min-height:0 !important;
-
-  box-shadow: 18px 0 48px rgba(0,0,0,.32);
-
-  /* closed by default: fully off-screen */
-  transform: translateX(-105%);
-  opacity: 0;
-  pointer-events: none;
-
-  transition: transform .18s ease, opacity .18s ease;
+  box-shadow:18px 0 48px rgba(0,0,0,.32);
+  transform:translateX(-105%);
+  opacity:0;
+  pointer-events:none;
+  transition:transform .18s ease, opacity .18s ease;
 }
-
 .tt-comments-wrap.is-open{
-  transform: translateX(0);
-  opacity: 1;
-  pointer-events: auto;
+  transform:translateX(0);
+  opacity:1;
+  pointer-events:auto;
 }
 
 /* Header sticky */
@@ -329,21 +373,21 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   position:absolute !important;
   inset:0 !important;
   background:var(--tt-panel-bg);
-  z-index:998 !important; /* below comments (999), above nav (1) */
+  z-index:998 !important;
   display:flex !important;
   flex-direction:column !important;
   overflow:hidden !important;
   min-height:0 !important;
-  box-shadow: 0 6px 18px rgba(0,0,0,.10);
-  transform: translateX(-105%);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform .18s ease, opacity .18s ease;
+  box-shadow:18px 0 48px rgba(0,0,0,.32);
+  transform:translateX(-105%);
+  opacity:0;
+  pointer-events:none;
+  transition:transform .18s ease, opacity .18s ease;
 }
 .tt-readmore-wrap.is-open{
-  transform: translateX(0);
-  opacity: 1;
-  pointer-events: auto;
+  transform:translateX(0);
+  opacity:1;
+  pointer-events:auto;
 }
 .tt-rm-head{
   flex:0 0 auto !important;
@@ -402,370 +446,13 @@ html[data-msb-appearance] #ttLeftbarOverlays{
 .tt-rm-body .tt-rich-li:last-child{margin-bottom:0;}
 .tt-rich-ellipsis{display:inline;}
 
-/* ============================================================
-   MENU DRAWER (navigation door)
-   ============================================================ */
-.tt-menu-wrap{
-  position:absolute !important;
-  inset:0 !important;
-  background:var(--tt-panel-bg);
-  z-index:997 !important;
-  display:flex !important;
-  flex-direction:column !important;
-  overflow:hidden !important;
-  min-height:0 !important;
-  box-shadow: 18px 0 48px rgba(0,0,0,.32);
-  transform: translateX(-105%);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform .18s ease, opacity .18s ease;
-}
-.tt-menu-wrap.is-open{
-  transform: translateX(0);
-  opacity: 1;
-  pointer-events: auto;
-}
-.tt-menu-head{
-  flex:0 0 auto !important;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:33px 40px 20px;
-  border-bottom:1px solid var(--tt-panel-border);
-  background:var(--tt-panel-bg);
-  position: sticky !important;
-  top:0 !important;
-  z-index:30 !important;
-}
-.tt-menu-head-left{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  min-width:0;
-}
-.tt-menu-head .title{
-  font-family:'Segoe Script','Apple Chancery','Bradley Hand',cursive;
-  font-weight:400;
-  font-size:clamp(24px, 2.6vw, 32px);
-  line-height:1;
-  color:var(--tt-text);
-  letter-spacing:.01em;
-}
-.tt-menu-panel{
-  flex:0 0 auto;
-  display:flex;
-  flex-direction:column;
-  width:236px;
-  max-width:calc(100% - 56px);
-  height:min(340px, calc(100vh - 280px));
-  max-height:min(340px, calc(100vh - 220px));
-  margin:clamp(12px, 10vh, 120px) 0 24px 40px;
-  overflow:hidden;
-  box-sizing:border-box;
-}
-.tt-menu-body{
-  flex:1 1 auto !important;
-  min-height:0 !important;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-  padding:0 2px 0 0;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
-  touch-action:pan-y;
-  background:transparent;
-  scrollbar-width:thin;
-  scrollbar-color:rgba(0,0,0,.18) transparent;
-}
-.tt-menu-body::-webkit-scrollbar{width:5px;}
-.tt-menu-body::-webkit-scrollbar-thumb{
-  background:rgba(0,0,0,.18);
-  border-radius:999px;
-}
-.tt-menu-body .feed-left-nav{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  margin:0;
-  padding:0;
-  width:100%;
-}
-.tt-menu-body .feed-left-nav-item{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  min-height:42px;
-  padding:8px 12px;
-  border-radius:10px;
-  color:var(--tt-text);
-  font-size:14px;
-  font-weight:500;
-  line-height:1.2;
-  text-decoration:none;
-  transition:background .15s ease,color .15s ease;
-  box-sizing:border-box;
-}
-.tt-menu-body .feed-left-nav-item:hover,
-.tt-menu-body .feed-left-nav-item:focus{
-  background:var(--msb-palette-nav-hover, #d0d8e4);
-  color:var(--msb-palette-text-on-nav-hover, var(--tt-text));
-  box-shadow:inset 0 0 0 1px rgba(15,23,42,.14);
-  text-decoration:none;
-  outline:none;
-}
-.tt-menu-body .feed-left-nav-item.is-active{
-  background:var(--tt-accent-soft);
-  color:var(--tt-text);
-  font-weight:600;
-}
-.tt-menu-body .feed-left-nav-ic{
-  flex:0 0 20px;
-  width:20px;
-  height:20px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  color:var(--tt-text);
-}
-.tt-menu-body .feed-left-nav-ic svg{
-  display:block;
-  width:18px;
-  height:18px;
-  stroke:currentColor;
-  fill:none;
-  stroke-width:1.75;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-}
-.tt-menu-body .feed-left-nav-label{
-  flex:1 1 auto;
-  min-width:0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.tt-menu-body .feed-left-nav-section{
-  width:min(100%, 220px);
-  margin:14px auto 4px;
-  padding:0 12px;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  color:var(--tt-muted);
-  box-sizing:border-box;
-}
-.tt-menu-body .feed-left-nav-item-company .feed-left-nav-label,
-.tt-menu-body .feed-left-nav-item-publisher .feed-left-nav-label{
-  font-weight:600;
-}
-.tt-menu-body .feed-left-nav-item-under-public{
-  margin-left:12px;
-  padding-left:20px;
-  min-height:38px;
-  font-size:13px;
-}
-.tt-menu-body .feed-left-nav-item-publisher.is-self-publisher .feed-left-nav-label{
-  color:var(--tt-text);
-}
-.tt-menu-scroll-rail{
-  flex:0 0 auto;
-  display:flex;
-  justify-content:flex-end;
-  gap:8px;
-  padding:10px 2px 0;
-  background:transparent;
-}
-.tt-menu-scroll-btn{
-  width:34px;
-  height:34px;
-  border:0;
-  border-radius:50%;
-  background:#111827;
-  color:#fff;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  box-shadow:0 6px 16px rgba(15,23,42,.18);
-  padding:0;
-}
-.tt-menu-scroll-btn svg{
-  display:block;
-  width:16px;
-  height:16px;
-  stroke:currentColor;
-  fill:none;
-  stroke-width:2;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-}
-.tt-menu-scroll-btn:hover,
-.tt-menu-scroll-btn:focus{
-  background:#0f172a;
-  outline:none;
-}
-.tt-menu-scroll-btn:disabled{
-  opacity:.35;
-  cursor:default;
-  box-shadow:none;
-}
-@media (max-width: 991.98px){
-  .tt-menu-panel{
-    width:min(236px, calc(100% - 32px));
-    max-width:calc(100% - 32px);
-    margin-left:16px;
-    margin-right:auto;
-    height:min(340px, calc(100vh - 200px));
-    max-height:min(340px, calc(100vh - 160px));
-  }
-}
-
-/* Profile drawer — same leftbar door as comments */
-.tt-profile-wrap{
-  position:absolute !important;
-  inset:0 !important;
-  background:var(--tt-panel-bg);
-  z-index:999 !important;
-  display:flex !important;
-  flex-direction:column !important;
-  overflow:hidden !important;
-  min-height:0 !important;
-  box-shadow:18px 0 48px rgba(0,0,0,.32);
-  transform:translateX(-105%);
-  opacity:0;
-  pointer-events:none;
-  transition:transform .18s ease, opacity .18s ease;
-}
-.tt-profile-wrap.is-open{
-  transform:translateX(0);
-  opacity:1;
-  pointer-events:auto;
-}
-.tt-profile-head{
-  flex:0 0 auto !important;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:22px 24px 16px;
-  border-bottom:1px solid var(--tt-panel-border);
-  background:var(--tt-panel-bg);
-  position:sticky !important;
-  top:0 !important;
-  z-index:30 !important;
-}
-.tt-profile-head .title{
-  font-weight:800;
-  font-size:20px;
-  line-height:1.1;
-  color:var(--tt-text);
-}
-.tt-profile-body{
-  flex:1 1 auto !important;
-  min-height:0 !important;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-  padding:18px 18px 24px;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
-  background:var(--tt-panel-bg);
-}
-.tt-profile-top{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  padding:4px 6px 16px;
-}
-.tt-profile-avatar{
-  width:56px;
-  height:56px;
-  border-radius:50%;
-  overflow:hidden;
-  flex:0 0 auto;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 10px 22px rgba(17,24,39,.12);
-}
-.tt-profile-avatar img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  display:block;
-}
-.tt-profile-meta{
-  min-width:0;
-  flex:1 1 auto;
-}
-.tt-profile-name{
-  font-size:17px;
-  font-weight:800;
-  line-height:1.2;
-  color:var(--tt-text);
-}
-.tt-profile-badge{
-  margin-top:4px;
-  font-size:13px;
-  font-weight:700;
-  line-height:1.2;
-  color:var(--tt-text);
-}
-.tt-profile-email,
-.tt-profile-code{
-  margin-top:4px;
-  font-size:13px;
-  line-height:1.35;
-  color:var(--tt-muted);
-  word-break:break-word;
-}
-.tt-profile-divider{
-  height:1px;
-  background:var(--tt-panel-border);
-  margin:0 6px 12px;
-}
-.tt-profile-nav{
-  list-style:none;
-  margin:0;
-  padding:0;
-}
-.tt-profile-nav li{
-  margin:0;
-  padding:0;
-}
-.tt-profile-nav a{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  min-height:44px;
-  padding:10px 12px;
-  border-radius:10px;
-  color:var(--tt-text);
-  font-size:15px;
-  font-weight:500;
-  text-decoration:none;
-  transition:background .15s ease, color .15s ease;
-}
-.tt-profile-nav a:hover,
-.tt-profile-nav a:focus{
-  background:var(--tt-control-hover);
-  color:var(--tt-text);
-  text-decoration:none;
-  outline:none;
-}
-.tt-profile-nav a .icon{
-  width:20px;
-  text-align:center;
-  font-size:18px;
-  color:var(--tt-muted);
-}
-
 </style>
 
 <!-- leftbar overlays only: no nav duplicated -->
 <div id="ttLeftbarOverlays">
 
   <!-- ✅ COMMENTS drawer overlay -->
-  <div class="tt-comments-wrap" id="tt-comments-wrap">
+  <div class="tt-comments-wrap" id="tt-comments-wrap" aria-hidden="true">
 
     <div class="tt-comments-head">
       <div>
@@ -808,85 +495,8 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   </div>
 
 
-  <!-- ✅ MENU drawer overlay -->
-  <div class="tt-menu-wrap" id="tt-menu-wrap">
-    <div class="tt-menu-head">
-      <div class="tt-menu-head-left">
-        <span class="title">Menu</span>
-      </div>
-      <button class="tt-close" type="button" id="ttMenuClose" title="Close">
-        <i class="icon ion-close"></i>
-      </button>
-    </div>
-    <div class="tt-menu-panel">
-      <div class="tt-menu-body js-tt-menu-scroll">
-        <?php
-          $feedLeftRailActive = strtolower(basename((string)($_SERVER['PHP_SELF'] ?? '')));
-          $feedLeftRailEmbed = true;
-          include __DIR__ . '/feed_left_rail.php';
-        ?>
-      </div>
-      <div class="tt-menu-scroll-rail" aria-label="Scroll menu">
-        <button type="button" class="tt-menu-scroll-btn js-tt-menu-scroll-up" aria-label="Scroll up">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
-        </button>
-        <button type="button" class="tt-menu-scroll-btn js-tt-menu-scroll-down" aria-label="Scroll down">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
-        </button>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- ✅ PROFILE drawer overlay -->
-  <div class="tt-profile-wrap" id="tt-profile-wrap" aria-hidden="true">
-    <div class="tt-profile-head">
-      <div>
-        <span class="title">Profile</span>
-      </div>
-      <button class="tt-close" type="button" id="ttProfileClose" title="Close">
-        <i class="icon ion-close"></i>
-      </button>
-    </div>
-    <div class="tt-profile-body">
-      <div class="tt-profile-top">
-        <span class="tt-profile-avatar" data-avatar-key="<?= htmlspecialchars((string)($meKey ?? ''), ENT_QUOTES, 'UTF-8') ?>" style="<?= htmlspecialchars((string)($meGrad ?? ''), ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true">
-          <img src="<?= htmlspecialchars((string)($meAvatarUrl ?? 'avatar.php'), ENT_QUOTES, 'UTF-8') ?>" data-live-avatar="1" data-avatar-base="<?= htmlspecialchars((string)($meAvatarUrl ?? 'avatar.php'), ENT_QUOTES, 'UTF-8') ?>" alt="Avatar">
-        </span>
-        <div class="tt-profile-meta">
-          <div class="tt-profile-name"><?= htmlspecialchars((string)($meMenuDisplayName ?? $meName ?? 'My Account'), ENT_QUOTES, 'UTF-8') ?></div>
-          <?php if (!empty($meMenuAccountBadge ?? '')): ?>
-            <div class="tt-profile-badge"><?= htmlspecialchars((string)$meMenuAccountBadge, ENT_QUOTES, 'UTF-8') ?></div>
-          <?php endif; ?>
-          <?php if (!empty($meEmail)): ?>
-            <div class="tt-profile-email"><?= htmlspecialchars((string)$meEmail, ENT_QUOTES, 'UTF-8') ?></div>
-          <?php endif; ?>
-          <?php if (!empty($meCode)): ?>
-            <div class="tt-profile-code">Code: <b><?= htmlspecialchars((string)$meCode, ENT_QUOTES, 'UTF-8') ?></b></div>
-          <?php endif; ?>
-        </div>
-      </div>
-      <div class="tt-profile-divider"></div>
-      <ul class="tt-profile-nav">
-        <?php
-          $ttProfileMenuItems = is_array($railProfileMenuItems ?? null) ? $railProfileMenuItems : [
-            ['href' => 'profile.php', 'icon' => 'ion-ios-person', 'label' => 'Profile'],
-            ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
-            ['href' => 'change-password.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
-            ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
-          ];
-          foreach ($ttProfileMenuItems as $item):
-            $href = trim((string)($item['href'] ?? '#'));
-            $icon = trim((string)($item['icon'] ?? 'ion-ios-arrow-right'));
-            $label = trim((string)($item['label'] ?? 'Open'));
-            if ($href === '' || $label === '') continue;
-        ?>
-          <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><i class="icon <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a></li>
-        <?php endforeach; ?>
-      </ul>
-    </div>
-  </div>
-
+  <?php include __DIR__ . '/menu_door.php'; ?>
+  <?php include __DIR__ . '/profile_door.php'; ?>
   <?php include __DIR__ . '/messages_door.php'; ?>
   <?php include __DIR__ . '/notifications_door.php'; ?>
   <?php include __DIR__ . '/friend_requests_door.php'; ?>
@@ -1023,16 +633,129 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   $cancelReply?.addEventListener('click', ()=>setReply(0,''));
 
   $close?.addEventListener('click', ()=>{
-    if($wrap) $wrap.classList.remove('is-open');
+    closeCommentsPanel();
   });
 
-  function openPanel(){
-    if(window.TTMenu && typeof window.TTMenu.close === 'function') window.TTMenu.close();
-    if(window.TTProfile && typeof window.TTProfile.close === 'function') window.TTProfile.close();
+  var commentsPanelOpen = false;
+
+  function commentsDoorDomOpen(){
+    return !!($wrap && $wrap.classList.contains('is-open'));
+  }
+
+  function syncCommentsPanelState(){
+    commentsPanelOpen = commentsDoorDomOpen();
+  }
+
+  function readMorePanelOpen(){
+    var rm = document.getElementById('tt-readmore-wrap');
+    return !!(rm && rm.classList.contains('is-open'));
+  }
+
+  function closeOtherPanelsForComments(){
+    try {
+      if(window.TTReadMore && typeof window.TTReadMore.close === 'function') window.TTReadMore.close();
+    } catch(e){}
+    try {
+      if(window.TTMenu && typeof window.TTMenu.close === 'function') window.TTMenu.close();
+    } catch(e){}
+    try {
+      if(window.TTProfile && typeof window.TTProfile.close === 'function') window.TTProfile.close();
+    } catch(e){}
     if(window.TTMessages && typeof window.TTMessages.close === 'function') window.TTMessages.close();
     if(window.TTNotifications && typeof window.TTNotifications.close === 'function') window.TTNotifications.close();
     if(window.TTFriendRequests && typeof window.TTFriendRequests.close === 'function') window.TTFriendRequests.close();
-    if($wrap) $wrap.classList.add('is-open');
+    if(window.TTLive && typeof window.TTLive.close === 'function') window.TTLive.close();
+    try {
+      if(window.TTLiveRight && typeof window.TTLiveRight.close === 'function') window.TTLiveRight.close();
+    } catch(e){}
+  }
+
+  function closeCommentsPanel(){
+    if(!$wrap || !commentsDoorDomOpen()) return;
+    commentsPanelOpen = false;
+    $wrap.classList.remove('is-open');
+    $wrap.setAttribute('aria-hidden', 'true');
+    if(!readMorePanelOpen()){
+      document.body.classList.remove('public-leftbar-open', 'profile-leftbar-open');
+    }
+  }
+
+  function openCommentsPanel(){
+    if(!$wrap || commentsDoorDomOpen()) return;
+    closeOtherPanelsForComments();
+    commentsPanelOpen = true;
+    $wrap.classList.add('is-open');
+    $wrap.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('public-leftbar-open');
+    if(document.body.classList.contains('profile-page')){
+      document.body.classList.add('profile-leftbar-open');
+    }
+  }
+
+  function openPanel(){
+    if(!$wrap) return;
+    closeOtherPanelsForComments();
+    syncCommentsPanelState();
+    if(commentsPanelOpen) return;
+    openCommentsPanel();
+  }
+
+  function postIdFromCommentTrigger(trigger){
+    if(!trigger) return 0;
+    var card = trigger.closest('.mf-card, .public-post-card, article.post');
+    if(card){
+      var fromCard = Number(card.getAttribute('data-id') || card.getAttribute('data-post-id') || 0);
+      if(fromCard > 0) return fromCard;
+    }
+    return Number(trigger.getAttribute('data-post-id') || 0);
+  }
+
+  function fetchCommentsForPost(postId){
+    postId = Number(postId || 0);
+    if(!postId) return Promise.resolve([]);
+    var apiUrl = String(window.API_URL || 'feed_api.php');
+    var url = apiUrl + (apiUrl.indexOf('?') >= 0 ? '&' : '?') + 'ajax=view&id=' + encodeURIComponent(String(postId));
+    return fetch(url, { credentials:'same-origin', cache:'no-store' })
+      .then(function(res){ return res.json(); })
+      .then(function(res){
+        if(res && res.ok && Array.isArray(res.comments)) return res.comments;
+        return [];
+      })
+      .catch(function(){ return []; });
+  }
+
+  function openCommentsForPost(postId, comments, opts){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    opts = opts || {};
+
+    if(commentsDoorDomOpen() && Number(currentCommentsPostId) === postId && opts.toggle){
+      closeCommentsPanel();
+      return;
+    }
+
+    if(typeof window.TTComments.clearFocusComment === 'function'){
+      window.TTComments.clearFocusComment();
+    }
+
+    openCommentsPanel();
+
+    if(Array.isArray(comments)){
+      window.TTComments.setPost(postId, comments, false);
+      return;
+    }
+
+    window.TTComments.setPost(postId, [], false);
+    if($list) $list.innerHTML = '<div class="text-muted" style="padding:10px 6px;">Loading comments...</div>';
+
+    fetchCommentsForPost(postId).then(function(items){
+      if(Number(currentCommentsPostId) !== postId) return;
+      window.TTComments.setPost(postId, items, false);
+      if(typeof opts.onLoaded === 'function') opts.onLoaded(items);
+    }).catch(function(){
+      if(Number(currentCommentsPostId) !== postId) return;
+      if($list) $list.innerHTML = '<div class="text-danger" style="padding:10px 6px;">Unable to load comments.</div>';
+    });
   }
 
   function reactionLabel(reaction){
@@ -1286,31 +1009,59 @@ html[data-msb-appearance] #ttLeftbarOverlays{
     if(open !== false) openPanel();
   };
 
-  window.TTComments.close = function(){ if($wrap) $wrap.classList.remove('is-open'); };
-  window.TTComments.open  = function(){ openPanel(); };
+  window.TTComments.close = function(){ closeCommentsPanel(); };
+  window.TTComments.open  = function(){ openCommentsPanel(); };
   window.TTComments.isOpen = function(){
-    return !!($wrap && $wrap.classList.contains('is-open'));
+    syncCommentsPanelState();
+    return commentsPanelOpen;
   };
   window.TTComments.getPostId = function(){
     return Number(currentCommentsPostId || 0);
   };
+  window.TTComments.openForPost = function(postId, comments, opts){
+    openCommentsForPost(postId, Array.isArray(comments) ? comments : null, opts || {});
+  };
   window.TTComments.toggle = function(postId, comments){
     postId = Number(postId || 0);
-    if(window.TTComments.isOpen() && postId > 0 && postId === Number(currentCommentsPostId)){
-      window.TTComments.close();
+    if(commentsDoorDomOpen() && postId > 0 && postId === Number(currentCommentsPostId)){
+      closeCommentsPanel();
       return false;
     }
     if(postId > 0){
-      window.TTComments.setPost(postId, comments || [], true);
+      openCommentsForPost(postId, Array.isArray(comments) ? comments : null, {});
       return true;
     }
-    if(window.TTComments.isOpen()){
-      window.TTComments.close();
+    if(commentsDoorDomOpen()){
+      closeCommentsPanel();
       return false;
     }
-    openPanel();
+    openCommentsPanel();
     return true;
   };
+
+  document.addEventListener('click', function(e){
+    var trigger = e.target && e.target.closest
+      ? e.target.closest('.js-open-comments-door, .js-open-profile-comments-door, #profilePostsFeed .mf-comment, .mf-feed .mf-comment, .mf-card .mf-comment, #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"]')
+      : null;
+    if(!trigger) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var postId = postIdFromCommentTrigger(trigger);
+    if(typeof window.openFeedCommentsTray === 'function'){
+      window.openFeedCommentsTray(postId);
+      return;
+    }
+    if(typeof window.openProfileCommentsTray === 'function'){
+      window.openProfileCommentsTray(postId);
+      return;
+    }
+    if(!postId) return;
+    openCommentsForPost(postId, null, {});
+  }, true);
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && commentsDoorDomOpen()) closeCommentsPanel();
+  });
 
   if(window.MSBReactions){
     window.MSBReactions.bindLikePicker('.tt-reactbtn', async function(btn, reaction){
@@ -1342,8 +1093,55 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   const $rmTitle = document.getElementById('ttRmTitle');
   const $rmSub = document.getElementById('ttRmSub');
   const $rmBody = document.getElementById('ttRmBody');
+  var _rmLastKey = '';
 
-  $rmClose?.addEventListener('click', ()=>{ $rmWrap && $rmWrap.classList.remove('is-open'); });
+  function readMoreDoorDomOpen(){
+    return !!($rmWrap && $rmWrap.classList.contains('is-open'));
+  }
+
+  function closeOtherPanelsForReadMore(){
+    try {
+      if(window.TTComments && typeof window.TTComments.close === 'function') window.TTComments.close();
+    } catch(e){}
+    try {
+      if(window.TTMenu && typeof window.TTMenu.close === 'function') window.TTMenu.close();
+    } catch(e){}
+    if(window.TTProfile && typeof window.TTProfile.close === 'function') window.TTProfile.close();
+    if(window.TTMessages && typeof window.TTMessages.close === 'function') window.TTMessages.close();
+    if(window.TTNotifications && typeof window.TTNotifications.close === 'function') window.TTNotifications.close();
+    if(window.TTFriendRequests && typeof window.TTFriendRequests.close === 'function') window.TTFriendRequests.close();
+    if(window.TTLive && typeof window.TTLive.close === 'function') window.TTLive.close();
+    try {
+      if(window.TTLiveRight && typeof window.TTLiveRight.close === 'function') window.TTLiveRight.close();
+    } catch(e){}
+  }
+
+  function closeReadMorePanel(){
+    if(!$rmWrap || !readMoreDoorDomOpen()) return;
+    $rmWrap.classList.remove('is-open');
+    $rmWrap.setAttribute('aria-hidden', 'true');
+    _rmLastKey = '';
+    if(!commentsDoorDomOpen()){
+      document.body.classList.remove('public-leftbar-open', 'profile-leftbar-open');
+    }
+  }
+
+  function openReadMorePanel(){
+    if(!$rmWrap || readMoreDoorDomOpen()) return;
+    closeOtherPanelsForReadMore();
+    $rmWrap.classList.add('is-open');
+    $rmWrap.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('public-leftbar-open');
+    if(document.body.classList.contains('profile-page')){
+      document.body.classList.add('profile-leftbar-open');
+    }
+  }
+
+  $rmClose?.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    closeReadMorePanel();
+  });
 
 
   function ttRmEsc(s){
@@ -1407,70 +1205,7 @@ html[data-msb-appearance] #ttLeftbarOverlays{
   window.TTRichText = window.TTRichText || { formatHtml: ttFormatRichText, normalizePlain: ttNormalizeReadMorePlain };
 
   window.TTReadMore = window.TTReadMore || {};
-  const $menuWrap = document.getElementById('tt-menu-wrap');
-  const $menuClose = document.getElementById('ttMenuClose');
-  const $menuScroll = document.querySelector('.js-tt-menu-scroll');
-  const $menuScrollUp = document.querySelector('.js-tt-menu-scroll-up');
-  const $menuScrollDown = document.querySelector('.js-tt-menu-scroll-down');
-  const $menuScrollRail = document.querySelector('.tt-menu-scroll-rail');
 
-  function syncMenuScroll(){
-    if(!$menuScroll || !$menuScrollUp || !$menuScrollDown) return;
-    var max = Math.max(0, $menuScroll.scrollHeight - $menuScroll.clientHeight);
-    $menuScrollUp.disabled = $menuScroll.scrollTop <= 1;
-    $menuScrollDown.disabled = $menuScroll.scrollTop >= max - 1;
-    var show = max > 2;
-    $menuScrollUp.style.display = show ? '' : 'none';
-    $menuScrollDown.style.display = show ? '' : 'none';
-    if($menuScrollRail) $menuScrollRail.style.display = show ? '' : 'none';
-  }
-
-  if($menuScroll && $menuScrollUp && $menuScrollDown){
-    var menuScrollStep = 120;
-    $menuScrollUp.addEventListener('click', function(){
-      $menuScroll.scrollBy({top:-menuScrollStep, behavior:'smooth'});
-    });
-    $menuScrollDown.addEventListener('click', function(){
-      $menuScroll.scrollBy({top:menuScrollStep, behavior:'smooth'});
-    });
-    $menuScroll.addEventListener('scroll', syncMenuScroll, {passive:true});
-    window.addEventListener('resize', syncMenuScroll);
-    syncMenuScroll();
-  }
-
-  function closeMenuPanel(){
-    if($menuWrap) $menuWrap.classList.remove('is-open');
-  }
-  function openMenuPanel(){
-    try { if($wrap) $wrap.classList.remove('is-open'); } catch(e){}
-    try { if($rmWrap) $rmWrap.classList.remove('is-open'); } catch(e){}
-    if(window.TTProfile && typeof window.TTProfile.close === 'function') window.TTProfile.close();
-    if(window.TTMessages && typeof window.TTMessages.close === 'function') window.TTMessages.close();
-    if(window.TTNotifications && typeof window.TTNotifications.close === 'function') window.TTNotifications.close();
-    if(window.TTFriendRequests && typeof window.TTFriendRequests.close === 'function') window.TTFriendRequests.close();
-    if($menuWrap) $menuWrap.classList.add('is-open');
-    requestAnimationFrame(syncMenuScroll);
-  }
-
-  $menuClose?.addEventListener('click', closeMenuPanel);
-
-  window.TTMenu = window.TTMenu || {};
-  window.TTMenu.open = openMenuPanel;
-  window.TTMenu.close = closeMenuPanel;
-  window.TTMenu.toggle = function(){
-    if($menuWrap && $menuWrap.classList.contains('is-open')) closeMenuPanel();
-    else openMenuPanel();
-  };
-
-  document.addEventListener('click', function(e){
-    var menuBtn = e.target && e.target.closest ? e.target.closest('.ig-stories-menu-btn') : null;
-    if(!menuBtn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if(window.TTMenu && typeof window.TTMenu.toggle === 'function') window.TTMenu.toggle();
-  });
-
-  var _rmLastKey = '';
   function readMoreKey(payload){
     payload = payload || {};
     return [
@@ -1483,13 +1218,8 @@ html[data-msb-appearance] #ttLeftbarOverlays{
 
   window.TTReadMore.open = function(payload){
     payload = payload || {};
-    // close comments if open (prevents overlap confusion)
-    try { if($wrap) $wrap.classList.remove('is-open'); } catch(e){}
-    closeMenuPanel();
-    if(window.TTProfile && typeof window.TTProfile.close === 'function') window.TTProfile.close();
-    if(window.TTMessages && typeof window.TTMessages.close === 'function') window.TTMessages.close();
-    if(window.TTNotifications && typeof window.TTNotifications.close === 'function') window.TTNotifications.close();
-    if(window.TTFriendRequests && typeof window.TTFriendRequests.close === 'function') window.TTFriendRequests.close();
+    closeOtherPanelsForReadMore();
+    openReadMorePanel();
 
     const author = String(payload.author || '').trim();
     const titleRaw = String(payload.title || '').trim();
@@ -1524,70 +1254,69 @@ html[data-msb-appearance] #ttLeftbarOverlays{
       $rmSub.textContent = date;
       $rmSub.style.display = date ? '' : 'none';
     }
-    if($rmBody)  $rmBody.innerHTML = ttFormatRichText(String(payload.body || ''));
-    if($rmWrap)  $rmWrap.classList.add('is-open');
+    if($rmBody) $rmBody.innerHTML = ttFormatRichText(String(payload.body || ''));
     _rmLastKey = readMoreKey(payload);
   };
   window.TTReadMore.isOpen = function(){
-    return !!($rmWrap && $rmWrap.classList.contains('is-open'));
+    return readMoreDoorDomOpen();
   };
   window.TTReadMore.toggle = function(payload){
     payload = payload || {};
     var key = readMoreKey(payload);
-    if(window.TTReadMore.isOpen() && key && key === _rmLastKey){
-      window.TTReadMore.close();
+    if(readMoreDoorDomOpen() && key && key === _rmLastKey){
+      closeReadMorePanel();
       return false;
     }
     window.TTReadMore.open(payload);
     return true;
   };
   window.TTReadMore.close = function(){
-    if($rmWrap) $rmWrap.classList.remove('is-open');
-    _rmLastKey = '';
+    closeReadMorePanel();
   };
 
-  const $profileWrap = document.getElementById('tt-profile-wrap');
-  const $profileClose = document.getElementById('ttProfileClose');
-
-  function closeProfilePanel(){
-    if($profileWrap){
-      $profileWrap.classList.remove('is-open');
-      $profileWrap.setAttribute('aria-hidden', 'true');
-    }
-    document.body.classList.remove('public-leftbar-open');
+  function readMorePayloadFromTrigger(trigger){
+    if(!trigger) return null;
+    var card = trigger.closest('.mf-card, .public-post-card, article.post');
+    if(!card) return null;
+    var bodyHost = trigger.closest('.mf-body, .mf-reel-body, .mf-video-body');
+    var body = bodyHost ? String(bodyHost.getAttribute('data-full') || '').trim() : '';
+    if(!body) body = String(card.getAttribute('data-full-desc') || '').trim();
+    if(!body) return null;
+    return {
+      title: String(card.getAttribute('data-title') || 'Post'),
+      author: String(card.getAttribute('data-author') || ''),
+      date: String(card.getAttribute('data-date') || ''),
+      avatarText: String(card.getAttribute('data-avatar-text') || 'P'),
+      avatarBg: '#111827',
+      avatarUrl: String(card.getAttribute('data-avatar-url') || ''),
+      body: body
+    };
   }
-  function openProfilePanel(){
-    try { if($wrap) $wrap.classList.remove('is-open'); } catch(e){}
-    try { if($rmWrap) $rmWrap.classList.remove('is-open'); } catch(e){}
-    closeMenuPanel();
-    if(window.TTMessages && typeof window.TTMessages.close === 'function') window.TTMessages.close();
-    if(window.TTNotifications && typeof window.TTNotifications.close === 'function') window.TTNotifications.close();
-    if(window.TTFriendRequests && typeof window.TTFriendRequests.close === 'function') window.TTFriendRequests.close();
-    if($profileWrap){
-      $profileWrap.classList.add('is-open');
-      $profileWrap.setAttribute('aria-hidden', 'false');
-    }
-    document.body.classList.add('public-leftbar-open');
-  }
-
-  $profileClose?.addEventListener('click', closeProfilePanel);
-
-  window.TTProfile = window.TTProfile || {};
-  window.TTProfile.open = openProfilePanel;
-  window.TTProfile.close = closeProfilePanel;
-  window.TTProfile.toggle = function(){
-    if($profileWrap && $profileWrap.classList.contains('is-open')) closeProfilePanel();
-    else openProfilePanel();
-  };
 
   document.addEventListener('click', function(e){
-    var btn = e.target && e.target.closest ? e.target.closest('.js-open-profile-door') : null;
-    if(!btn) return;
-    if(!window.TTProfile || typeof window.TTProfile.toggle !== 'function') return;
+    var trigger = e.target && e.target.closest
+      ? e.target.closest('.js-open-readmore-door, .js-open-readmore, .mf-readmore, #pvCapReadMore, .ig-cap-readmore, #pvFooterReadMore, #pvInlineReadMore, #btnReadMore, #postList .pl-readmore')
+      : null;
+    if(!trigger) return;
     e.preventDefault();
     e.stopPropagation();
-    window.TTProfile.toggle();
+    if(typeof window.openFeedReadMoreTray === 'function'){
+      window.openFeedReadMoreTray(trigger);
+      return;
+    }
+    if(typeof window.openProfileReadMoreTray === 'function'){
+      window.openProfileReadMoreTray(trigger);
+      return;
+    }
+    var payload = readMorePayloadFromTrigger(trigger);
+    if(payload){
+      window.TTReadMore.toggle(payload);
+    }
   }, true);
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && readMoreDoorDomOpen()) closeReadMorePanel();
+  });
 
   document.addEventListener('click', function(e){
     var target = e.target;
@@ -1612,11 +1341,11 @@ html[data-msb-appearance] #ttLeftbarOverlays{
     if(!menuOpen && !commentsOpen && !readOpen && !profileOpen && !messagesOpen && !notificationsOpen && !friendRequestsOpen && !liveOpen) return;
 
     if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-messages-wrap, #tt-notifications-wrap, #tt-friend-requests-wrap, #tt-live-wrap, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttMessagesClose, #ttNotificationsClose, #ttFriendRequestsClose')) return;
-    if(target.closest('.ig-stories-menu-btn, .ig-story-item, .js-open-comments, .js-open-readmore, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .js-open-live-studio-browse, .js-open-live-software-browse, .feed-ig-avatar')) return;
+    if(target.closest('.js-open-menu-door, .ig-story-item, .js-open-comments, .js-open-comments-door, .js-open-readmore, .js-open-readmore-door, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .js-open-live-studio-browse, .js-open-live-software-browse, .feed-ig-avatar')) return;
     if(target.closest('#tt-stories-wrap, #tt-live-right-wrap, #ttStoriesClose')) return;
-    if(target.closest('.mf-comment, #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"], #pvCapReadMore, .ig-cap-readmore, #pvFooterReadMore, #pvInlineReadMore, #btnReadMore, #btnOpenCommentsDrawer')) return;
+    if(target.closest('.mf-comment, .js-open-profile-comments-door, .mf-readmore, #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"], #pvCapReadMore, .ig-cap-readmore, #pvFooterReadMore, #pvInlineReadMore, #btnReadMore, #btnOpenCommentsDrawer, #postList .pl-readmore')) return;
 
-    if(menuOpen) closeMenuPanel();
+    if(menuOpen && window.TTMenu && typeof window.TTMenu.close === 'function') window.TTMenu.close();
     if(commentsOpen){
       if(window.TTComments && typeof window.TTComments.close === 'function') window.TTComments.close();
       else if(commentsWrap) commentsWrap.classList.remove('is-open');

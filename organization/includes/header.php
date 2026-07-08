@@ -6,6 +6,7 @@ require_once __DIR__ . '/org_context.php';
 require_once __DIR__ . '/org_publisher_access.php';
 require_once __DIR__ . '/org_theme_prefs.php';
 require_once __DIR__ . '/org_layout.php';
+require_once __DIR__ . '/org_header_counts.php';
 
 $isManager = isOrgManager();
 
@@ -45,32 +46,27 @@ $orgHeaderChrome = account_display_name_parts($displayName, true, $dbh);
 $orgPortalRoleBadge = trim((string)($orgHeaderChrome['badge'] ?? ''));
 $displayName = (string)($orgHeaderChrome['display_name'] ?? $displayName);
 
-// Theme CSS variables (optional) — defer page bg to profile appearance palette when set
-$bg = $ORG_THEME_BG !== '' ? $ORG_THEME_BG : '';
+// Theme CSS variables — org canvas locked to public_user dark (#171d24)
+$bg = '';
 $accent = $ORG_THEME_ACCENT !== '' ? $ORG_THEME_ACCENT : '#4f46e5';
 $fontSz = $ORG_FONT_SIZE !== '' ? $ORG_FONT_SIZE : '12px';
 
-// --- Unread badge count (org_messages.is_read = 0 where receiver = me) ---
+// --- Unread badge counts (messages + feed updates) ---
 $unreadCount = 0;
+$feedUnreadCount = 0;
 try {
     if (function_exists('orgMemberId')) {
         $meMid = (int)orgMemberId();
         $orgId = (int)($ORG['id'] ?? 0);
 
         if ($meMid > 0 && $orgId > 0) {
-            $stU = $dbh->prepare("
-                SELECT COUNT(*)
-                FROM org_messages
-                WHERE org_id = :org
-                  AND receiver_member_id = :me
-                  AND is_read = 0
-            ");
-            $stU->execute([':org' => $orgId, ':me' => $meMid]);
-            $unreadCount = (int)($stU->fetchColumn() ?: 0);
+            $unreadCount = org_header_message_unread_count($dbh, $orgId, $meMid);
+            $feedUnreadCount = org_header_feed_unread_count($dbh, $orgId, $meMid);
         }
     }
 } catch (Throwable $e) {
     $unreadCount = 0;
+    $feedUnreadCount = 0;
 }
 
 // ✅ Active org display
@@ -104,13 +100,12 @@ if ($isManager) {
 
 <style>
   :root{
-    <?php if ($bg !== ''): ?>--org-bg: <?= h($bg) ?>;<?php endif; ?>
-
-    --org-accent: <?= h($accent) ?>;
+    --org-bg: #171d24;
+    --org-accent: var(--msb-palette-action, <?= h($accent) ?>);
     --org-font: <?= h($fontSz) ?>;
   }
   body{
-    background: var(--msb-palette-bg, var(--org-bg, #f5f7fb));
+    background: #171d24 !important;
     font-size: var(--org-font);
   }
   .sh-logo-text{ text-transform: none !important; }
@@ -124,7 +119,7 @@ if ($isManager) {
     word-break: break-word;
   }
 
-  /* small badge on top-right of icon */
+  /* Legacy peer-list pills on messages page */
   .msg-badge{
     position:absolute;
     top:-6px;
@@ -141,7 +136,7 @@ if ($isManager) {
     background:#dc3545;
     color:#fff;
     font-weight:700;
-    border:2px solid #0b5cab; /* match your blue header */
+    border:2px solid #171d24;
   }
 
   @keyframes badgePulse {
@@ -368,43 +363,48 @@ if ($isManager) {
 </div>
 
 <script>
-// Live header unread badge (keeps badge updated without reload)
+// Live header inbox + feed alert chips
 (function(){
   var pollMs = 5000;
-  var lastCount = null;
 
-  function getBadge(){ return document.getElementById('headerUnreadBadge'); }
+  function formatCount(n) {
+    n = parseInt(n, 10) || 0;
+    if (n <= 0) return '';
+    return n > 99 ? '99+' : String(n);
+  }
 
-  function ensureBadge(count){
-    var link = document.querySelector('.dropdown-notification .dropdown-link-notification');
-    if (!link) return;
+  function updateChip(chipSelector, badgeId, count) {
+    var chip = document.querySelector(chipSelector);
+    if (!chip) return;
 
-    var badge = getBadge();
-    if (count <= 0) {
-      if (badge) badge.remove();
-      lastCount = 0;
-      return;
-    }
+    var badge = document.getElementById(badgeId);
+    var label = formatCount(count);
+    var hasUnread = count > 0;
+
+    chip.classList.toggle('has-unread', hasUnread);
 
     if (!badge) {
-      badge = document.createElement('span');
-      badge.id = 'headerUnreadBadge';
-      badge.className = 'msg-badge pulse';
-      badge.textContent = String(count);
-      link.style.position = 'relative';
-      link.appendChild(badge);
-      lastCount = count;
+      badge = chip.querySelector('.org-header-chip__count');
+      if (badge) badge.id = badgeId;
+    }
+    if (!badge) return;
+
+    if (!hasUnread) {
+      badge.textContent = '';
+      badge.classList.remove('is-visible', 'pop');
       return;
     }
 
-    if (lastCount === null) lastCount = parseInt(badge.textContent || '0', 10) || 0;
-    if (String(count) !== badge.textContent) {
-      badge.textContent = String(count);
+    if (badge.textContent !== label) {
+      badge.textContent = label;
+      badge.classList.add('is-visible');
       badge.classList.remove('pop');
       void badge.offsetWidth;
       badge.classList.add('pop');
-      lastCount = count;
+      return;
     }
+
+    badge.classList.add('is-visible');
   }
 
   async function poll(){
@@ -412,7 +412,8 @@ if ($isManager) {
       var res = await fetch('ajax/ajax_unread_counts.php', { credentials: 'same-origin' });
       var data = await res.json();
       if (!data || !data.ok) return;
-      ensureBadge(parseInt(data.total, 10) || 0);
+      updateChip('.org-header-chip--messages', 'headerUnreadBadge', parseInt(data.total, 10) || 0);
+      updateChip('.org-header-chip--alerts', 'headerFeedUnreadBadge', parseInt(data.feedUnread, 10) || 0);
     } catch(e) {}
   }
 
@@ -472,13 +473,24 @@ if ($isManager) {
       <span class="ig-feed-account-badge" style="margin-right:10px;" aria-label="Account type"><?= h($orgPortalRoleBadge) ?></span>
     <?php endif; ?>
 
-    <!-- Messages icon with badge -->
-    <div class="dropdown dropdown-notification" style="position:relative;margin-right:6px;">
-      <a href="messages.php" class="dropdown-link dropdown-link-notification" style="position:relative;display:inline-block;">
-        <i class="icon ion-ios-chatbubble-outline tx-24"></i>
-        <?php if ($unreadCount > 0): ?>
-          <span id="headerUnreadBadge" class="msg-badge pulse"><?= (int)$unreadCount ?></span>
-        <?php endif; ?>
+    <div class="org-header-actions" role="group" aria-label="Inbox and feed alerts">
+      <a href="messages.php"
+         class="org-header-chip org-header-chip--messages<?= $unreadCount > 0 ? ' has-unread' : '' ?>"
+         aria-label="Open inbox<?= $unreadCount > 0 ? ' — ' . (int)$unreadCount . ' unread' : '' ?>">
+        <span class="org-header-chip__icon" aria-hidden="true"><i class="icon ion-ios-paper-outline"></i></span>
+        <span class="org-header-chip__label">Inbox</span>
+        <span class="org-header-chip__meta">
+          <span id="headerUnreadBadge" class="org-header-chip__count<?= $unreadCount > 0 ? ' is-visible' : '' ?>"><?= $unreadCount > 0 ? ($unreadCount > 99 ? '99+' : (string)(int)$unreadCount) : '' ?></span>
+        </span>
+      </a>
+      <a href="feed.php?tab=work"
+         class="org-header-chip org-header-chip--alerts<?= $feedUnreadCount > 0 ? ' has-unread' : '' ?>"
+         aria-label="Open feed updates<?= $feedUnreadCount > 0 ? ' — ' . (int)$feedUnreadCount . ' new posts' : '' ?>">
+        <span class="org-header-chip__icon" aria-hidden="true"><i class="icon ion-ios-bell-outline"></i></span>
+        <span class="org-header-chip__label">Feed</span>
+        <span class="org-header-chip__meta">
+          <span id="headerFeedUnreadBadge" class="org-header-chip__count<?= $feedUnreadCount > 0 ? ' is-visible' : '' ?>"><?= $feedUnreadCount > 0 ? ($feedUnreadCount > 99 ? '99+' : (string)(int)$feedUnreadCount) : '' ?></span>
+        </span>
       </a>
     </div>
 

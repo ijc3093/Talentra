@@ -223,6 +223,21 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
   margin:6px 10px;
   background:var(--pcm-menu-divider, rgba(107,58,30,.12));
 }
+.post-card-menu .pcm-item.is-danger,
+.pcm-menu-portal .pcm-item.is-danger,
+.post-card-menu.pcm-menu-portal .pcm-item.is-danger{
+  color:#ed4956;
+}
+.post-card-menu .pcm-item.is-danger i,
+.pcm-menu-portal .pcm-item.is-danger i,
+.post-card-menu.pcm-menu-portal .pcm-item.is-danger i{
+  color:#ed4956;
+}
+.post-card-menu .pcm-item.pcm-bookmark.is-active span,
+.pcm-menu-portal .pcm-item.pcm-bookmark.is-active span,
+.post-card-menu.pcm-menu-portal .pcm-item.pcm-bookmark.is-active span{
+  font-weight:800;
+}
 .mf-media-shell > .mf-head--on-media .post-card-menu-btn,
 .mf-media-shell > .mf-head--on-media .post-card-menu-btn i,
 .standard-media-topbar .post-card-menu-btn,

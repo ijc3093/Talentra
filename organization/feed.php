@@ -19,10 +19,11 @@ declare(strict_types=1);
 
 // ✅ AJAX guard BEFORE includes (prevents stray output breaking JSON)
 $isAjaxReplies = (isset($_GET['ajax']) && $_GET['ajax'] === 'replies');
+$isAjaxInlineComments = (isset($_GET['ajax']) && $_GET['ajax'] === 'inline_comments');
 $isAjaxMark    = (isset($_GET['ajax']) && $_GET['ajax'] === 'mark_read');
 $isAjaxPost    = ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && (string)$_POST['ajax'] === '1');
 
-if ($isAjaxReplies || $isAjaxPost || $isAjaxMark) {
+if ($isAjaxReplies || $isAjaxInlineComments || $isAjaxPost || $isAjaxMark) {
     error_reporting(0);
     ini_set('display_errors', '0');
     while (ob_get_level() > 0) { @ob_end_clean(); }
@@ -40,7 +41,7 @@ if (!isset($dbh) || !($dbh instanceof PDO)) {
 }
 
 // ✅ Discard anything echoed by includes for AJAX
-if ($isAjaxReplies || $isAjaxPost || $isAjaxMark) {
+if ($isAjaxReplies || $isAjaxInlineComments || $isAjaxPost || $isAjaxMark) {
     @ob_end_clean();
 }
 
@@ -141,6 +142,171 @@ function post_card_title(array $p): string {
     return post_label((string)($p['post_type'] ?? 'update'));
 }
 
+function post_raw_title(array $p): string {
+    return trim((string)($p['title'] ?? ''));
+}
+
+function post_body_display_text(string $body, int $max = 0): string {
+    $body = trim($body);
+    if ($body === '') return '';
+
+    $body = preg_replace('/<img[^>]*>/i', '', $body);
+    $body = preg_replace('/!\[[^\]]*\]\([^\)]*\)/', '', $body);
+
+    $text = html_entity_decode(strip_tags($body), ENT_QUOTES, 'UTF-8');
+    $text = preg_replace("/\r\n?/", "\n", $text);
+    $lines = array_map(static function (string $line): string {
+        return trim(preg_replace('/[ \t]+/', ' ', $line));
+    }, explode("\n", $text));
+    $text = trim(implode("\n", array_filter($lines, static function (string $line): bool {
+        return $line !== '';
+    })));
+
+    if ($max > 0 && mb_strlen($text) > $max) {
+        $text = mb_substr($text, 0, $max - 1) . '…';
+    }
+    return $text;
+}
+
+function post_has_primary_media(array $primary): bool {
+    $type = (string)($primary['type'] ?? 'none');
+    $src = trim((string)($primary['src'] ?? ''));
+    return $type !== 'none' && $src !== '';
+}
+
+function feed_post_card_layout(array $p, array $primary): array {
+    $hasMedia = post_has_primary_media($primary);
+    $rawTitle = post_raw_title($p);
+    $description = post_body_display_text((string)($p['body'] ?? ''));
+
+    return [
+        'has_media' => $hasMedia,
+        'raw_title' => $rawTitle,
+        'description' => $description,
+        'text_in_media' => !$hasMedia && ($rawTitle !== '' || $description !== ''),
+        'detail_title' => $hasMedia ? post_card_title($p) : '',
+    ];
+}
+
+function render_feed_description_block(string $description, string $modalTitle, string $modalDate): string {
+    $description = trim($description);
+    if ($description === '') {
+        return '';
+    }
+
+    ob_start();
+    ?>
+    <div class="feed-desc-wrapper">
+      <div class="feed-desc clamp-7"><?= h($description) ?></div>
+      <button type="button" class="read-more-btn is-hidden" data-description="<?= h($description) ?>" data-title="<?= h($modalTitle) ?>" data-date="<?= h($modalDate) ?>" onclick="openReadMoreModal(this)">
+        Read more
+      </button>
+    </div>
+    <?php
+    return (string)ob_get_clean();
+}
+
+function render_feed_text_media_panel(string $title, string $description): string {
+    if ($title === '' && $description === '') {
+        return '';
+    }
+
+    ob_start();
+    ?>
+    <div class="feed-media-text">
+      <?php if ($title !== ''): ?>
+        <div class="feed-media-text-title"><?= nl2br(h($title)) ?></div>
+      <?php endif; ?>
+      <?php if ($description !== ''): ?>
+        <div class="feed-media-text-desc<?= $title === '' ? ' feed-media-text-desc--solo' : '' ?>"><?= nl2br(h($description)) ?></div>
+      <?php endif; ?>
+    </div>
+    <?php
+    return (string)ob_get_clean();
+}
+
+function feed_post_media_classes(array $layout): string {
+    $classes = ['feed-post-media'];
+    if (!empty($layout['text_in_media'])) {
+        $classes[] = 'is-text-only';
+    }
+    return implode(' ', $classes);
+}
+
+function render_feed_head_pin_button(int $pid, string $tab, array $sessionPins): string {
+    if ($pid <= 0) {
+        return '';
+    }
+
+    $pins = array_values(array_unique(array_map('intval', $sessionPins)));
+    $isPinned = in_array($pid, $pins, true);
+    $action = $isPinned ? 'unpin' : 'pin';
+
+    ob_start();
+    ?>
+    <a class="btn btn-sm btn-outline-secondary pin-btn<?= $isPinned ? ' pinned' : '' ?>"
+       href="feed.php?action=<?= h($action) ?>&pid=<?= (int)$pid ?>&id=<?= (int)$pid ?>&tab=<?= h($tab) ?>"
+       title="<?= $isPinned ? 'Unpin' : 'Pin' ?>">
+      <i class="fa fa-thumb-tack"></i>
+    </a>
+    <?php
+    return (string)ob_get_clean();
+}
+
+function render_sidebar_fries_button(
+    int $pid,
+    string $tab,
+    array $sessionPins,
+    int $redirectId = 0,
+    string $orgName = 'Organization'
+): string {
+    if ($pid <= 0) {
+        return '';
+    }
+
+    $pins = array_values(array_unique(array_map('intval', $sessionPins)));
+    $isPinned = in_array($pid, $pins, true);
+    $redirectId = $redirectId > 0 ? $redirectId : $pid;
+    $postUrl = 'feed.php?id=' . $pid . '&tab=' . rawurlencode($tab);
+    $pinUrl = 'feed.php?action=pin&pid=' . $pid . '&id=' . $redirectId . '&tab=' . rawurlencode($tab);
+    $unpinUrl = 'feed.php?action=unpin&pid=' . $pid . '&id=' . $redirectId . '&tab=' . rawurlencode($tab);
+
+    ob_start();
+    ?>
+    <div class="sidebar-tools sidebar-fries-wrap"
+         data-pid="<?= (int)$pid ?>"
+         data-tab="<?= h($tab) ?>"
+         data-pinned="<?= $isPinned ? '1' : '0' ?>"
+         data-post-url="<?= h($postUrl) ?>"
+         data-pin-url="<?= h($pinUrl) ?>"
+         data-unpin-url="<?= h($unpinUrl) ?>"
+         data-org-name="<?= h($orgName) ?>">
+      <button type="button"
+              class="sidebar-fries-btn"
+              aria-label="More options"
+              title="More options"
+              aria-haspopup="true"
+              aria-expanded="false">
+        <span class="sidebar-fries-icon" aria-hidden="true">
+          <span class="sidebar-fries-bar sidebar-fries-bar--short"></span>
+          <span class="sidebar-fries-bar"></span>
+          <span class="sidebar-fries-bar sidebar-fries-bar--short"></span>
+        </span>
+      </button>
+      <div class="sidebar-fries-menu" role="menu" hidden>
+        <button type="button" class="sidebar-fries-item is-danger" data-action="report" role="menuitem">Report</button>
+        <button type="button" class="sidebar-fries-item is-danger" data-action="unpin" role="menuitem"<?= $isPinned ? '' : ' disabled' ?>>Unfollow</button>
+        <button type="button" class="sidebar-fries-item" data-action="about" role="menuitem">About this account</button>
+        <button type="button" class="sidebar-fries-item" data-action="goto" role="menuitem">Go to post</button>
+        <button type="button" class="sidebar-fries-item" data-action="share" role="menuitem">Share to...</button>
+        <button type="button" class="sidebar-fries-item" data-action="copy" role="menuitem">Copy link</button>
+        <button type="button" class="sidebar-fries-item" data-action="embed" role="menuitem">Embed</button>
+      </div>
+    </div>
+    <?php
+    return (string)ob_get_clean();
+}
+
 /**
  * ✅ Extract first image URL from a post body (supports HTML <img> or Markdown ![]()).
  * Returns empty string if not found.
@@ -238,6 +404,33 @@ function normalize_media_url(string $path): string {
     if (preg_match('~^(https?:)?//~i', $path) || $path[0] === '/') return $path;
     // relative to /organization/ is fine (uploads/feed/...)
     return $path;
+}
+
+function find_local_ppt_pdf_webpath(string $pptWebPath): string {
+    $u = $pptWebPath;
+    $qPos = strpos($u, '?');
+    if ($qPos !== false) {
+        $u = substr($u, 0, $qPos);
+    }
+    $hPos = strpos($u, '#');
+    if ($hPos !== false) {
+        $u = substr($u, 0, $hPos);
+    }
+
+    if (!preg_match('/\.(pptx|ppt)$/i', $u)) {
+        return '';
+    }
+
+    $pdfWeb = preg_replace('/\.(pptx|ppt)$/i', '.pdf', $u);
+    $rel = $pdfWeb;
+
+    if (strpos($rel, '/organization/') !== false) {
+        $rel = substr($rel, strpos($rel, '/organization/') + strlen('/organization/'));
+    }
+    $rel = ltrim($rel, '/');
+
+    $fs = __DIR__ . '/' . $rel;
+    return is_file($fs) ? $pdfWeb : '';
 }
 
 /**
@@ -394,44 +587,6 @@ function build_media_gallery(array $attachments, string $bodyFallbackImg = ''): 
 
 
 
-/**
- * ✅ Grab a few recent comments for the IG-style preview area.
- * We show oldest->newest for readability.
- */
-function fetch_comment_preview(PDO $dbh, int $orgId, int $postId, int $limit = 3): array {
-    $limit = max(1, min(10, (int)$limit));
-    try {
-        $st = $dbh->prepare("
-            SELECT
-              c.id, c.user_id, c.body, c.created_at,
-              COALESCE(ou.role,'member') AS role,
-              COALESCE(
-                m.fullname,
-                s.fullname,
-                CONCAT('Member #', om.member_id)
-              ) AS user_name
-            FROM org_post_comments c
-            LEFT JOIN organization_users ou
-              ON ou.org_id = :org1 AND ou.user_id = c.user_id
-            LEFT JOIN org_members om
-              ON om.org_id = :org2 AND om.id = c.user_id
-            LEFT JOIN managers m
-              ON om.member_type = 'manager' AND m.id = om.member_id
-            LEFT JOIN staff_accounts s
-              ON om.member_type = 'staff' AND s.id = om.member_id
-            WHERE c.post_id = :pid
-            ORDER BY c.created_at DESC
-            LIMIT $limit
-        ");
-        $st->execute([':org1'=>$orgId, ':org2'=>$orgId, ':pid'=>$postId]);
-        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        return array_reverse($rows);
-    } catch (Throwable $e) {
-        return [];
-    }
-}
-
-
 
 // -------------------- Org --------------------
 $orgId = (int)($ORG['id'] ?? 0);
@@ -553,7 +708,35 @@ try {
 } catch (Throwable $e) { $hasReplyColumn = false; }
 
 // -------------------- Render comment helper --------------------
-function render_comment_item(array $c, bool $isReply = false, int $idx = 0): string {
+function split_comment_sentences(string $text): array {
+    $text = trim($text);
+    if ($text === '') {
+        return [];
+    }
+
+    $text = preg_replace("/\r\n?/", ' ', $text);
+    $text = preg_replace('/\s+/', ' ', $text);
+    $parts = preg_split('/(?<=[.!?…])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $parts = array_values(array_filter(array_map('trim', $parts), static function (string $part): bool {
+        return $part !== '';
+    }));
+
+    return $parts;
+}
+
+function comment_body_is_long(string $body, int $sentenceLimit = 3): bool {
+    return count(split_comment_sentences($body)) > $sentenceLimit;
+}
+
+function comment_body_preview(string $body, int $sentenceLimit = 3): string {
+    $sentences = split_comment_sentences($body);
+    if (count($sentences) <= $sentenceLimit) {
+        return $body;
+    }
+    return implode(' ', array_slice($sentences, 0, $sentenceLimit));
+}
+
+function render_comment_item(array $c, bool $isReply = false, int $idx = 0, bool $truncateSentences = false): string {
     $cid  = (int)($c['id'] ?? 0);
     $name = (string)($c['user_name'] ?? ('User #' . (int)($c['user_id'] ?? 0)));
     $role = (string)($c['role'] ?? 'member');
@@ -561,6 +744,24 @@ function render_comment_item(array $c, bool $isReply = false, int $idx = 0): str
     $body = (string)($c['body'] ?? '');
 
     $indent = $isReply ? 'margin-left:18px;border-left:3px solid #e5e7eb;padding-left:12px;' : '';
+
+    $bodyHtml = '';
+    if ($truncateSentences && comment_body_is_long($body)) {
+        $preview = comment_body_preview($body, 3);
+        $modalTitle = $name . ' (' . $role . ')';
+        $bodyHtml = '
+        <div class="comment-body">
+          <div class="comment-body-preview">'.h($preview).'…</div>
+          <button type="button" class="read-more-btn comment-read-more-btn"
+            data-description="'.h($body).'"
+            data-title="'.h($modalTitle).'"
+            data-date="'.h($dt).'"
+            onclick="openReadMoreModal(this)">Read more</button>
+        </div>';
+    } else {
+        $bodyHtml = '<div class="comment-body">'.h($body).'</div>';
+    }
+
     return '
       <div class="comment-item" data-idx="'.$idx.'" style="'.$indent.'">
         <div class="comment-meta">
@@ -571,7 +772,107 @@ function render_comment_item(array $c, bool $isReply = false, int $idx = 0): str
             Reply
           </button>
         </div>
-        <div>'.h($body).'</div>
+        '.$bodyHtml.'
+      </div>
+    ';
+}
+
+function fetch_post_comments_for_feed(PDO $dbh, int $orgId, int $postId, bool $hasReplyColumn): array {
+    try {
+        $extraSelect = $hasReplyColumn ? ', c.parent_comment_id' : '';
+        $stc = $dbh->prepare("
+            SELECT
+              c.id, c.user_id, c.body, c.created_at
+              $extraSelect,
+              COALESCE(ou.role,'member') AS role,
+              COALESCE(
+                m.fullname,
+                s.fullname,
+                CONCAT('Member #', om.member_id)
+              ) AS user_name
+            FROM org_post_comments c
+            LEFT JOIN organization_users ou
+              ON ou.org_id = :org1 AND ou.user_id = c.user_id
+            LEFT JOIN org_members om
+              ON om.org_id = :org2 AND om.id = c.user_id
+            LEFT JOIN managers m
+              ON om.member_type = 'manager' AND m.id = om.member_id
+            LEFT JOIN staff_accounts s
+              ON om.member_type = 'staff' AND s.id = om.member_id
+            WHERE c.post_id = :pid
+            ORDER BY c.created_at ASC
+            LIMIT 500
+        ");
+        $stc->execute([
+            ':org1' => $orgId,
+            ':org2' => $orgId,
+            ':pid'  => $postId,
+        ]);
+        return $stc->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function render_feed_inline_comments_html(PDO $dbh, int $orgId, int $postId, bool $hasReplyColumn): string {
+    $comments = fetch_post_comments_for_feed($dbh, $orgId, $postId, $hasReplyColumn);
+    $thread = [];
+    $children = [];
+    foreach ($comments as $c) {
+        if ($hasReplyColumn) {
+            $parent = (int)($c['parent_comment_id'] ?? 0);
+            if ($parent > 0) {
+                $children[$parent][] = $c;
+            } else {
+                $thread[] = $c;
+            }
+        } else {
+            $thread[] = $c;
+        }
+    }
+
+    ob_start();
+    if (!$comments) {
+        echo '<div class="mini-muted">No comments yet.</div>';
+    } else {
+        $i = 0;
+        foreach ($thread as $c) {
+            echo render_comment_item($c, false, $i++, true);
+            if ($hasReplyColumn) {
+                $cid = (int)($c['id'] ?? 0);
+                foreach ($children[$cid] ?? [] as $r) {
+                    echo render_comment_item($r, true, $i++, true);
+                }
+            }
+        }
+    }
+    return (string)ob_get_clean();
+}
+
+function render_feed_compose_form(int $pid, string $tab, string $csrf, bool $locked, string $formAction, string $backTo): string {
+    $disabled = $locked ? ' disabled' : '';
+    $placeholder = $locked ? 'Comments are closed' : 'Write a comment…';
+
+    return '
+      <div class="feed-compose">
+        <form class="feed-compose-form jsFeedComposeForm" method="post" action="'.h($formAction).'" data-pid="'.(int)$pid.'">
+          <input type="hidden" name="csrf" value="'.h($csrf).'">
+          <input type="hidden" name="action" value="comment">
+          <input type="hidden" name="post_id" value="'.(int)$pid.'">
+          <input type="hidden" name="reply_to" value="0">
+          <input type="hidden" name="back_to" value="'.h($backTo).'">
+          <textarea
+            name="comment_body"
+            class="feed-compose-input"
+            rows="1"
+            maxlength="500"
+            placeholder="'.h($placeholder).'"
+            aria-label="Write a comment"'.$disabled.'
+          ></textarea>
+          <button type="submit" class="feed-compose-send" title="Send" aria-label="Send comment"'.$disabled.'>
+            <i class="fa fa-paper-plane"></i>
+          </button>
+        </form>
       </div>
     ';
 }
@@ -724,12 +1025,9 @@ if ($isAjaxReplies) {
           <div class="rm-collapser-left">
             <span class="rm-hint"><i class="fa fa-info-circle"></i> Comments are for clarification and alignment.</span>
           </div>
-          <div class="rm-collapser-right">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="rmToggleAll">Show all</button>
-          </div>
         </div>
 
-        <div id="rmCommentsWrap" class="rm-collapsed">
+        <div id="rmCommentsWrap">
 
         <?php if (!$comments): ?>
           <div class="mini-muted">No replies yet.</div>
@@ -786,7 +1084,7 @@ if ($isAjaxReplies) {
             </form>
           </div>
         <?php else: ?>
-          <div class="mini-muted" style="margin-top:10px;">Comments are closed for this update.</div>
+          <div class="mini-muted org-comments-door-locked" style="margin-top:0;">Comments are closed for this update.</div>
         <?php endif; ?>
         <?php
         $html = (string)ob_get_clean();
@@ -801,6 +1099,37 @@ if ($isAjaxReplies) {
         ]);
         exit;
 
+    } catch (Throwable $e) {
+        echo json_encode(['ok'=>false,'err'=>'DB error: '.$e->getMessage()]);
+        exit;
+    }
+}
+
+
+if ($isAjaxInlineComments) {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $pid = (int)($_GET['pid'] ?? 0);
+    if ($pid <= 0) {
+        echo json_encode(['ok'=>false,'err'=>'Invalid post.']);
+        exit;
+    }
+
+    try {
+        $st = $dbh->prepare('SELECT id FROM org_posts WHERE id = :pid AND org_id = :org LIMIT 1');
+        $st->execute([':pid'=>$pid, ':org'=>$orgId]);
+        if (!$st->fetch(PDO::FETCH_ASSOC)) {
+            echo json_encode(['ok'=>false,'err'=>'Post not found.']);
+            exit;
+        }
+
+        $html = render_feed_inline_comments_html($dbh, $orgId, $pid, $hasReplyColumn);
+        $stCnt = $dbh->prepare('SELECT COUNT(*) FROM org_post_comments WHERE post_id = :pid');
+        $stCnt->execute([':pid'=>$pid]);
+        $count = (int)($stCnt->fetchColumn() ?: 0);
+
+        echo json_encode(['ok'=>true,'pid'=>$pid,'html'=>$html,'count'=>$count]);
+        exit;
     } catch (Throwable $e) {
         echo json_encode(['ok'=>false,'err'=>'DB error: '.$e->getMessage()]);
         exit;
@@ -1087,7 +1416,14 @@ if ($action === 'ack') {
 
         // ✅ If AJAX (modal submit), return JSON
         if ($isAjaxPost) {
-            echo json_encode(['ok'=>true]);
+            $resp = ['ok' => true];
+            if ($action === 'comment') {
+                $stCnt = $dbh->prepare("SELECT COUNT(*) FROM org_post_comments WHERE post_id = :pid");
+                $stCnt->execute([':pid' => $pid]);
+                $resp['count'] = (int)$stCnt->fetchColumn();
+                $resp['inline_html'] = render_feed_inline_comments_html($dbh, $orgId, $pid, $hasReplyColumn);
+            }
+            echo json_encode($resp);
             exit;
         }
 
@@ -1731,26 +2067,28 @@ if ($isView) {
        THEME VARIABLES — follow html.dark-auto from per-publisher Gear prefs
     ============================== */
     :root{
-      --bg-main:#f5f7fb;
-      --bg-card:#ffffff;
-      --bg-sidebar:#f0f2f7;
+      --bg-main:#171d24;
+      --bg-card:#171d24;
+      --bg-sidebar:#171d24;
       --text-primary:#111827;
       --text-secondary:#6b7280;
       --border-color:#e5e7eb;
-      --accent:#2563eb;
+      --accent:var(--msb-palette-action, #2563eb);
       --shadow: 0 10px 18px rgba(0,0,0,.04);
       --shadow-strong: 0 14px 24px rgba(0,0,0,.10);
       --feed-chrome-offset: 160px;
-      --feed-info-h: 190px;
+      --feed-info-h: 260px;
+      --feed-media-h: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 260px));
     }
     html.dark-auto{
-      --bg-main:#0b1220;
-      --bg-card:#111c2f;
-      --bg-sidebar:#0e1626;
-      --text-primary:#e5e7eb;
-      --text-secondary:#94a3b8;
+      --bg-main:#171d24;
+      --bg-card:#171d24;
+      --bg-sidebar:#171d24;
+      --text-primary:#b1bcce;
+      --text-secondary:#b1bcce;
+      --text-muted:#b1bcce;
       --border-color:#22324a;
-      --accent:#6e7b90;
+      --accent:var(--msb-palette-action, #6e7b90);
       --shadow: 0 10px 18px rgba(0,0,0,.35);
       --shadow-strong: 0 14px 24px rgba(0,0,0,.45);
     }
@@ -1759,8 +2097,8 @@ if ($isView) {
    BASE LIGHT THEME
   =================================*/
   :root {
-    --bg-main: #f5f7fb;
-    --bg-card: #ffffff;
+    --bg-main: #171d24;
+    --bg-card: #171d24;
 
     --text-primary: #25282f;     /* Very dark */
     --text-secondary: #475569;   /* Medium */
@@ -1774,12 +2112,12 @@ if ($isView) {
     DARK THEME (High Contrast)
   =================================*/
   html.dark-auto {
-    --bg-main: #0b1220;
-    --bg-card: #111c2f;
+    --bg-main: #171d24;
+    --bg-card: #171d24;
 
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
+    --text-primary: #b1bcce;
+    --text-secondary: #b1bcce;
+    --text-muted: #b1bcce;
 
     --border-color: rgba(255,255,255,0.08);
   }
@@ -1871,10 +2209,24 @@ if ($isView) {
   }
   .feed-toolbar-stats{
     display:flex;
-    gap:6px;
-    flex-wrap:wrap;
+    gap:4px;
+    flex-wrap:nowrap;
     justify-content:flex-end;
     align-items:center;
+    max-width:100%;
+  }
+  .feed-toolbar-stats .stat-pill{
+    padding:4px 6px;
+    gap:4px;
+    font-size:11px;
+  }
+  .feed-toolbar-stats .stat-pill .icon{
+    width:18px;
+    height:18px;
+    font-size:10px;
+  }
+  .feed-toolbar-stats .stat-pill .sub{
+    margin-left:2px;
   }
   .dash-toprow .left-actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .dash-toprow .right-stats{ margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
@@ -1889,11 +2241,13 @@ if ($isView) {
   .stat-pill .icon{
     width:22px; height:22px; border-radius:999px;
     display:inline-flex; align-items:center; justify-content:center;
-    background:#eef2ff; color:#2563eb; font-size:12px;
+    background:var(--org-accent-soft, var(--msb-palette-action-soft, #eef2ff));
+    color:var(--org-accent, var(--msb-palette-action, #2563eb));
+    font-size:12px;
   }
-  .stat-pill .num{ font-weight:900; color:#111827; }
-  .stat-pill .lbl{ color:#4b5563; font-weight:800; }
-  .stat-pill .sub{ color:#9ca3af; font-weight:700; margin-left:6px; }
+  .stat-pill .num{ font-weight:900; color:var(--text-primary, #111827); }
+  .stat-pill .lbl{ color:var(--text-secondary, #4b5563); font-weight:800; }
+  .stat-pill .sub{ color:var(--text-muted, #9ca3af); font-weight:700; margin-left:6px; }
 
     
 /* ✅ Feed card: wide media on top, details below */
@@ -1902,6 +2256,8 @@ if ($isView) {
   min-height: 420px;
   background:var(--bg-card);
   box-shadow: var(--shadow);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
   display:flex;
   flex-direction:column;
 }
@@ -1919,7 +2275,7 @@ if ($isView) {
   flex: 1 1 auto;
   width: 100%;
   min-width: 0;
-  height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px));
+  height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 260px));
   min-height: 300px;
   max-height: none;
   background: #000;
@@ -1955,7 +2311,58 @@ if ($isView) {
   font-weight:900;
   text-align:center;
   padding:24px;
-  background: linear-gradient(135deg, #0b1220, #111827);
+  background: linear-gradient(135deg, #171d24, #111827);
+}
+.feed-post-media.is-text-only{
+  background:var(--bg-card, #fff);
+  align-items:stretch;
+  justify-content:flex-start;
+  border-bottom:1px solid var(--border-color, #e5e7eb);
+  display:flex;
+  flex-direction:column;
+}
+.feed-post-media.is-text-only .feed-media-text{
+  width:100%;
+  height:100%;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  text-align:left;
+  color:var(--text-primary, #111827);
+}
+.feed-post-media.is-text-only .feed-media-text-title{
+  flex:0 0 auto;
+  padding:24px 24px 12px;
+  font-weight:900;
+  font-size:clamp(20px, 2.4vw, 26px);
+  line-height:1.25;
+  margin:0;
+  color:var(--text-primary, #111827);
+  background:var(--bg-card, #fff);
+  border-bottom:1px solid var(--border-color, #e5e7eb);
+}
+.feed-post-media.is-text-only .feed-media-text-desc{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:14px 24px 20px;
+  font-size:15px;
+  line-height:1.6;
+  color:var(--text-secondary, #374151);
+  white-space:pre-wrap;
+}
+.feed-post-media.is-text-only .feed-media-text-desc--solo{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:24px 24px 20px;
+  font-size:clamp(18px, 2.1vw, 22px);
+  font-weight:800;
+  line-height:1.45;
+  color:var(--text-primary, #111827);
 }
 
 /* ✅ Media carousel strip */
@@ -1982,7 +2389,7 @@ if ($isView) {
 }
 .media-tile img{ width:100%; height:100%; object-fit:cover; display:block; }
 .media-tile .tile-icon{ font-size:18px; color:#334155; }
-.media-tile .tile-video{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#0b1220; color:#fff; font-size:16px; }
+.media-tile .tile-video{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#171d24; color:#fff; font-size:16px; }
 .media-tile.active{ border-color:#6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,.12); }
 
 
@@ -1990,12 +2397,10 @@ if ($isView) {
   flex: 0 0 auto;
   min-width: 0;
   width: 100%;
-  height: var(--feed-info-h, 190px);
-  max-height: var(--feed-info-h, 190px);
   padding: 10px 14px 12px;
   display:flex;
   flex-direction:column;
-  overflow: hidden;
+  overflow: visible;
   background: var(--bg-card);
   border-top: 1px solid var(--border-color, #e5e7eb);
 }
@@ -2005,6 +2410,7 @@ if ($isView) {
   justify-content:space-between;
   gap:10px;
   margin-bottom:6px;
+  flex-shrink: 0;
 }
 .feed-head-tools{
   display:flex;
@@ -2018,6 +2424,10 @@ if ($isView) {
 .feed-head-tools .btn{
   padding: 4px 8px;
   line-height: 1;
+}
+.feed-head-tools .pin-btn.pinned{
+  border-color:#f59e0b;
+  color:#b45309;
 }
 .feed-author{
   display:flex;
@@ -2051,6 +2461,47 @@ if ($isView) {
   color:#111827;
   font-size: 14px;
   line-height:1.25;
+  flex-shrink: 0;
+}
+
+.feed-post-detail .comment-item{
+  padding:8px 10px;
+  border:1px solid var(--border-color, #e5e7eb);
+  border-radius:10px;
+  margin:8px 0;
+  background:var(--bg-main, #171d24);
+  font-size:13px;
+  line-height:1.45;
+}
+.feed-post-detail .comment-meta{
+  font-size:12px;
+  color:var(--text-secondary, #6b7280);
+  margin-bottom:4px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.feed-inline-comments{
+  flex:1 1 auto;
+  min-height:72px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  margin:8px 0 6px;
+  padding:4px 0;
+  border-top:1px solid var(--border-color, #e5e7eb);
+  border-bottom:1px solid var(--border-color, #e5e7eb);
+}
+.feed-inline-comments .comment-item--new{
+  border-color:rgba(59,130,246,.45);
+  background:rgba(59,130,246,.08);
+}
+.feed-inline-comments .comment-body-preview{
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.feed-inline-comments .comment-read-more-btn{
+  margin-top:4px;
 }
 
 .feed-desc{
@@ -2064,15 +2515,23 @@ if ($isView) {
 /* --- Description clamp + Read more --- */
 .feed-desc-wrapper{
   position:relative;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
+  /* flex: 1 1 auto; */
+  min-height: 0;
+  overflow: hidden;
 }
 .feed-desc.clamp-7{
   display:-webkit-box;
   -webkit-box-orient:vertical;
-  -webkit-line-clamp:4;
+  -webkit-line-clamp:7;
+  line-clamp:7;
   overflow:hidden;
-  white-space:normal;
+  white-space:pre-line;
   word-break:break-word;
+  margin:0;
+}
+.read-more-btn.is-hidden{
+  display:none !important;
 }
 .read-more-btn{
   background:none;
@@ -2143,6 +2602,60 @@ if ($isView) {
   justify-content:flex-end;
 }
 
+.feed-compose{
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.feed-compose-form{
+  display:flex;
+  align-items:flex-end;
+  gap:8px;
+}
+.feed-compose-input{
+  flex:1 1 auto;
+  min-width:0;
+  min-height:36px;
+  max-height:72px;
+  resize:none;
+  border:1px solid var(--border-color, #e5e7eb);
+  border-radius:10px;
+  padding:8px 10px;
+  font-size:13px;
+  line-height:1.35;
+  background:var(--bg-main, #171d24);
+  color:var(--text-primary, #111827);
+}
+.feed-compose-input:focus{
+  outline:none;
+  border-color:#6366f1;
+  box-shadow:0 0 0 3px rgba(99,102,241,.12);
+}
+.feed-compose-input:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}
+.feed-compose-send{
+  flex:0 0 auto;
+  width:36px;
+  height:36px;
+  border:0;
+  border-radius:10px;
+  background:var(--org-accent, var(--msb-palette-action, #2563eb));
+  color:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  font-size:14px;
+}
+.feed-compose-send:hover:not(:disabled){
+  background:var(--org-accent-strong, var(--msb-palette-action-strong, #1d4ed8));
+}
+.feed-compose-send:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
 /* Comments preview */
 .feed-comments{
   margin-top: 6px;
@@ -2184,10 +2697,8 @@ if ($isView) {
   margin-top: 6px;
   font-size:12px;
   font-weight:900;
-  color:#2563eb;
-  text-decoration:none;
+  color:var(--org-link, var(--msb-palette-link, var(--accent, #2563eb)));
 }
-.feed-viewall:hover{ text-decoration:underline; }
 
 @media (max-width: 992px){
   .feed-post-media{
@@ -2218,6 +2729,10 @@ if ($isView) {
       padding: 8px 18px 18px 18px;
       max-height: 70vh; overflow:auto;
       background-color:#0d2946;
+    }
+    #editPostModal.show{
+      display: block !important;
+      z-index: 1050;
     }
     .modal-badge{
       display:inline-flex; align-items:center;
@@ -2252,11 +2767,6 @@ if ($isView) {
     }
     .rm-hint{ font-size:12px; color:#6b7280; font-weight:800; }
     .rm-hint i{ margin-right:6px; }
-    .rm-collapsed .comment-item{ display:none; }
-    .rm-collapsed .comment-item[data-idx="0"],
-    .rm-collapsed .comment-item[data-idx="1"],
-    .rm-collapsed .comment-item[data-idx="2"],
-    .rm-collapsed .comment-item[data-idx="3"]{ display:block; }
     
 
     /* ✅ Feed layout with right sidebar */
@@ -2270,43 +2780,106 @@ if ($isView) {
       padding:5px;
     }
     .feed-layout--tall{
-      height: calc(100vh - var(--feed-chrome-offset, 160px));
-    }
-    .feed-layout--tall .feed-card{
       height: 100%;
-      min-height: calc(100vh - var(--feed-chrome-offset, 160px));
+      max-height: 100%;
+    }
+    .feed-layout--tall .feed-card {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+      max-height: 100%;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .feed-layout--tall .feed-post{
+      height: 100%;
+      min-height: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
     }
     .feed-layout--tall .feed-post-media{
-      flex: 1 1 auto;
-      height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px));
-      min-height: 300px;
-      max-height: none;
+      flex: 0 0 auto;
+      height: var(--feed-media-h, calc(100vh - 420px));
+      min-height: 280px;
+      max-height: var(--feed-media-h, calc(100vh - 420px));
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
     }
     .feed-layout--tall .feed-post-detail{
-      flex: 0 0 auto;
-      height: var(--feed-info-h, 190px);
-      max-height: var(--feed-info-h, 190px);
+      flex: 1 1 auto;
       min-height: 0;
+      height: auto;
+      max-height: none;
       overflow: hidden;
+      padding: 10px 14px 14px;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      display: flex;
+      flex-direction: column;
     }
+    .feed-layout--tall .feed-desc-wrapper{
+      flex-shrink: 0;
+      margin-bottom: 4px;
+    }
+    .feed-layout--tall .feed-inline-comments{
+      flex:1 1 auto;
+      min-height:0;
+      overflow-y:auto;
+    }
+    .feed-layout--tall .feed-actions{
+      flex-shrink: 0;
+      margin-top: auto;
+    }
+    .feed-layout--tall .feed-compose{
+      flex-shrink: 0;
+    }
+    .feed-layout--tall .feed-main{
+      flex:1 1 auto;
+      min-width:0;
+      min-height:0;
+      height: 100%;
+      max-height: 100%;
+      overflow: hidden;
+      box-shadow: none;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    .feed-layout--tall .feed-scroll{
+      flex:1 1 auto;
+      min-height:0;
+      height: 100%;
+      overflow: hidden;
+      padding: 0;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+    }
+
     /* ✅ Center column fills available viewport height */
     .feed-main{
       flex:1 1 auto;
       min-width:0;
       min-height:0;
       height: 100%;
-      max-height: none;
+      max-height: 100%;
       overflow:hidden;
       box-shadow: var(--shadow);
+      display: flex;
       flex-direction:column;
     }
 
-    /* ✅ Only the feed content scrolls (not the panel) */
+    /* ✅ Feed content fits panel — no inner vertical scroll */
     .feed-scroll{
       flex:1 1 auto;
       min-height:0;
       height: 100%;
-      overflow:auto;
+      overflow:hidden;
       padding-right:6px;
       box-shadow: var(--shadow);
     }
@@ -2320,7 +2893,7 @@ if ($isView) {
       overflow: hidden;
       width: 100%;
       flex: 1 1 auto;
-      height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px));
+      height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 260px));
       min-height: 300px;
       max-height: none;
       display:flex;
@@ -2451,19 +3024,40 @@ if ($isView) {
     
 
     /* Items */
+    .sidebar-item-row{
+      display:flex;
+      align-items:flex-start;
+      gap:0;
+      border-bottom:1px solid #f1f5f9;
+    }
+    .sidebar-item-row.is-active{
+      background:linear-gradient(90deg, rgba(99,102,241,.14), rgba(99,102,241,0));
+      border-left:4px solid #6366f1;
+    }
+    html.dark-auto .sidebar-item-row.is-active,
+    body.dark-auto .sidebar-item-row.is-active{
+      background:linear-gradient(90deg, rgba(177,188,206,.14), rgba(177,188,206,0));
+      border-left-color:#b1bcce;
+    }
+    .sidebar-item-row .sidebar-fries-wrap{
+      flex:0 0 auto;
+      padding:10px 10px 10px 0;
+    }
+
     .sidebar-item{
       display:block;
-      padding: 10px 12px;
+      flex:1 1 auto;
+      min-width:0;
+      padding:10px 0 10px 12px;
       text-decoration:none;
-      border-bottom: 1px solid #f1f5f9;
-      transition: background .15s ease;
+      border-bottom:0;
+      transition:background .15s ease;
     }
-    .sidebar-item:hover{ background: var(--bg-sidebar); }
+    .sidebar-item-row:not(.is-active) .sidebar-item:hover{ background:var(--bg-sidebar); }
 
-    .sidebar-item.is-active{
-      background: linear-gradient(90deg, rgba(99,102,241,.14), rgba(99,102,241,0));
-      border-left: 4px solid #6366f1;
-      padding-left: 8px;
+    .sidebar-item.is-active,
+    .sidebar-item-row.is-active .sidebar-item{
+      padding-left:8px;
     }
 
     .sidebar-top{
@@ -2522,6 +3116,98 @@ if ($isView) {
       flex:0 0 auto;
     }
 
+    .sidebar-fries-wrap{
+      position:relative;
+      z-index:2;
+      pointer-events:auto;
+    }
+
+    .sidebar-fries-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:30px;
+      height:30px;
+      padding:0;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      color:#334155;
+      cursor:pointer;
+      flex:0 0 auto;
+      line-height:1;
+      pointer-events:auto;
+      position:relative;
+      z-index:3;
+    }
+    .sidebar-fries-btn:hover,
+    .sidebar-fries-btn:focus{
+      color:#111827;
+      outline:none;
+    }
+    .sidebar-fries-icon{
+      display:inline-flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:flex-start;
+      gap:3px;
+      width:14px;
+      color:currentColor;
+    }
+    .sidebar-fries-bar{
+      display:block;
+      height:2px;
+      border-radius:1px;
+      background:currentColor;
+      width:14px;
+    }
+    .sidebar-fries-bar--short{ width:8px; }
+
+    .sidebar-fries-menu{
+      min-width:240px;
+      background:#fff;
+      border-radius:16px;
+      box-shadow:0 4px 24px rgba(0,0,0,.15), 0 0 1px rgba(0,0,0,.1);
+      padding:8px 0;
+      display:none;
+    }
+    .sidebar-fries-menu.is-open{ display:block; }
+    .sidebar-fries-menu.sidebar-fries-portal{
+      position:fixed;
+      z-index:100000;
+      display:block;
+    }
+    .sidebar-fries-item{
+      display:block;
+      width:100%;
+      padding:12px 16px;
+      border:0;
+      background:transparent;
+      text-align:left;
+      font-size:14px;
+      font-weight:400;
+      color:#262626;
+      cursor:pointer;
+      line-height:1.3;
+    }
+    .sidebar-fries-item:hover,
+    .sidebar-fries-item:focus{
+      background:#fafafa;
+      outline:none;
+    }
+    .sidebar-fries-item.is-danger{ color:#ed4956; }
+    .sidebar-fries-item:disabled{
+      opacity:.45;
+      cursor:default;
+    }
+    .sidebar-fries-item:disabled:hover,
+    .sidebar-fries-item:disabled:focus{
+      background:transparent;
+    }
+    .sidebar-fries-btn.is-open{
+      opacity:.72;
+    }
+
     .sidebar-video-pill{
       display:inline-flex;
       align-items:center;
@@ -2556,49 +3242,84 @@ if ($isView) {
       background: var(--bg-sidebar);
     }
 
-    /* Dark mode */
+    /* Dark mode — History sidebar */
     .dark-auto .feed-sidebar{
-      /* background: var(--bg-sidebar); */
+      background:#171d24 !important;
       border-color:#334155;
       box-shadow: var(--shadow);
       height: 440px;
     }
     .dark-auto .sidebar-head{
-      background: rgb(37 40 47 / 92%);
+      background:#171d24 !important;
       border-bottom-color:#334155;
     }
 
-    
-
-    .dark-auto .sidebar-title{ color:#f3f4f6; }
+    .dark-auto .sidebar-title,
+    .dark-auto .sidebar-title i,
     .dark-auto .sidebar-subtitle,
     .dark-auto .sidebar-section,
-    .dark-auto .sidebar-meta{ color:#cbd5e1; }
+    .dark-auto .sidebar-meta,
+    .dark-auto .sidebar-meta > span,
+    .dark-auto .sidebar-subject{ color:#b1bcce !important; }
+
+    .dark-auto .sidebar-refresh-btn,
+    .dark-auto .sidebar-refresh-btn i{
+      color:#e8edf5 !important;
+      border-color:rgba(177,188,206,.48) !important;
+      background:#252f3d !important;
+    }
+    .dark-auto .sidebar-refresh-btn:hover,
+    .dark-auto .sidebar-refresh-btn:focus{
+      color:#f3f6fb !important;
+      background:#2f3a4a !important;
+      border-color:rgba(177,188,206,.68) !important;
+    }
 
     .dark-auto .sidebar-search{
-      background: var(--bg-sidebar);
+      background:#171d24 !important;
       border-color:#334155;
-      color:#e5e7eb;
+      color:#b1bcce !important;
     }
-    .dark-auto .sidebar-item{ border-bottom-color:#1f2937; }
-    .dark-auto .sidebar-item:hover{ background: var(--bg-sidebar); }
+    .dark-auto .sidebar-search::placeholder{
+      color:#b1bcce !important;
+      opacity:.72;
+    }
+    .dark-auto .sidebar-search:focus{
+      border-color:rgba(177,188,206,.55);
+      box-shadow:0 0 0 4px rgba(177,188,206,.12);
+    }
 
-    .dark-auto .sidebar-subject{ color:#f3f4f6; }
+    .dark-auto .sidebar-item{ border-bottom-color:#1f2937; }
+    .dark-auto .sidebar-item-row{ border-bottom-color:#1f2937; }
+    .dark-auto .sidebar-item-row:not(.is-active) .sidebar-item:hover{ background:#171d24; }
+
     .dark-auto .sidebar-chip{
-      background: var(--bg-sidebar);
+      background:#171d24 !important;
       border-color:#334155;
-      color:#e5e7eb;
+      color:#b1bcce !important;
     }
     .dark-auto .sidebar-badge-new{
-      background: var(--bg-sidebar);
-      border-color:#14532d;
-      color:#86efac;
+      background:#171d24 !important;
+      border-color:rgba(177,188,206,.35);
+      color:#b1bcce !important;
     }
     .dark-auto .pin-btn{
-      background: var(--bg-sidebar);
+      background:#171d24;
       border-color:#334155;
-      color:#e5e7eb;
+      color:#b1bcce;
     }
+    .dark-auto .sidebar-fries-btn,
+    .dark-auto .sidebar-fries-btn:hover,
+    .dark-auto .sidebar-fries-btn:focus{ color:#b1bcce !important; }
+    .dark-auto .sidebar-fries-menu{
+      background:#171d24;
+      border:1px solid #334155;
+      box-shadow:0 4px 24px rgba(0,0,0,.45), 0 0 1px rgba(255,255,255,.08);
+    }
+    .dark-auto .sidebar-fries-item{ color:#b1bcce !important; }
+    .dark-auto .sidebar-fries-item:hover,
+    .dark-auto .sidebar-fries-item:focus{ background:rgba(177,188,206,.08); color:#b1bcce !important; }
+    .dark-auto .sidebar-fries-item.is-danger{ color:#ff6b7a !important; }
     
 
     @media (max-width: 992px){
@@ -2824,13 +3545,17 @@ if ($isView) {
                     $primary     = pick_primary_media($attachments, $imgSrc);
 
                     $desc    = extract_description($body);
-                    $preview = fetch_comment_preview($dbh, $orgId, $pid, 3);
+                    $layout  = feed_post_card_layout($post, $primary);
                     $initial = strtoupper(mb_substr(trim($authorName), 0, 1));
                     if ($initial === '') $initial = 'M';
                   ?>
                   <div class="feed-post">
-                    <div class="feed-post-media">
-                      <?php if (($primary['type'] ?? '') === 'image' && ($primary['src'] ?? '') !== ''): ?>
+                    <div class="<?= h(feed_post_media_classes($layout)) ?>">
+                      <?php if ($layout['text_in_media']): ?>
+
+                        <?= render_feed_text_media_panel($layout['raw_title'], $layout['description']) ?>
+
+                      <?php elseif (($primary['type'] ?? '') === 'image' && ($primary['src'] ?? '') !== ''): ?>
 
                         <img src="<?= h((string)$primary['src']) ?>" alt="<?= h((string)($primary['name'] ?? 'Image')) ?>">
 
@@ -2856,7 +3581,7 @@ if ($isView) {
                         src="<?= h($pdfEmbed) ?>"
                         title="<?= h((string)($primary['name'] ?? 'PDF')) ?>"
                         loading="lazy"
-                        style="width:100%; height:100%; border:0; border-radius:1px; background:#0b1220;">
+                        style="width:100%; height:100%; border:0; border-radius:1px; background:#171d24;">
                       </iframe>
 
                       <?php elseif (($primary['type'] ?? '') === 'ppt' && ($primary['src'] ?? '') !== ''): ?>
@@ -2881,14 +3606,14 @@ if ($isView) {
                               src="<?= h($officeEmbed) ?>"
                               title="<?= h((string)($primary['name'] ?? 'PowerPoint')) ?>"
                               loading="lazy"
-                              style="width:100%; height:100%; border:0; border-radius:14px; background:#0b1220;"></iframe>
+                              style="width:100%; height:100%; border:0; border-radius:14px; background:#171d24;"></iframe>
 
                     <?php elseif ($pdfEmbed2 !== ''): ?>
                       <iframe class="feed-doc-iframe"
                               src="<?= h($pdfEmbed2) ?>"
                               title="<?= h((string)($primary['name'] ?? 'PowerPoint (PDF Preview)')) ?>"
                               loading="lazy"
-                              style="width:100%; height:100%; border:0; border-radius:14px; background:#0b1220;"></iframe>
+                              style="width:100%; height:100%; border:0; border-radius:14px; background:#171d24;"></iframe>
 
                     <?php else: ?>
                       <div class="media-fallback">
@@ -2952,33 +3677,28 @@ if ($isView) {
                         <?php if ($locked): ?>
                           <span class="feed-badge" style="background: var(--bg-sidebar);">Comments Closed</span>
                         <?php endif; ?>
+                        <?= render_feed_head_pin_button($pid, $tab, $_SESSION[$pinKey] ?? []) ?>
                         <a class="btn btn-sm btn-outline-secondary" href="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>" title="Full View">
                           <i class="fa fa-folder-open"></i>
                         </a>
-                        <a class="btn btn-sm btn-outline-secondary jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>" title="Open comments">
-                          <i class="fa fa-eye"></i>
-                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-secondary js-open-comments-door" data-pid="<?= (int)$pid ?>" title="Comments">
+                          <i class="fa fa-comments"></i>
+                        </button>
                       </div>
                     </div>
 
-                    <div class="feed-title"><?= h(post_card_title($post)) ?></div>
-                    <?php
-                      // Prevent long descriptions from pushing actions off-screen.
-                      $fullText = (string)($desc !== '' ? $desc : strip_tags((string)$body));
-                      $isLong   = (mb_strlen($fullText) > 420);
-                    ?>
-                    <div class="feed-desc-wrapper">
-                      <div class="feed-desc clamp-7"><?= nl2br(h($fullText)) ?></div>
-                      <?php if ($isLong): ?>
-                        <button 
-                        type="button" class="read-more-btn" 
-                        data-description="<?= h($fullText) ?>" data-title="<?= h($title) ?>" data-date="<?= h($created) ?>" 
-                        onclick="openReadMoreModal(this)"
-                        >
-                          Read more
-                        </button>
-                      <?php endif; ?>
+                    <?php if ($layout['text_in_media']): ?>
+                    <div class="feed-inline-comments" id="feedInlineComments-<?= (int)$pid ?>">
+                      <?= render_feed_inline_comments_html($dbh, $orgId, $pid, $hasReplyColumn) ?>
                     </div>
+                    <?php endif; ?>
+
+                    <?php if ($layout['has_media']): ?>
+                    <div class="feed-title"><?= h($layout['detail_title']) ?></div>
+                    <?php if ($layout['description'] !== ''): ?>
+                    <?= render_feed_description_block($layout['description'], $layout['detail_title'], $created) ?>
+                    <?php endif; ?>
+                    <?php endif; ?>
 
                     <div class="feed-actions">
                       <form method="post" action="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>" style="margin:0;">
@@ -2991,41 +3711,28 @@ if ($isView) {
                         </button>
                       </form>
 
-                      <a href="javascript:void(0)" class="mini-muted jsOpenReplies" data-pid="<?= (int)$pid ?>" style="text-decoration:none; font-weight:900;">
+                      <button type="button" class="mini-muted js-open-comments-door" data-pid="<?= (int)$pid ?>" style="border:0;background:transparent;padding:0;font:inherit;font-weight:900;">
                         <i class="fa fa-comments"></i>
                         <span class="jsReplyCount" data-pid="<?= (int)$pid ?>"><?= (int)$commentCount ?></span> comments
-                      </a>
+                      </button>
 
                       <div class="feed-actions-right">
-                        <a class="feed-viewall jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>">
+                        <button type="button" class="feed-viewall js-open-comments-door" data-pid="<?= (int)$pid ?>" style="border:0;background:transparent;padding:0;font:inherit;">
                           View all <?= (int)$commentCount ?> comments
-                        </a>
+                        </button>
                         <span class="mini-muted feed-actions-liked"><i class="fa fa-lightbulb-o"></i> <?= $ackCount ?> liked</span>
                       </div>
                     </div>
 
-                    <div class="feed-comments">
-                      <!-- <?php if (!$preview): ?>
-                        <div class="mini-muted">No comments yet.</div>
-                      <?php else: ?>
-                        <?php foreach ($preview as $pc): ?>
-                          <?php
-                            $who = (string)($pc['user_name'] ?? 'Member');
-                            $txt = trim((string)($pc['body'] ?? ''));
-                            if (mb_strlen($txt) > 160) $txt = mb_substr($txt, 0, 160) . '…';
-                            $t   = (string)($pc['created_at'] ?? '');
-                          ?>
-                          <div class="feed-comment">
-                            <span class="who"><?= h($who) ?></span>
-                            <span class="txt"><?= h($txt) ?></span>
-                            <span class="time"><?= h($t) ?></span>
-                          </div>
-                        <?php endforeach; ?>
-                      <?php endif; ?> -->
-                      <a class="btn btn-sm btn-outline-secondary" href="feed.php?tab=<?= h($tab) ?>">
-                        <i class="fa fa-arrow-left mg-r-5"></i> Back
-                      </a>
-                    </div>
+                    <?= render_feed_compose_form(
+                      $pid,
+                      $tab,
+                      $csrf,
+                      $locked,
+                      'feed.php?id=' . (int)$pid . '&tab=' . rawurlencode($tab),
+                      'feed.php?id=' . (int)$pid . '&tab=' . rawurlencode($tab)
+                    ) ?>
+
                   </div>
                 </div>
               </div>
@@ -3054,13 +3761,17 @@ if ($isView) {
                     $primary     = pick_primary_media($attachments, $imgSrc);
 
                     $desc    = extract_description($body);
-                    $preview = fetch_comment_preview($dbh, $orgId, $pid, 3);
+                    $layout  = feed_post_card_layout($currentPost, $primary);
                     $initial = strtoupper(mb_substr(trim($authorName), 0, 1));
                     if ($initial === '') $initial = 'M';
                   ?>
                   <div class="feed-post">
-                    <div class="feed-post-media">
-                      <?php if (($primary['type'] ?? '') === 'image' && ($primary['src'] ?? '') !== ''): ?>
+                    <div class="<?= h(feed_post_media_classes($layout)) ?>">
+                      <?php if ($layout['text_in_media']): ?>
+
+                        <?= render_feed_text_media_panel($layout['raw_title'], $layout['description']) ?>
+
+                      <?php elseif (($primary['type'] ?? '') === 'image' && ($primary['src'] ?? '') !== ''): ?>
                         <img src="<?= h((string)$primary['src']) ?>" alt="<?= h((string)($primary['name'] ?? 'Image')) ?>">
                       <?php elseif (($primary['type'] ?? '') === 'video' && ($primary['src'] ?? '') !== ''): ?>
                         <video controls playsinline preload="metadata">
@@ -3107,29 +3818,28 @@ if ($isView) {
                           <?php if ($locked): ?>
                             <span class="feed-badge" style="background: var(--bg-sidebar);">Comments Closed</span>
                           <?php endif; ?>
+                          <?= render_feed_head_pin_button($pid, $tab, $_SESSION[$pinKey] ?? []) ?>
                           <a class="btn btn-sm btn-outline-secondary" href="feed.php?id=<?= (int)$pid ?>&tab=<?= h($tab) ?>" title="Full View">
                             <i class="fa fa-folder-open"></i>
                           </a>
-                          <a class="btn btn-sm btn-outline-secondary jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>" title="Open comments">
-                            <i class="fa fa-eye"></i>
-                          </a>
+                          <button type="button" class="btn btn-sm btn-outline-secondary js-open-comments-door" data-pid="<?= (int)$pid ?>" title="Comments">
+                            <i class="fa fa-comments"></i>
+                          </button>
                         </div>
                       </div>
 
-                      <div class="feed-title"><?= h(post_card_title($currentPost)) ?></div>
-                      <?php
-                        // Prevent long descriptions from pushing actions off-screen.
-                        $fullText = (string)($desc !== '' ? $desc : strip_tags((string)$body));
-                        $isLong   = (mb_strlen($fullText) > 420);
-                      ?>
-                      <div class="feed-desc-wrapper">
-                        <div class="feed-desc clamp-7"><?= nl2br(h($fullText)) ?></div>
-                        <?php if ($isLong): ?>
-                          <button type="button" class="read-more-btn" data-description="<?= h($fullText) ?>" data-title="<?= h($title) ?>" data-date="<?= h($created) ?>" onclick="openReadMoreModal(this)">
-                            Read more
-                          </button>
-                        <?php endif; ?>
+                      <?php if ($layout['text_in_media']): ?>
+                      <div class="feed-inline-comments" id="feedInlineComments-<?= (int)$pid ?>">
+                        <?= render_feed_inline_comments_html($dbh, $orgId, $pid, $hasReplyColumn) ?>
                       </div>
+                      <?php endif; ?>
+
+                      <?php if ($layout['has_media']): ?>
+                      <div class="feed-title"><?= h($layout['detail_title']) ?></div>
+                      <?php if ($layout['description'] !== ''): ?>
+                      <?= render_feed_description_block($layout['description'], $layout['detail_title'], $created) ?>
+                      <?php endif; ?>
+                      <?php endif; ?>
 
                       <div class="feed-actions">
                         <form method="post" action="feed.php?tab=<?= h($tab) ?>" style="margin:0;">
@@ -3142,36 +3852,28 @@ if ($isView) {
                           </button>
                         </form>
 
-                        <a href="javascript:void(0)" class="mini-muted jsOpenReplies" data-pid="<?= (int)$pid ?>" style="text-decoration:none; font-weight:900;">
+                        <button type="button" class="mini-muted js-open-comments-door" data-pid="<?= (int)$pid ?>" style="border:0;background:transparent;padding:0;font:inherit;font-weight:900;">
                           <i class="fa fa-comments"></i>
                           <span class="jsReplyCount" data-pid="<?= (int)$pid ?>"><?= (int)$commentCount ?></span> comments
-                        </a>
+                        </button>
 
                         <div class="feed-actions-right">
-                          <a class="feed-viewall jsOpenReplies" href="javascript:void(0)" data-pid="<?= (int)$pid ?>">
+                          <button type="button" class="feed-viewall js-open-comments-door" data-pid="<?= (int)$pid ?>" style="border:0;background:transparent;padding:0;font:inherit;">
                             View all <?= (int)$commentCount ?> comments
-                          </a>
+                          </button>
                           <span class="mini-muted feed-actions-liked"><i class="fa fa-lightbulb-o"></i> <?= $ackCount ?> liked</span>
                         </div>
                       </div>
 
-                      <?php if ($preview): ?>
-                      <div class="feed-comments">
-                          <?php foreach ($preview as $pc): ?>
-                            <?php
-                              $who = (string)($pc['user_name'] ?? 'Member');
-                              $txt = trim((string)($pc['body'] ?? ''));
-                              if (mb_strlen($txt) > 160) $txt = mb_substr($txt, 0, 160) . '…';
-                              $t   = (string)($pc['created_at'] ?? '');
-                            ?>
-                            <div class="feed-comment">
-                              <span class="who"><?= h($who) ?></span>
-                              <span class="txt"><?= h($txt) ?></span>
-                              <span class="time"><?= h($t) ?></span>
-                            </div>
-                          <?php endforeach; ?>
-                      </div>
-                      <?php endif; ?>
+                      <?= render_feed_compose_form(
+                        $pid,
+                        $tab,
+                        $csrf,
+                        $locked,
+                        'feed.php?tab=' . rawurlencode($tab),
+                        'feed.php?tab=' . rawurlencode($tab)
+                      ) ?>
+
                     </div>
                   </div>
                 </div>
@@ -3196,10 +3898,6 @@ if ($isView) {
                 $activeReplies = $isView
                   ? (int)($_SESSION[$seenKey][$activePostId] ?? 0)
                   : (int)($activeRow['comment_count'] ?? 0);
-
-                $pins = array_values(array_unique(array_map('intval', $_SESSION[$pinKey] ?? [])));
-                $activePinned = ($activePostId > 0 && in_array($activePostId, $pins, true));
-                $activePinAction = $activePinned ? 'unpin' : 'pin';
               ?>
 
               <div class="sidebar-head">
@@ -3225,28 +3923,29 @@ if ($isView) {
                 <?php if ($activePostId > 0 && $activeTitle !== ''): ?>
                   <div class="sidebar-section">Currently viewing</div>
 
-                  <a class="sidebar-item is-active"
-                     href="feed.php?id=<?= (int)$activePostId ?>&tab=<?= h($tab) ?>"
-                     data-subject="<?= h(strtolower((string)$activeTitle)) ?>">
+                  <div class="sidebar-item-row is-active">
+                    <a class="sidebar-item is-active"
+                       href="feed.php?id=<?= (int)$activePostId ?>&tab=<?= h($tab) ?>"
+                       data-subject="<?= h(strtolower((string)$activeTitle)) ?>">
 
-                    <div class="sidebar-top">
-                      <div class="sidebar-text">
-                        <div class="sidebar-subject"><?= h($activeTitle) ?></div>
-                        <div class="sidebar-meta">
-                          <span class="sidebar-chip"><?= h(post_label($activeType)) ?></span>
-                          <span class="sidebar-chip"><?= (int)$activeReplies ?> replies</span>
+                      <div class="sidebar-top">
+                        <div class="sidebar-text">
+                          <div class="sidebar-subject"><?= h($activeTitle) ?></div>
+                          <div class="sidebar-meta">
+                            <span class="sidebar-chip"><?= h(post_label($activeType)) ?></span>
+                            <span class="sidebar-chip"><?= (int)$activeReplies ?> replies</span>
+                          </div>
                         </div>
                       </div>
-
-                      <div class="sidebar-tools">
-                        <a class="pin-btn <?= $activePinned ? 'pinned' : '' ?>"
-                           href="feed.php?action=<?= $activePinAction ?>&pid=<?= (int)$activePostId ?>&id=<?= (int)$activePostId ?>&tab=<?= h($tab) ?>"
-                           title="<?= $activePinned ? 'Unpin' : 'Pin' ?>">
-                          <i class="fa fa-thumb-tack" aria-hidden="true"></i>
-                        </a>
-                      </div>
-                    </div>
-                  </a>
+                    </a>
+                    <?= render_sidebar_fries_button(
+                      (int)$activePostId,
+                      $tab,
+                      $_SESSION[$pinKey] ?? [],
+                      (int)$activePostId,
+                      (string)($ORG['name'] ?? 'Organization')
+                    ) ?>
+                  </div>
                 <?php endif; ?>
 
                 <div class="sidebar-section">Recent history</div>
@@ -3263,41 +3962,37 @@ if ($isView) {
                       $scnt   = (int)($sp['comment_count'] ?? 0);
                       $sdts   = $sdt !== '' ? strtotime($sdt) : time();
 
-                      $pins = array_values(array_unique(array_map('intval', $_SESSION[$pinKey] ?? [])));
-                      $isPinned = in_array($sid, $pins, true);
-
                       $seen = $_SESSION[$seenKey][$sid] ?? null; // int|null
                       $isNew = ($seen !== null && (int)$scnt > (int)$seen);
-
-                      $pinAction = $isPinned ? 'unpin' : 'pin';
                     ?>
 
-                    <a class="sidebar-item<?= ($sid > 0 && $sid === (int)$activePostId) ? ' is-active' : '' ?>"
-                       href="feed.php?id=<?= $sid ?>&tab=<?= h($tab) ?>"
-                       data-subject="<?= h(strtolower((string)$stitle)) ?>">
+                    <div class="sidebar-item-row<?= ($sid > 0 && $sid === (int)$activePostId) ? ' is-active' : '' ?>">
+                      <a class="sidebar-item<?= ($sid > 0 && $sid === (int)$activePostId) ? ' is-active' : '' ?>"
+                         href="feed.php?id=<?= $sid ?>&tab=<?= h($tab) ?>"
+                         data-subject="<?= h(strtolower((string)$stitle)) ?>">
 
-                      <div class="sidebar-top">
-                        <div class="sidebar-text">
-                          <div class="sidebar-subject"><?= h($stitle) ?></div>
-                          <div class="sidebar-meta">
-                            <span><?= h(date('M j, Y g:ia', $sdts)) ?></span>
-                            <span class="sidebar-chip"><?= h(post_label($stype)) ?></span>
-                            <span class="sidebar-chip"><?= (int)$scnt ?> replies</span>
-                            <?php if ($isNew): ?>
-                              <span class="sidebar-badge-new">NEW</span>
-                            <?php endif; ?>
+                        <div class="sidebar-top">
+                          <div class="sidebar-text">
+                            <div class="sidebar-subject"><?= h($stitle) ?></div>
+                            <div class="sidebar-meta">
+                              <span><?= h(date('M j, Y g:ia', $sdts)) ?></span>
+                              <span class="sidebar-chip"><?= h(post_label($stype)) ?></span>
+                              <span class="sidebar-chip"><?= (int)$scnt ?> replies</span>
+                              <?php if ($isNew): ?>
+                                <span class="sidebar-badge-new">NEW</span>
+                              <?php endif; ?>
+                            </div>
                           </div>
                         </div>
-
-                        <div class="sidebar-tools">
-                          <a class="pin-btn <?= $isPinned ? 'pinned' : '' ?>"
-                             href="feed.php?action=<?= $pinAction ?>&pid=<?= $sid ?>&id=<?= (int)$activePostId ?>&tab=<?= h($tab) ?>"
-                             title="<?= $isPinned ? 'Unpin' : 'Pin' ?>">
-                            <i class="fa fa-thumb-tack" aria-hidden="true"></i>
-                          </a>
-                        </div>
-                      </div>
-                    </a>
+                      </a>
+                      <?= render_sidebar_fries_button(
+                        $sid,
+                        $tab,
+                        $_SESSION[$pinKey] ?? [],
+                        (int)$activePostId,
+                        (string)($ORG['name'] ?? 'Organization')
+                      ) ?>
+                    </div>
 
                   <?php endforeach; ?>
                 <?php endif; ?>
@@ -3365,32 +4060,9 @@ if ($isView) {
   </div>
 </div>
 
-<!-- ✅ ONE global modal used by: eye icon + "X replies" -->
-<div class="modal fade modal-clean" id="repliesModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
+<?php require_once __DIR__ . '/includes/org_comments_door.php'; ?>
 
-      <div class="modal-header">
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <span class="modal-badge">Replies</span>
-          <span class="mini-muted" id="rmMeta"></span>
-        </div>
-
-        <button type="button" class="btn-close-x" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true" style="font-size:22px; font-weight:900;">&times;</span>
-        </button>
-      </div>
-
-      <div class="modal-body" id="rmBody">
-        <div class="mini-muted">Loading…</div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<!-- <script src="../lib/jquery/jquery.js"></script>
-<script src="../lib/bootstrap/bootstrap.js"></script> -->
+<?php org_layout_footer_assets(); ?>
 
 <script>
   
@@ -3407,156 +4079,105 @@ function openEditPostModal(postId, title, bodyHtml){
   }
 }
 
-function renderAjaxError(xhr){
-    var t = (xhr && xhr.responseText) ? xhr.responseText : 'No response';
-    $('#rmBody').html(
-      '<div class="alert alert-danger">Replies failed.<pre style="white-space:pre-wrap;">' +
-      $('<div/>').text(t).html() +
-      '</pre></div>'
-    );
-    console.log('Replies AJAX failed:', xhr ? xhr.status : 'n/a', t);
+  // ✅ Inline compose under post card
+  function scrollFeedInlineCommentsToBottom(box, highlightLast){
+    if (!box) return;
+    box.scrollTop = box.scrollHeight;
+    if (!highlightLast) return;
+    var items = box.querySelectorAll('.comment-item');
+    if (!items.length) return;
+    var last = items[items.length - 1];
+    last.classList.add('comment-item--new');
+    window.setTimeout(function(){
+      last.classList.remove('comment-item--new');
+    }, 2400);
   }
 
-  function loadRepliesIntoModal(pid){
-    return $.ajax({
-      url: 'feed.php',
+  function refreshFeedInlineComments(pid, highlightLast){
+    pid = parseInt(pid || '0', 10);
+    if (pid <= 0) return Promise.resolve();
+    var box = document.getElementById('feedInlineComments-' + pid);
+    if (!box) return Promise.resolve();
+    return fetch('feed.php?ajax=inline_comments&pid=' + encodeURIComponent(pid), {
       method: 'GET',
-      dataType: 'json',
-      data: { ajax: 'replies', pid: pid },
-      timeout: 12000
-    }).done(function(resp){
-      if (!resp || !resp.ok) {
-        $('#rmBody').html('<div class="alert alert-danger">'+ (resp && resp.err ? resp.err : 'Failed') +'</div>');
-        return;
-      }
-
-      $('#rmMeta').text(resp.meta || '');
-      $('#rmBody').html(resp.html || '');
-
-      // ✅ Collapsed-by-default: show only top few replies until user expands
-      (function(){
-        var wrap = document.getElementById('rmCommentsWrap');
-        var btn  = document.getElementById('rmToggleAll');
-        if (!wrap || !btn) return;
-
-        // default collapsed
-        wrap.classList.add('rm-collapsed');
-        btn.textContent = 'Show all';
-
-        btn.onclick = function(){
-          var isCollapsed = wrap.classList.contains('rm-collapsed');
-          if (isCollapsed) {
-            wrap.classList.remove('rm-collapsed');
-            btn.textContent = 'Collapse';
-            // keep newest visible after expanding
-            try { var el = document.getElementById('readMoreDescription'); if (el) el.scrollTop = el.scrollHeight; } catch(e){}
-          } else {
-            wrap.classList.add('rm-collapsed');
-            btn.textContent = 'Show all';
-            try { var el2 = document.getElementById('readMoreDescription'); if (el2) el2.scrollTop = 0; } catch(e){}
-          }
-        };
-      })();
-
-      // scroll to bottom
-      var el = document.getElementById('readMoreDescription');
-      if (el) el.scrollTop = el.scrollHeight;
-
-      // update reply counts on the post card
-      if (resp.count !== undefined) {
-        document.querySelectorAll('.jsReplyCount[data-pid="'+pid+'"]').forEach(function(span){
-          span.textContent = resp.count;
-        });
-      }
-
-      // bind submit (overwrite any previous handler safely)
-      var form = document.getElementById('rmReplyForm');
-      if (form) {
-        form.onsubmit = function(e){
-          e.preventDefault();
-
-          var fd = new FormData(form);
-          fd.append('ajax', '1');
-
-          fetch('feed.php', { method:'POST', body: fd })
-            .then(r => r.text())
-            .then(function(txt){
-              var rj = null;
-              try { rj = JSON.parse(txt); } catch(e){}
-
-              if (!rj || !rj.ok) {
-                alert((rj && rj.err) ? rj.err : ('Failed to post reply.\n\nServer says:\n' + txt));
-                return;
-              }
-
-              // reload modal so new reply appears
-              loadRepliesIntoModal(pid);
-            });
-        };
-      }
-    }).fail(renderAjaxError);
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    })
+      .then(function(r){ return r.text(); })
+      .then(function(txt){
+        var resp = null;
+        try { resp = JSON.parse(txt); } catch (err) {}
+        if (!resp || !resp.ok) return;
+        box.innerHTML = resp.html || '<div class="mini-muted">No comments yet.</div>';
+        scrollFeedInlineCommentsToBottom(box, !!highlightLast);
+      });
   }
 
-  function openRepliesModal(pid){
-    $('#repliesModal').modal('show');
-    $('#rmBody').html('<div class="mini-muted">Loading…</div>');
-    $('#rmMeta').text('');
-    loadRepliesIntoModal(pid);
+  function updateFeedInlineComments(pid, html, highlightLast){
+    var box = document.getElementById('feedInlineComments-' + pid);
+    if (!box) return;
+    box.innerHTML = html || '<div class="mini-muted">No comments yet.</div>';
+    scrollFeedInlineCommentsToBottom(box, !!highlightLast);
   }
 
-  // ✅ click: eye icon OR "X replies"
-  document.addEventListener('click', function(e){
-    var el = e.target.closest('.jsOpenReplies');
-    if (!el) return;
-    e.preventDefault();
-    var pid = parseInt(el.getAttribute('data-pid') || '0', 10);
-    if (pid > 0) openRepliesModal(pid);
-  });
-
-  // ✅ click Reply inside modal (dynamic content safe)
-  document.addEventListener('click', function(e){
-    var btn = e.target.closest('.replyBtn');
-    if (!btn) return;
+  document.addEventListener('submit', function(e){
+    var form = e.target.closest('.jsFeedComposeForm');
+    if (!form) return;
     e.preventDefault();
 
-    var cid = parseInt(btn.getAttribute('data-cid') || '0', 10);
-    var cname = btn.getAttribute('data-cname') || 'User';
-
-    var replyTo = document.getElementById('reply_to');
-    var label   = document.getElementById('replyTargetLabel');
-    var ta      = document.getElementById('rm_comment_body');
-    var bodyBox = document.getElementById('readMoreDescription');
-
-    if (replyTo) replyTo.value = String(cid || 0);
-    if (label) label.textContent = 'Reply to ' + cname + ' (comment #' + cid + ')';
-
-    if (ta && bodyBox) {
-      try {
-        var boxRect = bodyBox.getBoundingClientRect();
-        var taRect  = ta.getBoundingClientRect();
-        var delta = (taRect.top - boxRect.top);
-        bodyBox.scrollTop = bodyBox.scrollTop + delta - 16;
-      } catch (err) {
-        try { ta.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e){}
-      }
+    var ta = form.querySelector('.feed-compose-input');
+    var body = ta ? String(ta.value || '').trim() : '';
+    if (!body) {
+      if (ta) ta.focus();
+      return;
     }
 
-    if (ta && !ta.disabled) ta.focus();
-  });
+    var pid = parseInt(form.getAttribute('data-pid') || '0', 10);
+    var fd = new FormData(form);
+    fd.append('ajax', '1');
 
-  // ✅ Clear target (dynamic content safe)
-  document.addEventListener('click', function(e){
-    var b = e.target.closest('#clearReplyTarget');
-    if (!b) return;
+    var btn = form.querySelector('.feed-compose-send');
+    if (btn) btn.disabled = true;
 
-    var replyTo = document.getElementById('reply_to');
-    var label   = document.getElementById('replyTargetLabel');
+    fetch(form.getAttribute('action') || 'feed.php', { method: 'POST', body: fd })
+      .then(function(r){ return r.text(); })
+      .then(function(txt){
+        var resp = null;
+        try { resp = JSON.parse(txt); } catch (err) {}
 
-    if (replyTo) replyTo.value = '0';
-    if (label) label.textContent = 'Reply to post';
+        if (!resp || !resp.ok) {
+          alert((resp && resp.err) ? resp.err : ('Failed to post comment.\n\nServer says:\n' + txt));
+          return;
+        }
 
-    var ta = document.getElementById('rm_comment_body');
-    if (ta && !ta.disabled) ta.focus();
+        if (ta) ta.value = '';
+
+        if (pid > 0) {
+          if (resp.count !== undefined) {
+            document.querySelectorAll('.jsReplyCount[data-pid="'+pid+'"]').forEach(function(span){
+              span.textContent = resp.count;
+            });
+            document.querySelectorAll('.feed-viewall[data-pid="'+pid+'"]').forEach(function(el){
+              el.textContent = 'View all ' + resp.count + ' comments';
+            });
+          }
+          if (window.OrgCommentsDoor && typeof window.OrgCommentsDoor.refreshIfOpen === 'function') {
+            window.OrgCommentsDoor.refreshIfOpen(pid);
+          }
+          if (resp.inline_html !== undefined) {
+            updateFeedInlineComments(pid, resp.inline_html, true);
+          } else {
+            refreshFeedInlineComments(pid, true);
+          }
+        }
+      })
+      .catch(function(){
+        alert('Failed to post comment. Please try again.');
+      })
+      .finally(function(){
+        if (btn) btn.disabled = false;
+        if (ta && !ta.disabled) ta.focus();
+      });
   });
 </script>
 
@@ -3713,11 +4334,228 @@ function renderAjaxError(xhr){
     var q = norm(input.value);
     rows.forEach(function(a){
       var subj = norm(a.getAttribute('data-subject'));
-      a.style.display = (!q || subj.indexOf(q) !== -1) ? '' : 'none';
+      var row = a.closest ? a.closest('.sidebar-item-row') : null;
+      var target = row || a;
+      target.style.display = (!q || subj.indexOf(q) !== -1) ? '' : 'none';
     });
   });
+
 })();
 
+</script>
+
+<script>
+(function(){
+  if (window.__orgSidebarFriesInit) return;
+  window.__orgSidebarFriesInit = true;
+
+  var activePortal = null;
+  var activeBtn = null;
+  var activeWrap = null;
+  var ignoreCloseUntil = 0;
+
+  function matchesSel(el, sel){
+    if (!el || el.nodeType !== 1) return false;
+    if (el.matches) return el.matches(sel);
+    if (el.msMatchesSelector) return el.msMatchesSelector(sel);
+    return false;
+  }
+
+  function closestEl(el, sel){
+    while (el && el.nodeType === 1){
+      if (matchesSel(el, sel)) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function absPostUrl(wrap){
+    var rel = (wrap && wrap.getAttribute('data-post-url')) || '';
+    try { return new URL(rel, window.location.href).href; }
+    catch(e){ return window.location.href; }
+  }
+
+  function closeSidebarFriesMenu(){
+    if (activePortal && activePortal.parentNode){
+      try { activePortal.parentNode.removeChild(activePortal); } catch(e){}
+    }
+    if (activeBtn){
+      activeBtn.classList.remove('is-open');
+      activeBtn.setAttribute('aria-expanded', 'false');
+    }
+    activePortal = null;
+    activeBtn = null;
+    activeWrap = null;
+  }
+
+  function positionSidebarFriesMenu(btn, menu){
+    var rect = btn.getBoundingClientRect();
+    var mw = menu.offsetWidth || 240;
+    var mh = menu.offsetHeight || 80;
+    var gap = 6;
+    var top = rect.bottom + gap;
+    var left = rect.right - mw;
+    var vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    var vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+
+    if (left < 10) left = 10;
+    if (left + mw > vw - 10) left = Math.max(10, vw - mw - 10);
+    if (top + mh > vh - 10) top = Math.max(10, rect.top - gap - mh);
+
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+  }
+
+  function flashSidebarToast(msg){
+    var el = document.getElementById('sidebarFriesToast');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'sidebarFriesToast';
+      el.setAttribute('role', 'status');
+      el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#262626;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:100001;opacity:0;transition:opacity .2s ease;pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.opacity = '1';
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function(){ el.style.opacity = '0'; }, 1800);
+  }
+
+  function copyText(text){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject){
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        resolve();
+      } catch(err){ reject(err); }
+    });
+  }
+
+  function handleSidebarFriesAction(action, wrap){
+    if (!wrap) return;
+    var pid = wrap.getAttribute('data-pid') || '';
+    var postUrl = wrap.getAttribute('data-post-url') || '';
+    var unpinUrl = wrap.getAttribute('data-unpin-url') || '';
+    var orgName = wrap.getAttribute('data-org-name') || 'Organization';
+    var fullUrl = absPostUrl(wrap);
+
+    if (action === 'report'){
+      flashSidebarToast('Thanks for your report.');
+      return;
+    }
+    if (action === 'unpin' && unpinUrl){
+      window.location.href = unpinUrl;
+      return;
+    }
+    if (action === 'about'){
+      window.alert('About this account\n\n' + orgName + '\nPost #' + pid);
+      return;
+    }
+    if (action === 'goto' && postUrl){
+      window.location.href = postUrl;
+      return;
+    }
+    if (action === 'share'){
+      if (navigator.share){
+        navigator.share({ title: orgName, url: fullUrl }).catch(function(){});
+      } else {
+        copyText(fullUrl).then(function(){
+          flashSidebarToast('Link copied to clipboard.');
+        });
+      }
+      return;
+    }
+    if (action === 'copy'){
+      copyText(fullUrl).then(function(){
+        flashSidebarToast('Link copied to clipboard.');
+      });
+      return;
+    }
+    if (action === 'embed'){
+      var code = '<iframe src="' + fullUrl + '" width="400" height="480" frameborder="0" allowfullscreen></iframe>';
+      copyText(code).then(function(){
+        flashSidebarToast('Embed code copied.');
+      });
+    }
+  }
+
+  function bindSidebarFriesPortal(menu, wrap){
+    menu.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      var item = closestEl(e.target, '[data-action]');
+      if (!item || item.disabled) return;
+      handleSidebarFriesAction(item.getAttribute('data-action'), wrap);
+      closeSidebarFriesMenu();
+    });
+  }
+
+  function openSidebarFriesMenu(wrap, btn){
+    var sourceMenu = wrap ? wrap.querySelector('.sidebar-fries-menu') : null;
+    if (!sourceMenu || !btn) return;
+
+    if (activeWrap === wrap){
+      closeSidebarFriesMenu();
+      return;
+    }
+
+    closeSidebarFriesMenu();
+
+    var portal = sourceMenu.cloneNode(true);
+    portal.classList.add('sidebar-fries-portal', 'is-open');
+    portal.removeAttribute('hidden');
+    portal.style.display = 'block';
+    portal.style.visibility = 'hidden';
+    document.body.appendChild(portal);
+    positionSidebarFriesMenu(btn, portal);
+    portal.style.visibility = 'visible';
+
+    bindSidebarFriesPortal(portal, wrap);
+
+    activePortal = portal;
+    activeBtn = btn;
+    activeWrap = wrap;
+    btn.classList.add('is-open');
+    btn.setAttribute('aria-expanded', 'true');
+    ignoreCloseUntil = Date.now() + 250;
+  }
+
+  document.addEventListener('click', function(e){
+    var btn = closestEl(e.target, '.sidebar-fries-btn');
+    if (btn){
+      e.preventDefault();
+      e.stopPropagation();
+      openSidebarFriesMenu(closestEl(btn, '.sidebar-fries-wrap'), btn);
+      return;
+    }
+    if (Date.now() < ignoreCloseUntil) return;
+    if (closestEl(e.target, '.sidebar-fries-wrap') || closestEl(e.target, '.sidebar-fries-portal')) return;
+    closeSidebarFriesMenu();
+  }, true);
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') closeSidebarFriesMenu();
+  });
+  window.addEventListener('resize', closeSidebarFriesMenu);
+  var sidebarListEl = document.querySelector('.sidebar-list');
+  if (sidebarListEl) {
+    sidebarListEl.addEventListener('scroll', closeSidebarFriesMenu, { passive: true });
+  }
+})();
+
+</script>
+
+<script>
 // -------------------- Feed UX: mark read after media loads + video memory + strip switching --------------------
 (function(){
   var playback = {}; // {pid: seconds}
@@ -3836,29 +4674,6 @@ function renderAjaxError(xhr){
       + ' referrerpolicy="no-referrer"></iframe>';
   }
 
-  function find_local_ppt_pdf_webpath(string $pptWebPath): string {
-    $u = $pptWebPath;
-    $qPos = strpos($u, '?'); if ($qPos !== false) $u = substr($u, 0, $qPos);
-    $hPos = strpos($u, '#'); if ($hPos !== false) $u = substr($u, 0, $hPos);
-
-    // only if it looks like ppt/pptx
-    if (!preg_match('/\.(pptx|ppt)$/i', $u)) return '';
-
-    $pdfWeb = preg_replace('/\.(pptx|ppt)$/i', '.pdf', $u);
-
-    // Map web path -> filesystem path (works for /Business_only3/organization/... or /organization/... or relative)
-    $rel = $pdfWeb;
-
-    if (strpos($rel, '/organization/') !== false) {
-        $rel = substr($rel, strpos($rel, '/organization/') + strlen('/organization/'));
-    }
-    $rel = ltrim($rel, '/');
-
-    $fs = __DIR__ . '/' . $rel;
-    return is_file($fs) ? $pdfWeb : '';
-  }
-
-
   // ✅ PPT/PPTX inline preview ONLY if src is public HTTPS (Office viewer)
   if (kind === 'ppt'){
     var isHttps = /^https:\/\//i.test(src);
@@ -3920,6 +4735,15 @@ function renderAjaxError(xhr){
 </div>
 
 <script>
+  function initFeedReadMoreButtons(){
+    document.querySelectorAll('.feed-post-detail .feed-desc-wrapper').forEach(function(wrap){
+      var desc = wrap.querySelector('.feed-desc.clamp-7');
+      var btn = wrap.querySelector('.read-more-btn');
+      if (!desc || !btn) return;
+      var needsMore = desc.scrollHeight > desc.clientHeight + 1;
+      btn.classList.toggle('is-hidden', !needsMore);
+    });
+  }
   function openReadMoreModal(btn){
     try{
       var modal = document.getElementById('readMoreModal');
@@ -3959,6 +4783,9 @@ function renderAjaxError(xhr){
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') closeReadMoreModal();
   });
+  initFeedReadMoreButtons();
+  document.addEventListener('org-nav-complete', initFeedReadMoreButtons);
+  window.addEventListener('resize', initFeedReadMoreButtons);
 </script>
 
 <script>

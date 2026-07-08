@@ -37,6 +37,9 @@ function device_profile_ensure_post_columns(PDO $dbh): void
         if (!device_profile_table_has_column($dbh, 'public_posts', 'music_artist')) {
             $dbh->exec("ALTER TABLE public_posts ADD COLUMN music_artist VARCHAR(120) NOT NULL DEFAULT '' AFTER music_title");
         }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'is_archived')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0 AFTER is_deleted");
+        }
     } catch (Throwable $e) {
         // keep callers resilient
     }

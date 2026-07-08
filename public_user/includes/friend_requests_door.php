@@ -413,12 +413,14 @@ body.msb-friend-requests-door-open .msb-friend-requests-door-backdrop{
 
   function closeOtherPanels(){
     try {
-      var commentsWrap = document.getElementById('tt-comments-wrap');
-      if(commentsWrap) commentsWrap.classList.remove('is-open');
+      if(window.TTComments && typeof window.TTComments.close === 'function') window.TTComments.close();
+      else {
+        var commentsWrap = document.getElementById('tt-comments-wrap');
+        if(commentsWrap) commentsWrap.classList.remove('is-open');
+      }
     } catch(e){}
     try {
-      var menuWrap = document.getElementById('tt-menu-wrap');
-      if(menuWrap) menuWrap.classList.remove('is-open');
+      if(window.TTMenu && typeof window.TTMenu.close === 'function') window.TTMenu.close();
     } catch(e){}
     try {
       var rmWrap = document.getElementById('tt-readmore-wrap');

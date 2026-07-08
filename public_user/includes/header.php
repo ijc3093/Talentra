@@ -555,7 +555,7 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <link rel="stylesheet" href="./css/dark-auto.css">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=73">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=77">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
@@ -992,7 +992,7 @@ iframe{
     position:fixed; left:0; top:0; bottom:0; width:var(--feedRailW); z-index:1200;
     background-color:var(--msb-palette-bg, #f5f7fb);
     color:var(--msb-palette-text-on-nav, var(--msb-palette-text, #111827));
-    border-right:1px solid var(--msb-palette-border-strong, #d1d5db); border-radius:0;
+    border-right:1px solid var(--msb-palette-border-strong, #d1d5db) !important; border-radius:0;
     display:flex; flex-direction:column;
     align-items:center; padding:18px 10px 16px; gap:14px;
     --msb-feed-chrome-size:40px;
@@ -1103,6 +1103,31 @@ iframe{
     padding:12px 14px !important; color:#0f172a !important; font-weight:600; letter-spacing:0;
   }
   body #ttNavLeftbar .nav-link:hover, body #ttNavLeftbar .nav-link.active{background:#f3f4f6 !important; color:#000 !important}
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar.sh-sideleft-menu,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar.sh-sideleft-menu{
+    background:#171d24 !important;
+    border-color:rgba(177,188,206,.22) !important;
+    box-shadow:0 14px 38px rgba(0,0,0,.28) !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .sh-sidebar-label,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .sh-sidebar-label{
+    color:#b1bcce !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link{
+    color:#b1bcce !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link:hover,
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link.active,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link:hover,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link.active{
+    background:#2f3a4a !important;
+    color:#e8edf5 !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link .icon,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link .icon{
+    color:inherit !important;
+  }
   body #ttNavLeftbar .nav-link .icon{font-size:22px; width:22px; text-align:center}
   @media (max-width: 991.98px){
     :root{ --feedRailW:0px; }
@@ -1138,9 +1163,47 @@ iframe{
     transition:background .18s ease, transform .18s ease, color .18s ease;
   }
   .ig-link:hover, .ig-link:focus, .ig-link.active{
-    background:#f3f4f6;
-    color:#000;
+    background:var(--msb-palette-nav-hover, #f3f4f6);
+    color:var(--msb-palette-text-on-nav-hover, #000);
     outline:none;
+  }
+  html.dark-auto:not([data-msb-appearance]) .ig-link:hover,
+  html.dark-auto:not([data-msb-appearance]) .ig-link:focus,
+  html.dark-auto:not([data-msb-appearance]) .ig-link.active,
+  html[data-theme="dark"]:not([data-msb-appearance]) .ig-link:hover,
+  html[data-theme="dark"]:not([data-msb-appearance]) .ig-link:focus,
+  html[data-theme="dark"]:not([data-msb-appearance]) .ig-link.active{
+    background:#2f3a4a !important;
+    color:#e8edf5 !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar.sh-sideleft-menu,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar.sh-sideleft-menu{
+    background:#171d24 !important;
+    border-color:rgba(177,188,206,.22) !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link{
+    color:#b1bcce !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link:hover,
+  html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link.active,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link:hover,
+  html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link.active{
+    background:#2f3a4a !important;
+    color:#e8edf5 !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) .ig-link,
+  html[data-theme="dark"]:not([data-msb-appearance]) .ig-link{
+    color:#b1bcce !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) .ig-link:hover,
+  html.dark-auto:not([data-msb-appearance]) .ig-link:focus,
+  html.dark-auto:not([data-msb-appearance]) .ig-link.active,
+  html[data-theme="dark"]:not([data-msb-appearance]) .ig-link:hover,
+  html[data-theme="dark"]:not([data-msb-appearance]) .ig-link:focus,
+  html[data-theme="dark"]:not([data-msb-appearance]) .ig-link.active{
+    background:#2f3a4a !important;
+    color:#e8edf5 !important;
   }
 </style>
 <style><?php include __DIR__ . '/feed_page_chrome.css.php'; ?></style>
@@ -1158,8 +1221,8 @@ iframe{
   </div>
 
   <nav class="feed-ig-nav">
-    <button type="button" class="feed-ig-btn ig-stories-menu-btn feed-ig-menu-mobile" aria-label="Menu" title="Menu">
-      <i class="fa fa-bars"></i>
+    <button type="button" class="feed-ig-btn ig-stories-menu-btn feed-ig-menu-mobile js-open-menu-door" aria-label="Menu" title="Menu">
+      <i class="icon ion-navicon"></i>
     </button>
     <button type="button" class="feed-ig-btn js-open-messages-door<?php echo $railIsMessages ? ' active' : ''; ?>" aria-label="Messages" title="Messages">
       <i class="icon ion-chatboxes"></i>
@@ -2071,7 +2134,7 @@ iframe{
   filter:drop-shadow(0 12px 18px rgba(255,255,255,.15));
 }
 .global-live-stage-reaction.is-love{
-  color:#ec4899;
+  color:#7c3aed;
 }
 
 @keyframes globalLiveCommentFloat{
@@ -3489,7 +3552,7 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
 
   const defs = {
     like:  { key:'like',  label:'Like',  emoji:'👍', color:'#2563eb' },
-    love:  { key:'love',  label:'Love',  emoji:'❤️', color:'#ec4899' },
+    love:  { key:'love',  label:'Love',  emoji:'❤️', color:'#7c3aed' },
     smile: { key:'smile', label:'Smile', emoji:'😊', color:'#f59e0b' },
     laugh: { key:'laugh', label:'Laugh', emoji:'😂', color:'#f97316' },
     wow:   { key:'wow',   label:'Wow',   emoji:'😮', color:'#facc15' },

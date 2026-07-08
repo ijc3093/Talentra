@@ -298,6 +298,9 @@
     var main = getMainPanel();
     if (!main) return;
 
+    // Feed keeps modals + page scripts as siblings after the main panel.
+    if (isFeedPage(window.location.href)) return;
+
     var node = main.nextElementSibling;
     while (node) {
       var next = node.nextElementSibling;

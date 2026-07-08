@@ -67,6 +67,7 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
             'myReaction' => trim((string)($post['my_reaction'] ?? '')),
             'myShared' => !empty($post['my_shared']) ? 1 : 0,
             'mySaved' => !empty($post['my_saved']) ? 1 : 0,
+            'isArchived' => !empty($post['is_archived']) ? 1 : 0,
             'commentCount' => (int)($post['comment_count'] ?? 0),
             'loveCount' => (int)($post['love_count'] ?? 0),
             'shareCount' => (int)($post['share_count'] ?? 0),

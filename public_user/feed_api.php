@@ -359,7 +359,7 @@ try {
 
     $order    = (string)($_GET['order'] ?? 'recent'); // recent|views
 
-    $where  = "p.is_deleted = 0";
+    $where  = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0";
     $params = [];
 
     if ($filter === 'author' && $authorId > 0) {
@@ -423,6 +423,7 @@ try {
         COALESCE(p.device_viewport,'') AS device_viewport,
         COALESCE(p.music_title,'') AS music_title,
         COALESCE(p.music_artist,'') AS music_artist,
+        COALESCE(p.is_archived,0) AS is_archived,
         LENGTH(TRIM(COALESCE(p.body,''))) AS body_len,
         p.created_at,
         COALESCE(p.updated_at, p.created_at) AS updated_at,
@@ -547,7 +548,7 @@ try {
     $rows = array_values($filteredRows);
 
     // ✅ unread_count for badge (overall)
-    $unreadWhere = "p.is_deleted = 0 AND (r.last_seen_at IS NULL OR COALESCE(p.updated_at, p.created_at) > r.last_seen_at)";
+    $unreadWhere = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND (r.last_seen_at IS NULL OR COALESCE(p.updated_at, p.created_at) > r.last_seen_at)";
     $unreadParams = [':meRead' => $meId];
     $unreadJoin = '';
     if ($pageMode === 'public' || $pageMode === 'news') {
@@ -597,6 +598,11 @@ try {
     $st->execute([':id' => $postId, ':meFollow' => $meId]);
     $post = $st->fetch(PDO::FETCH_ASSOC);
     if (!$post) jexit(['ok' => false, 'error' => 'Post not found', 'me_id' => $meId]);
+
+    $authorId = (int)($post['user_id'] ?? 0);
+    if (!empty($post['is_archived']) && $authorId !== $meId) {
+      jexit(['ok' => false, 'error' => 'Post not found', 'me_id' => $meId]);
+    }
 
     $post['is_publisher'] = publisher_user_row_looks_like_publisher($dbh, $post) ? 1 : 0;
     if (!empty($post['is_publisher'])) {
@@ -1064,6 +1070,38 @@ try {
       'share_count' => $shareCount,
       'save_count' => $saveCount,
       'state' => [ 'shared' => $myShared, 'saved' => $mySaved ]
+    ]);
+  }
+
+  // ---------------------------
+  // ARCHIVE POST
+  // ---------------------------
+  if ($ajax === 'archive' || $ajax === 'archive_post') {
+    staff_pub_api_deny_write($meId);
+    $postId = (int)($_POST['post_id'] ?? $_POST['id'] ?? 0);
+    if ($postId <= 0) jexit(['ok' => false, 'error' => 'Missing post id', 'me_id' => $meId]);
+
+    $archived = null;
+    if (array_key_exists('archived', $_POST)) {
+      $archived = ((int)$_POST['archived'] === 1) ? 1 : 0;
+    }
+
+    $stP = $dbh->prepare("SELECT id, user_id, COALESCE(is_archived,0) AS is_archived FROM public_posts WHERE id = :id AND is_deleted = 0 LIMIT 1");
+    $stP->execute([':id' => $postId]);
+    $p = $stP->fetch(PDO::FETCH_ASSOC);
+    if (!$p) jexit(['ok' => false, 'error' => 'Post not found', 'me_id' => $meId]);
+    if ((int)$p['user_id'] !== $meId) jexit(['ok' => false, 'error' => 'Not allowed', 'me_id' => $meId]);
+
+    $nextArchived = $archived !== null ? $archived : (((int)($p['is_archived'] ?? 0) === 1) ? 0 : 1);
+    $stU = $dbh->prepare("UPDATE public_posts SET is_archived = :archived, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
+    $stU->execute([':archived' => $nextArchived, ':id' => $postId, ':uid' => $meId]);
+
+    jexit([
+      'ok' => true,
+      'me_id' => $meId,
+      'post_id' => $postId,
+      'archived' => $nextArchived,
+      'state' => ['archived' => $nextArchived],
     ]);
   }
 

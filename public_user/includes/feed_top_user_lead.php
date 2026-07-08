@@ -44,7 +44,7 @@ if ($feedTopChromePart === 'badge') {
 
 ?>
 <div class="ig-feed-top-lead">
-  <a href="<?= htmlspecialchars((string)$feedTopChrome['profile_href'], ENT_QUOTES, 'UTF-8') ?>" class="ig-feed-user-name" aria-label="Your profile"><?= htmlspecialchars((string)$feedTopChrome['display_name'], ENT_QUOTES, 'UTF-8') ?></a>
+  <button type="button" class="ig-feed-user-name js-open-profile-door" aria-label="Your profile"><?= htmlspecialchars((string)$feedTopChrome['display_name'], ENT_QUOTES, 'UTF-8') ?></button>
   <?php if (($feedTopChrome['badge'] ?? '') !== ''): ?>
     <span class="ig-feed-account-badge" aria-label="Account type"><?= htmlspecialchars((string)$feedTopChrome['badge'], ENT_QUOTES, 'UTF-8') ?></span>
   <?php endif; ?>

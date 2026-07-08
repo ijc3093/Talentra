@@ -30,12 +30,12 @@
 }
 
 .sh-sideleft-menu .nav > .nav-item > .nav-link:active:not(.active) {
-  background-color: rgba(79, 70, 229, 0.08);
+  background-color: var(--org-accent-soft, var(--msb-palette-action-soft, rgba(79, 70, 229, 0.08)));
 }
 
 .sh-sideleft-menu .nav > .nav-item > .nav-link.is-nav-pending {
-  color: #4f46e5;
-  background-color: rgba(79, 70, 229, 0.06);
+  color: var(--org-accent, var(--msb-palette-action, #4f46e5));
+  background-color: var(--org-accent-soft, var(--msb-palette-action-soft, rgba(79, 70, 229, 0.06)));
 }
 
 /* Sidebar: fixed Home (top) + Sign out (bottom), scrollable middle in a boxed panel */
@@ -65,12 +65,11 @@ body.org-app .org-sideleft-scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  border: 1px solid rgba(7, 101, 199, 0.28);
+  border: 1px solid var(--msb-palette-border, var(--org-accent-soft, rgba(7, 101, 199, 0.28)));
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.72);
+  background: #171d24;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 0 rgba(7, 101, 199, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
@@ -79,7 +78,7 @@ body.org-app .org-sideleft-scroll::-webkit-scrollbar {
 }
 
 body.org-app .org-sideleft-scroll::-webkit-scrollbar-thumb {
-  background: rgba(7, 101, 199, 0.28);
+  background: var(--msb-palette-action, rgba(7, 101, 199, 0.28));
   border-radius: 3px;
 }
 
@@ -108,10 +107,26 @@ body.org-app .org-sideleft-nav {
 }
 
 body.org-app .org-sideleft-bottom {
-  border-top: 1px solid rgba(7, 101, 199, 0.12);
+  border-top: 1px solid var(--msb-palette-border, var(--org-accent-soft, rgba(7, 101, 199, 0.12)));
   background: inherit;
   padding: 4px 0 6px;
   margin-top: 2px;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link {
+  color: var(--msb-palette-action, var(--org-accent, #0765c7));
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link [class*="ion-"] {
+  color: #b1bcce !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i:first-child,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .icon,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link [class*="ion-"] {
+  color: inherit;
 }
 
 body.org-app .org-sideleft-signout:hover,
@@ -127,7 +142,7 @@ body.org-app .org-sideleft-signout:focus {
   bottom: 0;
   left: 0;
   z-index: 2147483000;
-  background: #f5f7fb;
+  background: #171d24;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -166,7 +181,7 @@ body.org-app:not(.org-page-feed) audio {
 
 html.dark-auto body.org-app.is-navigating #org-nav-shield,
 html[data-theme="dark"] body.org-app.is-navigating #org-nav-shield {
-  background: var(--msb-palette-bg, #f5f7fb);
+  background: var(--msb-palette-bg, #171d24);
 }
 
 body.org-app .sh-mainpanel {
@@ -256,9 +271,9 @@ body.org-app:not(.org-page-feed) .members-card .member-avatar {
   max-width: 40px !important;
   max-height: 40px !important;
   border-radius: 12px !important;
-  background: rgba(79, 70, 229, 0.12) !important;
+  background: var(--org-accent-soft, var(--msb-palette-action-soft, rgba(79, 70, 229, 0.12))) !important;
   background-image: none !important;
-  color: #4f46e5 !important;
+  color: var(--org-accent, var(--msb-palette-action, #4f46e5)) !important;
   aspect-ratio: auto !important;
   flex: 0 0 auto !important;
   overflow: hidden !important;

@@ -248,8 +248,7 @@ body.msb-notifications-door-open .msb-notifications-door-backdrop{
       if(commentsWrap) commentsWrap.classList.remove('is-open');
     } catch(e){}
     try {
-      var menuWrap = document.getElementById('tt-menu-wrap');
-      if(menuWrap) menuWrap.classList.remove('is-open');
+      if(window.TTMenu && typeof window.TTMenu.close === 'function') window.TTMenu.close();
     } catch(e){}
     try {
       var rmWrap = document.getElementById('tt-readmore-wrap');

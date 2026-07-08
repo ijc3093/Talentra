@@ -124,7 +124,7 @@ function post_media_stage_css(string $scope = ''): string
         $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act,'
             . $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act i,'
             . $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act .mf-num{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}';
-        $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act.is-love i{color:#ef2b7b!important;text-shadow:none!important}';
+        $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act.is-love i{color:var(--msb-love-color,#7c3aed)!important;text-shadow:none!important}';
         $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act.is-like i{color:#2563eb!important;text-shadow:none!important}';
         $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act.is-share i{color:#9ca3af!important;text-shadow:none!important}';
         $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act.is-save i{color:#f59e0b!important;text-shadow:none!important}';

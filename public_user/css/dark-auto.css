@@ -14,13 +14,14 @@ html.dark-auto *,
 html.dark-auto,
 :is(html.dark-auto, body.dark-auto){
   background:#171d24 !important;
-  color:#e6edf3;
+  color:#b1bcce;
   color-scheme: dark;
 
   /* video */
+  --msb-dark-auto-chrome:#b1bcce;
   --studio-line:#394451;
-  --studio-text:#e6edf3;
-  --studio-muted:#9aa4ad;
+  --studio-text:#b1bcce;
+  --studio-muted:#b1bcce;
   --studio-bg:#171d24;
   --studio-card:#2b3137;
   --studio-border:rgba(255,255,255,.12);
@@ -37,7 +38,7 @@ html.dark-auto body{
 html[data-theme="dark"]:not([data-msb-appearance]) body{
   background-color:var(--msb-palette-bg, #171d24) !important;
   background-image:none !important;
-  color:var(--studio-text, #e6edf3) !important;
+  color:var(--studio-text, #b1bcce) !important;
 }
 
 html:not(.dark-auto),
@@ -46,11 +47,11 @@ html[data-theme="light"]{
 }
 
 :is(html.dark-auto, body.dark-auto) a{
-  color:#93c5fd;
+  color:#b1bcce;
 }
 
 :is(html.dark-auto, body.dark-auto) a:hover{
-  color:#bfdbfe;
+  color:#b1bcce;
 }
 
 :is(html.dark-auto, body.dark-auto) small,
@@ -59,7 +60,7 @@ html[data-theme="light"]{
 :is(html.dark-auto, body.dark-auto) .tx-gray-500,
 :is(html.dark-auto, body.dark-auto) .tx-gray-600,
 :is(html.dark-auto, body.dark-auto) .text-secondary{
-  color:#aeb8c2 !important;
+  color:#b1bcce !important;
 }
 
 /* Panels & Layout */
@@ -840,6 +841,12 @@ html.dark-auto #ttLeftbarOverlays .tt-rm-body,
 html.dark-auto #ttLeftbarOverlays .tt-menu-wrap,
 html.dark-auto #ttLeftbarOverlays .tt-menu-head,
 html.dark-auto #ttLeftbarOverlays .tt-menu-body,
+html.dark-auto #ttLeftbarOverlays .tt-live-wrap,
+html.dark-auto #ttLeftbarOverlays .tt-live-door-shade,
+html.dark-auto #ttLeftbarOverlays .tt-live-door-frame,
+html.dark-auto .msb-live-door-host .tt-live-wrap,
+html.dark-auto .msb-live-door-host .tt-live-door-shade,
+html.dark-auto .msb-live-door-host .tt-live-door-frame,
 html.dark-auto #ttLeftbarOverlays .tt-profile-wrap,
 html.dark-auto #ttLeftbarOverlays .tt-profile-head,
 html.dark-auto #ttLeftbarOverlays .tt-profile-body,
@@ -853,6 +860,12 @@ html[data-theme="dark"] #ttLeftbarOverlays .tt-rm-body,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-menu-wrap,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-menu-head,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-menu-body,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-live-wrap,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-live-door-shade,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-live-door-frame,
+html[data-theme="dark"] .msb-live-door-host .tt-live-wrap,
+html[data-theme="dark"] .msb-live-door-host .tt-live-door-shade,
+html[data-theme="dark"] .msb-live-door-host .tt-live-door-frame,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-wrap,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-head,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-body{
@@ -920,7 +933,6 @@ html.dark-auto .iconbtn{
 }
 /* Cards */
 html.dark-auto .mf-card,
-:is(html.dark-auto, body.dark-auto) .feed-ig-rail{background: #4d4b4b; color:white;}
 html.dark-auto .card,
 html.dark-auto .messages-shell,
 html.dark-auto .messages-shell-head,
@@ -1375,4 +1387,316 @@ html.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-head--on-m
 body.dark-auto #profilePostsFeed .mf-card:has(.mf-head--on-media) .mf-head--on-media {
   background: transparent !important;
   background-color: transparent !important;
+}
+
+/* =====================================================
+   DARK AUTO CHROME — Gear Dark auto / Dark (#b1bcce)
+   public_user + organization when html.dark-auto is active
+   ===================================================== */
+html.dark-auto:not([data-msb-appearance]),
+html.dark-auto:not([data-msb-appearance]) body,
+body.dark-auto:not([data-msb-appearance]) {
+  --msb-dark-auto-chrome: #b1bcce;
+  --msb-palette-text: #b1bcce;
+  --msb-palette-text-muted: #b1bcce;
+  --msb-palette-text-on-nav: #b1bcce;
+  --msb-palette-text-on-nav-hover: #e8edf5;
+  --msb-palette-text-on-hover: #e8edf5;
+  --msb-palette-icon: #b1bcce;
+  --msb-palette-icon-on-nav-hover: #e8edf5;
+  --msb-palette-icon-on-hover: #e8edf5;
+  --msb-palette-nav-hover: #2f3a4a;
+  --msb-palette-hover-bg: #2f3a4a;
+  --msb-palette-nav-active-bg: rgba(255, 255, 255, 0.12);
+  --msb-palette-nav-active-text: #ffffff;
+  --msb-palette-nav-active-icon: #ffffff;
+  --msb-palette-link: #b1bcce;
+  --msb-palette-link-hover: #e8edf5;
+  --studio-text: #b1bcce;
+  --studio-muted: #b1bcce;
+  --text-primary: #b1bcce;
+  --text-secondary: #b1bcce;
+  --text-muted: #b1bcce;
+  --feed-text: #b1bcce;
+  --feed-muted: #b1bcce;
+  --public-text: #b1bcce;
+  --public-muted: #b1bcce;
+  color: #b1bcce !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app {
+  --org-chrome-text: #b1bcce;
+  --org-accent: #60a5fa;
+  --org-accent-strong: #3b82f6;
+  --org-link: #93c5fd;
+  --org-icon: #b1bcce;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:hover,
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:focus,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item:hover,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item:focus,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item:hover,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item:focus,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item:focus,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-right-nav-item:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-right-nav-item:focus,
+html[data-theme="dark"]:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item:focus {
+  background-color: #2f3a4a !important;
+  color: #e8edf5 !important;
+  box-shadow: inset 0 0 0 1px rgba(177, 188, 206, 0.28) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:hover .feed-left-nav-ic,
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:hover .feed-left-nav-label,
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:focus .feed-left-nav-ic,
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:focus .feed-left-nav-label,
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:hover .feed-left-nav-ic svg,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item:hover .feed-right-nav-ic,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item:hover .feed-right-nav-label,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item:hover .feed-right-nav-ic svg,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item:hover .feed-left-nav-ic,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item:hover .feed-left-nav-label,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item:hover .feed-left-nav-ic svg,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item:hover .feed-left-nav-ic,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item:hover .feed-left-nav-label,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item:hover .feed-left-nav-ic svg,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-right-nav-item:hover .feed-right-nav-ic,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-right-nav-item:hover .feed-right-nav-label,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-right-nav-item:hover .feed-right-nav-ic svg {
+  color: #e8edf5 !important;
+  stroke: currentColor !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item.is-active,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item.is-active,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item.is-active,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item.is-active,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-right-nav-item.is-active,
+html[data-theme="dark"]:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item.is-active {
+  background-color: var(--msb-palette-nav-active-bg) !important;
+  color: var(--msb-palette-nav-active-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item.is-active .feed-left-nav-ic,
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item.is-active .feed-left-nav-label,
+html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item.is-active .feed-left-nav-ic svg,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item.is-active .feed-right-nav-ic,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item.is-active .feed-right-nav-label,
+html.dark-auto:not([data-msb-appearance]) .feed-right-nav-item.is-active .feed-right-nav-ic svg,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item.is-active .feed-left-nav-ic,
+html.dark-auto:not([data-msb-appearance]) .tt-menu-body .feed-left-nav-item.is-active .feed-left-nav-label,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item.is-active .feed-left-nav-ic,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item.is-active .feed-left-nav-label,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-left-nav-item.is-active .feed-left-nav-ic svg {
+  color: #ffffff !important;
+  stroke: currentColor !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttNavLeftbar .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) #ttNavLeftbar .nav-link.active,
+html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) body #ttNavLeftbar .nav-link.active,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttNavLeftbar .nav-link:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) body #ttNavLeftbar .nav-link:hover {
+  background-color: #2f3a4a !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn:hover,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn:focus,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn.active,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link:hover,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link:focus,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link.active,
+html.dark-auto:not([data-msb-appearance]) .ig-link:hover,
+html.dark-auto:not([data-msb-appearance]) .ig-link:focus,
+html.dark-auto:not([data-msb-appearance]) .ig-link.active,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-link:hover {
+  background-color: #2f3a4a !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn:hover .icon,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link:hover .icon,
+html.dark-auto:not([data-msb-appearance]) .ig-link:hover .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-btn:hover .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link:hover .icon {
+  color: #e8edf5 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) a,
+html.dark-auto:not([data-msb-appearance]) a:hover,
+html.dark-auto:not([data-msb-appearance]) a:focus,
+html.dark-auto:not([data-msb-appearance]) button,
+html.dark-auto:not([data-msb-appearance]) .btn,
+html.dark-auto:not([data-msb-appearance]) label,
+html.dark-auto:not([data-msb-appearance]) .icon,
+html.dark-auto:not([data-msb-appearance]) i,
+html.dark-auto:not([data-msb-appearance]) [class*="ion-"],
+html.dark-auto:not([data-msb-appearance]) .fa,
+html.dark-auto:not([data-msb-appearance]) svg,
+html.dark-auto:not([data-msb-appearance]) .text-muted,
+html.dark-auto:not([data-msb-appearance]) small,
+html.dark-auto:not([data-msb-appearance]) .small,
+html.dark-auto:not([data-msb-appearance]) h1,
+html.dark-auto:not([data-msb-appearance]) h2,
+html.dark-auto:not([data-msb-appearance]) h3,
+html.dark-auto:not([data-msb-appearance]) h4,
+html.dark-auto:not([data-msb-appearance]) h5,
+html.dark-auto:not([data-msb-appearance]) h6,
+html.dark-auto:not([data-msb-appearance]) p,
+html.dark-auto:not([data-msb-appearance]) span,
+html.dark-auto:not([data-msb-appearance]) li,
+html.dark-auto:not([data-msb-appearance]) td,
+html.dark-auto:not([data-msb-appearance]) th,
+html.dark-auto:not([data-msb-appearance]) input,
+html.dark-auto:not([data-msb-appearance]) textarea,
+html.dark-auto:not([data-msb-appearance]) select,
+html.dark-auto:not([data-msb-appearance]) .form-control,
+html.dark-auto:not([data-msb-appearance]) .feed-title,
+html.dark-auto:not([data-msb-appearance]) .feed-desc,
+html.dark-auto:not([data-msb-appearance]) .feed-date,
+html.dark-auto:not([data-msb-appearance]) .feed-meta,
+html.dark-auto:not([data-msb-appearance]) .mini-muted,
+html.dark-auto:not([data-msb-appearance]) .stat-pill,
+html.dark-auto:not([data-msb-appearance]) .stat-pill .num,
+html.dark-auto:not([data-msb-appearance]) .stat-pill .lbl,
+html.dark-auto:not([data-msb-appearance]) .stat-pill .sub,
+html.dark-auto:not([data-msb-appearance]) .stat-pill .icon,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-btn,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-link,
+html.dark-auto:not([data-msb-appearance]) .ig-link,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-logo-label,
+html.dark-auto:not([data-msb-appearance]) .nav-link,
+html.dark-auto:not([data-msb-appearance]) .sh-sidebar-label,
+body.dark-auto:not([data-msb-appearance]) .nav-link,
+body.dark-auto.org-app:not([data-msb-appearance]) .nav-link,
+body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill,
+body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .num,
+body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .lbl,
+body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .sub,
+body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .icon,
+body.dark-auto.org-app:not([data-msb-appearance]) .feed-card,
+body.dark-auto.org-app:not([data-msb-appearance]) .feed-tabs a:not(.active),
+body.dark-auto.org-app:not([data-msb-appearance]) .posts-tabs a:not(.active),
+body.dark-auto.org-app:not([data-msb-appearance]) .publisher-hub-title,
+body.dark-auto.org-app:not([data-msb-appearance]) .publisher-stat,
+body.dark-auto.org-app:not([data-msb-appearance]) .link,
+body.dark-auto.org-app:not([data-msb-appearance]) .read-more-btn {
+  color: #b1bcce !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .btn-outline-primary,
+html.dark-auto:not([data-msb-appearance]) .btn-outline-secondary,
+html.dark-auto:not([data-msb-appearance]) .btn-outline-success,
+html.dark-auto:not([data-msb-appearance]) .btn-close-x,
+body.dark-auto.org-app:not([data-msb-appearance]) .btn,
+body.dark-auto.org-app:not([data-msb-appearance]) a.btn,
+body.dark-auto.org-app:not([data-msb-appearance]) button.btn,
+body.dark-auto.org-app:not([data-msb-appearance]) .btn-outline-secondary,
+body.dark-auto.org-app:not([data-msb-appearance]) .btn-outline-primary,
+body.dark-auto.org-app:not([data-msb-appearance]) .feed-actions .btn-outline-success,
+body.dark-auto.org-app:not([data-msb-appearance]) .sidebar-refresh-btn,
+body.dark-auto.org-app:not([data-msb-appearance]) .pin-btn,
+body.dark-auto.org-app:not([data-msb-appearance]) .btn-close-x {
+  background-color: #252f3d !important;
+  color: #e8edf5 !important;
+  border-color: rgba(177, 188, 206, 0.48) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .posts-tabs a.active,
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-tabs a.active,
+body.dark-auto.org-app:not([data-msb-appearance]) .posts-tabs a.active,
+body.dark-auto.org-app:not([data-msb-appearance]) .feed-tabs a.active {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .posts-tabs a:not(.active),
+html.dark-auto:not([data-msb-appearance]) body.org-app .feed-tabs a:not(.active),
+body.dark-auto.org-app:not([data-msb-appearance]) .posts-tabs a:not(.active),
+body.dark-auto.org-app:not([data-msb-appearance]) .feed-tabs a:not(.active) {
+  background-color: #252f3d !important;
+  border-color: rgba(177, 188, 206, 0.48) !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-primary,
+html.dark-auto:not([data-msb-appearance]) body.org-app a.btn-primary,
+html.dark-auto:not([data-msb-appearance]) body.org-app .btn-success,
+body.dark-auto.org-app:not([data-msb-appearance]) .btn-primary,
+body.dark-auto.org-app:not([data-msb-appearance]) a.btn-primary {
+  background-color: var(--org-accent, #2563eb) !important;
+  border-color: var(--org-accent-strong, #1d4ed8) !important;
+  color: #ffffff !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"],
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover [class*="ion-"],
+body.dark-auto.org-app:not([data-msb-appearance]) .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+body.dark-auto.org-app:not([data-msb-appearance]) .org-sideleft-scroll .nav > .nav-item > .nav-link:hover {
+  background-color: #2f3a4a !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active [class*="ion-"],
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active i,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active .icon,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active [class*="ion-"],
+body.dark-auto.org-app:not([data-msb-appearance]) .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
+body.dark-auto.org-app:not([data-msb-appearance]) .org-sideleft-scroll .nav > .nav-item > .nav-link.active {
+  background-color: rgba(96, 165, 250, 0.2) !important;
+  color: #ffffff !important;
+}
+
+body.dark-auto.org-app:not([data-msb-appearance]) .org-header-chip,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-header-chip {
+  background-color: #252f3d !important;
+  border-color: rgba(177, 188, 206, 0.32) !important;
+}
+
+body.dark-auto.org-app:not([data-msb-appearance]) .org-header-chip:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-header-chip:hover {
+  background-color: #2f3a4a !important;
+}
+
+body.dark-auto.org-app:not([data-msb-appearance]) .sh-icon-link,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-icon-link {
+  color: #b1bcce !important;
+}
+
+body.dark-auto.org-app:not([data-msb-appearance]) .sh-icon-link:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-icon-link:hover {
+  color: #e8edf5 !important;
+  background-color: #2f3a4a !important;
+}
+
+/* Keep love reactions purple */
+html.dark-auto:not([data-msb-appearance]) .is-love,
+html.dark-auto:not([data-msb-appearance]) .is-loved,
+html.dark-auto:not([data-msb-appearance]) .mf-act.is-love,
+html.dark-auto:not([data-msb-appearance]) .mf-act.is-love i,
+html.dark-auto:not([data-msb-appearance]) .ig-profile-love-btn.is-loved,
+html.dark-auto:not([data-msb-appearance]) .ig-profile-love-btn.is-loved i {
+  color: var(--msb-love-color, #7c3aed) !important;
 }

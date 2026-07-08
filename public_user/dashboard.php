@@ -187,7 +187,7 @@ if ($editPost) {
         position: sticky;
         top: 100px;
         z-index: 1100;
-        background: var(--msb-palette-bg, #f5f7fb);
+        background: var(--msb-palette-bg, #171d24);
         border-bottom: 1px solid var(--msb-palette-border, rgba(0,0,0,.08));
         box-shadow: 0 2px 10px rgba(0,0,0,.05);
         flex: 0 0 auto;
@@ -205,7 +205,7 @@ if ($editPost) {
       .rp-item:last-child{ border-bottom:none; }
       .rp-thumb{ width:56px; height:56px; 
       /* border-radius:12px; object-fit:cover;  */
-      background:#eee; display:inline-block; }
+      background:#171d24; display:inline-block; }
 
       .row-sm {
         margin-left: 10px;
@@ -306,8 +306,8 @@ body.dashboard-page #globalLiveModal:not(.is-open) aside{
 }
 
 html, body.dashboard-page{
-  background:var(--msb-palette-bg, #f5f7fb) !important;
-  color:var(--msb-palette-text, #0f172a) !important;
+  background:#171d24 !important;
+  color:var(--msb-palette-text, #b1bcce) !important;
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page,
@@ -322,9 +322,9 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-bo
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-header,
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-footer,
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card.mb-3{
-  background:var(--msb-palette-bg, #f5f7fb) !important;
-  color:var(--msb-palette-text, #0f172a) !important;
-  border-color:var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  background:#171d24 !important;
+  color:var(--msb-palette-text, #b1bcce) !important;
+  border-color:var(--msb-palette-border, rgba(177,188,206,.18)) !important;
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page label,
@@ -339,17 +339,17 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page small{
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .alert-info{
-  background:rgba(37,99,235,.08) !important;
-  border-color:rgba(37,99,235,.18) !important;
-  color:var(--msb-palette-text, #0f172a) !important;
+  background:#171d24 !important;
+  border-color:rgba(177,188,206,.22) !important;
+  color:var(--msb-palette-text, #b1bcce) !important;
 }
 
 <?php if ($isModalCreate): ?>
 html, body{
   height:100% !important;
   min-height:0 !important;
-  background:var(--msb-palette-bg, #f5f7fb) !important;
-  color:var(--msb-palette-text, #0f172a) !important;
+  background:#171d24 !important;
+  color:var(--msb-palette-text, #b1bcce) !important;
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page,
@@ -357,9 +357,9 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .s
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .sh-pagebody,
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .card,
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .card-body{
-  background:var(--msb-palette-bg, #f5f7fb) !important;
-  color:var(--msb-palette-text, #0f172a) !important;
-  border-color:var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  background:#171d24 !important;
+  color:var(--msb-palette-text, #b1bcce) !important;
+  border-color:var(--msb-palette-border, rgba(177,188,206,.18)) !important;
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page label,
@@ -374,15 +374,15 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page sm
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .form-control{
-  background:var(--msb-palette-surface-2, #ffffff) !important;
-  color:var(--msb-palette-text, #0f172a) !important;
-  border-color:var(--msb-palette-border, rgba(15,23,42,.14)) !important;
+  background:#171d24 !important;
+  color:var(--msb-palette-text, #b1bcce) !important;
+  border-color:var(--msb-palette-border, rgba(177,188,206,.22)) !important;
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .alert-info{
-  background:rgba(37,99,235,.08) !important;
-  border-color:rgba(37,99,235,.18) !important;
-  color:var(--msb-palette-text, #0f172a) !important;
+  background:#171d24 !important;
+  border-color:rgba(177,188,206,.22) !important;
+  color:var(--msb-palette-text, #b1bcce) !important;
 }
 
 body.dashboard-page{
@@ -430,6 +430,43 @@ body.dashboard-page .card{
   box-shadow:none !important;
 }
 <?php endif; ?>
+
+/* Dashboard canvas — lock to public_user dark #171d24 */
+html.dark-auto body.dashboard-page,
+html.dark-auto body.dashboard-page .sh-mainpanel,
+html.dark-auto body.dashboard-page .sh-pagebody,
+html.dark-auto body.dashboard-page .sh-pagetitle,
+html.dark-auto body.dashboard-page .row,
+html.dark-auto body.dashboard-page .row-sm,
+html.dark-auto body.dashboard-page .col-lg-12,
+html.dark-auto body.dashboard-page .card,
+html.dark-auto body.dashboard-page .card-body,
+html.dark-auto body.dashboard-page .card-header,
+html.dark-auto body.dashboard-page .card-footer,
+html.dark-auto body.dashboard-page .card.mb-3,
+html.dark-auto body.dashboard-page .form-control,
+html.dark-auto body.dashboard-page select.form-control,
+html.dark-auto body.dashboard-page textarea.form-control,
+html.dark-auto body.dashboard-page .msb-readonly-field,
+html.dark-auto body.dashboard-page .alert,
+html.dark-auto body.dashboard-page .alert-info,
+html.dark-auto body.dashboard-page .alert-success,
+html.dark-auto body.dashboard-page .alert-warning,
+html.dark-auto body.dashboard-page .alert-danger,
+html.dark-auto body.dashboard-page .modal-content,
+html.dark-auto body.dashboard-page .modal-body,
+html.dark-auto body.dashboard-page #instructionBox,
+body.dashboard-page .form-control,
+body.dashboard-page select.form-control,
+body.dashboard-page textarea.form-control,
+body.dashboard-page .msb-readonly-field,
+body.dashboard-page .alert,
+body.dashboard-page .alert-info,
+body.dashboard-page #instructionBox {
+  background:#171d24 !important;
+  background-color:#171d24 !important;
+  background-image:none !important;
+}
 </style>
 
 <script src="./js/device_profile.js"></script>

@@ -274,6 +274,12 @@ function appearance_palette_dark_hex(): string
     return '#171d24';
 }
 
+/** Foreground chrome when Gear Dark auto / Dark mode is active (html.dark-auto). */
+function appearance_palette_dark_auto_chrome(): string
+{
+    return '#b1bcce';
+}
+
 function appearance_palette_light_hex(): string
 {
     return '#f5f7fb';

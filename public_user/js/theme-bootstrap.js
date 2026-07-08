@@ -210,6 +210,10 @@
     );
   }
 
+  function appearanceDarkChrome(){
+    return '#b1bcce';
+  }
+
   function appearanceDarkBg(){
     if (window.__MSB_APPEARANCE_PALETTES
       && window.__MSB_APPEARANCE_PALETTES.dark
@@ -533,7 +537,9 @@
     '.feed-right-nav-item:hover',
     '.tt-menu-body .feed-left-nav-item:hover',
     '.feed-ig-btn:hover',
+    '.feed-ig-btn:focus',
     '.feed-ig-link:hover',
+    '.feed-ig-link:focus',
     '.ig-link:hover',
     '.bestprofile-nav li a:hover',
     '.right-sidebar a:hover',
@@ -800,7 +806,7 @@
     '.yt-topbar-left', '.yt-topbar-center', '.yt-topbar-right', '.yt-chat-switch',
     '.public-publisher-search', '.feed-top-search', '.feed-desktop-layout', '.feed-desktop-center', '.feed-left-nav', '.ttNavLeftbar', '.sh-pagetitle-left',
     '.mf-feed', '.mf-card', '.mf-head:not(.mf-head--on-media)', '.mf-foot', '.mf-actions', '.mf-menu',
-    '.tt-comments-wrap', '.tt-readmore-wrap', '.tt-menu-wrap',
+    '.tt-comments-wrap', '.tt-readmore-wrap', '.tt-menu-wrap', '.tt-live-wrap', '.tt-live-door-frame',
     '.tt-comments-head', '.tt-comments-list', '.tt-comments-foot',
     '.tt-rm-head', '.tt-rm-body', '.tt-menu-head', '.tt-menu-body',
     '.ig-post-shell', '.ig-insta-header', '.ig-insta-caption-block', '.ig-insta-actionbar', '.ig-insta-dots-host',
@@ -1586,15 +1592,39 @@
   function applyBuiltInDarkThemeVars(root){
     if (!root) return;
     var bg = appearanceDarkBg();
+    var chrome = appearanceDarkChrome();
+    root.style.setProperty('--msb-dark-auto-chrome', chrome);
     root.style.setProperty('--msb-palette-bg', bg);
-    root.style.setProperty('--msb-palette-text', '#f3f6fb');
-    root.style.setProperty('--msb-palette-text-on-nav', '#f3f6fb');
-    root.style.setProperty('--msb-palette-text-muted', '#a9b6c8');
+    root.style.setProperty('--msb-palette-text', chrome);
+    root.style.setProperty('--msb-palette-text-on-nav', chrome);
+    root.style.setProperty('--msb-palette-text-muted', chrome);
+    root.style.setProperty('--msb-palette-icon', chrome);
+    root.style.setProperty('--msb-palette-link', chrome);
+    root.style.setProperty('--msb-palette-link-hover', chrome);
     root.style.setProperty('--msb-palette-border', 'rgba(255,255,255,.12)');
     root.style.setProperty('--msb-palette-border-strong', 'rgba(255,255,255,.16)');
-    root.style.setProperty('--msb-palette-link', '#93c5fd');
     root.style.setProperty('--msb-palette-hover-bg', 'rgba(255,255,255,.08)');
+    root.style.setProperty('--msb-palette-nav-hover', '#2f3a4a');
+    root.style.setProperty('--msb-palette-text-on-nav-hover', '#e8edf5');
+    root.style.setProperty('--msb-palette-text-on-hover', '#e8edf5');
+    root.style.setProperty('--msb-palette-icon-on-nav-hover', '#e8edf5');
+    root.style.setProperty('--msb-palette-icon-on-hover', '#e8edf5');
+    root.style.setProperty('--msb-palette-nav-active-bg', 'rgba(255,255,255,0.12)');
+    root.style.setProperty('--msb-palette-nav-active-text', '#ffffff');
+    root.style.setProperty('--msb-palette-nav-active-icon', '#ffffff');
     root.style.setProperty('--msb-palette-surface-2', bg);
+    root.style.setProperty('--studio-text', chrome);
+    root.style.setProperty('--studio-muted', chrome);
+    root.style.setProperty('--text-primary', chrome);
+    root.style.setProperty('--text-secondary', chrome);
+    root.style.setProperty('--text-muted', chrome);
+    root.style.setProperty('--feed-text', chrome);
+    root.style.setProperty('--feed-muted', chrome);
+    root.style.setProperty('--public-text', chrome);
+    root.style.setProperty('--public-muted', chrome);
+    root.style.setProperty('--org-accent', chrome);
+    root.style.setProperty('--org-link', chrome);
+    root.style.setProperty('--org-icon', chrome);
     root.style.setProperty('--bg', bg);
     root.style.setProperty('--bg-main', bg);
     root.style.setProperty('--feed-page-bg', bg);

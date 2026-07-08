@@ -84,6 +84,30 @@ body.org-app .sh-headpanel-right .ig-feed-account-badge {
   font-size: var(--org-font-xs) !important;
 }
 
+body.org-app .org-header-actions {
+  gap: 5px !important;
+  margin-right: 6px !important;
+}
+
+body.org-app .org-header-chip {
+  min-height: 28px !important;
+  padding: 3px 8px 3px 4px !important;
+  font-size: var(--org-font-sm) !important;
+  border-radius: 8px !important;
+}
+
+body.org-app .org-header-chip__icon {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: var(--org-icon-md) !important;
+}
+
+body.org-app .org-header-chip__count {
+  min-width: 15px !important;
+  height: 15px !important;
+  font-size: 9px !important;
+}
+
 body.org-app .msg-badge {
   min-width: 15px !important;
   height: 15px !important;
@@ -850,6 +874,20 @@ body.org-app.org-page-feed .feed-card {
   border-radius: 8px !important;
 }
 
+body.org-app.org-page-feed .feed-layout--tall .feed-card {
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--border-color) !important;
+  overflow: hidden !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
 body.org-app.org-page-dashboard .feed-meta,
 body.org-app.org-page-dashboard .feed-badge,
 body.org-app.org-page-dashboard .mini-muted,
@@ -968,9 +1006,26 @@ body.org-app.org-page-feed .feed-toolbar-side {
 
 body.org-app.org-page-feed .feed-toolbar-stats {
   display: flex !important;
-  gap: 6px !important;
-  flex-wrap: wrap !important;
+  gap: 4px !important;
+  flex-wrap: nowrap !important;
   justify-content: flex-end !important;
+  max-width: 100% !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar-stats .stat-pill {
+  padding: 4px 6px !important;
+  gap: 4px !important;
+  font-size: 11px !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar-stats .stat-pill .icon {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 10px !important;
+}
+
+body.org-app.org-page-feed .feed-toolbar-stats .stat-pill .sub {
+  margin-left: 2px !important;
 }
 
 body.org-app.org-page-feed .dash-toprow .right-stats {
@@ -1014,34 +1069,93 @@ body.org-app.org-page-feed .rows-scroll {
 body.org-app.org-page-feed .feed-layout--tall {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  height: calc(100vh - var(--feed-chrome-offset, 160px)) !important;
+  height: 100% !important;
+  max-height: 100% !important;
 }
 
 body.org-app.org-page-feed .feed-layout--tall .feed-main,
 body.org-app.org-page-feed .feed-layout--tall .feed-sidebar {
-  max-height: none !important;
+  max-height: 100% !important;
   height: 100% !important;
 }
 
-body.org-app.org-page-feed .feed-layout--tall .feed-card {
+body.org-app.org-page-feed .feed-layout--tall .feed-main {
+  overflow: hidden !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
   height: 100% !important;
-  min-height: calc(100vh - var(--feed-chrome-offset, 160px)) !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-post {
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 body.org-app.org-page-feed .feed-layout--tall .feed-post-media {
   width: 100% !important;
-  flex: 1 1 auto !important;
-  height: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 190px)) !important;
-  min-height: 300px !important;
-  max-height: none !important;
+  flex: 0 0 auto !important;
+  height: var(--feed-media-h, calc(100vh - 420px)) !important;
+  min-height: 350px !important;
+  max-height: var(--feed-media-h, calc(100vh - 420px)) !important;
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
 }
 
 body.org-app.org-page-feed .feed-layout--tall .feed-post-detail {
-  flex: 0 0 auto !important;
+  flex: 1 1 auto !important;
   width: 100% !important;
-  height: var(--feed-info-h, 190px) !important;
-  max-height: var(--feed-info-h, 190px) !important;
   min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  padding: 10px 14px 14px !important;
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-desc-wrapper {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  margin-bottom: 4px !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-desc.clamp-7 {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  overflow: visible !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-actions {
+  flex-shrink: 0 !important;
+  margin-top: auto !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-compose {
+  flex-shrink: 0 !important;
+}
+
+body.org-app.org-page-feed .feed-layout--tall .feed-scroll {
+  overflow: hidden !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+body.org-app.org-page-feed .feed-scroll {
   overflow: hidden !important;
 }
 
@@ -1100,4 +1214,30 @@ body.org-app.org-page-posts .searchbar input {
 body.org-app.org-page-posts .pager {
   gap: 6px !important;
   margin-top: 8px !important;
+}
+
+/* ----- Org canvas — match public_user #171d24 (loads after shamcey/bootstrap) ----- */
+body.org-app,
+body.org-app .sh-mainpanel,
+body.org-app .sh-pagebody,
+body.org-app .sh-pagetitle,
+body.org-app .card,
+body.org-app .card-header,
+body.org-app .card-body,
+body.org-app .card-body-fixed,
+body.org-app .compose-preview,
+body.org-app .compose-intro,
+body.org-app .actions-fixed,
+body.org-app .rows-scroll,
+body.org-app .form-control,
+body.org-app .form-control:focus,
+body.org-app select.form-control,
+body.org-app textarea.form-control,
+body.org-app .custom-select,
+body.org-app .input-group-text,
+body.org-app .table td,
+body.org-app .table th,
+body.org-app .dropdown-menu {
+  background-color: #171d24 !important;
+  background-image: none !important;
 }

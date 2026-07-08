@@ -66,12 +66,109 @@ function post_card_actions_message_url(array $ctx): string
     return 'messages.php';
 }
 
+function post_card_actions_post_url(int $postId, string $menuSurface = 'feed'): string
+{
+    if ($postId <= 0) {
+        return '';
+    }
+
+    $menuSurface = strtolower(trim($menuSurface));
+    if ($menuSurface === 'public') {
+        return 'public.php?post=' . $postId;
+    }
+    if ($menuSurface === 'profile') {
+        return 'profile.php?post=' . $postId;
+    }
+
+    return 'feed.php?post=' . $postId;
+}
+
+function post_card_actions_button_item(string $class, string $label, string $icon, array $attrs = []): string
+{
+    $h = 'post_card_actions_menu_h';
+    $attrHtml = '';
+    foreach ($attrs as $key => $value) {
+        $attrHtml .= ' ' . $h((string)$key) . '="' . $h((string)$value) . '"';
+    }
+
+    return '<button type="button" class="pcm-item ' . $h($class) . '" role="menuitem"' . $attrHtml . '>'
+        . '<i class="' . $h($icon) . '" aria-hidden="true"></i><span>' . $h($label) . '</span></button>';
+}
+
+function post_card_actions_owner_menu_items_html(array $ctx): string
+{
+    $h = 'post_card_actions_menu_h';
+    $postId = (int)($ctx['post_id'] ?? 0);
+    $staffReadonly = !empty($ctx['staff_readonly']);
+    $editUrl = trim((string)($ctx['edit_url'] ?? ''));
+    if ($postId <= 0 || $staffReadonly) {
+        return '';
+    }
+
+    $isArchived = !empty($ctx['is_archived']);
+    $items = [];
+    if ($editUrl !== '') {
+        $items[] = '<a class="pcm-item pcm-edit" href="' . $h($editUrl) . '" data-create-post-modal="1" role="menuitem"><i class="fa fa-edit" aria-hidden="true"></i><span>Edit</span></a>';
+    }
+    $items[] = post_card_actions_button_item(
+        'pcm-archive',
+        $isArchived ? 'Unarchive' : 'Archive',
+        'fa fa-archive',
+        [
+            'data-post-id' => (string)$postId,
+            'data-archived' => $isArchived ? '1' : '0',
+        ]
+    );
+    $items[] = post_card_actions_button_item('pcm-delete', 'Delete', 'fa fa-trash', [
+        'data-post-id' => (string)$postId,
+    ]);
+
+    return implode('', $items);
+}
+
+function post_card_actions_common_menu_items_html(array $ctx): string
+{
+    $postId = (int)($ctx['post_id'] ?? 0);
+    if ($postId <= 0) {
+        return '';
+    }
+
+    $isOwner = !empty($ctx['is_owner']);
+    $isSaved = !empty($ctx['is_saved']);
+    $items = [];
+
+    if (!$isOwner) {
+        $items[] = post_card_actions_button_item('pcm-report is-danger', 'Report', 'fa fa-flag', [
+            'data-post-id' => (string)$postId,
+        ]);
+    }
+
+    $items[] = post_card_actions_button_item(
+        'pcm-bookmark' . ($isSaved ? ' is-active' : ''),
+        'Bookmark',
+        $isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o',
+        [
+            'data-post-id' => (string)$postId,
+            'data-saved' => $isSaved ? '1' : '0',
+        ]
+    );
+    $items[] = post_card_actions_button_item('pcm-share', 'Share', 'fa fa-share', [
+        'data-post-id' => (string)$postId,
+    ]);
+    $items[] = post_card_actions_button_item('pcm-copy-link', 'Copy link', 'fa fa-link', [
+        'data-post-id' => (string)$postId,
+    ]);
+
+    return implode('', $items);
+}
+
 function post_card_actions_menu_context(
     array $post,
     int $meId,
     PDO $dbh,
     string $profileUrl = '',
-    bool $staffReadonly = false
+    bool $staffReadonly = false,
+    string $menuSurface = 'public'
 ): array {
     $peerId = (int)($post['user_id'] ?? 0);
     $isOwner = $peerId > 0 && $peerId === $meId;
@@ -102,6 +199,10 @@ function post_card_actions_menu_context(
             'peer_id' => $peerId,
         ]),
         'timeline_url' => $peerId > 0 ? ('timeline.php?u=' . $peerId) : '',
+        'menu_surface' => strtolower(trim($menuSurface)),
+        'post_url' => post_card_actions_post_url($postId, $menuSurface),
+        'is_saved' => !empty($post['my_saved']),
+        'is_archived' => !empty($post['is_archived']),
     ];
 }
 
@@ -123,16 +224,20 @@ function post_card_actions_menu_items_html(array $ctx): string
     $feedSurface = ($menuSurface === 'feed');
     $canFollowPublishers = !array_key_exists('can_follow_publishers', $ctx) || !empty($ctx['can_follow_publishers']);
     $publisherWorkspaceViewer = !empty($ctx['publisher_workspace_viewer']);
+    $commonItems = post_card_actions_common_menu_items_html($ctx);
+    $ownerItems = post_card_actions_owner_menu_items_html($ctx);
 
     $items = [];
 
     if (($isOwner || ($feedSurface && $friendStatus === 'self')) && !$staffReadonly) {
-        if ($editUrl !== '') {
-            $items[] = '<a class="pcm-item pcm-edit" href="' . $h($editUrl) . '" data-create-post-modal="1" role="menuitem"><i class="fa fa-edit" aria-hidden="true"></i><span>Edit</span></a>';
+        if ($ownerItems !== '') {
+            $items[] = $ownerItems;
         }
-        if ($postId > 0) {
-            $items[] = '<div class="pcm-divider" role="separator"></div>';
-            $items[] = '<button type="button" class="pcm-item pcm-delete" data-post-id="' . $postId . '" role="menuitem"><i class="fa fa-trash" aria-hidden="true"></i><span>Delete</span></button>';
+        if ($commonItems !== '') {
+            if ($items) {
+                $items[] = '<div class="pcm-divider" role="separator"></div>';
+            }
+            $items[] = $commonItems;
         }
         return implode('', $items);
     }
@@ -166,6 +271,13 @@ function post_card_actions_menu_items_html(array $ctx): string
         $items[] = '<a class="pcm-item pcm-timeline" href="' . $h($timelineUrl) . '" role="menuitem"><i class="icon ion-ios-locked" aria-hidden="true"></i><span>Timeline</span></a>';
     }
 
+    if ($commonItems !== '') {
+        if ($items) {
+            $items[] = '<div class="pcm-divider" role="separator"></div>';
+        }
+        $items[] = $commonItems;
+    }
+
     return implode('', $items);
 }
 
@@ -173,6 +285,9 @@ function post_card_actions_menu_shell_html(array $ctx, string $wrapClass = ''): 
 {
     $wrapClass = trim('post-card-menu-wrap mf-menu-wrap ' . $wrapClass);
     $items = post_card_actions_menu_items_html($ctx);
+    if ($items === '' && (int)($ctx['post_id'] ?? 0) > 0) {
+        $items = post_card_actions_common_menu_items_html($ctx);
+    }
     if ($items === '') {
         return '';
     }
@@ -181,6 +296,7 @@ function post_card_actions_menu_shell_html(array $ctx, string $wrapClass = ''): 
         'data-post-id="' . (int)($ctx['post_id'] ?? 0) . '"',
         'data-peer-id="' . (int)($ctx['peer_id'] ?? 0) . '"',
         'data-is-owner="' . (!empty($ctx['is_owner']) ? '1' : '0') . '"',
+        'data-menu-surface="' . post_card_actions_menu_h((string)($ctx['menu_surface'] ?? 'public')) . '"',
     ];
     if (!empty($ctx['peer_code'])) {
         $attrs[] = 'data-peer-code="' . post_card_actions_menu_h((string)$ctx['peer_code']) . '"';

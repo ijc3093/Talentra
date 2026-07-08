@@ -537,23 +537,23 @@ if ($publisherUserId > 0) {
     .feed-tabs a.active{ background:#0b5ed7; color:#fff; border-color:#0b5ed7; }
 
     /* dark */
-    .dark-auto .stat-pill{ background:#0b1220; border-color:#334155; }
-    .dark-auto .stat-pill .num{ color:#f3f4f6; }
-    .dark-auto .stat-pill .lbl{ color:#cbd5e1; }
-    .dark-auto .stat-pill .sub{ color:#94a3b8; }
-    .dark-auto .stat-pill .icon{ background:#111827; color:#60a5fa; }
+    .dark-auto .stat-pill{ background:#171d24; border-color:#334155; }
+    .dark-auto .stat-pill .num{ color:#b1bcce; }
+    .dark-auto .stat-pill .lbl{ color:#b1bcce; }
+    .dark-auto .stat-pill .sub{ color:#b1bcce; }
+    .dark-auto .stat-pill .icon{ background:#111827; color:#b1bcce; }
 
-    .dark-auto .feed-card{ background:#0b1220; border-color:#334155; }
-    .dark-auto .feed-badge{ background:#111827; color:#e5e7eb; }
-    .dark-auto .mini-muted{ color:#cbd5e1; }
-    .dark-auto .compliance-table th{ color:#e5e7eb; }
-    .dark-auto .compliance-table td{ color:#cbd5e1; border-bottom-color:#334155; }
-    .dark-auto .pill{ background:#0b1220; border-color:#334155; color:#cbd5e1; }
+    .dark-auto .feed-card{ background:#171d24; border-color:#334155; }
+    .dark-auto .feed-badge{ background:#111827; color:#b1bcce; }
+    .dark-auto .mini-muted{ color:#b1bcce; }
+    .dark-auto .compliance-table th{ color:#b1bcce; }
+    .dark-auto .compliance-table td{ color:#b1bcce; border-bottom-color:#334155; }
+    .dark-auto .pill{ background:#171d24; border-color:#334155; color:#b1bcce; }
 
-    .dark-auto .modal-compliance .modal-content{ background:#0b1220; border-color:#334155; }
-    .dark-auto .comp-badge{ background:#111827; color:#e5e7eb; }
-    .dark-auto .comp-sub{ color:#cbd5e1; }
-    .dark-auto .btn-close-x{ background:#0b1220; border-color:#334155; color:#e5e7eb; }
+    .dark-auto .modal-compliance .modal-content{ background:#171d24; border-color:#334155; }
+    .dark-auto .comp-badge{ background:#111827; color:#b1bcce; }
+    .dark-auto .comp-sub{ color:#b1bcce; }
+    .dark-auto .btn-close-x{ background:#171d24; border-color:#334155; color:#b1bcce; }
     .dark-auto .btn-close-x:hover{ background:#111827; }
   </style>
 </head>

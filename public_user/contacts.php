@@ -576,7 +576,7 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
 </style>
 </head>
 
-<body>
+<body class="contacts-page">
 
 <?php $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
   <!-- <div class="sh-pagetitle">

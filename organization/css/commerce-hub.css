@@ -1,4 +1,18 @@
 /* Commerce hub — publisher storefront command center */
+body.org-app .commerce-page,
+html.dark-auto body.org-app .commerce-page,
+html[data-msb-appearance] body.org-app .commerce-page {
+  --ch-accent: var(--org-accent, #60a5fa);
+  --ch-accent-soft: rgba(96, 165, 250, 0.16);
+  --ch-accent-deep: #93c5fd;
+  --ch-ink: #e8edf5;
+  --ch-muted: #b1bcce;
+  --ch-line: rgba(177, 188, 206, 0.22);
+  --ch-surface: #252f3d;
+  --ch-bg: #1e2733;
+  --ch-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
 .commerce-page {
   --ch-accent: #0d9488;
   --ch-accent-soft: #ccfbf1;
@@ -642,4 +656,190 @@
   font-size: 12px;
   color: var(--ch-muted);
   line-height: 1.4;
+}
+
+/* ----- Organization dark canvas (#171d24) ----- */
+body.org-app .commerce-page {
+  background-color: #171d24 !important;
+}
+
+body.org-app .commerce-kpi,
+body.org-app .commerce-panel,
+body.org-app .commerce-action-tile {
+  background-color: var(--ch-surface) !important;
+  background-image: none !important;
+  border-color: var(--ch-line) !important;
+}
+
+body.org-app .commerce-panel-head {
+  background-color: var(--ch-bg) !important;
+  border-bottom-color: var(--ch-line) !important;
+}
+
+body.org-app .commerce-panel-head h2,
+body.org-app .commerce-kpi-value,
+body.org-app .commerce-int-body strong,
+body.org-app .commerce-channel strong,
+body.org-app .commerce-order-main strong,
+body.org-app .commerce-order-price,
+body.org-app .commerce-action-tile strong,
+body.org-app .commerce-stock-item strong {
+  color: var(--ch-ink) !important;
+}
+
+body.org-app .commerce-kpi-label,
+body.org-app .commerce-kpi-sub,
+body.org-app .commerce-panel-head span,
+body.org-app .commerce-int-body p,
+body.org-app .commerce-channel span,
+body.org-app .commerce-order-main span,
+body.org-app .commerce-action-tile span,
+body.org-app .commerce-empty {
+  color: var(--ch-muted) !important;
+}
+
+body.org-app .commerce-panel-head a,
+body.org-app .commerce-int-meta a,
+body.org-app .commerce-stock-item {
+  color: var(--ch-accent-deep) !important;
+}
+
+body.org-app .commerce-kpi-icon,
+body.org-app .commerce-order-code {
+  background: var(--ch-accent-soft) !important;
+  color: var(--ch-accent-deep) !important;
+}
+
+body.org-app .commerce-int-icon {
+  background: var(--ch-bg) !important;
+  color: var(--ch-accent-deep) !important;
+  border: 1px solid var(--ch-line);
+}
+
+body.org-app .commerce-int-item:hover,
+body.org-app .commerce-order:hover {
+  background: var(--ch-bg) !important;
+}
+
+body.org-app .commerce-channel {
+  background: var(--ch-bg) !important;
+  border-color: var(--ch-line) !important;
+}
+
+body.org-app .commerce-channel.is-on {
+  border-color: rgba(96, 165, 250, 0.45) !important;
+  background: rgba(96, 165, 250, 0.1) !important;
+}
+
+body.org-app .commerce-channel i {
+  color: var(--ch-muted) !important;
+}
+
+body.org-app .commerce-channel.is-on i,
+body.org-app .commerce-channel.is-on span {
+  color: var(--ch-accent-deep) !important;
+}
+
+body.org-app .commerce-action-tile {
+  color: inherit !important;
+}
+
+body.org-app .commerce-action-tile i {
+  color: var(--ch-accent-deep) !important;
+}
+
+body.org-app .commerce-action-tile:hover {
+  background: var(--org-btn-surface-hover, #2f3a4a) !important;
+  border-color: rgba(96, 165, 250, 0.55) !important;
+  color: var(--ch-ink) !important;
+}
+
+body.org-app .commerce-action-tile:hover strong,
+body.org-app .commerce-action-tile:hover span {
+  color: var(--ch-ink) !important;
+}
+
+body.org-app .commerce-empty i {
+  color: var(--ch-muted) !important;
+  opacity: 0.65;
+}
+
+body.org-app .commerce-alert {
+  border-color: rgba(248, 113, 113, 0.35) !important;
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.22) 0%, var(--ch-surface) 100%) !important;
+}
+
+body.org-app .commerce-alert .commerce-panel-head {
+  background: rgba(127, 29, 29, 0.18) !important;
+  border-bottom-color: rgba(248, 113, 113, 0.28) !important;
+}
+
+body.org-app .commerce-alert .commerce-panel-head h2 {
+  color: #fca5a5 !important;
+}
+
+body.org-app .commerce-stock-item:hover {
+  background: var(--ch-bg) !important;
+}
+
+body.org-app .commerce-stock-qty {
+  color: #fca5a5 !important;
+}
+
+/* Hero quick actions — keep readable on gradient */
+body.org-app .commerce-hero .ch-btn-primary {
+  background: #ffffff !important;
+  color: #0f766e !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+}
+
+body.org-app .commerce-hero .ch-btn-primary:hover,
+body.org-app .commerce-hero .ch-btn-primary:focus {
+  background: #f0fdfa !important;
+  color: #0d9488 !important;
+  border-color: #ffffff !important;
+}
+
+body.org-app .commerce-hero .ch-btn-ghost {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.38) !important;
+}
+
+body.org-app .commerce-hero .ch-btn-ghost:hover,
+body.org-app .commerce-hero .ch-btn-ghost:focus {
+  background: rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.55) !important;
+}
+
+body.org-app .commerce-hero .ch-btn-primary i,
+body.org-app .commerce-hero .ch-btn-ghost i {
+  color: inherit !important;
+}
+
+body.org-app .commerce-page .btn,
+body.org-app .commerce-page a.btn,
+body.org-app .commerce-page button.btn {
+  background-color: var(--org-btn-surface, #252f3d) !important;
+  border-color: var(--org-btn-border, rgba(177, 188, 206, 0.48)) !important;
+  color: var(--org-btn-text, #e8edf5) !important;
+}
+
+body.org-app .commerce-page .btn-primary,
+body.org-app .commerce-page a.btn-primary {
+  background-color: var(--org-accent, #2563eb) !important;
+  border-color: var(--org-accent-strong, #1d4ed8) !important;
+  color: #ffffff !important;
+}
+
+body.org-app .commerce-page .btn:hover,
+body.org-app .commerce-page a.btn:hover {
+  background-color: var(--org-btn-surface-hover, #2f3a4a) !important;
+}
+
+body.org-app .commerce-page .btn-primary:hover,
+body.org-app .commerce-page a.btn-primary:hover {
+  background-color: var(--org-accent-strong, #1d4ed8) !important;
+  color: #ffffff !important;
 }
