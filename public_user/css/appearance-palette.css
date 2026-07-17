@@ -123,13 +123,13 @@ html[data-msb-appearance].msb-palette-dark-fg body {
   color: var(--msb-palette-text, #0a0a0a) !important;
 }
 
-html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo),
+html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):not(.feed-tab-link),
 html[data-msb-appearance] a.feed-ig-logo-label,
 html[data-msb-appearance] .feed-ig-logo-label {
   color: var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;
 }
 
-html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.mf-peer-link):not(.post-author-link):hover,
+html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.mf-peer-link):not(.post-author-link):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):hover,
 html[data-msb-appearance] a.feed-ig-logo-label:hover,
 html[data-msb-appearance] a.feed-ig-logo-label:focus {
   color: var(--msb-palette-link-hover) !important;
@@ -1308,12 +1308,22 @@ html[data-msb-appearance] body.profile-page .gear-shell,
 html[data-msb-appearance] body.profile-page .gear-sidebar,
 html[data-msb-appearance] body.profile-page .gear-sidebar-head,
 html[data-msb-appearance] body.profile-page .gear-main,
+html[data-msb-appearance] body.profile-page .gear-nav,
+html[data-msb-appearance] body.profile-page .gear-nav-item,
+html[data-msb-appearance] body.profile-page .gear-detail-panel,
+html[data-msb-appearance] body.profile-page .gear-detail-head,
+html[data-msb-appearance] body.profile-page .gear-detail-body,
+html[data-msb-appearance] body.profile-page .gear-detail-control,
+html[data-msb-appearance] body.profile-page .gear-detail-empty,
+html[data-msb-appearance] body.profile-page .gear-search,
 html[data-msb-appearance] body.profile-page .gear-hero,
 html[data-msb-appearance] body.profile-page .gear-quick a,
 html[data-msb-appearance] body.profile-page .gear-card,
 html[data-msb-appearance] body.profile-page .gear-row,
 html[data-msb-appearance] body.profile-page .gear-control,
 html[data-msb-appearance] body.profile-page .gear-note,
+html[data-msb-appearance] body.profile-page .profile-shop-card,
+html[data-msb-appearance] body.profile-page .shop-buy-card,
 html[data-msb-appearance] body.profile-page .profile-cover-badge {
   background-color: var(--msb-palette-bg) !important;
   background-image: none !important;
@@ -1344,9 +1354,37 @@ html[data-msb-appearance] body.profile-page .coming-card {
 
 html[data-msb-appearance] body.profile-page .ig-username,
 html[data-msb-appearance] body.profile-page .ig-stat,
+html[data-msb-appearance] body.profile-page b.ig-stat,
 html[data-msb-appearance] body.profile-page .ig-bio,
-html[data-msb-appearance] body.profile-page .ig-tab,
-html[data-msb-appearance] body.profile-page .ig-tab.active,
+html[data-msb-appearance] body.profile-page .ig-tab:not(.active) {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab.active {
+  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-btn-text, var(--msb-palette-text))) !important;
+  border-top-color: var(--msb-palette-nav-active-text, var(--msb-palette-action, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab.active i {
+  color: inherit !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-gallery-search button {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-gallery-search button:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
 html[data-msb-appearance] body.profile-page .about-head .nm,
 html[data-msb-appearance] body.profile-page .about-card .v,
 html[data-msb-appearance] body.profile-page .about-title,
@@ -1390,12 +1428,105 @@ html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-share .
   color: var(--msb-palette-action) !important;
 }
 
-html[data-msb-appearance] body.profile-page .ig-tab.active {
-  border-top-color: var(--msb-palette-text) !important;
-}
-
 html[data-msb-appearance] body.profile-page .ig-tabs {
   border-top-color: var(--msb-palette-border) !important;
+}
+
+/* Profile Gear tab — palette-driven contrast for icons, buttons, and active nav */
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle {
+  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;
+  background-image: none !important;
+  border: 1px solid var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:hover,
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:focus {
+  background-color: var(--msb-palette-nav-hover, var(--msb-palette-hover-bg)) !important;
+  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-icon,
+html[data-msb-appearance] body.profile-page .gear-detail-icon {
+  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;
+  color: var(--msb-palette-action, var(--msb-palette-icon)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-icon i,
+html[data-msb-appearance] body.profile-page .gear-detail-icon i,
+html[data-msb-appearance] body.profile-page .gear-nav-section-chevron {
+  color: var(--msb-palette-action, var(--msb-palette-icon)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item.is-active {
+  background-color: var(--msb-palette-nav-active-bg) !important;
+  color: var(--msb-palette-nav-active-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item.is-active .gear-nav-item-meta {
+  color: var(--msb-palette-nav-active-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-chip {
+  background-color: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page label.gear-upload-btn,
+html[data-msb-appearance] body.profile-page .gear-upload-btn {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+}
+
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn i,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn .icon,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn [class*="ion-"],
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn i,
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn [class*="ion-"],
+html[data-msb-appearance] body.profile-page label.gear-upload-btn {
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn:hover,
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn:focus,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:hover,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:focus,
+html[data-msb-appearance] body.profile-page .gear-upload-btn:hover,
+html[data-msb-appearance] body.profile-page .gear-upload-btn:focus,
+html[data-msb-appearance] body.profile-page label.gear-upload-btn:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-control:focus,
+html[data-msb-appearance] body.profile-page .gear-search:focus {
+  border-color: var(--msb-palette-action) !important;
+  box-shadow: 0 0 0 4px var(--msb-palette-action-soft) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-sidebar-title,
+html[data-msb-appearance] body.profile-page .gear-detail-title,
+html[data-msb-appearance] body.profile-page .gear-detail-desc,
+html[data-msb-appearance] body.profile-page .gear-detail-control-label,
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
+html[data-msb-appearance] body.profile-page .gear-nav-item {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-desc,
+html[data-msb-appearance] body.profile-page .gear-nav-item-meta,
+html[data-msb-appearance] body.profile-page .gear-detail-empty {
+  color: var(--msb-palette-text-muted) !important;
 }
 
 /* Leftbar doors (comments / read-more / menu) — match selected appearance palette */
@@ -1413,6 +1544,9 @@ html[data-msb-appearance] #ttLeftbarOverlays .tt-live-door-frame,
 html[data-msb-appearance] .msb-live-door-host .tt-live-wrap,
 html[data-msb-appearance] .msb-live-door-host .tt-live-door-frame,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-body,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-list,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-foot,
@@ -1452,6 +1586,7 @@ html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-wrap.is-open,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-readmore-wrap.is-open,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-wrap.is-open,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap.is-open,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap.is-open,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-messages-wrap.is-open,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-notifications-wrap.is-open,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-friend-requests-wrap.is-open,
@@ -1462,27 +1597,104 @@ html[data-msb-appearance] #ttLeftbarOverlays .tt-live-wrap.is-open {
 
 html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head .title,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-name,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-text,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-title,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-body,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-head .title {
   color: var(--msb-palette-text) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head .count,
-html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-name,
-html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-meta,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-sub,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-list .text-muted {
   color: var(--msb-palette-text-muted) !important;
 }
 
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-name,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-badge,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-name,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-badge,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a {
+  color: var(--msb-palette-text) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a .icon {
+  color: var(--msb-palette-text) !important;
+  opacity: 1 !important;
+}
+
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-email,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-code,
-html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon {
-  color: var(--msb-palette-text-muted) !important;
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-email,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-code {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+  opacity: 1 !important;
+}
+
+/* Door + overlay surfaces — keep labels/icons at primary contrast */
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-body .feed-left-nav-item,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-body .feed-left-nav-label,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-body .feed-left-nav-ic,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-body .feed-left-nav-ic svg,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title {
+  color: var(--msb-palette-text) !important;
+  opacity: 1 !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-close,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg)) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close:hover,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close:focus,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close:hover,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close:focus {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close i,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close i {
+  color: inherit !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:hover,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:focus,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:hover,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:focus {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:hover .icon,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:focus .icon,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:hover .icon,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:focus .icon {
+  color: inherit !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-divider,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-divider {
+  background-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
 }
 
 html[data-msb-appearance] #ttLeftbarOverlays .tt-close,
@@ -2376,7 +2588,7 @@ html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
 html.dark-auto:not([data-msb-appearance]) .ig-feed-header .ig-top-live,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live {
-  background: var(--msb-palette-surface-2, #1a222c) !important;
+  background: var(--msb-palette-bg, #171d24) !important;
   border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
   color: var(--msb-palette-text, #eef4ff) !important;
 }
@@ -2447,4 +2659,54 @@ html[data-theme="dark"]:not([data-msb-appearance]) .msgbox {
   background: var(--msb-palette-bg, #171d24) !important;
   border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
   color: var(--msb-palette-text, #e6edf3) !important;
+}
+
+/* Filled buttons — text/icon must contrast with btn background (wins over generic link rules) */
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:link,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:visited,
+html[data-msb-appearance] body.profile-page label.gear-upload-btn,
+html[data-msb-appearance] body.profile-page .gear-upload-btn,
+html[data-msb-appearance] body.profile-page .about-edit-btn,
+html[data-msb-appearance] body.profile-page .profile-shop-buy-btn,
+html[data-msb-appearance] .btn-primary,
+html[data-msb-appearance] a.btn-primary,
+html[data-msb-appearance] button.btn-primary,
+html[data-msb-appearance] .btn-success,
+html[data-msb-appearance] a.btn-success,
+html[data-msb-appearance] .ch-btn-primary,
+html[data-msb-appearance] a.ch-btn-primary {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+  -webkit-text-fill-color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:hover,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:focus,
+html[data-msb-appearance] body.profile-page label.gear-upload-btn:hover,
+html[data-msb-appearance] body.profile-page .gear-upload-btn:hover,
+html[data-msb-appearance] body.profile-page .about-edit-btn:hover,
+html[data-msb-appearance] body.profile-page .profile-shop-buy-btn:hover,
+html[data-msb-appearance] .btn-primary:hover,
+html[data-msb-appearance] a.btn-primary:hover,
+html[data-msb-appearance] .btn-success:hover,
+html[data-msb-appearance] .ch-btn-primary:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+  -webkit-text-fill-color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn i,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn .icon,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn [class*="ion-"],
+html[data-msb-appearance] body.profile-page label.gear-upload-btn i,
+html[data-msb-appearance] body.profile-page .gear-upload-btn i,
+html[data-msb-appearance] .btn-primary i,
+html[data-msb-appearance] a.btn-primary i,
+html[data-msb-appearance] .btn-success i,
+html[data-msb-appearance] .ch-btn-primary i {
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+  -webkit-text-fill-color: var(--msb-palette-btn-text, #ffffff) !important;
 }

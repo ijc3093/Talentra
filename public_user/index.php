@@ -12,7 +12,7 @@ ini_set('display_errors', '0');
 $error = '';
 $usernameValue = '';
 $accountType = strtolower(trim((string)($_GET['account_type'] ?? 'personal')));
-if (!in_array($accountType, ['personal', 'publisher'], true)) {
+if (!in_array($accountType, ['personal', 'publisher', 'commerce'], true)) {
     $accountType = 'personal';
 }
 
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $username = $usernameValue;
     $password = trim($_POST['password'] ?? '');
     $postedAccountType = strtolower(trim((string)($_POST['account_type'] ?? 'personal')));
-    if (in_array($postedAccountType, ['personal', 'publisher'], true)) {
+    if (in_array($postedAccountType, ['personal', 'publisher', 'commerce'], true)) {
         $accountType = $postedAccountType;
     }
 
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 $error = user_account_deleted_message();
             } else {
                 $user = !empty($loginResult['ok']) ? $loginResult['user'] : null;
-                $isPublisherLogin = ($accountType === 'publisher');
+                $isPublisherLogin = in_array($accountType, ['publisher', 'commerce'], true);
 
                 if ($user && $isPublisherLogin && !login_user_is_publisher($user)) {
                     $error = 'This is a personal account. Switch to Personal at the top to sign in.';
@@ -230,35 +230,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
       }
       .acct-type-row{
         display:flex;
-        gap:10px;
-        margin-bottom:16px;
+        flex-direction:column;
+        gap:0;
+        margin:0 0 18px;
+        padding:0;
+        border:1px solid #e2e8f0;
+        border-radius:12px;
+        background:#f8fafc;
+        overflow:hidden;
+        min-inline-size:0;
       }
       .acct-type-row label{
-        flex:1;
-        border:1px solid #d1d5db;
-        border-radius:10px;
-        padding:10px 12px;
-        cursor:pointer;
-        text-align:center;
-        font-weight:700;
+        display:flex;
+        align-items:center;
+        gap:12px;
         margin:0;
-        background:#fff;
-        transition:border-color .15s ease, background-color .15s ease;
+        padding:12px 16px;
+        cursor:pointer;
+        text-align:left;
+        font-weight:600;
+        background:transparent;
+        border:0;
+        border-bottom:1px solid #e2e8f0;
+        border-radius:0;
+        transition:background-color .15s ease;
       }
-      .acct-type-row input{
-        position:absolute;
-        opacity:0;
-        pointer-events:none;
+      .acct-type-row label:last-child{
+        border-bottom:0;
+      }
+      .acct-type-row label:hover{
+        background:#f1f5f9;
       }
       .acct-type-row label:has(input:checked){
-        border-color:#2563eb;
         background:#eff6ff;
+        box-shadow:inset 3px 0 0 #2563eb;
+      }
+      .acct-type-row input[type="radio"]{
+        position:static;
+        opacity:1;
+        pointer-events:auto;
+        width:18px;
+        height:18px;
+        margin:0;
+        flex:0 0 18px;
+        accent-color:#2563eb;
+        cursor:pointer;
+      }
+      .acct-type-row .acct-type-copy{
+        display:flex;
+        flex-direction:row;
+        flex-wrap:wrap;
+        align-items:baseline;
+        gap:6px 8px;
+        min-width:0;
+      }
+      .acct-type-row .acct-type-title{
+        font-size:15px;
+        font-weight:700;
+        color:#0f172a;
+        line-height:1.3;
       }
       .acct-type-row .tx-12{
-        margin-top:4px;
-        font-size:11px;
-        font-weight:600;
+        margin-top:0;
+        font-size:12px;
+        font-weight:500;
         color:#64748b;
+        line-height:1.3;
       }
       .login-mode-note{
         margin:0 0 14px;
@@ -266,9 +303,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         line-height:1.45;
         color:#475569;
       }
-      body.is-publisher-login .login-mode-personal{display:none}
-      body.is-publisher-login .login-mode-publisher{display:block}
-      .login-mode-publisher{display:none}
+      body[data-login-mode="personal"] .login-mode-publisher,
+      body[data-login-mode="personal"] .login-mode-commerce{display:none}
+      body[data-login-mode="publisher"] .login-mode-personal,
+      body[data-login-mode="publisher"] .login-mode-commerce{display:none}
+      body[data-login-mode="commerce"] .login-mode-personal,
+      body[data-login-mode="commerce"] .login-mode-publisher{display:none}
+      body[data-login-mode="personal"] .login-mode-personal,
+      body[data-login-mode="publisher"] .login-mode-publisher,
+      body[data-login-mode="commerce"] .login-mode-commerce{display:block}
+      .login-mode-publisher,
+      .login-mode-commerce{display:none}
     </style>
 
     <!-- Script -->
@@ -279,14 +324,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     <script src="./js/shamcey.js"></script>
   </head>
 
-  <body class="bg-gray-900<?php echo $accountType === 'publisher' ? ' is-publisher-login' : ''; ?>">
+  <body class="bg-gray-900" data-login-mode="<?php echo htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8'); ?>">
 
     <div class="signpanel-wrapper">
       <div class="signbox">
         <div class="signbox-header">
-          <h2>Private App</h2>
+          <h2>Talentra</h2>
           <p class="mg-b-0 login-mode-personal">Sign in to your personal account</p>
           <p class="mg-b-0 login-mode-publisher">Sign in as a publisher brand or staff</p>
+          <p class="mg-b-0 login-mode-commerce">Sign in to your commerce seller account</p>
         </div><!-- signbox-header -->
 
          <?php if ($error !== ''): ?>
@@ -298,26 +344,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         <form method="post" autocomplete="off">
             <?php echo csrfInput(); ?>
             <div class="signbox-body">
-              <div class="acct-type-row" role="group" aria-label="Account type">
+              <fieldset class="acct-type-row">
+                <legend class="sr-only">Account type</legend>
                 <label>
                   <input type="radio" name="account_type" value="personal"<?php echo $accountType === 'personal' ? ' checked' : ''; ?>>
-                  <span>Personal</span>
-                  <div class="tx-12">Friends &amp; family</div>
+                  <span class="acct-type-copy">
+                    <span class="acct-type-title">Personal User</span>
+                    <span class="tx-12">Friends &amp; family</span>
+                  </span>
                 </label>
                 <label>
                   <input type="radio" name="account_type" value="publisher"<?php echo $accountType === 'publisher' ? ' checked' : ''; ?>>
-                  <span>Publisher</span>
-                  <div class="tx-12">CNN, Fox, ABC…</div>
+                  <span class="acct-type-copy">
+                    <span class="acct-type-title">Publisher</span>
+                    <span class="tx-12">CNN, Fox, ABC…</span>
+                  </span>
                 </label>
-              </div>
+                <label>
+                  <input type="radio" name="account_type" value="commerce"<?php echo $accountType === 'commerce' ? ' checked' : ''; ?>>
+                  <span class="acct-type-copy">
+                    <span class="acct-type-title">Commerce</span>
+                    <span class="tx-12">Brand stores &amp; seller accounts</span>
+                  </span>
+                </label>
+              </fieldset>
 
-              <p class="login-mode-note login-mode-personal">Use your personal username or email.</p>
+              <!-- <p class="login-mode-note login-mode-personal">Use your personal username or email.</p>
               <p class="login-mode-note login-mode-publisher">Use your publisher or organization staff credentials.</p>
+              <p class="login-mode-note login-mode-commerce">Use your commerce seller username or email.</p> -->
 
               <div class="form-group">
-                <label class="form-control-label login-mode-personal">Username or Email:</label>
-                <label class="form-control-label login-mode-publisher">Publisher username, email, or staff login:</label>
-                <input type="text" name="username" value="<?php echo htmlspecialchars($usernameValue, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Enter username or email" class="form-control" required>
+                <!-- <label class="form-control-label login-mode-personal">Username or Email:</label> -->
+                <!-- <label class="form-control-label login-mode-publisher">Publisher username, email, or staff login:</label> -->
+                <!-- <label class="form-control-label login-mode-commerce">Commerce username or email:</label> -->
+                <input type="text" name="username" id="loginUsernameInput" value="<?php echo htmlspecialchars($usernameValue, ENT_QUOTES, 'UTF-8'); ?>" placeholder="<?php
+                  echo $accountType === 'publisher'
+                    ? 'Publisher username, email, or staff login'
+                    : ($accountType === 'commerce'
+                      ? 'Commerce username or email'
+                      : 'Enter username or email');
+                ?>" class="form-control" required>
               </div><!-- form-group -->
               <div class="form-group">
                 <label class="form-control-label">Password:</label>
@@ -329,6 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
               <button name="login" type="submit" value="1" class="btn btn-success btn-block" id="loginSubmitBtn">Sign In</button>
               <div class="tx-center bg-white bd pd-10 mg-t-40 login-mode-personal">Not yet a member? <a href="register.php">Create personal account</a></div>
               <div class="tx-center bg-white bd pd-10 mg-t-40 login-mode-publisher">Not yet a publisher? <a href="register.php?account_type=publisher">Create publisher account</a></div>
+              <div class="tx-center bg-white bd pd-10 mg-t-40 login-mode-commerce">Not yet a commerce seller? <a href="register.php?account_type=publisher&amp;publisher_mode=commerce">Commerce access</a></div>
             </div><!-- signbox-body -->
         </form>
 
@@ -338,13 +405,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
       (function () {
         var radios = document.querySelectorAll('input[name="account_type"]');
         var submitBtn = document.getElementById('loginSubmitBtn');
+        var usernameInput = document.getElementById('loginUsernameInput');
+        var usernamePlaceholders = {
+          personal: 'Enter username or email',
+          publisher: 'Publisher username, email, or staff login',
+          commerce: 'Commerce username or email'
+        };
 
         function syncLoginMode() {
-          var publisher = document.querySelector('input[name="account_type"][value="publisher"]');
-          var isPublisher = !!(publisher && publisher.checked);
-          document.body.classList.toggle('is-publisher-login', isPublisher);
+          var selected = document.querySelector('input[name="account_type"]:checked');
+          var mode = selected ? selected.value : 'personal';
+          document.body.setAttribute('data-login-mode', mode);
+          if (usernameInput) {
+            usernameInput.placeholder = usernamePlaceholders[mode] || usernamePlaceholders.personal;
+          }
           if (submitBtn) {
-            submitBtn.textContent = isPublisher ? 'Sign In as Publisher' : 'Sign In';
+            if (mode === 'publisher') {
+              submitBtn.textContent = 'Sign In as Publisher';
+            } else if (mode === 'commerce') {
+              submitBtn.textContent = 'Sign In as Commerce';
+            } else {
+              submitBtn.textContent = 'Sign In';
+            }
           }
         }
 

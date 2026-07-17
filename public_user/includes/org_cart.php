@@ -56,7 +56,7 @@ function org_cart_list_items(PDO $dbh, int $userId): array
         $st = $dbh->prepare("
             SELECT c.*,
                    p.title, p.description, p.price_cents, p.currency, p.stock_qty,
-                   p.cover_image_path, p.status AS product_status,
+                   p.cover_image_path, p.category, p.status AS product_status,
                    o.name AS seller_name,
                    o.publisher_user_id,
                    u.username AS publisher_username,
@@ -77,7 +77,7 @@ function org_cart_list_items(PDO $dbh, int $userId): array
     $out = [];
     foreach ($rows as $row) {
         $orgId = (int)($row['org_id'] ?? 0);
-        if ($orgId <= 0 || !platform_rent_shop_is_visible($dbh, $orgId)) {
+        if ($orgId <= 0 || !org_is_commerce_seller($dbh, $orgId) || !platform_rent_shop_is_visible($dbh, $orgId)) {
             continue;
         }
         if ((string)($row['product_status'] ?? '') !== 'active') {
@@ -212,11 +212,36 @@ function org_cart_checkout(
     int $userId,
     string $deliveryAddress = '',
     string $buyerNotes = '',
-    string $buyerPhone = ''
+    string $buyerPhone = '',
+    ?array $productIds = null,
+    string $promoCode = '',
+    string $deliveryOption = 'home_delivery'
 ): array {
     $items = org_cart_list_items($dbh, $userId);
     if (!$items) {
         return ['ok' => false, 'error' => 'Your cart is empty.'];
+    }
+
+    if ($productIds !== null) {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), static fn(int $id): bool => $id > 0)));
+        if (!$productIds) {
+            return ['ok' => false, 'error' => 'Select at least one item to checkout.'];
+        }
+        $allowed = array_flip($productIds);
+        $items = array_values(array_filter(
+            $items,
+            static fn(array $item): bool => isset($allowed[(int)($item['product_id'] ?? 0)])
+        ));
+        if (!$items) {
+            return ['ok' => false, 'error' => 'Selected items are no longer in your cart.'];
+        }
+    }
+
+    if ($deliveryAddress === '') {
+        $deliveryAddress = buyer_shipping_default_text($dbh, $userId);
+    }
+    if ($buyerPhone === '') {
+        $buyerPhone = buyer_shipping_default_phone($dbh, $userId);
     }
 
     $orders = [];
@@ -224,6 +249,8 @@ function org_cart_checkout(
     foreach ($items as $item) {
         $productId = (int)($item['product_id'] ?? 0);
         $qty = (int)($item['quantity'] ?? 1);
+        // Promo codes are per-seller; apply only when cart line org matches.
+        $linePromo = $promoCode;
         $result = org_shop_create_order(
             $dbh,
             $productId,
@@ -233,7 +260,10 @@ function org_cart_checkout(
             $deliveryAddress,
             null,
             $buyerPhone,
-            null
+            null,
+            $deliveryOption,
+            null,
+            $linePromo
         );
         if (!empty($result['ok'])) {
             org_cart_remove_item($dbh, $userId, $productId);

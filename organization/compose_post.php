@@ -146,31 +146,167 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .card-body-fixed { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
     .rows-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 15px; }
     .actions-fixed {
-      flex: 0 0 auto; padding: 12px 15px; border-top: 1px solid rgba(177,188,206,.12);
-      background: #171d24; display: flex; gap: 10px; flex-wrap: wrap;
+      flex: 0 0 auto; padding: 12px 15px; border-top: 1px solid var(--org-border, rgba(177,188,206,.12));
+      background: var(--org-surface, #171d24); display: flex; gap: 10px; flex-wrap: wrap;
       justify-content: flex-end; align-items: center;
+      color: var(--org-text, #e8edf5);
     }
     .compose-intro {
       margin-bottom: 14px; padding: 12px 14px; border-radius: 10px;
-      background: #171d24; border: 1px solid rgba(177,188,206,.18);
-      font-size: 12px; line-height: 1.45;
+      background: var(--org-surface, #171d24); border: 1px solid var(--org-border, rgba(177,188,206,.18));
+      font-size: 12px; line-height: 1.45; color: var(--org-text, #e8edf5);
     }
+    .compose-intro a { color: var(--org-link, #93c5fd); }
     .compose-preview {
       margin-top: 14px; padding: 12px 14px; border-radius: 10px;
-      border: 1px dashed rgba(177,188,206,.25); background: #171d24;
+      border: 1px dashed var(--org-border-strong, rgba(177,188,206,.25));
+      background: var(--org-surface-raised, var(--org-surface, #171d24));
+      color: var(--org-text, #e8edf5);
     }
     .compose-preview .feed-badge { display: inline-block; margin-bottom: 6px; }
     .publisher-check { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; }
     .publisher-check .hint { display: block; opacity: .75; font-size: 11px; margin-top: 2px; }
+
+    /* Theme — follow html.dark-auto from Gear Dark auto (same as feed.php) */
+    :root {
+      --bg-main: var(--msb-palette-bg, #171d24);
+      --bg-card: var(--msb-palette-bg, #171d24);
+      --text-primary: #e8edf5;
+      --text-secondary: #b1bcce;
+      --text-muted: #b1bcce;
+      --border-color: rgba(177, 188, 206, 0.32);
+    }
+    html.dark-auto {
+      --bg-main: var(--msb-palette-bg, #171d24);
+      --bg-card: var(--msb-palette-bg, #171d24);
+      --text-primary: #e8edf5;
+      --text-secondary: #b1bcce;
+      --text-muted: #b1bcce;
+      --border-color: #334155;
+    }
+    html[data-msb-org-light]:not(.dark-auto) {
+      --bg-main: #ffffff;
+      --bg-card: #ffffff;
+      --text-primary: #111827;
+      --text-secondary: #64748b;
+      --text-muted: #64748b;
+      --border-color: rgba(15, 23, 42, 0.12);
+      --org-surface: #ffffff;
+      --org-surface-raised: #f8fafc;
+      --org-text: #111827;
+      --org-text-muted: #64748b;
+      --org-border: rgba(15, 23, 42, 0.12);
+      --org-input-bg: #ffffff;
+      --org-input-text: #111827;
+    }
+    html[data-msb-appearance] {
+      --bg-main: var(--msb-palette-bg) !important;
+      --bg-card: var(--msb-palette-bg) !important;
+      --text-primary: var(--msb-palette-text) !important;
+      --text-secondary: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+      --text-muted: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+      --border-color: var(--msb-palette-border) !important;
+    }
+
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .sh-mainpanel,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .sh-pagebody,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .compose-card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .card-body,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .card-body-fixed,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .rows-scroll,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .compose-intro,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .compose-preview,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .actions-fixed {
+      background-color: #ffffff !important;
+      background-image: none !important;
+      color: #111827 !important;
+      border-color: rgba(15, 23, 42, 0.12) !important;
+    }
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .compose-intro a {
+      color: var(--org-accent, #2563eb) !important;
+    }
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose .form-control,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose select.form-control,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-compose textarea.form-control {
+      background-color: #ffffff !important;
+      color: #111827 !important;
+      border-color: rgba(15, 23, 42, 0.18) !important;
+    }
+
+    html.dark-auto body.org-app.org-page-compose,
+    html.dark-auto body.org-app.org-page-compose .sh-mainpanel,
+    html.dark-auto body.org-app.org-page-compose .sh-pagebody,
+    html.dark-auto body.org-app.org-page-compose .compose-card,
+    html.dark-auto body.org-app.org-page-compose .card,
+    html.dark-auto body.org-app.org-page-compose .card-body,
+    html.dark-auto body.org-app.org-page-compose .card-body-fixed,
+    html.dark-auto body.org-app.org-page-compose .rows-scroll,
+    html.dark-auto body.org-app.org-page-compose .compose-intro,
+    html.dark-auto body.org-app.org-page-compose .compose-preview,
+    html.dark-auto body.org-app.org-page-compose .actions-fixed {
+      background-color: #171d24 !important;
+      background-image: none !important;
+      color: #e8edf5 !important;
+      border-color: #334155 !important;
+    }
+    html.dark-auto body.org-app.org-page-compose .compose-preview {
+      background-color: #1e2733 !important;
+    }
+    html.dark-auto body.org-app.org-page-compose .form-control,
+    html.dark-auto body.org-app.org-page-compose select.form-control,
+    html.dark-auto body.org-app.org-page-compose textarea.form-control,
+    html.dark-auto body.org-app.org-page-compose input[type="file"].form-control {
+      background-color: #252f3d !important;
+      color: #e8edf5 !important;
+      border-color: rgba(177, 188, 206, 0.38) !important;
+    }
+    html.dark-auto body.org-app.org-page-compose .form-control::placeholder,
+    html.dark-auto body.org-app.org-page-compose textarea.form-control::placeholder {
+      color: #b1bcce !important;
+      opacity: 0.72;
+    }
+    html.dark-auto body.org-app.org-page-compose .mini-muted,
+    html.dark-auto body.org-app.org-page-compose .publisher-check .hint,
+    html.dark-auto body.org-app.org-page-compose #previewBody {
+      color: #b1bcce !important;
+    }
+    html.dark-auto body.org-app.org-page-compose .compose-intro a {
+      color: #93c5fd !important;
+    }
+    html.dark-auto body.org-app.org-page-compose .ig-feed-account-badge,
+    html.dark-auto body.org-app.org-page-compose .org-pill {
+      background: #252f3d !important;
+      border-color: rgba(177, 188, 206, 0.38) !important;
+      color: #e8edf5 !important;
+    }
+
+    html[data-msb-appearance] body.org-app.org-page-compose,
+    html[data-msb-appearance] body.org-app.org-page-compose .sh-mainpanel,
+    html[data-msb-appearance] body.org-app.org-page-compose .sh-pagebody,
+    html[data-msb-appearance] body.org-app.org-page-compose .compose-card,
+    html[data-msb-appearance] body.org-app.org-page-compose .card,
+    html[data-msb-appearance] body.org-app.org-page-compose .card-body,
+    html[data-msb-appearance] body.org-app.org-page-compose .card-body-fixed,
+    html[data-msb-appearance] body.org-app.org-page-compose .rows-scroll,
+    html[data-msb-appearance] body.org-app.org-page-compose .compose-intro,
+    html[data-msb-appearance] body.org-app.org-page-compose .compose-preview,
+    html[data-msb-appearance] body.org-app.org-page-compose .actions-fixed {
+      background-color: var(--msb-palette-bg) !important;
+      background-image: none !important;
+      color: var(--msb-palette-text) !important;
+      border-color: var(--msb-palette-border) !important;
+    }
   </style>
 </head>
 
-<body class="org-app">
+<body class="org-app org-page-compose">
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 
 <div class="sh-mainpanel">
-  <div class="sh-pagebody" style="border-bottom: 1px solid #4a535c;">
+  <div class="sh-pagebody" style="border-bottom: 1px solid var(--org-border, #4a535c);">
     <div class="card bd-0 compose-card">
       <div class="card-body card-body-fixed">
 

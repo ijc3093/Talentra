@@ -57,7 +57,9 @@ if (!$org) {
 }
 
 require_once __DIR__ . '/../public_user/includes/platform_rent.php';
+require_once __DIR__ . '/../public_user/includes/org_commerce_brands.php';
 platform_rent_ensure_schema($dbh);
+org_commerce_brands_ensure_schema($dbh);
 $adminId = (int)($_SESSION['admin_id'] ?? $_SESSION['idadmin'] ?? 0);
 $rentPlans = platform_rent_list_plans($dbh, false);
 $paidRentPlans = array_values(array_filter($rentPlans, static fn(array $p): bool => (int)($p['price_cents'] ?? 0) > 0));
@@ -90,6 +92,25 @@ if ($isShopOrg && isset($_POST['suspend_rent'])) {
         $error = 'Could not suspend rent.';
     }
 }
+
+if (isset($_POST['migrate_commerce_brand'])) {
+    $brandId = (int)($_POST['commerce_brand_id'] ?? 0);
+    if ($brandId <= 0) {
+        $error = 'Choose a commerce brand.';
+    } elseif (org_commerce_brands_migrate_org($dbh, $orgId, $brandId, true)) {
+        $brand = org_commerce_brands_get($dbh, $brandId);
+        $msg = 'Commerce brand set to ' . (string)($brand['name'] ?? 'brand') . '.';
+        $org = org_admin_get_organization($dbh, $orgId);
+        $orgCommerceBrand = org_commerce_brands_get_for_org($dbh, $orgId);
+        $suggestedCommerceBrand = org_commerce_brands_suggest_for_org($dbh, $org ?: []);
+    } else {
+        $error = 'Could not assign commerce brand.';
+    }
+}
+
+$commerceBrands = org_commerce_brands_list_active($dbh);
+$orgCommerceBrand = org_commerce_brands_get_for_org($dbh, $orgId);
+$suggestedCommerceBrand = org_commerce_brands_suggest_for_org($dbh, $org ?: []);
 
 $members = org_admin_list_org_members($dbh, $orgId);
 $orgStatus = (int)($org['status'] ?? 0);
@@ -193,6 +214,38 @@ org_admin_render_head('Organization · ' . (string)($org['name'] ?? ''));
           </div>
           <?php if (!empty($org['publisher_category'])): ?>
             <div class="muted" style="margin-top:6px;">Category: <?= org_admin_h($org['publisher_category']) ?></div>
+          <?php endif; ?>
+        </div>
+        <div class="detail-box">
+          <div class="label">Commerce brand system</div>
+          <div class="value">
+            <?php if ($orgCommerceBrand): ?>
+              <span class="pill ok"><?= org_admin_h($orgCommerceBrand['name'] ?? '') ?></span>
+            <?php else: ?>
+              <span class="pill bad">Not linked</span>
+              <?php if ($suggestedCommerceBrand): ?>
+                <div class="muted" style="margin-top:6px;">Suggested: <?= org_admin_h($suggestedCommerceBrand['name'] ?? '') ?></div>
+              <?php endif; ?>
+            <?php endif; ?>
+          </div>
+          <?php if ($commerceBrands): ?>
+          <form method="post" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select name="commerce_brand_id" class="form-control" style="min-width:180px;max-width:240px;min-height:34px;height:34px;" required>
+              <option value="">Choose brand…</option>
+              <?php foreach ($commerceBrands as $brand): ?>
+                <?php
+                  $bid = (int)($brand['id'] ?? 0);
+                  $selected = $orgCommerceBrand && (int)($orgCommerceBrand['id'] ?? 0) === $bid;
+                  if (!$selected && !$orgCommerceBrand && $suggestedCommerceBrand && (int)($suggestedCommerceBrand['id'] ?? 0) === $bid) {
+                      $selected = true;
+                  }
+                ?>
+                <option value="<?= $bid ?>"<?= $selected ? ' selected' : '' ?>><?= org_admin_h((string)($brand['name'] ?? '')) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <button type="submit" name="migrate_commerce_brand" class="btn-mini primary"><?= $orgCommerceBrand ? 'Change brand' : 'Assign brand' ?></button>
+            <a href="org_commerce_brands.php" class="btn-mini">All migrations</a>
+          </form>
           <?php endif; ?>
         </div>
       </div>

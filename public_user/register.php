@@ -10,19 +10,54 @@ require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/publisher_organization_bridge.php';
 require_once __DIR__ . '/includes/publisher_authority.php';
 require_once __DIR__ . '/includes/user_phone.php';
+require_once __DIR__ . '/includes/org_commerce_brands.php';
 
 $error = '';
 $msg   = '';
-$defaultAccountType = strtolower(trim((string)($_GET['account_type'] ?? 'personal')));
-if (!in_array($defaultAccountType, ['personal', 'publisher'], true)) {
-    $defaultAccountType = 'personal';
+
+function register_signup_track(string $accountType, string $publisherMode): string
+{
+    if ($accountType === 'publisher') {
+        return $publisherMode === 'commerce' ? 'commerce' : 'publisher';
+    }
+    return 'personal';
 }
+
+function register_signup_track_from_request(): string
+{
+    $accountType = strtolower(trim((string)($_GET['account_type'] ?? 'personal')));
+    if (!in_array($accountType, ['personal', 'publisher'], true)) {
+        $accountType = 'personal';
+    }
+    $publisherMode = strtolower(trim((string)($_GET['publisher_mode'] ?? 'media')));
+    if (!in_array($publisherMode, ['media', 'commerce'], true)) {
+        $publisherMode = 'media';
+    }
+    return register_signup_track($accountType, $publisherMode);
+}
+
+function register_signup_query_string(string $track): string
+{
+    if ($track === 'publisher') {
+        return '?account_type=publisher';
+    }
+    if ($track === 'commerce') {
+        return '?account_type=publisher&publisher_mode=commerce';
+    }
+    return '';
+}
+
+$signupTrack = register_signup_track_from_request();
+$defaultAccountType = ($signupTrack === 'personal') ? 'personal' : 'publisher';
+$defaultPublisherMode = ($signupTrack === 'commerce') ? 'commerce' : 'media';
 
 $controller = new Controller();
 $dbh = $controller->pdo();
 publisher_ensure_schema($dbh);
 publisher_authority_ensure_schema($dbh);
+org_commerce_brands_ensure_schema($dbh);
 $categories = publisher_categories();
+$commerceBrands = org_commerce_brands_list_active($dbh);
 $publisherNameOptions = publisher_registry_list_options($dbh);
 $selectedPublisherName = publisher_registry_normalize_name((string)($_POST['name'] ?? ''));
 $selectedCustomPublisherName = '';
@@ -44,6 +79,16 @@ $postedBirthYear = trim((string)($_POST['birth_year'] ?? ''));
 $postedMobile = trim((string)($_POST['mobile'] ?? $_POST['mobileno'] ?? ''));
 $postedPolicyAgreement = strtolower(trim((string)($_POST['policy_agreement'] ?? '')));
 $postedAgeConfirm = isset($_POST['age_confirm']) && (string)$_POST['age_confirm'] === '1';
+$postedPublisherMode = strtolower(trim((string)($_POST['publisher_mode'] ?? $defaultPublisherMode)));
+$postedCommerceBrandId = (int)($_POST['commerce_brand_id'] ?? 0);
+$postedCommerceBrandName = publisher_registry_normalize_name((string)($_POST['commerce_brand_name'] ?? ''));
+$selectedCustomCommerceBrandName = '';
+if ($postedCommerceBrandId <= 0 && $postedCommerceBrandName !== '') {
+    $selectedCustomCommerceBrandName = $postedCommerceBrandName;
+}
+if (!in_array($postedPublisherMode, ['media', 'commerce'], true)) {
+    $postedPublisherMode = 'media';
+}
 register_ensure_user_birthday_columns($dbh);
 register_ensure_user_consent_columns($dbh);
 
@@ -532,9 +577,24 @@ function generateUniqueFriendCode(PDO $dbh, string $prefix = 'USR', int $maxTrie
 }
 
 if (isset($_POST['submit'])) {
+    $lockedTrack = register_signup_track_from_request();
     $accountType = strtolower(trim((string)($_POST['account_type'] ?? 'personal')));
     if (!in_array($accountType, ['personal', 'publisher'], true)) {
         $accountType = 'personal';
+    }
+    $publisherMode = strtolower(trim((string)($_POST['publisher_mode'] ?? 'media')));
+    if (!in_array($publisherMode, ['media', 'commerce'], true)) {
+        $publisherMode = 'media';
+    }
+    if ($lockedTrack === 'personal') {
+        $accountType = 'personal';
+        $publisherMode = 'media';
+    } elseif ($lockedTrack === 'publisher') {
+        $accountType = 'publisher';
+        $publisherMode = 'media';
+    } else {
+        $accountType = 'publisher';
+        $publisherMode = 'commerce';
     }
     $isPublisher = ($accountType === 'publisher');
 
@@ -554,6 +614,30 @@ if (isset($_POST['submit'])) {
     $postedMobile = $mobileno;
     $publisherCategory = strtolower(trim((string)($_POST['publisher_category'] ?? 'news')));
     $publisherTagline = trim((string)($_POST['publisher_tagline'] ?? ''));
+    $commerceBrandId = (int)($_POST['commerce_brand_id'] ?? 0);
+    $postedCommerceBrandName = publisher_registry_normalize_name((string)($_POST['commerce_brand_name'] ?? ''));
+    if ($publisherMode === 'commerce' && $commerceBrandId <= 0 && $postedCommerceBrandName !== '' && $email !== '') {
+        $brandMeta = publisher_authority_commerce_brand_name_request_meta($dbh, $postedCommerceBrandName, $email);
+        if ((int)($brandMeta['brand_id'] ?? 0) > 0) {
+            $commerceBrandId = (int)$brandMeta['brand_id'];
+        }
+    }
+    if ($publisherMode === 'commerce') {
+        $publisherCategory = 'commerce';
+        $commerceBrandId = org_commerce_brands_resolve_for_registration($dbh, $commerceBrandId, $name);
+        if ($commerceBrandId > 0) {
+            $brandRow = org_commerce_brands_get($dbh, $commerceBrandId);
+            if ($brandRow) {
+                $brandName = trim((string)($brandRow['name'] ?? ''));
+                if ($brandName !== '') {
+                    $name = $brandName;
+                    if (publisher_registry_name_is_registered($dbh, $name)) {
+                        $name = $brandName . ' — ' . $username;
+                    }
+                }
+            }
+        }
+    }
     $policyAgreement = strtolower(trim((string)($_POST['policy_agreement'] ?? '')));
     $ageConfirmed = isset($_POST['age_confirm']) && (string)$_POST['age_confirm'] === '1';
     $postedPolicyAgreement = $policyAgreement;
@@ -561,7 +645,9 @@ if (isset($_POST['submit'])) {
 
     if ($policyAgreement !== 'agree') {
         $error = 'You must agree to the Terms and Policy to create an account.';
-    } elseif ($name === '' || $username === '' || $email === '' || $passwordRaw === '') {
+    } elseif ($username === '' || $email === '' || $passwordRaw === '') {
+        $error = 'Please fill all required fields.';
+    } elseif (!$isPublisher && $name === '') {
         $error = 'Please fill all required fields.';
     } elseif (!$isPublisher && ($gender === '' || $mobileno === '' || $birthMonth === '' || $birthDay === '' || $birthYear === '')) {
         $error = 'Please fill all required fields.';
@@ -573,11 +659,34 @@ if (isset($_POST['submit'])) {
         $error = 'You must be at least ' . register_minimum_personal_age() . ' years old to create a personal account.';
     } elseif (!$isPublisher && !$ageConfirmed) {
         $error = 'Please confirm you are at least ' . register_minimum_personal_age() . ' years old.';
-    } elseif ($isPublisher && $name === '') {
+    } elseif ($isPublisher && $publisherMode === 'commerce' && $commerceBrandId <= 0) {
+        if ($postedCommerceBrandName !== '' && publisher_authority_commerce_brand_name_request_status($dbh, $postedCommerceBrandName, $email) === 'pending') {
+            $error = 'Your commerce brand request is waiting for admin approval. Stay on this page until it is approved.';
+        } elseif ($postedCommerceBrandName !== '') {
+            $error = 'Submit your commerce brand request with Add name and wait for admin approval before creating your account.';
+        } else {
+            $error = 'Please choose a commerce brand system or click Add name to request a new one.';
+        }
+    } elseif ($isPublisher && $publisherMode === 'commerce' && !org_commerce_brands_get($dbh, $commerceBrandId)) {
+        $error = 'Please choose a valid commerce brand system.';
+    } elseif ($isPublisher && $publisherMode === 'commerce'
+        && !publisher_authority_commerce_is_approved($dbh, $commerceBrandId, $email)
+        && !($postedCommerceBrandName !== '' && publisher_authority_commerce_brand_name_is_approved($dbh, $postedCommerceBrandName, $email))) {
+        $reqStatus = publisher_authority_commerce_request_status($dbh, $commerceBrandId, $email);
+        if ($reqStatus === 'pending') {
+            $error = 'Your commerce seller request is waiting for admin approval. Submit the request below and check back once approved.';
+        } elseif ($reqStatus === 'rejected') {
+            $error = 'Your commerce seller request was rejected. Submit a new request or contact support.';
+        } else {
+            $error = 'Submit a commerce seller request and wait for admin approval before creating your account.';
+        }
+    } elseif ($isPublisher && $publisherMode === 'commerce' && $name === '') {
+        $error = 'Could not resolve a display name from the selected commerce brand.';
+    } elseif ($isPublisher && $publisherMode !== 'commerce' && $name === '') {
         $error = 'Please choose a publisher name.';
     } elseif ($isPublisher && publisher_registry_name_is_registered($dbh, $name)) {
         $error = 'That publisher name is already registered. Choose another or sign in.';
-    } elseif ($isPublisher && !publisher_authority_is_approved($dbh, $name)) {
+    } elseif ($isPublisher && $publisherMode !== 'commerce' && !publisher_authority_is_approved($dbh, $name)) {
         $reqStatus = publisher_authority_request_status($dbh, $name);
         if ($reqStatus === 'pending') {
             $error = 'This publisher name is waiting for admin approval. You can sign up once it is approved.';
@@ -662,13 +771,35 @@ if (isset($_POST['submit'])) {
                     publisher_repair_user_as_publisher($dbh, $newUserId, $publisherCategory);
                     publisher_registry_mark_registered($dbh, $name, $newUserId);
 
-                    $orgId = publisher_org_link_publisher_user($dbh, $name, $newUserId, $publisherCategory);
+                    $orgId = publisher_org_link_publisher_user($dbh, $name, $newUserId, $publisherCategory, $commerceBrandId);
                     if ($orgId <= 0) {
                         publisher_org_sync_public_user_orgs($dbh, $newUserId);
                         $orgId = (int)(publisher_org_fetch_public_user_orgs($dbh, $newUserId)[0]['id'] ?? 0);
                     }
+                    if ($orgId > 0 && $commerceBrandId > 0) {
+                        org_commerce_brands_assign_org($dbh, $orgId, $commerceBrandId);
+                    } elseif ($orgId > 0 && $publisherMode !== 'commerce') {
+                        $matchedBrandId = org_commerce_brands_resolve_for_registration($dbh, 0, $name);
+                        if ($matchedBrandId > 0) {
+                            org_commerce_brands_assign_org($dbh, $orgId, $matchedBrandId);
+                            $commerceBrandId = $matchedBrandId;
+                            $publisherCategory = 'commerce';
+                            publisher_repair_user_as_publisher($dbh, $newUserId, 'commerce');
+                        }
+                    }
                     if ($orgId <= 0) {
                         error_log('publisher_org_link_publisher_user failed for user ' . $newUserId);
+                    }
+
+                    if ($publisherMode === 'commerce' && $commerceBrandId > 0) {
+                        $brandRow = org_commerce_brands_get($dbh, $commerceBrandId);
+                        if ($brandRow) {
+                            $system = org_commerce_brands_parse_system($brandRow);
+                            $hint = trim((string)($system['order_hint'] ?? $brandRow['tagline'] ?? ''));
+                            if ($publisherTagline === '' && $hint !== '') {
+                                $publisherTagline = $hint;
+                            }
+                        }
                     }
 
                     setUserSession([
@@ -700,10 +831,27 @@ if (isset($_POST['submit'])) {
             }
         }
     }
+
+    $postedPublisherMode = $publisherMode;
+}
+?>
+<?php
+$isPublisherReg = ($signupTrack !== 'personal');
+$isPublisherCommerce = ($signupTrack === 'commerce');
+$registerBodyClasses = 'bg-gray-900 register-signup signup-track-' . $signupTrack;
+if ($isPublisherReg) {
+    $registerBodyClasses .= ' is-publisher-reg';
+}
+if ($isPublisherCommerce) {
+    $registerBodyClasses .= ' is-publisher-commerce';
+}
+$registerHtmlClasses = 'register-signup';
+if ($isPublisherReg) {
+    $registerHtmlClasses .= ' is-publisher-reg';
 }
 ?>
 <!DOCTYPE html>
-<html lang="en" class="register-signup<?= $defaultAccountType === 'publisher' ? ' is-publisher-reg' : '' ?>">
+<html lang="en" class="<?= htmlspecialchars($registerHtmlClasses, ENT_QUOTES, 'UTF-8') ?>">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -723,11 +871,32 @@ if (isset($_POST['submit'])) {
       .acct-type-row input{position:absolute;opacity:0;pointer-events:none}
       .acct-type-row input:checked + span{display:block}
       .acct-type-row label:has(input:checked){border-color:#2563eb;background:#eff6ff}
+      .signup-track-topic-card{
+        flex:1;
+        border:1px solid #2563eb;
+        border-radius:10px;
+        padding:12px;
+        text-align:center;
+        font-weight:700;
+        background:#eff6ff;
+      }
+      body.signup-track-personal .account-type-publisher{display:none!important}
+      body.signup-track-publisher .account-type-personal{display:none!important}
+      body.signup-track-commerce .account-type-personal,
+      body.signup-track-commerce .account-type-publisher{display:none!important}
+      body.signup-track-personal .publisher-mode-row{display:none!important}
+      body.signup-track-publisher .publisher-mode-commerce{display:none!important}
+      body.signup-track-commerce .publisher-mode-row{display:none!important}
       .publisher-only{display:none}
       body.is-publisher-reg .publisher-only{display:block}
       body.is-publisher-reg .personal-only{display:none}
+      body.is-publisher-commerce .publisher-media-only{display:none}
+      body.is-publisher-commerce .publisher-commerce-only{display:block}
+      body.is-publisher-reg:not(.is-publisher-commerce) .publisher-commerce-only{display:none}
+      body.is-publisher-reg:not(.is-publisher-commerce) .publisher-media-only{display:block}
       .publisher-name-wrap{display:none}
       body.is-publisher-reg .publisher-name-wrap{display:block}
+      body.is-publisher-commerce .publisher-name-wrap{display:none !important}
       body.is-publisher-reg .personal-name-wrap{display:none}
       .publisher-add-modal .modal-content{border-radius:14px;overflow:hidden}
       .publisher-add-modal .modal-header{border-bottom:1px solid #eee}
@@ -977,9 +1146,11 @@ if (isset($_POST['submit'])) {
         line-height:1.25;
         margin-top:4px !important;
       }
-      body.is-publisher-reg .publisher-only .publisher-tagline-note{
-        display:none;
-      }
+      body.is-publisher-reg .publisher-only .publisher-commerce-note{display:none}
+      body.is-publisher-commerce .publisher-media-note{display:none}
+      body.is-publisher-commerce .publisher-only .publisher-commerce-note{display:block}
+      .commerce-seller-authority{margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb}
+      .commerce-submit-request-btn{margin-top:12px;border-radius:999px;font-weight:800}
       body.is-publisher-reg .publisher-custom-chosen{
         margin-top:6px;
         padding:7px 10px;
@@ -1007,6 +1178,31 @@ if (isset($_POST['submit'])) {
         font-weight:800;
         border-radius:999px;
       }
+      body.is-publisher-commerce .commerce-brand-actions{
+        display:flex;
+        gap:8px;
+        align-items:stretch;
+      }
+      body.is-publisher-commerce .commerce-brand-actions select{
+        flex:1 1 auto;
+        min-width:0;
+      }
+      body.is-publisher-commerce .commerce-add-name-btn{
+        flex:0 0 auto;
+        white-space:nowrap;
+        padding:0 12px;
+        font-size:12px;
+        font-weight:800;
+        border-radius:999px;
+      }
+      body.is-publisher-commerce .commerce-brand-wrap.commerce-custom-active .commerce-brand-actions,
+      body.is-publisher-commerce .commerce-brand-wrap.commerce-custom-active .commerce-brand-catalog-note,
+      body.is-publisher-commerce .commerce-brand-wrap.commerce-custom-active .commerce-catalog-status{
+        display:none;
+      }
+      body.is-publisher-commerce .commerce-brand-wrap:not(.commerce-custom-active) #commerceCustomChosen{
+        display:none !important;
+      }
       @media (max-height:760px){
         body.register-signup .signbox-body{padding:12px 18px 10px}
         body.register-signup .form-group{margin-bottom:7px}
@@ -1015,7 +1211,7 @@ if (isset($_POST['submit'])) {
       }
     </style>
   </head>
-  <body class="bg-gray-900 register-signup<?= $defaultAccountType === 'publisher' ? ' is-publisher-reg' : '' ?>">
+  <body class="<?= htmlspecialchars($registerBodyClasses, ENT_QUOTES, 'UTF-8') ?>" data-signup-track="<?= htmlspecialchars($signupTrack, ENT_QUOTES, 'UTF-8') ?>">
     <div class="signpanel-wrapper">
       <div class="signbox signup">
           <?php if ($error): ?>
@@ -1024,21 +1220,29 @@ if (isset($_POST['submit'])) {
           <div class="succWrap"><strong>SUCCESS</strong>: <?php echo htmlentities($msg); ?></div>
           <?php endif; ?>
         <div class="signbox-body">
-          <form method="post" autocomplete="off" id="registerForm">
+          <form method="post" autocomplete="off" id="registerForm" action="register.php<?= htmlspecialchars(register_signup_query_string($signupTrack), ENT_QUOTES, 'UTF-8') ?>">
               <?php echo csrfInput(); ?>
-              <div class="form-group">
+              <?php if ($signupTrack === 'commerce'): ?>
+              <input type="hidden" name="account_type" value="publisher">
+              <input type="hidden" name="publisher_mode" value="commerce">
+              <?php endif; ?>
+              <div class="form-group account-type-group">
                 <label class="form-control-label d-block">Account type</label>
                 <div class="acct-type-row">
-                  <label><input type="radio" name="account_type" value="personal"<?= $defaultAccountType === 'personal' ? ' checked' : '' ?>><span>Personal</span><div class="tx-12 mg-t-5">Friends &amp; family</div></label>
-                  <label><input type="radio" name="account_type" value="publisher"<?= $defaultAccountType === 'publisher' ? ' checked' : '' ?>><span>Publisher</span><div class="tx-12 mg-t-5">CNN, Fox, ABC…</div></label>
+                  <?php if ($signupTrack === 'commerce'): ?>
+                  <div class="signup-track-topic-card account-type-commerce-topic"><span>Commerce</span><div class="tx-12 mg-t-5">Brand stores &amp; seller accounts</div></div>
+                  <?php else: ?>
+                  <label class="account-type-personal"><input type="radio" name="account_type" value="personal"<?= $defaultAccountType === 'personal' ? ' checked' : '' ?>><span>Personal User</span><div class="tx-12 mg-t-5">Friends &amp; family</div></label>
+                  <label class="account-type-publisher"><input type="radio" name="account_type" value="publisher"<?= $defaultAccountType === 'publisher' ? ' checked' : '' ?>><span>News Media Organization</span></label>
+                  <?php endif; ?>
                 </div>
               </div>
               <div class="form-group personal-name-wrap">
-                <label class="form-control-label">Full Name</label>
-                <input name="name" type="text" class="form-control personal-name personal-req" placeholder="Your name" required autocomplete="name">
+                <!-- <label class="form-control-label">Full Name</label> -->
+                <input name="name" type="text" class="form-control personal-name personal-req" placeholder="Your Full Name"<?= $signupTrack === 'personal' ? ' required' : ' disabled' ?> autocomplete="name">
               </div>
               <div class="form-group publisher-name-wrap">
-                <label class="form-control-label">Publisher name</label>
+                <!-- <label class="form-control-label">Publisher name</label> -->
                 <div class="publisher-name-actions">
                   <select id="publisherNameSelect" class="form-control publisher-name publisher-req">
                     <option value="">Select publisher name</option>
@@ -1067,18 +1271,18 @@ if (isset($_POST['submit'])) {
                   <button type="button" id="publisherCustomChosenChange" class="publisher-custom-chosen-change">Choose from list instead</button>
                 </div>
                 <input type="hidden" id="publisherNameHidden" class="publisher-name-hidden" value="<?= htmlspecialchars($selectedPublisherName, ENT_QUOTES, 'UTF-8') ?>" disabled>
-                <div class="tx-12 mg-t-5">Choose a name from the list or click <strong>Add name</strong>. Both open the same request form and require admin approval before you can create your account.</div>
+                <div class="tx-12 mg-t-5 publisher-media-note">Choose a name from the list or click <strong>Add name</strong>. Both open the same request form and require admin approval before you can create your account.</div>
               </div>
               <div class="row row-xs">
                 <div class="col-sm">
                   <div class="form-group">
-                    <label class="form-control-label">Username</label>
+                    <!-- <label class="form-control-label">Username</label> -->
                     <input type="text" name="username" class="form-control" placeholder="Username" required>
                   </div>
                 </div>
                 <div class="col-sm">
                   <div class="form-group">
-                    <label class="form-control-label">Email</label>
+                    <!-- <label class="form-control-label">Email</label> -->
                     <input name="email" type="email" class="form-control" placeholder="Email" required>
                   </div>
                 </div>
@@ -1086,7 +1290,7 @@ if (isset($_POST['submit'])) {
               <div class="row row-xs personal-only">
                 <div class="col-sm">
                   <div class="form-group">
-                    <label class="form-control-label">Gender</label>
+                    <!-- <label class="form-control-label">Gender</label> -->
                     <select name="gender" class="form-control personal-req">
                       <option value="">Select</option>
                       <option value="Male">Male</option>
@@ -1096,13 +1300,13 @@ if (isset($_POST['submit'])) {
                 </div>
                 <div class="col-sm">
                   <div class="form-group">
-                    <label class="form-control-label">Phone Number</label>
+                    <!-- <label class="form-control-label">Phone Number</label> -->
                     <input name="mobile" type="tel" class="form-control personal-req" placeholder="Phone number" autocomplete="tel" inputmode="tel" pattern="[0-9+\-\s()]{7,20}" value="<?= htmlspecialchars($postedMobile, ENT_QUOTES, 'UTF-8') ?>" required>
                   </div>
                 </div>
               </div>
               <div class="form-group">
-                <label class="form-control-label">Password</label>
+                <!-- <label class="form-control-label">Password</label> -->
                 <input type="password" name="password" class="form-control" placeholder="Password" autocomplete="new-password" required>
               </div>
               <div class="form-group personal-only">
@@ -1135,15 +1339,64 @@ if (isset($_POST['submit'])) {
                   <span>I confirm I am at least <?= register_minimum_personal_age() ?> years old and that my birthday is accurate.</span>
                 </label>
               </div>
+              <?php if ($signupTrack !== 'commerce'): ?>
               <div class="form-group publisher-only">
+                <label class="form-control-label d-block">Publisher type</label>
+                <div class="acct-type-row publisher-mode-row">
+                  <label class="publisher-mode-media"><input type="radio" name="publisher_mode" value="media"<?= $postedPublisherMode === 'media' ? ' checked' : '' ?>><div class="tx-12 mg-t-5">CNN, Fox, ABC…</div></label>
+                  <label class="publisher-mode-commerce"><input type="radio" name="publisher_mode" value="commerce"<?= $postedPublisherMode === 'commerce' ? ' checked' : '' ?>><span>Commerce</span><div class="tx-12 mg-t-5">McDonald's, Wendy's…</div></label>
+                </div>
+              </div>
+              <?php endif; ?>
+              <div class="form-group publisher-only publisher-commerce-only commerce-brand-wrap<?= $selectedCustomCommerceBrandName !== '' ? ' commerce-custom-active' : '' ?>" id="commerceBrandWrap">
+                <label class="form-control-label" for="commerceBrandSelect">Commerce brand system</label>
+                <div class="commerce-brand-actions">
+                  <select name="commerce_brand_id" id="commerceBrandSelect" class="form-control">
+                    <option value="">Select brand system</option>
+                    <?php foreach ($commerceBrands as $brand): ?>
+                      <?php $bid = (int)($brand['id'] ?? 0); ?>
+                      <option value="<?= $bid ?>"<?= $postedCommerceBrandId === $bid ? ' selected' : '' ?>><?= htmlspecialchars((string)($brand['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?> — <?= htmlspecialchars((string)($brand['tagline'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                    <option value="__add_new__">+ Add brand name…</option>
+                  </select>
+                  <button type="button" class="btn btn-primary btn-sm commerce-add-name-btn" id="commerceAddNameBtn">Add name</button>
+                </div>
+                <div id="commerceCustomChosen" class="publisher-custom-chosen<?= $selectedCustomCommerceBrandName !== '' ? ' is-visible' : '' ?>" aria-live="polite">
+                  <span class="publisher-custom-chosen-label">Your commerce brand</span>
+                  <div id="commerceCustomChosenName" class="publisher-custom-chosen-name"><?= htmlspecialchars($selectedCustomCommerceBrandName, ENT_QUOTES, 'UTF-8') ?></div>
+                  <div id="commerceBrandCustomStatus" class="publisher-custom-status" hidden></div>
+                  <div id="commerceBrandCustomStatusActions" class="publisher-custom-status-actions" hidden>
+                    <button type="button" class="publisher-check-status-btn" id="commerceBrandCheckStatusBtn">Check approval now</button>
+                  </div>
+                  <div id="commerceBrandWaitNote" class="publisher-wait-note" hidden>
+                    Stay on this page while you wait. We check for admin approval automatically every few seconds and will enable <strong>Create account</strong> when your brand request is approved.
+                  </div>
+                  <button type="button" id="commerceCustomChosenChange" class="publisher-custom-chosen-change">Choose from list instead</button>
+                </div>
+                <input type="hidden" id="commerceBrandNameHidden" name="commerce_brand_name" value="<?= htmlspecialchars($selectedCustomCommerceBrandName, ENT_QUOTES, 'UTF-8') ?>"<?= $selectedCustomCommerceBrandName === '' ? ' disabled' : '' ?>>
+                <div class="tx-12 mg-t-5 commerce-brand-catalog-note">Choose a brand from the list or click <strong>Add name</strong> if your company is not listed. Both require admin approval before you can create your account.</div>
+                <div id="commerceCatalogStatus" class="commerce-catalog-status">
+                  <div id="commerceSellerStatus" class="publisher-custom-status" hidden></div>
+                  <div id="commerceSellerStatusActions" class="publisher-custom-status-actions" hidden>
+                    <button type="button" class="publisher-check-status-btn" id="commerceCheckStatusBtn">Check approval now</button>
+                  </div>
+                  <div id="commerceWaitNote" class="publisher-wait-note" hidden>
+                    Stay on this page while you wait. We check for admin approval automatically every few seconds and will enable <strong>Create account</strong> when your commerce seller request is approved.
+                  </div>
+                  <div class="publisher-add-error" id="commerceRequestError" role="alert"></div>
+                </div>
+              </div>
+              <div class="form-group publisher-only publisher-media-only">
                 <label class="form-control-label">Category</label>
-                <select name="publisher_category" class="form-control">
+                <select name="publisher_category" class="form-control" id="publisherCategorySelect">
                   <?php foreach ($categories as $key => $label): ?>
+                    <?php if ($key === 'commerce') { continue; } ?>
                     <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
-              <div class="form-group publisher-only">
+              <input type="hidden" name="publisher_category" value="commerce" class="publisher-commerce-category-hidden" disabled>
+              <div class="form-group publisher-only publisher-media-only">
                 <label class="form-control-label">Tagline (optional)</label>
                 <input type="text" name="publisher_tagline" class="form-control" placeholder="Breaking news and daily updates">
                 <div class="tx-12 mg-t-5 publisher-tagline-note">After signup you go straight to <strong>feed.php</strong> to post. Users find you on <strong>public.php</strong> and tap Follow.</div>
@@ -1187,7 +1440,7 @@ if (isset($_POST['submit'])) {
             </button>
           </div>
           <div class="modal-body">
-            <label class="form-control-label" for="publisherAddNameInput">Publisher name</label>
+            <!-- <label class="form-control-label" for="publisherAddNameInput">Publisher name</label> -->
             <input type="text" id="publisherAddNameInput" class="form-control" placeholder="e.g. CBS News" maxlength="120" autocomplete="off">
             <div class="publisher-authority-box">
               <div class="publisher-authority-title" id="publisherAuthorityTitle">Publisher name request</div>
@@ -1233,8 +1486,140 @@ if (isset($_POST['submit'])) {
       </div>
     </div>
 
+    <div class="modal fade publisher-add-modal" id="commerceBrandAddModal" tabindex="-1" role="dialog" aria-labelledby="commerceBrandAddModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="commerceBrandAddModalLabel">Commerce brand request</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <input type="text" id="commerceBrandAddNameInput" class="form-control" placeholder="e.g. Chipotle, Target, Nike" maxlength="120" autocomplete="off">
+            <div class="row row-xs mg-t-10">
+              <div class="col-sm">
+                <label class="form-control-label" for="commerceBrandAccountUsername">Account username</label>
+                <input type="text" id="commerceBrandAccountUsername" class="form-control" placeholder="Username for signup" maxlength="120" autocomplete="username">
+              </div>
+              <div class="col-sm">
+                <label class="form-control-label" for="commerceBrandAccountEmail">Account email</label>
+                <input type="email" id="commerceBrandAccountEmail" class="form-control" placeholder="Email for signup" maxlength="120" autocomplete="email">
+              </div>
+            </div>
+            <div class="tx-12 mg-t-5">Use the username and email you will use to create your seller account.</div>
+            <div class="publisher-authority-box">
+              <div class="publisher-authority-title">Commerce brand request</div>
+              <div class="publisher-authority-note">New brand systems are reviewed by an admin before you can create your seller account.</div>
+              <div class="publisher-authority-grid">
+                <div class="form-group full">
+                  <label class="form-control-label" for="commerceBrandAuthorityEntityType">Organization type</label>
+                  <select id="commerceBrandAuthorityEntityType" class="form-control">
+                    <?php foreach (publisher_authority_entity_types() as $typeKey => $typeLabel): ?>
+                      <option value="<?= htmlspecialchars($typeKey, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="form-group full">
+                  <label class="form-control-label" for="commerceBrandAuthorityLegalName">Store / franchise name (optional)</label>
+                  <input type="text" id="commerceBrandAuthorityLegalName" class="form-control" placeholder="e.g. Downtown location" maxlength="200" autocomplete="organization">
+                </div>
+                <div class="form-group">
+                  <label class="form-control-label" for="commerceBrandAuthorityContactName">Authorized representative</label>
+                  <input type="text" id="commerceBrandAuthorityContactName" class="form-control" placeholder="Full name" maxlength="120" autocomplete="name" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-control-label" for="commerceBrandAuthorityContactEmail">Representative email</label>
+                  <input type="email" id="commerceBrandAuthorityContactEmail" class="form-control" placeholder="name@company.com" maxlength="120" autocomplete="email" required>
+                </div>
+                <div class="form-group full">
+                  <label class="form-control-label" for="commerceBrandAuthorityRequestNote">Note for admin (optional)</label>
+                  <textarea id="commerceBrandAuthorityRequestNote" class="form-control" rows="2" maxlength="500" placeholder="Why this brand should be added to Commerce brand system"></textarea>
+                </div>
+              </div>
+              <label class="publisher-authority-confirm">
+                <input type="checkbox" id="commerceBrandAuthorityConfirm" value="1">
+                <span>I confirm I am authorized to request this commerce brand on behalf of the organization above.</span>
+              </label>
+            </div>
+            <div class="publisher-add-error" id="commerceBrandAddError" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="commerceBrandAddSaveBtn">Submit request</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade publisher-add-modal" id="commerceSellerRequestModal" tabindex="-1" role="dialog" aria-labelledby="commerceSellerRequestModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="commerceSellerRequestModalLabel">Commerce seller request</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="commerceSellerBrandName" class="publisher-custom-chosen-name mg-b-10"></div>
+            <div class="row row-xs mg-b-10">
+              <div class="col-sm">
+                <label class="form-control-label" for="commerceSellerAccountUsername">Account username</label>
+                <input type="text" id="commerceSellerAccountUsername" class="form-control" placeholder="Username for signup" maxlength="120" autocomplete="username">
+              </div>
+              <div class="col-sm">
+                <label class="form-control-label" for="commerceSellerAccountEmail">Account email</label>
+                <input type="email" id="commerceSellerAccountEmail" class="form-control" placeholder="Email for signup" maxlength="120" autocomplete="email">
+              </div>
+            </div>
+            <div class="publisher-authority-box">
+              <div class="publisher-authority-title">Commerce seller approval</div>
+              <div class="publisher-authority-note">Admin must approve your request to sell under this brand before you can create your account.</div>
+              <div class="publisher-authority-grid">
+                <div class="form-group full">
+                  <label class="form-control-label" for="commerceAuthorityEntityType">Organization type</label>
+                  <select id="commerceAuthorityEntityType" class="form-control">
+                    <?php foreach (publisher_authority_entity_types() as $typeKey => $typeLabel): ?>
+                      <option value="<?= htmlspecialchars($typeKey, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="form-group full">
+                  <label class="form-control-label" for="commerceAuthorityLegalName">Store / franchise name (optional)</label>
+                  <input type="text" id="commerceAuthorityLegalName" class="form-control" placeholder="e.g. Downtown McDonald's" maxlength="200" autocomplete="organization">
+                </div>
+                <div class="form-group">
+                  <label class="form-control-label" for="commerceAuthorityContactName">Authorized representative</label>
+                  <input type="text" id="commerceAuthorityContactName" class="form-control" placeholder="Full name" maxlength="120" autocomplete="name" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-control-label" for="commerceAuthorityContactEmail">Representative email</label>
+                  <input type="email" id="commerceAuthorityContactEmail" class="form-control" placeholder="name@company.com" maxlength="120" autocomplete="email" required>
+                </div>
+                <div class="form-group full">
+                  <label class="form-control-label" for="commerceAuthorityRequestNote">Note for admin (optional)</label>
+                  <textarea id="commerceAuthorityRequestNote" class="form-control" rows="2" maxlength="500" placeholder="Store location, franchise details, or why you should sell under this brand"></textarea>
+                </div>
+              </div>
+              <label class="publisher-authority-confirm">
+                <input type="checkbox" id="commerceAuthorityConfirm" value="1">
+                <span>I confirm I am authorized to sell under this brand system.</span>
+              </label>
+            </div>
+            <div class="publisher-add-error" id="commerceSellerModalError" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="commerceSubmitRequestBtn">Submit seller request</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
     (function(){
+      var signupTrack = document.body.getAttribute('data-signup-track') || 'personal';
       var publisherSelect = document.getElementById('publisherNameSelect');
       var publisherHidden = document.getElementById('publisherNameHidden');
       var personalNameInput = document.querySelector('.personal-name');
@@ -1257,6 +1642,55 @@ if (isset($_POST['submit'])) {
       var publisherCheckStatusBtn = document.getElementById('publisherCheckStatusBtn');
       var publisherWaitNote = document.getElementById('publisherWaitNote');
       var customChosenChange = document.getElementById('publisherCustomChosenChange');
+      var commerceBrandSelect = document.getElementById('commerceBrandSelect');
+      var commerceAuthorityEntityType = document.getElementById('commerceAuthorityEntityType');
+      var commerceAuthorityLegalName = document.getElementById('commerceAuthorityLegalName');
+      var commerceAuthorityContactName = document.getElementById('commerceAuthorityContactName');
+      var commerceAuthorityContactEmail = document.getElementById('commerceAuthorityContactEmail');
+      var commerceAuthorityRequestNote = document.getElementById('commerceAuthorityRequestNote');
+      var commerceAuthorityConfirm = document.getElementById('commerceAuthorityConfirm');
+      var commerceSellerStatus = document.getElementById('commerceSellerStatus');
+      var commerceSellerStatusActions = document.getElementById('commerceSellerStatusActions');
+      var commerceCheckStatusBtn = document.getElementById('commerceCheckStatusBtn');
+      var commerceWaitNote = document.getElementById('commerceWaitNote');
+      var commerceSubmitRequestBtn = document.getElementById('commerceSubmitRequestBtn');
+      var commerceRequestError = document.getElementById('commerceRequestError');
+      var commerceSellerRequestModal = window.jQuery ? window.jQuery('#commerceSellerRequestModal') : null;
+      var commerceSellerBrandName = document.getElementById('commerceSellerBrandName');
+      var commerceSellerAccountUsername = document.getElementById('commerceSellerAccountUsername');
+      var commerceSellerAccountEmail = document.getElementById('commerceSellerAccountEmail');
+      var commerceSellerModalError = document.getElementById('commerceSellerModalError');
+      var pendingCommerceBrandId = 0;
+      var commerceBrandWrap = document.getElementById('commerceBrandWrap');
+      var commerceAddNameBtn = document.getElementById('commerceAddNameBtn');
+      var commerceBrandAddModal = window.jQuery ? window.jQuery('#commerceBrandAddModal') : null;
+      var commerceBrandAddInput = document.getElementById('commerceBrandAddNameInput');
+      var commerceBrandAccountUsername = document.getElementById('commerceBrandAccountUsername');
+      var commerceBrandAccountEmail = document.getElementById('commerceBrandAccountEmail');
+      var commerceBrandAddSaveBtn = document.getElementById('commerceBrandAddSaveBtn');
+      var commerceBrandAddError = document.getElementById('commerceBrandAddError');
+      var commerceBrandAuthorityEntityType = document.getElementById('commerceBrandAuthorityEntityType');
+      var commerceBrandAuthorityLegalName = document.getElementById('commerceBrandAuthorityLegalName');
+      var commerceBrandAuthorityContactName = document.getElementById('commerceBrandAuthorityContactName');
+      var commerceBrandAuthorityContactEmail = document.getElementById('commerceBrandAuthorityContactEmail');
+      var commerceBrandAuthorityRequestNote = document.getElementById('commerceBrandAuthorityRequestNote');
+      var commerceBrandAuthorityConfirm = document.getElementById('commerceBrandAuthorityConfirm');
+      var commerceCustomChosen = document.getElementById('commerceCustomChosen');
+      var commerceCustomChosenName = document.getElementById('commerceCustomChosenName');
+      var commerceCustomChosenChange = document.getElementById('commerceCustomChosenChange');
+      var commerceBrandNameHidden = document.getElementById('commerceBrandNameHidden');
+      var commerceBrandCustomStatus = document.getElementById('commerceBrandCustomStatus');
+      var commerceBrandCustomStatusActions = document.getElementById('commerceBrandCustomStatusActions');
+      var commerceBrandCheckStatusBtn = document.getElementById('commerceBrandCheckStatusBtn');
+      var commerceBrandWaitNote = document.getElementById('commerceBrandWaitNote');
+      var customCommerceBrandApproved = false;
+      var commerceBrandStatusPollTimer = null;
+      var commerceBrandStatusPollName = '';
+      var lastCommerceBrandSelection = '';
+      var registerUsernameInput = document.querySelector('input[name="username"]');
+      var registerEmailInput = document.querySelector('input[name="email"]');
+      var commerceSellerApproved = false;
+      var commerceStatusPollTimer = null;
       var lastPublisherSelection = '';
       var pendingPublisherSelection = '';
       var customPublisherApproved = false;
@@ -1264,15 +1698,66 @@ if (isset($_POST['submit'])) {
       var publisherStatusPollName = '';
       var PUBLISHER_STATUS_POLL_MS = 8000;
 
+      function isPublisherSignup(){
+        if (signupTrack === 'publisher' || signupTrack === 'commerce') {
+          return true;
+        }
+        if (signupTrack === 'personal') {
+          return false;
+        }
+        var pub = document.querySelector('input[name="account_type"][value="publisher"]');
+        return !!(pub && pub.checked);
+      }
+
+      function isCommerceSignup(){
+        if (signupTrack === 'commerce') {
+          return true;
+        }
+        if (signupTrack === 'publisher' || signupTrack === 'personal') {
+          return false;
+        }
+        var commerceMode = document.querySelector('input[name="publisher_mode"][value="commerce"]');
+        return !!(commerceMode && commerceMode.checked);
+      }
+
+      function registerCoreFieldsReady(){
+        var username = registerUsernameInput ? registerUsernameInput.value.trim() : '';
+        var email = registerEmailInput ? registerEmailInput.value.trim() : '';
+        var passwordInput = document.querySelector('#registerForm input[name="password"]');
+        var password = passwordInput ? passwordInput.value : '';
+        return username !== '' && email !== '' && password !== '';
+      }
+
+      function syncCommerceBrandFieldRequirements(){
+        var brandSelect = document.getElementById('commerceBrandSelect');
+        if (!brandSelect) {
+          return;
+        }
+        var usingCustomBrand = !!(commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible'));
+        if (isCommerceSignup() && !usingCustomBrand) {
+          brandSelect.setAttribute('required', 'required');
+        } else {
+          brandSelect.removeAttribute('required');
+        }
+      }
+
       function syncSubmitButtonState(){
         var selectedPolicy = document.querySelector('input[name="policy_agreement"]:checked');
         var agree = !!(selectedPolicy && selectedPolicy.value === 'agree');
-        var pub = document.querySelector('input[name="account_type"][value="publisher"]');
-        var isPublisher = !!(pub && pub.checked);
+        var isPublisher = isPublisherSignup();
+        var isCommerce = isCommerceSignup();
+        var commerceBrandSelect = document.getElementById('commerceBrandSelect');
         var publisherReady = true;
+        var coreReady = registerCoreFieldsReady();
 
         if (isPublisher) {
-          if (publisherHidden && !publisherHidden.value.trim()) {
+          if (isCommerce) {
+            if (commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible')) {
+              publisherReady = customCommerceBrandApproved;
+            } else {
+              publisherReady = !!(commerceBrandSelect && commerceBrandSelect.value && commerceSellerApproved);
+            }
+          } else if (publisherHidden && !publisherHidden.value.trim()) {
             publisherReady = false;
           } else if (!customPublisherApproved) {
             publisherReady = false;
@@ -1280,8 +1765,14 @@ if (isset($_POST['submit'])) {
         }
 
         if (registerSubmitBtn) {
-          registerSubmitBtn.disabled = !agree || (isPublisher && !publisherReady);
-          if (isPublisher && customChosen && customChosen.classList.contains('is-visible') && !customPublisherApproved) {
+          registerSubmitBtn.disabled = !agree || !coreReady || (isPublisher && !publisherReady);
+          if (isPublisher && isCommerce && commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible') && !customCommerceBrandApproved) {
+            registerSubmitBtn.title = 'Waiting for admin approval of your commerce brand request.';
+          } else if (isPublisher && isCommerce && commerceBrandSelect && !commerceBrandSelect.value) {
+            registerSubmitBtn.title = 'Choose a commerce brand system to continue.';
+          } else if (isPublisher && isCommerce && !commerceSellerApproved) {
+            registerSubmitBtn.title = 'Submit your commerce seller request and wait for admin approval.';
+          } else if (isPublisher && !isCommerce && customChosen && customChosen.classList.contains('is-visible') && !customPublisherApproved) {
             registerSubmitBtn.title = 'Waiting for admin approval of your publisher name request.';
           } else if (!agree) {
             registerSubmitBtn.title = 'Agree to the Terms & Policy to continue.';
@@ -1522,11 +2013,504 @@ if (isset($_POST['submit'])) {
         }
       }
 
+      function stopCommerceStatusPoll(){
+        if (commerceStatusPollTimer) {
+          clearInterval(commerceStatusPollTimer);
+          commerceStatusPollTimer = null;
+        }
+      }
+
+      function stopCommerceBrandStatusPoll(){
+        if (commerceBrandStatusPollTimer) {
+          clearInterval(commerceBrandStatusPollTimer);
+          commerceBrandStatusPollTimer = null;
+        }
+        commerceBrandStatusPollName = '';
+      }
+
+      function setCommerceBrandWaitNoteVisible(visible){
+        if (commerceBrandWaitNote) {
+          commerceBrandWaitNote.hidden = !visible;
+        }
+      }
+
+      function showCommerceBrandAddError(message){
+        if (!commerceBrandAddError) return;
+        commerceBrandAddError.textContent = message || '';
+        commerceBrandAddError.classList.toggle('is-visible', !!message);
+      }
+
+      function showCommerceBrandCustomStatus(status, message){
+        if (!commerceBrandCustomStatus) return;
+        commerceBrandCustomStatus.hidden = !message;
+        commerceBrandCustomStatus.textContent = message || '';
+        commerceBrandCustomStatus.classList.remove('is-pending', 'is-approved', 'is-rejected', 'is-checking');
+        if (status === 'pending') commerceBrandCustomStatus.classList.add('is-pending');
+        if (status === 'approved') commerceBrandCustomStatus.classList.add('is-approved');
+        if (status === 'rejected') commerceBrandCustomStatus.classList.add('is-rejected');
+        if (status === 'checking') commerceBrandCustomStatus.classList.add('is-checking');
+        if (commerceBrandCustomStatusActions) {
+          commerceBrandCustomStatusActions.hidden = status !== 'pending';
+        }
+        setCommerceBrandWaitNoteVisible(status === 'pending');
+      }
+
+      function setCustomCommerceBrandApproved(approved){
+        customCommerceBrandApproved = !!approved;
+        syncSubmitButtonState();
+        if (approved) {
+          stopCommerceBrandStatusPoll();
+        }
+      }
+
+      function ensureCommerceBrandOption(brandId, brandName, tagline){
+        if (!commerceBrandSelect || brandId <= 0) return;
+        var exists = false;
+        Array.prototype.forEach.call(commerceBrandSelect.options, function(opt){
+          if (parseInt(opt.value || '0', 10) === brandId) {
+            exists = true;
+          }
+        });
+        if (!exists) {
+          var opt = document.createElement('option');
+          opt.value = String(brandId);
+          opt.textContent = brandName + (tagline ? ' — ' + tagline : '');
+          commerceBrandSelect.insertBefore(opt, commerceBrandSelect.querySelector('option[value="__add_new__"]'));
+        }
+        commerceBrandSelect.value = String(brandId);
+      }
+
+      function clearCommerceCustomChosen(){
+        stopCommerceBrandStatusPoll();
+        setCustomCommerceBrandApproved(false);
+        if (commerceCustomChosen) {
+          commerceCustomChosen.classList.remove('is-visible', 'is-waiting', 'is-approved-state');
+        }
+        if (commerceCustomChosenName) commerceCustomChosenName.textContent = '';
+        if (commerceBrandNameHidden) {
+          commerceBrandNameHidden.value = '';
+          commerceBrandNameHidden.disabled = true;
+        }
+        if (commerceBrandWrap) {
+          commerceBrandWrap.classList.remove('commerce-custom-active');
+        }
+        syncCommerceBrandFieldRequirements();
+        showCommerceBrandCustomStatus('', '');
+        setCommerceBrandWaitNoteVisible(false);
+        if (commerceBrandSelect) {
+          commerceBrandSelect.value = lastCommerceBrandSelection || '';
+        }
+        syncSubmitButtonState();
+      }
+
+      function applyCommerceBrandRequestResult(data){
+        var name = data && data.name ? String(data.name) : '';
+        if (!name) return;
+        if (commerceBrandSelect) {
+          lastCommerceBrandSelection = commerceBrandSelect.value || '';
+          commerceBrandSelect.value = '';
+        }
+        if (commerceCustomChosen) {
+          commerceCustomChosen.classList.add('is-visible');
+          commerceCustomChosen.classList.toggle('is-waiting', data.status !== 'approved');
+          commerceCustomChosen.classList.toggle('is-approved-state', data.status === 'approved');
+        }
+        if (commerceCustomChosenName) commerceCustomChosenName.textContent = name;
+        if (commerceBrandNameHidden) {
+          commerceBrandNameHidden.value = name;
+          commerceBrandNameHidden.disabled = false;
+        }
+        if (commerceBrandWrap) {
+          commerceBrandWrap.classList.add('commerce-custom-active');
+        }
+        syncCommerceBrandFieldRequirements();
+        if (data.brand_id) {
+          ensureCommerceBrandOption(parseInt(data.brand_id, 10), name, '');
+        }
+        if (data.status === 'approved') {
+          showCommerceBrandCustomStatus('approved', 'Admin approved your commerce brand request! Click Create account to finish signup.');
+          setCustomCommerceBrandApproved(true);
+          if (data.brand_id) {
+            setCommerceApprovedState(true);
+          }
+        } else {
+          showCommerceBrandCustomStatus('pending', 'Waiting for admin approval… we check automatically every few seconds.');
+          setCustomCommerceBrandApproved(false);
+          startCommerceBrandStatusPoll(name);
+        }
+        syncSubmitButtonState();
+      }
+
+      function refreshCustomCommerceBrandStatus(brandName, manualCheck){
+        var email = registerEmailInput ? registerEmailInput.value.trim() : '';
+        if (!brandName || email === '') {
+          showCommerceBrandCustomStatus('', '');
+          setCustomCommerceBrandApproved(false);
+          stopCommerceBrandStatusPoll();
+          return;
+        }
+
+        if (manualCheck) {
+          showCommerceBrandCustomStatus('checking', 'Checking approval status…');
+        }
+
+        fetch('commerce_brand_name_request_status.php?name=' + encodeURIComponent(brandName) + '&email=' + encodeURIComponent(email), { credentials: 'same-origin' })
+          .then(function(res){ return res.json(); })
+          .then(function(data){
+            if (!data || !data.ok) {
+              if (manualCheck) {
+                showCommerceBrandCustomStatus('pending', 'Could not check status right now. Trying again automatically…');
+              }
+              return;
+            }
+            if (data.brand_id) {
+              ensureCommerceBrandOption(parseInt(data.brand_id, 10), data.brand_name || brandName, '');
+            }
+            if (data.status === 'approved') {
+              showCommerceBrandCustomStatus('approved', 'Admin approved your commerce brand request! Click Create account to finish signup.');
+              setCustomCommerceBrandApproved(true);
+              setCommerceApprovedState(true);
+            } else if (data.status === 'pending') {
+              showCommerceBrandCustomStatus('pending', manualCheck ? 'Still waiting for admin approval. This page will keep checking automatically.' : 'Waiting for admin approval… we check automatically every few seconds.');
+              setCustomCommerceBrandApproved(false);
+              startCommerceBrandStatusPoll(brandName);
+            } else if (data.status === 'rejected') {
+              showCommerceBrandCustomStatus('rejected', 'Admin rejected this request. Update your details and submit a new request.');
+              setCustomCommerceBrandApproved(false);
+              stopCommerceBrandStatusPoll();
+            } else {
+              showCommerceBrandCustomStatus('', 'Submit your brand request with Add name. Admin must approve it before you can create your account.');
+              setCustomCommerceBrandApproved(false);
+              stopCommerceBrandStatusPoll();
+            }
+          })
+          .catch(function(){
+            if (manualCheck) {
+              showCommerceBrandCustomStatus('pending', 'Could not check status right now. Trying again automatically…');
+            }
+          });
+      }
+
+      function startCommerceBrandStatusPoll(brandName){
+        stopCommerceBrandStatusPoll();
+        commerceBrandStatusPollName = brandName || '';
+        if (!commerceBrandStatusPollName) return;
+        commerceBrandStatusPollTimer = setInterval(function(){
+          refreshCustomCommerceBrandStatus(commerceBrandStatusPollName, false);
+        }, 8000);
+      }
+
+      function syncCommerceAccountFieldsToRegisterForm(username, email){
+        if (registerUsernameInput && username && !registerUsernameInput.value.trim()) {
+          registerUsernameInput.value = username;
+        }
+        if (registerEmailInput && email && !registerEmailInput.value.trim()) {
+          registerEmailInput.value = email;
+        }
+        syncSubmitButtonState();
+      }
+
+      function prefillCommerceAccountFields(usernameField, emailField){
+        if (usernameField && registerUsernameInput && registerUsernameInput.value.trim() && !usernameField.value.trim()) {
+          usernameField.value = registerUsernameInput.value.trim();
+        }
+        if (emailField && registerEmailInput && registerEmailInput.value.trim() && !emailField.value.trim()) {
+          emailField.value = registerEmailInput.value.trim();
+        }
+      }
+
+      function resolveCommerceBrandRequestCredentials(){
+        var username = commerceBrandAccountUsername ? commerceBrandAccountUsername.value.trim() : '';
+        var email = commerceBrandAccountEmail ? commerceBrandAccountEmail.value.trim() : '';
+        if (username === '' && registerUsernameInput) {
+          username = registerUsernameInput.value.trim();
+        }
+        if (email === '' && registerEmailInput) {
+          email = registerEmailInput.value.trim();
+        }
+        if (email === '' && commerceBrandAuthorityContactEmail) {
+          email = commerceBrandAuthorityContactEmail.value.trim();
+        }
+        if (username === '' && email !== '') {
+          username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
+        }
+        return { username: username, email: email };
+      }
+
+      function resolveCommerceSellerRequestCredentials(){
+        var username = commerceSellerAccountUsername ? commerceSellerAccountUsername.value.trim() : '';
+        var email = commerceSellerAccountEmail ? commerceSellerAccountEmail.value.trim() : '';
+        if (username === '' && registerUsernameInput) {
+          username = registerUsernameInput.value.trim();
+        }
+        if (email === '' && registerEmailInput) {
+          email = registerEmailInput.value.trim();
+        }
+        if (email === '' && commerceAuthorityContactEmail) {
+          email = commerceAuthorityContactEmail.value.trim();
+        }
+        if (username === '' && email !== '') {
+          username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
+        }
+        return { username: username, email: email };
+      }
+
+      function openCommerceBrandAddModal(){
+        showCommerceBrandAddError('');
+        if (commerceBrandAuthorityEntityType) commerceBrandAuthorityEntityType.selectedIndex = 0;
+        if (commerceBrandAuthorityLegalName) commerceBrandAuthorityLegalName.value = '';
+        if (commerceBrandAuthorityContactName) commerceBrandAuthorityContactName.value = '';
+        if (commerceBrandAuthorityContactEmail) commerceBrandAuthorityContactEmail.value = '';
+        if (commerceBrandAuthorityRequestNote) commerceBrandAuthorityRequestNote.value = '';
+        if (commerceBrandAuthorityConfirm) commerceBrandAuthorityConfirm.checked = false;
+        if (commerceBrandAddInput) {
+          commerceBrandAddInput.value = '';
+          commerceBrandAddInput.readOnly = false;
+        }
+        if (commerceBrandAccountUsername) commerceBrandAccountUsername.value = '';
+        if (commerceBrandAccountEmail) commerceBrandAccountEmail.value = '';
+        prefillCommerceAccountFields(commerceBrandAccountUsername, commerceBrandAccountEmail);
+        if (commerceBrandAddModal) commerceBrandAddModal.modal('show');
+      }
+
+      function validateCommerceBrandAuthorityForm(){
+        var contactName = commerceBrandAuthorityContactName ? commerceBrandAuthorityContactName.value.replace(/\s+/g, ' ').trim() : '';
+        var contactEmail = commerceBrandAuthorityContactEmail ? commerceBrandAuthorityContactEmail.value.trim() : '';
+        if (!contactName) return 'Enter the authorized representative name.';
+        if (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return 'Enter a valid authorized representative email.';
+        if (!commerceBrandAuthorityConfirm || !commerceBrandAuthorityConfirm.checked) return 'Confirm that you are authorized to request this commerce brand.';
+        return '';
+      }
+
+      function appendCommerceBrandAuthorityForm(body){
+        if (commerceBrandAuthorityEntityType) body.append('entity_type', commerceBrandAuthorityEntityType.value || 'business');
+        if (commerceBrandAuthorityLegalName) body.append('legal_entity_name', commerceBrandAuthorityLegalName.value.trim());
+        if (commerceBrandAuthorityContactName) body.append('authorized_contact_name', commerceBrandAuthorityContactName.value.trim());
+        if (commerceBrandAuthorityContactEmail) body.append('authorized_contact_email', commerceBrandAuthorityContactEmail.value.trim());
+        if (commerceBrandAuthorityRequestNote) body.append('request_note', commerceBrandAuthorityRequestNote.value.trim());
+        body.append('authority_confirmed', (commerceBrandAuthorityConfirm && commerceBrandAuthorityConfirm.checked) ? '1' : '0');
+      }
+
+      function showCommerceRequestError(message){
+        if (!commerceRequestError) return;
+        commerceRequestError.textContent = message || '';
+        commerceRequestError.classList.toggle('is-visible', !!message);
+      }
+
+      function showCommerceSellerModalError(message){
+        if (!commerceSellerModalError) return;
+        commerceSellerModalError.textContent = message || '';
+        commerceSellerModalError.classList.toggle('is-visible', !!message);
+      }
+
+      function clearCommerceSellerAuthorityForm(){
+        if (commerceAuthorityEntityType) commerceAuthorityEntityType.selectedIndex = 0;
+        if (commerceAuthorityLegalName) commerceAuthorityLegalName.value = '';
+        if (commerceAuthorityContactName) commerceAuthorityContactName.value = '';
+        if (commerceAuthorityContactEmail) commerceAuthorityContactEmail.value = '';
+        if (commerceAuthorityRequestNote) commerceAuthorityRequestNote.value = '';
+        if (commerceAuthorityConfirm) commerceAuthorityConfirm.checked = false;
+      }
+
+      function openCommerceSellerRequestModal(brandId){
+        pendingCommerceBrandId = brandId > 0 ? brandId : 0;
+        showCommerceSellerModalError('');
+        clearCommerceSellerAuthorityForm();
+        if (commerceSellerBrandName && commerceBrandSelect) {
+          var label = '';
+          Array.prototype.forEach.call(commerceBrandSelect.options, function(opt){
+            if (parseInt(opt.value || '0', 10) === pendingCommerceBrandId) {
+              label = (opt.textContent || '').split(' — ')[0].trim();
+            }
+          });
+          commerceSellerBrandName.textContent = label || 'Selected brand';
+        }
+        if (commerceSellerAccountUsername) commerceSellerAccountUsername.value = '';
+        if (commerceSellerAccountEmail) commerceSellerAccountEmail.value = '';
+        prefillCommerceAccountFields(commerceSellerAccountUsername, commerceSellerAccountEmail);
+        if (commerceSellerRequestModal) commerceSellerRequestModal.modal('show');
+      }
+
+      function applyCommerceSellerSelection(brandId){
+        if (!commerceBrandSelect || brandId <= 0) return;
+        commerceBrandSelect.value = String(brandId);
+        lastCommerceBrandSelection = String(brandId);
+      }
+
+      function setCommerceWaitNoteVisible(visible){
+        if (commerceWaitNote) {
+          commerceWaitNote.hidden = !visible;
+        }
+      }
+
+      function showCommerceSellerStatus(status, message){
+        if (!commerceSellerStatus) return;
+        commerceSellerStatus.hidden = !message;
+        commerceSellerStatus.textContent = message || '';
+        commerceSellerStatus.classList.remove('is-pending', 'is-approved', 'is-rejected', 'is-checking');
+        if (status === 'pending') commerceSellerStatus.classList.add('is-pending');
+        if (status === 'approved') commerceSellerStatus.classList.add('is-approved');
+        if (status === 'rejected') commerceSellerStatus.classList.add('is-rejected');
+        if (status === 'checking') commerceSellerStatus.classList.add('is-checking');
+        if (commerceSellerStatusActions) {
+          commerceSellerStatusActions.hidden = status !== 'pending';
+        }
+        setCommerceWaitNoteVisible(status === 'pending');
+      }
+
+      function setCommerceApprovedState(approved){
+        var wasApproved = commerceSellerApproved;
+        commerceSellerApproved = !!approved;
+        syncSubmitButtonState();
+        if (approved && !wasApproved && registerSubmitBtn) {
+          registerSubmitBtn.classList.add('is-ready-flash');
+          setTimeout(function(){ registerSubmitBtn.classList.remove('is-ready-flash'); }, 4000);
+        }
+        if (approved) {
+          stopCommerceStatusPoll();
+        }
+      }
+
+      function commerceRequestParams(){
+        return {
+          brandId: commerceBrandSelect ? parseInt(commerceBrandSelect.value || '0', 10) : 0,
+          username: registerUsernameInput ? registerUsernameInput.value.trim() : '',
+          email: registerEmailInput ? registerEmailInput.value.trim() : ''
+        };
+      }
+
+      function refreshCommerceSellerStatus(manualCheck){
+        var params = commerceRequestParams();
+        if (params.brandId <= 0 || params.email === '') {
+          showCommerceSellerStatus('', '');
+          setCommerceApprovedState(false);
+          stopCommerceStatusPoll();
+          return;
+        }
+
+        if (manualCheck) {
+          showCommerceSellerStatus('checking', 'Checking approval status…');
+        }
+
+        fetch('commerce_seller_request_status.php?commerce_brand_id=' + encodeURIComponent(params.brandId) + '&email=' + encodeURIComponent(params.email), { credentials: 'same-origin' })
+          .then(function(res){ return res.json(); })
+          .then(function(data){
+            if (!data || !data.ok) {
+              if (manualCheck) {
+                showCommerceSellerStatus('pending', 'Could not check status right now. Trying again automatically…');
+              }
+              return;
+            }
+            if (data.status === 'approved') {
+              showCommerceSellerStatus('approved', 'Admin approved your commerce seller request! Click Create account to finish signup.');
+              setCommerceApprovedState(true);
+            } else if (data.status === 'pending') {
+              showCommerceSellerStatus('pending', manualCheck ? 'Still waiting for admin approval. This page will keep checking automatically.' : 'Waiting for admin approval… we check automatically every few seconds.');
+              setCommerceApprovedState(false);
+              startCommerceStatusPoll();
+            } else if (data.status === 'rejected') {
+              showCommerceSellerStatus('rejected', 'Admin rejected this request. Update your details and submit a new request.');
+              setCommerceApprovedState(false);
+              stopCommerceStatusPoll();
+            } else {
+              showCommerceSellerStatus('', 'Submit your seller request below. Admin must approve it before you can create your account.');
+              setCommerceApprovedState(false);
+              stopCommerceStatusPoll();
+            }
+          })
+          .catch(function(){
+            if (manualCheck) {
+              showCommerceSellerStatus('pending', 'Could not check status right now. Trying again automatically…');
+            }
+          });
+      }
+
+      function startCommerceStatusPoll(){
+        stopCommerceStatusPoll();
+        commerceStatusPollTimer = setInterval(function(){
+          refreshCommerceSellerStatus(false);
+        }, PUBLISHER_STATUS_POLL_MS);
+      }
+
+      function validateCommerceAuthorityForm(){
+        var contactName = commerceAuthorityContactName ? commerceAuthorityContactName.value.replace(/\s+/g, ' ').trim() : '';
+        var contactEmail = commerceAuthorityContactEmail ? commerceAuthorityContactEmail.value.trim() : '';
+        if (!contactName) return 'Enter the authorized representative name.';
+        if (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return 'Enter a valid authorized representative email.';
+        if (!commerceAuthorityConfirm || !commerceAuthorityConfirm.checked) return 'Confirm that you are authorized to sell under this brand.';
+        return '';
+      }
+
+      function appendCommerceAuthorityForm(body){
+        if (commerceAuthorityEntityType) body.append('entity_type', commerceAuthorityEntityType.value || 'business');
+        if (commerceAuthorityLegalName) body.append('legal_entity_name', commerceAuthorityLegalName.value.trim());
+        if (commerceAuthorityContactName) body.append('authorized_contact_name', commerceAuthorityContactName.value.trim());
+        if (commerceAuthorityContactEmail) body.append('authorized_contact_email', commerceAuthorityContactEmail.value.trim());
+        if (commerceAuthorityRequestNote) body.append('request_note', commerceAuthorityRequestNote.value.trim());
+        body.append('authority_confirmed', (commerceAuthorityConfirm && commerceAuthorityConfirm.checked) ? '1' : '0');
+      }
+
+      function syncPublisherMode(){
+        var isCommerce = (signupTrack === 'commerce');
+        if (signupTrack === 'publisher') {
+          isCommerce = false;
+        } else if (signupTrack === 'personal') {
+          isCommerce = false;
+        } else if (signupTrack !== 'commerce') {
+          var commerceModeInput = document.querySelector('input[name="publisher_mode"][value="commerce"]');
+          isCommerce = !!(commerceModeInput && commerceModeInput.checked);
+        }
+        document.body.classList.toggle('is-publisher-commerce', isCommerce);
+        var mediaCategory = document.getElementById('publisherCategorySelect');
+        var commerceCategoryHidden = document.querySelector('.publisher-commerce-category-hidden');
+        var commerceBrandSelect = document.getElementById('commerceBrandSelect');
+        if (mediaCategory) {
+          mediaCategory.disabled = isCommerce;
+          mediaCategory.required = !isCommerce;
+        }
+        if (commerceCategoryHidden) {
+          commerceCategoryHidden.disabled = !isCommerce;
+        }
+        if (commerceBrandSelect) {
+          syncCommerceBrandFieldRequirements();
+        }
+        if (publisherHidden) {
+          if (isCommerce) {
+            publisherHidden.removeAttribute('name');
+            publisherHidden.required = false;
+            publisherHidden.disabled = true;
+          } else if (signupTrack === 'publisher' || document.querySelector('input[name="account_type"][value="publisher"]')?.checked) {
+            publisherHidden.disabled = false;
+            publisherHidden.required = true;
+            publisherHidden.setAttribute('name', 'name');
+          }
+        }
+        if (isCommerce) {
+          stopPublisherStatusPoll();
+          setPublisherWaitNoteVisible(false);
+          refreshCommerceSellerStatus(false);
+        } else {
+          stopCommerceStatusPoll();
+          setCommerceWaitNoteVisible(false);
+          setCommerceApprovedState(false);
+          showCommerceSellerStatus('', '');
+        }
+        syncSubmitButtonState();
+      }
+
       function syncType(){
-        var pub = document.querySelector('input[name="account_type"][value="publisher"]');
-        var isPublisher = !!(pub && pub.checked);
+        var isPublisher = (signupTrack === 'publisher' || signupTrack === 'commerce');
+        if (signupTrack === 'personal') {
+          isPublisher = false;
+        } else if (signupTrack !== 'publisher' && signupTrack !== 'commerce') {
+          var pub = document.querySelector('input[name="account_type"][value="publisher"]');
+          isPublisher = !!(pub && pub.checked);
+        }
         document.body.classList.toggle('is-publisher-reg', isPublisher);
         document.documentElement.classList.toggle('is-publisher-reg', isPublisher);
+        if (!isPublisher) {
+          document.body.classList.remove('is-publisher-commerce');
+        }
         if (registerSubmitBtn) {
           registerSubmitBtn.textContent = isPublisher ? 'Create account' : 'Sign Up';
         }
@@ -1544,8 +2528,15 @@ if (isset($_POST['submit'])) {
         });
         if (publisherHidden) {
           publisherHidden.disabled = !isPublisher;
-          publisherHidden.required = isPublisher;
-          if (isPublisher) {
+          var isCommerce = (signupTrack === 'commerce');
+          if (signupTrack === 'publisher' || signupTrack === 'personal') {
+            isCommerce = false;
+          } else if (signupTrack !== 'commerce') {
+            var commerceMode = document.querySelector('input[name="publisher_mode"][value="commerce"]');
+            isCommerce = !!(commerceMode && commerceMode.checked);
+          }
+          publisherHidden.required = isPublisher && !isCommerce;
+          if (isPublisher && !isCommerce) {
             publisherHidden.setAttribute('name', 'name');
           } else {
             publisherHidden.removeAttribute('name');
@@ -1561,6 +2552,7 @@ if (isset($_POST['submit'])) {
         }
         if (isPublisher) {
           syncPublisherSelectFromHidden();
+          syncPublisherMode();
         }
         syncSubmitButtonState();
       }
@@ -1723,6 +2715,199 @@ if (isset($_POST['submit'])) {
         });
       });
 
+      if (commerceBrandSelect) {
+        commerceBrandSelect.addEventListener('change', function(){
+          var value = commerceBrandSelect.value;
+          if (value === '__add_new__') {
+            commerceBrandSelect.value = lastCommerceBrandSelection || '';
+            openCommerceBrandAddModal();
+            return;
+          }
+          if (value) {
+            var brandId = parseInt(value, 10);
+            commerceBrandSelect.value = lastCommerceBrandSelection || '';
+            clearCommerceCustomChosen();
+            openCommerceSellerRequestModal(brandId);
+            return;
+          }
+          clearCommerceCustomChosen();
+          lastCommerceBrandSelection = '';
+          setCommerceApprovedState(false);
+          refreshCommerceSellerStatus(false);
+          syncSubmitButtonState();
+        });
+      }
+
+      if (commerceAddNameBtn) {
+        commerceAddNameBtn.addEventListener('click', function(){
+          openCommerceBrandAddModal();
+        });
+      }
+
+      if (commerceCustomChosenChange) {
+        commerceCustomChosenChange.addEventListener('click', function(){
+          clearCommerceCustomChosen();
+          if (commerceBrandSelect) {
+            commerceBrandSelect.focus();
+          }
+        });
+      }
+
+      if (commerceBrandAddSaveBtn) {
+        commerceBrandAddSaveBtn.addEventListener('click', function(){
+          var name = commerceBrandAddInput ? commerceBrandAddInput.value.replace(/\s+/g, ' ').trim() : '';
+          var credentials = resolveCommerceBrandRequestCredentials();
+          var username = credentials.username;
+          var email = credentials.email;
+          if (name.length < 2) {
+            showCommerceBrandAddError('Enter a company or brand name (at least 2 characters).');
+            return;
+          }
+          if (username === '' || email === '') {
+            showCommerceBrandAddError('Enter account username and email in this form, or fill representative email below.');
+            return;
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showCommerceBrandAddError('Enter a valid account email.');
+            return;
+          }
+          var authorityError = validateCommerceBrandAuthorityForm();
+          if (authorityError) {
+            showCommerceBrandAddError(authorityError);
+            return;
+          }
+          showCommerceBrandAddError('');
+          syncCommerceAccountFieldsToRegisterForm(username, email);
+          commerceBrandAddSaveBtn.disabled = true;
+
+          var body = new FormData();
+          body.append('name', name);
+          body.append('username', username);
+          body.append('email', email);
+          appendCommerceBrandAuthorityForm(body);
+
+          fetch('commerce_brand_name_request_save.php', {
+            method: 'POST',
+            body: body,
+            credentials: 'same-origin'
+          })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+              commerceBrandAddSaveBtn.disabled = false;
+              if (!data || !data.ok) {
+                showCommerceBrandAddError((data && data.message) ? data.message : 'Unable to submit commerce brand request.');
+                return;
+              }
+              applyCommerceBrandRequestResult(data);
+              if (commerceBrandAddModal) commerceBrandAddModal.modal('hide');
+            })
+            .catch(function(){
+              commerceBrandAddSaveBtn.disabled = false;
+              showCommerceBrandAddError('Unable to submit commerce brand request right now.');
+            });
+        });
+      }
+
+      if (commerceBrandCheckStatusBtn) {
+        commerceBrandCheckStatusBtn.addEventListener('click', function(){
+          var name = commerceBrandNameHidden ? commerceBrandNameHidden.value.trim() : '';
+          if (name) {
+            refreshCustomCommerceBrandStatus(name, true);
+          }
+        });
+      }
+
+      if (commerceSubmitRequestBtn) {
+        commerceSubmitRequestBtn.addEventListener('click', function(){
+          var brandId = pendingCommerceBrandId > 0 ? pendingCommerceBrandId : (commerceBrandSelect ? parseInt(commerceBrandSelect.value || '0', 10) : 0);
+          var credentials = resolveCommerceSellerRequestCredentials();
+          var username = credentials.username;
+          var email = credentials.email;
+          if (brandId <= 0) {
+            showCommerceSellerModalError('Choose a commerce brand system first.');
+            return;
+          }
+          if (username === '' || email === '') {
+            showCommerceSellerModalError('Enter account username and email in this form, or fill representative email below.');
+            return;
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showCommerceSellerModalError('Enter a valid account email.');
+            return;
+          }
+          var authorityError = validateCommerceAuthorityForm();
+          if (authorityError) {
+            showCommerceSellerModalError(authorityError);
+            return;
+          }
+          showCommerceSellerModalError('');
+          showCommerceRequestError('');
+          syncCommerceAccountFieldsToRegisterForm(username, email);
+          commerceSubmitRequestBtn.disabled = true;
+
+          var body = new FormData();
+          body.append('commerce_brand_id', String(brandId));
+          body.append('username', username);
+          body.append('email', email);
+          appendCommerceAuthorityForm(body);
+
+          fetch('commerce_seller_request_save.php', {
+            method: 'POST',
+            body: body,
+            credentials: 'same-origin'
+          })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+              commerceSubmitRequestBtn.disabled = false;
+              if (!data || !data.ok) {
+                showCommerceSellerModalError((data && data.message) ? data.message : 'Unable to submit commerce seller request.');
+                return;
+              }
+              applyCommerceSellerSelection(brandId);
+              if (commerceSellerRequestModal) commerceSellerRequestModal.modal('hide');
+              if (data.status === 'approved') {
+                showCommerceSellerStatus('approved', 'Admin approved your commerce seller request! Click Create account to finish signup.');
+                setCommerceApprovedState(true);
+              } else {
+                showCommerceSellerStatus('pending', 'Waiting for admin approval… we check automatically every few seconds.');
+                setCommerceApprovedState(false);
+                startCommerceStatusPoll();
+              }
+            })
+            .catch(function(){
+              commerceSubmitRequestBtn.disabled = false;
+              showCommerceSellerModalError('Unable to submit commerce seller request right now.');
+            });
+        });
+      }
+
+      if (commerceCheckStatusBtn) {
+        commerceCheckStatusBtn.addEventListener('click', function(){
+          refreshCommerceSellerStatus(true);
+        });
+      }
+
+      if (registerEmailInput) {
+        registerEmailInput.addEventListener('input', function(){
+          if (document.body.classList.contains('is-publisher-commerce')) {
+            setCommerceApprovedState(false);
+            if (commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible')) {
+              setCustomCommerceBrandApproved(false);
+              var customName = commerceBrandNameHidden ? commerceBrandNameHidden.value.trim() : '';
+              if (customName) {
+                refreshCustomCommerceBrandStatus(customName, false);
+              }
+            } else {
+              refreshCommerceSellerStatus(false);
+            }
+          }
+        });
+      }
+
+      document.querySelectorAll('input[name="publisher_mode"]').forEach(function(r){
+        r.addEventListener('change', syncPublisherMode);
+      });
+
       var registerForm = document.getElementById('registerForm');
       var registerSubmitBtn = document.getElementById('registerSubmitBtn');
       var registerPolicyNote = document.getElementById('registerPolicyNote');
@@ -1738,6 +2923,9 @@ if (isset($_POST['submit'])) {
       document.querySelectorAll('input[name="policy_agreement"]').forEach(function(radio){
         radio.addEventListener('change', syncPolicyChoice);
       });
+      document.querySelectorAll('#registerForm input[name="username"], #registerForm input[name="email"], #registerForm input[name="password"]').forEach(function(input){
+        input.addEventListener('input', syncSubmitButtonState);
+      });
       syncPolicyChoice();
 
       if (registerForm) {
@@ -1751,8 +2939,12 @@ if (isset($_POST['submit'])) {
             return;
           }
 
-          var pub = document.querySelector('input[name="account_type"][value="publisher"]');
-          if (!pub || !pub.checked) {
+          var isPublisherSubmit = (signupTrack === 'publisher' || signupTrack === 'commerce');
+          if (!isPublisherSubmit) {
+            var pub = document.querySelector('input[name="account_type"][value="publisher"]');
+            isPublisherSubmit = !!(pub && pub.checked);
+          }
+          if (!isPublisherSubmit) {
             var ageConfirm = document.querySelector('input[name="age_confirm"]');
             if (ageConfirm && !ageConfirm.checked) {
               ev.preventDefault();
@@ -1762,23 +2954,59 @@ if (isset($_POST['submit'])) {
             }
           }
 
-          if (pub && pub.checked && publisherHidden && !publisherHidden.value.trim()) {
-            ev.preventDefault();
-            if (publisherSelect) publisherSelect.focus();
-            alert('Please select or add a publisher name.');
-            return;
-          }
+          if (isPublisherSubmit) {
+            var isCommerceSubmit = (signupTrack === 'commerce');
+            if (!isCommerceSubmit) {
+              var commerceMode = document.querySelector('input[name="publisher_mode"][value="commerce"]');
+              isCommerceSubmit = !!(commerceMode && commerceMode.checked);
+            }
+            var commerceBrandSelect = document.getElementById('commerceBrandSelect');
+            if (isCommerceSubmit) {
+              var usingCustomCommerceBrand = commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible');
+              if (usingCustomCommerceBrand) {
+                if (!customCommerceBrandApproved) {
+                  ev.preventDefault();
+                  alert('Your commerce brand request must be approved by admin before you can create your account.');
+                  return;
+                }
+                return;
+              }
+              if (commerceBrandSelect && !commerceBrandSelect.value) {
+                ev.preventDefault();
+                commerceBrandSelect.focus();
+                alert('Please choose a commerce brand system or click Add name to request a new one.');
+                return;
+              }
+              if (!commerceSellerApproved) {
+                ev.preventDefault();
+                alert('Your commerce seller request must be approved by admin before you can create your account.');
+                return;
+              }
+              return;
+            }
+            if (publisherHidden && !publisherHidden.value.trim()) {
+              ev.preventDefault();
+              if (publisherSelect) publisherSelect.focus();
+              alert('Please select or add a publisher name.');
+              return;
+            }
 
-          if (pub && pub.checked && publisherHidden && publisherHidden.value.trim() && !customPublisherApproved) {
-            ev.preventDefault();
-            alert('This publisher name is not approved yet. Wait for admin approval before signing up.');
-            return;
+            if (publisherHidden && publisherHidden.value.trim() && !customPublisherApproved) {
+              ev.preventDefault();
+              alert('This publisher name is not approved yet. Wait for admin approval before signing up.');
+              return;
+            }
           }
         });
       }
 
       syncType();
+      syncPublisherMode();
       syncPublisherSelectFromHidden();
+      syncCommerceBrandFieldRequirements();
+      if (commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible') && commerceBrandNameHidden && commerceBrandNameHidden.value.trim()) {
+        refreshCustomCommerceBrandStatus(commerceBrandNameHidden.value.trim(), false);
+      }
     })();
     </script>
   </body>

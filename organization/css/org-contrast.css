@@ -1,0 +1,1075 @@
+/* Organization contrast — load last (footer) so text/icons/inputs/buttons/borders
+   stay readable on default #171d24 canvas and custom Gear palette backgrounds. */
+
+body.org-app {
+  --org-text: #e8edf5;
+  --org-text-muted: #b1bcce;
+  --org-text-soft: #94a3b8;
+  --org-border: rgba(177, 188, 206, 0.32);
+  --org-border-strong: rgba(177, 188, 206, 0.48);
+  --org-surface: #171d24;
+  --org-surface-raised: #1e2733;
+  --org-input-bg: #252f3d;
+  --org-input-text: #e8edf5;
+  --org-input-border: rgba(177, 188, 206, 0.38);
+  --org-input-placeholder: #94a3b8;
+  --org-link: var(--org-accent, #93c5fd);
+  --org-icon: var(--org-accent, #b1bcce);
+  --org-btn-filled-bg: var(--msb-palette-btn-bg, var(--org-accent, #2563eb));
+  --org-btn-filled-text: var(--msb-palette-btn-text, var(--org-btn-on-accent, #ffffff));
+  color: var(--org-text);
+}
+
+html[data-msb-appearance] body.org-app {
+  --org-text: var(--msb-palette-text);
+  --org-text-muted: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --org-text-soft: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --org-border: var(--msb-palette-border);
+  --org-border-strong: var(--msb-palette-border-strong, var(--msb-palette-border));
+  --org-surface: var(--msb-palette-bg);
+  --org-surface-raised: var(--msb-palette-surface, var(--msb-palette-bg));
+  --org-input-bg: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)));
+  --org-input-text: var(--msb-palette-text);
+  --org-input-border: var(--msb-palette-border-strong, var(--msb-palette-border));
+  --org-input-placeholder: var(--msb-palette-placeholder, var(--msb-palette-text-muted));
+  --org-link: var(--msb-palette-link, var(--msb-palette-action));
+  --org-icon: var(--msb-palette-icon, var(--msb-palette-action));
+  --org-btn-surface: var(--msb-palette-surface-2, var(--msb-palette-bg));
+  --org-btn-surface-hover: var(--msb-palette-nav-hover, var(--msb-palette-hover-bg));
+  --org-btn-border: var(--msb-palette-border);
+  --org-btn-border-strong: var(--msb-palette-border-strong, var(--msb-palette-border));
+  --org-btn-text: var(--msb-palette-text);
+  --org-btn-text-muted: var(--msb-palette-text-muted, var(--msb-palette-text));
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto) body.org-app {
+  --org-text: #111827;
+  --org-text-muted: #64748b;
+  --org-text-soft: #94a3b8;
+  --org-border: rgba(15, 23, 42, 0.12);
+  --org-border-strong: rgba(15, 23, 42, 0.2);
+  --org-surface: #ffffff;
+  --org-surface-raised: #f8fafc;
+  --org-input-bg: #ffffff;
+  --org-input-text: #111827;
+  --org-input-border: rgba(15, 23, 42, 0.18);
+  --org-input-placeholder: #94a3b8;
+  --org-link: var(--org-accent, #2563eb);
+  --org-icon: var(--org-accent, #475569);
+  --org-btn-surface: #f3f4f6;
+  --org-btn-surface-hover: #e5e7eb;
+  --org-btn-border: rgba(15, 23, 42, 0.14);
+  --org-btn-border-strong: rgba(15, 23, 42, 0.22);
+  --org-btn-text: #111827;
+  --org-btn-text-muted: #64748b;
+  color: var(--org-text);
+}
+
+/* ----- Base text & headings ----- */
+body.org-app,
+body.org-app .sh-pagebody,
+body.org-app .sh-mainpanel,
+body.org-app .card,
+body.org-app .card-body,
+body.org-app p,
+body.org-app li,
+body.org-app label,
+body.org-app .form-group label,
+body.org-app .custom-control-label {
+  color: var(--org-text) !important;
+}
+
+body.org-app h1,
+body.org-app h2,
+body.org-app h3,
+body.org-app h4,
+body.org-app h5,
+body.org-app h6,
+body.org-app .card-title,
+body.org-app .tx-bold,
+body.org-app .tx-semibold,
+body.org-app .tx-24,
+body.org-app .tx-20,
+body.org-app .tx-18 {
+  color: var(--org-text) !important;
+}
+
+body.org-app .tx-color-01,
+body.org-app .tx-color-02,
+body.org-app .tx-color-03,
+body.org-app .tx-color-04,
+body.org-app .tx-color-05,
+body.org-app .text-muted,
+body.org-app .org-muted,
+body.org-app .mini-muted,
+body.org-app .feed-meta,
+body.org-app .feed-date,
+body.org-app .comp-sub,
+body.org-app .publisher-check .hint,
+body.org-app .rm-date,
+body.org-app .sidebar-subtitle,
+body.org-app .sidebar-section,
+body.org-app .crm-stage .crm-sub,
+body.org-app .crm-arrow,
+body.org-app .pt-muted,
+body.org-app .ch-muted {
+  color: var(--org-text-muted) !important;
+}
+
+body.org-app .tx-10.tx-uppercase,
+body.org-app .tx-11,
+body.org-app .tx-12 {
+  color: var(--org-text-muted) !important;
+}
+
+/* ----- Links & icons ----- */
+body.org-app a:not(.btn):not(.nav-link):not(.dropdown-item):not(.crm-stage):not(.ch-btn):not(.pt-btn):not(.feed-tab-link),
+body.org-app .link,
+body.org-app .read-more-btn,
+body.org-app .pt-back {
+  color: var(--org-link) !important;
+}
+
+body.org-app a:not(.btn):not(.nav-link):not(.feed-tab-link):hover,
+body.org-app .link:hover,
+body.org-app .read-more-btn:hover,
+body.org-app .pt-back:hover {
+  color: var(--msb-palette-link-hover, var(--org-link)) !important;
+}
+
+body.org-app i,
+body.org-app .fa,
+body.org-app [class*="ion-"],
+body.org-app .icon,
+body.org-app .sh-icon-link i {
+  color: var(--org-icon) !important;
+}
+
+body.org-app .btn i,
+body.org-app .btn .fa,
+body.org-app .btn [class*="ion-"],
+body.org-app .nav-link.active i,
+body.org-app .crm-hub i {
+  color: inherit !important;
+}
+
+body.org-app .members-card,
+body.org-app .members-card .card-header,
+body.org-app .members-card .card-body-fixed,
+body.org-app .members-card .tab-content,
+body.org-app .members-card .tab-pane,
+body.org-app .members-card .rows-scroll,
+body.org-app .members-card .list-group,
+body.org-app .members-card .list-group-item,
+body.org-app .tab-content,
+body.org-app .tab-pane,
+body.org-app .list-group {
+  background-color: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .members-card .member-name,
+body.org-app .member-name {
+  color: var(--org-text) !important;
+}
+
+body.org-app .members-card .member-sub,
+body.org-app .member-sub {
+  color: var(--org-text-muted) !important;
+  opacity: 1 !important;
+}
+
+body.org-app .rows-scroll table thead th,
+body.org-app .rows-scroll table thead.thead-light th,
+body.org-app .rows-scroll table td {
+  background-color: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+/* ----- Surfaces & borders ----- */
+body.org-app .card,
+body.org-app .card-header,
+body.org-app .card-body,
+body.org-app .card-body-fixed,
+body.org-app .card-footer,
+body.org-app .shadow-base,
+body.org-app .dashboard-card,
+body.org-app .feed-card,
+body.org-app .post-card,
+body.org-app .publisher-hub,
+body.org-app .stat-pill,
+body.org-app .pill,
+body.org-app .rows-scroll,
+body.org-app .feed-toolbar,
+body.org-app .feed-sidebar,
+body.org-app .sidebar-head,
+body.org-app .sidebar-list,
+body.org-app .xmodal,
+body.org-app .modal-content,
+body.org-app .modal-header,
+body.org-app .modal-body,
+body.org-app .modal-footer,
+body.org-app .dropdown-menu,
+body.org-app .reply-box,
+body.org-app .read-more-modal .rm-card,
+body.org-app .org-form-panel,
+body.org-app .org-panel-muted,
+body.org-app .compose-card,
+body.org-app .settings-card,
+body.org-app .members-card,
+body.org-app .create-card,
+body.org-app .fixed-card,
+body.org-app .chat-shell,
+body.org-app .chat-left,
+body.org-app .chat-right,
+body.org-app .members-list-wrap,
+body.org-app .conv-topbar,
+body.org-app .history-card,
+body.org-app .msg-scroll,
+body.org-app .composer-fixed,
+body.org-app .compliance-table,
+body.org-app .sidebar-fries-menu {
+  background-color: var(--org-surface) !important;
+  background-image: none !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .sh-sideleft-menu,
+body.org-app .org-sideleft-scroll,
+body.org-app .org-sideleft-shell {
+  background-color: var(--org-surface) !important;
+  background-image: none !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .members-search input,
+body.org-app .history-search input,
+body.org-app .composer-row textarea {
+  background-color: var(--org-input-bg) !important;
+  color: var(--org-input-text) !important;
+  border-color: var(--org-input-border) !important;
+}
+
+body.org-app .card,
+body.org-app .feed-card,
+body.org-app .stat-pill,
+body.org-app .org-form-panel,
+body.org-app .org-panel-muted {
+  /* box-shadow: var(--msb-palette-shadow, 0 10px 18px rgba(0, 0, 0, 0.28)) !important; */
+}
+
+/* ----- Forms & inputs ----- */
+body.org-app .form-control,
+body.org-app select.form-control,
+body.org-app textarea.form-control,
+body.org-app .custom-select,
+body.org-app .input-group-text,
+body.org-app input[type="text"],
+body.org-app input[type="email"],
+body.org-app input[type="password"],
+body.org-app input[type="search"],
+body.org-app input[type="number"],
+body.org-app input[type="tel"],
+body.org-app input[type="url"],
+body.org-app input[type="date"],
+body.org-app input[type="file"].form-control,
+body.org-app select,
+body.org-app textarea,
+body.org-app .feed-compose-input,
+body.org-app .sidebar-search,
+body.org-app .ch-input,
+body.org-app .pt-search input {
+  background-color: var(--org-input-bg) !important;
+  background-image: none !important;
+  border-color: var(--org-input-border) !important;
+  color: var(--org-input-text) !important;
+  box-shadow: none !important;
+}
+
+body.org-app .form-control:focus,
+body.org-app select.form-control:focus,
+body.org-app textarea.form-control:focus,
+body.org-app .custom-select:focus,
+body.org-app .feed-compose-input:focus,
+body.org-app .sidebar-search:focus,
+body.org-app .ch-input:focus {
+  background-color: var(--org-input-bg) !important;
+  border-color: var(--org-accent, var(--msb-palette-action, #60a5fa)) !important;
+  color: var(--org-input-text) !important;
+  box-shadow: 0 0 0 3px var(--org-accent-soft, var(--msb-palette-action-soft, rgba(96, 165, 250, 0.2))) !important;
+}
+
+body.org-app .form-control::placeholder,
+body.org-app textarea::placeholder,
+body.org-app .sidebar-search::placeholder,
+body.org-app .feed-compose-input::placeholder {
+  color: var(--org-input-placeholder) !important;
+  opacity: 1 !important;
+}
+
+body.org-app .form-control:disabled,
+body.org-app .form-control[readonly],
+body.org-app select:disabled,
+body.org-app textarea:disabled {
+  background-color: var(--org-input-bg) !important;
+  color: var(--org-text-muted) !important;
+  opacity: 0.65 !important;
+}
+
+body.org-app .org-form-panel,
+body.org-app .org-panel-muted,
+body.org-app form[style*="background:#f8fafc"],
+body.org-app form[style*="background: #f8fafc"] {
+  background-color: var(--org-surface-raised) !important;
+  border: 1px solid var(--org-border) !important;
+  border-radius: 12px;
+}
+
+/* ----- Tables ----- */
+body.org-app .table,
+body.org-app .table thead th,
+body.org-app .table td,
+body.org-app .table th,
+body.org-app .compliance-table th,
+body.org-app .compliance-table td,
+body.org-app .ch-table th,
+body.org-app .ch-table td,
+body.org-app .pt-table th,
+body.org-app .pt-table td {
+  background-color: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .table thead th,
+body.org-app .compliance-table th {
+  color: var(--org-text) !important;
+  font-weight: 800 !important;
+}
+
+body.org-app .table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--org-surface-raised) !important;
+}
+
+/* ----- Buttons (supplement appearance-bridge) ----- */
+body.org-app .btn-danger {
+  background-color: #b91c1c !important;
+  border-color: #991b1b !important;
+  color: #ffffff !important;
+}
+
+body.org-app .btn-warning {
+  background-color: #b45309 !important;
+  border-color: #92400e !important;
+  color: #ffffff !important;
+}
+
+body.org-app .badge,
+body.org-app .badge-secondary {
+  background-color: var(--org-surface-raised) !important;
+  border: 1px solid var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .badge-primary,
+body.org-app .badge-success,
+body.org-app .badge-info {
+  background-color: var(--org-btn-filled-bg) !important;
+  border-color: transparent !important;
+  color: var(--org-btn-filled-text) !important;
+}
+
+/* ----- Filled accent buttons — text must contrast button background ----- */
+body.org-app .btn-primary,
+body.org-app .btn-success,
+body.org-app .btn-info,
+body.org-app a.btn-primary,
+body.org-app a.btn-success,
+body.org-app a.btn-info,
+body.org-app .ch-btn-primary,
+body.org-app .pt-btn-primary,
+body.org-app a.pt-btn-primary,
+body.org-app .feed-actions .btn-success,
+body.org-app .feed-compose-send,
+body.org-app .header-feed-tab.active,
+body.org-app .posts-tabs a.active,
+body.org-app .feed-tabs a.feed-tab-link.active,
+body.org-app .feed-tabs--toolbar a.feed-tab-link.active {
+  background-color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
+}
+
+body.org-app .btn-primary:hover,
+body.org-app .btn-primary:focus,
+body.org-app .btn-success:hover,
+body.org-app .btn-success:focus,
+body.org-app .btn-info:hover,
+body.org-app .btn-info:focus,
+body.org-app a.btn-primary:hover,
+body.org-app a.btn-success:hover,
+body.org-app a.btn-info:hover,
+body.org-app .ch-btn-primary:hover,
+body.org-app .pt-btn-primary:hover,
+body.org-app a.pt-btn-primary:hover,
+body.org-app .feed-actions .btn-success:hover,
+body.org-app .feed-compose-send:hover:not(:disabled) {
+  background-color: var(--msb-palette-btn-hover-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  color: var(--org-btn-filled-text) !important;
+}
+
+body.org-app .btn-primary,
+body.org-app .btn-primary i,
+body.org-app .btn-primary .fa,
+body.org-app .btn-success,
+body.org-app .btn-success i,
+body.org-app .btn-success .fa,
+body.org-app .btn-info,
+body.org-app .btn-info i,
+body.org-app .ch-btn-primary,
+body.org-app .pt-btn-primary,
+body.org-app a.pt-btn-primary,
+body.org-app .ch-btn-primary i,
+body.org-app .feed-actions .btn-success,
+body.org-app .feed-actions .btn-success i,
+body.org-app .feed-compose-send,
+body.org-app .feed-compose-send i {
+  color: var(--org-btn-filled-text) !important;
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .feed-actions .btn-outline-success,
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .btn-outline-primary {
+  background-color: #ffffff !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-bg) !important;
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .feed-actions .btn-outline-success:hover,
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .btn-outline-primary:hover {
+  background-color: var(--org-accent-soft, rgba(37, 99, 235, 0.1)) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-bg) !important;
+}
+
+/* ----- Tabs & nav pills ----- */
+body.org-app .nav-tabs,
+body.org-app .nav-tabs .nav-link,
+body.org-app .posts-tabs a,
+body.org-app .feed-tabs a.feed-tab-link,
+body.org-app .feed-tabs--toolbar a.feed-tab-link {
+  background-color: var(--org-btn-surface, #252f3d) !important;
+  border-color: var(--org-btn-border, var(--org-border)) !important;
+  color: var(--org-btn-text-muted, var(--org-text-muted)) !important;
+}
+
+body.org-app .nav-tabs .nav-link.active,
+body.org-app .nav-tabs .nav-link:hover,
+body.org-app .posts-tabs a.active,
+body.org-app .feed-tabs a.feed-tab-link.active,
+body.org-app .feed-tabs--toolbar a.feed-tab-link.active {
+  background-color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
+}
+
+body.org-app .feed-tabs--toolbar a.feed-tab-link:hover:not(.active) {
+  background-color: var(--org-btn-surface-hover, #2f3a4a) !important;
+  color: var(--org-text) !important;
+}
+
+/* ----- Stat pills & dashboard widgets ----- */
+body.org-app .stat-pill .num,
+body.org-app .publisher-stat,
+body.org-app .tx-24.tx-bold,
+body.org-app .tx-20.tx-bold {
+  color: var(--org-text) !important;
+}
+
+body.org-app .stat-pill .lbl,
+body.org-app .stat-pill .sub {
+  color: var(--org-text-muted) !important;
+}
+
+body.org-app .publisher-check,
+body.org-app .publisher-check label {
+  background-color: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+/* ----- Messages ----- */
+body.org-app .list-group-item,
+body.org-app .list-group-item a {
+  background-color: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .list-group-item.active,
+body.org-app .list-group-item.active a,
+body.org-app .peer-item.is-active,
+body.org-app .peer-item.active,
+body.org-app .peer-row.is-active {
+  background-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
+}
+
+body.org-app .list-group-item.active .peer-sub,
+body.org-app .list-group-item.active .peer-time,
+body.org-app .peer-item.is-active .peer-sub,
+body.org-app .peer-item.is-active .peer-time,
+body.org-app .peer-item.active .peer-sub,
+body.org-app .peer-item.active .peer-time {
+  color: var(--org-btn-filled-text) !important;
+  opacity: 0.88 !important;
+}
+
+body.org-app .list-group-item.active a,
+body.org-app .peer-item.is-active a,
+body.org-app .peer-item.active a {
+  color: var(--org-btn-filled-text) !important;
+}
+
+/* ----- CRM ----- */
+body.org-app .crm-stage {
+  background-color: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .crm-stage strong {
+  color: var(--org-text) !important;
+}
+
+body.org-app .crm-stage .crm-count {
+  color: var(--org-accent, var(--msb-palette-action)) !important;
+}
+
+/* ----- Commerce & product table (Gear palette) ----- */
+html[data-msb-appearance] body.org-app .commerce-page {
+  --ch-bg: var(--msb-palette-bg);
+  --ch-surface: var(--msb-palette-surface, var(--msb-palette-bg));
+  --ch-ink: var(--msb-palette-text);
+  --ch-muted: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --ch-line: var(--msb-palette-border);
+  --ch-accent: var(--msb-palette-action);
+  --ch-accent-soft: var(--msb-palette-action-soft);
+  --ch-accent-deep: var(--msb-palette-action-strong, var(--msb-palette-action));
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .sh-mainpanel {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-page {
+  --pt-bg: var(--msb-palette-bg);
+  --pt-surface: var(--msb-palette-surface, var(--msb-palette-bg));
+  --pt-ink: var(--msb-palette-text);
+  --pt-muted: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --pt-line: var(--msb-palette-border);
+  --pt-accent: var(--msb-palette-action);
+  --pt-accent-deep: var(--msb-palette-action-strong, var(--msb-palette-action));
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .product-table-page {
+  --pt-bg: #f8fafc;
+  --pt-surface: #ffffff;
+  --pt-ink: #0f172a;
+  --pt-muted: #475569;
+  --pt-line: #e2e8f0;
+  --pt-accent: #2563eb;
+  --pt-accent-deep: #1d4ed8;
+}
+
+body.org-app .commerce-card,
+body.org-app .commerce-table-wrap,
+body.org-app .ch-card,
+body.org-app .ch-panel,
+body.org-app .pt-card,
+body.org-app .pt-panel {
+  background-color: var(--ch-surface, var(--org-surface)) !important;
+  border-color: var(--ch-line, var(--org-border)) !important;
+  color: var(--ch-ink, var(--org-text)) !important;
+}
+
+/* ----- Alerts (keep semantic hues, fix text) ----- */
+body.org-app .alert {
+  border-color: var(--org-border) !important;
+}
+
+body.org-app .alert-info {
+  background-color: rgba(37, 99, 235, 0.16) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .alert-warning {
+  background-color: rgba(180, 83, 9, 0.2) !important;
+  color: #fde68a !important;
+}
+
+body.org-app .alert-danger {
+  background-color: rgba(185, 28, 28, 0.2) !important;
+  color: #fecaca !important;
+}
+
+body.org-app .alert-success {
+  background-color: rgba(22, 163, 74, 0.2) !important;
+  color: #bbf7d0 !important;
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .alert-success {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+  border-color: #86efac !important;
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .alert-warning {
+  background-color: #ffedd5 !important;
+  color: #9a3412 !important;
+  border-color: #fdba74 !important;
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app .alert-danger {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #fca5a5 !important;
+}
+
+html[data-msb-appearance][data-msb-org-light] body.org-app .alert-success {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+  border-color: #86efac !important;
+}
+
+html[data-msb-appearance][data-msb-org-light] body.org-app .alert-warning {
+  background-color: #ffedd5 !important;
+  color: #9a3412 !important;
+  border-color: #fdba74 !important;
+}
+
+html[data-msb-appearance][data-msb-org-light] body.org-app .alert-danger {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #fca5a5 !important;
+}
+
+/* ----- Dropdown items ----- */
+body.org-app .dropdown-item {
+  color: var(--org-text) !important;
+}
+
+body.org-app .dropdown-item:hover,
+body.org-app .dropdown-item:focus {
+  background-color: var(--org-btn-surface-hover, var(--msb-palette-nav-hover, #2f3a4a)) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .dropdown-divider {
+  border-color: var(--org-border) !important;
+}
+
+body.org-app.org-page-feed,
+body.org-app.org-page-feed .sh-mainpanel,
+body.org-app.org-page-feed .sh-pagebody,
+body.org-app.org-page-feed .dashboard-card,
+body.org-app.org-page-feed .card,
+body.org-app.org-page-feed .card-body,
+body.org-app.org-page-feed .card-body-fixed,
+body.org-app.org-page-feed .feed-layout,
+body.org-app.org-page-feed .feed-main,
+body.org-app.org-page-feed .feed-post-detail,
+body.org-app.org-page-feed .feed-compose,
+body.org-app.org-page-feed .feed-post-media.is-text-only,
+body.org-app.org-page-feed .comment-item {
+  background-color: var(--org-surface) !important;
+  color: var(--org-text) !important;
+  border-color: var(--org-border) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-feed,
+html[data-msb-appearance] body.org-app.org-page-feed .sh-mainpanel,
+html[data-msb-appearance] body.org-app.org-page-feed .sh-pagebody,
+html[data-msb-appearance] body.org-app.org-page-feed .dashboard-card,
+html[data-msb-appearance] body.org-app.org-page-feed .card,
+html[data-msb-appearance] body.org-app.org-page-feed .card-body,
+html[data-msb-appearance] body.org-app.org-page-feed .card-body-fixed,
+html[data-msb-appearance] body.org-app.org-page-feed .feed-layout,
+html[data-msb-appearance] body.org-app.org-page-feed .feed-main,
+html[data-msb-appearance] body.org-app.org-page-feed .feed-post-detail {
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+/* ----- Login / signbox ----- */
+body.org-app .signbox,
+body.org-app .signbox-body,
+body.org-app .signpanel-wrapper {
+  background-color: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  color: var(--org-text) !important;
+}
+
+body.org-app .signbox-header h2,
+body.org-app .signbox-header p {
+  color: var(--org-text) !important;
+}
+
+body.org-app .form-control-label {
+  color: var(--org-text-muted) !important;
+}
+
+body.org-app .close,
+body.org-app .btn-close-x {
+  color: var(--org-text) !important;
+  border-color: var(--org-border) !important;
+  background-color: var(--org-btn-surface, #252f3d) !important;
+}
+
+/* Final override — filled tabs/pills must not inherit accent-colored link text */
+body.org-app .feed-tabs > a.feed-tab-link.active,
+body.org-app .posts-tabs > a.feed-tab-link.active,
+body.org-app .feed-tabs a.feed-tab-link.active,
+body.org-app .posts-tabs a.feed-tab-link.active,
+body.org-app.org-page-feed nav.feed-tabs.feed-tabs--toolbar > a.feed-tab-link.active,
+body.org-app .feed-tabs--toolbar a.feed-tab-link.active {
+  background-color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text, #ffffff) !important;
+}
+
+body.org-app .feed-tabs > a.feed-tab-link:not(.active),
+body.org-app .posts-tabs > a.feed-tab-link:not(.active),
+body.org-app.org-page-feed nav.feed-tabs.feed-tabs--toolbar > a.feed-tab-link:not(.active),
+body.org-app .feed-tabs--toolbar a.feed-tab-link:not(.active) {
+  background-color: var(--org-btn-surface, #f3f4f6) !important;
+  border-color: var(--org-btn-border, rgba(15, 23, 42, 0.14)) !important;
+  color: var(--org-btn-text-muted, var(--org-text-muted)) !important;
+}
+
+/* Gear Dark auto ON — white label text on every filled accent control */
+html[data-msb-theme-auto] body.org-app :is(
+  .btn-primary,
+  .btn-success,
+  .btn-info,
+  a.btn-primary,
+  a.btn-success,
+  a.btn-info,
+  .ch-btn-primary,
+  .feed-actions .btn-success,
+  .feed-compose-send,
+  a.feed-tab-link.active,
+  .feed-tabs > a.active,
+  .posts-tabs > a.active
+),
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app :is(
+  .btn-primary,
+  .btn-success,
+  .btn-info,
+  a.btn-primary,
+  a.btn-success,
+  a.btn-info,
+  .ch-btn-primary,
+  .feed-actions .btn-success,
+  .feed-compose-send,
+  a.feed-tab-link.active,
+  .feed-tabs > a.active,
+  .posts-tabs > a.active
+) {
+  color: #ffffff !important;
+}
+
+html[data-msb-theme-auto] body.org-app :is(
+  .btn-primary,
+  .btn-success,
+  .btn-info,
+  .ch-btn-primary,
+  .feed-actions .btn-success,
+  .feed-compose-send,
+  a.feed-tab-link.active
+) :is(i, .fa, .icon),
+html[data-msb-org-light]:not([data-msb-appearance]) body.org-app :is(
+  .btn-primary,
+  .btn-success,
+  .btn-info,
+  .ch-btn-primary,
+  .feed-actions .btn-success,
+  .feed-compose-send,
+  a.feed-tab-link.active
+) :is(i, .fa, .icon) {
+  color: #ffffff !important;
+}
+
+/* ----- Appearance color on org forms (products, settings, etc.) ----- */
+html[data-msb-appearance] body.org-app,
+html[data-msb-appearance] body.org-app .sh-mainpanel,
+html[data-msb-appearance] body.org-app .sh-pagebody,
+html[data-msb-appearance] body.org-app .card,
+html[data-msb-appearance] body.org-app .card-header,
+html[data-msb-appearance] body.org-app .card-body,
+html[data-msb-appearance] body.org-app .card-footer,
+html[data-msb-appearance] body.org-app .shadow-base,
+html[data-msb-appearance] body.org-app .dashboard-card,
+html[data-msb-appearance] body.org-app form,
+html[data-msb-appearance] body.org-app form .row,
+html[data-msb-appearance] body.org-app form .form-group,
+html[data-msb-appearance] body.org-app form [class*="col-"] {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .form-group label,
+html[data-msb-appearance] body.org-app label,
+html[data-msb-appearance] body.org-app .card-title,
+html[data-msb-appearance] body.org-app h1,
+html[data-msb-appearance] body.org-app h2,
+html[data-msb-appearance] body.org-app h3,
+html[data-msb-appearance] body.org-app h4,
+html[data-msb-appearance] body.org-app h5,
+html[data-msb-appearance] body.org-app h6 {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .tx-color-03,
+html[data-msb-appearance] body.org-app .text-muted,
+html[data-msb-appearance] body.org-app small {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.org-app .form-control,
+html[data-msb-appearance] body.org-app select.form-control,
+html[data-msb-appearance] body.org-app textarea.form-control,
+html[data-msb-appearance] body.org-app input[type="file"].form-control {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] body.org-app .btn-primary,
+html[data-msb-appearance] body.org-app a.btn-primary {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.org-app .btn-outline-secondary,
+html[data-msb-appearance] body.org-app a.btn-outline-secondary {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app i,
+html[data-msb-appearance] body.org-app .fa,
+html[data-msb-appearance] body.org-app [class*="ion-"],
+html[data-msb-appearance] body.org-app .icon {
+  color: var(--msb-palette-icon, var(--msb-palette-text)) !important;
+}
+
+/* Shared org surface wrapper (products, orders, CRM, commerce, settings, etc.) */
+html[data-msb-appearance] body.org-app .org-surface-page,
+html[data-msb-appearance] body.org-app .org-surface-page .card,
+html[data-msb-appearance] body.org-app .org-surface-page .card-header,
+html[data-msb-appearance] body.org-app .org-surface-page .card-body,
+html[data-msb-appearance] body.org-app .org-surface-page .card-footer,
+html[data-msb-appearance] body.org-app .org-surface-page .shadow-base,
+html[data-msb-appearance] body.org-app .org-surface-page form,
+html[data-msb-appearance] body.org-app .org-surface-page form .row,
+html[data-msb-appearance] body.org-app .org-surface-page form .form-group,
+html[data-msb-appearance] body.org-app .org-surface-page form [class*="col-"],
+html[data-msb-appearance] body.org-app .org-surface-page .table,
+html[data-msb-appearance] body.org-app .org-surface-page .table th,
+html[data-msb-appearance] body.org-app .org-surface-page .table td,
+html[data-msb-appearance] body.org-app .org-surface-page .alert {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page form .row,
+html[data-msb-appearance] body.org-app .org-surface-page .card-body .row,
+html.dark-auto[data-msb-appearance] body.org-app .org-surface-page form .row,
+html.dark-auto[data-msb-appearance] body.org-app .org-surface-page .card-body .row {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .form-group label,
+html[data-msb-appearance] body.org-app .org-surface-page label,
+html[data-msb-appearance] body.org-app .org-surface-page .card-title,
+html[data-msb-appearance] body.org-app .org-surface-page h1,
+html[data-msb-appearance] body.org-app .org-surface-page h2,
+html[data-msb-appearance] body.org-app .org-surface-page h3,
+html[data-msb-appearance] body.org-app .org-surface-page h4,
+html[data-msb-appearance] body.org-app .org-surface-page h5,
+html[data-msb-appearance] body.org-app .org-surface-page h6 {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .tx-color-03,
+html[data-msb-appearance] body.org-app .org-surface-page .text-muted,
+html[data-msb-appearance] body.org-app .org-surface-page small {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .form-control,
+html[data-msb-appearance] body.org-app .org-surface-page select.form-control,
+html[data-msb-appearance] body.org-app .org-surface-page textarea.form-control,
+html[data-msb-appearance] body.org-app .org-surface-page input[type="file"].form-control {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .btn-primary,
+html[data-msb-appearance] body.org-app .org-surface-page a.btn-primary {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .btn-outline-secondary,
+html[data-msb-appearance] body.org-app .org-surface-page a.btn-outline-secondary,
+html[data-msb-appearance] body.org-app .org-surface-page .btn-group .btn-outline-secondary {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .btn-outline-secondary.active,
+html[data-msb-appearance] body.org-app .org-surface-page .btn-group .btn-outline-secondary.active {
+  background-color: var(--msb-palette-action-soft, var(--msb-palette-nav-active-bg)) !important;
+  border-color: var(--msb-palette-action, var(--msb-palette-border-strong)) !important;
+  color: var(--msb-palette-action, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .badge-success,
+html[data-msb-appearance] body.org-app .org-surface-page .badge-warning,
+html[data-msb-appearance] body.org-app .org-surface-page .badge-danger,
+html[data-msb-appearance] body.org-app .org-surface-page .badge-info {
+  color: #ffffff !important;
+}
+
+/* ----- Sidebar nav — chromatic palette ink (not default dark #org-text) ----- */
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link,
+html[data-msb-appearance] body.org-app .sh-sidebar-label,
+html[data-msb-appearance] body.org-app .org-logo-label,
+html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html.msb-palette-active body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link,
+html.msb-palette-active body.org-app .sh-sidebar-label,
+html.msb-palette-active body.org-app .org-logo-label {
+  color: var(--msb-palette-text-on-nav, var(--msb-palette-action, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge,
+html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
+html.msb-palette-active body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge {
+  color: inherit !important;
+  background: transparent !important;
+}
+
+html[data-msb-appearance] body.org-app .org-sales-nav-badge rect,
+html.msb-palette-active body.org-app .org-sales-nav-badge rect {
+  fill: #dc3545 !important;
+}
+
+html[data-msb-appearance] body.org-app .org-sales-nav-badge text,
+html.msb-palette-active body.org-app .org-sales-nav-badge text {
+  fill: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link [class*="ion-"],
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link i,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link [class*="ion-"],
+html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i,
+html.msb-palette-active body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link i {
+  color: var(--msb-palette-icon, var(--msb-palette-action, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.org-app .sh-mainpanel,
+html[data-msb-appearance] body.org-app .sh-pagebody,
+html[data-msb-appearance] body.org-app .chat-shell,
+html[data-msb-appearance] body.org-app .chat-left,
+html[data-msb-appearance] body.org-app .chat-right,
+html.msb-palette-active body.org-app .sh-mainpanel,
+html.msb-palette-active body.org-app .sh-pagebody,
+html.msb-palette-active body.org-app .chat-shell,
+html.msb-palette-active body.org-app .chat-left,
+html.msb-palette-active body.org-app .chat-right {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+/* OMS / cancel-order data tables — readable headers that fit one line */
+body.org-app .oms-data-table {
+  width: 100%;
+  table-layout: auto;
+  font-size: 13px;
+}
+
+body.org-app .oms-data-table thead > tr > th,
+body.org-app .oms-data-table thead > tr > td {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap;
+  vertical-align: middle !important;
+  padding: 8px 10px !important;
+  line-height: 1.3 !important;
+}
+
+body.org-app .oms-data-table tbody > tr > td {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  vertical-align: top !important;
+  padding: 10px !important;
+}
+
+body.org-app .oms-data-table th.oms-col-products,
+body.org-app .oms-data-table td.oms-col-products {
+  min-width: 120px;
+  max-width: 180px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+body.org-app .oms-data-table th.oms-col-contact,
+body.org-app .oms-data-table td.oms-col-contact,
+body.org-app .oms-data-table th.oms-col-address,
+body.org-app .oms-data-table td.oms-col-address {
+  min-width: 130px;
+  max-width: 190px;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 12px !important;
+}
+
+body.org-app .oms-data-table th.oms-col-fulfill,
+body.org-app .oms-data-table td.oms-col-fulfill {
+  min-width: 168px;
+  max-width: 220px;
+}
+
+body.org-app .oms-data-table th.oms-col-narrow,
+body.org-app .oms-data-table td.oms-col-narrow {
+  white-space: nowrap;
+  width: 1%;
+}

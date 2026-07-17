@@ -5,6 +5,8 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm_lifecycle.php';
 
 $orgId = (int)orgActiveOrgId();
@@ -36,7 +38,7 @@ $pageTitle = 'Retain';
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="mg-b-20">
     <a href="crm.php" class="tx-12">&larr; CRM lifecycle</a>
     <h4 class="mg-b-0">Retain</h4>
@@ -124,7 +126,7 @@ org_page_shell_open($pageTitle);
   <div class="card shadow-base">
     <div class="card-header"><h6 class="card-title tx-14 mg-b-0">Marketing campaigns</h6></div>
     <div class="card-body">
-      <form method="post" class="mg-b-20 pd-15" style="background:#f8fafc;border-radius:12px;">
+      <form method="post" class="mg-b-20 pd-15 org-form-panel">
         <input type="hidden" name="save_campaign" value="1">
         <div class="row">
           <div class="col-md-4 form-group"><label>Campaign name *</label><input name="name" class="form-control" required></div>

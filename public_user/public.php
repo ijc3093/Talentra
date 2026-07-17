@@ -6454,6 +6454,111 @@ body.news-page.feed-insta-ui .feed-desktop-layout .ig-feed{
 }
 </style>
 <?php endif; ?>
+<style id="public-news-light-black-actions-css">
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui{
+  --public-accent:#0b1220;
+  --public-accent-strong:#000000;
+  --msb-palette-action:#0b1220;
+  --msb-palette-action-strong:#000000;
+  --msb-palette-link:#0b1220;
+  --msb-palette-link-hover:#000000;
+  --msb-palette-btn-bg:#0b1220;
+  --msb-palette-btn-hover-bg:#000000;
+  --msb-palette-btn-text:#ffffff;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-ig-link,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-ig-link,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-ig-link i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-ig-link i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .ig-link,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .ig-link,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .ig-link i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .ig-link i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-left-nav-item,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-left-nav-item,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-left-nav-item:hover,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-left-nav-item:hover,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-left-nav-item:focus,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-left-nav-item:focus,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-left-nav-item.is-active,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-left-nav-item.is-active,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-left-nav-ic,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-left-nav-ic,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-left-nav-ic svg,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-left-nav-ic svg,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-left-nav-label,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-left-nav-label,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-right-nav-item,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-right-nav-item,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-right-nav-ic,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-right-nav-ic,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-right-nav-ic svg,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-right-nav-ic svg,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .feed-right-nav-label,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .feed-right-nav-label,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .yt-icon-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .yt-icon-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .yt-icon-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .yt-icon-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .search-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .search-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .search-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .search-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .open-inline,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .open-inline,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .js-open-readmore,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .js-open-readmore,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-text-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-text-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-text-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-text-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .action-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .action-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .action-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .action-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .reel-inline-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .reel-inline-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .reel-inline-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .reel-inline-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-text-btn.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-text-btn.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-btn.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-btn.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .action-btn.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .action-btn.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .reel-inline-btn.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .reel-inline-btn.is-like i{
+  color:#0b1220!important;
+  -webkit-text-fill-color:#0b1220!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .btn-primary,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .btn-primary,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui button.btn-primary,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui button.btn-primary{
+  background:#0b1220!important;
+  border-color:#0b1220!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-topbar,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-topbar,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-topbar .standard-media-name,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-topbar .standard-media-name,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-topbar .standard-media-time,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-topbar .standard-media-time,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-topbar .post-card-menu-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-topbar .post-card-menu-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui .standard-media-topbar .pcm-fries-icon,
+html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .standard-media-topbar .pcm-fries-icon{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+</style>
 <?php post_card_actions_menu_render_modals(); ?>
 <?php post_card_actions_menu_render_js([
   'delete_mode' => 'public',

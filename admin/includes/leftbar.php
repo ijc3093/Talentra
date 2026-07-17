@@ -99,6 +99,10 @@ function roleIn(string $base, array $list): bool {
             <i class="icon ion-card"></i>
             <span>Shop Rent</span>
           </a>
+          <a href="org_commerce_brands.php" class="<?php echo admin_layout_nav_class('org_commerce_brands.php', $currentPage); ?>"<?php echo admin_layout_nav_attrs('org_commerce_brands.php'); ?>>
+            <i class="icon ion-ios-cart"></i>
+            <span>Commerce Brands</span>
+          </a>
           <a href="managerlist.php" class="<?php echo admin_layout_nav_class('managerlist.php', $currentPage); ?>"<?php echo admin_layout_nav_attrs('managerlist.php'); ?>>
             <i class="icon ion-person-stalker"></i>
             <span>Managers</span>

@@ -5,11 +5,15 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm_lifecycle.php';
+require_once __DIR__ . '/../public_user/includes/buyer_seller_relationship.php';
 
 $orgId = (int)orgActiveOrgId();
 $memberId = (int)orgMemberId();
 org_crm_lifecycle_ensure_schema($dbh);
+buyer_seller_rel_ensure_schema($dbh);
 
 $contactId = (int)($_GET['id'] ?? 0);
 $contact = org_crm_get_contact($dbh, $orgId, $contactId);
@@ -64,12 +68,17 @@ $deals = org_crm_list_deals($dbh, $orgId, 'all', 20);
 $contactDeals = array_values(array_filter($deals, static fn($d) => (int)($d['contact_id'] ?? 0) === $contactId));
 $bookings = array_values(array_filter(org_crm_list_bookings($dbh, $orgId), static fn($b) => (int)($b['contact_id'] ?? 0) === $contactId));
 $invoices = array_values(array_filter(org_crm_list_invoices($dbh, $orgId), static fn($i) => (int)($i['contact_id'] ?? 0) === $contactId));
+$buyerNeeds = null;
+$linkedBuyerId = (int)($contact['linked_user_id'] ?? 0);
+if ($linkedBuyerId > 0) {
+    $buyerNeeds = buyer_seller_rel_for_seller($dbh, $orgId, $linkedBuyerId);
+}
 
 $pageTitle = 'Contact — ' . (string)$contact['full_name'];
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="d-flex flex-wrap justify-content-between align-items-center mg-b-15">
     <div>
       <a href="crm.php" class="tx-12">&larr; CRM hub</a>
@@ -120,6 +129,34 @@ org_page_shell_open($pageTitle);
           </form>
         </div>
       </div>
+
+      <?php if ($buyerNeeds): ?>
+      <div class="card shadow-base mg-t-15">
+        <div class="card-header"><h6 class="card-title tx-14 mg-b-0">Buyer shared needs</h6></div>
+        <div class="card-body tx-13">
+          <p class="tx-12 tx-color-03">Preferences the customer shared so you can meet their needs.</p>
+          <p class="mg-b-5"><strong>Relationship:</strong> <?= org_crm_h(buyer_seller_rel_type_label((string)($buyerNeeds['relationship_type'] ?? ''))) ?></p>
+          <?php if (trim((string)($buyerNeeds['interests'] ?? '')) !== ''): ?>
+            <p class="mg-b-5"><strong>Interests:</strong> <?= org_crm_h((string)$buyerNeeds['interests']) ?></p>
+          <?php endif; ?>
+          <p class="mg-b-5"><strong>Preferred contact:</strong> <?= org_crm_h(buyer_seller_rel_contact_label((string)($buyerNeeds['preferred_contact'] ?? ''))) ?></p>
+          <?php if (trim((string)($buyerNeeds['delivery_preference'] ?? '')) !== ''): ?>
+            <p class="mg-b-5"><strong>Delivery:</strong> <?= org_crm_h((string)$buyerNeeds['delivery_preference']) ?></p>
+          <?php endif; ?>
+          <?php if (trim((string)($buyerNeeds['budget_range'] ?? '')) !== ''): ?>
+            <p class="mg-b-5"><strong>Budget:</strong> <?= org_crm_h((string)$buyerNeeds['budget_range']) ?></p>
+          <?php endif; ?>
+          <?php if (trim((string)($buyerNeeds['needs_note'] ?? '')) !== ''): ?>
+            <p class="mg-b-0"><strong>Note:</strong><br><?= nl2br(org_crm_h((string)$buyerNeeds['needs_note'])) ?></p>
+          <?php endif; ?>
+        </div>
+      </div>
+      <?php elseif ($linkedBuyerId > 0): ?>
+      <div class="card shadow-base mg-t-15">
+        <div class="card-header"><h6 class="card-title tx-14 mg-b-0">Buyer shared needs</h6></div>
+        <div class="card-body tx-13 tx-color-03">This linked buyer has not shared shopping preferences yet.</div>
+      </div>
+      <?php endif; ?>
 
       <?php if ($contactDeals || $bookings || $invoices): ?>
       <div class="card shadow-base mg-t-15">

@@ -5,6 +5,8 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm.php';
 
 $orgId = (int)orgActiveOrgId();
@@ -75,7 +77,7 @@ $pageTitle = 'CRM Pipeline';
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="row row-sm mg-b-20">
     <div class="col-md-4"><div class="card shadow-base"><div class="card-body">
       <div class="tx-10 tx-uppercase tx-color-03">Pipeline value</div>
@@ -104,7 +106,7 @@ org_page_shell_open($pageTitle);
       <?php if ($ok): ?><div class="alert alert-success"><?= org_crm_h($ok) ?></div><?php endif; ?>
 
       <?php if ($showNew || $editDeal): ?>
-      <form method="post" class="mg-b-20 pd-15" style="background:#f8fafc;border-radius:12px;">
+      <form method="post" class="mg-b-20 pd-15 org-form-panel">
         <input type="hidden" name="deal_id" value="<?= (int)($editDeal['id'] ?? 0) ?>">
         <div class="row">
           <div class="col-md-6 form-group"><label>Deal title *</label><input name="title" class="form-control" required value="<?= org_crm_h((string)($editDeal['title'] ?? '')) ?>"></div>

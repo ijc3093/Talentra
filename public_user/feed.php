@@ -3690,14 +3690,14 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
 .ig-stories-next:hover{background:#fafafa;}
 html.dark-auto:not([data-msb-appearance]) .ig-stories-next,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-stories-next{
-  background:#252f3d !important;
+  background:var(--msb-palette-bg, #171d24) !important;
   color:#e8edf5 !important;
   border:1px solid rgba(177,188,206,.42);
   box-shadow:none !important;
 }
 html.dark-auto:not([data-msb-appearance]) .ig-stories-next:hover,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-stories-next:hover{
-  background:#2f3a4a !important;
+  background:var(--msb-palette-bg, #171d24) !important;
   color:#ffffff !important;
 }
 .ig-feed-center .ig-post-shell{
@@ -6215,59 +6215,41 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         var currentCommentsPostId = 0;
         var pendingAlertCommentId = <?php echo (int)$feedAlertCommentId; ?>;
 
-        function resolveFeedCommentsPostId(explicitPid){
-          var pid = Number(explicitPid || 0);
-          if(pid){
-            $('#curPostId').val(String(pid));
-            selectedId = pid;
-            return pid;
+        function openCommentsTray(){
+          var pid = Number($('#curPostId').val() || 0);
+          if(!pid){
+            try{
+              var $a = $('#postList .pl-item.active');
+              if($a && $a.length){ pid = Number($a.data('id') || 0); }
+              if(!pid){
+                var $f = $('#postList .pl-item').first();
+                if($f && $f.length){ pid = Number($f.data('id') || 0); }
+              }
+              if(pid){ $('#curPostId').val(String(pid)); selectedId = pid; }
+            }catch(e){}
           }
-          pid = Number($('#curPostId').val() || 0);
-          if(pid) return pid;
-          try{
-            var $a = $('#postList .pl-item.active');
-            if($a && $a.length) pid = Number($a.data('id') || 0);
-            if(!pid){
-              var $f = $('#postList .pl-item').first();
-              if($f && $f.length) pid = Number($f.data('id') || 0);
-            }
-            if(pid){
-              $('#curPostId').val(String(pid));
-              selectedId = pid;
-            }
-          }catch(e){}
-          return pid;
-        }
+          if(!pid) return;
 
-        function openFeedCommentsTray(explicitPid){
-          var pid = resolveFeedCommentsPostId(explicitPid);
-          if(!pid || !(window.TTComments && typeof window.TTComments.openForPost === 'function')) return;
-          if(window.TTComments.isOpen() && window.TTComments.getPostId() === pid){
-            window.TTComments.close();
+          if(window.TTComments && typeof window.TTComments.setPost === 'function'){
+            if(Number(currentCommentsPostId) === Number(pid) && Array.isArray(currentCommentsCache)){
+              window.TTComments.toggle(pid, currentCommentsCache);
+              return;
+            }
+
+            $.getJSON(API_URL, { ajax:'comments', id:pid, post_id:pid }, function(res){
+              var comments = [];
+              if(res && res.ok && Array.isArray(res.comments)) comments = res.comments;
+              currentCommentsCache = comments || [];
+              currentCommentsPostId = pid;
+              window.TTComments.toggle(pid, currentCommentsCache);
+            }).fail(function(){
+              try{ openCommentsModal(); }catch(e){}
+            });
+
             return;
           }
-          var cached = (Number(currentCommentsPostId) === Number(pid) && Array.isArray(currentCommentsCache))
-            ? currentCommentsCache
-            : null;
-          if(window.TTComments && typeof window.TTComments.clearFocusComment === 'function'){
-            window.TTComments.clearFocusComment();
-          }
-          window.TTComments.openForPost(pid, cached, {
-            onLoaded: function(comments){
-              comments = Array.isArray(comments) ? comments : [];
-              currentCommentsCache = comments;
-              currentCommentsPostId = pid;
-              $('#commentCount, #commentCountV, #commentCountF, #commentCountTextF').text(String(comments.length || 0));
-              syncImageOverlayActions();
-              refreshViewerFooter();
-              $('.mf-card[data-id="'+pid+'"] .mf-cmt').text(String(comments.length || 0));
-            }
-          });
-        }
-        window.openFeedCommentsTray = openFeedCommentsTray;
 
-        function openCommentsTray(){
-          openFeedCommentsTray(0);
+          openCommentsModal();
         }
 
 
@@ -8546,7 +8528,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               '<div class="mf-actions">'+
                 '<div class="mf-left">'+
                   '<a class="mf-act mf-love" type="button" title="Love"><i class="msb-pact msb-pact-heart" aria-hidden="true"></i><span class="mf-num mf-love">0</span></a>'+
-                  '<button type="button" class="mf-act mf-comment js-open-comments-door" title="Comment" aria-label="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt">0</span></button>'+
+                  '<a class="mf-act mf-comment" type="button" title="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt">0</span></a>'+
                   '<a class="mf-act mf-share" type="button" title="Share"><i class="msb-pact msb-pact-share" aria-hidden="true"></i><span class="mf-num mf-share">0</span></a>'+
                 '</div>'+
                 '<div class="mf-right">'+
@@ -8610,7 +8592,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               +             '<div class="mf-live-action-row">'
               +               '<a class="mf-live-action-btn mf-act mf-love" type="button" title="Love"><i class="msb-pact msb-pact-heart" aria-hidden="true"></i><span class="mf-num mf-love">0</span></a>'
               +               '<a class="mf-live-action-btn mf-act mf-like" type="button" title="Like"><i class="fa fa-thumbs-o-up"></i><span class="mf-num mf-like">0</span></a>'
-              +               '<button type="button" class="mf-live-action-btn mf-act mf-comment js-open-comments-door" title="Comment" aria-label="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt">0</span></button>'
+              +               '<a class="mf-live-action-btn mf-act mf-comment" type="button" title="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt">0</span></a>'
               +               '<a class="mf-live-action-btn mf-act mf-share" type="button" title="Share"><i class="msb-pact msb-pact-share" aria-hidden="true"></i><span class="mf-num mf-share">0</span></a>'
               +               '<span class="mf-live-action-spacer"><a class="mf-live-action-btn mf-act mf-save" type="button" title="Save"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num mf-save">0</span></a></span>'
               +             '</div>'
@@ -9094,6 +9076,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             if(!res || !res.ok) return;
             mfHydrateCard(pid, res.post||{}, res.counts||{}, res.attachments||[]);
           });
+        });
+
+        $(document).on('click', '.mf-card .mf-comment', function(){
+          var pid = Number($(this).closest('.mf-card').data('id')||0);
+          mfSetPid(pid);
+          try{ openCommentsTray(); }catch(e){}
         });
 
         $(document).on('click', '.mf-card .mf-share', function(){
@@ -12755,7 +12743,7 @@ html[data-theme="dark"] .ig-post-progress{
 
   body.feed-page #ttLeftbarOverlays,
   body.feed-page.feed-insta-ui #ttLeftbarOverlays{
-    z-index:1295;
+    z-index:1100;
   }
   body.feed-page.public-leftbar-open{
     overflow-x:hidden;
@@ -14864,6 +14852,87 @@ body .mf-feed .mf-media-shell > .mf-head.mf-head--on-media .mf-music-artist,
 html[data-msb-appearance] body .mf-feed .mf-media-shell > .mf-head.mf-head--on-media .mf-music-artist{
   flex:0 1 auto !important;
   max-width:none !important;
+}
+</style>
+
+<style id="feed-light-black-actions-css">
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui{
+  --feed-action:#0b1220;
+  --msb-palette-action:#0b1220;
+  --msb-palette-action-strong:#000000;
+  --msb-palette-link:#0b1220;
+  --msb-palette-link-hover:#000000;
+  --msb-palette-btn-bg:#0b1220;
+  --msb-palette-btn-hover-bg:#000000;
+  --msb-palette-btn-text:#ffffff;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-ig-link,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-ig-link i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .ig-link,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .ig-link i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-item,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-item:hover,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-item:focus,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-item.is-active,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-item i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-ic,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-ic svg,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-left-nav-label,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-right-nav-item,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-right-nav-item:hover,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-right-nav-item:focus,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-right-nav-item.is-active,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-right-nav-ic,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-right-nav-ic svg,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .feed-right-nav-label,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .yt-icon-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .yt-icon-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .yt-mic-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .yt-mic-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .search-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .search-btn i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-body .mf-readmore,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-reel-body .mf-readmore,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-video-body .mf-readmore,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .js-open-readmore,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act .mf-num,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love .mf-num,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-like,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-save i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-share i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .msb-pact-bookmark,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-readmore,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-readmore-inline,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-act.is-like i{
+  color:#0b1220!important;
+  -webkit-text-fill-color:#0b1220!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .search-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .yt-mic-btn{
+  background:var(--feed-control-soft, transparent)!important;
+  border-color:var(--feed-control-border, rgba(15,23,42,.14))!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .btn-primary,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui button.btn-primary{
+  background:#0b1220!important;
+  border-color:#0b1220!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-media-shell > .mf-head--on-media,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-media-shell > .mf-head--on-media .mf-peer-link,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-media-shell > .mf-head--on-media .mf-name,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-media-shell > .mf-head--on-media .mf-time,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-media-shell > .mf-head--on-media .mf-dot,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-media-shell > .mf-head--on-media .post-card-menu-btn,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-media-shell > .mf-head--on-media .post-card-fries-icon{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
 }
 </style>
 

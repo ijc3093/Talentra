@@ -9,9 +9,9 @@ if (!function_exists('org_render_feed_toolbar_tabs')) {
         }
         ?>
         <nav class="feed-tabs feed-tabs--toolbar" aria-label="Feed tabs">
-          <a class="<?= $tab === 'work' ? 'active' : '' ?>" href="feed.php?tab=work">Work</a>
-          <a class="<?= $tab === 'culture' ? 'active' : '' ?>" href="feed.php?tab=culture">Culture</a>
-          <a class="<?= $tab === 'all' ? 'active' : '' ?>" href="feed.php?tab=all">All</a>
+          <a class="feed-tab-link <?= $tab === 'work' ? 'active' : '' ?>" href="feed.php?tab=work">Work</a>
+          <a class="feed-tab-link <?= $tab === 'culture' ? 'active' : '' ?>" href="feed.php?tab=culture">Culture</a>
+          <a class="feed-tab-link <?= $tab === 'all' ? 'active' : '' ?>" href="feed.php?tab=all">All</a>
           <span class="stat-pill" title="Posts newer than your last successful load">
             <span class="icon"><i class="fa fa-envelope-open-o"></i></span>
             <span class="num" id="unreadPostsNum"><?= (int)$unreadPostsCount ?></span>

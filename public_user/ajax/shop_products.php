@@ -27,6 +27,11 @@ if ($orgId <= 0) {
     exit;
 }
 
+if (!org_is_commerce_seller($dbh, $orgId)) {
+    echo json_encode(['ok' => true, 'visible' => false, 'products' => [], 'message' => 'This publisher is not a commerce seller.']);
+    exit;
+}
+
 if (!platform_rent_shop_is_visible($dbh, $orgId)) {
     echo json_encode(['ok' => true, 'visible' => false, 'products' => [], 'message' => 'Shop is temporarily unavailable.']);
     exit;

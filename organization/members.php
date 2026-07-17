@@ -199,9 +199,9 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
       display:flex;
       align-items:center;
       justify-content:center;
-      background: rgba(79, 70, 229, 0.12);
-      border: 1px solid rgba(79, 70, 229, 0.18);
-      color: #4f46e5;
+      background: var(--org-accent-soft, var(--msb-palette-action-soft, rgba(79, 70, 229, 0.12)));
+      border: 1px solid var(--org-border, rgba(177, 188, 206, 0.32));
+      color: var(--org-accent, var(--msb-palette-action, #4f46e5));
       flex: 0 0 auto;
       aspect-ratio: auto;
       overflow: hidden;
@@ -277,6 +277,40 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
       min-height:0;
       overflow:auto;
       padding: 15px;
+      background: var(--bg-main, var(--org-surface, var(--msb-palette-bg, #171d24)));
+    }
+
+    body.org-app .members-card,
+    body.org-app .members-card .card-body-fixed,
+    body.org-app .members-card .tab-content,
+    body.org-app .members-card .tab-pane,
+    body.org-app .members-card .rows-scroll,
+    body.org-app .members-card .list-group,
+    body.org-app .members-card .list-group-item {
+      background: var(--bg-main, var(--org-surface, var(--msb-palette-bg, #171d24))) !important;
+      border-color: var(--border-color, var(--org-border, rgba(177,188,206,.32))) !important;
+      color: var(--text-primary, var(--org-text, #e8edf5)) !important;
+    }
+
+    html[data-msb-appearance] body.org-app .members-card,
+    html[data-msb-appearance] body.org-app .members-card .card-body-fixed,
+    html[data-msb-appearance] body.org-app .members-card .tab-content,
+    html[data-msb-appearance] body.org-app .members-card .tab-pane,
+    html[data-msb-appearance] body.org-app .members-card .rows-scroll,
+    html[data-msb-appearance] body.org-app .members-card .list-group,
+    html[data-msb-appearance] body.org-app .members-card .list-group-item {
+      background: var(--msb-palette-bg) !important;
+      border-color: var(--msb-palette-border) !important;
+      color: var(--msb-palette-text) !important;
+    }
+
+    html[data-msb-appearance] body.org-app .members-card .member-name {
+      color: var(--msb-palette-text) !important;
+    }
+
+    html[data-msb-appearance] body.org-app .members-card .member-sub {
+      color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+      opacity: 1 !important;
     }
 
     /* ✅ Sticky invites header (only inside scroll area) */
@@ -284,10 +318,14 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
       position:sticky;
       top:0;
       z-index:20;
-      background:#fff;
+      background: var(--bg-main, var(--org-surface, var(--msb-palette-bg, #171d24))) !important;
+      color: var(--text-primary, var(--org-text, #e8edf5)) !important;
       box-shadow:0 2px 0 rgba(0,0,0,.06);
     }
-    .rows-scroll table thead.thead-light th{ background:#f8f9fa; }
+    .rows-scroll table thead.thead-light th{
+      background: var(--bg-main, var(--org-surface, var(--msb-palette-bg, #171d24))) !important;
+      color: var(--text-primary, var(--org-text, #e8edf5)) !important;
+    }
 
     /* Search input box spacing */
     #memberSearch{ height:42px; border-radius:10px; }
@@ -316,7 +354,7 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
 <div class="sh-mainpanel">
   
 
-  <div class="sh-pagebody">
+  <?php org_page_body_open(); ?>
 
     <div class="card bd-0 members-card">
       <div class="card-header bg-transparent pd-y-15 d-flex align-items-center justify-content-between">
@@ -530,5 +568,6 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
   })();
 </script>
 
+<?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

@@ -126,7 +126,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <link href="../lib/Ionicons/css/ionicons.css" rel="stylesheet">
   <link href="../lib/bootstrap/bootstrap.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
-  <link rel="stylesheet" href="css/org-compact.css?v=3">
+  <?php require_once __DIR__ . '/includes/org_theme_head.php'; ?>
+  <link rel="stylesheet" href="css/org-compact.css?v=28">
 </head>
 <body class="org-app">
 
@@ -167,5 +168,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="../lib/jquery/jquery.js"></script>
   <script src="../lib/popper.js/popper.js"></script>
   <script src="../lib/bootstrap/bootstrap.js"></script>
+  <?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

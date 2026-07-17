@@ -176,7 +176,12 @@
 
   function isNight(){
     var h = new Date().getHours();
-    return (h >= 20 || h < 6);
+    return (h >= 17 || h < 6);
+  }
+
+  /** Day/night auto follows clock time (5pm-6am), not OS appearance preference. */
+  function shouldAutoDark(){
+    return isNight();
   }
 
   function hexToRgb(hex){
@@ -282,11 +287,11 @@
     var primary = ensureContrast(null, bg, 4.5);
     var lightPrimary = relativeLuminance(primary) > 0.5;
     var candidates = lightPrimary
-      ? ['#e2e8f0', '#cbd5e1', '#94a3b8']
-      : ['#334155', '#475569', '#64748b'];
+      ? ['#1e293b', '#334155', '#475569', '#64748b']
+      : ['#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b'];
     var i;
     for (i = 0; i < candidates.length; i++) {
-      if (contrastRatio(candidates[i], bg) >= 3) {
+      if (contrastRatio(candidates[i], bg) >= 4.2) {
         return candidates[i];
       }
     }
@@ -396,7 +401,7 @@
       return ensureContrast(mixHex(accent, '#000000', amount), bg, 4.5);
     }
     function inkMid(amount){
-      return ensureContrast(mixHex(accent, '#000000', amount), bg, 3.2);
+      return ensureContrast(mixHex(accent, '#000000', amount), bg, 4.2);
     }
     function inkLight(amount){
       return ensureContrast(mixHex(accent, '#ffffff', amount), bg, 4.5);
@@ -406,9 +411,9 @@
     }
 
     if (base.mode === 'dark-fg') {
-      var darkInk = inkDark(0.62);
-      var midInk = inkMid(0.34);
-      var softInk = inkMid(0.22);
+      var darkInk = inkDark(0.78);
+      var midInk = inkDark(0.58);
+      var softInk = inkMid(0.42);
       var navHover = mixHex(bg, '#000000', 0.16);
       var navActive = surfaceTint(0.26);
       var hoverBg = surfaceTint(0.12);
@@ -439,8 +444,8 @@
       };
     }
 
-    var lightInk = inkLight(0.72);
-    var midLight = inkLight(0.55);
+    var lightInk = inkLight(0.82);
+    var midLight = inkLight(0.68);
     var navHoverD = mixHex(bg, accent, 0.22);
     var navActiveD = mixHex(bg, accent, 0.14);
     var btnBgD = inkLight(0.5);
@@ -519,12 +524,38 @@
     'input', 'textarea', 'select', '.chat-name', '.peerTitle', '.messages-shell-title',
     '.feed-title', '.card-title', '.gear-card-title', '.gear-title', 'label', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     '.text-muted', 'small', '.small', '.feed-desc', '.gear-sub', '.gear-card-desc',
+    'body.profile-page .gear-sidebar-title', 'body.profile-page .gear-detail-title',
+    'body.profile-page .gear-detail-desc', 'body.profile-page .gear-nav-section-toggle',
+    'body.profile-page .gear-nav-section-label', 'body.profile-page .gear-nav-item',
+    'body.profile-page .gear-nav-item-meta', 'body.profile-page .gear-detail-control-label',
+    'body.profile-page .gear-chip', 'body.profile-page .gear-tag', 'body.profile-page .gear-note',
+    'body.profile-page .gear-detail-empty', 'body.profile-page .gear-upload-hint',
+    'body.profile-page .gear-nav-section-chevron',
     '.tt-comments-head .title', '.tt-comments-head .count', '.tt-name', '.tt-text', '.tt-meta',
     '.tt-rm-title', '.tt-rm-sub', '.tt-rm-body', '.tt-menu-head .title',
     'body.profile-page .ig-username', 'body.profile-page .ig-stat', 'body.profile-page .ig-bio',
     'body.profile-page .ig-tab', 'body.profile-page .about-head .nm', 'body.profile-page .about-card .v',
     'body.profile-page .about-title', 'body.profile-page #profilePostsFeed .mf-name',
-    'body.profile-page #profilePostsFeed .mf-title', 'body.profile-page #profilePostsFeed .mf-body'
+    'body.profile-page #profilePostsFeed .mf-title', 'body.profile-page #profilePostsFeed .mf-body',
+    'body.profile-page .gear-save-state', 'span.muted', '.mf-num', '.pv-n', '.pv-views',
+    '.ig-story-name', '.mf-music-title', '.mf-music-artist', '.nav-link > span',
+    '.sh-icon-link > span', 'body.org-app .sidebar-meta > span'
+  ].join(',\nhtml[data-msb-appearance] ');
+
+  var PALETTE_SPAN_SURFACE_SELECTORS = [
+    'body.profile-page .gear-tag', 'span.gear-tag', 'span.profile-account-badge',
+    '.profile-account-badge', 'span.badge', '.badge', '.badge-light', 'span.feed-badge',
+    '.feed-badge', 'span.stat-pill', '.stat-pill', 'span.commerce-pill', '.commerce-pill',
+    'span.commerce-order-badge', '.commerce-order-badge', 'span.commerce-brand-card-badge',
+    '.commerce-brand-card-badge', 'span.pv-pill', '.pv-pill', 'span.pv-likepill',
+    '.pv-likepill', 'span.sidebar-pill', '.sidebar-pill', 'span.msg-pill', '.msg-pill',
+    'span.msg-reaction-pill', '.msg-reaction-pill', 'span.live-modal-badge',
+    '.live-modal-badge', 'span.sidebar-chip', '.sidebar-chip', 'span.ig-profile-love-count',
+    '.ig-profile-love-count'
+  ].join(',\nhtml[data-msb-appearance] ');
+
+  var PALETTE_SPAN_ACCENT_SURFACE_SELECTORS = [
+    'body.profile-page .gear-chip', 'span.gear-chip'
   ].join(',\nhtml[data-msb-appearance] ');
 
   var PALETTE_NAV_HOVER_SELECTORS = [
@@ -532,6 +563,7 @@
     'body #ttNavLeftbar .nav-link:hover',
     '.sh-sideleft-menu .nav-link:hover',
     '.sh-sideleft-menu .nav > .nav-item > .nav-link:hover',
+    '.org-sideleft-scroll .nav > .nav-item > .nav-link:hover',
     '.sh-sideleft-menu .nav-sub .nav-link:hover',
     '.feed-left-nav-item:hover',
     '.feed-right-nav-item:hover',
@@ -552,6 +584,7 @@
     'body #ttNavLeftbar .nav-link.active',
     '.sh-sideleft-menu .nav-link.active',
     '.sh-sideleft-menu .nav > .nav-item > .nav-link.active',
+    '.org-sideleft-scroll .nav > .nav-item > .nav-link.active',
     '.feed-left-nav-item.is-active',
     '.feed-right-nav-item.is-active',
     '.tt-menu-body .feed-left-nav-item.is-active',
@@ -569,6 +602,7 @@
     'body #ttNavLeftbar .nav-link:not(:hover)',
     '.sh-sideleft-menu .nav-link:not(:hover)',
     '.sh-sideleft-menu .nav > .nav-item > .nav-link:not(:hover)',
+    '.org-sideleft-scroll .nav > .nav-item > .nav-link:not(:hover)',
     '.sh-sideleft-menu .nav-sub .nav-link:not(:hover)',
     '.feed-left-nav-item:not(:hover)',
     '.feed-right-nav-item:not(:hover)',
@@ -584,6 +618,7 @@
 
   var PALETTE_ORG_FOCUS_RESET_SELECTORS = [
     '.sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:hover)',
+    '.org-sideleft-scroll .nav > .nav-item > .nav-link:focus:not(:hover)',
     '.sh-sideleft-menu .nav-sub .nav-link:focus:not(:hover)',
     '.feed-sidebar .sidebar-item:focus:not(:hover)'
   ].join(',\nhtml[data-msb-appearance] ');
@@ -791,8 +826,18 @@
     'body.profile-page #profilePostsFeed .mf-card', 'body.profile-page .about-head',
     'body.profile-page .about-card', 'body.profile-page .about-note', 'body.profile-page .coming-card',
     'body.profile-page .gear-wrap', 'body.profile-page .gear-shell', 'body.profile-page .gear-sidebar',
-    'body.profile-page .gear-sidebar-head', 'body.profile-page .gear-main',
-    'body.profile-page .gear-row', 'body.profile-page .profile-cover-badge',
+    'body.profile-page .gear-sidebar-head', 'body.profile-page .gear-main', 'body.profile-page .gear-nav',
+    'body.profile-page .gear-nav-section-toggle', 'body.profile-page .gear-nav-item',
+    'body.profile-page .gear-detail-panel', 'body.profile-page .gear-detail-head', 'body.profile-page .gear-detail-body',
+    'body.profile-page .gear-detail-control', 'body.profile-page .gear-detail-empty', 'body.profile-page .gear-search',
+    'body.profile-page .gear-row', 'body.profile-page .profile-cover-badge', 'body.profile-page .profile-shop-card',
+    'body.profile-page .shop-buy-card', 'body.profile-page .gear-note',
+    'body.shop-page', 'body.shop-page .sh-mainpanel', 'body.shop-page .sh-pagebody',
+    'body.shop-page .shop-page-shell', 'body.shop-page .shop-market-card', 'body.shop-page .shop-market-cover',
+    'body.shop-page .cart-row', 'body.shop-page .cart-thumb',
+    'body.shop-page .shop-market-body', 'body.shop-page .shop-buy-card', 'body.shop-page .feed-left-rail',
+    'body.shop-page .feed-left-nav', 'body.shop-page .shop-nav-filters', 'body.shop-page .shop-brand-nav',
+    'body.shop-page .feed-left-rail-page-head', 'body.shop-page .shop-brand-banner', 'body.shop-page .ig-feed-header',
     '.ig-card', '.ig-insta-card', '.ig-post-card', '.post', '.tl-card', '.pv-right',
     '.row', '.row-sm', '.col-lg-4', '.col-lg-8', '.col-md-4', '.col-md-8', '.hd', '.bd', '.mt-2',
     '.c-footer', '.app-footer', '.feed-ig-btn', '.feed-ig-link', '.nav-link',
@@ -809,13 +854,19 @@
     '.tt-comments-wrap', '.tt-readmore-wrap', '.tt-menu-wrap', '.tt-live-wrap', '.tt-live-door-frame',
     '.tt-comments-head', '.tt-comments-list', '.tt-comments-foot',
     '.tt-rm-head', '.tt-rm-body', '.tt-menu-head', '.tt-menu-body',
+    '#ttLeftbarOverlays .tt-profile-wrap', '#ttLeftbarOverlays .tt-profile-head', '#ttLeftbarOverlays .tt-profile-body',
+    '.msb-profile-door-host .tt-profile-wrap', '.msb-profile-door-host .tt-profile-head', '.msb-profile-door-host .tt-profile-body',
     '.ig-post-shell', '.ig-insta-header', '.ig-insta-caption-block', '.ig-insta-actionbar', '.ig-insta-dots-host',
     'body.dashboard-page', 'body.dashboard-page .sh-mainpanel', 'body.dashboard-page .sh-pagebody',
     'body.dashboard-page .sh-pagetitle', 'body.dashboard-page .card', 'body.dashboard-page .card-body',
     'body.dashboard-page .card-header', 'body.dashboard-page .card-footer', 'body.dashboard-page .alert',
     'body.dashboard-modal-page', 'body.dashboard-page.dashboard-modal-page .sh-mainpanel',
     'body.dashboard-page.dashboard-modal-page .sh-pagebody', 'body.dashboard-page.dashboard-modal-page .card',
-    'body.dashboard-page.dashboard-modal-page .card-body', 'body.dashboard-page.dashboard-modal-page .alert'
+    'body.dashboard-page.dashboard-modal-page .card-body', 'body.dashboard-page.dashboard-modal-page .alert',
+    'body.org-app', 'body.org-app .sh-mainpanel', 'body.org-app .sh-pagebody',
+    'body.org-app .sh-sideleft-menu', 'body.org-app .org-sideleft-scroll',
+    'body.org-app .chat-shell', 'body.org-app .chat-left', 'body.org-app .chat-right',
+    'body.org-app .card.fixed-card'
   ].join(',\nhtml[data-msb-appearance] ');
 
   function movePaletteStyleToDocumentEnd(style){
@@ -867,11 +918,285 @@
       '  border-color: var(--msb-palette-border) !important;\n' +
       '}\n' +
       'html[data-msb-appearance] .btn-primary,\n' +
+      'html[data-msb-appearance] a.btn-primary,\n' +
+      'html[data-msb-appearance] button.btn-primary,\n' +
+      'html[data-msb-appearance] .btn-success,\n' +
+      'html[data-msb-appearance] button.btn-success,\n' +
+      'html[data-msb-appearance] a.btn-success,\n' +
+      'html[data-msb-appearance] .btn-info,\n' +
+      'html[data-msb-appearance] .ch-btn-primary,\n' +
+      'html[data-msb-appearance] a.ch-btn-primary,\n' +
+      'html[data-msb-appearance] button.ch-btn-primary,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-open-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-upload-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .about-edit-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .profile-shop-buy-btn,\n' +
+      'html[data-msb-appearance] body.org-app .btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app a.btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app button.btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app .ch-btn-primary,\n' +
       'html[data-msb-appearance] .bg-primary,\n' +
       'html[data-msb-appearance] .bubble.me {\n' +
       '  background-color: var(--msb-palette-btn-bg) !important;\n' +
       '  background-image: none !important;\n' +
       '  color: var(--msb-palette-btn-text) !important;\n' +
+      '  border-color: var(--msb-palette-btn-bg) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .btn-primary:hover,\n' +
+      'html[data-msb-appearance] a.btn-primary:hover,\n' +
+      'html[data-msb-appearance] button.btn-primary:hover,\n' +
+      'html[data-msb-appearance] .btn-success:hover,\n' +
+      'html[data-msb-appearance] .ch-btn-primary:hover,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-open-btn:hover,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-upload-btn:hover,\n' +
+      'html[data-msb-appearance] body.org-app .btn-primary:hover,\n' +
+      'html[data-msb-appearance] body.org-app .ch-btn-primary:hover {\n' +
+      '  background-color: var(--msb-palette-btn-hover-bg) !important;\n' +
+      '  border-color: var(--msb-palette-btn-hover-bg) !important;\n' +
+      '  color: var(--msb-palette-btn-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .btn:not(.btn-primary):not(.btn-success):not(.btn-info),\n' +
+      'html[data-msb-appearance] button.btn:not(.btn-primary):not(.btn-success),\n' +
+      'html[data-msb-appearance] a.btn:not(.btn-primary):not(.btn-success),\n' +
+      'html[data-msb-appearance] .btn-light,\n' +
+      'html[data-msb-appearance] .btn-white,\n' +
+      'html[data-msb-appearance] .btn-soft,\n' +
+      'html[data-msb-appearance] .btn-outline-primary,\n' +
+      'html[data-msb-appearance] .btn-outline-secondary,\n' +
+      'html[data-msb-appearance] .btn-outline-success,\n' +
+      'html[data-msb-appearance] .ch-btn-ghost,\n' +
+      'html[data-msb-appearance] a.ch-btn-ghost,\n' +
+      'html[data-msb-appearance] button.ch-btn-ghost,\n' +
+      'html[data-msb-appearance] .ig-btn,\n' +
+      'html[data-msb-appearance] .feed-ig-btn,\n' +
+      'html[data-msb-appearance] .action-btn,\n' +
+      'html[data-msb-appearance] .topicon-btn,\n' +
+      'html[data-msb-appearance] .yt-icon-btn,\n' +
+      'html[data-msb-appearance] .search-btn,\n' +
+      'html[data-msb-appearance] .iconbtn,\n' +
+      'html[data-msb-appearance] .messages-shell-action-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-item,\n' +
+      'html[data-msb-appearance] body.org-app .btn:not(.btn-primary):not(.btn-success),\n' +
+      'html[data-msb-appearance] body.org-app button.btn,\n' +
+      'html[data-msb-appearance] body.org-app .btn-outline-primary,\n' +
+      'html[data-msb-appearance] body.org-app .btn-outline-secondary,\n' +
+      'html[data-msb-appearance] body.org-app .ch-btn-ghost,\n' +
+      'html[data-msb-appearance] body.org-app .pin-btn,\n' +
+      'html[data-msb-appearance] body.org-app .btn-close-x {\n' +
+      '  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .btn:not(.btn-primary):not(.btn-success):hover,\n' +
+      'html[data-msb-appearance] button.btn:hover,\n' +
+      'html[data-msb-appearance] .btn-outline-primary:hover,\n' +
+      'html[data-msb-appearance] .ch-btn-ghost:hover,\n' +
+      'html[data-msb-appearance] .ig-btn:hover,\n' +
+      'html[data-msb-appearance] .feed-ig-btn:hover,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-item:hover,\n' +
+      'html[data-msb-appearance] body.org-app .btn:hover,\n' +
+      'html[data-msb-appearance] body.org-app .ch-btn-ghost:hover {\n' +
+      '  background-color: var(--msb-palette-hover-bg) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .btn-primary i,\n' +
+      'html[data-msb-appearance] .btn-primary .icon,\n' +
+      'html[data-msb-appearance] button.btn-primary i,\n' +
+      'html[data-msb-appearance] a.btn-primary i,\n' +
+      'html[data-msb-appearance] .ch-btn-primary i,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-open-btn i,\n' +
+      'html[data-msb-appearance] body.org-app .btn-primary i {\n' +
+      '  color: var(--msb-palette-btn-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .btn i,\n' +
+      'html[data-msb-appearance] .btn .icon,\n' +
+      'html[data-msb-appearance] button.btn i,\n' +
+      'html[data-msb-appearance] .ig-btn i,\n' +
+      'html[data-msb-appearance] .feed-ig-btn i,\n' +
+      'html[data-msb-appearance] body.org-app .btn i {\n' +
+      '  color: inherit !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] ' + PALETTE_SPAN_ACCENT_SURFACE_SELECTORS + ' {\n' +
+      '  background-color: var(--msb-palette-action-soft, var(--msb-palette-nav-active-bg)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-action, var(--msb-palette-text))) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] ' + PALETTE_SPAN_SURFACE_SELECTORS + ' {\n' +
+      '  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, var(--msb-palette-bg))) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .stat-pill .num,\n' +
+      'html[data-msb-appearance] .pv-likepill span {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .stat-pill .lbl,\n' +
+      'html[data-msb-appearance] .stat-pill .sub {\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .stat-pill .icon,\n' +
+      'html[data-msb-appearance] .stat-pill i,\n' +
+      'html[data-msb-appearance] .commerce-pill i,\n' +
+      'html[data-msb-appearance] .pv-likepill i,\n' +
+      'html[data-msb-appearance] .feed-badge i,\n' +
+      'html[data-msb-appearance] .badge i,\n' +
+      'html[data-msb-appearance] span.sidebar-chip i {\n' +
+      '  color: var(--msb-palette-icon, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .stat-pill .icon {\n' +
+      '  background-color: var(--msb-palette-hover-bg, var(--msb-palette-surface-2)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-label,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-item-meta,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-upload-hint,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-control-label,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-chevron,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-save-state,\n' +
+      'html[data-msb-appearance] .nav-link > span,\n' +
+      'html[data-msb-appearance] .sh-icon-link > span,\n' +
+      'html[data-msb-appearance] body.org-app .sidebar-meta > span,\n' +
+      'html[data-msb-appearance] .mf-num,\n' +
+      'html[data-msb-appearance] .pv-n,\n' +
+      'html[data-msb-appearance] .pv-views,\n' +
+      'html[data-msb-appearance] .ig-story-name,\n' +
+      'html[data-msb-appearance] span.muted {\n' +
+      '  background-color: transparent !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-item-meta,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-upload-hint,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-chevron,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-save-state:not(.is-saving):not(.is-saved):not(.is-error),\n' +
+      'html[data-msb-appearance] span.muted {\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .ig-username,\n' +
+      'html[data-msb-appearance] body.profile-page .ig-stat,\n' +
+      'html[data-msb-appearance] body.profile-page b.ig-stat,\n' +
+      'html[data-msb-appearance] body.profile-page .ig-bio {\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .ig-tab:not(.active) {\n' +
+      '  background-color: transparent !important;\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .ig-tab.active {\n' +
+      '  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-action, var(--msb-palette-text))) !important;\n' +
+      '  border-top-color: var(--msb-palette-nav-active-text, var(--msb-palette-action, var(--msb-palette-text))) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .ig-tab.active i {\n' +
+      '  color: inherit !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-toggle {\n' +
+      '  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border: 1px solid var(--msb-palette-border) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:hover,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:focus {\n' +
+      '  background-color: var(--msb-palette-nav-hover, var(--msb-palette-hover-bg)) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-item {\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: transparent !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-icon {\n' +
+      '  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;\n' +
+      '  color: var(--msb-palette-action, var(--msb-palette-icon)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-icon i,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-nav-section-chevron {\n' +
+      '  color: var(--msb-palette-action, var(--msb-palette-icon)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .ig-gallery-search button {\n' +
+      '  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;\n' +
+      '  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-body,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-head,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-body {\n' +
+      '  background-color: var(--msb-palette-bg) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title {\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: transparent !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-name,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-badge,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-name,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-badge,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-email,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-code,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-email,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-code {\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a .icon {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  opacity: 1 !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close {\n' +
+      '  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close:hover,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close:focus,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close:hover,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close:focus {\n' +
+      '  background-color: var(--msb-palette-hover-bg) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close i,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close i {\n' +
+      '  color: inherit !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:hover,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:focus,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:hover,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:focus {\n' +
+      '  background-color: var(--msb-palette-hover-bg) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:hover .icon,\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a:focus .icon,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:hover .icon,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a:focus .icon {\n' +
+      '  color: inherit !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-divider,\n' +
+      'html[data-msb-appearance] .msb-profile-door-host .tt-profile-divider {\n' +
+      '  background-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
       '}\n' +
       'html[data-msb-appearance] .msg-row:not(.me) .bubble:not(.has-media),\n' +
       'html[data-msb-appearance] .conv-history .bubble:not(.me):not(.has-media),\n' +
@@ -941,7 +1266,25 @@
       'html[data-msb-appearance] .fa {\n' +
       '  color: var(--msb-palette-icon) !important;\n' +
       '}\n' +
-      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo),\n' +
+      'html[data-msb-appearance] a.gear-detail-open-btn,\n' +
+      'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn {\n' +
+      '  background-color: var(--msb-palette-btn-bg) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-btn-bg) !important;\n' +
+      '  color: var(--msb-palette-btn-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] a.gear-detail-open-btn:hover,\n' +
+      'html[data-msb-appearance] a.gear-detail-open-btn:focus {\n' +
+      '  background-color: var(--msb-palette-btn-hover-bg) !important;\n' +
+      '  border-color: var(--msb-palette-btn-hover-bg) !important;\n' +
+      '  color: var(--msb-palette-btn-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] a.gear-detail-open-btn i,\n' +
+      'html[data-msb-appearance] a.gear-detail-open-btn .icon,\n' +
+      'html[data-msb-appearance] a.gear-detail-open-btn [class*="ion-"] {\n' +
+      '  color: var(--msb-palette-btn-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):not(.feed-tab-link),\n' +
       'html[data-msb-appearance] a.feed-ig-logo-label,\n' +
       'html[data-msb-appearance] .feed-ig-logo-label {\n' +
       '  color: var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;\n' +
@@ -1164,7 +1507,7 @@
       '  color: var(--msb-palette-icon) !important;\n' +
       '  fill: currentColor !important;\n' +
       '}\n' +
-      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.mf-peer-link):not(.post-author-link):hover,\n' +
+      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.mf-peer-link):not(.post-author-link):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):hover,\n' +
       'html[data-msb-appearance] a.feed-ig-logo-label:hover,\n' +
       'html[data-msb-appearance] a.feed-ig-logo-label:focus {\n' +
       '  color: var(--msb-palette-link-hover) !important;\n' +
@@ -1176,6 +1519,58 @@
       '  border-color: transparent !important;\n' +
       '  box-shadow: none !important;\n' +
       '}\n' +
+      'html[data-msb-appearance] body.org-app .card-body .row,\n' +
+      'html[data-msb-appearance] body.org-app form .row {\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: inherit !important;\n' +
+      '  border-color: transparent !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.org-app .form-group label,\n' +
+      'html[data-msb-appearance] body.org-app form label {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.org-app .form-control,\n' +
+      'html[data-msb-appearance] body.org-app select.form-control,\n' +
+      'html[data-msb-appearance] body.org-app textarea.form-control {\n' +
+      '  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .card-body .row,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page form .row {\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: inherit !important;\n' +
+      '  border-color: transparent !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .form-group label,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page form label {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .form-control,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page select.form-control,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page textarea.form-control {\n' +
+      '  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page a.btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page button.btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .btn-success,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .ch-btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page a.ch-btn-primary,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .posts-tabs a.active,\n' +
+      'html[data-msb-appearance] body.org-app .org-surface-page .feed-tabs a.active,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-upload-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-open-btn {\n' +
+      '  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;\n' +
+      '  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
       'html[data-msb-appearance] ' + PALETTE_POST_CARD_HEADER_HOVER_CHILD_SELECTORS + ' {\n' +
       '  color: var(--msb-palette-text) !important;\n' +
       '}\n' +
@@ -1183,6 +1578,43 @@
       'html[data-msb-appearance] body .post.public-post-card .post-header a:hover .time,\n' +
       'html[data-msb-appearance] body .post.public-post-card .standard-media-topbar a:hover .standard-media-time {\n' +
       '  color: var(--msb-palette-text-muted) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-open-btn,\n' +
+      'html[data-msb-appearance] body.profile-page label.gear-upload-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-upload-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .about-edit-btn,\n' +
+      'html[data-msb-appearance] body.profile-page .profile-shop-buy-btn {\n' +
+      '  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:hover,\n' +
+      'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:focus,\n' +
+      'html[data-msb-appearance] body.profile-page label.gear-upload-btn:hover,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-upload-btn:hover {\n' +
+      '  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;\n' +
+      '  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn i,\n' +
+      'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn .icon,\n' +
+      'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn [class*="ion-"],\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-open-btn i,\n' +
+      'html[data-msb-appearance] body.profile-page .gear-detail-open-btn [class*="ion-"],\n' +
+      'html[data-msb-appearance] body.profile-page label.gear-upload-btn {\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .ig-tab.active,\n' +
+      'html[data-msb-appearance] body.profile-page .ig-tab.active i {\n' +
+      '  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-btn-text, #ffffff)) !important;\n' +
+      '  border-top-color: var(--msb-palette-nav-active-text, var(--msb-palette-btn-text, #ffffff)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.profile-page .ig-tab.active i {\n' +
+      '  background-color: transparent !important;\n' +
+      '  color: inherit !important;\n' +
       '}\n';
     movePaletteStyleToDocumentEnd(style);
     if (document.readyState === 'loading') {
@@ -1329,8 +1761,9 @@
     var props = [
       '--bg', '--bg-main', '--bg-card', '--bg-sidebar', '--surface', '--surface-2',
       '--text', '--text-primary', '--text-secondary', '--text-muted', '--muted',
-      '--border', '--border-color', '--accent', '--org-bg', '--org-accent',
-      '--msb-palette-bg', '--msb-palette-surface', '--msb-palette-surface-2',
+      '--border', '--border-color', '--accent', '--org-bg', '--org-accent', '--org-accent-strong', '--org-btn-on-accent',
+      '--org-btn-filled-bg', '--org-btn-filled-text',
+      '--msb-palette-bg', '--msb-palette-panel', '--msb-palette-surface', '--msb-palette-surface-2',
       '--msb-palette-sidebar', '--msb-palette-header', '--msb-palette-header-text',
       '--msb-palette-nav', '--msb-palette-nav-hover', '--msb-palette-hover-bg', '--msb-palette-surface-hover', '--msb-palette-footer',
       '--msb-palette-accent', '--msb-palette-action', '--msb-palette-action-strong', '--msb-palette-action-soft',
@@ -1410,17 +1843,29 @@
     var shadow = isDark ? '0 10px 18px rgba(0,0,0,.35)' : '0 14px 38px rgba(15,23,42,.06)';
     var shadowStrong = isDark ? '0 14px 24px rgba(0,0,0,.45)' : '0 14px 24px rgba(15,23,42,.10)';
 
-    var text = fg.text;
-    var textOnSurface = fg.text;
-    var textOnNav = fg.text;
-    var muted = fg.muted;
-    var mutedOnSurface = fg.muted;
-    var icon = fg.icon;
+    var text = ensureContrast(fg.text, bg, 4.5);
+    var textOnSurface = text;
+    var textOnNav = text;
+    var muted = ensureContrast(fg.muted, bg, 4.2);
+    var mutedOnSurface = muted;
+    var icon = ensureContrast(fg.icon, bg, 4.5);
     var iconOnSurface = fg.icon;
     var iconOnHeader = fg.icon;
     var navActiveBg = fg.navActiveBg || mixHex(bg, '#000000', 0.12);
     var navActiveText = fg.navActiveText || textOnNav;
     var navActiveIcon = fg.navActiveIcon || icon;
+    if (contrastRatio(navActiveText, navActiveBg) < 4.5) {
+      navActiveText = ensureContrast(null, navActiveBg, 4.5);
+    }
+    if (relativeLuminance(navActiveBg) < 0.42 && relativeLuminance(navActiveText) > 0.42) {
+      navActiveText = '#f8fafc';
+    } else if (relativeLuminance(navActiveBg) > 0.58 && relativeLuminance(navActiveText) < 0.58) {
+      navActiveText = '#0f172a';
+    }
+    navActiveIcon = ensureContrast(navActiveIcon, navActiveBg, 3);
+    if (contrastRatio(navActiveIcon, navActiveBg) < 3) {
+      navActiveIcon = navActiveText;
+    }
     var textOnNavHover = fg.navHoverText || textOnHover;
     var iconOnNavHover = fg.navHoverIcon || iconOnHover;
     var headerText = fg.text;
@@ -1432,9 +1877,20 @@
     var linkHover = actionAccentHover;
     var border = fg.border;
     var borderStrong = fg.borderStrong;
-    var btnBg = actionAccent;
-    var btnText = ensureContrast(null, btnBg, 4.5);
-    var btnHoverBg = isDark ? mixHex(btnBg, '#ffffff', 0.12) : mixHex(btnBg, '#000000', 0.1);
+    var btnBg = fg.btnBg || btnBgOn(hex, bg, isDark);
+    var btnText = fg.btnText || ensureContrast(null, btnBg, 4.5);
+    if (contrastRatio(btnText, btnBg) < 4.5) {
+      btnText = ensureContrast(null, btnBg, 4.5);
+    }
+    if (relativeLuminance(btnBg) < 0.42 && relativeLuminance(btnText) > 0.42) {
+      btnText = '#f8fafc';
+    } else if (relativeLuminance(btnBg) > 0.58 && relativeLuminance(btnText) < 0.58) {
+      btnText = '#0f172a';
+    }
+    if (contrastRatio(btnText, btnBg) < 4.5) {
+      btnText = ensureContrast(null, btnBg, 4.5);
+    }
+    var btnHoverBg = fg.btnHoverBg || (isDark ? mixHex(btnBg, '#ffffff', 0.12) : mixHex(btnBg, '#000000', 0.1));
     var btnSecondaryBg = bg;
     var btnSecondaryText = fg.text;
     var btnSecondaryHover = genericHover;
@@ -1455,6 +1911,7 @@
     }
 
     root.style.setProperty('--msb-palette-bg', bg);
+    root.style.setProperty('--msb-palette-panel', surface);
     root.style.setProperty('--msb-palette-surface', surface);
     root.style.setProperty('--msb-palette-surface-2', surface2);
     root.style.setProperty('--msb-palette-sidebar', sidebar);
@@ -1526,7 +1983,16 @@
     root.style.setProperty('--border-color', border);
     root.style.setProperty('--accent', hex);
     root.style.setProperty('--org-bg', bg);
-    root.style.setProperty('--org-accent', hex);
+    root.style.setProperty('--org-accent', btnBg);
+    root.style.setProperty('--org-accent-strong', btnHoverBg);
+    root.style.setProperty('--org-btn-on-accent', btnText);
+    root.style.setProperty('--org-btn-filled-bg', btnBg);
+    root.style.setProperty('--org-btn-filled-text', btnText);
+    if (document.body) {
+      document.body.style.setProperty('--org-btn-filled-bg', btnBg);
+      document.body.style.setProperty('--org-btn-filled-text', btnText);
+      document.body.style.setProperty('--org-btn-on-accent', btnText);
+    }
     root.style.setProperty('--shadow', shadow);
     root.style.setProperty('--shadow-strong', shadowStrong);
     root.style.setProperty('--feed-surface', bg);
@@ -1585,8 +2051,13 @@
   }
 
   function resolveAppearanceMode(prefs){
-    if (prefs.autoEnabled) return 'system';
     return normalizeAppearanceMode(prefs.appearanceMode || prefs.manualMode || 'dark');
+  }
+
+  function isNamedPaletteMode(mode){
+    mode = normalizeAppearanceMode(mode);
+    if (mode === 'system' || mode === 'light' || mode === 'dark') return false;
+    return !!(window.__MSB_APPEARANCE_PALETTES && window.__MSB_APPEARANCE_PALETTES[mode]);
   }
 
   function applyBuiltInDarkThemeVars(root){
@@ -1595,9 +2066,10 @@
     var chrome = appearanceDarkChrome();
     root.style.setProperty('--msb-dark-auto-chrome', chrome);
     root.style.setProperty('--msb-palette-bg', bg);
+    root.style.setProperty('--msb-palette-panel', bg);
     root.style.setProperty('--msb-palette-text', chrome);
     root.style.setProperty('--msb-palette-text-on-nav', chrome);
-    root.style.setProperty('--msb-palette-text-muted', chrome);
+    root.style.setProperty('--msb-palette-text-muted', ensureContrast('#cbd5e1', bg, 4.2));
     root.style.setProperty('--msb-palette-icon', chrome);
     root.style.setProperty('--msb-palette-link', chrome);
     root.style.setProperty('--msb-palette-link-hover', chrome);
@@ -1634,8 +2106,8 @@
     if (!root) return;
     var bg = appearanceLightBg();
     var text = '#0f172a';
-    var muted = '#64748b';
-    var soft = '#475569';
+    var muted = ensureContrast('#475569', bg, 4.5);
+    var soft = ensureContrast('#334155', bg, 4.5);
     var border = 'rgba(15,23,42,.12)';
     var borderStrong = 'rgba(15,23,42,.16)';
     var surface = bg;
@@ -1643,6 +2115,7 @@
     var accent = '#2563eb';
 
     root.style.setProperty('--msb-palette-bg', bg);
+    root.style.setProperty('--msb-palette-panel', surface);
     root.style.setProperty('--msb-palette-surface', surface);
     root.style.setProperty('--msb-palette-surface-2', surface);
     root.style.setProperty('--msb-palette-text', text);
@@ -1656,6 +2129,19 @@
     root.style.setProperty('--msb-palette-action', accent);
     root.style.setProperty('--msb-palette-action-soft', 'rgba(37,99,235,.10)');
     root.style.setProperty('--msb-palette-action-strong', '#1d4ed8');
+    root.style.setProperty('--msb-palette-btn-bg', accent);
+    root.style.setProperty('--msb-palette-btn-text', ensureContrast(null, accent, 4.5));
+    root.style.setProperty('--msb-palette-btn-hover-bg', '#1d4ed8');
+    root.style.setProperty('--org-accent', accent);
+    root.style.setProperty('--org-accent-strong', '#1d4ed8');
+    root.style.setProperty('--org-btn-on-accent', ensureContrast(null, accent, 4.5));
+    root.style.setProperty('--org-btn-filled-bg', accent);
+    root.style.setProperty('--org-btn-filled-text', ensureContrast(null, accent, 4.5));
+    if (document.body) {
+      document.body.style.setProperty('--org-btn-filled-bg', accent);
+      document.body.style.setProperty('--org-btn-filled-text', ensureContrast(null, accent, 4.5));
+      document.body.style.setProperty('--org-btn-on-accent', ensureContrast(null, accent, 4.5));
+    }
     root.style.setProperty('--bg', bg);
     root.style.setProperty('--bg-main', bg);
     root.style.setProperty('--bg-card', surface);
@@ -1702,39 +2188,520 @@
     root.style.setProperty('--public-accent-strong', '#1d4ed8');
   }
 
+  var BUILTIN_PAINT_STYLE_ID = 'msb-builtin-theme-paint';
+
+  var BUILTIN_PAINT_SELECTORS = [
+    'body.profile-page', 'body.profile-page .sh-mainpanel', 'body.profile-page .sh-pagebody',
+    'body.profile-page .ig-wrap', 'body.profile-page .ig-profile-shell', 'body.profile-page .ig-tabs',
+    'body.profile-page .ig-profile-head', 'body.profile-page .ig-profile-scroll',
+    'body.profile-page .ig-highlights', 'body.profile-page .ig-avatar', 'body.profile-page .ig-top',
+    'body.profile-page .profile-panel', 'body.profile-page .gear-wrap', 'body.profile-page .gear-shell',
+    'body.profile-page .gear-sidebar', 'body.profile-page .gear-sidebar-head', 'body.profile-page .gear-main',
+    'body.profile-page .gear-nav', 'body.profile-page .gear-detail-panel', 'body.profile-page .gear-detail-head',
+    'body.profile-page .gear-detail-body', 'body.profile-page .gear-detail-empty', 'body.profile-page .gear-search',
+    'body.profile-page .gear-note', 'body.profile-page .gear-control',
+    'body.shop-page', 'body.shop-page .sh-mainpanel', 'body.shop-page .sh-pagebody',
+    'body.shop-page .shop-page-shell', 'body.shop-page .shop-market-card', 'body.shop-page .cart-row', 'body.shop-page .feed-left-rail',
+    'body.shop-page .feed-left-nav', 'body.shop-page .shop-nav-filters', 'body.shop-page .shop-brand-nav',
+    'body.shop-page .ig-feed-header',
+    'body.org-app', 'body.org-app .sh-mainpanel', 'body.org-app .sh-pagebody',
+    'body.org-app .sh-sideleft-menu', 'body.org-app .org-sideleft-scroll', 'body.org-app .commerce-page',
+    'body.org-app .commerce-kpi', 'body.org-app .commerce-panel', 'body.org-app .commerce-action-tile',
+    'body.org-app .commerce-panel-head', 'body.org-app .commerce-brand-system-panel',
+    'body.org-app .commerce-int-item', 'body.org-app .commerce-channel', 'body.org-app .commerce-table-wrap',
+    'body.org-app .sales-management-metric', 'body.org-app .sales-management-table-wrap',
+    'body.org-app .card', 'body.org-app .card-body', 'body.org-app .card-header',
+    'body.org-app .feed-sidebar', 'body.org-app .feed-card', 'body.org-app .feed-toolbar',
+    'body.org-app .feed-layout', 'body.org-app .feed-main', 'body.org-app .rows-scroll',
+    'body.org-app .sidebar-head', 'body.org-app .sidebar-list',
+    'body.org-app .feed-post-detail', 'body.org-app .feed-compose', 'body.org-app .comment-item',
+    'body.org-app .sidebar-search', 'body.org-app .feed-compose-input',
+    'body.org-app .compose-card', 'body.org-app .compose-intro', 'body.org-app .compose-preview',
+    'body.org-app .actions-fixed', 'body.org-app .card-body-fixed',
+    'body.org-app .chat-shell', 'body.org-app .chat-left', 'body.org-app .chat-right',
+    'body.org-app .fixed-card', 'body.org-app .fixed-head', 'body.org-app .fixed-body',
+    'body.org-app .members-list-wrap', 'body.org-app .members-search', 'body.org-app .members-scroll',
+    'body.org-app .conv-split', 'body.org-app .conv-main', 'body.org-app .conv-topbar',
+    'body.org-app .conv-history', 'body.org-app .history-card', 'body.org-app .history-head',
+    'body.org-app .history-search', 'body.org-app .history-scroll', 'body.org-app .msg-scroll',
+    'body.org-app .composer-fixed', 'body.org-app .search-bar', 'body.org-app .list-group-item',
+    'body.org-app .org-sideleft-top', 'body.org-app .org-sideleft-bottom',
+    'body.org-app .sh-logopanel', 'body.org-app .sh-headpanel',
+    'body.org-app .org-pill', 'body.org-app .ig-feed-account-badge',
+    '#ttLeftbarOverlays .tt-profile-wrap', '#ttLeftbarOverlays .tt-profile-head', '#ttLeftbarOverlays .tt-profile-body',
+    '.msb-profile-door-host .tt-profile-wrap', '.msb-profile-door-host .tt-profile-head', '.msb-profile-door-host .tt-profile-body'
+  ].join(',\n');
+
+  var BUILTIN_DOOR_PROFILE_TEXT_SELECTORS = [
+    '#ttLeftbarOverlays .tt-profile-head .title', '#ttLeftbarOverlays .tt-profile-name',
+    '#ttLeftbarOverlays .tt-profile-badge', '#ttLeftbarOverlays .tt-profile-nav a',
+    '.msb-profile-door-host .tt-profile-head .title', '.msb-profile-door-host .tt-profile-name',
+    '.msb-profile-door-host .tt-profile-badge', '.msb-profile-door-host .tt-profile-nav a'
+  ].join(',\n');
+
+  var BUILTIN_DOOR_PROFILE_MUTED_SELECTORS = [
+    '#ttLeftbarOverlays .tt-profile-email', '#ttLeftbarOverlays .tt-profile-code',
+    '.msb-profile-door-host .tt-profile-email', '.msb-profile-door-host .tt-profile-code'
+  ].join(',\n');
+
+  var BUILTIN_DOOR_PROFILE_ICON_SELECTORS = [
+    '#ttLeftbarOverlays .tt-profile-nav a .icon', '#ttLeftbarOverlays .tt-profile-wrap .tt-close i',
+    '.msb-profile-door-host .tt-profile-nav a .icon', '.msb-profile-door-host .tt-profile-wrap .tt-close i'
+  ].join(',\n');
+
+  var BUILTIN_GEAR_FG_SELECTORS = [
+    'body.profile-page .gear-sidebar-title', 'body.profile-page .gear-detail-title',
+    'body.profile-page .gear-nav-section-toggle', 'body.profile-page .gear-nav-section-label',
+    'body.profile-page .gear-nav-item', 'body.profile-page .gear-detail-control-label',
+    'body.profile-page .gear-chip', 'body.profile-page .gear-tag', 'body.profile-page .gear-control',
+    'body.profile-page .gear-detail-icon', 'body.profile-page .gear-nav-section-icon'
+  ].join(',\n');
+
+  var BUILTIN_HREF_TEXT_SELECTORS = [
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab)',
+    '.nav-link:not(.active)', '.feed-ig-link', '.dropdown-item', '.dropdown-link',
+    '.dropdown-menu-link', '.bestchat-menu-item', '.dropdown-bestnoti-item',
+    'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link)',
+    'body.org-app .nav-link:not(.active)', 'body.org-app .sh-icon-link'
+  ].join(',\n');
+
+  var BUILTIN_HREF_BTN_SELECTORS = [
+    'a.btn', 'a.btn-primary', 'a.btn-success', 'a.btn-outline-primary', 'a.btn-outline-secondary',
+    'a.btn-outline-success', 'a.ch-btn-primary', 'a.ch-btn-ghost',
+    'body.profile-page a.gear-detail-open-btn', 'body.org-app a.btn',
+    'body.org-app a.btn-primary', 'body.org-app a.btn-success', 'body.org-app a.ch-btn-primary',
+    'body.org-app a.ch-btn-ghost', 'body.org-app a.feed-tab-link.active',
+    'body.org-app .posts-tabs a.active', 'body.org-app .feed-tabs a.active',
+    'a.feed-tab-link.active'
+  ].join(',\n');
+
+  var BUILTIN_HREF_TEXT_HOVER_SELECTORS = [
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):hover',
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):focus',
+    '.nav-link:hover', '.nav-link:focus', '.feed-ig-link:hover', '.feed-ig-link:focus',
+    '.dropdown-item:hover', '.dropdown-link:hover', '.dropdown-menu-link:hover',
+    'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link):hover',
+    'body.org-app .nav-link:hover', 'body.org-app .sh-icon-link:hover'
+  ].join(',\n');
+
+  var BUILTIN_HREF_BTN_HOVER_SELECTORS = [
+    'a.btn:hover', 'a.btn:focus', 'a.btn-primary:hover', 'a.btn-primary:focus',
+    'a.btn-success:hover', 'a.btn-success:focus', 'a.ch-btn-primary:hover', 'a.ch-btn-ghost:hover',
+    'body.profile-page a.gear-detail-open-btn:hover', 'body.profile-page a.gear-detail-open-btn:focus',
+    'body.org-app a.btn:hover', 'body.org-app a.btn-primary:hover', 'body.org-app a.ch-btn-primary:hover',
+    'body.org-app a.feed-tab-link.active:hover', 'a.feed-tab-link.active:hover'
+  ].join(',\n');
+
+  var BUILTIN_HREF_BTN_ICON_SELECTORS = [
+    'body.profile-page a.gear-detail-open-btn i', 'body.profile-page a.gear-detail-open-btn .icon',
+    'body.profile-page a.gear-detail-open-btn [class*="ion-"]',
+    'a.btn i', 'a.btn-primary i', 'a.btn-success i', 'a.ch-btn-primary i',
+    'body.org-app a.btn i', 'body.org-app a.btn-primary i', 'body.org-app a.ch-btn-primary i'
+  ].join(',\n');
+
+  var BUILTIN_BTN_FILLED_SELECTORS = [
+    '.btn-primary', 'button.btn-primary', 'a.btn-primary',
+    '.btn-success', 'button.btn-success', 'a.btn-success',
+    '.btn-info', 'button.btn-info', 'a.btn-info',
+    '.ch-btn-primary', 'button.ch-btn-primary', 'a.ch-btn-primary',
+    'body.profile-page .gear-detail-open-btn', 'body.profile-page .gear-upload-btn',
+    'body.profile-page .about-edit-btn', 'body.profile-page .profile-shop-buy-btn',
+    'body.profile-page .ig-gallery-search button',
+    'body.org-app .btn-primary', 'body.org-app button.btn-primary', 'body.org-app a.btn-primary',
+    'body.org-app .btn-success', 'body.org-app a.btn-success',
+    'body.org-app .ch-btn-primary', 'body.org-app button.ch-btn-primary', 'body.org-app a.ch-btn-primary',
+    'body.org-app .posts-tabs a.active', 'body.org-app .feed-tabs a.active',
+    'a.feed-tab-link.active', 'body.org-app a.feed-tab-link.active'
+  ].join(',\n');
+
+  var BUILTIN_BTN_SURFACE_SELECTORS = [
+    '.btn:not(.btn-primary):not(.btn-success):not(.btn-info)',
+    'button.btn:not(.btn-primary):not(.btn-success):not(.btn-info)',
+    'a.btn:not(.btn-primary):not(.btn-success):not(.btn-info)',
+    '.btn-light', '.btn-white', '.btn-soft', 'button.btn-light', 'a.btn-light',
+    '.btn-outline-primary', '.btn-outline-secondary', '.btn-outline-success',
+    '.btn-outline-info', '.btn-outline-danger',
+    'button.btn-outline-primary', 'button.btn-outline-secondary', 'button.btn-outline-success',
+    'a.btn-outline-primary', 'a.btn-outline-secondary', 'a.btn-outline-success',
+    '.ch-btn-ghost', 'button.ch-btn-ghost', 'a.ch-btn-ghost',
+    '.ig-btn', '.feed-ig-btn', '.action-btn', '.topicon-btn', '.yt-icon-btn',
+    '.search-btn', '.btn-search', '.iconbtn', '.tt-iconbtn',
+    '.messages-shell-action-btn', '.messages-shell-tab:not(.active)',
+    'body.profile-page .gear-nav-item',
+    'body.profile-page .ig-btn',
+    'body.org-app .btn:not(.btn-primary):not(.btn-success)',
+    'body.org-app button.btn', 'body.org-app a.btn:not(.btn-primary):not(.btn-success)',
+    'body.org-app .btn-outline-primary', 'body.org-app .btn-outline-secondary',
+    'body.org-app .btn-outline-success', 'body.org-app .pin-btn',
+    'body.org-app .sidebar-refresh-btn', 'body.org-app .btn-close-x',
+    'body.org-app .ch-btn-ghost', 'body.org-app button.ch-btn-ghost'
+  ].join(',\n');
+
+  var BUILTIN_BTN_FILLED_HOVER_SELECTORS = [
+    '.btn-primary:hover', '.btn-primary:focus', 'button.btn-primary:hover', 'a.btn-primary:hover',
+    '.btn-success:hover', '.btn-success:focus', 'button.btn-success:hover', 'a.btn-success:hover',
+    '.ch-btn-primary:hover', '.ch-btn-primary:focus', 'button.ch-btn-primary:hover', 'a.ch-btn-primary:hover',
+    'body.profile-page .gear-detail-open-btn:hover', 'body.profile-page .gear-detail-open-btn:focus',
+    'body.profile-page .gear-upload-btn:hover', 'body.profile-page .gear-upload-btn:focus',
+    'body.profile-page .about-edit-btn:hover', 'body.profile-page .profile-shop-buy-btn:hover',
+    'body.org-app .btn-primary:hover', 'body.org-app a.btn-primary:hover',
+    'body.org-app .ch-btn-primary:hover', 'body.org-app button.ch-btn-primary:hover',
+    'body.org-app .posts-tabs a.active:hover', 'body.org-app .feed-tabs a.active:hover'
+  ].join(',\n');
+
+  var BUILTIN_BTN_SURFACE_HOVER_SELECTORS = [
+    '.btn:not(.btn-primary):not(.btn-success):hover', 'button.btn:hover', 'a.btn:hover',
+    '.btn-light:hover', '.btn-white:hover', '.btn-soft:hover',
+    '.btn-outline-primary:hover', '.btn-outline-secondary:hover', '.btn-outline-success:hover',
+    '.ch-btn-ghost:hover', '.ig-btn:hover', '.feed-ig-btn:hover', '.action-btn:hover',
+    '.topicon-btn:hover', '.yt-icon-btn:hover', '.search-btn:hover', '.iconbtn:hover',
+    '.messages-shell-action-btn:hover', '.messages-shell-tab:not(.active):hover',
+    'body.profile-page .gear-nav-item:hover',
+    'body.org-app .btn:hover', 'body.org-app button.btn:hover', 'body.org-app a.btn:hover',
+    'body.org-app .btn-outline-primary:hover', 'body.org-app .btn-outline-secondary:hover',
+    'body.org-app .ch-btn-ghost:hover', 'body.org-app .pin-btn:hover',
+    'body.org-app .sidebar-refresh-btn:hover', 'body.org-app .btn-close-x:hover'
+  ].join(',\n');
+
+  var BUILTIN_BTN_ICON_SELECTORS = [
+    '.btn-primary i', '.btn-primary .icon', '.btn-primary [class*="ion-"]', '.btn-primary .fa',
+    'button.btn-primary i', 'a.btn-primary i', '.btn-success i', 'a.btn-success i',
+    '.ch-btn-primary i', 'a.ch-btn-primary i', 'button.ch-btn-primary i',
+    'body.profile-page .gear-detail-open-btn i', 'body.profile-page .gear-detail-open-btn .icon',
+    'body.profile-page .gear-detail-open-btn [class*="ion-"]',
+    'body.profile-page .gear-upload-btn',
+    'body.profile-page .about-edit-btn i', 'body.profile-page .profile-shop-buy-btn',
+    '.ig-btn i', '.feed-ig-btn i', '.action-btn i', '.btn i', '.btn .icon', 'button.btn i',
+    'body.org-app .btn-primary i', 'body.org-app .btn i', 'body.org-app button.btn i',
+    'body.org-app .ch-btn-primary i', 'body.org-app .ch-btn-ghost i'
+  ].join(',\n');
+
+  var BUILTIN_BTN_FILLED_ICON_SELECTORS = [
+    '.btn-primary i', '.btn-primary .icon', '.btn-primary [class*="ion-"]', '.btn-primary .fa',
+    'button.btn-primary i', 'a.btn-primary i', '.btn-success i', 'a.btn-success i',
+    '.ch-btn-primary i', 'a.ch-btn-primary i', 'button.ch-btn-primary i',
+    'body.profile-page .gear-detail-open-btn i', 'body.profile-page .gear-detail-open-btn .icon',
+    'body.profile-page .gear-detail-open-btn [class*="ion-"]',
+    'body.org-app .btn-primary i', 'body.org-app a.btn-primary i', 'body.org-app .ch-btn-primary i'
+  ].join(',\n');
+
+  var BUILTIN_SPAN_SURFACE_SELECTORS = [
+    'body.profile-page .gear-tag', 'span.gear-tag', 'span.profile-account-badge',
+    '.profile-account-badge', 'span.badge', '.badge', '.badge-light', 'span.feed-badge',
+    '.feed-badge', 'span.stat-pill', '.stat-pill', 'span.commerce-pill', '.commerce-pill',
+    'span.commerce-order-badge', '.commerce-order-badge', 'span.commerce-brand-card-badge',
+    '.commerce-brand-card-badge', 'span.pv-pill', '.pv-pill', 'span.pv-likepill',
+    '.pv-likepill', 'span.sidebar-pill', '.sidebar-pill', 'span.msg-pill', '.msg-pill',
+    'span.msg-reaction-pill', '.msg-reaction-pill', 'span.live-modal-badge',
+    '.live-modal-badge', 'span.sidebar-chip', '.sidebar-chip', 'span.ig-profile-love-count',
+    '.ig-profile-love-count'
+  ].join(',\n');
+
+  var BUILTIN_SPAN_ACCENT_SURFACE_SELECTORS = [
+    'body.profile-page .gear-chip', 'span.gear-chip'
+  ].join(',\n');
+
+  var BUILTIN_SPAN_TEXT_SELECTORS = [
+    'body.profile-page .gear-nav-section-label', 'body.profile-page .gear-nav-item-meta',
+    'body.profile-page .gear-upload-hint', 'body.profile-page .gear-detail-control-label',
+    'body.profile-page .gear-nav-section-chevron', 'body.profile-page .gear-save-state',
+    '.nav-link > span', '.sh-icon-link > span', 'body.org-app .sidebar-meta > span',
+    'body.org-app .nav-link > span', '.mf-num', 'span.mf-dot', '.mf-time',
+    '.mf-music-title', '.mf-music-artist', '.mf-music-dot', '.pv-n', '.pv-views',
+    '.ig-story-name', 'span.muted', '.react-btn .n', '.react-btn .vnum',
+    '.mf-media-action-label'
+  ].join(',\n');
+
+  var BUILTIN_SPAN_MUTED_SELECTORS = [
+    'body.profile-page .gear-nav-item-meta', 'body.profile-page .gear-upload-hint',
+    'body.profile-page .gear-save-state:not(.is-saving):not(.is-saved):not(.is-error)',
+    'body.profile-page .gear-nav-section-chevron', '.stat-pill .lbl', '.stat-pill .sub',
+    'span.muted', '.ig-bio .muted'
+  ].join(',\n');
+
+  var BUILTIN_GEAR_MUTED_SELECTORS = [
+    'body.profile-page .gear-detail-desc', 'body.profile-page .gear-nav-item-meta',
+    'body.profile-page .gear-upload-hint', 'body.profile-page .gear-detail-empty',
+    'body.profile-page .gear-save-state', 'body.profile-page .gear-nav-section-chevron'
+  ].join(',\n');
+
+  var BUILTIN_GEAR_ICON_SELECTORS = [
+    'body.profile-page .gear-detail-icon i', 'body.profile-page .gear-nav-section-icon i',
+    'body.profile-page .gear-detail-icon [class*="ion-"]',
+    'body.profile-page .gear-nav-section-icon [class*="ion-"]'
+  ].join(',\n');
+
+  function scopeSelectors(scope, selectors){
+    return selectors.split(',\n').map(function(sel){
+      return scope + ' ' + sel.trim();
+    }).join(',\n');
+  }
+
+  function clearBuiltinThemePaintStyle(){
+    var style = document.getElementById(BUILTIN_PAINT_STYLE_ID);
+    if (style && style.parentNode) {
+      style.parentNode.removeChild(style);
+    }
+  }
+
+  function resolveBuiltinDarkChrome(prefs, appearanceMode){
+    appearanceMode = normalizeAppearanceMode(appearanceMode);
+    if (!!prefs.autoEnabled) {
+      return shouldAutoDark();
+    }
+    if (appearanceMode === 'light') {
+      return false;
+    }
+    if (appearanceMode === 'dark') {
+      return true;
+    }
+    return false;
+  }
+
+  function ensureBuiltinThemePaintStyle(){
+    var root = document.documentElement;
+    if (root.getAttribute('data-msb-appearance')) {
+      clearBuiltinThemePaintStyle();
+      return;
+    }
+
+    var isDark = root.classList.contains('dark-auto');
+    var scope = isDark
+      ? 'html.dark-auto:not([data-msb-appearance])'
+      : 'html:not(.dark-auto):not([data-msb-appearance])';
+    var paintBg = isDark ? appearanceDarkBg() : appearanceLightBg();
+    var paintText = isDark ? appearanceDarkChrome() : '#0f172a';
+    var paintBorder = isDark ? 'rgba(255,255,255,.12)' : 'rgba(15,23,42,.12)';
+    var style = document.getElementById(BUILTIN_PAINT_STYLE_ID);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = BUILTIN_PAINT_STYLE_ID;
+      style.setAttribute('data-msb-theme-style', '1');
+      document.head.appendChild(style);
+    }
+
+    style.textContent =
+      scope + ',\n' +
+      scopeSelectors(scope, BUILTIN_PAINT_SELECTORS) + ' {\n' +
+      '  background-color: ' + paintBg + ' !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: ' + paintText + ' !important;\n' +
+      '  border-color: ' + paintBorder + ' !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_GEAR_FG_SELECTORS) + ' {\n' +
+      '  color: ' + paintText + ' !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_GEAR_MUTED_SELECTORS) + ' {\n' +
+      '  color: ' + (isDark ? paintText : '#475569') + ' !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_GEAR_ICON_SELECTORS) + ' {\n' +
+      '  color: ' + paintText + ' !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .gear-nav-item.is-active') + ' {\n' +
+      '  background-color: var(--msb-palette-nav-active-bg) !important;\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .gear-nav-item.is-active .gear-nav-item-meta') + ' {\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-text-muted)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .gear-nav-section-toggle') + ' {\n' +
+      '  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border: 1px solid var(--msb-palette-border) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .gear-nav-item') + ' {\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .gear-nav-section-toggle:hover, body.profile-page .gear-nav-section-toggle:focus, body.profile-page .gear-nav-item:hover, body.profile-page .gear-nav-item:focus') + ' {\n' +
+      '  background-color: var(--msb-palette-hover-bg) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_HREF_TEXT_SELECTORS) + ' {\n' +
+      '  color: var(--msb-palette-link, var(--msb-palette-text)) !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_HREF_TEXT_HOVER_SELECTORS) + ' {\n' +
+      '  color: var(--msb-palette-link-hover, var(--msb-palette-link, var(--msb-palette-text))) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_BTN_FILLED_SELECTORS) + ' {\n' +
+      '  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb)) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_BTN_FILLED_HOVER_SELECTORS) + ' {\n' +
+      '  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb))) !important;\n' +
+      '  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb))) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_BTN_SURFACE_SELECTORS) + ' {\n' +
+      '  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, var(--msb-palette-bg))) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_BTN_SURFACE_HOVER_SELECTORS) + ' {\n' +
+      '  background-color: var(--msb-palette-hover-bg, var(--msb-palette-nav-hover)) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_BTN_ICON_SELECTORS) + ' {\n' +
+      '  color: inherit !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_BTN_FILLED_ICON_SELECTORS) + ' {\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_SPAN_ACCENT_SURFACE_SELECTORS) + ' {\n' +
+      '  background-color: var(--msb-palette-action-soft, var(--msb-palette-nav-active-bg)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-action, var(--msb-palette-text))) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_SPAN_SURFACE_SELECTORS) + ' {\n' +
+      '  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, var(--msb-palette-bg))) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '.stat-pill .num, .pv-likepill span') + ' {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '.stat-pill .lbl, .stat-pill .sub') + ' {\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '.stat-pill .icon, .stat-pill i, .commerce-pill i, .pv-likepill i, .feed-badge i, .badge i, span.sidebar-chip i') + ' {\n' +
+      '  color: var(--msb-palette-icon, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '.stat-pill .icon') + ' {\n' +
+      '  background-color: var(--msb-palette-hover-bg, var(--msb-palette-surface-2)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_SPAN_TEXT_SELECTORS) + ' {\n' +
+      '  background-color: transparent !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_SPAN_MUTED_SELECTORS) + ' {\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .ig-username, body.profile-page .ig-stat, body.profile-page b.ig-stat, body.profile-page .ig-bio') + ' {\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .ig-tab:not(.active)') + ' {\n' +
+      '  background-color: transparent !important;\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .ig-tab.active') + ' {\n' +
+      '  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-surface-2, var(--msb-palette-hover-bg))) !important;\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-text)) !important;\n' +
+      '  border-top-color: var(--msb-palette-nav-active-text, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .ig-tab.active i') + ' {\n' +
+      '  color: inherit !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '#ttLeftbarOverlays .tt-profile-wrap, #ttLeftbarOverlays .tt-profile-head, #ttLeftbarOverlays .tt-profile-body, .msb-profile-door-host .tt-profile-wrap, .msb-profile-door-host .tt-profile-head, .msb-profile-door-host .tt-profile-body') + ' {\n' +
+      '  background-color: var(--msb-palette-bg) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border, rgba(15,23,42,.12)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_DOOR_PROFILE_TEXT_SELECTORS) + ' {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: transparent !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_DOOR_PROFILE_MUTED_SELECTORS) + ' {\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, BUILTIN_DOOR_PROFILE_ICON_SELECTORS) + ' {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  opacity: 1 !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '#ttLeftbarOverlays .tt-profile-wrap .tt-close, .msb-profile-door-host .tt-profile-wrap .tt-close') + ' {\n' +
+      '  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '#ttLeftbarOverlays .tt-profile-wrap .tt-close:hover, #ttLeftbarOverlays .tt-profile-wrap .tt-close:focus, .msb-profile-door-host .tt-profile-wrap .tt-close:hover, .msb-profile-door-host .tt-profile-wrap .tt-close:focus') + ' {\n' +
+      '  background-color: var(--msb-palette-hover-bg) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '#ttLeftbarOverlays .tt-profile-nav a:hover, #ttLeftbarOverlays .tt-profile-nav a:focus, .msb-profile-door-host .tt-profile-nav a:hover, .msb-profile-door-host .tt-profile-nav a:focus') + ' {\n' +
+      '  background-color: var(--msb-palette-hover-bg) !important;\n' +
+      '  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, '#ttLeftbarOverlays .tt-profile-divider, .msb-profile-door-host .tt-profile-divider') + ' {\n' +
+      '  background-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.org-app .nav-link.active, body.org-app a.feed-tab-link.active') + ' {\n' +
+      '  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb))) !important;\n' +
+      '  color: var(--msb-palette-nav-active-text, var(--msb-palette-btn-text, #ffffff)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.profile-page .gear-control') + ' {\n' +
+      '  background-color: var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.org-app label, body.org-app .card-title, body.org-app h6') + ' {\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.org-app .text-muted, body.org-app small') + ' {\n' +
+      '  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.org-app .btn-primary, body.org-app a.btn-primary, body.org-app .btn-success, body.org-app .ch-btn-primary') + ' {\n' +
+      '  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb)) !important;\n' +
+      '  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb)) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #ffffff) !important;\n' +
+      '}\n' +
+      scopeSelectors(scope, 'body.org-app .icon, body.org-app i.icon, body.org-app [class*="ion-"]') + ' {\n' +
+      '  color: var(--msb-palette-icon, var(--msb-palette-text)) !important;\n' +
+      '}\n';
+  }
+
   function applyThemeFromPrefs(prefs){
     prefs = prefs || readPrefs();
     var appearanceMode = resolveAppearanceMode(prefs);
+    var namedPalette = isNamedPaletteMode(appearanceMode);
     var root = document.documentElement;
     var body = document.body;
-    var on;
+    var on = false;
+    var useDarkAutoClass = false;
 
-    if (appearanceMode === 'system') {
-      on = supportsPrefersColorScheme() ? prefersDark() : isNight();
-      clearPaletteVars(root);
-    } else if (appearanceMode === 'light') {
-      on = false;
-      clearPaletteVars(root);
-      applyBuiltInLightThemeVars(root);
-    } else if (appearanceMode === 'dark') {
-      on = true;
-      clearPaletteVars(root);
-    } else {
-      var meta = paletteMeta(appearanceMode);
+    if (namedPalette) {
       applyPaletteVars(root, appearanceMode);
-      on = false;
+      clearBuiltinThemePaintStyle();
+      on = paletteUsesDarkChrome(appearanceMode, paletteMeta(appearanceMode));
+      if (prefs.autoEnabled) {
+        useDarkAutoClass = shouldAutoDark();
+      }
+    } else {
+      clearPaletteVars(root);
+      on = resolveBuiltinDarkChrome(prefs, appearanceMode);
+      useDarkAutoClass = !!on;
+      if (on) {
+        applyBuiltInDarkThemeVars(root);
+      } else {
+        applyBuiltInLightThemeVars(root);
+      }
     }
 
-    if (on) {
+    if (useDarkAutoClass) {
       root.classList.add('dark-auto');
       if (body) body.classList.add('dark-auto');
-      applyBuiltInDarkThemeVars(root);
     } else {
       root.classList.remove('dark-auto');
       if (body) body.classList.remove('dark-auto');
-      if (appearanceMode === 'system') {
-        applyBuiltInLightThemeVars(root);
-      }
+    }
+
+    if (!namedPalette) {
+      ensureBuiltinThemePaintStyle();
     }
 
     var themeIsDark = on;
@@ -1749,7 +2716,77 @@
       body.style.colorScheme = themeIsDark ? 'dark' : 'light';
     }
 
+    syncOrgCanvasAttrs(root, appearanceMode, !!prefs.autoEnabled);
+    syncOrgFilledButtonTextForAuto(root, !!prefs.autoEnabled);
+    syncLeftbarOverlayVars(root);
+
     return !!themeIsDark;
+  }
+
+  function syncLeftbarOverlayVars(root){
+    var host = document.getElementById('ttLeftbarOverlays');
+    if (!host || !root) return;
+    var cs = getComputedStyle(root);
+    var text = cs.getPropertyValue('--msb-palette-text').trim();
+    var muted = cs.getPropertyValue('--msb-palette-text-muted').trim();
+    var bg = cs.getPropertyValue('--msb-palette-bg').trim();
+    var surface2 = cs.getPropertyValue('--msb-palette-surface-2').trim();
+    var border = cs.getPropertyValue('--msb-palette-border').trim();
+    var borderStrong = cs.getPropertyValue('--msb-palette-border-strong').trim();
+    var hover = cs.getPropertyValue('--msb-palette-hover-bg').trim();
+    if (text) {
+      host.style.setProperty('--tt-text', text);
+      host.style.setProperty('--tt-muted', muted || text);
+    }
+    if (bg) {
+      host.style.setProperty('--tt-panel-bg', bg);
+      host.style.setProperty('--tt-panel-bg-alt', surface2 || bg);
+      host.style.setProperty('--tt-panel-bg-strong', surface2 || bg);
+    }
+    if (border) host.style.setProperty('--tt-panel-border', border);
+    if (borderStrong) host.style.setProperty('--tt-panel-border-strong', borderStrong);
+    if (hover) host.style.setProperty('--tt-control-hover', hover);
+  }
+
+  function syncOrgFilledButtonTextForAuto(root, autoEnabled){
+    if (!autoEnabled || !root || root.getAttribute('data-msb-appearance')) {
+      return;
+    }
+    var white = '#ffffff';
+    root.style.setProperty('--org-btn-filled-text', white);
+    root.style.setProperty('--org-btn-on-accent', white);
+    if (document.body) {
+      document.body.style.setProperty('--org-btn-filled-text', white);
+      document.body.style.setProperty('--org-btn-on-accent', white);
+    }
+  }
+
+  function syncOrgCanvasAttrs(root, appearanceMode, autoEnabled){
+    appearanceMode = normalizeAppearanceMode(appearanceMode);
+    if (isNamedPaletteMode(appearanceMode)) {
+      root.removeAttribute('data-msb-org-light');
+      if (autoEnabled) {
+        root.setAttribute('data-msb-theme-auto', '1');
+      } else {
+        root.removeAttribute('data-msb-theme-auto');
+      }
+      return;
+    }
+    if (autoEnabled) {
+      root.setAttribute('data-msb-theme-auto', '1');
+      if ((appearanceMode === 'light' || appearanceMode === 'system') && !root.classList.contains('dark-auto')) {
+        root.setAttribute('data-msb-org-light', '1');
+      } else {
+        root.removeAttribute('data-msb-org-light');
+      }
+      return;
+    }
+    root.removeAttribute('data-msb-theme-auto');
+    if (appearanceMode === 'light' || appearanceMode === 'system') {
+      root.setAttribute('data-msb-org-light', '1');
+    } else {
+      root.removeAttribute('data-msb-org-light');
+    }
   }
 
   window.__MSBThemeCore = {
@@ -1765,18 +2802,24 @@
 
   applyThemeFromPrefs(seedPrefsFromServer());
 
-  function refreshPalettePaint(){
+  function refreshThemePaint(){
     var root = document.documentElement;
-    if (!root.getAttribute('data-msb-appearance')) return;
-    ensurePaletteStylesheet();
-    ensurePalettePaintStyle();
+    syncLeftbarOverlayVars(root);
+    if (root.getAttribute('data-msb-appearance')) {
+      ensurePaletteStylesheet();
+      ensurePalettePaintStyle();
+      clearBuiltinThemePaintStyle();
+      return;
+    }
+    ensureBuiltinThemePaintStyle();
   }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', refreshPalettePaint);
+    document.addEventListener('DOMContentLoaded', refreshThemePaint);
   } else {
-    refreshPalettePaint();
+    refreshThemePaint();
   }
-  window.addEventListener('load', refreshPalettePaint);
-  window.addEventListener('msb-theme-change', refreshPalettePaint);
-  window.__MSBThemeCore.refreshPalettePaint = refreshPalettePaint;
+  window.addEventListener('load', refreshThemePaint);
+  window.addEventListener('msb-theme-change', refreshThemePaint);
+  window.__MSBThemeCore.refreshPalettePaint = refreshThemePaint;
+  window.__MSBThemeCore.refreshThemePaint = refreshThemePaint;
 })();

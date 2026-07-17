@@ -5,6 +5,8 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm_lifecycle.php';
 
 $orgId = (int)orgActiveOrgId();
@@ -62,7 +64,7 @@ $pageTitle = 'CRM Contacts';
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="card bd-0 shadow-base mg-b-20">
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
       <h6 class="card-title tx-uppercase tx-14 mg-b-0">Contacts &amp; leads</h6>
@@ -87,7 +89,7 @@ org_page_shell_open($pageTitle);
       </form>
 
       <?php if ($showNew || $editContact): ?>
-      <form method="post" class="mg-b-20 pd-15" style="background:#f8fafc;border-radius:12px;">
+      <form method="post" class="mg-b-20 pd-15 org-form-panel">
         <input type="hidden" name="contact_id" value="<?= (int)($editContact['id'] ?? 0) ?>">
         <div class="row">
           <div class="col-md-4 form-group"><label>Name *</label><input name="full_name" class="form-control" required value="<?= org_crm_h((string)($editContact['full_name'] ?? '')) ?>"></div>

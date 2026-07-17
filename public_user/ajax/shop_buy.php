@@ -22,6 +22,9 @@ $quantity = max(1, min(99, (int)($_POST['quantity'] ?? 1)));
 $buyerNotes = trim((string)($_POST['buyer_notes'] ?? ''));
 $deliveryAddress = trim((string)($_POST['delivery_address'] ?? ''));
 $buyerPhone = trim((string)($_POST['buyer_phone'] ?? ''));
+$deliveryOption = trim((string)($_POST['delivery_option'] ?? 'home_delivery'));
+$fulfillmentMethod = trim((string)($_POST['fulfillment_method'] ?? ''));
+$promoCode = trim((string)($_POST['promo_code'] ?? ''));
 $returnProfileId = (int)($_POST['profile_id'] ?? 0);
 
 if ($productId <= 0) {
@@ -38,7 +41,10 @@ $result = org_shop_create_order(
     $deliveryAddress,
     null,
     $buyerPhone,
-    null
+    null,
+    $deliveryOption,
+    $fulfillmentMethod !== '' ? $fulfillmentMethod : null,
+    $promoCode
 );
 
 if (empty($result['ok'])) {
@@ -65,12 +71,14 @@ if ($stripeEnabled && $orderId > 0) {
     }
     $cancelUrl .= '&checkout=cancel';
 
+    $qty = max(1, $quantity);
+    $unitForStripe = (int)max(1, (int)round($totalCents / $qty));
     $stripe = stripe_shop_create_checkout_session(
         $orderId,
         $orderCode,
         $productTitle,
-        (int)($product['price_cents'] ?? $totalCents),
-        $quantity,
+        $unitForStripe,
+        $qty,
         $currency,
         $meId,
         $cancelUrl

@@ -24,6 +24,7 @@ requireUserLogin();
   pointer-events:none;
   background:transparent;
   box-sizing:border-box;
+  overflow:hidden;
   --tt-panel-bg:var(--msb-palette-bg, #ffffff);
   --tt-panel-bg-alt:var(--msb-palette-surface-2, #f7f8fa);
   --tt-panel-bg-strong:var(--msb-palette-surface, #eef2f6);
@@ -56,6 +57,23 @@ requireUserLogin();
     width:min(400px, 88vw);
   }
 }
+@media (min-width: 992px){
+  #ttLeftbarOverlays,
+  body.public-leftbar-open.feed-insta-ui #ttLeftbarOverlays{
+    left:var(--feedRailW, 84px);
+  }
+  body.public-leftbar-open #ttLeftbarOverlays,
+  body.public-leftbar-open.feed-insta-ui #ttLeftbarOverlays{
+    z-index:1315;
+  }
+  body.public-leftbar-open.feed-insta-ui .feed-ig-rail{
+    z-index:1310;
+  }
+  body.public-leftbar-open.feed-insta-ui .feed-left-rail{
+    visibility:hidden;
+    pointer-events:none;
+  }
+}
 html.dark-auto #ttLeftbarOverlays,
 html[data-theme="dark"] #ttLeftbarOverlays{
   --tt-panel-bg:var(--msb-palette-bg, #171d24);
@@ -64,7 +82,9 @@ html[data-theme="dark"] #ttLeftbarOverlays{
   --tt-text:var(--msb-palette-text, #f3f6fb);
   --tt-muted:var(--msb-palette-text-muted, #b1bcce);
 }
-html[data-msb-appearance] #ttLeftbarOverlays{
+html[data-msb-appearance] #ttLeftbarOverlays,
+html.dark-auto[data-msb-appearance] #ttLeftbarOverlays,
+html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   --tt-panel-bg:var(--msb-palette-bg);
   --tt-panel-bg-alt:var(--msb-palette-surface-2);
   --tt-panel-bg-strong:var(--msb-palette-surface);
@@ -1341,7 +1361,7 @@ html[data-msb-appearance] #ttLeftbarOverlays{
     if(!menuOpen && !commentsOpen && !readOpen && !profileOpen && !messagesOpen && !notificationsOpen && !friendRequestsOpen && !liveOpen) return;
 
     if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-messages-wrap, #tt-notifications-wrap, #tt-friend-requests-wrap, #tt-live-wrap, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttMessagesClose, #ttNotificationsClose, #ttFriendRequestsClose')) return;
-    if(target.closest('.js-open-menu-door, .ig-story-item, .js-open-comments, .js-open-comments-door, .js-open-readmore, .js-open-readmore-door, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .js-open-live-studio-browse, .js-open-live-software-browse, .feed-ig-avatar')) return;
+    if(target.closest('.js-open-menu-door, .ig-story-item, .js-open-comments, .js-open-comments-door, .js-open-readmore, .js-open-readmore-door, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .js-open-live-studio-browse, .js-open-live-software-browse, .js-open-order-details-door, .js-open-shop-buy-door, .feed-ig-avatar')) return;
     if(target.closest('#tt-stories-wrap, #tt-live-right-wrap, #ttStoriesClose')) return;
     if(target.closest('.mf-comment, .js-open-profile-comments-door, .mf-readmore, #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"], #pvCapReadMore, .ig-cap-readmore, #pvFooterReadMore, #pvInlineReadMore, #btnReadMore, #btnOpenCommentsDrawer, #postList .pl-readmore')) return;
 

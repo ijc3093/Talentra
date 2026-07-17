@@ -53,6 +53,9 @@ function publisher_authority_ensure_schema(PDO $dbh): void
 
         foreach ([
             'publisher_category' => "ALTER TABLE publisher_name_authority ADD COLUMN publisher_category VARCHAR(40) NOT NULL DEFAULT 'news' AFTER publisher_name",
+            'commerce_brand_id' => 'ALTER TABLE publisher_name_authority ADD COLUMN commerce_brand_id INT UNSIGNED NULL DEFAULT NULL AFTER publisher_category',
+            'applicant_username' => "ALTER TABLE publisher_name_authority ADD COLUMN applicant_username VARCHAR(120) NOT NULL DEFAULT '' AFTER commerce_brand_id",
+            'applicant_email' => "ALTER TABLE publisher_name_authority ADD COLUMN applicant_email VARCHAR(120) NOT NULL DEFAULT '' AFTER applicant_username",
             'registration_id' => "ALTER TABLE publisher_name_authority ADD COLUMN registration_id VARCHAR(40) NOT NULL DEFAULT '' AFTER legal_entity_name",
             'registration_country' => "ALTER TABLE publisher_name_authority ADD COLUMN registration_country VARCHAR(80) NOT NULL DEFAULT 'US' AFTER registration_id",
             'request_note' => 'ALTER TABLE publisher_name_authority ADD COLUMN request_note VARCHAR(500) NOT NULL DEFAULT \'\' AFTER authorized_contact_email',
@@ -70,6 +73,12 @@ function publisher_authority_ensure_schema(PDO $dbh): void
         }
     } catch (Throwable $e) {
         // Non-fatal — registration falls back to catalog-only names.
+    }
+
+    $migration = dirname(__DIR__, 2) . '/Data/migrations/20260709_commerce_seller_authority.sql';
+    if (is_file($migration)) {
+        require_once __DIR__ . '/msb_migrations.php';
+        msb_run_sql_migration_file($dbh, $migration);
     }
 }
 
@@ -129,6 +138,357 @@ function publisher_registry_is_catalog_name(string $name): bool
 function publisher_registry_requires_authority(PDO $dbh, string $name): bool
 {
     return publisher_registry_normalize_name($name) !== '';
+}
+
+function publisher_authority_is_commerce_request(array $request): bool
+{
+    if ((int)($request['commerce_brand_id'] ?? 0) > 0) {
+        return true;
+    }
+    return strtolower(trim((string)($request['publisher_category'] ?? ''))) === 'commerce';
+}
+
+function publisher_authority_is_commerce_seller_request(array $request): bool
+{
+    return (int)($request['commerce_brand_id'] ?? 0) > 0
+        && strtolower(trim((string)($request['publisher_category'] ?? ''))) === 'commerce';
+}
+
+function publisher_authority_is_commerce_brand_name_request(array $request): bool
+{
+    return (int)($request['commerce_brand_id'] ?? 0) <= 0
+        && strtolower(trim((string)($request['publisher_category'] ?? ''))) === 'commerce'
+        && trim((string)($request['publisher_name'] ?? '')) !== '';
+}
+
+function publisher_authority_commerce_request_status(PDO $dbh, int $commerceBrandId, string $applicantEmail): string
+{
+    publisher_authority_ensure_schema($dbh);
+
+    $commerceBrandId = max(0, $commerceBrandId);
+    $applicantEmail = strtolower(trim($applicantEmail));
+    if ($commerceBrandId <= 0 || $applicantEmail === '') {
+        return 'none';
+    }
+
+    try {
+        $st = $dbh->prepare('
+            SELECT status
+            FROM publisher_name_authority
+            WHERE commerce_brand_id = :brand_id
+              AND LOWER(applicant_email) = :email
+            ORDER BY id DESC
+            LIMIT 1
+        ');
+        $st->execute([
+            ':brand_id' => $commerceBrandId,
+            ':email' => $applicantEmail,
+        ]);
+        $status = strtolower(trim((string)($st->fetchColumn() ?: '')));
+        if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
+            return $status;
+        }
+    } catch (Throwable $e) {
+        // Non-fatal.
+    }
+
+    return 'none';
+}
+
+function publisher_authority_commerce_is_approved(PDO $dbh, int $commerceBrandId, string $applicantEmail): bool
+{
+    return publisher_authority_commerce_request_status($dbh, $commerceBrandId, $applicantEmail) === 'approved';
+}
+
+function publisher_authority_commerce_brand_name_request_status(PDO $dbh, string $brandName, string $applicantEmail): string
+{
+    $meta = publisher_authority_commerce_brand_name_request_meta($dbh, $brandName, $applicantEmail);
+    return (string)($meta['status'] ?? 'none');
+}
+
+/** @return array{brand_id:int,status:string} */
+function publisher_authority_commerce_brand_name_request_meta(PDO $dbh, string $brandName, string $applicantEmail): array
+{
+    publisher_authority_ensure_schema($dbh);
+
+    $brandName = publisher_registry_normalize_name($brandName);
+    $applicantEmail = strtolower(trim($applicantEmail));
+    if ($brandName === '' || $applicantEmail === '') {
+        return ['brand_id' => 0, 'status' => 'none'];
+    }
+
+    try {
+        $st = $dbh->prepare('
+            SELECT status, commerce_brand_id
+            FROM publisher_name_authority
+            WHERE LOWER(publisher_name) = LOWER(:name)
+              AND publisher_category = \'commerce\'
+              AND LOWER(applicant_email) = :email
+            ORDER BY id DESC
+            LIMIT 1
+        ');
+        $st->execute([
+            ':name' => $brandName,
+            ':email' => $applicantEmail,
+        ]);
+        $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+        $status = strtolower(trim((string)($row['status'] ?? '')));
+        if (!in_array($status, ['pending', 'approved', 'rejected'], true)) {
+            $status = 'none';
+        }
+        return [
+            'brand_id' => (int)($row['commerce_brand_id'] ?? 0),
+            'status' => $status,
+        ];
+    } catch (Throwable $e) {
+        return ['brand_id' => 0, 'status' => 'none'];
+    }
+}
+
+function publisher_authority_commerce_brand_name_is_approved(PDO $dbh, string $brandName, string $applicantEmail): bool
+{
+    return publisher_authority_commerce_brand_name_request_status($dbh, $brandName, $applicantEmail) === 'approved';
+}
+
+/** @return array{ok:bool,error?:string,messages?:list<string>,status?:string,name?:string,brand_id?:int,request_id?:int} */
+function publisher_authority_submit_commerce_brand_name_request(
+    PDO $dbh,
+    string $brandName,
+    string $username,
+    string $email,
+    array $payload
+): array {
+    publisher_authority_ensure_schema($dbh);
+    require_once __DIR__ . '/org_commerce_brands.php';
+
+    org_commerce_brands_ensure_schema($dbh);
+
+    $brandName = publisher_registry_normalize_name($brandName);
+    if ($brandName === '' || mb_strlen($brandName) < 2) {
+        return ['ok' => false, 'error' => 'name_too_short', 'messages' => ['Enter a company or brand name (at least 2 characters).']];
+    }
+
+    if (org_commerce_brands_get_by_name($dbh, $brandName)) {
+        return ['ok' => false, 'error' => 'already_exists', 'messages' => ['That brand is already in the list. Choose it from Commerce brand system instead.']];
+    }
+
+    $username = trim($username);
+    $email = strtolower(trim($email));
+    if ($username === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'invalid_account', 'messages' => ['Enter a valid username and email before submitting your brand request.']];
+    }
+
+    $authorityErrors = publisher_authority_validate_payload($payload);
+    if ($authorityErrors !== []) {
+        return ['ok' => false, 'error' => 'authority_invalid', 'messages' => $authorityErrors];
+    }
+
+    try {
+        $stUser = $dbh->prepare('SELECT 1 FROM users WHERE LOWER(email) = :email OR LOWER(username) = :username LIMIT 1');
+        $stUser->execute([':email' => $email, ':username' => strtolower($username)]);
+        if ($stUser->fetchColumn()) {
+            return ['ok' => false, 'error' => 'already_registered', 'messages' => ['That email or username is already registered. Sign in instead.']];
+        }
+    } catch (Throwable $e) {
+        // continue
+    }
+
+    $existingStatus = publisher_authority_commerce_brand_name_request_status($dbh, $brandName, $email);
+    if ($existingStatus === 'pending') {
+        $meta = publisher_authority_commerce_brand_name_request_meta($dbh, $brandName, $email);
+        return [
+            'ok' => true,
+            'name' => $brandName,
+            'brand_id' => (int)($meta['brand_id'] ?? 0),
+            'status' => 'pending',
+        ];
+    }
+    if ($existingStatus === 'approved') {
+        $meta = publisher_authority_commerce_brand_name_request_meta($dbh, $brandName, $email);
+        return [
+            'ok' => true,
+            'name' => $brandName,
+            'brand_id' => (int)($meta['brand_id'] ?? 0),
+            'status' => 'approved',
+        ];
+    }
+
+    try {
+        $st = $dbh->prepare('
+            INSERT INTO publisher_name_authority (
+                publisher_name_option_id,
+                publisher_name,
+                publisher_category,
+                commerce_brand_id,
+                applicant_username,
+                applicant_email,
+                entity_type,
+                legal_entity_name,
+                authorized_contact_name,
+                authorized_contact_email,
+                request_note,
+                authority_confirmed,
+                status,
+                created_at
+            ) VALUES (
+                NULL,
+                :publisher_name,
+                :publisher_category,
+                NULL,
+                :applicant_username,
+                :applicant_email,
+                :entity_type,
+                :legal_entity_name,
+                :authorized_contact_name,
+                :authorized_contact_email,
+                :request_note,
+                :authority_confirmed,
+                :status,
+                NOW()
+            )
+        ');
+        $st->execute([
+            ':publisher_name' => $brandName,
+            ':publisher_category' => 'commerce',
+            ':applicant_username' => mb_substr($username, 0, 120),
+            ':applicant_email' => mb_substr($email, 0, 120),
+            ':entity_type' => (string)($payload['entity_type'] ?? 'business'),
+            ':legal_entity_name' => (string)($payload['legal_entity_name'] ?? ''),
+            ':authorized_contact_name' => (string)($payload['authorized_contact_name'] ?? ''),
+            ':authorized_contact_email' => (string)($payload['authorized_contact_email'] ?? ''),
+            ':request_note' => (string)($payload['request_note'] ?? ''),
+            ':authority_confirmed' => !empty($payload['authority_confirmed']) ? 1 : 0,
+            ':status' => 'pending',
+        ]);
+
+        return [
+            'ok' => true,
+            'name' => $brandName,
+            'brand_id' => 0,
+            'status' => 'pending',
+            'request_id' => (int)$dbh->lastInsertId(),
+        ];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'save_failed'];
+    }
+}
+
+/** @return array{ok:bool,error?:string,messages?:list<string>,status?:string,name?:string,brand_id?:int,request_id?:int} */
+function publisher_authority_submit_commerce_request(
+    PDO $dbh,
+    int $commerceBrandId,
+    string $username,
+    string $email,
+    array $payload
+): array {
+    publisher_authority_ensure_schema($dbh);
+    require_once __DIR__ . '/org_commerce_brands.php';
+
+    org_commerce_brands_ensure_schema($dbh);
+    $brand = org_commerce_brands_get($dbh, $commerceBrandId);
+    if (!$brand) {
+        return ['ok' => false, 'error' => 'invalid_brand'];
+    }
+
+    $username = trim($username);
+    $email = strtolower(trim($email));
+    if ($username === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'invalid_account', 'messages' => ['Enter a valid username and email before submitting your seller request.']];
+    }
+
+    $authorityErrors = publisher_authority_validate_payload($payload);
+    if ($authorityErrors !== []) {
+        return ['ok' => false, 'error' => 'authority_invalid', 'messages' => $authorityErrors];
+    }
+
+    try {
+        $stUser = $dbh->prepare('SELECT 1 FROM users WHERE LOWER(email) = :email OR LOWER(username) = :username LIMIT 1');
+        $stUser->execute([':email' => $email, ':username' => strtolower($username)]);
+        if ($stUser->fetchColumn()) {
+            return ['ok' => false, 'error' => 'already_registered', 'messages' => ['That email or username is already registered. Sign in instead.']];
+        }
+    } catch (Throwable $e) {
+        // continue
+    }
+
+    $brandName = publisher_registry_normalize_name((string)($brand['name'] ?? ''));
+    $existingStatus = publisher_authority_commerce_request_status($dbh, $commerceBrandId, $email);
+    if ($existingStatus === 'pending') {
+        return [
+            'ok' => true,
+            'name' => $brandName,
+            'brand_id' => $commerceBrandId,
+            'status' => 'pending',
+        ];
+    }
+    if ($existingStatus === 'approved') {
+        return [
+            'ok' => true,
+            'name' => $brandName,
+            'brand_id' => $commerceBrandId,
+            'status' => 'approved',
+        ];
+    }
+
+    try {
+        $st = $dbh->prepare('
+            INSERT INTO publisher_name_authority (
+                publisher_name_option_id,
+                publisher_name,
+                publisher_category,
+                commerce_brand_id,
+                applicant_username,
+                applicant_email,
+                entity_type,
+                legal_entity_name,
+                authorized_contact_name,
+                authorized_contact_email,
+                request_note,
+                authority_confirmed,
+                status,
+                created_at
+            ) VALUES (
+                NULL,
+                :publisher_name,
+                :publisher_category,
+                :commerce_brand_id,
+                :applicant_username,
+                :applicant_email,
+                :entity_type,
+                :legal_entity_name,
+                :authorized_contact_name,
+                :authorized_contact_email,
+                :request_note,
+                :authority_confirmed,
+                :status,
+                NOW()
+            )
+        ');
+        $st->execute([
+            ':publisher_name' => $brandName,
+            ':publisher_category' => 'commerce',
+            ':commerce_brand_id' => $commerceBrandId,
+            ':applicant_username' => mb_substr($username, 0, 120),
+            ':applicant_email' => mb_substr($email, 0, 120),
+            ':entity_type' => (string)($payload['entity_type'] ?? 'business'),
+            ':legal_entity_name' => (string)($payload['legal_entity_name'] ?? ''),
+            ':authorized_contact_name' => (string)($payload['authorized_contact_name'] ?? ''),
+            ':authorized_contact_email' => (string)($payload['authorized_contact_email'] ?? ''),
+            ':request_note' => (string)($payload['request_note'] ?? ''),
+            ':authority_confirmed' => !empty($payload['authority_confirmed']) ? 1 : 0,
+            ':status' => 'pending',
+        ]);
+
+        return [
+            'ok' => true,
+            'name' => $brandName,
+            'brand_id' => $commerceBrandId,
+            'status' => 'pending',
+            'request_id' => (int)$dbh->lastInsertId(),
+        ];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'save_failed'];
+    }
 }
 
 function publisher_authority_request_status(PDO $dbh, string $publisherName): string
@@ -390,6 +750,146 @@ function publisher_authority_create_option_for_request(PDO $dbh, array $request,
     return $optionId;
 }
 
+/** Approve a commerce seller request — no shared publisher name option row. */
+function publisher_authority_admin_approve_commerce_brand_name(PDO $dbh, array $request, int $adminId, string $reviewNote = ''): array
+{
+    require_once __DIR__ . '/org_commerce_brands.php';
+
+    $currentStatus = strtolower((string)($request['status'] ?? ''));
+    $requestId = (int)($request['id'] ?? 0);
+    $brandName = publisher_registry_normalize_name((string)($request['publisher_name'] ?? ''));
+
+    if ($requestId <= 0 || $brandName === '') {
+        return ['ok' => false, 'error' => 'not_found', 'message' => 'Request not found.'];
+    }
+
+    if ($currentStatus === 'approved') {
+        $brandId = (int)($request['commerce_brand_id'] ?? 0);
+        if ($brandId <= 0) {
+            $brandId = (int)(org_commerce_brands_get_by_name($dbh, $brandName)['id'] ?? 0);
+        }
+        return [
+            'ok' => true,
+            'name' => $brandName,
+            'brand_id' => $brandId,
+            'repaired' => true,
+            'message' => 'Commerce brand request already approved.',
+        ];
+    }
+
+    if ($currentStatus !== 'pending') {
+        return ['ok' => false, 'error' => 'not_pending', 'message' => 'Only pending requests can be approved.'];
+    }
+
+    $email = strtolower(trim((string)($request['applicant_email'] ?? '')));
+    if ($email !== '') {
+        try {
+            $st = $dbh->prepare('SELECT 1 FROM users WHERE LOWER(email) = :email LIMIT 1');
+            $st->execute([':email' => $email]);
+            if ($st->fetchColumn()) {
+                return ['ok' => false, 'error' => 'already_registered', 'message' => 'This applicant email already has an account.'];
+            }
+        } catch (Throwable $e) {
+            // continue
+        }
+    }
+
+    $tagline = trim((string)($request['request_note'] ?? ''));
+    $brandId = org_commerce_brands_create($dbh, $brandName, $tagline);
+    if ($brandId <= 0) {
+        return ['ok' => false, 'error' => 'brand_create_failed', 'message' => 'Could not create the commerce brand system.'];
+    }
+
+    try {
+        $st = $dbh->prepare('
+            UPDATE publisher_name_authority
+            SET status = :status,
+                commerce_brand_id = :brand_id,
+                reviewed_by_admin_id = :admin_id,
+                reviewed_at = NOW(),
+                review_note = :review_note
+            WHERE id = :id
+              AND status = \'pending\'
+            LIMIT 1
+        ');
+        $st->execute([
+            ':status' => 'approved',
+            ':brand_id' => $brandId,
+            ':admin_id' => $adminId > 0 ? $adminId : null,
+            ':review_note' => mb_substr(trim($reviewNote), 0, 255),
+            ':id' => $requestId,
+        ]);
+
+        if ($st->rowCount() <= 0) {
+            return ['ok' => false, 'error' => 'approve_failed', 'message' => 'Could not approve commerce brand request.'];
+        }
+
+        return ['ok' => true, 'name' => $brandName, 'brand_id' => $brandId, 'message' => 'Approved commerce brand: ' . $brandName];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'approve_failed', 'message' => 'Could not approve commerce brand request.'];
+    }
+}
+
+/** Approve a commerce seller request — no shared publisher name option row. */
+function publisher_authority_admin_approve_commerce(PDO $dbh, array $request, int $adminId, string $reviewNote = ''): array
+{
+    $currentStatus = strtolower((string)($request['status'] ?? ''));
+    $requestId = (int)($request['id'] ?? 0);
+    $brandName = publisher_registry_normalize_name((string)($request['publisher_name'] ?? ''));
+
+    if ($requestId <= 0) {
+        return ['ok' => false, 'error' => 'not_found', 'message' => 'Request not found.'];
+    }
+
+    if ($currentStatus === 'approved') {
+        return ['ok' => true, 'name' => $brandName, 'repaired' => true, 'message' => 'Commerce seller request already approved.'];
+    }
+
+    if ($currentStatus !== 'pending') {
+        return ['ok' => false, 'error' => 'not_pending', 'message' => 'Only pending requests can be approved.'];
+    }
+
+    $email = strtolower(trim((string)($request['applicant_email'] ?? '')));
+    if ($email !== '') {
+        try {
+            $st = $dbh->prepare('SELECT 1 FROM users WHERE LOWER(email) = :email LIMIT 1');
+            $st->execute([':email' => $email]);
+            if ($st->fetchColumn()) {
+                return ['ok' => false, 'error' => 'already_registered', 'message' => 'This applicant email already has an account.'];
+            }
+        } catch (Throwable $e) {
+            // continue
+        }
+    }
+
+    try {
+        $st = $dbh->prepare('
+            UPDATE publisher_name_authority
+            SET status = :status,
+                reviewed_by_admin_id = :admin_id,
+                reviewed_at = NOW(),
+                review_note = :review_note
+            WHERE id = :id
+              AND status = \'pending\'
+            LIMIT 1
+        ');
+        $st->execute([
+            ':status' => 'approved',
+            ':admin_id' => $adminId > 0 ? $adminId : null,
+            ':review_note' => mb_substr(trim($reviewNote), 0, 255),
+            ':id' => $requestId,
+        ]);
+
+        if ($st->rowCount() <= 0) {
+            return ['ok' => false, 'error' => 'approve_failed', 'message' => 'Could not approve commerce seller request.'];
+        }
+
+        return ['ok' => true, 'name' => $brandName];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'approve_failed', 'message' => 'Could not approve commerce seller request.'];
+    }
+}
+
 function publisher_authority_admin_approve(PDO $dbh, int $requestId, int $adminId, string $reviewNote = ''): array
 {
     publisher_authority_ensure_schema($dbh);
@@ -397,6 +897,14 @@ function publisher_authority_admin_approve(PDO $dbh, int $requestId, int $adminI
     $request = publisher_authority_fetch_request($dbh, $requestId);
     if (!$request) {
         return ['ok' => false, 'error' => 'not_found', 'message' => 'Request not found.'];
+    }
+
+    if (publisher_authority_is_commerce_seller_request($request)) {
+        return publisher_authority_admin_approve_commerce($dbh, $request, $adminId, $reviewNote);
+    }
+
+    if (publisher_authority_is_commerce_brand_name_request($request)) {
+        return publisher_authority_admin_approve_commerce_brand_name($dbh, $request, $adminId, $reviewNote);
     }
 
     $currentStatus = strtolower((string)($request['status'] ?? ''));

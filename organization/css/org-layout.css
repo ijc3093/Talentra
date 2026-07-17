@@ -33,6 +33,45 @@
   background-color: var(--org-accent-soft, var(--msb-palette-action-soft, rgba(79, 70, 229, 0.08)));
 }
 
+.sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:active:not(.active) {
+  background-color: transparent;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {
+  background-color: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.12)) !important;
+  color: var(--msb-palette-action, var(--org-accent, #2563eb)) !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover i,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus i,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active i,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover span,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus span,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active span {
+  color: var(--msb-palette-action, var(--org-accent, #2563eb)) !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link .org-sales-nav-badge,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover .org-sales-nav-badge,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus .org-sales-nav-badge,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .org-sales-nav-badge,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge {
+  color: inherit !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.org-app .org-sales-nav-badge rect {
+  fill: #dc3545 !important;
+}
+
+body.org-app .org-sales-nav-badge text {
+  fill: #ffffff !important;
+  color: #ffffff !important;
+}
+
 .sh-sideleft-menu .nav > .nav-item > .nav-link.is-nav-pending {
   color: var(--org-accent, var(--msb-palette-action, #4f46e5));
   background-color: var(--org-accent-soft, var(--msb-palette-action-soft, rgba(79, 70, 229, 0.06)));
@@ -67,7 +106,7 @@ body.org-app .org-sideleft-scroll {
   overscroll-behavior: contain;
   border: 1px solid var(--msb-palette-border, var(--org-accent-soft, rgba(7, 101, 199, 0.28)));
   border-radius: 6px;
-  background: #171d24;
+  background: var(--msb-palette-bg, #171d24);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 1px 2px rgba(15, 23, 42, 0.05);
@@ -100,10 +139,44 @@ body.org-app .org-sideleft-scroll .org-sideleft-nav > .nav-item:last-child > .na
   border-bottom-right-radius: 5px;
 }
 
+body.org-app .org-sideleft-scroll:has(.org-sales-workflow-label) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.org-app .org-sales-workflow-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+body.org-app .org-sales-workflow-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+body.org-app .org-sales-workflow-scroll::-webkit-scrollbar-thumb {
+  background: var(--msb-palette-action, rgba(7, 101, 199, 0.28));
+  border-radius: 3px;
+}
+
+body.org-app .org-sales-workflow-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 body.org-app .org-sideleft-nav {
   display: block;
   margin: 0;
   padding: 0;
+}
+
+body.org-app .org-sales-workflow-label {
+  flex: 0 0 auto;
+  display: block;
+  margin: 8px 14px 6px;
 }
 
 body.org-app .org-sideleft-bottom {
@@ -121,6 +194,27 @@ html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > 
 html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i,
 html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link [class*="ion-"] {
   color: #b1bcce !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active),
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(.active),
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active) span,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(.active) span {
+  color: #334155 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge {
+  color: inherit !important;
+  background: transparent !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active) i,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active) .icon,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active) [class*="ion-"],
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(.active) i,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(.active) [class*="ion-"] {
+  color: var(--org-accent, #2563eb) !important;
 }
 
 body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i:first-child,
@@ -282,4 +376,48 @@ body.org-app:not(.org-page-feed) .members-card .member-avatar {
 body.org-app:not(.org-page-feed) .members-card .member-avatar .icon {
   font-size: 18px !important;
   line-height: 1 !important;
+}
+
+/* ----- Gear named palette — full org shell (slateblue etc.) ----- */
+html[data-msb-appearance] body.org-app .sh-mainpanel,
+html[data-msb-appearance] body.org-app .sh-pagebody,
+html[data-msb-appearance] body.org-app .sh-logopanel,
+html[data-msb-appearance] body.org-app .sh-headpanel,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll,
+html[data-msb-appearance] body.org-app .chat-shell,
+html[data-msb-appearance] body.org-app .chat-left,
+html[data-msb-appearance] body.org-app .chat-right,
+html[data-msb-appearance] body.org-app .card.fixed-card,
+html.msb-palette-active body.org-app .sh-mainpanel,
+html.msb-palette-active body.org-app .sh-pagebody,
+html.msb-palette-active body.org-app .sh-logopanel,
+html.msb-palette-active body.org-app .sh-headpanel,
+html.msb-palette-active body.org-app .org-sideleft-scroll,
+html.msb-palette-active body.org-app .chat-shell,
+html.msb-palette-active body.org-app .chat-left,
+html.msb-palette-active body.org-app .chat-right,
+html.msb-palette-active body.org-app .card.fixed-card {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link,
+html[data-msb-appearance] body.org-app .sh-sidebar-label,
+html[data-msb-appearance] body.org-app .org-logo-label,
+html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html.msb-palette-active body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link,
+html.msb-palette-active body.org-app .sh-sidebar-label,
+html.msb-palette-active body.org-app .org-logo-label {
+  color: var(--msb-palette-text-on-nav, var(--msb-palette-action, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link [class*="ion-"],
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link i,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link [class*="ion-"],
+html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link i,
+html.msb-palette-active body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link i {
+  color: var(--msb-palette-icon, var(--msb-palette-action, var(--msb-palette-text))) !important;
 }

@@ -57,3 +57,4 @@ function orgAccountType(): string { return (string)($_SESSION['org_account_type'
 function orgAccountId(): int { return (int)($_SESSION['org_account_id'] ?? 0); }
 function isOrgManager(): bool { return orgAccountType() === 'manager'; }
 function isOrgStaff(): bool { return orgAccountType() === 'staff'; }
+function orgActiveOrgId(): int { return (int)($_SESSION['org_active_org_id'] ?? 0); }

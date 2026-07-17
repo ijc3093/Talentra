@@ -61,10 +61,386 @@ html[data-msb-appearance] a.link {
   color: var(--msb-palette-link, var(--msb-palette-action)) !important;
 }
 
-html[data-msb-appearance] .btn-primary {
+html[data-msb-appearance] .btn-primary,
+html[data-msb-appearance] a.btn-primary,
+html[data-msb-appearance] button.btn-primary,
+html[data-msb-appearance] .btn-success,
+html[data-msb-appearance] .ch-btn-primary,
+html[data-msb-appearance] a.ch-btn-primary {
   background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
   border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
   color: var(--msb-palette-btn-text, #fff) !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] .btn-primary:hover,
+html[data-msb-appearance] a.btn-primary:hover,
+html[data-msb-appearance] button.btn-primary:hover,
+html[data-msb-appearance] .btn-success:hover,
+html[data-msb-appearance] .ch-btn-primary:hover,
+html[data-msb-appearance] a.ch-btn-primary:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  color: var(--msb-palette-btn-text, #fff) !important;
+}
+
+html[data-msb-appearance] a.ch-btn-primary:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  color: var(--msb-palette-btn-text, #fff) !important;
+}
+
+/* Href links — appearance palette contrast */
+html[data-msb-appearance] a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab) {
+  color: var(--msb-palette-link, var(--msb-palette-text)) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):hover,
+html[data-msb-appearance] a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):focus,
+html[data-msb-appearance] .nav-link:hover,
+html[data-msb-appearance] .feed-ig-link:hover,
+html[data-msb-appearance] body.org-app .nav-link:hover,
+html[data-msb-appearance] body.org-app .sh-icon-link:hover {
+  color: var(--msb-palette-link-hover, var(--msb-palette-link, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] a.gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn,
+html[data-msb-appearance] a.btn,
+html[data-msb-appearance] a.btn-outline-primary,
+html[data-msb-appearance] a.btn-outline-secondary,
+html[data-msb-appearance] a.ch-btn-ghost,
+html[data-msb-appearance] body.org-app a.btn,
+html[data-msb-appearance] body.org-app a.ch-btn-ghost,
+html[data-msb-appearance] body.org-app a.feed-tab-link.active,
+html[data-msb-appearance] body.org-app .posts-tabs a.active,
+html[data-msb-appearance] body.org-app .feed-tabs a.active {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] a.gear-detail-open-btn:hover,
+html[data-msb-appearance] a.gear-detail-open-btn:focus,
+html[data-msb-appearance] a.btn:hover,
+html[data-msb-appearance] a.ch-btn-ghost:hover,
+html[data-msb-appearance] body.org-app a.btn:hover,
+html[data-msb-appearance] body.org-app a.ch-btn-ghost:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] a.gear-detail-open-btn i,
+html[data-msb-appearance] a.gear-detail-open-btn .icon,
+html[data-msb-appearance] a.gear-detail-open-btn [class*="ion-"],
+html[data-msb-appearance] a.btn i,
+html[data-msb-appearance] a.btn-primary i,
+html[data-msb-appearance] body.org-app a.btn i,
+html[data-msb-appearance] body.org-app a.btn-primary i {
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.org-app .nav-link.active,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav-link.active {
+  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-action)) !important;
+}
+
+html[data-msb-appearance] body.org-app .nav-link.active,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav-link.active {
+  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-action)) !important;
+}
+
+/* All buttons — appearance palette contrast */
+html[data-msb-appearance] .btn-primary,
+html[data-msb-appearance] button.btn-primary,
+html[data-msb-appearance] a.btn-primary,
+html[data-msb-appearance] .btn-success,
+html[data-msb-appearance] button.btn-success,
+html[data-msb-appearance] a.btn-success,
+html[data-msb-appearance] .btn-info,
+html[data-msb-appearance] .ch-btn-primary,
+html[data-msb-appearance] button.ch-btn-primary,
+html[data-msb-appearance] a.ch-btn-primary,
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page .gear-upload-btn,
+html[data-msb-appearance] body.profile-page .about-edit-btn,
+html[data-msb-appearance] body.profile-page .profile-shop-buy-btn,
+html[data-msb-appearance] body.org-app .btn-primary,
+html[data-msb-appearance] body.org-app button.btn-primary,
+html[data-msb-appearance] body.org-app a.btn-primary,
+html[data-msb-appearance] body.org-app .ch-btn-primary {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] .btn-primary:hover,
+html[data-msb-appearance] button.btn-primary:hover,
+html[data-msb-appearance] a.btn-primary:hover,
+html[data-msb-appearance] .ch-btn-primary:hover,
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn:hover,
+html[data-msb-appearance] body.profile-page .gear-upload-btn:hover,
+html[data-msb-appearance] body.org-app .btn-primary:hover,
+html[data-msb-appearance] body.org-app .ch-btn-primary:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--msb-palette-action-strong)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] .btn:not(.btn-primary):not(.btn-success):not(.btn-info),
+html[data-msb-appearance] button.btn:not(.btn-primary):not(.btn-success),
+html[data-msb-appearance] a.btn:not(.btn-primary):not(.btn-success),
+html[data-msb-appearance] .btn-light,
+html[data-msb-appearance] .btn-white,
+html[data-msb-appearance] .btn-soft,
+html[data-msb-appearance] .btn-outline-primary,
+html[data-msb-appearance] .btn-outline-secondary,
+html[data-msb-appearance] .btn-outline-success,
+html[data-msb-appearance] .ch-btn-ghost,
+html[data-msb-appearance] button.ch-btn-ghost,
+html[data-msb-appearance] a.ch-btn-ghost,
+html[data-msb-appearance] .ig-btn,
+html[data-msb-appearance] .feed-ig-btn,
+html[data-msb-appearance] .action-btn,
+html[data-msb-appearance] .topicon-btn,
+html[data-msb-appearance] .yt-icon-btn,
+html[data-msb-appearance] .search-btn,
+html[data-msb-appearance] .iconbtn,
+html[data-msb-appearance] .messages-shell-action-btn,
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
+html[data-msb-appearance] body.profile-page .gear-nav-item,
+html[data-msb-appearance] body.org-app .btn:not(.btn-primary):not(.btn-success),
+html[data-msb-appearance] body.org-app button.btn,
+html[data-msb-appearance] body.org-app .btn-outline-primary,
+html[data-msb-appearance] body.org-app .btn-outline-secondary,
+html[data-msb-appearance] body.org-app .ch-btn-ghost,
+html[data-msb-appearance] body.org-app .pin-btn,
+html[data-msb-appearance] body.org-app .btn-close-x {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .btn:not(.btn-primary):not(.btn-success):hover,
+html[data-msb-appearance] button.btn:hover,
+html[data-msb-appearance] .btn-outline-primary:hover,
+html[data-msb-appearance] .ch-btn-ghost:hover,
+html[data-msb-appearance] .ig-btn:hover,
+html[data-msb-appearance] .feed-ig-btn:hover,
+html[data-msb-appearance] body.profile-page .gear-nav-item:hover,
+html[data-msb-appearance] body.org-app .btn:hover,
+html[data-msb-appearance] body.org-app .ch-btn-ghost:hover {
+  background-color: var(--msb-palette-hover-bg) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] .btn-primary i,
+html[data-msb-appearance] .btn-primary .icon,
+html[data-msb-appearance] button.btn-primary i,
+html[data-msb-appearance] a.btn-primary i,
+html[data-msb-appearance] .ch-btn-primary i,
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn i,
+html[data-msb-appearance] body.org-app .btn-primary i {
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] .btn i,
+html[data-msb-appearance] .btn .icon,
+html[data-msb-appearance] button.btn i,
+html[data-msb-appearance] .ig-btn i,
+html[data-msb-appearance] .feed-ig-btn i,
+html[data-msb-appearance] body.org-app .btn i {
+  color: inherit !important;
+}
+
+/* All spans — appearance palette contrast */
+html[data-msb-appearance] body.profile-page .gear-chip,
+html[data-msb-appearance] span.gear-chip {
+  background-color: var(--msb-palette-action-soft, var(--msb-palette-nav-active-bg)) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-action, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-tag,
+html[data-msb-appearance] span.gear-tag,
+html[data-msb-appearance] span.profile-account-badge,
+html[data-msb-appearance] .profile-account-badge,
+html[data-msb-appearance] span.badge,
+html[data-msb-appearance] .badge,
+html[data-msb-appearance] .badge-light,
+html[data-msb-appearance] span.feed-badge,
+html[data-msb-appearance] .feed-badge,
+html[data-msb-appearance] span.stat-pill,
+html[data-msb-appearance] .stat-pill,
+html[data-msb-appearance] span.commerce-pill,
+html[data-msb-appearance] .commerce-pill,
+html[data-msb-appearance] span.commerce-order-badge,
+html[data-msb-appearance] .commerce-order-badge,
+html[data-msb-appearance] span.commerce-brand-card-badge,
+html[data-msb-appearance] .commerce-brand-card-badge,
+html[data-msb-appearance] span.pv-pill,
+html[data-msb-appearance] .pv-pill,
+html[data-msb-appearance] span.pv-likepill,
+html[data-msb-appearance] .pv-likepill,
+html[data-msb-appearance] span.sidebar-pill,
+html[data-msb-appearance] .sidebar-pill,
+html[data-msb-appearance] span.msg-pill,
+html[data-msb-appearance] .msg-pill,
+html[data-msb-appearance] span.msg-reaction-pill,
+html[data-msb-appearance] .msg-reaction-pill,
+html[data-msb-appearance] span.live-modal-badge,
+html[data-msb-appearance] .live-modal-badge,
+html[data-msb-appearance] span.sidebar-chip,
+html[data-msb-appearance] .sidebar-chip,
+html[data-msb-appearance] span.ig-profile-love-count,
+html[data-msb-appearance] .ig-profile-love-count {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, var(--msb-palette-bg))) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .stat-pill .num,
+html[data-msb-appearance] .pv-likepill span {
+  color: var(--msb-palette-text) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] .stat-pill .lbl,
+html[data-msb-appearance] .stat-pill .sub {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] .stat-pill .icon,
+html[data-msb-appearance] .stat-pill i,
+html[data-msb-appearance] .commerce-pill i,
+html[data-msb-appearance] .pv-likepill i,
+html[data-msb-appearance] .feed-badge i,
+html[data-msb-appearance] .badge i,
+html[data-msb-appearance] span.sidebar-chip i {
+  color: var(--msb-palette-icon, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] .stat-pill .icon {
+  background-color: var(--msb-palette-hover-bg, var(--msb-palette-surface-2)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-label,
+html[data-msb-appearance] body.profile-page .gear-nav-item-meta,
+html[data-msb-appearance] body.profile-page .gear-upload-hint,
+html[data-msb-appearance] body.profile-page .gear-detail-control-label,
+html[data-msb-appearance] body.profile-page .gear-nav-section-chevron,
+html[data-msb-appearance] body.profile-page .gear-save-state,
+html[data-msb-appearance] .nav-link > span,
+html[data-msb-appearance] .sh-icon-link > span,
+html[data-msb-appearance] body.org-app .sidebar-meta > span,
+html[data-msb-appearance] .mf-num,
+html[data-msb-appearance] .pv-n,
+html[data-msb-appearance] .pv-views,
+html[data-msb-appearance] .ig-story-name,
+html[data-msb-appearance] span.muted {
+  background-color: transparent !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item-meta,
+html[data-msb-appearance] body.profile-page .gear-upload-hint,
+html[data-msb-appearance] body.profile-page .gear-nav-section-chevron,
+html[data-msb-appearance] body.profile-page .gear-save-state:not(.is-saving):not(.is-saved):not(.is-error),
+html[data-msb-appearance] span.muted {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-username,
+html[data-msb-appearance] body.profile-page .ig-stat,
+html[data-msb-appearance] body.profile-page b.ig-stat,
+html[data-msb-appearance] body.profile-page .ig-bio,
+html[data-msb-appearance] body.profile-page .ig-tab:not(.active) {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .profile-account-badge,
+html[data-msb-appearance] span.profile-account-badge {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  color: var(--msb-palette-action, var(--msb-palette-link, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab:not(.active) {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab.active {
+  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-text)) !important;
+  border-top-color: var(--msb-palette-nav-active-text, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab.active i {
+  color: inherit !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-gallery-search button {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+/* Profile door — appearance palette contrast */
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-body,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-body {
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-name,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-badge,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-name,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-badge,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a {
+  color: var(--msb-palette-text) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-email,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-code,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-email,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-code {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a .icon {
+  color: var(--msb-palette-icon, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap .tt-close,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap .tt-close {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg)) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
 }
 
 html[data-msb-appearance] .card,
@@ -93,8 +469,8 @@ html[data-msb-appearance] body.org-app .commerce-page {
   --ch-ink: var(--msb-palette-text);
   --ch-muted: var(--msb-palette-text-muted);
   --ch-line: var(--msb-palette-border);
-  --ch-surface: #171d24;
-  --ch-bg: #171d24;
+  --ch-surface: var(--msb-palette-surface, var(--msb-palette-bg));
+  --ch-bg: var(--msb-palette-bg);
 }
 
 html[data-msb-appearance] .commerce-hero {
@@ -112,206 +488,328 @@ html[data-msb-appearance] body:has(.app-footer) {
 }
 
 /* =====================================================
-   ORGANIZATION — match public_user canvas (#171d24)
-   Accents still follow Gear; page/shell backgrounds are fixed.
+   ORGANIZATION — default canvas (#171d24) when no Gear color
+   Accents still follow Gear; named palettes override backgrounds below.
    ===================================================== */
 body.org-app {
-  --org-page-bg: #171d24;
-  --org-bg: #171d24;
-  --bg-main: #171d24;
-  --bg-card: #171d24;
-  --bg-sidebar: #171d24;
   --org-accent: var(--msb-palette-action, var(--msb-palette-accent, var(--accent, #2563eb)));
   --org-accent-soft: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.12));
   --org-accent-strong: var(--msb-palette-action-strong, #1d4ed8);
   --org-link: var(--msb-palette-link, var(--org-accent));
   --org-icon: var(--msb-palette-icon, var(--org-accent));
+}
+
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app {
+  --org-page-bg: #171d24;
+  --org-bg: #171d24;
+  --bg-main: #171d24;
+  --bg-card: #171d24;
+  --bg-sidebar: #171d24;
   background-color: #171d24 !important;
   background-image: none !important;
 }
 
-body.org-app .sh-mainpanel,
-body.org-app .sh-pagebody,
-body.org-app .sh-sideleft-menu,
-body.org-app .sh-logopanel,
-body.org-app .sh-headpanel,
-body.org-app .card,
-body.org-app .card-body,
-body.org-app .dashboard-card,
-body.org-app .feed-card,
-body.org-app .post-card,
-body.org-app .stat-pill,
-body.org-app .pill,
-body.org-app .feed-badge,
-body.org-app .comp-badge,
-body.org-app .btn-close-x,
-body.org-app .feed-tabs a,
-body.org-app .posts-tabs a,
-body.org-app .bulkbar,
-body.org-app .xmodal,
-body.org-app .modal-content,
-body.org-app .publisher-hub,
-body.org-app .publisher-stat,
-body.org-app .publisher-check,
-body.org-app .crm-stage,
-body.org-app .org-sideleft-scroll,
-body.org-app .org-comments-door-panel,
-body.org-app .org-comments-door-head,
-body.org-app .org-comments-door-body,
-body.org-app .org-comments-door-foot,
-body.org-app .commerce-page,
-body.org-app .commerce-card,
-body.org-app .commerce-table-wrap,
-body.org-app .sh-pagetitle,
-body.org-app .compose-card,
-body.org-app .compose-preview,
-body.org-app .compose-intro,
-body.org-app .actions-fixed,
-body.org-app .rows-scroll,
-body.org-app .card-body-fixed,
-body.org-app .card-header,
-body.org-app .form-control,
-body.org-app .custom-select,
-body.org-app .input-group-text,
-body.org-app input[type="file"].form-control,
-body.org-app select,
-body.org-app textarea,
-body.org-app .attach-inline,
-body.org-app .shadow-base,
-body.org-app .fixed-card,
-body.org-app .create-card,
-body.org-app .settings-card,
-body.org-app .members-card,
-body.org-app .dropdown-menu,
-body.org-app .alert,
-body.org-app .table,
-body.org-app .table thead th,
-body.org-app .table td {
+/* Gear Dark auto / Light canvas — only when no Appearance color is active */
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) {
+  --org-page-bg: #ffffff;
+  --org-bg: #ffffff;
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --org-text: #111827;
+  --org-text-muted: #64748b;
+  --org-border: rgba(15, 23, 42, 0.12);
+  --org-input-bg: #ffffff;
+  --org-input-text: #111827;
+  --org-btn-surface: #f3f4f6;
+  --org-btn-text: #111827;
+  --org-btn-text-muted: #64748b;
+  --org-btn-border: rgba(15, 23, 42, 0.14);
+  --org-btn-on-accent: #ffffff;
+  --org-btn-filled-text: #ffffff;
+}
+
+/* Gear Dark auto ON — filled accent buttons/tabs use white label text on accent bg */
+html[data-msb-theme-auto] body.org-app,
+/* Dark auto ON wins over named palette on organization surfaces */
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app {
+  --org-btn-on-accent: #ffffff;
+  --org-btn-filled-text: #ffffff;
+}
+
+html[data-msb-theme-auto] body.org-app :is(
+  .btn-primary,
+  .btn-success,
+  a.btn-primary,
+  a.btn-success,
+  .ch-btn-primary,
+  a.feed-tab-link.active
+),
+html[data-msb-org-light]:not(.dark-auto) body.org-app :is(
+  .btn-primary,
+  .btn-success,
+  a.btn-primary,
+  a.btn-success,
+  .ch-btn-primary,
+  a.feed-tab-link.active
+) {
+  color: #ffffff !important;
+}
+
+/* Dark auto ON wins over named palette on organization surfaces */
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Dark auto ON wins over named palette on organization surfaces */
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-mainpanel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-pagebody,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-page,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-kpi,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-panel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-action-tile {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #111827 !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .compose-card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .compose-intro,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .compose-preview,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .actions-fixed,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .rows-scroll,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .card-body-fixed {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #111827 !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .compose-intro a {
+  color: var(--org-accent, #2563eb) !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .compose-preview .mini-muted,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .compose-preview #previewBody {
+  color: #64748b !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-logopanel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .card-body,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .dashboard-card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-sidebar,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-toolbar,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .rows-scroll,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sidebar-head,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sidebar-list,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-layout,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-main,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-post-detail,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .list-group-item,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .crm-stage {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #111827 !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-mainpanel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-pagebody,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-sideleft-menu,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-logopanel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-headpanel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card-body,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .dashboard-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .feed-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .post-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .stat-pill,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .pill,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .feed-badge,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .comp-badge,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .btn-close-x,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .feed-tabs a,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .posts-tabs a,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .bulkbar,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .xmodal,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .modal-content,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .publisher-hub,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .publisher-stat,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .publisher-check,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .crm-stage,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .org-sideleft-scroll,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .org-comments-door-panel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .org-comments-door-head,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .org-comments-door-body,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .org-comments-door-foot,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .commerce-page,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .commerce-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .commerce-table-wrap,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-pagetitle,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .compose-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .compose-preview,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .compose-intro,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .actions-fixed,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .rows-scroll,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card-body-fixed,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card-header,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .custom-select,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .input-group-text,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app input[type="file"].form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app select,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app textarea,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .attach-inline,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .shadow-base,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .fixed-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .create-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .settings-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .members-card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .dropdown-menu,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .alert,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .table,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .table thead th,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .table td {
   background-color: #171d24 !important;
   background-image: none !important;
 }
 
 /* =====================================================
-   ORGANIZATION HEADER — icons & controls on #171d24
+   ORGANIZATION HEADER — icons & controls on default dark canvas
    ===================================================== */
-body.org-app .sh-headpanel,
-body.org-app .sh-logopanel {
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-headpanel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-logopanel {
   background-color: #171d24 !important;
   background-image: none !important;
   border-bottom: 1px solid rgba(177, 188, 206, 0.18) !important;
   box-shadow: none !important;
 }
 
-body.org-app .sh-icon-link {
+html:not([data-msb-org-light]) body.org-app .sh-icon-link {
   color: #b1bcce !important;
   border-right-color: rgba(177, 188, 206, 0.18) !important;
   background-color: transparent !important;
 }
 
-body.org-app .sh-icon-link i,
-body.org-app .sh-icon-link span {
+html:not([data-msb-org-light]) body.org-app .sh-icon-link i,
+html:not([data-msb-org-light]) body.org-app .sh-icon-link span {
   color: inherit !important;
 }
 
-body.org-app .sh-icon-link:hover,
-body.org-app .sh-icon-link:focus {
+html:not([data-msb-org-light]) body.org-app .sh-icon-link:hover,
+html:not([data-msb-org-light]) body.org-app .sh-icon-link:focus {
   color: #e8edf5 !important;
   background-color: #2f3a4a !important;
 }
 
-body.org-app .sh-headpanel-right .org-header-chip {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .org-header-chip {
   background-color: #252f3d !important;
   border-color: rgba(177, 188, 206, 0.32) !important;
   color: #b1bcce !important;
 }
 
-body.org-app .sh-headpanel-right .org-header-chip__label {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .org-header-chip__label {
   color: #e8edf5 !important;
 }
 
-body.org-app .sh-headpanel-right .org-header-chip:hover,
-body.org-app .sh-headpanel-right .org-header-chip:focus {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .org-header-chip:hover,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .org-header-chip:focus {
   background-color: #2f3a4a !important;
   border-color: rgba(177, 188, 206, 0.55) !important;
 }
 
-body.org-app .sh-headpanel-right .org-header-chip--messages .org-header-chip__icon {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .org-header-chip--messages .org-header-chip__icon {
   color: #5eead4 !important;
 }
 
-body.org-app .sh-headpanel-right .org-header-chip--alerts .org-header-chip__icon {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .org-header-chip--alerts .org-header-chip__icon {
   color: #fcd34d !important;
 }
 
-body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link img,
-body.org-app .sh-headpanel-right .dropdown-link img.rounded-circle {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link img,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .dropdown-link img.rounded-circle {
   border: 2px solid rgba(177, 188, 206, 0.55) !important;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28) !important;
 }
 
-body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link:hover img,
-body.org-app .sh-headpanel-right .dropdown-link:hover img.rounded-circle {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link:hover img,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .dropdown-link:hover img.rounded-circle {
   border-color: #93c5fd !important;
 }
 
-body.org-app .org-pill {
+html:not([data-msb-org-light]) body.org-app .org-pill,
+html.dark-auto[data-msb-org-light] body.org-app .org-pill {
   background: #252f3d !important;
   border: 1px solid rgba(177, 188, 206, 0.48) !important;
   color: #e8edf5 !important;
 }
 
-body.org-app .org-pill:hover,
-body.org-app .org-pill:focus {
+html:not([data-msb-org-light]) body.org-app .org-pill:hover,
+html:not([data-msb-org-light]) body.org-app .org-pill:focus,
+html.dark-auto[data-msb-org-light] body.org-app .org-pill:hover,
+html.dark-auto[data-msb-org-light] body.org-app .org-pill:focus {
   background: #2f3a4a !important;
   color: #ffffff !important;
 }
 
-body.org-app .sh-headpanel-right .ig-feed-account-badge {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .ig-feed-account-badge,
+html.dark-auto[data-msb-org-light] body.org-app .sh-headpanel-right .ig-feed-account-badge {
   background: #252f3d !important;
   border: 1px solid rgba(177, 188, 206, 0.35) !important;
   color: #b1bcce !important;
 }
 
-body.org-app .msg-badge {
+html:not([data-msb-org-light]) body.org-app .msg-badge {
   border-color: #171d24 !important;
 }
 
-body.org-app .sh-headpanel-right .header-feed-stats .stat-pill,
-body.org-app .sh-headpanel-right .header-feed-unread.stat-pill,
-body.org-app .header-feed-tab {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-unread.stat-pill,
+html:not([data-msb-org-light]) body.org-app .header-feed-tab {
   background: #252f3d !important;
   border: 1px solid rgba(177, 188, 206, 0.48) !important;
   color: #e8edf5 !important;
 }
 
-body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .icon,
-body.org-app .sh-headpanel-right .header-feed-unread .icon {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .icon,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-unread .icon {
   background: rgba(177, 188, 206, 0.14) !important;
   color: #e8edf5 !important;
 }
 
-body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .num,
-body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .lbl,
-body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .sub,
-body.org-app .sh-headpanel-right .header-feed-unread .num,
-body.org-app .sh-headpanel-right .header-feed-unread .lbl {
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .num,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .lbl,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .sub,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-unread .num,
+html:not([data-msb-org-light]) body.org-app .sh-headpanel-right .header-feed-unread .lbl {
   color: #e8edf5 !important;
 }
 
-body.org-app .header-feed-tab:hover {
+html:not([data-msb-org-light]) body.org-app .header-feed-tab:hover {
   background: #2f3a4a !important;
   color: #ffffff !important;
 }
 
-body.org-app .header-feed-tab.active {
+html:not([data-msb-org-light]) body.org-app .header-feed-tab.active {
   background: var(--org-accent, #2563eb) !important;
   border-color: var(--org-accent-strong, #2563eb) !important;
   color: #ffffff !important;
 }
 
 html[data-msb-appearance] body.org-app {
-  --msb-palette-bg: #171d24;
-  background-color: #171d24 !important;
+  --org-page-bg: var(--msb-palette-bg);
+  --org-bg: var(--msb-palette-bg);
+  --bg-main: var(--msb-palette-bg);
+  --bg-card: var(--msb-palette-bg);
+  --bg-sidebar: var(--msb-palette-bg);
+  background-color: var(--msb-palette-bg) !important;
 }
 
 html[data-msb-appearance] body.org-app .card,
@@ -321,14 +819,39 @@ html[data-msb-appearance] body.org-app .post-card,
 html[data-msb-appearance] body.org-app .dashboard-card,
 html[data-msb-appearance] body.org-app .sh-mainpanel,
 html[data-msb-appearance] body.org-app .sh-pagebody,
-html[data-msb-appearance] body.org-app .sh-sideleft-menu {
-  background-color: #171d24 !important;
+html[data-msb-appearance] body.org-app .sh-sideleft-menu,
+html[data-msb-appearance] body.org-app .sh-headpanel,
+html[data-msb-appearance] body.org-app .sh-logopanel,
+html[data-msb-appearance] body.org-app .feed-toolbar,
+html[data-msb-appearance] body.org-app .rows-scroll,
+html[data-msb-appearance] body.org-app .feed-sidebar,
+html[data-msb-appearance] body.org-app .sidebar-head,
+html[data-msb-appearance] body.org-app .sidebar-list,
+html[data-msb-appearance] body.org-app .card-body-fixed,
+html[data-msb-appearance] body.org-app .feed-layout,
+html[data-msb-appearance] body.org-app .feed-main,
+html[data-msb-appearance] body.org-app .members-card,
+html[data-msb-appearance] body.org-app .members-card .card-body-fixed,
+html[data-msb-appearance] body.org-app .members-card .tab-content,
+html[data-msb-appearance] body.org-app .members-card .tab-pane,
+html[data-msb-appearance] body.org-app .members-card .list-group,
+html[data-msb-appearance] body.org-app .members-card .list-group-item {
+  background-color: var(--msb-palette-bg) !important;
   background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .commerce-page,
+html[data-msb-appearance] body.org-app .commerce-card,
+html[data-msb-appearance] body.org-app .commerce-table-wrap {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
 }
 
 /* Left nav scroll panel */
 html[data-msb-appearance] body.org-app .org-sideleft-scroll {
-  background: #171d24 !important;
+  background: var(--msb-palette-bg) !important;
   border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
@@ -352,14 +875,44 @@ html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .
 }
 
 html[data-msb-appearance] body.org-app .publisher-hub {
-  background: #171d24 !important;
+  background: var(--msb-palette-bg) !important;
   border-color: var(--msb-palette-action) !important;
 }
 
 html[data-msb-appearance] body.org-app .dashboard-card .stat-pill,
-html[data-msb-appearance] body.org-app .dash-toprow .stat-pill {
-  background: #171d24 !important;
+html[data-msb-appearance] body.org-app .dash-toprow .stat-pill,
+html[data-msb-appearance] body.org-app .feed-toolbar-stats .stat-pill {
+  background: var(--msb-palette-bg) !important;
   border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .sidebar-title,
+html[data-msb-appearance] body.org-app .sidebar-title i,
+html[data-msb-appearance] body.org-app .sidebar-subtitle,
+html[data-msb-appearance] body.org-app .sidebar-section,
+html[data-msb-appearance] body.org-app .sidebar-meta,
+html[data-msb-appearance] body.org-app .sidebar-meta > span,
+html[data-msb-appearance] body.org-app .sidebar-subject,
+html[data-msb-appearance] body.org-app .sidebar-chip,
+html[data-msb-appearance] body.org-app .sidebar-search {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.org-app .sidebar-title {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .feed-post-media.is-text-only,
+html[data-msb-appearance] body.org-app .feed-post-media.is-text-only .feed-media-text-title {
+  background: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .feed-post-media.is-text-only .feed-media-text,
+html[data-msb-appearance] body.org-app .feed-post-media.is-text-only .feed-media-text-desc {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
 }
 
 html[data-msb-appearance] body.org-app .btn-outline-secondary {
@@ -377,9 +930,165 @@ html[data-msb-appearance] body.org-app .btn-outline-secondary:hover {
 html[data-msb-appearance] body.org-app .btn-primary,
 html[data-msb-appearance] body.org-app a.btn-primary,
 html[data-msb-appearance] body.org-app .btn-success {
-  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
-  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
-  color: var(--msb-palette-btn-text, #ffffff) !important;
+  background-color: var(--org-btn-filled-bg, var(--msb-palette-btn-bg, var(--msb-palette-action))) !important;
+  border-color: var(--org-btn-filled-bg, var(--msb-palette-btn-bg, var(--msb-palette-action))) !important;
+  color: var(--org-btn-filled-text, var(--msb-palette-btn-text, #ffffff)) !important;
+}
+
+/* Light/System canvas — white only while Dark auto is not painting night */
+html[data-msb-org-light]:not(.dark-auto) {
+  --org-page-bg: #ffffff;
+  --org-bg: #ffffff;
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --org-text: #111827;
+  --org-text-muted: #64748b;
+  --org-border: rgba(15, 23, 42, 0.12);
+  --org-surface: #ffffff;
+  --org-input-bg: #ffffff;
+  --org-btn-surface: #f3f4f6;
+  --org-btn-text: #111827;
+  --org-btn-text-muted: #64748b;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) {
+  --org-page-bg: #171d24;
+  --org-bg: #171d24;
+  --bg-main: #171d24;
+  --bg-card: #171d24;
+  --bg-sidebar: #171d24;
+  --org-text: #e8edf5;
+  --org-text-muted: #b1bcce;
+  --org-border: rgba(177, 188, 206, 0.32);
+  --org-surface: #171d24;
+  --org-input-bg: #252f3d;
+  --org-btn-surface: #252f3d;
+  --org-btn-text: #e8edf5;
+  --org-btn-text-muted: #b1bcce;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-post-detail,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-compose,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .comment-item,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sidebar-search,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-compose-input,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .compose-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .compose-intro,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .compose-preview,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .actions-fixed,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .card-body-fixed,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .chat-shell,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .fixed-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .fixed-head,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .fixed-body,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .members-list-wrap,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .conv-topbar,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .history-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .msg-scroll,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .composer-fixed,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .list-group-item {
+  background-color: #171d24 !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+  border-color: #334155 !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sidebar-search,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-compose-input,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .members-search input,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .history-search input,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .composer-row textarea {
+  background-color: #252f3d !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-mainpanel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-pagebody,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-logopanel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .card-body,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .card-body-fixed,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .dashboard-card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-sidebar,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-toolbar,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-layout,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-main,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .feed-post-detail,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .rows-scroll,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sidebar-head,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sidebar-list,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .members-card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-page,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-card,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .publisher-hub {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #111827 !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Gear Dark auto — light header controls on white chrome */
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-logopanel {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.12) !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-icon-link {
+  color: #475569 !important;
+  border-right-color: rgba(15, 23, 42, 0.1) !important;
+  background-color: transparent !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-icon-link:hover,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-icon-link:focus {
+  color: #111827 !important;
+  background-color: #f3f4f6 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-pill,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .ig-feed-account-badge,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .org-header-chip,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .header-feed-unread.stat-pill,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .header-feed-tab {
+  background: #f3f4f6 !important;
+  border: 1px solid rgba(15, 23, 42, 0.14) !important;
+  color: #111827 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .org-header-chip__label,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .num,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .header-feed-stats .stat-pill .lbl,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .header-feed-unread .num,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .header-feed-unread .lbl {
+  color: #111827 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-pill:hover,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-pill:focus,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .org-header-chip:hover,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .org-header-chip:focus,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .header-feed-tab:hover {
+  background: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .org-header-chip--messages .org-header-chip__icon {
+  color: #0d9488 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel-right .org-header-chip--alerts .org-header-chip__icon {
+  color: #d97706 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.org-app .msg-badge {
+  border-color: #ffffff !important;
 }
 
 /* =====================================================
@@ -393,6 +1102,8 @@ body.org-app {
   --org-btn-text: #e8edf5;
   --org-btn-text-muted: #b1bcce;
   --org-btn-primary-text: #ffffff;
+  --org-btn-filled-bg: var(--msb-palette-btn-bg, var(--org-accent, #2563eb));
+  --org-btn-filled-text: var(--msb-palette-btn-text, var(--org-btn-on-accent, var(--org-btn-primary-text, #ffffff)));
 }
 
 body.org-app .btn,
@@ -429,9 +1140,9 @@ body.org-app .btn-info,
 body.org-app a.btn-primary,
 body.org-app a.btn-success,
 body.org-app .ch-btn-primary {
-  background-color: var(--org-accent, var(--msb-palette-action, #2563eb)) !important;
-  border-color: var(--org-accent-strong, var(--org-accent, #1d4ed8)) !important;
-  color: var(--org-btn-primary-text) !important;
+  background-color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
 }
 
 body.org-app .btn-primary:hover,
@@ -442,9 +1153,9 @@ body.org-app a.btn-primary:hover,
 body.org-app a.btn-success:hover,
 body.org-app .ch-btn-primary:hover,
 body.org-app .ch-btn-primary:focus {
-  background-color: var(--org-accent-strong, var(--msb-palette-action-strong, #1d4ed8)) !important;
-  border-color: var(--org-accent-strong, #1d4ed8) !important;
-  color: #ffffff !important;
+  background-color: var(--msb-palette-btn-hover-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  color: var(--org-btn-filled-text) !important;
 }
 
 body.org-app .btn-outline-primary,
@@ -483,7 +1194,7 @@ body.org-app .btn-close-x:hover,
 body.org-app .ch-btn-ghost:hover {
   background-color: var(--org-btn-surface-hover) !important;
   border-color: var(--org-btn-border-strong) !important;
-  color: #f3f6fb !important;
+  color: var(--org-btn-text) !important;
 }
 
 body.org-app .btn-outline-primary:hover {
@@ -519,9 +1230,9 @@ body.org-app .feed-tabs a {
 
 body.org-app .posts-tabs a.active,
 body.org-app .feed-tabs a.active {
-  background-color: var(--org-accent, var(--msb-palette-action, #2563eb)) !important;
-  border-color: var(--org-accent, var(--msb-palette-action, #2563eb)) !important;
-  color: #ffffff !important;
+  background-color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
 }
 
 html.dark-auto:not([data-msb-appearance]) body.org-app .btn,
@@ -552,15 +1263,15 @@ body.org-app .stat-pill .icon {
 }
 
 body.org-app .stat-pill .num {
-  color: var(--msb-palette-text, var(--text-primary, #111827)) !important;
+  color: var(--msb-palette-text, var(--org-text, #e8edf5)) !important;
 }
 
 body.org-app .stat-pill .lbl {
-  color: var(--msb-palette-text-muted, var(--text-secondary, #4b5563)) !important;
+  color: var(--msb-palette-text-muted, var(--org-text-muted, #b1bcce)) !important;
 }
 
 body.org-app .stat-pill .sub {
-  color: var(--msb-palette-text-muted, var(--text-muted, #9ca3af)) !important;
+  color: var(--msb-palette-text-muted, var(--org-text-muted, #9ca3af)) !important;
 }
 
 body.org-app .feed-actions-liked,
@@ -578,39 +1289,41 @@ body.org-app .feed-actions .mini-muted i {
 }
 
 body.org-app .feed-actions .btn-outline-success {
-  color: #86efac !important;
-  border-color: rgba(74, 222, 128, 0.55) !important;
+  color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
   background: var(--org-btn-surface, #252f3d) !important;
 }
 
 body.org-app .feed-actions .btn-outline-success:hover {
-  background: var(--org-btn-surface-hover, #2f3a4a) !important;
-  color: #bbf7d0 !important;
-  border-color: rgba(134, 239, 172, 0.72) !important;
+  background: var(--org-accent-soft, rgba(37, 99, 235, 0.12)) !important;
+  color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
 }
 
 body.org-app .feed-actions .btn-success {
-  background-color: var(--org-accent) !important;
-  border-color: var(--org-accent) !important;
-  color: var(--msb-palette-btn-text, #fff) !important;
+  background-color: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
+}
+
+body.org-app .feed-actions .btn-success i,
+body.org-app .feed-actions .btn-outline-success i {
+  color: inherit !important;
 }
 
 body.org-app .feed-compose-send {
-  background: var(--org-accent) !important;
+  background: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
 }
 
 body.org-app .feed-compose-send:hover:not(:disabled) {
-  background: var(--org-accent-strong) !important;
+  background: var(--msb-palette-btn-hover-bg, var(--org-accent-strong)) !important;
+  color: var(--org-btn-filled-text) !important;
 }
 
 body.org-app .feed-compose-input:focus {
   border-color: var(--org-accent) !important;
   box-shadow: 0 0 0 3px var(--org-accent-soft) !important;
-}
-
-body.org-app .feed-tabs a.active {
-  color: var(--org-accent) !important;
-  border-color: var(--org-accent) !important;
 }
 
 html.dark-auto:not([data-msb-appearance]) body.org-app .feed-sidebar,
@@ -667,9 +1380,9 @@ body.org-app .publisher-check label {
 }
 
 body.org-app .posts-tabs a.active {
-  background: var(--org-accent) !important;
-  border-color: var(--org-accent) !important;
-  color: var(--msb-palette-btn-text, #fff) !important;
+  background: var(--org-btn-filled-bg) !important;
+  border-color: var(--org-btn-filled-bg) !important;
+  color: var(--org-btn-filled-text) !important;
 }
 
 body.org-app .crm-stage .crm-count,
@@ -679,6 +1392,21 @@ body.org-app .crm-hub {
 
 html[data-msb-appearance] body.org-app .crm-stage .crm-count {
   color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.org-app .crm-stage {
+  background-color: var(--msb-palette-bg) !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .crm-stage strong {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .crm-stage .crm-sub,
+html[data-msb-appearance] body.org-app .crm-arrow {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
 }
 
 html[data-msb-appearance] body.org-app .crm-hub {
@@ -778,36 +1506,196 @@ html.dark-auto:not([data-msb-appearance]) body.org-app .feed-tabs a.active {
 }
 
 /* =====================================================
-   PUBLIC USER DASHBOARD — lock canvas to #171d24
+   PUBLIC USER DASHBOARD — default #171d24; white when Dark auto (no color); Gear color when set
    ===================================================== */
-body.dashboard-page,
-body.dashboard-page .sh-mainpanel,
-body.dashboard-page .sh-pagebody,
-body.dashboard-page .sh-pagetitle,
-body.dashboard-page .row,
-body.dashboard-page .row-sm,
-body.dashboard-page .col-lg-12,
-body.dashboard-page .card,
-body.dashboard-page .card-body,
-body.dashboard-page .card-header,
-body.dashboard-page .card-footer,
-body.dashboard-page .form-control,
-body.dashboard-page select.form-control,
-body.dashboard-page textarea.form-control,
-body.dashboard-page .msb-readonly-field,
-body.dashboard-page .alert,
-body.dashboard-page .alert-info,
-body.dashboard-page #instructionBox,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .sh-mainpanel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .sh-pagebody,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .sh-pagetitle,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .row,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .row-sm,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .col-lg-12,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card-body,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card-header,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card-footer,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page select.form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page textarea.form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .msb-readonly-field,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .alert,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .alert-info,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page #instructionBox {
+  background-color: #171d24 !important;
+  background-image: none !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .sh-mainpanel,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .sh-pagebody,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .sh-pagetitle,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .row,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .row-sm,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .col-lg-12,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card-body,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card-header,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card-footer,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card.mb-3,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page select.form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page textarea.form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .msb-readonly-field,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .alert,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .alert-info,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .alert-success,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .alert-warning,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .alert-danger,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .modal-content,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .modal-body,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page #instructionBox,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page .sh-mainpanel,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page .sh-pagebody,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page .card,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page .card-body {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #111827 !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page label,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card-title,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page h6,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .form-check-label,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page label,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page .card-title,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page h6 {
+  color: #111827 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .text-muted,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page small,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .form-text,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page .text-muted,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-modal-page small {
+  color: #64748b !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page select.form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page textarea.form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .msb-readonly-field {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: rgba(15, 23, 42, 0.18) !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .form-control::placeholder,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page textarea.form-control::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page {
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #64748b;
+  --text-muted: #64748b;
+  --border-color: rgba(15, 23, 42, 0.12);
+}
+
+/* Gear appearance color on publisher dashboard (when Dark auto is off) */
 html[data-msb-appearance] body.dashboard-page,
 html[data-msb-appearance] body.dashboard-page .sh-mainpanel,
 html[data-msb-appearance] body.dashboard-page .sh-pagebody,
+html[data-msb-appearance] body.dashboard-page .sh-pagetitle,
+html[data-msb-appearance] body.dashboard-page .row,
+html[data-msb-appearance] body.dashboard-page .row-sm,
+html[data-msb-appearance] body.dashboard-page .col-lg-12,
 html[data-msb-appearance] body.dashboard-page .card,
 html[data-msb-appearance] body.dashboard-page .card-body,
+html[data-msb-appearance] body.dashboard-page .card-header,
+html[data-msb-appearance] body.dashboard-page .card-footer,
+html[data-msb-appearance] body.dashboard-page .card.mb-3,
 html[data-msb-appearance] body.dashboard-page .alert,
 html[data-msb-appearance] body.dashboard-page .alert-info,
-html[data-msb-appearance] body.dashboard-page .form-control {
-  background-color: #171d24 !important;
+html[data-msb-appearance] body.dashboard-page #instructionBox,
+html[data-msb-appearance] body.dashboard-modal-page,
+html[data-msb-appearance] body.dashboard-modal-page .sh-mainpanel,
+html[data-msb-appearance] body.dashboard-modal-page .sh-pagebody,
+html[data-msb-appearance] body.dashboard-modal-page .card,
+html[data-msb-appearance] body.dashboard-modal-page .card-body {
+  background-color: var(--msb-palette-bg) !important;
   background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border, rgba(15, 23, 42, 0.12)) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page label,
+html[data-msb-appearance] body.dashboard-page .card-title,
+html[data-msb-appearance] body.dashboard-page h6,
+html[data-msb-appearance] body.dashboard-page .form-check-label,
+html[data-msb-appearance] body.dashboard-modal-page label,
+html[data-msb-appearance] body.dashboard-modal-page .card-title,
+html[data-msb-appearance] body.dashboard-modal-page h6 {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page .text-muted,
+html[data-msb-appearance] body.dashboard-page small,
+html[data-msb-appearance] body.dashboard-page .form-text,
+html[data-msb-appearance] body.dashboard-modal-page .text-muted,
+html[data-msb-appearance] body.dashboard-modal-page small {
+  color: var(--msb-palette-text-muted, #64748b) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page .form-control,
+html[data-msb-appearance] body.dashboard-page select.form-control,
+html[data-msb-appearance] body.dashboard-page textarea.form-control,
+html[data-msb-appearance] body.dashboard-page .msb-readonly-field {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface, var(--msb-palette-bg))) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border, rgba(15, 23, 42, 0.18))) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page {
+  --bg-main: var(--msb-palette-bg);
+  --bg-card: var(--msb-palette-bg);
+  --text-primary: var(--msb-palette-text);
+  --text-secondary: var(--msb-palette-text-muted);
+  --text-muted: var(--msb-palette-text-muted);
+  --border-color: var(--msb-palette-border);
+}
+
+/* Gear Dark auto ON — white publisher dashboard overrides appearance color */
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .sh-mainpanel,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .sh-pagebody,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .card-body,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page select.form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page textarea.form-control,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .msb-readonly-field,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .alert,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page .alert-info,
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page #instructionBox {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #111827 !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-msb-org-light]:not(.dark-auto) body.dashboard-page {
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #64748b;
+  --text-muted: #64748b;
+  --border-color: rgba(15, 23, 42, 0.12);
 }
 
 /* =====================================================
@@ -846,5 +1734,303 @@ html[data-msb-appearance] textarea:focus,
 html[data-msb-appearance] select:focus {
   border-color: var(--msb-palette-action) !important;
   box-shadow: 0 0 0 3px var(--msb-palette-action-soft) !important;
+}
+
+/* Appearance color wins over Dark auto org-light canvas on all org surfaces */
+html[data-msb-appearance] body.org-app,
+html[data-msb-appearance] body.org-app .sh-mainpanel,
+html[data-msb-appearance] body.org-app .sh-pagebody,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll,
+html[data-msb-appearance] body.org-app .sh-logopanel,
+html[data-msb-appearance] body.org-app .sh-headpanel,
+html[data-msb-appearance] body.org-app .card,
+html[data-msb-appearance] body.org-app .card-header,
+html[data-msb-appearance] body.org-app .card-body,
+html[data-msb-appearance] body.org-app .card-footer,
+html[data-msb-appearance] body.org-app .dashboard-card,
+html[data-msb-appearance] body.org-app form,
+html[data-msb-appearance] body.org-app form .row,
+html[data-msb-appearance] body.org-app form .form-group,
+html[data-msb-appearance] body.org-app form [class*="col-"] {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .form-group label,
+html[data-msb-appearance] body.org-app label,
+html[data-msb-appearance] body.org-app .card-title,
+html[data-msb-appearance] body.org-app .tx-color-03 {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .text-muted,
+html[data-msb-appearance] body.org-app small {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.org-app .form-control,
+html[data-msb-appearance] body.org-app select.form-control,
+html[data-msb-appearance] body.org-app textarea.form-control {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] body.org-app .btn-primary,
+html[data-msb-appearance] body.org-app a.btn-primary,
+html[data-msb-appearance] body.org-app button.btn-primary,
+html[data-msb-appearance] body.org-app .btn-success,
+html[data-msb-appearance] body.org-app .ch-btn-primary,
+html[data-msb-appearance] body.org-app a.ch-btn-primary {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.org-app .btn-outline-secondary,
+html[data-msb-appearance] body.org-app a.btn-outline-secondary {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+/* Undo dark-auto row bands inside org forms when appearance palette is active */
+html[data-msb-appearance] body.org-app .card-body .row,
+html[data-msb-appearance] body.org-app form .row,
+html.dark-auto[data-msb-appearance] body.org-app .card-body .row,
+html.dark-auto[data-msb-appearance] body.org-app form .row {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: inherit !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page,
+html[data-msb-appearance] body.org-app .org-surface-page .card,
+html[data-msb-appearance] body.org-app .org-surface-page .card-header,
+html[data-msb-appearance] body.org-app .org-surface-page .card-body,
+html[data-msb-appearance] body.org-app .org-surface-page form,
+html[data-msb-appearance] body.org-app .org-surface-page .table,
+html[data-msb-appearance] body.org-app .org-surface-page .table th,
+html[data-msb-appearance] body.org-app .org-surface-page .table td {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .card-body .row,
+html[data-msb-appearance] body.org-app .org-surface-page form .row,
+html.dark-auto[data-msb-appearance] body.org-app .org-surface-page .card-body .row,
+html.dark-auto[data-msb-appearance] body.org-app .org-surface-page form .row {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: inherit !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .form-group label,
+html[data-msb-appearance] body.org-app .org-surface-page label {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .form-control,
+html[data-msb-appearance] body.org-app .org-surface-page select.form-control,
+html[data-msb-appearance] body.org-app .org-surface-page textarea.form-control {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+/* Profile gear tab — Appearance color palette contrast */
+html[data-msb-appearance] body.profile-page .gear-wrap,
+html[data-msb-appearance] body.profile-page .gear-shell,
+html[data-msb-appearance] body.profile-page .gear-sidebar,
+html[data-msb-appearance] body.profile-page .gear-sidebar-head,
+html[data-msb-appearance] body.profile-page .gear-main,
+html[data-msb-appearance] body.profile-page .gear-nav,
+html[data-msb-appearance] body.profile-page .gear-detail-panel,
+html[data-msb-appearance] body.profile-page .gear-detail-head,
+html[data-msb-appearance] body.profile-page .gear-detail-body,
+html[data-msb-appearance] body.profile-page .gear-detail-empty,
+html[data-msb-appearance] body.profile-page .gear-search,
+html[data-msb-appearance] body.profile-page .gear-control,
+html[data-msb-appearance] body.profile-page .gear-note {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-sidebar-title,
+html[data-msb-appearance] body.profile-page .gear-detail-title,
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
+html[data-msb-appearance] body.profile-page .gear-nav-item,
+html[data-msb-appearance] body.profile-page .gear-detail-control-label,
+html[data-msb-appearance] body.profile-page .gear-control {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-desc,
+html[data-msb-appearance] body.profile-page .gear-nav-item-meta,
+html[data-msb-appearance] body.profile-page .gear-upload-hint,
+html[data-msb-appearance] body.profile-page .gear-detail-empty,
+html[data-msb-appearance] body.profile-page .gear-save-state {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-icon i,
+html[data-msb-appearance] body.profile-page .gear-nav-section-icon i,
+html[data-msb-appearance] body.profile-page .gear-nav-section-chevron {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item.is-active {
+  background-color: var(--msb-palette-nav-active-bg) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:hover,
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:focus,
+html[data-msb-appearance] body.profile-page .gear-nav-item:hover,
+html[data-msb-appearance] body.profile-page .gear-nav-item:focus {
+  background-color: var(--msb-palette-hover-bg) !important;
+  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page .gear-upload-btn {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+/* Profile page — full shell + chromatic role badge (Publisher Manager, etc.) */
+html[data-msb-appearance] body.profile-page,
+html[data-msb-appearance] body.profile-page .sh-mainpanel,
+html[data-msb-appearance] body.profile-page .sh-pagebody,
+html[data-msb-appearance] body.profile-page .ig-card,
+html[data-msb-appearance] body.profile-page .ig-profile-shell,
+html[data-msb-appearance] body.profile-page .ig-profile-head,
+html[data-msb-appearance] body.profile-page .ig-profile-scroll,
+html[data-msb-appearance] body.profile-page .ig-highlights,
+html[data-msb-appearance] body.profile-page .ig-tabs,
+html[data-msb-appearance] body.profile-page .profile-panel,
+html[data-msb-appearance] body.profile-page .coming-wrap,
+html[data-msb-appearance] body.profile-page .about-wrap,
+html[data-msb-appearance] body.profile-page .about-card,
+html[data-msb-appearance] body.profile-page .mf-feed-empty,
+html.msb-palette-active body.profile-page,
+html.msb-palette-active body.profile-page .sh-mainpanel,
+html.msb-palette-active body.profile-page .sh-pagebody,
+html.msb-palette-active body.profile-page .ig-card,
+html.msb-palette-active body.profile-page .ig-profile-shell,
+html.msb-palette-active body.profile-page .ig-profile-head,
+html.msb-palette-active body.profile-page .ig-profile-scroll,
+html.msb-palette-active body.profile-page .ig-tabs,
+html.msb-palette-active body.profile-page .profile-panel,
+html.msb-palette-active body.profile-page .gear-wrap,
+html.msb-palette-active body.profile-page .gear-shell,
+html.msb-palette-active body.profile-page .gear-sidebar,
+html.msb-palette-active body.profile-page .gear-main {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.profile-page span.profile-account-badge,
+html[data-msb-appearance] body.profile-page .profile-account-badge,
+html.msb-palette-active body.profile-page span.profile-account-badge,
+html.msb-palette-active body.profile-page .profile-account-badge {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  color: var(--msb-palette-action, var(--msb-palette-link, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-icon,
+html.msb-palette-active body.profile-page .gear-nav-section-icon {
+  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;
+  color: var(--msb-palette-action, var(--msb-palette-icon)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .profile-cover-badge,
+html.msb-palette-active body.profile-page .profile-cover-badge {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-btn:not(.publisher-follow-btn.is-following),
+html.msb-palette-active body.profile-page .ig-btn:not(.publisher-follow-btn.is-following) {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item.is-active,
+html.msb-palette-active body.profile-page .gear-nav-item.is-active {
+  color: var(--msb-palette-action, var(--msb-palette-nav-active-text, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item.is-active .gear-nav-item-meta,
+html.msb-palette-active body.profile-page .gear-nav-item.is-active .gear-nav-item-meta {
+  color: var(--msb-palette-action, var(--msb-palette-link)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
+html.msb-palette-active body.profile-page .gear-nav-section-toggle {
+  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;
+  background-image: none !important;
+  border: 1px solid var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:hover,
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:focus,
+html.msb-palette-active body.profile-page .gear-nav-section-toggle:hover,
+html.msb-palette-active body.profile-page .gear-nav-section-toggle:focus {
+  background-color: var(--msb-palette-nav-hover, var(--msb-palette-hover-bg)) !important;
+  color: var(--msb-palette-text-on-hover, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-nav-item,
+html.msb-palette-active body.profile-page .gear-nav-item {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page label.gear-upload-btn,
+html.msb-palette-active body.profile-page a.gear-detail-open-btn {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn i,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn .icon,
+html[data-msb-appearance] body.profile-page a.gear-detail-open-btn [class*="ion-"],
+html.msb-palette-active body.profile-page a.gear-detail-open-btn i {
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab.active,
+html.msb-palette-active body.profile-page .ig-tab.active {
+  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-btn-text, #ffffff)) !important;
+  border-top-color: var(--msb-palette-nav-active-text, var(--msb-palette-btn-text, #ffffff)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-tab.active i,
+html.msb-palette-active body.profile-page .ig-tab.active i {
+  color: inherit !important;
 }
 

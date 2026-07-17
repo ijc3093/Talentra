@@ -237,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
-  <div class="sh-pagebody">
+  <?php org_page_body_open(); ?>
     <div class="row row-sm">
       <div class="col-lg-12">
         <div class="card bd-0">
@@ -409,5 +409,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 })();
 </script>
 
+<?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

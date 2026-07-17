@@ -8,6 +8,7 @@ requireUserLogin();
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/friend_system.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
+require_once __DIR__ . '/includes/commerce_messaging.php';
 require_once __DIR__ . '/includes/group_video_call_lib.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 
@@ -334,8 +335,13 @@ function resolvePeerByCode(PDO $dbh, int $meId, string $peerCode): array {
     if (!$u) return ['ok' => false];
     if ((int)($u['status'] ?? 1) !== 1) return ['ok' => false];
 
-    if (publisher_is_publisher_user($dbh, (int)($u['id'] ?? 0))) {
-        return ['ok' => false, 'error' => 'publisher_no_dm', 'message' => 'This is a publisher page. Follow them to see updates in your Feed. Direct messages are not available.'];
+    $peerId = (int)($u['id'] ?? 0);
+    if (publisher_is_publisher_user($dbh, $peerId) && !commerce_can_dm_pair($dbh, $meId, $peerId)) {
+        return [
+            'ok' => false,
+            'error' => 'publisher_no_dm',
+            'message' => 'This is a publisher page. Shop buyers can message sellers about products or orders; otherwise follow them for Feed updates.',
+        ];
     }
 
     return [
@@ -344,6 +350,7 @@ function resolvePeerByCode(PDO $dbh, int $meId, string $peerCode): array {
         'peerEmail' => (string)$u['email'],
         'peerCode' => (string)$u['friend_code'],
         'peerDisplay' => (string)$u['display'],
+        'commerce' => commerce_can_dm_pair($dbh, $meId, $peerId) && !fs_are_friends($dbh, $meId, $peerId),
     ];
 }
 
@@ -1220,18 +1227,27 @@ function list_chat_group_blocked_user_ids(PDO $dbh, int $groupId): array {
 
 // ---------------- selected peer ----------------
 /**
- * ✅ Peer selection supports BOTH:
- *   1) messages.php?peer=FRIEND_CODE   (original)
- *   2) messages.php?id=USER_ID        (new: open chat by user id)
- *   3) messages.php?peer_id=USER_ID   (alias)
- *
- * This makes dropdown "Message" buttons in feed.php able to deep-link by user id.
+ * ✅ Peer selection supports:
+ *   1) messages.php?peer=FRIEND_CODE (or username)
+ *   2) messages.php?id=USER_ID / peer_id=
+ *   3) messages.php?username=USERNAME
+ *   4) commerce: about_product / about_order / commerce=1
  */
-$peerRaw = strtoupper(trim((string)($_GET['peer'] ?? '')));
+$peerParam = trim((string)($_GET['peer'] ?? ''));
+$peerRaw = strtoupper($peerParam);
+$commerceAboutProductId = (int)($_GET['about_product'] ?? 0);
+$commerceAboutOrder = trim((string)($_GET['about_order'] ?? ''));
+$commerceDraft = '';
 
-// ✅ If peer code not provided, allow numeric user id -> friend_code lookup
+// ✅ If peer code not provided, allow numeric user id OR username -> friend_code lookup
 if ($peerRaw === '') {
     $peerId = (int)($_GET['id'] ?? ($_GET['peer_id'] ?? 0));
+    if ($peerId <= 0) {
+        $uname = trim((string)($_GET['username'] ?? $_GET['u'] ?? ''));
+        if ($uname !== '') {
+            $peerId = commerce_messaging_user_id_by_username($dbh, $uname);
+        }
+    }
     if ($peerId > 0) {
         try {
             $st = $dbh->prepare("SELECT friend_code FROM users WHERE id = :id LIMIT 1");
@@ -1244,12 +1260,31 @@ if ($peerRaw === '') {
             // ignore (keep $peerRaw empty)
         }
     }
+} elseif ($peerParam !== '') {
+    // Prefer friend_code; fall back to username when the peer param is a handle.
+    $byCode = commerce_messaging_user_id_by_friend_code($dbh, $peerRaw);
+    if ($byCode <= 0) {
+        $byUser = commerce_messaging_user_id_by_username($dbh, $peerParam);
+        if ($byUser > 0) {
+            try {
+                $st = $dbh->prepare('SELECT friend_code FROM users WHERE id = :id LIMIT 1');
+                $st->execute([':id' => $byUser]);
+                $fc = (string)($st->fetchColumn() ?: '');
+                if ($fc !== '') {
+                    $peerRaw = strtoupper(trim($fc));
+                }
+            } catch (Throwable $e) {
+                // keep peerRaw as uppercased param
+            }
+        }
+    }
 }
 $peerRow = null;
 $peerCode = '';
 $peerEmail = '';
 $peerDisplay = '';
 $peerOnlineInfo = ['online' => false, 'label' => 'Offline'];
+$isCommerceChat = false;
 
 if ($peerRaw !== '') {
     $pr = resolvePeerByCode($dbh, $meId, $peerRaw);
@@ -1258,17 +1293,24 @@ if ($peerRaw !== '') {
         $peerCode    = (string)$pr['peerCode'];
         $peerEmail   = (string)$pr['peerEmail'];
         $peerDisplay = (string)$pr['peerDisplay'];
+        $isCommerceChat = !empty($pr['commerce']);
 
         if (strtoupper($peerCode) === strtoupper($meCode)) {
-            $peerRow = null; $peerCode=''; $peerEmail=''; $peerDisplay='';
+            $peerRow = null; $peerCode=''; $peerEmail=''; $peerDisplay=''; $isCommerceChat = false;
         }
 
-        if ($peerRow && !fs_are_friends($dbh, $meId, (int)($peerRow['id'] ?? 0))) {
-            $peerRow = null; $peerCode=''; $peerEmail=''; $peerDisplay='';
+        $peerUserId = (int)($peerRow['id'] ?? 0);
+        if ($peerRow && !fs_are_friends($dbh, $meId, $peerUserId) && !commerce_can_dm_pair($dbh, $meId, $peerUserId)) {
+            $peerRow = null; $peerCode=''; $peerEmail=''; $peerDisplay=''; $isCommerceChat = false;
+        } elseif ($peerRow && !fs_are_friends($dbh, $meId, $peerUserId) && commerce_can_dm_pair($dbh, $meId, $peerUserId)) {
+            $isCommerceChat = true;
         }
 
         if ($peerRow) {
             $peerOnlineInfo = online_info((string)($peerRow['last_seen'] ?? ''), 300, null);
+            if ($isCommerceChat || $commerceAboutProductId > 0 || $commerceAboutOrder !== '') {
+                $commerceDraft = commerce_messaging_compose_draft($dbh, $commerceAboutProductId, $commerceAboutOrder);
+            }
         }
     }
 }
@@ -6374,6 +6416,10 @@ img, video, iframe { max-width: 100% !important; }
               </div>
               <div class="peerSub">
                 <span><?php echo $isGroupChatView ? ($selectedGroup ? h(count($groupMembers) . ' member' . (count($groupMembers) === 1 ? '' : 's')) : 'Create and manage your group conversations here.') : ($peerRow ? h($peerCode) : ''); ?></span>
+              </div>
+              <?php if (!empty($isCommerceChat) && $peerRow && !$isGroupChatView): ?>
+                <div class="tx-12" style="margin-top:4px;opacity:.85;">Shop chat — ask about products or orders (friend request not required).</div>
+              <?php endif; ?>
                 <?php if ($isGroupChatView && $selectedGroup): ?>
                   <span style="opacity:.55;">•</span>
                   <span style="text-transform:capitalize;"><?php echo h((string)($selectedGroup['my_role'] ?? 'member')); ?></span>
@@ -6781,7 +6827,7 @@ img, video, iframe { max-width: 100% !important; }
                   <button type="button" id="composerMicBtn" title="Voice"><i class="fa fa-microphone"></i></button>
                 </div>
                 <div class="composer-input-wrap">
-                  <textarea id="messageInput" name="message" placeholder="Type your message here"></textarea>
+                  <textarea id="messageInput" name="message" placeholder="Type your message here"><?php echo isset($commerceDraft) ? h($commerceDraft) : ''; ?></textarea>
                 </div>
                 <div class="composer-right">
                   <a type="button" id="msgPlusBtn" title="Attach"><i class="fa fa-picture-o"></i></a>

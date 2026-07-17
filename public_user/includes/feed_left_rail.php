@@ -130,8 +130,35 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
     }
 }
 ?>
+<?php
+  $flrPageHeadTitle = trim((string)($feedLeftRailPageHeadTitle ?? ''));
+  $flrPageHeadSub = trim((string)($feedLeftRailPageHeadSub ?? ''));
+  $flrShopOnlyNav = !empty($feedLeftRailShopOnly);
+?>
+<?php if ($flrPageHeadTitle !== '' && !$feedLeftRailEmbed): ?>
+<div class="feed-left-rail-page-head">
+  <h1 class="feed-left-rail-page-title"><?= htmlspecialchars($flrPageHeadTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+  <?php if ($flrPageHeadSub !== ''): ?>
+  <p class="feed-left-rail-page-sub"><?= htmlspecialchars($flrPageHeadSub, ENT_QUOTES, 'UTF-8') ?></p>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
 <?php if (!$feedLeftRailEmbed): ?><aside class="feed-left-rail" aria-label="Main navigation"><?php endif; ?>
+  <?php if ($flrPageHeadTitle !== '' && $feedLeftRailEmbed): ?>
+  <div class="feed-left-rail-page-head">
+    <h1 class="feed-left-rail-page-title"><?= htmlspecialchars($flrPageHeadTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+    <?php if ($flrPageHeadSub !== ''): ?>
+    <p class="feed-left-rail-page-sub"><?= htmlspecialchars($flrPageHeadSub, ENT_QUOTES, 'UTF-8') ?></p>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
   <nav class="feed-left-nav" aria-label="Sidebar menu">
+    <?php if ($flrShopOnlyNav): ?>
+    <?php if (!empty($feedLeftRailShopFilters)): ?>
+      <?php include __DIR__ . '/feed_shop_brand_nav.php'; ?>
+      <?php include __DIR__ . '/feed_shop_nav_filters.php'; ?>
+    <?php endif; ?>
+    <?php else: ?>
     <a class="feed-left-nav-item<?= $flrActive('feed.php') ?>" href="feed.php">
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg></span>
       <span class="feed-left-nav-label">Friends Feed</span>
@@ -219,5 +246,10 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2"/><path d="M15 12H3"/><path d="M6 9l-3 3 3 3"/></svg></span>
       <span class="feed-left-nav-label">Sign Out</span>
     </a>
+    <?php if (!empty($feedLeftRailShopFilters)): ?>
+      <?php include __DIR__ . '/feed_shop_brand_nav.php'; ?>
+      <?php include __DIR__ . '/feed_shop_nav_filters.php'; ?>
+    <?php endif; ?>
+    <?php endif; ?>
   </nav>
 <?php if (!$feedLeftRailEmbed): ?></aside><?php endif; ?>

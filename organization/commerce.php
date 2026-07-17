@@ -8,8 +8,19 @@ require_once __DIR__ . '/includes/org_manager_guard.php';
 
 org_require_manager();
 
+org_require_commerce_seller();
+
 $orgId = (int)orgActiveOrgId();
 org_ecommerce_ensure_schema($dbh);
+require_once __DIR__ . '/../public_user/includes/org_commerce_brands.php';
+org_commerce_brands_ensure_schema($dbh);
+
+$commerceBrand = org_commerce_brands_get_for_org($dbh, $orgId);
+if (!$commerceBrand && !isset($_GET['setup'])) {
+    header('Location: commerce_brand_select.php');
+    exit;
+}
+$brandSystem = org_commerce_brands_parse_system($commerceBrand);
 
 $stats = org_ecommerce_dashboard_stats($dbh, $orgId);
 $crmStats = org_crm_dashboard_stats($dbh, $orgId);
@@ -17,10 +28,14 @@ $integrations = org_ecommerce_integrations($dbh, $orgId);
 $shopSettings = org_ecommerce_get_shop_settings($dbh, $orgId);
 $businessModel = org_ecommerce_get_business_model($dbh, $orgId);
 $modelLabel = org_ecommerce_business_models()[$businessModel] ?? ucfirst($businessModel);
-$recentOrders = org_shop_list_orders($dbh, $orgId, 'all', 6);
 $lowStock = org_ecommerce_low_stock_products($dbh, $orgId, 5);
 $productCount = org_shop_product_count($dbh, $orgId);
 $maxProducts = org_shop_max_products($dbh, $orgId);
+$sellerPlan = org_shop_get_seller_plan($dbh, $orgId);
+$shopChannels = $shopSettings['channels'] ?? [];
+$profileShopOn = $stats['shop_visible'];
+$marketplaceOn = $profileShopOn && !empty($shopChannels['marketplace']);
+$socialFeedOn = !empty($shopChannels['social_feed']);
 
 $integrationIcons = [
     'payments' => 'ion-card',
@@ -32,35 +47,22 @@ $integrationIcons = [
     'logistics' => 'ion-ios-location',
 ];
 
-function commerce_order_badge_class(string $status): string
-{
-    $status = strtolower(trim($status));
-    if (in_array($status, ['paid', 'delivered'], true)) {
-        return 'is-paid';
-    }
-    if ($status === 'shipped') {
-        return 'is-shipped';
-    }
-    if (in_array($status, ['pending', 'confirmed'], true)) {
-        return 'is-pending';
-    }
-    if ($status === 'cancelled') {
-        return 'is-cancelled';
-    }
-    return '';
-}
-
 $pageTitle = 'Shop & commerce';
 require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=3">');
+org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=15"><link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css">');
 ?>
-<div class="sh-pagebody commerce-page">
+<?php org_page_body_open('commerce-page'); ?>
   <section class="commerce-hero">
     <div class="commerce-hero-inner">
       <div>
         <h1>Shop &amp; commerce</h1>
         <p>Sell on your profile, marketplace, and social feed — track orders, inventory, and revenue from one place.</p>
         <div class="commerce-hero-badges">
+          <?php if ($commerceBrand): ?>
+            <span class="commerce-pill is-live" style="border-color: <?= org_ecommerce_h((string)($commerceBrand['accent_color'] ?? '#0d9488')) ?>">
+              <i class="icon ion-ios-star"></i> <?= org_ecommerce_h((string)$commerceBrand['name']) ?> system
+            </span>
+          <?php endif; ?>
           <span class="commerce-pill"><i class="icon ion-briefcase"></i> <?= org_ecommerce_h($modelLabel) ?></span>
           <?php if ($stats['shop_visible']): ?>
             <span class="commerce-pill is-live"><i class="icon ion-checkmark-round"></i> Storefront live</span>
@@ -68,56 +70,56 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
             <span class="commerce-pill is-warn"><i class="icon ion-alert-circled"></i> Storefront hidden — check rent</span>
           <?php endif; ?>
           <span class="commerce-pill"><?= (int)$productCount ?> / <?= (int)$maxProducts ?> products</span>
+          <span class="commerce-pill"><?= org_ecommerce_h(ucfirst($sellerPlan)) ?> seller plan</span>
         </div>
       </div>
       <div class="commerce-quick">
+        <a href="sales_management.php" class="ch-btn-primary"><i class="icon ion-speedometer"></i> Sales management</a>
         <a href="products.php" class="ch-btn-primary"><i class="icon ion-plus"></i> Add product</a>
-        <a href="orders.php" class="ch-btn-ghost"><i class="icon ion-ios-list"></i> Orders</a>
-        <a href="shop_settings.php" class="ch-btn-ghost"><i class="icon ion-gear-b"></i> Settings</a>
+        <div class="commerce-quick-col">
+          <a href="orders.php" class="ch-btn-ghost"><i class="icon ion-ios-list"></i> Orders</a>
+          <a href="recent_orders.php" class="commerce-quick-sub">Recent orders</a>
+        </div>
+        <div class="commerce-quick-col">
+          <a href="shop_settings.php" class="ch-btn-ghost"><i class="icon ion-gear-b"></i> Settings</a>
+          <a href="seller_journey.php" class="commerce-quick-sub">Seller journey</a>
+        </div>
+        <?php if ($commerceBrand): ?>
+        <a href="commerce_brand_select.php?switch=1" class="ch-btn-ghost"><i class="icon ion-shuffle"></i> Switch brand</a>
+        <?php endif; ?>
       </div>
     </div>
   </section>
 
-  <div class="commerce-kpi-grid">
-    <div class="commerce-kpi">
-      <div class="commerce-kpi-top">
-        <span class="commerce-kpi-label">Revenue MTD</span>
-        <span class="commerce-kpi-icon"><i class="icon ion-cash"></i></span>
-      </div>
-      <div class="commerce-kpi-value"><?= org_ecommerce_h(org_shop_format_price((int)$stats['revenue_mtd_cents'])) ?></div>
-      <div class="commerce-kpi-sub">Paid &amp; fulfilled orders this month</div>
+  <?php if ($commerceBrand): ?>
+  <div class="commerce-panel mg-b-20 commerce-brand-system-panel" style="--brand-accent: <?= org_ecommerce_h((string)($commerceBrand['accent_color'] ?? '#0d9488')) ?>">
+    <div class="commerce-panel-head">
+      <h2><?= org_ecommerce_h((string)$commerceBrand['name']) ?> selling system</h2>
+      <a href="commerce_brand_select.php?switch=1">Change brand</a>
     </div>
-    <div class="commerce-kpi">
-      <div class="commerce-kpi-top">
-        <span class="commerce-kpi-label">Orders</span>
-        <span class="commerce-kpi-icon"><i class="icon ion-bag"></i></span>
-      </div>
-      <div class="commerce-kpi-value"><?= (int)$stats['orders_mtd'] ?></div>
-      <div class="commerce-kpi-sub"><?= (int)$stats['orders_open'] ?> awaiting fulfillment</div>
+    <p class="commerce-brand-system-lead"><?= org_ecommerce_h((string)($brandSystem['order_hint'] ?? $commerceBrand['tagline'] ?? '')) ?></p>
+    <div class="commerce-brand-system-meta">
+      <?php if (!empty($brandSystem['pickup_enabled'])): ?>
+        <span class="commerce-pill">Pickup enabled</span>
+      <?php endif; ?>
+      <?php if (!empty($brandSystem['delivery_enabled'])): ?>
+        <span class="commerce-pill">Delivery enabled</span>
+      <?php endif; ?>
+      <span class="commerce-pill">Default: <?= org_ecommerce_h(strtoupper((string)($brandSystem['default_fulfillment'] ?? 'fbm'))) ?></span>
+      <span class="commerce-pill"><?= org_ecommerce_h(ucfirst(str_replace('_', ' ', (string)($brandSystem['model'] ?? 'retail')))) ?></span>
     </div>
-    <div class="commerce-kpi">
-      <div class="commerce-kpi-top">
-        <span class="commerce-kpi-label">Catalog</span>
-        <span class="commerce-kpi-icon"><i class="icon ion-ios-pricetags"></i></span>
+    <?php if (!empty($brandSystem['menu_categories']) && is_array($brandSystem['menu_categories'])): ?>
+      <div class="commerce-brand-categories">
+        <strong>Suggested menu categories</strong>
+        <div class="commerce-brand-category-list">
+          <?php foreach ($brandSystem['menu_categories'] as $cat): ?>
+            <span><?= org_ecommerce_h((string)$cat) ?></span>
+          <?php endforeach; ?>
+        </div>
       </div>
-      <div class="commerce-kpi-value"><?= (int)$stats['products_active'] ?></div>
-      <div class="commerce-kpi-sub<?= (int)$stats['products_low_stock'] > 0 ? ' is-alert' : '' ?>">
-        <?php if ((int)$stats['products_low_stock'] > 0): ?>
-          <?= (int)$stats['products_low_stock'] ?> low-stock alert<?= (int)$stats['products_low_stock'] > 1 ? 's' : '' ?>
-        <?php else: ?>
-          Active listings on your plan
-        <?php endif; ?>
-      </div>
-    </div>
-    <div class="commerce-kpi">
-      <div class="commerce-kpi-top">
-        <span class="commerce-kpi-label">Avg order</span>
-        <span class="commerce-kpi-icon"><i class="icon ion-stats-bars"></i></span>
-      </div>
-      <div class="commerce-kpi-value"><?= org_ecommerce_h(org_shop_format_price((int)$stats['avg_order_cents'])) ?></div>
-      <div class="commerce-kpi-sub">Pipeline <?= org_ecommerce_h(org_crm_money((int)$crmStats['forecast_cents'])) ?></div>
-    </div>
+    <?php endif; ?>
   </div>
+  <?php endif; ?>
 
   <div class="commerce-layout">
     <div class="commerce-main">
@@ -149,36 +151,25 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
             </div>
           </div>
           <?php endforeach; ?>
-        </div>
-      </div>
-
-      <div class="commerce-panel">
-        <div class="commerce-panel-head">
-          <h2>Sales channels</h2>
-          <a href="shop_settings.php">Configure channels</a>
-        </div>
-        <?php
-          $ch = $shopSettings['channels'] ?? [];
-          $profileOn = $stats['shop_visible'];
-          $marketOn = $profileOn && !empty($ch['marketplace']);
-          $socialOn = !empty($ch['social_feed']);
-        ?>
-        <div class="commerce-channels">
-          <div class="commerce-channel<?= $profileOn ? ' is-on' : '' ?>">
-            <i class="icon ion-ios-person"></i>
-            <strong>Profile shop</strong>
-            <span><?= $profileOn ? 'Live on your page' : 'Not visible' ?></span>
+          <?php if ($lowStock): ?>
+          <div class="commerce-int-item commerce-int-alert">
+            <span class="commerce-int-icon is-alert"><i class="icon ion-alert-circled"></i></span>
+            <div class="commerce-int-body">
+              <div class="commerce-int-alert-top">
+                <strong>Low stock</strong>
+                <a href="products.php" class="commerce-int-alert-link">Restock →</a>
+              </div>
+              <div class="commerce-int-alert-list">
+                <?php foreach ($lowStock as $p): ?>
+                  <a href="products.php?edit=<?= (int)$p['id'] ?>" class="commerce-int-stock-row">
+                    <span><?= org_ecommerce_h((string)$p['title']) ?></span>
+                    <span class="commerce-stock-qty"><?= (int)$p['stock_qty'] ?> left</span>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            </div>
           </div>
-          <div class="commerce-channel<?= $marketOn ? ' is-on' : '' ?>">
-            <i class="icon ion-ios-world"></i>
-            <strong>Marketplace</strong>
-            <span><?= $marketOn ? 'Discoverable listing' : 'Disabled' ?></span>
-          </div>
-          <div class="commerce-channel<?= $socialOn ? ' is-on' : '' ?>">
-            <i class="icon ion-ios-paperplane"></i>
-            <strong>Social feed</strong>
-            <span><?= $socialOn ? 'Product posts enabled' : 'Disabled' ?></span>
-          </div>
+          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -186,73 +177,29 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
     <aside class="commerce-side">
       <div class="commerce-panel">
         <div class="commerce-panel-head">
-          <h2>Recent orders</h2>
-          <a href="orders.php">View all</a>
+          <h2>Sales channels</h2>
+          <a href="shop_settings.php">Configure channels</a>
         </div>
-        <?php if (!$recentOrders): ?>
-          <div class="commerce-empty">
-            <i class="icon ion-ios-cart-outline"></i>
-            <div>No orders yet</div>
-            <p class="tx-12 mg-t-5">Publish products to start selling.</p>
-            <a href="products.php" class="btn btn-sm btn-primary mg-t-10">Add your first product</a>
+        <div class="commerce-channels">
+          <div class="commerce-channel<?= $profileShopOn ? ' is-on' : '' ?>">
+            <i class="icon ion-ios-person"></i>
+            <strong>Profile shop</strong>
+            <span><?= $profileShopOn ? 'Live on your page' : 'Not visible' ?></span>
           </div>
-        <?php else: ?>
-          <?php foreach ($recentOrders as $o):
-            $st = (string)($o['status'] ?? '');
-          ?>
-          <div class="commerce-order">
-            <span class="commerce-order-code"><i class="icon ion-bag"></i></span>
-            <div class="commerce-order-main">
-              <strong><?= org_ecommerce_h((string)$o['product_title']) ?></strong>
-              <span><?= org_ecommerce_h((string)$o['order_code']) ?></span>
-            </div>
-            <div class="commerce-order-end">
-              <div class="commerce-order-price"><?= org_ecommerce_h(org_shop_format_price((int)$o['total_cents'])) ?></div>
-              <span class="commerce-order-badge <?= commerce_order_badge_class($st) ?>"><?= org_ecommerce_h($st) ?></span>
-            </div>
+          <div class="commerce-channel<?= $marketplaceOn ? ' is-on' : '' ?>">
+            <i class="icon ion-ios-world"></i>
+            <strong>Marketplace</strong>
+            <span><?= $marketplaceOn ? 'Discoverable listing' : 'Disabled' ?></span>
           </div>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </div>
-
-      <?php if ($lowStock): ?>
-      <div class="commerce-panel commerce-alert">
-        <div class="commerce-panel-head">
-          <h2><i class="icon ion-alert-circled"></i> Low stock</h2>
-          <a href="products.php">Restock</a>
+          <div class="commerce-channel<?= $socialFeedOn ? ' is-on' : '' ?>">
+            <i class="icon ion-ios-paperplane"></i>
+            <strong>Social feed</strong>
+            <span><?= $socialFeedOn ? 'Product posts enabled' : 'Disabled' ?></span>
+          </div>
         </div>
-        <?php foreach ($lowStock as $p): ?>
-          <a href="products.php?edit=<?= (int)$p['id'] ?>" class="commerce-stock-item">
-            <strong><?= org_ecommerce_h((string)$p['title']) ?></strong>
-            <span class="commerce-stock-qty"><?= (int)$p['stock_qty'] ?> left</span>
-          </a>
-        <?php endforeach; ?>
       </div>
-      <?php endif; ?>
     </aside>
   </div>
 
-  <div class="commerce-footer-actions">
-    <a href="products.php" class="commerce-action-tile">
-      <i class="icon ion-ios-box"></i>
-      <strong>Product catalog</strong>
-      <span>Manage SKUs, pricing, and SEO</span>
-    </a>
-    <a href="orders.php" class="commerce-action-tile">
-      <i class="icon ion-ios-paper"></i>
-      <strong>Order inbox</strong>
-      <span>Fulfillment, tracking, CRM sync</span>
-    </a>
-    <a href="crm.php" class="commerce-action-tile">
-      <i class="icon ion-ios-people"></i>
-      <strong>Customers</strong>
-      <span>CRM, leads, and repeat buyers</span>
-    </a>
-    <a href="commerce_analytics.php" class="commerce-action-tile">
-      <i class="icon ion-pie-graph"></i>
-      <strong>Analytics</strong>
-      <span>Revenue, top products, inventory</span>
-    </a>
-  </div>
 </div>
 <?php org_page_shell_close(); ?>

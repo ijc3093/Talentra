@@ -357,6 +357,43 @@ body.public-page.feed-insta-ui .ig-feed-user-name:focus{
   color:var(--msb-palette-link, var(--feed-accent, var(--public-accent, #2563eb))) !important;
   text-decoration:none !important;
 }
+html[data-msb-appearance] body.feed-insta-ui:not(.shop-page) .ig-feed-top-lead,
+html[data-msb-appearance] body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-top-lead,
+html[data-msb-appearance] body.public-page.feed-insta-ui .ig-feed-top-lead,
+html[data-msb-appearance] body.feed-insta-ui:not(.shop-page) .ig-feed-user-name,
+html[data-msb-appearance] body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-user-name,
+html[data-msb-appearance] body.public-page.feed-insta-ui .ig-feed-user-name{
+  background-color:var(--msb-palette-bg, var(--feed-page-bg, var(--public-page-bg, transparent))) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text, var(--feed-text, var(--public-text, #0f172a))) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, var(--feed-text, var(--public-text, #0f172a))) !important;
+}
+html[data-msb-appearance] body.feed-insta-ui:not(.shop-page) .ig-feed-user-name:hover,
+html[data-msb-appearance] body.feed-insta-ui:not(.shop-page) .ig-feed-user-name:focus,
+html[data-msb-appearance] body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-user-name:hover,
+html[data-msb-appearance] body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-user-name:focus,
+html[data-msb-appearance] body.public-page.feed-insta-ui .ig-feed-user-name:hover,
+html[data-msb-appearance] body.public-page.feed-insta-ui .ig-feed-user-name:focus{
+  background-color:var(--msb-palette-bg, var(--feed-page-bg, var(--public-page-bg, transparent))) !important;
+  background-image:none !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui:not(.shop-page) .ig-feed-top-lead,
+html.dark-auto:not([data-msb-appearance]) body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-top-lead,
+html.dark-auto:not([data-msb-appearance]) body.public-page.feed-insta-ui .ig-feed-top-lead,
+html[data-theme="dark"]:not([data-msb-appearance]) body.feed-insta-ui:not(.shop-page) .ig-feed-top-lead,
+html[data-theme="dark"]:not([data-msb-appearance]) body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-top-lead,
+html[data-theme="dark"]:not([data-msb-appearance]) body.public-page.feed-insta-ui .ig-feed-top-lead,
+html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui:not(.shop-page) .ig-feed-user-name,
+html.dark-auto:not([data-msb-appearance]) body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-user-name,
+html.dark-auto:not([data-msb-appearance]) body.public-page.feed-insta-ui .ig-feed-user-name,
+html[data-theme="dark"]:not([data-msb-appearance]) body.feed-insta-ui:not(.shop-page) .ig-feed-user-name,
+html[data-theme="dark"]:not([data-msb-appearance]) body.feed-page.feed-insta-ui:not(.shop-page) .ig-feed-user-name,
+html[data-theme="dark"]:not([data-msb-appearance]) body.public-page.feed-insta-ui .ig-feed-user-name{
+  background-color:var(--msb-palette-bg, var(--feed-page-bg, var(--public-page-bg, #171d24))) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text, var(--feed-text, var(--public-text, #eef4ff))) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, var(--feed-text, var(--public-text, #eef4ff))) !important;
+}
 @media (max-width:767px){
   body.feed-insta-ui .ig-stories-menu-btn,
   body.feed-page.feed-insta-ui .ig-stories-menu-btn,
@@ -727,7 +764,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-mic,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-more,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-stories-next {
-  background: #252f3d !important;
+  background: var(--msb-palette-bg, #171d24) !important;
   border: 1px solid rgba(177, 188, 206, 0.42) !important;
   color: #e8edf5 !important;
   opacity: 1 !important;
@@ -745,7 +782,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-mic:h
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-live:hover,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-top-more:hover,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-feed-header .ig-stories-next:hover {
-  background: #2f3a4a !important;
+  background: var(--msb-palette-bg, #171d24) !important;
   color: #ffffff !important;
 }
 

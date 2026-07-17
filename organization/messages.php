@@ -382,6 +382,7 @@ if ($peerMid > 0) {
   <link href="../lib/bootstrap/bootstrap.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
   <?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_head_assets(); ?>
+  <link rel="stylesheet" href="css/org-messages-theme.css?v=3" id="org-messages-theme-css">
 
    <style>
     /* ✅ FIXED PAGE LIKE settings.php */
@@ -517,7 +518,7 @@ if ($peerMid > 0) {
       padding:6px 8px;
       border:1px solid rgba(0,0,0,.10);
       border-radius:6px;
-      background:#fff;
+      background: var(--bg-card, #171d24);
       display:flex;
       align-items:center;
       gap:6px;
@@ -676,16 +677,214 @@ if ($peerMid > 0) {
       border-radius:4px;
       background: rgba(255,193,7,.35);
     }
+
+    /* Theme — follow html.dark-auto from Gear Dark auto (same as compose_post.php / feed.php) */
+    :root {
+      --bg-main: var(--msb-palette-bg, #171d24);
+      --bg-card: var(--msb-palette-bg, #171d24);
+      --text-primary: #e8edf5;
+      --text-secondary: #b1bcce;
+      --text-muted: #b1bcce;
+      --border-color: rgba(177, 188, 206, 0.32);
+    }
+    html.dark-auto {
+      --bg-main: var(--msb-palette-bg, #171d24);
+      --bg-card: var(--msb-palette-bg, #171d24);
+      --text-primary: #e8edf5;
+      --text-secondary: #b1bcce;
+      --text-muted: #b1bcce;
+      --border-color: #334155;
+    }
+    html[data-msb-org-light]:not(.dark-auto) {
+      --bg-main: #ffffff;
+      --bg-card: #ffffff;
+      --text-primary: #111827;
+      --text-secondary: #64748b;
+      --text-muted: #64748b;
+      --border-color: rgba(15, 23, 42, 0.12);
+      --org-surface: #ffffff;
+      --org-surface-raised: #f8fafc;
+      --org-text: #111827;
+      --org-text-muted: #64748b;
+      --org-border: rgba(15, 23, 42, 0.12);
+      --org-input-bg: #ffffff;
+      --org-input-text: #111827;
+    }
+    html[data-msb-appearance] {
+      --bg-main: var(--msb-palette-bg) !important;
+      --bg-card: var(--msb-palette-bg) !important;
+      --text-primary: var(--msb-palette-text) !important;
+      --text-secondary: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+      --text-muted: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+      --border-color: var(--msb-palette-border) !important;
+    }
+
+    .search-bar{
+      background: var(--bg-card, #171d24);
+      border-color: var(--border-color, rgba(177,188,206,.32));
+      color: var(--text-primary, #e8edf5);
+    }
+
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .sh-mainpanel,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .sh-pagebody,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .chat-shell,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .chat-left,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .chat-right,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .fixed-card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .fixed-head,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .fixed-body,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .card-header,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .card-body,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .members-list-wrap,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .members-search,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .members-scroll,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .list-group,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .list-group-item,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .conv-split,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .conv-main,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .conv-topbar,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .conv-history,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .history-card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .history-head,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .history-search,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .history-scroll,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .msg-scroll,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .composer-fixed,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .search-bar {
+      background-color: #ffffff !important;
+      background-image: none !important;
+      color: #111827 !important;
+      border-color: rgba(15, 23, 42, 0.12) !important;
+    }
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .members-search input,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .history-search input,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .composer-row textarea,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .form-control {
+      background-color: #ffffff !important;
+      color: #111827 !important;
+      border-color: rgba(15, 23, 42, 0.18) !important;
+    }
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-messages .msg-me {
+      background: #eef2ff !important;
+      color: #111827 !important;
+    }
+
+    html.dark-auto body.org-app.org-page-messages,
+    html.dark-auto body.org-app.org-page-messages .sh-mainpanel,
+    html.dark-auto body.org-app.org-page-messages .sh-pagebody,
+    html.dark-auto body.org-app.org-page-messages .chat-shell,
+    html.dark-auto body.org-app.org-page-messages .chat-left,
+    html.dark-auto body.org-app.org-page-messages .chat-right,
+    html.dark-auto body.org-app.org-page-messages .card,
+    html.dark-auto body.org-app.org-page-messages .fixed-card,
+    html.dark-auto body.org-app.org-page-messages .fixed-head,
+    html.dark-auto body.org-app.org-page-messages .fixed-body,
+    html.dark-auto body.org-app.org-page-messages .card-header,
+    html.dark-auto body.org-app.org-page-messages .card-body,
+    html.dark-auto body.org-app.org-page-messages .members-list-wrap,
+    html.dark-auto body.org-app.org-page-messages .members-search,
+    html.dark-auto body.org-app.org-page-messages .members-scroll,
+    html.dark-auto body.org-app.org-page-messages .list-group,
+    html.dark-auto body.org-app.org-page-messages .list-group-item,
+    html.dark-auto body.org-app.org-page-messages .conv-split,
+    html.dark-auto body.org-app.org-page-messages .conv-main,
+    html.dark-auto body.org-app.org-page-messages .conv-topbar,
+    html.dark-auto body.org-app.org-page-messages .conv-history,
+    html.dark-auto body.org-app.org-page-messages .history-card,
+    html.dark-auto body.org-app.org-page-messages .history-head,
+    html.dark-auto body.org-app.org-page-messages .history-search,
+    html.dark-auto body.org-app.org-page-messages .history-scroll,
+    html.dark-auto body.org-app.org-page-messages .msg-scroll,
+    html.dark-auto body.org-app.org-page-messages .composer-fixed,
+    html.dark-auto body.org-app.org-page-messages .search-bar {
+      background-color: #171d24 !important;
+      background-image: none !important;
+      color: #e8edf5 !important;
+      border-color: #334155 !important;
+    }
+    html.dark-auto body.org-app.org-page-messages .list-group-item.active {
+      background-color: #252f3d !important;
+      color: #e8edf5 !important;
+      border-color: #334155 !important;
+    }
+    html.dark-auto body.org-app.org-page-messages .members-search input,
+    html.dark-auto body.org-app.org-page-messages .history-search input,
+    html.dark-auto body.org-app.org-page-messages .composer-row textarea,
+    html.dark-auto body.org-app.org-page-messages .form-control,
+    html.dark-auto body.org-app.org-page-messages #chatSearch {
+      background-color: #252f3d !important;
+      color: #e8edf5 !important;
+      border-color: rgba(177, 188, 206, 0.38) !important;
+    }
+    html.dark-auto body.org-app.org-page-messages .members-search input::placeholder,
+    html.dark-auto body.org-app.org-page-messages .history-search input::placeholder,
+    html.dark-auto body.org-app.org-page-messages .composer-row textarea::placeholder,
+    html.dark-auto body.org-app.org-page-messages .form-control::placeholder {
+      color: #b1bcce !important;
+      opacity: 0.72;
+    }
+    html.dark-auto body.org-app.org-page-messages .peer-name,
+    html.dark-auto body.org-app.org-page-messages .conv-title strong,
+    html.dark-auto body.org-app.org-page-messages .history-head,
+    html.dark-auto body.org-app.org-page-messages .card-title {
+      color: #e8edf5 !important;
+    }
+    html.dark-auto body.org-app.org-page-messages .peer-sub,
+    html.dark-auto body.org-app.org-page-messages .peer-time,
+    html.dark-auto body.org-app.org-page-messages .conv-title small,
+    html.dark-auto body.org-app.org-page-messages .search-hint {
+      color: #b1bcce !important;
+    }
+    html.dark-auto body.org-app.org-page-messages .msg-me {
+      background: #2f3a4a !important;
+      color: #e8edf5 !important;
+    }
+    html.dark-auto body.org-app.org-page-messages .msg-them {
+      background: #252f3d !important;
+      color: #e8edf5 !important;
+    }
+    html.dark-auto body.org-app.org-page-messages .ig-feed-account-badge,
+    html.dark-auto body.org-app.org-page-messages .org-pill {
+      background: #252f3d !important;
+      border-color: rgba(177, 188, 206, 0.38) !important;
+      color: #e8edf5 !important;
+    }
+    html.dark-auto body.org-app.org-page-messages #attachStatus {
+      background: rgba(177, 188, 206, 0.1) !important;
+      border-color: rgba(177, 188, 206, 0.28) !important;
+      color: #e8edf5 !important;
+    }
+
+    html[data-msb-appearance] body.org-app.org-page-messages,
+    html[data-msb-appearance] body.org-app.org-page-messages .sh-mainpanel,
+    html[data-msb-appearance] body.org-app.org-page-messages .sh-pagebody,
+    html[data-msb-appearance] body.org-app.org-page-messages .chat-shell,
+    html[data-msb-appearance] body.org-app.org-page-messages .card,
+    html[data-msb-appearance] body.org-app.org-page-messages .fixed-card,
+    html[data-msb-appearance] body.org-app.org-page-messages .fixed-head,
+    html[data-msb-appearance] body.org-app.org-page-messages .fixed-body,
+    html[data-msb-appearance] body.org-app.org-page-messages .members-list-wrap,
+    html[data-msb-appearance] body.org-app.org-page-messages .conv-topbar,
+    html[data-msb-appearance] body.org-app.org-page-messages .history-card,
+    html[data-msb-appearance] body.org-app.org-page-messages .msg-scroll,
+    html[data-msb-appearance] body.org-app.org-page-messages .composer-fixed {
+      background-color: var(--msb-palette-bg) !important;
+      background-image: none !important;
+      color: var(--msb-palette-text) !important;
+      border-color: var(--msb-palette-border) !important;
+    }
   </style>
 </head>
 
-<body class="org-app">
+<body class="org-app org-page-messages">
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 
 <div class="sh-mainpanel">
 
-  <div class="sh-pagebody">
+  <?php org_page_body_open(); ?>
     <!-- ✅ NEW: Search (fixed, does not scroll) -->
     <!-- <div class="search-bar">
       <i class="icon ion-ios-search-strong" style="font-size:22px;"></i>
@@ -740,7 +939,7 @@ if ($peerMid > 0) {
                       $peerAvatar = 'includes/avatar.php?type=' . urlencode($peerType) . '&id=' . $peerUid;
                     ?>
                     <li class="list-group-item <?= $active ? 'active' : '' ?>" data-peer-row>
-                      <a href="messages.php?peer=<?= $peerId ?>" style="<?= $active ? 'color:#fff' : '' ?>">
+                      <a href="messages.php?peer=<?= $peerId ?>">
                         <div class="peer-row">
                           <div class="peer-meta" style="display:flex;gap:6px;align-items:center;min-width:0;">
                             <img src="<?= h($peerAvatar) ?>" alt="" class="peer-avatar"
@@ -748,7 +947,7 @@ if ($peerMid > 0) {
                             <div style="min-width:0;">
                               <p class="peer-name" data-peer-name><?= h($name) ?></p>
                               <?php if ($preview !== ''): ?>
-                                <p class="peer-sub" data-peer-preview style="<?= $active ? 'color:#fff;opacity:.85' : '' ?>">
+                                <p class="peer-sub" data-peer-preview>
                                   <?= h($preview) ?>
                                 </p>
                               <?php endif; ?>
@@ -758,7 +957,7 @@ if ($peerMid > 0) {
                             <span class="<?= h($presenceCls) ?>"><?= h($presenceLabel) ?></span>
                             <div style="display:flex; gap:8px; align-items:center;">
                               <?php if ($when !== ''): ?>
-                                <span class="peer-time" style="<?= $active ? 'color:#fff;opacity:.85' : '' ?>"><?= h($when) ?></span>
+                                <span class="peer-time"><?= h($when) ?></span>
                               <?php endif; ?>
                               <span class="unread-pill" data-unread-pill="<?= (int)$peerId ?>" style="<?= ($unread > 0) ? '' : 'display:none;' ?>"><?= (int)$unread ?></span>
                             </div>
@@ -1595,5 +1794,6 @@ if ($peerMid > 0) {
   })();
 </script> -->
 
+<?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

@@ -33,6 +33,32 @@ if ($to === 'feed') {
     exit;
 }
 
+if ($to === 'messages') {
+    $q = [];
+    $buyerId = (int)($_GET['buyer_id'] ?? $_GET['id'] ?? 0);
+    $peer = trim((string)($_GET['peer'] ?? ''));
+    $username = trim((string)($_GET['username'] ?? $_GET['u'] ?? ''));
+    $aboutOrder = trim((string)($_GET['about_order'] ?? ''));
+    $aboutProduct = (int)($_GET['about_product'] ?? 0);
+    if ($buyerId > 0) {
+        $q['id'] = $buyerId;
+    } elseif ($peer !== '') {
+        $q['peer'] = $peer;
+    } elseif ($username !== '') {
+        $q['username'] = $username;
+    }
+    $q['commerce'] = '1';
+    if ($aboutOrder !== '') {
+        $q['about_order'] = $aboutOrder;
+    }
+    if ($aboutProduct > 0) {
+        $q['about_product'] = $aboutProduct;
+    }
+    $suffix = $q ? ('?' . http_build_query($q)) : '';
+    header('Location: ../public_user/messages.php' . $suffix);
+    exit;
+}
+
 if ($to === 'profile' && $publisherUserId > 0) {
     try {
         $st = $dbh->prepare('SELECT username FROM users WHERE id = :id LIMIT 1');

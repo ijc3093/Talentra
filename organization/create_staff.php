@@ -195,7 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="sh-mainpanel">
 
-  <div class="sh-pagebody" style="border-bottom: 1px solid #4a535c;">
+  <?php org_page_body_open('', 'border-bottom: 1px solid #4a535c;'); ?>
 
     <div class="card bd-0 create-card">
       <div class="card-body card-body-fixed">
@@ -264,5 +264,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?php include __DIR__ . '/includes/footer.php'; ?>
 
 </div>
+<?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

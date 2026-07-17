@@ -5,6 +5,8 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm.php';
 
 $orgId = (int)orgActiveOrgId();
@@ -54,7 +56,7 @@ $pageTitle = 'Ticket ' . (string)$ticket['ticket_code'];
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="mg-b-15">
     <a href="crm_tickets.php" class="tx-12">&larr; All tickets</a>
     <h4 class="mg-b-5"><?= org_crm_h((string)$ticket['subject']) ?></h4>

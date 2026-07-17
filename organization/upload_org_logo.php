@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 
 <div class="sh-mainpanel">
-  <div class="sh-pagebody">
+  <?php org_page_body_open(); ?>
     <div class="card bd-0">
       <div class="card-header bg-transparent pd-y-15">
         <h6 class="card-title mg-b-0">Upload Organization Logo</h6>

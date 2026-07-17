@@ -225,5 +225,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div><!-- signbox -->
     </div><!-- signpanel-wrapper -->
   </div>
+<?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

@@ -46,6 +46,12 @@ body.org-app .sh-headpanel-right {
   padding: 0 10px !important;
 }
 
+body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link img.wd-40 {
+  width: 42px !important;
+  height: 42px !important;
+  border-width: 4px !important;
+}
+
 body.org-app .sh-icon-link {
   width: auto !important;
   min-width: 64px !important;
@@ -68,6 +74,16 @@ body.org-app .org-pill {
   padding: 4px 10px !important;
   font-size: var(--org-font-sm) !important;
   gap: 5px !important;
+}
+
+body.org-app .org-header-context {
+  gap: 12px !important;
+  margin-right: 10px !important;
+}
+
+body.org-app .org-header-page-title {
+  font-size: 12px !important;
+  line-height: 1 !important;
 }
 
 body.org-app .org-pill .caret {
@@ -406,7 +422,7 @@ body.org-app .ch-btn-ghost .icon {
 }
 
 body.org-app .commerce-kpi {
-  padding: 12px 14px !important;
+  padding: 5px 14px 5px !important;
 }
 
 body.org-app .commerce-kpi-value {
@@ -843,12 +859,22 @@ body.org-app.org-page-dashboard .feed-tabs {
   margin: 10px 0 6px !important;
 }
 
-body.org-app.org-page-dashboard .feed-tabs a {
+body.org-app.org-page-dashboard .feed-tabs a.feed-tab-link {
   padding: 5px 9px !important;
   font-size: var(--org-font-sm) !important;
   border-radius: 6px !important;
   border-width: 1px !important;
   font-weight: 700 !important;
+  text-decoration: none !important;
+  border: 1px solid var(--org-btn-border, var(--border-color)) !important;
+  color: var(--org-btn-text-muted, var(--org-text-muted)) !important;
+  background: var(--org-btn-surface, #ffffff) !important;
+}
+
+body.org-app.org-page-dashboard .feed-tabs a.feed-tab-link.active {
+  background: var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
+  color: var(--org-btn-filled-text, #ffffff) !important;
+  border-color: var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
 }
 
 body.org-app.org-page-dashboard .comp-sub {
@@ -947,7 +973,7 @@ body.org-app.org-page-feed .feed-toolbar .feed-tabs--toolbar {
   align-items: center !important;
 }
 
-body.org-app.org-page-feed .feed-tabs--toolbar a {
+body.org-app.org-page-feed .feed-tabs--toolbar a.feed-tab-link {
   display: inline-flex !important;
   align-items: center !important;
   font-size: var(--org-font-sm) !important;
@@ -956,14 +982,14 @@ body.org-app.org-page-feed .feed-tabs--toolbar a {
   border-radius: 8px !important;
   text-decoration: none !important;
   border: 1px solid var(--border-color) !important;
-  color: #6b7280 !important;
-  background: var(--bg-sidebar) !important;
+  color: var(--org-text-muted, #b1bcce) !important;
+  background: var(--bg-sidebar, var(--org-surface, #171d24)) !important;
 }
 
-body.org-app.org-page-feed .feed-tabs--toolbar a.active {
-  background: #0b5ed7 !important;
-  color: #fff !important;
-  border-color: #0b5ed7 !important;
+body.org-app.org-page-feed .feed-tabs--toolbar a.feed-tab-link.active {
+  background: var(--org-btn-filled-bg, var(--org-accent, var(--msb-palette-action, #2563eb))) !important;
+  color: var(--org-btn-filled-text, #ffffff) !important;
+  border-color: var(--org-btn-filled-bg, var(--org-accent, var(--msb-palette-action, #2563eb))) !important;
 }
 
 body.org-app.org-page-feed .feed-tabs--toolbar .stat-pill {
@@ -1216,28 +1242,58 @@ body.org-app.org-page-posts .pager {
   margin-top: 8px !important;
 }
 
-/* ----- Org canvas — match public_user #171d24 (loads after shamcey/bootstrap) ----- */
-body.org-app,
-body.org-app .sh-mainpanel,
-body.org-app .sh-pagebody,
-body.org-app .sh-pagetitle,
-body.org-app .card,
-body.org-app .card-header,
-body.org-app .card-body,
-body.org-app .card-body-fixed,
-body.org-app .compose-preview,
-body.org-app .compose-intro,
-body.org-app .actions-fixed,
-body.org-app .rows-scroll,
-body.org-app .form-control,
-body.org-app .form-control:focus,
-body.org-app select.form-control,
-body.org-app textarea.form-control,
-body.org-app .custom-select,
-body.org-app .input-group-text,
-body.org-app .table td,
-body.org-app .table th,
-body.org-app .dropdown-menu {
+/* ----- Org canvas — match public_user #171d24 when no Gear color (loads after shamcey/bootstrap) ----- */
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-mainpanel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-pagebody,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .sh-pagetitle,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card-header,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card-body,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .card-body-fixed,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .crm-stage,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .compose-preview,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .compose-intro,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .actions-fixed,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .rows-scroll,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .form-control:focus,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app select.form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app textarea.form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .custom-select,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .input-group-text,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .table td,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .table th,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.org-app .dropdown-menu,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .sh-mainpanel,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .sh-pagebody,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .sh-pagetitle,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .card,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .card-header,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .card-body,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .card-body-fixed,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .crm-stage,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .compose-preview,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .compose-intro,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .actions-fixed,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .compose-card,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .chat-shell,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .fixed-card,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .msg-scroll,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .composer-fixed,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .members-list-wrap,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .history-card,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .rows-scroll,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .form-control,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .form-control:focus,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app select.form-control,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app textarea.form-control,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .custom-select,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .input-group-text,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .table td,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .table th,
+html.dark-auto[data-msb-org-light]:not([data-msb-appearance]) body.org-app .dropdown-menu {
   background-color: #171d24 !important;
   background-image: none !important;
 }

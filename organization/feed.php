@@ -2067,9 +2067,9 @@ if ($isView) {
        THEME VARIABLES — follow html.dark-auto from per-publisher Gear prefs
     ============================== */
     :root{
-      --bg-main:#171d24;
-      --bg-card:#171d24;
-      --bg-sidebar:#171d24;
+      --bg-main:var(--msb-palette-bg, #171d24);
+      --bg-card:var(--msb-palette-bg, #171d24);
+      --bg-sidebar:var(--msb-palette-bg, #171d24);
       --text-primary:#111827;
       --text-secondary:#6b7280;
       --border-color:#e5e7eb;
@@ -2081,9 +2081,9 @@ if ($isView) {
       --feed-media-h: calc(100vh - var(--feed-chrome-offset, 160px) - var(--feed-info-h, 260px));
     }
     html.dark-auto{
-      --bg-main:#171d24;
-      --bg-card:#171d24;
-      --bg-sidebar:#171d24;
+      --bg-main:var(--msb-palette-bg, #171d24);
+      --bg-card:var(--msb-palette-bg, #171d24);
+      --bg-sidebar:var(--msb-palette-bg, #171d24);
       --text-primary:#b1bcce;
       --text-secondary:#b1bcce;
       --text-muted:#b1bcce;
@@ -2093,12 +2093,38 @@ if ($isView) {
       --shadow-strong: 0 14px 24px rgba(0,0,0,.45);
     }
 
+    /* Gear Light/System — white feed canvas only while Dark auto is not active at night */
+    html[data-msb-org-light]:not(.dark-auto) {
+      --bg-main: #ffffff;
+      --bg-card: #ffffff;
+      --bg-sidebar: #ffffff;
+      --text-primary: #111827;
+      --text-secondary: #64748b;
+      --text-muted: #64748b;
+      --border-color: rgba(15, 23, 42, 0.12);
+      --shadow: 0 10px 18px rgba(0,0,0,.04);
+      --shadow-strong: 0 14px 24px rgba(0,0,0,.10);
+    }
+
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-layout,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-main,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-sidebar,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .rows-scroll,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .sidebar-head,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .sidebar-list {
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      color: #111827 !important;
+    }
+
     /* ===============================
    BASE LIGHT THEME
   =================================*/
   :root {
-    --bg-main: #171d24;
-    --bg-card: #171d24;
+    --bg-main: var(--msb-palette-bg, #171d24);
+    --bg-card: var(--msb-palette-bg, #171d24);
 
     --text-primary: #25282f;     /* Very dark */
     --text-secondary: #475569;   /* Medium */
@@ -2112,14 +2138,57 @@ if ($isView) {
     DARK THEME (High Contrast)
   =================================*/
   html.dark-auto {
-    --bg-main: #171d24;
-    --bg-card: #171d24;
+    --bg-main: var(--msb-palette-bg, #171d24);
+    --bg-card: var(--msb-palette-bg, #171d24);
 
     --text-primary: #b1bcce;
     --text-secondary: #b1bcce;
     --text-muted: #b1bcce;
 
     --border-color: rgba(255,255,255,0.08);
+  }
+
+  /* Gear appearance color — map org feed surfaces to publisher palette */
+  html[data-msb-appearance]{
+    --bg-main: var(--msb-palette-bg);
+    --bg-card: var(--msb-palette-bg);
+    --bg-sidebar: var(--msb-palette-bg);
+    --text-primary: var(--msb-palette-text);
+    --text-secondary: var(--msb-palette-text-muted, var(--msb-palette-text));
+    --text-muted: var(--msb-palette-text-muted, var(--msb-palette-text));
+    --border-color: var(--msb-palette-border);
+    --accent: var(--msb-palette-action);
+  }
+
+  html[data-msb-appearance] .feed-toolbar,
+  html[data-msb-appearance] .feed-card,
+  html[data-msb-appearance] .feed-sidebar,
+  html[data-msb-appearance] .sidebar-head,
+  html[data-msb-appearance] .sidebar-list,
+  html[data-msb-appearance] .rows-scroll,
+  html[data-msb-appearance] .feed-post-media.is-text-only,
+  html[data-msb-appearance] .feed-post-media.is-text-only .feed-media-text-title{
+    background: var(--msb-palette-bg) !important;
+    border-color: var(--msb-palette-border) !important;
+    color: var(--msb-palette-text) !important;
+  }
+
+  html[data-msb-appearance] .sidebar-title,
+  html[data-msb-appearance] .sidebar-title i{
+    color: var(--msb-palette-text) !important;
+  }
+
+  html[data-msb-appearance] .sidebar-subtitle,
+  html[data-msb-appearance] .sidebar-section,
+  html[data-msb-appearance] .sidebar-meta,
+  html[data-msb-appearance] .sidebar-subject,
+  html[data-msb-appearance] .sidebar-search{
+    color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+  }
+
+  html[data-msb-appearance] .sidebar-search{
+    background: var(--msb-palette-bg) !important;
+    border-color: var(--msb-palette-border) !important;
   }
 
 
@@ -2168,7 +2237,7 @@ if ($isView) {
     flex:0 0 auto;
     padding:6px 8px 4px;
     border-bottom:1px solid var(--border-color, #e5e7eb);
-    background:var(--bg-card, #fff);
+    background:var(--bg-card);
     z-index:2;
   }
   .rows-scroll{
@@ -2314,7 +2383,7 @@ if ($isView) {
   background: linear-gradient(135deg, #171d24, #111827);
 }
 .feed-post-media.is-text-only{
-  background:var(--bg-card, #fff);
+  background:var(--bg-card);
   align-items:stretch;
   justify-content:flex-start;
   border-bottom:1px solid var(--border-color, #e5e7eb);
@@ -2339,7 +2408,7 @@ if ($isView) {
   line-height:1.25;
   margin:0;
   color:var(--text-primary, #111827);
-  background:var(--bg-card, #fff);
+  background:var(--bg-card);
   border-bottom:1px solid var(--border-color, #e5e7eb);
 }
 .feed-post-media.is-text-only .feed-media-text-desc{
@@ -2932,6 +3001,7 @@ if ($isView) {
       min-height: 0;
       overflow: hidden;
 
+      background: var(--bg-sidebar);
       border-radius: 2px;
       border:1px solid var(--border-color);
       box-shadow: 0 10px 18px rgba(0,0,0,.04);
@@ -2947,8 +3017,8 @@ if ($isView) {
       z-index: 5;
 
       padding: 12px 12px 10px;
-      border-bottom: 1px solid #eef0f4;
-      background: rgba(255,255,255,.95);
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-card);
       backdrop-filter: blur(8px);
     }
 
@@ -3244,13 +3314,13 @@ if ($isView) {
 
     /* Dark mode — History sidebar */
     .dark-auto .feed-sidebar{
-      background:#171d24 !important;
+      background:var(--bg-sidebar) !important;
       border-color:#334155;
       box-shadow: var(--shadow);
       height: 440px;
     }
     .dark-auto .sidebar-head{
-      background:#171d24 !important;
+      background:var(--bg-sidebar) !important;
       border-bottom-color:#334155;
     }
 
@@ -3276,7 +3346,7 @@ if ($isView) {
     }
 
     .dark-auto .sidebar-search{
-      background:#171d24 !important;
+      background:var(--bg-sidebar) !important;
       border-color:#334155;
       color:#b1bcce !important;
     }
@@ -3345,7 +3415,11 @@ if ($isView) {
       border:1px solid var(--border-color); color:#6b7280; font-weight:700; background: var(--bg-sidebar);
       font-size:11px;
     }
-    .feed-tabs a.active{ background: var(--bg-sidebar); color:#1a69b1; border-color:#0b5ed7; }
+    body.org-app .feed-tabs a.active{
+      background: var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
+      color: var(--org-btn-filled-text, #ffffff) !important;
+      border-color: var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
+    }
   
     /* ✅ Media strip (multi-attachment carousel) */
     .media-strip{
@@ -3384,6 +3458,14 @@ if ($isView) {
 
     /* Cards / panels */
     .feed-card,
+    .feed-sidebar,
+    .sidebar-head,
+    .sidebar-list,
+    .feed-toolbar,
+    .feed-post-detail,
+    .feed-compose,
+    .comment-item,
+    .rows-scroll,
     .stat-pill,
     .right-sidebar,
     .sidebar-card,
@@ -3392,6 +3474,18 @@ if ($isView) {
       background: var(--bg-card) !important;
       border-color: var(--border-color) !important;
       color: var(--text-primary) !important;
+    }
+    html.dark-auto .sidebar-search,
+    html.dark-auto .feed-compose-input{
+      background: #252f3d !important;
+      border-color: #334155 !important;
+      color: #e8edf5 !important;
+    }
+    html.dark-auto .ig-feed-account-badge,
+    html.dark-auto .org-pill{
+      background: #252f3d !important;
+      border-color: rgba(177, 188, 206, 0.38) !important;
+      color: #e8edf5 !important;
     }
 
     /* Sidebar surface (if you use different class names, this still helps) */
@@ -3455,6 +3549,71 @@ if ($isView) {
       background: rgba(0,0,0,0.65) !important;
     }
 
+    /* Gear appearance — final org feed canvas (wins over default #171d24) */
+    html[data-msb-appearance]{
+      --bg-main: var(--msb-palette-bg) !important;
+      --bg-card: var(--msb-palette-bg) !important;
+      --bg-sidebar: var(--msb-palette-bg) !important;
+      --text-primary: var(--msb-palette-text) !important;
+      --text-secondary: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+      --text-muted: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+      --border-color: var(--msb-palette-border) !important;
+    }
+
+    html[data-msb-appearance] body.org-app.org-page-feed,
+    html[data-msb-appearance] body.org-app.org-page-feed .sh-mainpanel,
+    html[data-msb-appearance] body.org-app.org-page-feed .sh-pagebody,
+    html[data-msb-appearance] body.org-app.org-page-feed .dashboard-card,
+    html[data-msb-appearance] body.org-app.org-page-feed .card,
+    html[data-msb-appearance] body.org-app.org-page-feed .card-body,
+    html[data-msb-appearance] body.org-app.org-page-feed .card-body-fixed,
+    html[data-msb-appearance] body.org-app.org-page-feed .feed-layout,
+    html[data-msb-appearance] body.org-app.org-page-feed .feed-main,
+    html[data-msb-appearance] body.org-app.org-page-feed .feed-post-detail,
+    html[data-msb-appearance] body.org-app.org-page-feed .feed-compose,
+    html[data-msb-appearance] body.org-app.org-page-feed .feed-post-media.is-text-only,
+    html[data-msb-appearance] body.org-app.org-page-feed .comment-item{
+      background-color: var(--msb-palette-bg) !important;
+      background-image: none !important;
+      color: var(--msb-palette-text) !important;
+      border-color: var(--msb-palette-border) !important;
+    }
+
+    /* Gear Dark auto ON — white org feed canvas overrides appearance color */
+    html[data-msb-org-light]:not(.dark-auto){
+      --bg-main: #ffffff !important;
+      --bg-card: #ffffff !important;
+      --bg-sidebar: #ffffff !important;
+      --text-primary: #111827 !important;
+      --text-secondary: #64748b !important;
+      --text-muted: #64748b !important;
+      --border-color: rgba(15, 23, 42, 0.12) !important;
+    }
+
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .sh-mainpanel,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .sh-pagebody,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .dashboard-card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .card-body,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .card-body-fixed,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-layout,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-main,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-post-detail,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-sidebar,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-card,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .rows-scroll,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .sidebar-head,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .sidebar-list,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-compose,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .feed-post-media.is-text-only,
+    html[data-msb-org-light]:not(.dark-auto) body.org-app.org-page-feed .comment-item{
+      background-color: #ffffff !important;
+      background-image: none !important;
+      color: #111827 !important;
+      border-color: rgba(15, 23, 42, 0.12) !important;
+    }
+
 </style>
 </head>
 
@@ -3465,7 +3624,7 @@ if ($isView) {
 
 <div class="sh-mainpanel">
 
-  <div class="sh-pagebody" style="padding:1px;">
+  <?php org_page_body_open('', 'padding:1px;'); ?>
     <div class="card bd-0 dashboard-card">
       <div class="card-body card-body-fixed">
         <div class="feed-toolbar">
@@ -4063,6 +4222,44 @@ if ($isView) {
 <?php require_once __DIR__ . '/includes/org_comments_door.php'; ?>
 
 <?php org_layout_footer_assets(); ?>
+
+<style id="org-feed-light-canvas-fix">
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .sh-mainpanel,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .sh-pagebody,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .dashboard-card,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .card,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .card-body,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .card-body-fixed,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .feed-layout,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .feed-main,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .feed-post-detail,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .feed-sidebar,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .feed-card,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .rows-scroll,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .sidebar-head,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .sidebar-list,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .feed-compose,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .feed-post-media.is-text-only,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed .comment-item{
+  background:#ffffff!important;
+  background-color:#ffffff!important;
+  background-image:none!important;
+  color:#111827!important;
+  border-color:rgba(15,23,42,.12)!important;
+}
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app.org-page-feed{
+  --bg-main:#ffffff!important;
+  --bg-card:#ffffff!important;
+  --bg-sidebar:#ffffff!important;
+  --org-surface:#ffffff!important;
+  --org-surface-raised:#ffffff!important;
+  --org-text:#111827!important;
+  --text-primary:#111827!important;
+  --text-secondary:#64748b!important;
+  --text-muted:#64748b!important;
+}
+</style>
 
 <script>
   

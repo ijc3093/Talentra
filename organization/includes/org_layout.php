@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 if (!function_exists('org_layout_head_assets')) {
+    require_once __DIR__ . '/org_page_shell.php';
+
     function org_layout_head_assets(): void
     {
         static $emitted = false;
@@ -40,8 +42,8 @@ if (!function_exists('org_layout_head_assets')) {
                 . '</style>' . "\n";
         }
 
-        echo '<link rel="stylesheet" href="css/org-layout.css?v=17">' . "\n";
-        echo '<link rel="stylesheet" href="css/org-compact.css?v=26">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-layout.css?v=28">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-compact.css?v=36">' . "\n";
         echo '<link rel="stylesheet" href="css/org-header-actions.css?v=1">' . "\n";
     }
 }
@@ -54,8 +56,50 @@ if (!function_exists('org_layout_footer_assets')) {
             return;
         }
         $emitted = true;
+        require_once __DIR__ . '/org_theme_prefs.php';
         require __DIR__ . '/org_footer_scripts.php';
-        echo '<script src="js/org-nav.js?v=14" defer></script>' . "\n";
+        global $dbh;
+        if (isset($dbh) && $dbh instanceof PDO) {
+            $orgTailUserId = org_theme_viewer_user_id($dbh);
+            if ($orgTailUserId > 0) {
+                appearance_bridge_print_org_tail_critical($dbh, $orgTailUserId);
+            }
+        }
+        echo '<link rel="stylesheet" href="css/org-contrast.css?v=23">' . "\n";
+        echo '<style id="org-sales-nav-badge-lock">'
+            . 'body.org-app .org-sales-nav-badge rect{fill:#dc3545!important;}'
+            . 'body.org-app .org-sales-nav-badge text{fill:#ffffff!important;color:#ffffff!important;}'
+            . '@keyframes orgSalesBadgeAlert{'
+            . '0%,100%{transform:scale(1) translate(0,0);filter:drop-shadow(0 0 0 rgba(220,53,69,0));}'
+            . '12%{transform:scale(1.14) translate(0,-1px);filter:drop-shadow(0 0 7px rgba(220,53,69,.9));}'
+            . '24%{transform:scale(1.06) translate(0,0);filter:drop-shadow(0 0 3px rgba(220,53,69,.5));}'
+            . '36%{transform:scale(1.12) translate(0,-1px);filter:drop-shadow(0 0 6px rgba(220,53,69,.75));}'
+            . '50%,78%{transform:scale(1) translate(0,0);filter:drop-shadow(0 0 2px rgba(220,53,69,.35));}'
+            . '82%{transform:scale(1.08) translate(-2px,0);filter:drop-shadow(0 0 5px rgba(220,53,69,.7));}'
+            . '86%{transform:scale(1.08) translate(2px,0);}'
+            . '90%{transform:scale(1.05) translate(-1px,0);}'
+            . '94%{transform:scale(1.03) translate(1px,0);}}'
+            . 'body.org-app .org-sales-nav-badge-wrap.is-alert{'
+            . 'animation:orgSalesBadgeAlert 2.4s ease-in-out infinite;}'
+            . '@media (prefers-reduced-motion:reduce){body.org-app .org-sales-nav-badge-wrap.is-alert{animation:none;}}'
+            . '</style>' . "\n";
+        echo '<link rel="stylesheet" href="css/org-workspace-pages.css?v=1">' . "\n";
+        $currentPage = org_layout_current_page();
+        if ($currentPage === 'messages.php') {
+            echo '<link rel="stylesheet" href="css/org-messages-theme.css?v=3" id="org-messages-theme-css">' . "\n";
+        }
+        if ($currentPage === 'commerce.php'
+            || $currentPage === 'sales_management.php'
+            || strpos($currentPage, 'sales_') === 0
+            || in_array($currentPage, [
+                'orders.php', 'products.php', 'shop_settings.php', 'seller_journey.php',
+                'quotations.php', 'invoices.php', 'payments.php', 'delivery.php',
+                'returns_refunds.php', 'discounts_promotions.php', 'commerce_brand_select.php',
+                'recent_orders.php', 'commerce_analytics.php',
+            ], true)) {
+            echo '<link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css">' . "\n";
+        }
+        echo '<script src="js/org-nav.js?v=18" defer></script>' . "\n";
     }
 }
 
@@ -104,8 +148,23 @@ if (!function_exists('org_layout_nav_attrs')) {
             'members.php',
             'posts.php',
             'commerce.php',
+            'sales_management.php',
+            'commerce_brand_select.php',
             'products.php',
+            'product_table.php',
             'orders.php',
+            'order_details.php',
+            'quotations.php',
+            'quotation_details.php',
+            'invoices.php',
+            'invoice_details.php',
+            'payments.php',
+            'delivery.php',
+            'returns_refunds.php',
+            'discounts_promotions.php',
+            'sales_reports.php',
+            'salespersons.php',
+            'sales_notifications.php',
             'shop_settings.php',
             'commerce_analytics.php',
             'crm.php',

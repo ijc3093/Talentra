@@ -343,6 +343,28 @@ body.tt-live-right-open{ overflow:hidden; }
   }
 
   document.addEventListener('click', function(e){
+    var orderDoorBtn = e.target && e.target.closest ? e.target.closest('.js-open-order-details-door') : null;
+    if (orderDoorBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      openLiveRightPanel(String(orderDoorBtn.getAttribute('data-door-url') || orderDoorBtn.getAttribute('href') || ''));
+      return;
+    }
+    var buyDoorBtn = e.target && e.target.closest ? e.target.closest('.js-open-shop-buy-door') : null;
+    if (buyDoorBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var buyUrl = String(buyDoorBtn.getAttribute('data-door-url') || '');
+      if (!buyUrl) {
+        var productId = buyDoorBtn.getAttribute('data-shop-buy') || buyDoorBtn.getAttribute('data-product-id') || '';
+        var profileId = buyDoorBtn.getAttribute('data-shop-profile') || buyDoorBtn.getAttribute('data-profile-id') || '';
+        var qty = buyDoorBtn.getAttribute('data-quantity') || '1';
+        buyUrl = 'shop_buy_door.php?embed=1&product_id=' + encodeURIComponent(productId) + '&quantity=' + encodeURIComponent(qty);
+        if (profileId) buyUrl += '&profile_id=' + encodeURIComponent(profileId);
+      }
+      openLiveRightPanel(buyUrl);
+      return;
+    }
     var softwareBrowseBtn = e.target && e.target.closest ? e.target.closest('.js-open-live-software-browse') : null;
     if (softwareBrowseBtn) {
       e.preventDefault();

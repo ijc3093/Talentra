@@ -297,6 +297,145 @@ function appearance_palette_hex_for_slug(string $slug): string
     return appearance_palette_hex_values()[$slug] ?? '#f5f7fb';
 }
 
+function appearance_palette_mix_hex(string $hex, string $mixHex, float $weight): string
+{
+    $weight = max(0.0, min(1.0, $weight));
+    $hex = ltrim(trim($hex), '#');
+    $mixHex = ltrim(trim($mixHex), '#');
+    if (strlen($hex) === 3) {
+        $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+    }
+    if (strlen($mixHex) === 3) {
+        $mixHex = $mixHex[0] . $mixHex[0] . $mixHex[1] . $mixHex[1] . $mixHex[2] . $mixHex[2];
+    }
+    if (!preg_match('/^[0-9a-f]{6}$/i', $hex) || !preg_match('/^[0-9a-f]{6}$/i', $mixHex)) {
+        return '#' . strtolower($hex);
+    }
+    $r1 = hexdec(substr($hex, 0, 2));
+    $g1 = hexdec(substr($hex, 2, 2));
+    $b1 = hexdec(substr($hex, 4, 2));
+    $r2 = hexdec(substr($mixHex, 0, 2));
+    $g2 = hexdec(substr($mixHex, 2, 2));
+    $b2 = hexdec(substr($mixHex, 4, 2));
+    $r = (int)round($r1 + ($r2 - $r1) * $weight);
+    $g = (int)round($g1 + ($g2 - $g1) * $weight);
+    $b = (int)round($b1 + ($b2 - $b1) * $weight);
+    return sprintf('#%02x%02x%02x', $r, $g, $b);
+}
+
+/** Match JS paletteUnifiedBackground() for early shell paint. */
+function appearance_palette_unified_bg_hex(string $slug): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    $hex = appearance_palette_hex_for_slug($slug);
+    if (appearance_palette_is_dark_slug($slug)) {
+        return appearance_palette_mix_hex($hex, '#000000', 0.82);
+    }
+    $clean = ltrim($hex, '#');
+    if (strlen($clean) === 3) {
+        $clean = $clean[0] . $clean[0] . $clean[1] . $clean[1] . $clean[2] . $clean[2];
+    }
+    $r = hexdec(substr($clean, 0, 2));
+    $g = hexdec(substr($clean, 2, 2));
+    $b = hexdec(substr($clean, 4, 2));
+    $max = max($r, $g, $b);
+    $min = min($r, $g, $b);
+    $chroma = $max - $min;
+    if ($chroma < 30) {
+        $weight = 0.55;
+    } elseif ($chroma > 50 && $max > 100) {
+        $weight = 0.9;
+    } else {
+        $weight = 0.78;
+    }
+    return appearance_palette_mix_hex($hex, '#ffffff', $weight);
+}
+
+/** Chromatic ink for named palettes (matches JS paletteChromaticForeground dark-fg path). */
+function appearance_palette_chromatic_text_hex(string $slug): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    $hex = appearance_palette_hex_for_slug($slug);
+    if (appearance_palette_is_dark_slug($slug)) {
+        return appearance_palette_mix_hex($hex, '#ffffff', 0.82);
+    }
+    return appearance_palette_mix_hex($hex, '#000000', 0.78);
+}
+
+function appearance_palette_chromatic_muted_hex(string $slug): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    $hex = appearance_palette_hex_for_slug($slug);
+    if (appearance_palette_is_dark_slug($slug)) {
+        return appearance_palette_mix_hex($hex, '#ffffff', 0.68);
+    }
+    return appearance_palette_mix_hex($hex, '#000000', 0.58);
+}
+
+function appearance_palette_chromatic_action_hex(string $slug): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    $hex = appearance_palette_hex_for_slug($slug);
+    if (appearance_palette_is_dark_slug($slug)) {
+        return appearance_palette_mix_hex($hex, '#ffffff', 0.62);
+    }
+    return appearance_palette_mix_hex($hex, '#000000', 0.48);
+}
+
+function appearance_palette_relative_luminance(string $hex): float
+{
+    $clean = ltrim($hex, '#');
+    if (strlen($clean) === 3) {
+        $clean = $clean[0] . $clean[0] . $clean[1] . $clean[1] . $clean[2] . $clean[2];
+    }
+    if (!preg_match('/^[0-9a-f]{6}$/i', $clean)) {
+        return 0.5;
+    }
+    $channels = [];
+    foreach ([0, 2, 4] as $offset) {
+        $v = hexdec(substr($clean, $offset, 2)) / 255;
+        $channels[] = $v <= 0.03928 ? $v / 12.92 : pow(($v + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
+}
+
+function appearance_palette_contrast_text_on(string $bgHex): string
+{
+    return appearance_palette_relative_luminance($bgHex) < 0.45 ? '#ffffff' : '#0f172a';
+}
+
+/** Match JS paletteChromaticForeground() btnBg for light named palettes. */
+function appearance_palette_btn_bg_hex(string $slug): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    $hex = appearance_palette_hex_for_slug($slug);
+    if (appearance_palette_is_dark_slug($slug)) {
+        return appearance_palette_mix_hex($hex, '#ffffff', 0.5);
+    }
+    return appearance_palette_mix_hex($hex, '#000000', 0.52);
+}
+
+function appearance_palette_btn_text_hex(string $slug): string
+{
+    return appearance_palette_contrast_text_on(appearance_palette_btn_bg_hex($slug));
+}
+
+function appearance_palette_nav_active_bg_hex(string $slug): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    $pageBg = appearance_palette_unified_bg_hex($slug);
+    $hex = appearance_palette_hex_for_slug($slug);
+    if (appearance_palette_is_dark_slug($slug)) {
+        return appearance_palette_mix_hex($pageBg, $hex, 0.14);
+    }
+    return appearance_palette_mix_hex($pageBg, $hex, 0.26);
+}
+
+function appearance_palette_nav_active_text_hex(string $slug): string
+{
+    return appearance_palette_contrast_text_on(appearance_palette_nav_active_bg_hex($slug));
+}
+
 function appearance_palette_is_dark_slug(string $slug): bool
 {
     $slug = strtolower(trim($slug));
@@ -377,6 +516,11 @@ function appearance_palette_ensure_schema(PDO $dbh): void
         $col = $st ? $st->fetch(PDO::FETCH_ASSOC) : false;
         if ($col && stripos((string)($col['Type'] ?? ''), 'enum') !== false) {
             $dbh->exec("ALTER TABLE user_profile_settings MODIFY appearance_mode VARCHAR(48) NOT NULL DEFAULT 'system'");
+        }
+        $stAuto = $dbh->query("SHOW COLUMNS FROM user_profile_settings LIKE 'theme_auto_enabled'");
+        if (!$stAuto || !$stAuto->fetch(PDO::FETCH_ASSOC)) {
+            $dbh->exec('ALTER TABLE user_profile_settings ADD COLUMN theme_auto_enabled TINYINT(1) NOT NULL DEFAULT 1');
+            $dbh->exec("UPDATE user_profile_settings SET theme_auto_enabled = 1 WHERE appearance_mode = 'system'");
         }
     } catch (Throwable $e) {
         // non-fatal

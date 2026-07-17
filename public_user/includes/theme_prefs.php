@@ -60,7 +60,7 @@ function theme_prefs_js_config(PDO $dbh, int $userId): array
 
     return [
         'userId' => $userId,
-        'autoEnabled' => ($mode === 'system'),
+        'autoEnabled' => appearance_bridge_theme_auto_enabled($dbh, $userId),
         'manualMode' => $manualMode,
         'appearanceMode' => $mode,
     ];

@@ -37,7 +37,6 @@ function clearOrgSession(): void {
     );
 }
 
-function orgActiveOrgId(): int { return (int)($_SESSION['org_active_org_id'] ?? 0); }
 function orgMemberId(): int    { return (int)($_SESSION['org_member_id'] ?? 0); }
 function orgRoleId(): int      { return (int)($_SESSION['org_role_id'] ?? 0); }
 

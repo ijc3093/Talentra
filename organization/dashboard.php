@@ -401,8 +401,8 @@ if ($publisherUserId > 0) {
       gap:5px;
       padding:4px 8px;
       border-radius:999px;
-      border:1px solid #d1d5db;
-      background:#fff;
+      border:1px solid var(--msb-palette-border-strong, var(--org-border, #d1d5db));
+      background:var(--msb-palette-bg, var(--org-surface, #fff));
       font-size:11px;
       line-height:1;
       white-space:nowrap;
@@ -410,18 +410,20 @@ if ($publisherUserId > 0) {
     .stat-pill .icon{
       width:22px; height:22px; border-radius:999px;
       display:inline-flex; align-items:center; justify-content:center;
-      background:#eef2ff; color:#2563eb; font-size:11px;
+      background:var(--msb-palette-action-soft, #eef2ff);
+      color:var(--msb-palette-action, #2563eb);
+      font-size:11px;
     }
-    .stat-pill .num{ font-weight:800; color:#111827; }
-    .stat-pill .lbl{ color:#4b5563; font-weight:700; }
-    .stat-pill .sub{ color:#9ca3af; font-weight:700; margin-left:4px; font-size:10px; }
+    .stat-pill .num{ font-weight:800; color:var(--msb-palette-text, var(--org-text, #111827)); }
+    .stat-pill .lbl{ color:var(--msb-palette-text-muted, #4b5563); font-weight:700; }
+    .stat-pill .sub{ color:var(--msb-palette-text-muted, #9ca3af); font-weight:700; margin-left:4px; font-size:10px; }
 
     .publisher-hub{
-      border:1px solid #2563eb;
+      border:1px solid var(--msb-palette-action, #2563eb);
       border-radius:8px;
       padding:8px 10px;
       margin:8px 0 4px;
-      background:linear-gradient(135deg,#eff6ff 0%,#fff 58%);
+      background:var(--msb-palette-bg, #fff);
     }
     .publisher-hub-head{
       display:flex; align-items:flex-start; justify-content:space-between;
@@ -534,27 +536,31 @@ if ($publisherUserId > 0) {
       background:#fff;
       font-size:11px;
     }
-    .feed-tabs a.active{ background:#0b5ed7; color:#fff; border-color:#0b5ed7; }
+    .feed-tabs a.active{
+      background: var(--org-btn-filled-bg, #0b5ed7);
+      color: var(--org-btn-filled-text, #fff);
+      border-color: var(--org-btn-filled-bg, #0b5ed7);
+    }
 
     /* dark */
-    .dark-auto .stat-pill{ background:#171d24; border-color:#334155; }
-    .dark-auto .stat-pill .num{ color:#b1bcce; }
-    .dark-auto .stat-pill .lbl{ color:#b1bcce; }
-    .dark-auto .stat-pill .sub{ color:#b1bcce; }
-    .dark-auto .stat-pill .icon{ background:#111827; color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .stat-pill{ background:#171d24; border-color:#334155; }
+    html.dark-auto:not([data-msb-appearance]) .stat-pill .num{ color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .stat-pill .lbl{ color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .stat-pill .sub{ color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .stat-pill .icon{ background:#111827; color:#b1bcce; }
 
-    .dark-auto .feed-card{ background:#171d24; border-color:#334155; }
-    .dark-auto .feed-badge{ background:#111827; color:#b1bcce; }
-    .dark-auto .mini-muted{ color:#b1bcce; }
-    .dark-auto .compliance-table th{ color:#b1bcce; }
-    .dark-auto .compliance-table td{ color:#b1bcce; border-bottom-color:#334155; }
-    .dark-auto .pill{ background:#171d24; border-color:#334155; color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .feed-card{ background:#171d24; border-color:#334155; }
+    html.dark-auto:not([data-msb-appearance]) .feed-badge{ background:#111827; color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .mini-muted{ color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .compliance-table th{ color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .compliance-table td{ color:#b1bcce; border-bottom-color:#334155; }
+    html.dark-auto:not([data-msb-appearance]) .pill{ background:#171d24; border-color:#334155; color:#b1bcce; }
 
-    .dark-auto .modal-compliance .modal-content{ background:#171d24; border-color:#334155; }
-    .dark-auto .comp-badge{ background:#111827; color:#b1bcce; }
-    .dark-auto .comp-sub{ color:#b1bcce; }
-    .dark-auto .btn-close-x{ background:#171d24; border-color:#334155; color:#b1bcce; }
-    .dark-auto .btn-close-x:hover{ background:#111827; }
+    html.dark-auto:not([data-msb-appearance]) .modal-compliance .modal-content{ background:#171d24; border-color:#334155; }
+    html.dark-auto:not([data-msb-appearance]) .comp-badge{ background:#111827; color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .comp-sub{ color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .btn-close-x{ background:#171d24; border-color:#334155; color:#b1bcce; }
+    html.dark-auto:not([data-msb-appearance]) .btn-close-x:hover{ background:#111827; }
   </style>
 </head>
 
@@ -573,7 +579,7 @@ if ($publisherUserId > 0) {
     </div>
   </div> -->
 
-  <div class="sh-pagebody">
+  <?php org_page_body_open(); ?>
     <div class="card bd-0 dashboard-card">
       <div class="card-body card-body-fixed">
         <div class="rows-scroll">
@@ -878,8 +884,8 @@ if ($publisherUserId > 0) {
 
           <!-- ✅ Dashboard should not list posts: tabs go to posts.php -->
           <div class="feed-tabs">
-            <a class="active" href="posts.php?tab=work">Work Updates</a>
-            <a href="posts.php?tab=culture">Culture & Wins</a>
+            <a class="feed-tab-link <?= $tab==='work'?'active':'' ?>" href="posts.php?tab=work">Work Updates</a>
+            <a class="feed-tab-link" href="posts.php?tab=culture">Culture & Wins</a>
           </div>
 
         </div>
@@ -974,5 +980,6 @@ if ($publisherUserId > 0) {
   })();
 </script>
 
+<?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

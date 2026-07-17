@@ -92,6 +92,8 @@ if ($meCode === '') {
 }
 if ($meCode === '') j(['ok' => false, 'error' => 'Invalid session (missing friend_code)']);
 
+$meId = (int)($_SESSION['user_id'] ?? $_SESSION['id'] ?? $_SESSION['userid'] ?? 0);
+
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
 }
@@ -105,6 +107,21 @@ $replyPreviewAuthor = trim((string)($_POST['reply_preview_author'] ?? ''));
 $replyPreviewText = trim((string)($_POST['reply_preview_text'] ?? ''));
 
 if ($peerCode === '') j(['ok' => false, 'error' => 'Missing receiver (to)']);
+
+require_once __DIR__ . '/../includes/friend_system.php';
+require_once __DIR__ . '/../includes/publisher_accounts.php';
+require_once __DIR__ . '/../includes/commerce_messaging.php';
+
+$peerId = commerce_messaging_user_id_by_friend_code($dbh, $peerCode);
+if ($peerId <= 0) {
+    j(['ok' => false, 'error' => 'Receiver not found']);
+}
+if ($meId > 0 && publisher_is_publisher_user($dbh, $peerId) && !commerce_can_dm_pair($dbh, $meId, $peerId) && !fs_are_friends($dbh, $meId, $peerId)) {
+    j(['ok' => false, 'error' => 'Direct messages to this publisher are only available for product or order questions.']);
+}
+if ($meId > 0 && publisher_is_publisher_user($dbh, $meId) && !publisher_is_publisher_user($dbh, $peerId) && !commerce_can_dm_pair($dbh, $meId, $peerId) && !fs_are_friends($dbh, $meId, $peerId)) {
+    j(['ok' => false, 'error' => 'You can message this buyer about their order once a purchase relationship exists.']);
+}
 
 // ---------------------------
 // Attachment handling (Option A: folder)

@@ -549,16 +549,19 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   body.feed-insta-ui .feed-right-rail .sfy-panel{
     margin:0;padding:0;
     display:flex;flex-direction:column;
-    max-height:min(420px, calc(100vh - 280px));
+    height:min(360px, calc(100vh - 400px));
+    max-height:min(360px, calc(100vh - 400px));
+    min-height:0;
   }
   body.feed-insta-ui .feed-right-rail .sfy-panel-head{
     flex:0 0 auto;margin:0 0 12px;
   }
   body.feed-insta-ui .feed-right-rail .sfy-panel-head .sfy-head{margin:0;}
   body.feed-insta-ui .feed-right-rail .sfy-panel-body{
-    flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
+    flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto;overflow-x:hidden;
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
     scrollbar-width:thin;
     scrollbar-color:rgba(0,0,0,.18) transparent;
   }
@@ -667,6 +670,42 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <?= $sfyScope ?> .sfy-action:hover,<?= $sfyScope ?> .sfy-action:focus{color:#1877f2;outline:none;}
   <?= $sfyScope ?> .sfy-action.is-following,<?= $sfyScope ?> .sfy-action.is-pending,<?= $sfyScope ?> .sfy-action.is-friends,<?= $sfyScope ?> .sfy-action:disabled{color:#737373;cursor:default;}
   <?= $sfyScope ?> .sfy-action.friend-btn,<?= $sfyScope ?> .sfy-action.publisher-follow-btn{font:inherit;}
+  html.dark-auto:not([data-msb-appearance]) <?= $sfyScope ?> .sfy-action.friend-btn,
+  html.dark-auto:not([data-msb-appearance]) <?= $sfyScope ?> .sfy-action.publisher-follow-btn,
+  html[data-theme="dark"]:not([data-msb-appearance]) <?= $sfyScope ?> .sfy-action.friend-btn,
+  html[data-theme="dark"]:not([data-msb-appearance]) <?= $sfyScope ?> .sfy-action.publisher-follow-btn,
+  html[data-msb-appearance] <?= $sfyScope ?> .sfy-action.friend-btn,
+  html[data-msb-appearance] <?= $sfyScope ?> .sfy-action.publisher-follow-btn{
+    background:var(--msb-palette-bg, var(--public-page-bg, #171d24)) !important;
+    border:1px solid var(--msb-palette-border, rgba(177,188,206,.42)) !important;
+    color:var(--msb-palette-text, var(--public-text, #eef4ff)) !important;
+    -webkit-text-fill-color:var(--msb-palette-text, var(--public-text, #eef4ff)) !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui .feed-right-rail .sfy-scroll-btn,
+  html[data-theme="dark"]:not([data-msb-appearance]) body.feed-insta-ui .feed-right-rail .sfy-scroll-btn,
+  html[data-msb-appearance] body.feed-insta-ui .feed-right-rail .sfy-scroll-btn,
+  html.dark-auto:not([data-msb-appearance]) body.sfy-page .sfy-scroll-btn,
+  html[data-theme="dark"]:not([data-msb-appearance]) body.sfy-page .sfy-scroll-btn,
+  html[data-msb-appearance] body.sfy-page .sfy-scroll-btn{
+    background:var(--msb-palette-bg, var(--public-page-bg, #171d24)) !important;
+    border:1px solid var(--msb-palette-border, rgba(177,188,206,.42)) !important;
+    color:var(--msb-palette-text, var(--public-text, #eef4ff)) !important;
+    box-shadow:none !important;
+  }
+  html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:hover,
+  html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:focus,
+  html[data-theme="dark"]:not([data-msb-appearance]) body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:hover,
+  html[data-theme="dark"]:not([data-msb-appearance]) body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:focus,
+  html[data-msb-appearance] body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:hover,
+  html[data-msb-appearance] body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:focus,
+  html.dark-auto:not([data-msb-appearance]) body.sfy-page .sfy-scroll-btn:hover,
+  html.dark-auto:not([data-msb-appearance]) body.sfy-page .sfy-scroll-btn:focus,
+  html[data-theme="dark"]:not([data-msb-appearance]) body.sfy-page .sfy-scroll-btn:hover,
+  html[data-theme="dark"]:not([data-msb-appearance]) body.sfy-page .sfy-scroll-btn:focus,
+  html[data-msb-appearance] body.sfy-page .sfy-scroll-btn:hover,
+  html[data-msb-appearance] body.sfy-page .sfy-scroll-btn:focus{
+    background:var(--msb-palette-bg, var(--public-page-bg, #171d24)) !important;
+  }
 </style>
 <?php if ($sfyModeIsPage): ?>
 <main class="sfy-page-main" aria-label="Suggested for you">
@@ -815,14 +854,6 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   </div>
   <?php elseif (!$sfyModeIsPage && ($sfyFriends || $sfyFollow || $sfyAdvertise)): ?>
   </div>
-  <div class="sfy-scroll-rail" aria-label="Scroll suggestions">
-    <button type="button" class="sfy-scroll-btn js-sfy-scroll-up" aria-label="Scroll up">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
-    </button>
-    <button type="button" class="sfy-scroll-btn js-sfy-scroll-down" aria-label="Scroll down">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
-    </button>
-  </div>
   <?php endif; ?>
   </div>
 <?php if ($sfyModeIsPage): ?>
@@ -835,6 +866,19 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   document.querySelectorAll('.js-sfy-panel-scroll').forEach(function(body){
     var panel = body.closest('.sfy-panel');
     if(!panel) return;
+    var isEmbedded = !!body.closest('.feed-right-rail');
+    if(isEmbedded){
+      body.addEventListener('wheel', function(event){
+        var max = Math.max(0, body.scrollHeight - body.clientHeight);
+        if(max <= 1) return;
+        var delta = event.deltaY || 0;
+        var next = Math.max(0, Math.min(max, body.scrollTop + delta));
+        if(next === body.scrollTop) return;
+        event.preventDefault();
+        event.stopPropagation();
+        body.scrollTop = next;
+      }, {passive:false});
+    }
     var up = panel.querySelector('.js-sfy-scroll-up');
     var down = panel.querySelector('.js-sfy-scroll-down');
     if(!up || !down) return;

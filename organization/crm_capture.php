@@ -5,6 +5,8 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm_lifecycle.php';
 
 $orgId = (int)orgActiveOrgId();
@@ -42,7 +44,7 @@ $pageTitle = 'Capture leads';
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="mg-b-20">
     <a href="crm.php" class="tx-12">&larr; CRM lifecycle</a>
     <h4 class="mg-b-0">Capture</h4>

@@ -1,0 +1,122 @@
+/* Messages page — Dark auto night canvas (loads after org-contrast; not SPA-stripped) */
+
+html.dark-auto body.org-app.org-page-messages,
+html.dark-auto body.org-app.org-page-messages .sh-mainpanel,
+html.dark-auto body.org-app.org-page-messages .sh-pagebody,
+html.dark-auto body.org-app.org-page-messages .sh-sideleft-menu,
+html.dark-auto body.org-app.org-page-messages .org-sideleft-scroll,
+html.dark-auto body.org-app.org-page-messages .org-sideleft-shell,
+html.dark-auto body.org-app.org-page-messages .org-sideleft-top,
+html.dark-auto body.org-app.org-page-messages .org-sideleft-bottom,
+html.dark-auto body.org-app.org-page-messages .chat-shell,
+html.dark-auto body.org-app.org-page-messages .chat-left,
+html.dark-auto body.org-app.org-page-messages .chat-right,
+html.dark-auto body.org-app.org-page-messages .card,
+html.dark-auto body.org-app.org-page-messages .fixed-card,
+html.dark-auto body.org-app.org-page-messages .fixed-head,
+html.dark-auto body.org-app.org-page-messages .fixed-body,
+html.dark-auto body.org-app.org-page-messages .card-header,
+html.dark-auto body.org-app.org-page-messages .card-body,
+html.dark-auto body.org-app.org-page-messages .members-list-wrap,
+html.dark-auto body.org-app.org-page-messages .members-search,
+html.dark-auto body.org-app.org-page-messages .members-scroll,
+html.dark-auto body.org-app.org-page-messages .list-group,
+html.dark-auto body.org-app.org-page-messages .list-group-item,
+html.dark-auto body.org-app.org-page-messages .conv-split,
+html.dark-auto body.org-app.org-page-messages .conv-main,
+html.dark-auto body.org-app.org-page-messages .conv-topbar,
+html.dark-auto body.org-app.org-page-messages .conv-history,
+html.dark-auto body.org-app.org-page-messages .history-card,
+html.dark-auto body.org-app.org-page-messages .history-head,
+html.dark-auto body.org-app.org-page-messages .history-search,
+html.dark-auto body.org-app.org-page-messages .history-scroll,
+html.dark-auto body.org-app.org-page-messages .msg-scroll,
+html.dark-auto body.org-app.org-page-messages .composer-fixed,
+html.dark-auto body.org-app.org-page-messages .search-bar,
+html.dark-auto body.org-app.org-page-messages .composer-tools {
+  background: #171d24 !important;
+  background-color: #171d24 !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+  border-color: #334155 !important;
+}
+
+html.dark-auto body.org-app.org-page-messages .list-group-item.active {
+  background-color: #252f3d !important;
+  color: #e8edf5 !important;
+  border-color: #334155 !important;
+}
+
+html.dark-auto body.org-app.org-page-messages .members-search input,
+html.dark-auto body.org-app.org-page-messages .history-search input,
+html.dark-auto body.org-app.org-page-messages .composer-row textarea,
+html.dark-auto body.org-app.org-page-messages .form-control,
+html.dark-auto body.org-app.org-page-messages #chatSearch,
+html.dark-auto body.org-app.org-page-messages input[type="search"],
+html.dark-auto body.org-app.org-page-messages textarea {
+  background: #252f3d !important;
+  background-color: #252f3d !important;
+  color: #e8edf5 !important;
+  border-color: rgba(177, 188, 206, 0.38) !important;
+}
+
+html.dark-auto body.org-app.org-page-messages .members-search input::placeholder,
+html.dark-auto body.org-app.org-page-messages .history-search input::placeholder,
+html.dark-auto body.org-app.org-page-messages .composer-row textarea::placeholder,
+html.dark-auto body.org-app.org-page-messages .form-control::placeholder,
+html.dark-auto body.org-app.org-page-messages textarea::placeholder {
+  color: #b1bcce !important;
+  opacity: 0.72;
+}
+
+html.dark-auto body.org-app.org-page-messages .peer-name,
+html.dark-auto body.org-app.org-page-messages .conv-title strong,
+html.dark-auto body.org-app.org-page-messages .history-head,
+html.dark-auto body.org-app.org-page-messages .card-title,
+html.dark-auto body.org-app.org-page-messages .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html.dark-auto body.org-app.org-page-messages .org-sideleft-scroll .nav > .nav-item > .nav-link {
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-messages .peer-sub,
+html.dark-auto body.org-app.org-page-messages .peer-time,
+html.dark-auto body.org-app.org-page-messages .conv-title small,
+html.dark-auto body.org-app.org-page-messages .search-hint {
+  color: #b1bcce !important;
+}
+
+html.dark-auto body.org-app.org-page-messages .msg-me {
+  background: #2f3a4a !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-messages .msg-them {
+  background: #252f3d !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-messages .ig-feed-account-badge,
+html.dark-auto body.org-app.org-page-messages .org-pill {
+  background: #252f3d !important;
+  border-color: rgba(177, 188, 206, 0.38) !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-messages #attachStatus {
+  background: rgba(177, 188, 206, 0.1) !important;
+  border-color: rgba(177, 188, 206, 0.28) !important;
+  color: #e8edf5 !important;
+}
+
+/* Also paint shared chrome when Dark auto night is on (sidebar was staying white) */
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-shell,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-top,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-bottom {
+  background: #171d24 !important;
+  background-color: #171d24 !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+  border-color: #334155 !important;
+}

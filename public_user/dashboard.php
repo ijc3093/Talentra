@@ -305,9 +305,14 @@ body.dashboard-page #globalLiveModal:not(.is-open) aside{
   display:none !important;
 }
 
-html, body.dashboard-page{
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page{
   background:#171d24 !important;
   color:var(--msb-palette-text, #b1bcce) !important;
+}
+
+html[data-msb-org-light] body.dashboard-page{
+  background:#ffffff !important;
+  color:#111827 !important;
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page,
@@ -431,41 +436,139 @@ body.dashboard-page .card{
 }
 <?php endif; ?>
 
-/* Dashboard canvas — lock to public_user dark #171d24 */
-html.dark-auto body.dashboard-page,
-html.dark-auto body.dashboard-page .sh-mainpanel,
-html.dark-auto body.dashboard-page .sh-pagebody,
-html.dark-auto body.dashboard-page .sh-pagetitle,
-html.dark-auto body.dashboard-page .row,
-html.dark-auto body.dashboard-page .row-sm,
-html.dark-auto body.dashboard-page .col-lg-12,
-html.dark-auto body.dashboard-page .card,
-html.dark-auto body.dashboard-page .card-body,
-html.dark-auto body.dashboard-page .card-header,
-html.dark-auto body.dashboard-page .card-footer,
-html.dark-auto body.dashboard-page .card.mb-3,
-html.dark-auto body.dashboard-page .form-control,
-html.dark-auto body.dashboard-page select.form-control,
-html.dark-auto body.dashboard-page textarea.form-control,
-html.dark-auto body.dashboard-page .msb-readonly-field,
-html.dark-auto body.dashboard-page .alert,
-html.dark-auto body.dashboard-page .alert-info,
-html.dark-auto body.dashboard-page .alert-success,
-html.dark-auto body.dashboard-page .alert-warning,
-html.dark-auto body.dashboard-page .alert-danger,
-html.dark-auto body.dashboard-page .modal-content,
-html.dark-auto body.dashboard-page .modal-body,
-html.dark-auto body.dashboard-page #instructionBox,
-body.dashboard-page .form-control,
-body.dashboard-page select.form-control,
-body.dashboard-page textarea.form-control,
-body.dashboard-page .msb-readonly-field,
-body.dashboard-page .alert,
-body.dashboard-page .alert-info,
-body.dashboard-page #instructionBox {
+/* Dashboard canvas — dark #171d24 unless Gear Dark auto ON (white) or Gear appearance color */
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .sh-mainpanel,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .sh-pagebody,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .sh-pagetitle,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .row,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .row-sm,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .col-lg-12,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card-body,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card-header,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card-footer,
+html.dark-auto:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .card.mb-3,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page select.form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page textarea.form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .msb-readonly-field,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .alert,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .alert-info,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .alert-success,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .alert-warning,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .alert-danger,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .modal-content,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page .modal-body,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page #instructionBox {
   background:#171d24 !important;
   background-color:#171d24 !important;
   background-image:none !important;
+}
+
+html[data-msb-org-light] body.dashboard-page,
+html[data-msb-org-light] body.dashboard-page .sh-mainpanel,
+html[data-msb-org-light] body.dashboard-page .sh-pagebody,
+html[data-msb-org-light] body.dashboard-page .card,
+html[data-msb-org-light] body.dashboard-page .card-body,
+html[data-msb-org-light] body.dashboard-page .form-control,
+html[data-msb-org-light] body.dashboard-page select.form-control,
+html[data-msb-org-light] body.dashboard-page textarea.form-control,
+html[data-msb-org-light] body.dashboard-page .msb-readonly-field,
+html[data-msb-org-light] body.dashboard-page .alert,
+html[data-msb-org-light] body.dashboard-page .alert-info,
+html[data-msb-org-light] body.dashboard-page #instructionBox {
+  background:#ffffff !important;
+  background-color:#ffffff !important;
+  color:#111827 !important;
+  border-color:rgba(15,23,42,0.12) !important;
+}
+
+html[data-msb-org-light] body.dashboard-page label,
+html[data-msb-org-light] body.dashboard-page .card-title,
+html[data-msb-org-light] body.dashboard-page h6,
+html[data-msb-org-light] body.dashboard-page .form-check-label {
+  color:#111827 !important;
+}
+
+html[data-msb-org-light] body.dashboard-page .text-muted,
+html[data-msb-org-light] body.dashboard-page small,
+html[data-msb-org-light] body.dashboard-page .form-text {
+  color:#64748b !important;
+}
+
+html[data-msb-appearance] body.dashboard-page,
+html[data-msb-appearance] body.dashboard-page .sh-mainpanel,
+html[data-msb-appearance] body.dashboard-page .sh-pagebody,
+html[data-msb-appearance] body.dashboard-page .sh-pagetitle,
+html[data-msb-appearance] body.dashboard-page .row,
+html[data-msb-appearance] body.dashboard-page .row-sm,
+html[data-msb-appearance] body.dashboard-page .col-lg-12,
+html[data-msb-appearance] body.dashboard-page .card,
+html[data-msb-appearance] body.dashboard-page .card-body,
+html[data-msb-appearance] body.dashboard-page .card-header,
+html[data-msb-appearance] body.dashboard-page .card-footer,
+html[data-msb-appearance] body.dashboard-page .alert,
+html[data-msb-appearance] body.dashboard-page .alert-info,
+html[data-msb-appearance] body.dashboard-page #instructionBox {
+  background-color:var(--msb-palette-bg) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text) !important;
+  border-color:var(--msb-palette-border, rgba(15,23,42,0.12)) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page label,
+html[data-msb-appearance] body.dashboard-page .card-title,
+html[data-msb-appearance] body.dashboard-page h6,
+html[data-msb-appearance] body.dashboard-page .form-check-label {
+  color:var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page .text-muted,
+html[data-msb-appearance] body.dashboard-page small,
+html[data-msb-appearance] body.dashboard-page .form-text {
+  color:var(--msb-palette-text-muted, #64748b) !important;
+}
+
+html[data-msb-appearance] body.dashboard-page .form-control,
+html[data-msb-appearance] body.dashboard-page select.form-control,
+html[data-msb-appearance] body.dashboard-page textarea.form-control,
+html[data-msb-appearance] body.dashboard-page .msb-readonly-field {
+  background-color:var(--msb-palette-input-bg, var(--msb-palette-surface, var(--msb-palette-bg))) !important;
+  color:var(--msb-palette-text) !important;
+  border-color:var(--msb-palette-border-strong, var(--msb-palette-border, rgba(15,23,42,0.18))) !important;
+}
+
+/* Gear Dark auto ON — white dashboard wins over appearance color */
+html[data-msb-org-light] body.dashboard-page,
+html[data-msb-org-light] body.dashboard-page .sh-mainpanel,
+html[data-msb-org-light] body.dashboard-page .sh-pagebody,
+html[data-msb-org-light] body.dashboard-page .card,
+html[data-msb-org-light] body.dashboard-page .card-body,
+html[data-msb-org-light] body.dashboard-page .form-control,
+html[data-msb-org-light] body.dashboard-page select.form-control,
+html[data-msb-org-light] body.dashboard-page textarea.form-control,
+html[data-msb-org-light] body.dashboard-page .msb-readonly-field,
+html[data-msb-org-light] body.dashboard-page .alert,
+html[data-msb-org-light] body.dashboard-page .alert-info,
+html[data-msb-org-light] body.dashboard-page #instructionBox {
+  background:#ffffff !important;
+  background-color:#ffffff !important;
+  color:#111827 !important;
+  border-color:rgba(15,23,42,0.12) !important;
+}
+
+html[data-msb-org-light] body.dashboard-page label,
+html[data-msb-org-light] body.dashboard-page .card-title,
+html[data-msb-org-light] body.dashboard-page h6,
+html[data-msb-org-light] body.dashboard-page .form-check-label {
+  color:#111827 !important;
+}
+
+html[data-msb-org-light] body.dashboard-page .text-muted,
+html[data-msb-org-light] body.dashboard-page small,
+html[data-msb-org-light] body.dashboard-page .form-text {
+  color:#64748b !important;
 }
 </style>
 

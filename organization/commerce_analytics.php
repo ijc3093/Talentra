@@ -8,6 +8,8 @@ require_once __DIR__ . '/includes/org_manager_guard.php';
 
 org_require_manager();
 
+org_require_commerce_seller();
+
 $orgId = (int)orgActiveOrgId();
 org_ecommerce_ensure_schema($dbh);
 
@@ -21,7 +23,7 @@ $pageTitle = 'Commerce analytics';
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="mg-b-20">
     <a href="commerce.php" class="tx-12">&larr; Commerce hub</a>
     <h4 class="mg-b-0">Sales analytics</h4>

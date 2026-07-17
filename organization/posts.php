@@ -970,57 +970,61 @@ function url_with(array $add): string {
       padding:10px 14px;
       border-radius:10px;
       text-decoration:none;
-      border:2px solid #d1d5db;
-      color:#6b7280;
+      border:2px solid var(--msb-palette-border-strong, var(--org-border, #d1d5db));
+      color:var(--msb-palette-text-muted, var(--org-text-muted, #6b7280));
       font-weight:800;
-      background:#fff;
+      background:var(--msb-palette-surface-2, var(--org-surface, #fff));
     }
-    .posts-tabs a.active{ background:#2563eb; color:#fff; border-color:#2563eb; }
-
-    .dark-auto .posts-tabs a{
-      background:#252f3d;
-      color:#e8edf5;
-      border-color:rgba(177,188,206,.48);
-    }
-    .dark-auto .posts-tabs a.active{
-      background:#2563eb !important;
-      color:#ffffff !important;
-      border-color:#2563eb !important;
+    .posts-tabs a.active{
+      background:var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb));
+      color:var(--msb-palette-btn-text, #fff);
+      border-color:var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb));
     }
 
-    .dark-auto .btn,
-    .dark-auto a.btn,
-    .dark-auto button.btn{
-      color:#e8edf5 !important;
+    html.dark-auto:not([data-msb-appearance]) .posts-tabs a{
+      background:var(--org-btn-surface, #252f3d);
+      color:var(--org-text, #e8edf5);
+      border-color:var(--org-border-strong, rgba(177,188,206,.48));
     }
-    .dark-auto .btn-primary,
-    .dark-auto a.btn-primary,
-    .dark-auto .btn-danger,
-    .dark-auto a.btn-danger{
+    html.dark-auto:not([data-msb-appearance]) .posts-tabs a.active{
+      background:var(--org-btn-filled-bg, #2563eb) !important;
+      color:var(--org-btn-filled-text, #ffffff) !important;
+      border-color:var(--org-btn-filled-bg, #2563eb) !important;
+    }
+
+    html.dark-auto:not([data-msb-appearance]) .btn,
+    html.dark-auto:not([data-msb-appearance]) a.btn,
+    html.dark-auto:not([data-msb-appearance]) button.btn{
+      color:var(--org-text, #e8edf5) !important;
+    }
+    html.dark-auto:not([data-msb-appearance]) .btn-primary,
+    html.dark-auto:not([data-msb-appearance]) a.btn-primary,
+    html.dark-auto:not([data-msb-appearance]) .btn-danger,
+    html.dark-auto:not([data-msb-appearance]) a.btn-danger{
       color:#ffffff !important;
     }
-    .dark-auto .btn-outline-danger{
+    html.dark-auto:not([data-msb-appearance]) .btn-outline-danger{
       color:#fca5a5 !important;
       border-color:rgba(248,113,113,.55) !important;
-      background:#252f3d !important;
+      background:var(--org-btn-surface, #252f3d) !important;
     }
-    .dark-auto .btn-outline-info{
+    html.dark-auto:not([data-msb-appearance]) .btn-outline-info{
       color:#7dd3fc !important;
       border-color:rgba(125,211,252,.55) !important;
-      background:#252f3d !important;
+      background:var(--org-btn-surface, #252f3d) !important;
     }
-    .dark-auto .btn-outline-primary{
+    html.dark-auto:not([data-msb-appearance]) .btn-outline-primary{
       color:#93c5fd !important;
       border-color:rgba(147,197,253,.55) !important;
-      background:#252f3d !important;
+      background:var(--org-btn-surface, #252f3d) !important;
     }
 
     .post-card{
-      border:2px solid #6b7280;
+      border:2px solid var(--msb-palette-border-strong, var(--org-border, #6b7280));
       border-radius:14px;
       padding:14px 14px 12px;
       margin:12px 0;
-      background:#fff;
+      background:var(--msb-palette-bg, var(--org-surface, #fff));
     }
     .post-top{
       display:flex;
@@ -1034,21 +1038,21 @@ function url_with(array $add): string {
       align-items:center;
       padding:6px 10px;
       border-radius:999px;
-      background:#eef2f7;
-      color:#374151;
+      background:var(--msb-palette-action-soft, var(--org-surface-raised, #eef2f7));
+      color:var(--msb-palette-action, var(--org-text, #374151));
       font-weight:900;
       font-size:13px;
-      border:1px solid #e5e7eb;
+      border:1px solid var(--msb-palette-border, var(--org-border, #e5e7eb));
     }
-    .mini-muted{ color:#6b7280; font-size:11px; font-weight:600; }
+    .mini-muted{ color:var(--msb-palette-text-muted, var(--org-text-muted, #6b7280)); font-size:11px; font-weight:600; }
     .post-title{
       font-weight:800;
       font-size:13px;
-      color:#111827;
+      color:var(--msb-palette-text, var(--org-text, #111827));
       margin-top:6px;
     }
     .post-body{
-      color:#374151;
+      color:var(--msb-palette-text-muted, var(--org-text-muted, #374151));
       margin-top:4px;
       white-space:pre-wrap;
       font-size:11px;
@@ -1061,12 +1065,12 @@ function url_with(array $add): string {
       flex-wrap:wrap;
       margin-top:12px;
       padding-top:10px;
-      border-top:1px solid #eef0f4;
+      border-top:1px solid var(--msb-palette-border, var(--org-border, #eef0f4));
     }
     .count-line{
       display:flex; gap:14px; flex-wrap:wrap; align-items:center;
       font-weight:800;
-      color:#6b7280;
+      color:var(--msb-palette-text-muted, var(--org-text-muted, #6b7280));
       font-size:11px;
     }
     .locked{
@@ -1088,29 +1092,29 @@ function url_with(array $add): string {
     }
     .pager .mini-muted{ margin-left:6px; }
 
-    /* Dark mode */
-    .dark-auto .post-card{ background:#171d24; border-color:#334155; }
-    .dark-auto .post-title{ color:#b1bcce; }
-    .dark-auto .post-body{ color:#b1bcce; }
-    .dark-auto .mini-muted{ color:#b1bcce; }
-    .dark-auto .count-line{ color:#b1bcce; }
-    .dark-auto .badge-pill{ background:#111827; color:#b1bcce; border-color:#334155; }
-    .dark-auto .post-foot{ border-top-color:#334155; }
+    /* Dark mode — only when no Gear appearance color is active */
+    html.dark-auto:not([data-msb-appearance]) .post-card{ background:var(--org-surface, #171d24); border-color:var(--org-border-strong, #334155); }
+    html.dark-auto:not([data-msb-appearance]) .post-title{ color:var(--org-text, #b1bcce); }
+    html.dark-auto:not([data-msb-appearance]) .post-body{ color:var(--org-text-muted, #b1bcce); }
+    html.dark-auto:not([data-msb-appearance]) .mini-muted{ color:var(--org-text-muted, #b1bcce); }
+    html.dark-auto:not([data-msb-appearance]) .count-line{ color:var(--org-text-muted, #b1bcce); }
+    html.dark-auto:not([data-msb-appearance]) .badge-pill{ background:var(--org-surface-raised, #111827); color:var(--org-text, #b1bcce); border-color:var(--org-border-strong, #334155); }
+    html.dark-auto:not([data-msb-appearance]) .post-foot{ border-top-color:var(--org-border-strong, #334155); }
   
     .bulkbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
-      background:#fff;border:1px solid #e5e9f2;border-radius:12px;padding:10px 12px;margin:12px 0;}
-    .dark-auto .bulkbar{background:#171d24;border-color:#1f2a44;}
+      background:var(--msb-palette-surface-2, var(--org-surface, #fff));border:1px solid var(--msb-palette-border, var(--org-border, #e5e9f2));border-radius:12px;padding:10px 12px;margin:12px 0;}
+    html.dark-auto:not([data-msb-appearance]) .bulkbar{background:var(--org-surface, #171d24);border-color:var(--org-border-strong, #1f2a44);}
     .bulkcheck{display:flex;align-items:center;gap:8px;margin:0;}
     .cardcheck input{width:16px;height:16px;cursor:pointer;}
     /* Simple modal */
     .xmodal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px;}
-    .xmodal{background:#fff;border-radius:14px;max-width:780px;width:100%;box-shadow:0 15px 60px rgba(0,0,0,.25);overflow:hidden;}
-    .dark-auto .xmodal{background:#171d24;color:#b1bcce;}
-    .xmodal-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e5e9f2;}
-    .dark-auto .xmodal-h{border-bottom-color:#1f2a44;}
+    .xmodal{background:var(--msb-palette-bg, var(--org-surface, #fff));border-radius:14px;max-width:780px;width:100%;box-shadow:0 15px 60px rgba(0,0,0,.25);overflow:hidden;}
+    html.dark-auto:not([data-msb-appearance]) .xmodal{background:var(--org-surface, #171d24);color:var(--org-text, #b1bcce);}
+    .xmodal-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--msb-palette-border, var(--org-border, #e5e9f2));}
+    html.dark-auto:not([data-msb-appearance]) .xmodal-h{border-bottom-color:var(--org-border-strong, #1f2a44);}
     .xmodal-b{padding:16px;}
-    .xmodal-f{display:flex;justify-content:flex-end;gap:8px;padding:14px 16px;border-top:1px solid #e5e9f2;}
-    .dark-auto .xmodal-f{border-top-color:#1f2a44;}
+    .xmodal-f{display:flex;justify-content:flex-end;gap:8px;padding:14px 16px;border-top:1px solid var(--msb-palette-border, var(--org-border, #e5e9f2));}
+    html.dark-auto:not([data-msb-appearance]) .xmodal-f{border-top-color:var(--org-border-strong, #1f2a44);}
     .xmodal-backdrop.show{display:flex;}
 </style>
 
@@ -1136,13 +1140,13 @@ function url_with(array $add): string {
 
 </head>
 
-<body class="org-app">
+<body class="org-app org-page-posts">
 <?php include __DIR__ . '/includes/header.php'; ?>
 <?php include __DIR__ . '/includes/leftbar.php'; ?>
 
 <div class="sh-mainpanel">
 
-  <div class="sh-pagebody">
+  <?php org_page_body_open(); ?>
     <div class="card bd-0 dashboard-card">
       <div class="card-body card-body-fixed">
         <div class="rows-scroll">
@@ -1206,8 +1210,8 @@ function url_with(array $add): string {
 
           <!-- Tabs -->
           <div class="posts-tabs">
-            <a class="<?= $tab==='work'?'active':'' ?>" href="<?= h(url_with(['tab'=>'work','page'=>1])) ?>">Work Updates</a>
-            <a class="<?= $tab==='culture'?'active':'' ?>" href="<?= h(url_with(['tab'=>'culture','page'=>1])) ?>">Culture & Wins</a>
+            <a class="feed-tab-link <?= $tab==='work'?'active':'' ?>" href="<?= h(url_with(['tab'=>'work','page'=>1])) ?>">Work Updates</a>
+            <a class="feed-tab-link <?= $tab==='culture'?'active':'' ?>" href="<?= h(url_with(['tab'=>'culture','page'=>1])) ?>">Culture & Wins</a>
           </div>
 
 
@@ -1553,5 +1557,6 @@ function url_with(array $add): string {
 <?php include __DIR__ . '/includes/footer.php'; ?>
 </div>
 
+<?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

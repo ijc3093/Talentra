@@ -1,0 +1,87 @@
+/* Commerce / sales — Dark auto night canvas (sticky; survives SPA) */
+
+html.dark-auto body.org-app.org-page-commerce,
+html.dark-auto body.org-app.org-page-sales_management,
+html.dark-auto body.org-app.org-page-commerce .sh-mainpanel,
+html.dark-auto body.org-app.org-page-sales_management .sh-mainpanel,
+html.dark-auto body.org-app.org-page-commerce .sh-pagebody,
+html.dark-auto body.org-app.org-page-sales_management .sh-pagebody,
+html.dark-auto body.org-app.org-page-commerce .commerce-page,
+html.dark-auto body.org-app.org-page-sales_management .commerce-page,
+html.dark-auto body.org-app.org-page-commerce .org-surface-page,
+html.dark-auto body.org-app.org-page-sales_management .org-surface-page,
+html.dark-auto body.org-app .commerce-page,
+html.dark-auto body.org-app .commerce-layout,
+html.dark-auto body.org-app .commerce-main,
+html.dark-auto body.org-app .commerce-side,
+html.dark-auto body.org-app .commerce-panel,
+html.dark-auto body.org-app .commerce-panel-head,
+html.dark-auto body.org-app .commerce-brand-system-panel,
+html.dark-auto body.org-app .commerce-kpi,
+html.dark-auto body.org-app .commerce-action-tile,
+html.dark-auto body.org-app .commerce-int-item,
+html.dark-auto body.org-app .commerce-int-grid,
+html.dark-auto body.org-app .commerce-channels,
+html.dark-auto body.org-app .commerce-channel,
+html.dark-auto body.org-app .commerce-table-wrap,
+html.dark-auto body.org-app .sales-management-metric,
+html.dark-auto body.org-app .sales-management-table-wrap {
+  background: #171d24 !important;
+  background-color: #171d24 !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+  border-color: #334155 !important;
+}
+
+html.dark-auto body.org-app .commerce-page {
+  --ch-bg: #171d24 !important;
+  --ch-surface: #171d24 !important;
+  --ch-card: #171d24 !important;
+  --ch-ink: #e8edf5 !important;
+  --ch-text: #e8edf5 !important;
+  --ch-muted: #b1bcce !important;
+  --ch-line: #334155 !important;
+  --ch-border: #334155 !important;
+}
+
+html.dark-auto body.org-app .commerce-kpi-label,
+html.dark-auto body.org-app .commerce-kpi-sub,
+html.dark-auto body.org-app .commerce-panel-head span,
+html.dark-auto body.org-app .commerce-int-body p,
+html.dark-auto body.org-app .commerce-action-tile span,
+html.dark-auto body.org-app .commerce-brand-system-lead,
+html.dark-auto body.org-app .commerce-channel span,
+html.dark-auto body.org-app .sales-management-kicker,
+html.dark-auto body.org-app .sales-management-detail-head p,
+html.dark-auto body.org-app .sales-management-metric span {
+  color: #b1bcce !important;
+}
+
+html.dark-auto body.org-app .commerce-kpi-value,
+html.dark-auto body.org-app .commerce-panel-head h2,
+html.dark-auto body.org-app .commerce-action-tile strong,
+html.dark-auto body.org-app .commerce-int-body strong,
+html.dark-auto body.org-app .commerce-channel strong,
+html.dark-auto body.org-app .sales-management-detail-head h1,
+html.dark-auto body.org-app .sales-management-metric strong,
+html.dark-auto body.org-app .sales-management-table th,
+html.dark-auto body.org-app .sales-management-table td {
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app .sales-management-table th {
+  background: rgba(177, 188, 206, 0.08) !important;
+  color: #b1bcce !important;
+}
+
+html.dark-auto body.org-app .commerce-pill,
+html.dark-auto body.org-app .commerce-brand-category-list span {
+  background-color: #252f3d !important;
+  border-color: rgba(177, 188, 206, 0.28) !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app .commerce-int-icon {
+  background-color: #252f3d !important;
+  color: #e8edf5 !important;
+}

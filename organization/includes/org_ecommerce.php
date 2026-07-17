@@ -18,21 +18,8 @@ function org_ecommerce_ensure_schema(PDO $dbh): void
     }
     $done = true;
     org_crm_ensure_schema($dbh);
-    $migration = dirname(__DIR__, 2) . '/Data/migrations/20260706_org_ecommerce_enhancements.sql';
-    if (!is_file($migration)) {
-        return;
-    }
-    try {
-        $sql = (string)file_get_contents($migration);
-        foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
-            if ($stmt === '' || stripos($stmt, 'SET ') === 0) {
-                continue;
-            }
-            $dbh->exec($stmt);
-        }
-    } catch (Throwable $e) {
-        // columns may already exist
-    }
+    // Delegate to shared shop ensure so seller + buyer stay on the same migration set.
+    org_shop_ensure_schema($dbh);
 }
 
 /** @return array<string, string> */
@@ -85,6 +72,7 @@ function org_ecommerce_default_shop_settings(): array
 {
     return [
         'store_name' => '',
+        'full_name' => '',
         'tagline' => '',
         'contact_email' => '',
         'contact_phone' => '',
@@ -92,6 +80,7 @@ function org_ecommerce_default_shop_settings(): array
         'delivery_notes' => '',
         'fulfillment_policy' => '',
         'return_policy' => '',
+        'default_fulfillment_method' => 'fbm',
         'channels' => [
             'profile_shop' => true,
             'marketplace' => true,
@@ -100,7 +89,224 @@ function org_ecommerce_default_shop_settings(): array
         'seo' => [
             'meta_description' => '',
         ],
+        'address' => [
+            'line1' => '',
+            'line2' => '',
+            'city' => '',
+            'state' => '',
+            'postal_code' => '',
+            'country' => '',
+        ],
+        'custom_categories' => [],
+        'custom_selling_types' => [],
     ];
+}
+
+/**
+ * Seed public seller info from organization + linked publisher account.
+ * @return array{store_name:string,full_name:string,contact_email:string,contact_phone:string}
+ */
+function org_ecommerce_seller_info_seed(PDO $dbh, int $orgId): array
+{
+    $seed = ['store_name' => '', 'full_name' => '', 'contact_email' => '', 'contact_phone' => ''];
+    if ($orgId <= 0) {
+        return $seed;
+    }
+    try {
+        $st = $dbh->prepare('SELECT name, publisher_user_id FROM organizations WHERE id = :id LIMIT 1');
+        $st->execute([':id' => $orgId]);
+        $org = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+        $seed['store_name'] = trim((string)($org['name'] ?? ''));
+        $publisherUserId = (int)($org['publisher_user_id'] ?? 0);
+        if ($publisherUserId > 0) {
+            require_once dirname(__DIR__) . '/../public_user/includes/user_phone.php';
+            $stU = $dbh->prepare('SELECT name, email, mobile FROM users WHERE id = :id LIMIT 1');
+            $stU->execute([':id' => $publisherUserId]);
+            $user = $stU->fetch(PDO::FETCH_ASSOC) ?: [];
+            $seed['full_name'] = trim((string)($user['name'] ?? ''));
+            $seed['contact_email'] = trim((string)($user['email'] ?? ''));
+            $seed['contact_phone'] = function_exists('user_phone_from_user_row')
+                ? user_phone_from_user_row($user)
+                : trim((string)($user['mobile'] ?? ''));
+            if (strcasecmp($seed['contact_phone'], 'N/A') === 0) {
+                $seed['contact_phone'] = '';
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+    return $seed;
+}
+
+/**
+ * Shop settings with empty seller contact fields filled from registration/publisher account.
+ * @return array<string, mixed>
+ */
+function org_ecommerce_get_shop_settings_for_display(PDO $dbh, int $orgId): array
+{
+    $settings = org_ecommerce_get_shop_settings($dbh, $orgId);
+    $seed = org_ecommerce_seller_info_seed($dbh, $orgId);
+    if (trim((string)($settings['store_name'] ?? '')) === '' && $seed['store_name'] !== '') {
+        $settings['store_name'] = $seed['store_name'];
+    }
+    if (trim((string)($settings['full_name'] ?? '')) === '' && $seed['full_name'] !== '') {
+        $settings['full_name'] = $seed['full_name'];
+    }
+    if (trim((string)($settings['contact_email'] ?? '')) === '' && $seed['contact_email'] !== '') {
+        $settings['contact_email'] = $seed['contact_email'];
+    }
+    if (trim((string)($settings['contact_phone'] ?? '')) === '' && $seed['contact_phone'] !== '') {
+        $settings['contact_phone'] = $seed['contact_phone'];
+    }
+    return $settings;
+}
+
+/** Persist seed into shop_json when seller identity fields are still blank. */
+function org_ecommerce_ensure_seller_info_seeded(PDO $dbh, int $orgId): array
+{
+    $settings = org_ecommerce_get_shop_settings($dbh, $orgId);
+    $seed = org_ecommerce_seller_info_seed($dbh, $orgId);
+    $patch = [];
+    if (trim((string)($settings['store_name'] ?? '')) === '' && $seed['store_name'] !== '') {
+        $patch['store_name'] = $seed['store_name'];
+    }
+    if (trim((string)($settings['full_name'] ?? '')) === '' && !empty($seed['full_name'])) {
+        $patch['full_name'] = $seed['full_name'];
+    }
+    if (trim((string)($settings['contact_email'] ?? '')) === '' && $seed['contact_email'] !== '') {
+        $patch['contact_email'] = $seed['contact_email'];
+    }
+    if (trim((string)($settings['contact_phone'] ?? '')) === '' && $seed['contact_phone'] !== '') {
+        $patch['contact_phone'] = $seed['contact_phone'];
+    }
+    if ($patch) {
+        org_ecommerce_save_shop_settings($dbh, $orgId, $patch);
+        return org_ecommerce_get_shop_settings($dbh, $orgId);
+    }
+    return $settings;
+}
+
+/**
+ * Save seller profile (name, contact, address) from POST into shop_json.
+ * Used by sales management and shop settings.
+ *
+ * @return array{ok:bool,error?:string}
+ */
+function org_ecommerce_save_seller_profile_from_post(PDO $dbh, int $orgId, array $post): array
+{
+    if ($orgId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid shop.'];
+    }
+    $storeName = trim((string)($post['store_name'] ?? ''));
+    $fullName = trim((string)($post['full_name'] ?? ''));
+    if ($storeName === '' && $fullName !== '') {
+        $storeName = $fullName;
+    }
+    if ($storeName === '') {
+        return ['ok' => false, 'error' => 'Store / seller name is required.'];
+    }
+    if (mb_strlen($storeName) > 120) {
+        $storeName = mb_substr($storeName, 0, 120);
+    }
+    if (mb_strlen($fullName) > 120) {
+        $fullName = mb_substr($fullName, 0, 120);
+    }
+    $email = trim((string)($post['contact_email'] ?? ''));
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Enter a valid contact email.'];
+    }
+    $payload = [
+        'store_name' => $storeName,
+        'full_name' => $fullName,
+        'tagline' => trim((string)($post['tagline'] ?? '')),
+        'contact_email' => $email,
+        'contact_phone' => trim((string)($post['contact_phone'] ?? '')),
+        'address' => [
+            'line1' => trim((string)($post['address_line1'] ?? '')),
+            'line2' => trim((string)($post['address_line2'] ?? '')),
+            'city' => trim((string)($post['address_city'] ?? '')),
+            'state' => trim((string)($post['address_state'] ?? '')),
+            'postal_code' => trim((string)($post['address_postal_code'] ?? '')),
+            'country' => trim((string)($post['address_country'] ?? '')),
+        ],
+    ];
+    if (!org_ecommerce_save_shop_settings($dbh, $orgId, $payload)) {
+        return ['ok' => false, 'error' => 'Could not save seller profile.'];
+    }
+    try {
+        $st = $dbh->prepare('UPDATE organizations SET name = :name, updated_at = NOW() WHERE id = :id LIMIT 1');
+        $st->execute([':name' => $storeName, ':id' => $orgId]);
+    } catch (Throwable $e) {
+        // ignore org rename failure
+    }
+    return ['ok' => true];
+}
+
+/**
+ * Whether seller has a usable full address (required before creating products).
+ */
+function org_ecommerce_seller_has_required_address(PDO $dbh, int $orgId): bool
+{
+    if ($orgId <= 0) {
+        return false;
+    }
+    $settings = org_ecommerce_get_shop_settings($dbh, $orgId);
+    $addr = is_array($settings['address'] ?? null) ? $settings['address'] : [];
+    return org_ecommerce_address_is_complete($addr);
+}
+
+/**
+ * @param array<string,mixed> $address
+ */
+function org_ecommerce_address_is_complete(array $address): bool
+{
+    $line1 = trim((string)($address['line1'] ?? ''));
+    $city = trim((string)($address['city'] ?? ''));
+    $state = trim((string)($address['state'] ?? ''));
+    return $line1 !== '' && $city !== '' && $state !== '';
+}
+
+/**
+ * Save only the seller business address into shop_json (keeps other profile fields).
+ *
+ * @return array{ok:bool,error?:string,address_text?:string,address?:array<string,string>}
+ */
+function org_ecommerce_save_seller_address_from_post(PDO $dbh, int $orgId, array $post): array
+{
+    if ($orgId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid shop.'];
+    }
+    $address = [
+        'line1' => trim((string)($post['address_line1'] ?? '')),
+        'line2' => trim((string)($post['address_line2'] ?? '')),
+        'city' => trim((string)($post['address_city'] ?? '')),
+        'state' => trim((string)($post['address_state'] ?? '')),
+        'postal_code' => trim((string)($post['address_postal_code'] ?? '')),
+        'country' => trim((string)($post['address_country'] ?? '')),
+    ];
+    if (!org_ecommerce_address_is_complete($address)) {
+        return ['ok' => false, 'error' => 'Address line 1, city, and state are required.'];
+    }
+    if ($address['country'] === '') {
+        $address['country'] = 'United States';
+    }
+    if (!org_ecommerce_save_shop_settings($dbh, $orgId, ['address' => $address])) {
+        return ['ok' => false, 'error' => 'Could not save address.'];
+    }
+    return [
+        'ok' => true,
+        'address' => $address,
+        'address_text' => org_ecommerce_format_seller_address($address),
+    ];
+}
+
+function org_ecommerce_format_seller_address(?array $address): string
+{
+    if (!is_array($address)) {
+        return '';
+    }
+    require_once dirname(__DIR__) . '/../public_user/includes/org_shop.php';
+    return org_shop_format_seller_address($address);
 }
 
 /** @return array<string, mixed> */
@@ -135,6 +341,13 @@ function org_ecommerce_save_shop_settings(PDO $dbh, int $orgId, array $settings)
     }
     $current = org_ecommerce_get_shop_settings($dbh, $orgId);
     $merged = array_replace_recursive($current, $settings);
+    // List fields must replace, not merge by numeric index.
+    if (array_key_exists('custom_categories', $settings) && is_array($settings['custom_categories'])) {
+        $merged['custom_categories'] = array_values($settings['custom_categories']);
+    }
+    if (array_key_exists('custom_selling_types', $settings) && is_array($settings['custom_selling_types'])) {
+        $merged['custom_selling_types'] = array_values($settings['custom_selling_types']);
+    }
     try {
         $st = $dbh->prepare('
             INSERT INTO org_settings (org_id, shop_json, updated_at)
@@ -149,6 +362,242 @@ function org_ecommerce_save_shop_settings(PDO $dbh, int $orgId, array $settings)
     } catch (Throwable $e) {
         return false;
     }
+}
+
+/**
+ * Seller-only category names stored in shop_json (not shared across brands/orgs).
+ *
+ * @return list<string>
+ */
+function org_ecommerce_get_custom_categories(PDO $dbh, int $orgId): array
+{
+    $settings = org_ecommerce_get_shop_settings($dbh, $orgId);
+    $raw = $settings['custom_categories'] ?? [];
+    if (!is_array($raw)) {
+        return [];
+    }
+    $out = [];
+    foreach ($raw as $name) {
+        $name = trim((string)$name);
+        if ($name === '' || mb_strlen($name) > 80) {
+            continue;
+        }
+        $key = mb_strtolower($name);
+        if (!isset($out[$key])) {
+            $out[$key] = $name;
+        }
+    }
+    return array_values($out);
+}
+
+/**
+ * @param list<string> $brandCategories
+ * @return list<string>
+ */
+function org_ecommerce_product_category_options(PDO $dbh, int $orgId, array $brandCategories = []): array
+{
+    $map = [];
+    foreach ($brandCategories as $name) {
+        $name = trim((string)$name);
+        if ($name === '') {
+            continue;
+        }
+        $map[mb_strtolower($name)] = $name;
+    }
+    foreach (org_ecommerce_get_custom_categories($dbh, $orgId) as $name) {
+        $map[mb_strtolower($name)] = $name;
+    }
+    // Categories mirror "What things are you selling" (platform + custom + used types).
+    foreach (org_ecommerce_product_selling_type_options($dbh, $orgId) as $name) {
+        $name = trim((string)$name);
+        if ($name === '') {
+            continue;
+        }
+        $map[mb_strtolower($name)] = $name;
+    }
+    // Also include categories already used on this seller's products.
+    try {
+        $st = $dbh->prepare("
+            SELECT DISTINCT category
+            FROM org_products
+            WHERE org_id = :org AND is_deleted = 0
+              AND category IS NOT NULL AND TRIM(category) <> ''
+            ORDER BY category ASC
+            LIMIT 200
+        ");
+        $st->execute([':org' => $orgId]);
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            $name = trim((string)($row['category'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $map[mb_strtolower($name)] = $name;
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+    $list = array_values($map);
+    natcasesort($list);
+    return array_values($list);
+}
+
+/**
+ * @return array{ok:bool,error?:string,name?:string,categories?:list<string>}
+ */
+function org_ecommerce_add_custom_category(PDO $dbh, int $orgId, string $name): array
+{
+    $name = trim($name);
+    if ($orgId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid shop.'];
+    }
+    if ($name === '') {
+        return ['ok' => false, 'error' => 'Category name is required.'];
+    }
+    if (mb_strlen($name) > 80) {
+        $name = mb_substr($name, 0, 80);
+    }
+    $current = org_ecommerce_get_custom_categories($dbh, $orgId);
+    foreach ($current as $existing) {
+        if (strcasecmp($existing, $name) === 0) {
+            $all = org_ecommerce_product_category_options($dbh, $orgId, []);
+            return ['ok' => true, 'name' => $existing, 'categories' => $all, 'error' => ''];
+        }
+    }
+    $current[] = $name;
+    if (!org_ecommerce_save_shop_settings($dbh, $orgId, ['custom_categories' => $current])) {
+        return ['ok' => false, 'error' => 'Could not save category.'];
+    }
+    return [
+        'ok' => true,
+        'name' => $name,
+        'categories' => org_ecommerce_product_category_options($dbh, $orgId, []),
+    ];
+}
+
+/**
+ * @return list<string>
+ */
+function org_ecommerce_get_custom_selling_types(PDO $dbh, int $orgId): array
+{
+    $settings = org_ecommerce_get_shop_settings($dbh, $orgId);
+    $raw = $settings['custom_selling_types'] ?? [];
+    if (!is_array($raw)) {
+        return [];
+    }
+    $out = [];
+    foreach ($raw as $name) {
+        $name = trim((string)$name);
+        if ($name === '' || mb_strlen($name) > 80) {
+            continue;
+        }
+        $key = mb_strtolower($name);
+        if (!isset($out[$key])) {
+            $out[$key] = $name;
+        }
+    }
+    return array_values($out);
+}
+
+/**
+ * @return list<string>
+ */
+function org_ecommerce_product_selling_type_options(PDO $dbh, int $orgId): array
+{
+    $map = [];
+    if (!function_exists('org_product_type_platform_selling_labels')) {
+        $schemaFile = dirname(__DIR__) . '/../public_user/includes/org_product_type_schemas.php';
+        if (is_file($schemaFile)) {
+            require_once $schemaFile;
+        }
+    }
+    if (function_exists('org_product_type_platform_selling_labels')) {
+        foreach (org_product_type_platform_selling_labels() as $name) {
+            $map[mb_strtolower($name)] = $name;
+        }
+    }
+    foreach (org_ecommerce_get_custom_selling_types($dbh, $orgId) as $name) {
+        $map[mb_strtolower($name)] = $name;
+    }
+    try {
+        $st = $dbh->prepare("
+            SELECT DISTINCT selling_type
+            FROM org_products
+            WHERE org_id = :org AND is_deleted = 0
+              AND selling_type IS NOT NULL AND TRIM(selling_type) <> ''
+            ORDER BY selling_type ASC
+            LIMIT 200
+        ");
+        $st->execute([':org' => $orgId]);
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            $name = trim((string)($row['selling_type'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $map[mb_strtolower($name)] = $name;
+        }
+    } catch (Throwable $e) {
+        // ignore until migration runs
+    }
+    $list = array_values($map);
+    natcasesort($list);
+    return array_values($list);
+}
+
+/**
+ * @return array{ok:bool,error?:string,name?:string,selling_types?:list<string>}
+ */
+function org_ecommerce_add_custom_selling_type(PDO $dbh, int $orgId, string $name): array
+{
+    $name = trim($name);
+    if ($orgId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid shop.'];
+    }
+    if ($name === '') {
+        return ['ok' => false, 'error' => 'Name is required.'];
+    }
+    if (mb_strlen($name) > 80) {
+        $name = mb_substr($name, 0, 80);
+    }
+    $current = org_ecommerce_get_custom_selling_types($dbh, $orgId);
+    $savedName = $name;
+    $already = false;
+    foreach ($current as $existing) {
+        if (strcasecmp($existing, $name) === 0) {
+            $savedName = $existing;
+            $already = true;
+            break;
+        }
+    }
+    if (!$already) {
+        $current[] = $name;
+    }
+    // Keep Category options in sync with selling names.
+    $categories = org_ecommerce_get_custom_categories($dbh, $orgId);
+    $catExists = false;
+    foreach ($categories as $existing) {
+        if (strcasecmp($existing, $savedName) === 0) {
+            $catExists = true;
+            break;
+        }
+    }
+    if (!$catExists) {
+        $categories[] = $savedName;
+    }
+    $patch = [
+        'custom_selling_types' => $current,
+        'custom_categories' => $categories,
+    ];
+    if (!$already || !$catExists) {
+        if (!org_ecommerce_save_shop_settings($dbh, $orgId, $patch)) {
+            return ['ok' => false, 'error' => 'Could not save.'];
+        }
+    }
+    return [
+        'ok' => true,
+        'name' => $savedName,
+        'selling_types' => org_ecommerce_product_selling_type_options($dbh, $orgId),
+        'categories' => org_ecommerce_product_category_options($dbh, $orgId, []),
+    ];
 }
 
 function org_ecommerce_stripe_configured(): bool
@@ -276,7 +725,7 @@ function org_ecommerce_dashboard_stats(PDO $dbh, int $orgId): array
         $st = $dbh->prepare("
             SELECT COUNT(*) FROM org_products
             WHERE org_id = :org AND is_deleted = 0 AND status = 'active'
-              AND stock_qty IS NOT NULL AND stock_qty <= 5
+              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 5
         ");
         $st->execute([':org' => $orgId]);
         $stats['products_low_stock'] = (int)($st->fetchColumn() ?: 0);
@@ -344,7 +793,7 @@ function org_ecommerce_low_stock_products(PDO $dbh, int $orgId, int $limit = 10)
             SELECT id, title, sku, stock_qty, status
             FROM org_products
             WHERE org_id = :org AND is_deleted = 0 AND status = 'active'
-              AND stock_qty IS NOT NULL AND stock_qty <= 5
+              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 5
             ORDER BY stock_qty ASC, title ASC
             LIMIT {$limit}
         ");
@@ -369,14 +818,47 @@ function org_ecommerce_update_fulfillment(
         return false;
     }
     org_ecommerce_ensure_schema($dbh);
+    $trackingNumber = trim($trackingNumber);
+    $carrier = trim($carrier);
+    $sellerNotes = trim($sellerNotes);
+
+    // If seller enters carrier + tracking while still pending/paid, auto-mark shipped.
+    if (
+        $carrier !== ''
+        && $trackingNumber !== ''
+        && in_array($status, ['pending', 'confirmed', 'paid'], true)
+    ) {
+        $status = 'shipped';
+    }
+
     try {
+        $prevSt = $dbh->prepare('
+            SELECT status, buyer_user_id, order_code, carrier, tracking_number
+            FROM org_orders
+            WHERE id = :id AND org_id = :org
+            LIMIT 1
+        ');
+        $prevSt->execute([':id' => $orderId, ':org' => $orgId]);
+        $prev = $prevSt->fetch(PDO::FETCH_ASSOC);
+        if (!$prev) {
+            return false;
+        }
+        $prevStatus = strtolower(trim((string)($prev['status'] ?? '')));
+        $buyerUserId = (int)($prev['buyer_user_id'] ?? 0);
+        $orderCode = (string)($prev['order_code'] ?? '');
+
         $sql = '
             UPDATE org_orders
             SET status = :st,
                 seller_notes = :notes,
                 tracking_number = :track,
                 carrier = :carrier,
+                paid_at = CASE
+                    WHEN :st = \'paid\' AND paid_at IS NULL THEN NOW()
+                    ELSE paid_at
+                END,
                 shipped_at = CASE WHEN :st = \'shipped\' AND shipped_at IS NULL THEN NOW() ELSE shipped_at END,
+                delivered_at = CASE WHEN :st = \'delivered\' AND delivered_at IS NULL THEN NOW() ELSE delivered_at END,
                 updated_at = NOW()
             WHERE id = :id AND org_id = :org
             LIMIT 1
@@ -385,8 +867,8 @@ function org_ecommerce_update_fulfillment(
         $st->execute([
             ':st' => $status,
             ':notes' => $sellerNotes !== '' ? $sellerNotes : null,
-            ':track' => trim($trackingNumber) !== '' ? trim($trackingNumber) : null,
-            ':carrier' => trim($carrier) !== '' ? trim($carrier) : null,
+            ':track' => $trackingNumber !== '' ? $trackingNumber : null,
+            ':carrier' => $carrier !== '' ? $carrier : null,
             ':id' => $orderId,
             ':org' => $orgId,
         ]);
@@ -394,11 +876,48 @@ function org_ecommerce_update_fulfillment(
             return false;
         }
         if ($status === 'paid') {
+            org_shop_apply_order_fees($dbh, $orderId);
+            $fbaShipped = org_shop_auto_fulfill_fba_order($dbh, $orderId);
             org_shop_issue_receipt($dbh, $orgId, $orderId);
+            if ($fbaShipped && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+                org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, 'shipped');
+            }
+            if ($status !== $prevStatus && function_exists('org_shop_notify_seller_order_status')) {
+                org_shop_notify_seller_order_status($dbh, $orgId, $buyerUserId, 'paid', [$orderCode]);
+                if ($fbaShipped) {
+                    org_shop_notify_seller_order_status(
+                        $dbh,
+                        $orgId,
+                        $buyerUserId,
+                        'shipped',
+                        [$orderCode],
+                        'Platform Fulfillment'
+                    );
+                }
+            }
+            return true;
+        }
+        if (in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+            org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
+        }
+
+        if ($status !== $prevStatus && function_exists('org_shop_notify_seller_order_status')) {
+            $extra = '';
+            if ($status === 'shipped') {
+                $bits = array_filter([$carrier, $trackingNumber]);
+                $extra = implode(' / ', $bits);
+            } elseif ($status === 'cancelled') {
+                $extra = $sellerNotes !== '' ? $sellerNotes : 'Cancelled by seller';
+            }
+            org_shop_notify_seller_order_status($dbh, $orgId, $buyerUserId, $status, [$orderCode], $extra);
         }
         return true;
     } catch (Throwable $e) {
-        return org_shop_update_order_status($dbh, $orgId, $orderId, $status, $sellerNotes);
+        $ok = org_shop_update_order_status($dbh, $orgId, $orderId, $status, $sellerNotes);
+        if ($ok && in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+            org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
+        }
+        return $ok;
     }
 }
 

@@ -431,7 +431,8 @@ function publisher_org_provision_publisher_account(
     string $username,
     string $email,
     string $passwordHash,
-    string $category = 'news'
+    string $category = 'news',
+    int $commerceBrandId = 0
 ): int {
     publisher_org_ensure_schema($dbh);
 
@@ -447,6 +448,11 @@ function publisher_org_provision_publisher_account(
     $category = strtolower(trim($category));
     if (!isset(publisher_categories()[$category])) {
         $category = 'news';
+    }
+
+    if ($commerceBrandId <= 0 && $category === 'commerce') {
+        require_once __DIR__ . '/org_commerce_brands.php';
+        $commerceBrandId = org_commerce_brands_resolve_for_registration($dbh, 0, $publisherName);
     }
 
     $managerId = publisher_org_ensure_manager_for_publisher(
@@ -472,23 +478,30 @@ function publisher_org_provision_publisher_account(
         $dbh->beginTransaction();
 
         if (publisher_org_organizations_has_publisher_columns($dbh)) {
+            $setCommerceBrand = $commerceBrandId > 0
+                && publisher_org_db_column_exists($dbh, 'organizations', 'commerce_brand_id');
             $st = $dbh->prepare('
                 UPDATE organizations
                 SET owner_manager_id = :mid,
                     name = :name,
                     publisher_user_id = :uid,
                     publisher_category = :cat,
-                    is_publisher_org = 1,
+                    is_publisher_org = 1' . ($setCommerceBrand ? ',
+                    commerce_brand_id = :cbid' : '') . ',
                     updated_at = NOW()
                 WHERE id = :id
             ');
-            $st->execute([
+            $params = [
                 ':mid' => $managerId,
                 ':name' => $publisherName,
                 ':uid' => $publisherUserId,
                 ':cat' => $category,
                 ':id' => $orgId,
-            ]);
+            ];
+            if ($setCommerceBrand) {
+                $params[':cbid'] = $commerceBrandId;
+            }
+            $st->execute($params);
         } else {
             $st = $dbh->prepare('
                 UPDATE organizations
@@ -1199,7 +1212,7 @@ function publisher_org_ensure_for_publisher_name(PDO $dbh, string $name, string 
 }
 
 /** After public_user publisher registration, link the org to the new publisher user. */
-function publisher_org_link_publisher_user(PDO $dbh, string $name, int $publisherUserId, string $category = 'news'): int
+function publisher_org_link_publisher_user(PDO $dbh, string $name, int $publisherUserId, string $category = 'news', int $commerceBrandId = 0): int
 {
     if ($publisherUserId <= 0) {
         return 0;
@@ -1235,7 +1248,8 @@ function publisher_org_link_publisher_user(PDO $dbh, string $name, int $publishe
         trim((string)($user['username'] ?? '')),
         trim((string)($user['email'] ?? '')),
         (string)($user['password'] ?? ''),
-        $category
+        $category,
+        $commerceBrandId
     );
 }
 

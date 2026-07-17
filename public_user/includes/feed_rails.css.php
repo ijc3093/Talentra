@@ -54,7 +54,7 @@ body.feed-insta-ui .feed-right-nav-ic svg{
     max-height:100%;
     overflow-y:auto;
     overflow-x:hidden;
-    padding:0 2px 0 0;
+    padding:10px 2px 0 0;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
     touch-action:pan-y;

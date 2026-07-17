@@ -177,8 +177,18 @@ function platform_rent_get_plan_by_code(PDO $dbh, string $code): ?array
 
 function platform_rent_org_is_shop(array $org): bool
 {
-    if ((int)($org['is_publisher_org'] ?? 0) === 1) {
+    // Media publishers (news/sports/etc.) are not commerce shops even if org_kind was set to shop.
+    $cat = strtolower(trim((string)($org['publisher_category'] ?? '')));
+    if ($cat !== '' && $cat !== 'commerce') {
+        return false;
+    }
+    $brandId = (int)($org['commerce_brand_id'] ?? 0);
+    if ($brandId > 0 || $cat === 'commerce') {
         return true;
+    }
+    // Non-publisher orgs may still be shops.
+    if ((int)($org['is_publisher_org'] ?? 0) === 1) {
+        return false;
     }
     return strtolower(trim((string)($org['org_kind'] ?? ''))) === 'shop';
 }
@@ -254,14 +264,20 @@ function platform_rent_shop_is_visible(PDO $dbh, int $orgId): bool
     }
 
     try {
-        $st = $dbh->prepare('SELECT status, org_kind, is_publisher_org, rent_status FROM organizations WHERE id = :id LIMIT 1');
+        $st = $dbh->prepare('
+            SELECT status, org_kind, is_publisher_org, rent_status, commerce_brand_id, publisher_category
+            FROM organizations
+            WHERE id = :id
+            LIMIT 1
+        ');
         $st->execute([':id' => $orgId]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row || (int)($row['status'] ?? 0) !== 1) {
             return false;
         }
         if (!platform_rent_org_is_shop($row)) {
-            return true;
+            // Non-shops (including media publishers) are not marketplace-visible via shop rent.
+            return false;
         }
     } catch (Throwable $e) {
         return false;
@@ -326,6 +342,18 @@ function platform_rent_start_trial_for_org(PDO $dbh, int $orgId, int $trialDays 
 {
     platform_rent_ensure_schema($dbh);
     if ($orgId <= 0) {
+        return;
+    }
+
+    // Shop trials are only for commerce sellers — never for CNN/news-style publishers.
+    try {
+        $stCat = $dbh->prepare('SELECT commerce_brand_id, publisher_category, is_publisher_org, org_kind FROM organizations WHERE id = :id LIMIT 1');
+        $stCat->execute([':id' => $orgId]);
+        $orgRow = $stCat->fetch(PDO::FETCH_ASSOC) ?: [];
+        if (!platform_rent_org_is_shop($orgRow)) {
+            return;
+        }
+    } catch (Throwable $e) {
         return;
     }
 

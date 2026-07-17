@@ -21,16 +21,15 @@ if ($headerStaffRoleLabel === '') {
 $meId = theme_prefs_viewer_user_id();
 $headerCanLiveStudio = live_studio_user_can_access($dbh, $meId);
 
-if ($meId > 0 && function_exists('publisher_account_is') && publisher_account_is($dbh, $meId)) {
-  if (function_exists('publisher_session_is_owner') && !publisher_session_is_owner()) {
-    try {
-      publisher_session_bind_owner($dbh, $meId);
-      $meId = theme_prefs_viewer_user_id();
-    } catch (Throwable $e) {
-      // ignore
-    }
+if ($meId > 0 && function_exists('publisher_session_ensure_owner_binding')) {
+  try {
+    publisher_session_ensure_owner_binding($dbh);
+    $meId = theme_prefs_viewer_user_id();
+  } catch (Throwable $e) {
+    // ignore
   }
 }
+$msbPublisherAccountUi = ($meId > 0 && function_exists('publisher_account_is') && publisher_account_is($dbh, $meId));
 
 // ---------- helpers ----------
 if (!function_exists('h')) {
@@ -127,6 +126,10 @@ if (!function_exists('parse_notification_meta')) {
     $url = '';
     if ($liveId > 0) {
       $url = 'live_watch.php?live=' . $liveId;
+    } elseif ($route === 'shop') {
+      $url = 'Your_Shopping_preferences.php#notifications';
+    } elseif ($route === 'orgsales') {
+      $url = '../organization/sales_management.php#notification';
     } elseif ($postId > 0) {
       $page = 'feed.php';
       if ($route === 'pf') {
@@ -457,8 +460,17 @@ if (!function_exists('render_header_profile_dropdown')) {
   }
 }
 
+$railProfileHref = 'profile.php';
+if ($meId > 0) {
+  if ($meCode !== '') {
+    $railProfileHref .= '?friend_code=' . rawurlencode($meCode);
+  } else {
+    $railProfileHref .= '?id=' . (int)$meId;
+  }
+}
+
 $railProfileMenuItems = [
-  ['href' => 'profile.php', 'icon' => 'ion-ios-person', 'label' => 'Profile'],
+  ['href' => $railProfileHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
   ['href' => 'my_orders.php', 'icon' => 'ion-bag', 'label' => 'My Orders'],
   ['href' => 'cart.php', 'icon' => 'ion-ios-cart', 'label' => 'Cart'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
@@ -555,7 +567,7 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <link rel="stylesheet" href="./css/dark-auto.css">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=77">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=78">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
@@ -985,6 +997,18 @@ iframe{
 <!-- header -->
 
 <?php if ($showFeedRail): ?>
+<?php if (!empty($msbPublisherAccountUi)): ?>
+<script>document.documentElement.classList.add('msb-publisher-account');</script>
+<style>
+  /* Publisher: keep overlay doors above feed chrome; left text nav stays visible */
+  html.msb-publisher-account #ttLeftbarOverlays{
+    z-index:1295;
+  }
+  html.msb-publisher-account body.public-leftbar-open{
+    overflow-x:hidden;
+  }
+</style>
+<?php endif; ?>
 <style>
   :root{ --feedRailW:84px; }
   body{ background:var(--msb-palette-bg, #f5f7fb); }

@@ -227,6 +227,7 @@ function publisher_can_message(PDO $dbh, int $peerId): bool
 function publisher_categories(): array
 {
     return [
+        'commerce' => 'Commerce & restaurants',
         'news' => 'News',
         'sports' => 'Sports',
         'business' => 'Business',
@@ -637,6 +638,7 @@ function publisher_session_bind_owner(PDO $dbh, int $publisherUserId): void
     $_SESSION['session_user_id'] = $publisherUserId;
     $_SESSION['publisher_session_user_id'] = $publisherUserId;
     $_SESSION['publisher_session_owner'] = 1;
+    $_SESSION['user_account_kind'] = 'publisher';
     unset($_SESSION['publisher_session_staff_id']);
 
     try {
@@ -687,6 +689,31 @@ function publisher_session_is_owner(): bool
         && !publisher_is_staff_workspace_session();
 }
 
+/** Re-bind publisher owner identity before auth guards (profile.php, APIs, etc.). */
+function publisher_session_ensure_owner_binding(PDO $dbh): void
+{
+    if (publisher_is_staff_workspace_session()) {
+        return;
+    }
+
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+    if ($userId <= 0) {
+        return;
+    }
+
+    if (!publisher_account_is($dbh, $userId)) {
+        return;
+    }
+
+    if (!publisher_session_is_owner()) {
+        try {
+            publisher_session_bind_owner($dbh, $userId);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+}
+
 /**
  * Ensure publisher/staff sessions still map to one unique users.id row.
  * Returns false when identity is missing or inconsistent (caller should log out).
@@ -730,7 +757,15 @@ function publisher_session_validate(PDO $dbh): bool
     }
 
     if ($canonical !== $userId) {
-        return false;
+        if (publisher_is_staff_workspace_session()) {
+            return false;
+        }
+        if ($isPublisherRow) {
+            publisher_session_bind_owner($dbh, $userId);
+            $canonical = $userId;
+        } else {
+            return false;
+        }
     }
 
     if (publisher_is_staff_workspace_session()) {
@@ -756,7 +791,10 @@ function publisher_session_validate(PDO $dbh): bool
     }
 
     if ((int)($_SESSION['publisher_session_owner'] ?? 0) !== 1) {
-        return false;
+        publisher_session_bind_owner($dbh, $userId);
+        if ((int)($_SESSION['publisher_session_owner'] ?? 0) !== 1) {
+            return false;
+        }
     }
 
     return true;

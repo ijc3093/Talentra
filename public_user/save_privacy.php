@@ -55,6 +55,7 @@ $allowed = [
     'report_history_enabled' => ['type' => 'bool'],
 
     'appearance_mode' => ['type' => 'appearance_palette'],
+    'theme_auto_enabled' => ['type' => 'bool'],
     'gallery_grid_size' => ['type' => 'enum', 'values' => ['small','medium','large']],
     'autoplay_videos' => ['type' => 'bool'],
     'sound_enabled' => ['type' => 'bool'],
@@ -95,6 +96,8 @@ if ($rule['type'] === 'bool') {
 }
 
 try {
+    appearance_palette_ensure_schema($dbh);
+
     $chk = $dbh->query("SHOW TABLES LIKE 'user_profile_settings'");
     $hasTable = (bool)($chk && $chk->fetchColumn());
     if (!$hasTable) {

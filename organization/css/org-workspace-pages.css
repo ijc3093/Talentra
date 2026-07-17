@@ -1,0 +1,167 @@
+/* Posts, dashboard, and similar publisher workspace pages — Gear appearance palette */
+
+html[data-msb-appearance] body.org-app.org-page-posts .org-surface-page,
+html[data-msb-appearance] body.org-app.org-page-posts .dashboard-card,
+html[data-msb-appearance] body.org-app.org-page-posts .card-body-fixed,
+html[data-msb-appearance] body.org-app.org-page-posts .rows-scroll,
+html[data-msb-appearance] body.org-app.org-page-dashboard .org-surface-page,
+html[data-msb-appearance] body.org-app.org-page-dashboard .dashboard-card,
+html[data-msb-appearance] body.org-app.org-page-dashboard .card-body-fixed,
+html[data-msb-appearance] body.org-app.org-page-dashboard .rows-scroll {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .bulkbar,
+html.dark-auto[data-msb-appearance] body.org-app .bulkbar {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .post-card,
+html[data-msb-appearance] body.org-app .feed-card,
+html.dark-auto[data-msb-appearance] body.org-app .post-card,
+html.dark-auto[data-msb-appearance] body.org-app .feed-card {
+  background-color: var(--msb-palette-bg) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .posts-tabs a,
+html.dark-auto[data-msb-appearance] body.org-app .posts-tabs a {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.org-app .posts-tabs a.active,
+html.dark-auto[data-msb-appearance] body.org-app .posts-tabs a.active {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.org-app .post-title,
+html[data-msb-appearance] body.org-app .post-body strong,
+html.dark-auto[data-msb-appearance] body.org-app .post-title {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .post-body,
+html[data-msb-appearance] body.org-app .count-line,
+html[data-msb-appearance] body.org-app .mini-muted,
+html[data-msb-appearance] body.org-app .tx-gray-600,
+html.dark-auto[data-msb-appearance] body.org-app .post-body,
+html.dark-auto[data-msb-appearance] body.org-app .count-line,
+html.dark-auto[data-msb-appearance] body.org-app .mini-muted {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.org-app .badge-pill,
+html[data-msb-appearance] body.org-app .feed-badge,
+html.dark-auto[data-msb-appearance] body.org-app .badge-pill {
+  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-action, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.org-app .post-foot {
+  border-top-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .stat-pill,
+html.dark-auto[data-msb-appearance] body.org-app .stat-pill {
+  background-color: var(--msb-palette-bg) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .stat-pill .icon {
+  background-color: var(--msb-palette-action-soft) !important;
+  color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.org-app .stat-pill .num {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .stat-pill .lbl,
+html[data-msb-appearance] body.org-app .stat-pill .sub {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.org-app .publisher-hub {
+  background: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-action) !important;
+}
+
+html[data-msb-appearance] body.org-app .publisher-hub-title,
+html[data-msb-appearance] body.org-app .publisher-check label,
+html[data-msb-appearance] body.org-app .publisher-stat {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .publisher-hub-sub,
+html[data-msb-appearance] body.org-app .publisher-check .hint,
+html[data-msb-appearance] body.org-app .feed-meta {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.org-app .publisher-check,
+html[data-msb-appearance] body.org-app .publisher-stat {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] body.org-app .xmodal,
+html.dark-auto[data-msb-appearance] body.org-app .xmodal {
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .xmodal-h,
+html[data-msb-appearance] body.org-app .xmodal-f {
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.org-app .dash-toprow .btn-outline-secondary,
+html[data-msb-appearance] body.org-app .dash-toprow a.btn-outline-secondary,
+html.dark-auto[data-msb-appearance] body.org-app .dash-toprow .btn-outline-secondary,
+html.dark-auto[data-msb-appearance] body.org-app .dash-toprow a.btn-outline-secondary {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .dash-toprow .btn-outline-secondary:hover,
+html[data-msb-appearance] body.org-app .dash-toprow a.btn-outline-secondary:hover {
+  background-color: var(--msb-palette-nav-hover, var(--msb-palette-hover-bg)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app .searchbar .btn-primary,
+html[data-msb-appearance] body.org-app .dash-toprow .btn-primary {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html[data-msb-appearance] body.org-app .searchbar .form-control,
+html[data-msb-appearance] body.org-app .searchbar select.form-control {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] body.org-app .pill,
+html[data-msb-appearance] body.org-app .btn-close-x,
+html.dark-auto[data-msb-appearance] body.org-app .pill,
+html.dark-auto[data-msb-appearance] body.org-app .btn-close-x {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}

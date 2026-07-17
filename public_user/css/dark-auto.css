@@ -46,12 +46,42 @@ html[data-theme="light"]{
   color-scheme: light;
 }
 
-:is(html.dark-auto, body.dark-auto) a{
-  color:#b1bcce;
+:is(html.dark-auto, body.dark-auto) a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.gear-detail-open-btn):not(.feed-ig-logo){
+  color:var(--msb-palette-link, var(--msb-palette-text, #b1bcce));
 }
 
-:is(html.dark-auto, body.dark-auto) a:hover{
-  color:#b1bcce;
+:is(html.dark-auto, body.dark-auto) a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.gear-detail-open-btn):not(.feed-ig-logo):hover,
+:is(html.dark-auto, body.dark-auto) a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.gear-detail-open-btn):not(.feed-ig-logo):focus{
+  color:var(--msb-palette-link-hover, var(--msb-palette-link, var(--msb-palette-text, #e8edf5)));
+}
+
+html.dark-auto:not([data-msb-appearance]) a.gear-detail-open-btn,
+html.dark-auto:not([data-msb-appearance]) body.profile-page a.gear-detail-open-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) a.gear-detail-open-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page a.gear-detail-open-btn,
+html.dark-auto:not([data-msb-appearance]) a.btn,
+html.dark-auto:not([data-msb-appearance]) a.btn-primary,
+html.dark-auto:not([data-msb-appearance]) a.btn-success,
+html.dark-auto:not([data-msb-appearance]) a.ch-btn-primary,
+html.dark-auto:not([data-msb-appearance]) body.org-app a.btn,
+html.dark-auto:not([data-msb-appearance]) body.org-app a.btn-primary,
+html.dark-auto:not([data-msb-appearance]) body.org-app a.ch-btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) a.btn,
+html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) body.org-app a.btn-primary{
+  background-color:var(--msb-palette-btn-bg, #1d4ed8) !important;
+  background-image:none !important;
+  border-color:var(--msb-palette-btn-bg, #1d4ed8) !important;
+  color:var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) a.gear-detail-open-btn i,
+html.dark-auto:not([data-msb-appearance]) a.gear-detail-open-btn .icon,
+html.dark-auto:not([data-msb-appearance]) a.btn-primary i,
+html.dark-auto:not([data-msb-appearance]) body.org-app a.btn-primary i,
+html[data-theme="dark"]:not([data-msb-appearance]) a.gear-detail-open-btn i,
+html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary i{
+  color:var(--msb-palette-btn-text, #ffffff) !important;
 }
 
 :is(html.dark-auto, body.dark-auto) small,
@@ -114,9 +144,57 @@ html[data-theme="light"]{
 :is(html.dark-auto, body.dark-auto) .bd,
 :is(html.dark-auto, body.dark-auto) .app-main,
 :is(html.dark-auto, body.dark-auto) .signbox,
-:is(html.dark-auto, body.dark-auto) .col-md-8{
+:is(html.dark-auto, body.dark-auto) .col-md-8,
+:is(html.dark-auto, body.dark-auto) .gear-wrap,
+:is(html.dark-auto, body.dark-auto) .gear-shell,
+:is(html.dark-auto, body.dark-auto) .gear-sidebar,
+:is(html.dark-auto, body.dark-auto) .gear-sidebar-head,
+:is(html.dark-auto, body.dark-auto) .gear-main,
+:is(html.dark-auto, body.dark-auto) .gear-nav,
+:is(html.dark-auto, body.dark-auto) .gear-detail-panel,
+:is(html.dark-auto, body.dark-auto) .gear-detail-head,
+:is(html.dark-auto, body.dark-auto) .gear-detail-body,
+:is(html.dark-auto, body.dark-auto) .gear-detail-empty,
+:is(html.dark-auto, body.dark-auto) .gear-search,
+:is(html.dark-auto, body.dark-auto) .gear-control,
+:is(html.dark-auto, body.dark-auto) .gear-note{
   background:var(--msb-palette-bg, #171d24) !important;
   color:#e6edf3;
+}
+
+/* Org product/settings forms — no dark row bands; appearance palette paints the card */
+html[data-msb-appearance] body.org-app .card-body .row,
+html[data-msb-appearance] body.org-app form .row,
+:is(html.dark-auto, body.dark-auto) body.org-app .card-body .row,
+:is(html.dark-auto, body.dark-auto) body.org-app form .row {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: inherit !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:is(html.dark-auto, body.dark-auto) body.org-app .card-body .form-group label,
+:is(html.dark-auto, body.dark-auto) body.org-app form .form-group label,
+html[data-msb-appearance] body.org-app form .form-group label,
+html[data-msb-appearance] body.org-app form label {
+  color: var(--msb-palette-text, var(--org-text, #e8edf5)) !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .card-body .row,
+html[data-msb-appearance] body.org-app .org-surface-page form .row,
+:is(html.dark-auto, body.dark-auto) body.org-app .org-surface-page .card-body .row,
+:is(html.dark-auto, body.dark-auto) body.org-app .org-surface-page form .row {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: inherit !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance] body.org-app .org-surface-page .form-group label,
+html[data-msb-appearance] body.org-app .org-surface-page form .form-group label {
+  color: var(--msb-palette-text) !important;
 }
 
 :is(html.dark-auto, body.dark-auto) .right-sidebar,
@@ -141,7 +219,7 @@ html[data-theme="light"]{
 
 
 :is(html.dark-auto, body.dark-auto) .right-active,
-:is(html.dark-auto, body.dark-auto) .active{
+:is(html.dark-auto, body.dark-auto) .active:not(.ig-tab){
     background:#394451 !important;
   color:#e6edf3;
 }
@@ -165,9 +243,7 @@ html[data-theme="light"]{
 :is(html.dark-auto, body.dark-auto) .h3-txt,
 :is(html.dark-auto, body.dark-auto) .pv-likebar,
 :is(html.dark-auto, body.dark-auto) .caption-line,
-:is(html.dark-auto, body.dark-auto) .ig-username,
 :is(html.dark-auto, body.dark-auto) .name,
-:is(html.dark-auto, body.dark-auto) .ig-stat,
 :is(html.dark-auto, body.dark-auto) .pv-com,
 :is(html.dark-auto, body.dark-auto) .mf-body,
 :is(html.dark-auto, body.dark-auto) .sh-sideleft-menu,
@@ -210,7 +286,6 @@ html[data-theme="light"]{
 :is(html.dark-auto, body.dark-auto) input,
 :is(html.dark-auto, body.dark-auto) .pv-input,
 :is(html.dark-auto, body.dark-auto) .textarea,
-:is(html.dark-auto, body.dark-auto) .title,
 :is(html.dark-auto, body.dark-auto) .rm-title,
 :is(html.dark-auto, body.dark-auto) textarea,
 :is(html.dark-auto, body.dark-auto) select,
@@ -243,12 +318,15 @@ html[data-theme="light"]{
   border-color:var(--studio-border) !important;
 }
 
-:is(html.dark-auto, body.dark-auto) .btn-light,
-:is(html.dark-auto, body.dark-auto) .btn-white,
-:is(html.dark-auto, body.dark-auto) .btn-outline-secondary{
-  background:#30363d !important;
-  color:#f8fafc !important;
-  border-color:var(--studio-border) !important;
+html.dark-auto:not([data-msb-appearance]) .btn-light,
+html.dark-auto:not([data-msb-appearance]) .btn-white,
+html.dark-auto:not([data-msb-appearance]) .btn-outline-secondary,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn-light,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn-white,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn-outline-secondary {
+  background: var(--msb-palette-surface-2, #30363d) !important;
+  color: var(--msb-palette-text, #f8fafc) !important;
+  border-color: var(--msb-palette-border-strong, var(--studio-border, rgba(255,255,255,.12))) !important;
 }
 
 :is(html.dark-auto, body.dark-auto) .btn-link{
@@ -298,19 +376,37 @@ html[data-theme="light"]{
 }
 
 /* Buttons */
-:is(html.dark-auto, body.dark-auto) .btn,
-:is(html.dark-auto, body.dark-auto) .ig-btn,
+html.dark-auto:not([data-msb-appearance]) .btn,
+html.dark-auto:not([data-msb-appearance]) button.btn,
+html.dark-auto:not([data-msb-appearance]) .ig-btn,
+html.dark-auto:not([data-msb-appearance]) .iconbtn,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn,
+html[data-theme="dark"]:not([data-msb-appearance]) button.btn,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-btn {
+  background: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #30363d)) !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+  border-color: var(--msb-palette-border-strong, rgba(255,255,255,.12)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .btn-primary,
+html.dark-auto:not([data-msb-appearance]) button.btn-primary,
+html.dark-auto:not([data-msb-appearance]) a.btn-primary,
+html.dark-auto:not([data-msb-appearance]) .btn-success,
+html.dark-auto:not([data-msb-appearance]) .ch-btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) button.btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary {
+  background: var(--msb-palette-btn-bg, #1d4ed8) !important;
+  border-color: var(--msb-palette-btn-bg, #1d4ed8) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
 :is(html.dark-auto, body.dark-auto) .c,
 :is(html.dark-auto, body.dark-auto) .composer,
-:is(html.dark-auto, body.dark-auto) .button,
-:is(html.dark-auto, body.dark-auto) .iconbtn{
-  background:#30363d;
-  color:#e6edf3;
-  border-color:rgba(255,255,255,.12);
-}
-:is(html.dark-auto, body.dark-auto) .btn-primary{
-  background:#238636;
-  border-color:#238636;
+:is(html.dark-auto, body.dark-auto) .button {
+  background:var(--msb-palette-surface-2, #30363d);
+  color:var(--msb-palette-text, #e6edf3);
+  border-color:var(--msb-palette-border-strong, rgba(255,255,255,.12));
 }
 
 
@@ -773,7 +869,11 @@ html.dark-auto .live-modal-reaction-btn.active [data-role="count"]{
 }
 
 /* Auto Dark Mode (Org) */
-html.dark-auto, html.dark-auto body{background:#171d24 !important;color:#f3f5f7;}
+html.dark-auto:not([data-msb-appearance]),
+html.dark-auto:not([data-msb-appearance]) body{
+  background:var(--msb-palette-bg, #171d24) !important;
+  color:#f3f5f7;
+}
 /* Main layout blocks */
 html.dark-auto .sh-pagetitle,
 /* html.dark-auto .sh-logopanel, */
@@ -782,6 +882,13 @@ html.dark-auto .ig-card,
 html.dark-auto .ig-main,
 html.dark-auto .feed-ig-rail,
 html.dark-auto .ig-wrap,
+html.dark-auto body.profile-page .ig-profile-shell,
+html.dark-auto body.profile-page .ig-profile-head,
+html.dark-auto body.profile-page .ig-profile-scroll,
+html.dark-auto body.profile-page .ig-highlights,
+html.dark-auto body.profile-page .ig-tabs,
+html.dark-auto body.profile-page .ig-avatar,
+html.dark-auto body.profile-page .ig-top,
 html.dark-auto .tt-rm-body,
 html.dark-auto .tt-rm-head,
 html.dark-auto .signbox,
@@ -828,7 +935,20 @@ html.dark-auto .app-footer,
 html.dark-auto .col-lg-4,
 html.dark-auto .col-lg-8,
 html.dark-auto .col-md-8,
-html.dark-auto .col-md-4{background:var(--msb-palette-bg, #171d24) !important;color:#e6edf3;}
+html.dark-auto .col-md-4,
+html.dark-auto .gear-wrap,
+html.dark-auto .gear-shell,
+html.dark-auto .gear-sidebar,
+html.dark-auto .gear-sidebar-head,
+html.dark-auto .gear-main,
+html.dark-auto .gear-nav,
+html.dark-auto .gear-detail-panel,
+html.dark-auto .gear-detail-head,
+html.dark-auto .gear-detail-body,
+html.dark-auto .gear-detail-empty,
+html.dark-auto .gear-search,
+html.dark-auto .gear-control,
+html.dark-auto .gear-note{background:var(--msb-palette-bg, #171d24) !important;color:#e6edf3;}
 
 /* Leftbar overlay doors — match Appearance dark (#171d24 or custom palette) */
 html.dark-auto #ttLeftbarOverlays .tt-comments-wrap,
@@ -847,9 +967,6 @@ html.dark-auto #ttLeftbarOverlays .tt-live-door-frame,
 html.dark-auto .msb-live-door-host .tt-live-wrap,
 html.dark-auto .msb-live-door-host .tt-live-door-shade,
 html.dark-auto .msb-live-door-host .tt-live-door-frame,
-html.dark-auto #ttLeftbarOverlays .tt-profile-wrap,
-html.dark-auto #ttLeftbarOverlays .tt-profile-head,
-html.dark-auto #ttLeftbarOverlays .tt-profile-body,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-wrap,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-head,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-list,
@@ -865,10 +982,7 @@ html[data-theme="dark"] #ttLeftbarOverlays .tt-live-door-shade,
 html[data-theme="dark"] #ttLeftbarOverlays .tt-live-door-frame,
 html[data-theme="dark"] .msb-live-door-host .tt-live-wrap,
 html[data-theme="dark"] .msb-live-door-host .tt-live-door-shade,
-html[data-theme="dark"] .msb-live-door-host .tt-live-door-frame,
-html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-wrap,
-html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-head,
-html[data-theme="dark"] #ttLeftbarOverlays .tt-profile-body{
+html[data-theme="dark"] .msb-live-door-host .tt-live-door-frame{
   background-color:var(--msb-palette-bg, #171d24) !important;
   background-image:none !important;
   color:var(--msb-palette-text, #e6edf3) !important;
@@ -956,8 +1070,6 @@ html.dark-auto .input-group,
 html.dark-auto .input-group-btn{background:#171d24 !important;}
 html.dark-auto .input,
 html.dark-auto .textarea,
-html.dark-auto .ig-username,
-html.dark-auto .ig-stat,
 html.dark-auto .form-control{background:#131d25 !important;color:#e6edf3 !important;border-color:rgba(255,255,255,.12) !important;}
 html.dark-auto .mf-body,
 html.dark-auto .mf-title,
@@ -1037,10 +1149,10 @@ html.dark-auto .vcall-compose {
 }
 
 /* Dark (enabled by ../js/dark-auto.js adding html.dark-auto) */
-html.dark-auto{
-  --bg-main: #171d24;
-  --bg-card: #171d24;
-  --bg-sidebar: #171d24;
+html.dark-auto:not([data-msb-appearance]){
+  --bg-main: var(--msb-palette-bg, #171d24);
+  --bg-card: var(--msb-palette-bg, #171d24);
+  --bg-sidebar: var(--msb-palette-bg, #171d24);
 
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
@@ -1049,6 +1161,26 @@ html.dark-auto{
   --border-color: rgba(255,255,255,0.08);
   --shadow: 0 10px 18px rgba(0,0,0,.35);
   --shadow-strong: 0 14px 24px rgba(0,0,0,.45);
+}
+
+html[data-msb-appearance]{
+  --bg-main: var(--msb-palette-bg);
+  --bg-card: var(--msb-palette-bg);
+  --bg-sidebar: var(--msb-palette-bg);
+  --text-primary: var(--msb-palette-text);
+  --text-secondary: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --text-muted: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --border-color: var(--msb-palette-border);
+}
+
+html[data-msb-appearance] body.org-app,
+html[data-msb-appearance] body.org-app .sh-mainpanel,
+html[data-msb-appearance] body.org-app .sh-pagebody,
+html[data-msb-appearance] body.org-app.org-page-feed .feed-layout,
+html[data-msb-appearance] body.org-app.org-page-feed .feed-main,
+html[data-msb-appearance] body.org-app.org-page-feed .feed-post-detail{
+  background: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text) !important;
 }
 
 /* Apply variables */
@@ -1397,6 +1529,11 @@ html.dark-auto:not([data-msb-appearance]),
 html.dark-auto:not([data-msb-appearance]) body,
 body.dark-auto:not([data-msb-appearance]) {
   --msb-dark-auto-chrome: #b1bcce;
+  --msb-palette-bg: #171d24;
+  --msb-palette-surface-2: #2b3137;
+  --msb-palette-input-bg: #1e1f1f;
+  --msb-palette-border: rgba(255, 255, 255, 0.12);
+  --msb-palette-border-strong: rgba(177, 188, 206, 0.48);
   --msb-palette-text: #b1bcce;
   --msb-palette-text-muted: #b1bcce;
   --msb-palette-text-on-nav: #b1bcce;
@@ -1430,6 +1567,93 @@ html.dark-auto:not([data-msb-appearance]) body.org-app {
   --org-accent-strong: #3b82f6;
   --org-link: #93c5fd;
   --org-icon: #b1bcce;
+}
+
+/* Profile gear tab — Dark auto / Light / Dark built-in contrast */
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-sidebar-title,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-title,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-item,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-control,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-open-btn,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-upload-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-sidebar-title,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-detail-title,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-item,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-control {
+  color: var(--msb-palette-text, #b1bcce) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-desc,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-item-meta,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-upload-hint,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-empty,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-save-state,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-detail-desc,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-item-meta,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-upload-hint,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-detail-empty,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-save-state {
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-icon i,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-icon i,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-chevron,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-detail-icon i,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-section-icon i,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-section-chevron {
+  color: var(--msb-palette-icon, #b1bcce) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-wrap,
+html[data-msb-appearance] body.profile-page .gear-shell,
+html[data-msb-appearance] body.profile-page .gear-sidebar,
+html[data-msb-appearance] body.profile-page .gear-sidebar-head,
+html[data-msb-appearance] body.profile-page .gear-main,
+html[data-msb-appearance] body.profile-page .gear-nav,
+html[data-msb-appearance] body.profile-page .gear-detail-panel,
+html[data-msb-appearance] body.profile-page .gear-detail-head,
+html[data-msb-appearance] body.profile-page .gear-detail-body,
+html[data-msb-appearance] body.profile-page .gear-detail-empty,
+html[data-msb-appearance] body.profile-page .gear-search,
+html[data-msb-appearance] body.profile-page .gear-control,
+html[data-msb-appearance] body.profile-page .gear-note {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-sidebar-title,
+html[data-msb-appearance] body.profile-page .gear-detail-title,
+html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
+html[data-msb-appearance] body.profile-page .gear-nav-item,
+html[data-msb-appearance] body.profile-page .gear-detail-control-label,
+html[data-msb-appearance] body.profile-page .gear-control {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-desc,
+html[data-msb-appearance] body.profile-page .gear-nav-item-meta,
+html[data-msb-appearance] body.profile-page .gear-upload-hint,
+html[data-msb-appearance] body.profile-page .gear-detail-empty,
+html[data-msb-appearance] body.profile-page .gear-save-state {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-icon i,
+html[data-msb-appearance] body.profile-page .gear-nav-section-icon i,
+html[data-msb-appearance] body.profile-page .gear-nav-section-chevron {
+  color: var(--msb-palette-icon) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-detail-open-btn,
+html[data-msb-appearance] body.profile-page .gear-upload-btn {
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--msb-palette-action)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
 }
 
 html.dark-auto:not([data-msb-appearance]) .feed-left-nav-item:hover,
@@ -1530,10 +1754,6 @@ html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-rail .feed-ig-link:h
 }
 
 html.dark-auto:not([data-msb-appearance]) a,
-html.dark-auto:not([data-msb-appearance]) a:hover,
-html.dark-auto:not([data-msb-appearance]) a:focus,
-html.dark-auto:not([data-msb-appearance]) button,
-html.dark-auto:not([data-msb-appearance]) .btn,
 html.dark-auto:not([data-msb-appearance]) label,
 html.dark-auto:not([data-msb-appearance]) .icon,
 html.dark-auto:not([data-msb-appearance]) i,
@@ -1550,7 +1770,6 @@ html.dark-auto:not([data-msb-appearance]) h4,
 html.dark-auto:not([data-msb-appearance]) h5,
 html.dark-auto:not([data-msb-appearance]) h6,
 html.dark-auto:not([data-msb-appearance]) p,
-html.dark-auto:not([data-msb-appearance]) span,
 html.dark-auto:not([data-msb-appearance]) li,
 html.dark-auto:not([data-msb-appearance]) td,
 html.dark-auto:not([data-msb-appearance]) th,
@@ -1563,12 +1782,6 @@ html.dark-auto:not([data-msb-appearance]) .feed-desc,
 html.dark-auto:not([data-msb-appearance]) .feed-date,
 html.dark-auto:not([data-msb-appearance]) .feed-meta,
 html.dark-auto:not([data-msb-appearance]) .mini-muted,
-html.dark-auto:not([data-msb-appearance]) .stat-pill,
-html.dark-auto:not([data-msb-appearance]) .stat-pill .num,
-html.dark-auto:not([data-msb-appearance]) .stat-pill .lbl,
-html.dark-auto:not([data-msb-appearance]) .stat-pill .sub,
-html.dark-auto:not([data-msb-appearance]) .stat-pill .icon,
-html.dark-auto:not([data-msb-appearance]) .feed-ig-btn,
 html.dark-auto:not([data-msb-appearance]) .feed-ig-link,
 html.dark-auto:not([data-msb-appearance]) .ig-link,
 html.dark-auto:not([data-msb-appearance]) .feed-ig-logo-label,
@@ -1576,11 +1789,6 @@ html.dark-auto:not([data-msb-appearance]) .nav-link,
 html.dark-auto:not([data-msb-appearance]) .sh-sidebar-label,
 body.dark-auto:not([data-msb-appearance]) .nav-link,
 body.dark-auto.org-app:not([data-msb-appearance]) .nav-link,
-body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill,
-body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .num,
-body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .lbl,
-body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .sub,
-body.dark-auto.org-app:not([data-msb-appearance]) .stat-pill .icon,
 body.dark-auto.org-app:not([data-msb-appearance]) .feed-card,
 body.dark-auto.org-app:not([data-msb-appearance]) .feed-tabs a:not(.active),
 body.dark-auto.org-app:not([data-msb-appearance]) .posts-tabs a:not(.active),
@@ -1632,9 +1840,421 @@ html.dark-auto:not([data-msb-appearance]) body.org-app a.btn-primary,
 html.dark-auto:not([data-msb-appearance]) body.org-app .btn-success,
 body.dark-auto.org-app:not([data-msb-appearance]) .btn-primary,
 body.dark-auto.org-app:not([data-msb-appearance]) a.btn-primary {
-  background-color: var(--org-accent, #2563eb) !important;
-  border-color: var(--org-accent-strong, #1d4ed8) !important;
-  color: #ffffff !important;
+  background-color: var(--msb-palette-btn-bg, var(--org-accent, #2563eb)) !important;
+  border-color: var(--msb-palette-btn-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+/* All buttons — Dark auto built-in theme contrast */
+html.dark-auto:not([data-msb-appearance]) button,
+html.dark-auto:not([data-msb-appearance]) .btn,
+html.dark-auto:not([data-msb-appearance]) .ig-btn,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-btn,
+html.dark-auto:not([data-msb-appearance]) .action-btn,
+html.dark-auto:not([data-msb-appearance]) .topicon-btn,
+html.dark-auto:not([data-msb-appearance]) .yt-icon-btn,
+html.dark-auto:not([data-msb-appearance]) .search-btn,
+html.dark-auto:not([data-msb-appearance]) .iconbtn,
+html.dark-auto:not([data-msb-appearance]) .messages-shell-action-btn,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-item,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-upload-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) button,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn,
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) .feed-ig-btn {
+  /* background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #252f3d)) !important; */
+  background-image: none !important;
+  border-color: var(--msb-palette-border-strong, rgba(177, 188, 206, 0.48)) !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .btn-primary,
+html.dark-auto:not([data-msb-appearance]) button.btn-primary,
+html.dark-auto:not([data-msb-appearance]) a.btn-primary,
+html.dark-auto:not([data-msb-appearance]) .btn-success,
+html.dark-auto:not([data-msb-appearance]) button.btn-success,
+html.dark-auto:not([data-msb-appearance]) a.btn-success,
+html.dark-auto:not([data-msb-appearance]) .ch-btn-primary,
+html.dark-auto:not([data-msb-appearance]) button.ch-btn-primary,
+html.dark-auto:not([data-msb-appearance]) a.ch-btn-primary,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-open-btn,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .about-edit-btn,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .profile-shop-buy-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) button.btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary,
+html[data-theme="dark"]:not([data-msb-appearance]) .ch-btn-primary {
+  background-color: var(--msb-palette-btn-bg, #2563eb) !important;
+  border-color: var(--msb-palette-btn-bg, #2563eb) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .btn-primary:hover,
+html.dark-auto:not([data-msb-appearance]) button.btn-primary:hover,
+html.dark-auto:not([data-msb-appearance]) a.btn-primary:hover,
+html.dark-auto:not([data-msb-appearance]) .ch-btn-primary:hover,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-open-btn:hover,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-upload-btn:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn-primary:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary:hover {
+  background-color: var(--msb-palette-btn-hover-bg, #1d4ed8) !important;
+  border-color: var(--msb-palette-btn-hover-bg, #1d4ed8) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .btn:hover,
+html.dark-auto:not([data-msb-appearance]) button:hover,
+html.dark-auto:not([data-msb-appearance]) .ig-btn:hover,
+html.dark-auto:not([data-msb-appearance]) .feed-ig-btn:hover,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-item:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) button:hover {
+  /* background-color: var(--msb-palette-hover-bg, #2f3a4a) !important; */
+  color: var(--msb-palette-text-on-hover, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .btn-primary i,
+html.dark-auto:not([data-msb-appearance]) .btn-primary .icon,
+html.dark-auto:not([data-msb-appearance]) button.btn-primary i,
+html.dark-auto:not([data-msb-appearance]) a.btn-primary i,
+html.dark-auto:not([data-msb-appearance]) .ch-btn-primary i,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-open-btn i,
+html[data-theme="dark"]:not([data-msb-appearance]) .btn-primary i,
+html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary i {
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html:not(.dark-auto):not([data-msb-appearance]) .btn-primary,
+html:not(.dark-auto):not([data-msb-appearance]) button.btn-primary,
+html:not(.dark-auto):not([data-msb-appearance]) a.btn-primary,
+html:not(.dark-auto):not([data-msb-appearance]) .btn-success,
+html:not(.dark-auto):not([data-msb-appearance]) .ch-btn-primary,
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-detail-open-btn,
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-upload-btn {
+  background-color: var(--msb-palette-btn-bg, #2563eb) !important;
+  border-color: var(--msb-palette-btn-bg, #2563eb) !important;
+  color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+html:not(.dark-auto):not([data-msb-appearance]) .btn:not(.btn-primary):not(.btn-success),
+html:not(.dark-auto):not([data-msb-appearance]) button.btn:not(.btn-primary),
+html:not(.dark-auto):not([data-msb-appearance]) .ig-btn,
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-nav-item,
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg, #f5f7fb)) !important;
+  border-color: var(--msb-palette-border-strong, rgba(15,23,42,.14)) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+/* All spans — Dark auto built-in theme contrast */
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-chip,
+html.dark-auto:not([data-msb-appearance]) span.gear-chip,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-chip,
+html[data-theme="dark"]:not([data-msb-appearance]) span.gear-chip {
+  background-color: var(--msb-palette-action-soft, var(--msb-palette-nav-active-bg, rgba(37,99,235,.18))) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border-strong, rgba(177, 188, 206, 0.48)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-action, #93c5fd)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-tag,
+html.dark-auto:not([data-msb-appearance]) span.gear-tag,
+html.dark-auto:not([data-msb-appearance]) span.profile-account-badge,
+html.dark-auto:not([data-msb-appearance]) .profile-account-badge,
+html.dark-auto:not([data-msb-appearance]) span.badge,
+html.dark-auto:not([data-msb-appearance]) .badge,
+html.dark-auto:not([data-msb-appearance]) .badge-light,
+html.dark-auto:not([data-msb-appearance]) span.feed-badge,
+html.dark-auto:not([data-msb-appearance]) .feed-badge,
+html.dark-auto:not([data-msb-appearance]) span.stat-pill,
+html.dark-auto:not([data-msb-appearance]) .stat-pill,
+html.dark-auto:not([data-msb-appearance]) span.commerce-pill,
+html.dark-auto:not([data-msb-appearance]) .commerce-pill,
+html.dark-auto:not([data-msb-appearance]) span.commerce-order-badge,
+html.dark-auto:not([data-msb-appearance]) .commerce-order-badge,
+html.dark-auto:not([data-msb-appearance]) span.commerce-brand-card-badge,
+html.dark-auto:not([data-msb-appearance]) .commerce-brand-card-badge,
+html.dark-auto:not([data-msb-appearance]) span.pv-pill,
+html.dark-auto:not([data-msb-appearance]) .pv-pill,
+html.dark-auto:not([data-msb-appearance]) span.pv-likepill,
+html.dark-auto:not([data-msb-appearance]) .pv-likepill,
+html.dark-auto:not([data-msb-appearance]) span.sidebar-pill,
+html.dark-auto:not([data-msb-appearance]) .sidebar-pill,
+html.dark-auto:not([data-msb-appearance]) span.msg-pill,
+html.dark-auto:not([data-msb-appearance]) .msg-pill,
+html.dark-auto:not([data-msb-appearance]) span.msg-reaction-pill,
+html.dark-auto:not([data-msb-appearance]) .msg-reaction-pill,
+html.dark-auto:not([data-msb-appearance]) span.live-modal-badge,
+html.dark-auto:not([data-msb-appearance]) .live-modal-badge,
+html.dark-auto:not([data-msb-appearance]) span.sidebar-chip,
+html.dark-auto:not([data-msb-appearance]) .sidebar-chip,
+html.dark-auto:not([data-msb-appearance]) span.ig-profile-love-count,
+html.dark-auto:not([data-msb-appearance]) .ig-profile-love-count,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-tag,
+html[data-theme="dark"]:not([data-msb-appearance]) span.gear-tag,
+html[data-theme="dark"]:not([data-msb-appearance]) span.stat-pill,
+html[data-theme="dark"]:not([data-msb-appearance]) .stat-pill,
+html[data-theme="dark"]:not([data-msb-appearance]) span.commerce-pill,
+html[data-theme="dark"]:not([data-msb-appearance]) .commerce-pill {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #252f3d)) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border-strong, rgba(177, 188, 206, 0.48)) !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .stat-pill .num,
+html.dark-auto:not([data-msb-appearance]) .pv-likepill span,
+html[data-theme="dark"]:not([data-msb-appearance]) .stat-pill .num,
+html[data-theme="dark"]:not([data-msb-appearance]) .pv-likepill span {
+  color: var(--msb-palette-text, #e8edf5) !important;
+  background-color: transparent !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .stat-pill .lbl,
+html.dark-auto:not([data-msb-appearance]) .stat-pill .sub,
+html[data-theme="dark"]:not([data-msb-appearance]) .stat-pill .lbl,
+html[data-theme="dark"]:not([data-msb-appearance]) .stat-pill .sub {
+  color: var(--msb-palette-text-muted, #cbd5e1) !important;
+  background-color: transparent !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .stat-pill .icon,
+html.dark-auto:not([data-msb-appearance]) .stat-pill i,
+html.dark-auto:not([data-msb-appearance]) .commerce-pill i,
+html.dark-auto:not([data-msb-appearance]) .pv-likepill i,
+html.dark-auto:not([data-msb-appearance]) .feed-badge i,
+html.dark-auto:not([data-msb-appearance]) .badge i,
+html.dark-auto:not([data-msb-appearance]) span.sidebar-chip i,
+html[data-theme="dark"]:not([data-msb-appearance]) .stat-pill i,
+html[data-theme="dark"]:not([data-msb-appearance]) .commerce-pill i {
+  color: var(--msb-palette-icon, var(--msb-palette-text, #e8edf5)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) .stat-pill .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) .stat-pill .icon {
+  background-color: var(--msb-palette-hover-bg, #111827) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-label,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-item-meta,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-upload-hint,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-detail-control-label,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-chevron,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-save-state,
+html.dark-auto:not([data-msb-appearance]) .nav-link > span,
+html.dark-auto:not([data-msb-appearance]) .sh-icon-link > span,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sidebar-meta > span,
+html.dark-auto:not([data-msb-appearance]) .mf-num,
+html.dark-auto:not([data-msb-appearance]) .pv-n,
+html.dark-auto:not([data-msb-appearance]) .pv-views,
+html.dark-auto:not([data-msb-appearance]) .ig-story-name,
+html.dark-auto:not([data-msb-appearance]) span.muted,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-section-label,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-item-meta,
+html[data-theme="dark"]:not([data-msb-appearance]) .nav-link > span,
+html[data-theme="dark"]:not([data-msb-appearance]) span.muted {
+  background-color: transparent !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-item-meta,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-upload-hint,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-chevron,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-save-state:not(.is-saving):not(.is-saved):not(.is-error),
+html.dark-auto:not([data-msb-appearance]) span.muted,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .gear-nav-item-meta,
+html[data-theme="dark"]:not([data-msb-appearance]) span.muted {
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-chip,
+html:not(.dark-auto):not([data-msb-appearance]) span.gear-chip {
+  background-color: var(--msb-palette-action-soft, #eef2ff) !important;
+  border-color: var(--msb-palette-border-strong, rgba(15,23,42,.14)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-action, #4338ca)) !important;
+}
+
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-tag,
+html:not(.dark-auto):not([data-msb-appearance]) span.gear-tag,
+html:not(.dark-auto):not([data-msb-appearance]) span.stat-pill,
+html:not(.dark-auto):not([data-msb-appearance]) .stat-pill,
+html:not(.dark-auto):not([data-msb-appearance]) span.commerce-pill,
+html:not(.dark-auto):not([data-msb-appearance]) .commerce-pill,
+html:not(.dark-auto):not([data-msb-appearance]) span.badge,
+html:not(.dark-auto):not([data-msb-appearance]) .badge {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #f3f4f6)) !important;
+  border-color: var(--msb-palette-border-strong, rgba(15,23,42,.14)) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+/* Profile header labels, stats, and tabs — theme contrast */
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-username,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-stat,
+html.dark-auto:not([data-msb-appearance]) body.profile-page b.ig-stat,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-bio,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-username,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-stat,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page b.ig-stat,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-bio {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-tab:not(.active),
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-tab:not(.active) {
+  background-color: transparent !important;
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-tab.active,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-tab.active {
+  background-color: var(--msb-palette-nav-active-bg, var(--msb-palette-surface-2, #252f3d)) !important;
+  color: var(--msb-palette-nav-active-text, var(--msb-palette-text, #e8edf5)) !important;
+  border-top-color: var(--msb-palette-nav-active-text, var(--msb-palette-text, #e8edf5)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-tab.active i,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-tab.active i {
+  color: inherit !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-body,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-wrap,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-body {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #0a0a0a) !important;
+}
+
+/* Profile door — dark auto built-in theme contrast */
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-wrap,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-body,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-wrap,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-head,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-body,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-body,
+html[data-theme="dark"]:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-head,
+html[data-theme="dark"]:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-body {
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+  border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head .title,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-head .title,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head .title,
+html[data-theme="dark"]:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,
+html.dark-auto #ttLeftbarOverlays .tt-menu-head .title,
+html.dark-auto #ttLeftbarOverlays .tt-comments-head .title,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-menu-head .title,
+html[data-theme="dark"] #ttLeftbarOverlays .tt-comments-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-head .title {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head .title,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-name,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-badge,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-head .title,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-name,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-badge,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-nav a,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head .title,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-name,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a {
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-email,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-code,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-email,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-code,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-email,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-code {
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a .icon,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-nav a .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a .icon {
+  color: var(--msb-palette-icon, var(--msb-palette-text, #e8edf5)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-wrap .tt-close,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-wrap .tt-close,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-wrap .tt-close {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #252f3d)) !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+  border-color: var(--msb-palette-border-strong, rgba(177, 188, 206, 0.48)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-wrap .tt-close i,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-wrap .tt-close i,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-wrap .tt-close i {
+  color: inherit !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a:hover,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a:focus,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-nav a:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a:hover {
+  background-color: var(--msb-palette-hover-bg, #2f3a4a) !important;
+  color: var(--msb-palette-text-on-hover, #e8edf5) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-divider,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-divider,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-divider {
+  background-color: var(--msb-palette-border-strong, rgba(177, 188, 206, 0.48)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a .icon,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-nav a .icon,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a .icon {
+  color: var(--msb-palette-text, #e8edf5) !important;
+  opacity: 1 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-email,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-code,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-email,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-code,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-email,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-code {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text, #cbd5e1)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-menu-body .feed-left-nav-item,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-menu-body .feed-left-nav-label,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-menu-body .feed-left-nav-ic,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-menu-body .feed-left-nav-label {
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html[data-msb-appearance] body.profile-page .ig-username,
+html[data-msb-appearance] body.profile-page .ig-stat,
+html[data-msb-appearance] body.profile-page b.ig-stat,
+html[data-msb-appearance] body.profile-page .ig-bio {
+  background-color: transparent !important;
+  background-image: none !important;
 }
 
 html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
@@ -1691,6 +2311,151 @@ html.dark-auto:not([data-msb-appearance]) body.org-app .sh-icon-link:hover {
   background-color: #2f3a4a !important;
 }
 
+/* =====================================================
+   ORG LIGHT CANVAS — Light/System Gear appearance by day
+   White only when Dark auto is not painting night (no .dark-auto).
+   At night with Dark auto ON, org follows the same #171d24 canvas.
+   ===================================================== */
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) {
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]),
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app {
+  background: #171d24 !important;
+  background-color: #171d24 !important;
+  color: #e8edf5 !important;
+  color-scheme: dark;
+  --studio-bg: #171d24;
+  --studio-text: #e8edf5;
+  --msb-dark-auto-chrome: #111827;
+  --bg-main: #171d24;
+  --bg-card: #171d24;
+  --bg-sidebar: #171d24;
+  --text-primary: #e8edf5;
+  --text-secondary: #b1bcce;
+  --text-muted: #b1bcce;
+  --border-color: #334155;
+}
+
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .sh-mainpanel,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .sh-pagebody,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .sh-sideleft-menu,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-sideleft-scroll,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .feed-layout,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .feed-main,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .feed-sidebar,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .feed-card,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .rows-scroll,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .sidebar-head,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .sidebar-list,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .dashboard-card,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .card,
+html[data-msb-org-light]:not(.dark-auto):not([data-msb-appearance]) body.org-app .card-body {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #111827 !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sh-mainpanel,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sh-pagebody,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-layout,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-main,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-sidebar,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-post-detail,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-compose,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .comment-item,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .rows-scroll,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sidebar-head,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sidebar-list,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .dashboard-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .card-body {
+  background: #171d24 !important;
+  background-color: #171d24 !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sidebar-search,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-compose-input,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .org-pill,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sh-headpanel-right .ig-feed-account-badge {
+  background: #252f3d !important;
+  background-color: #252f3d !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+  border-color: rgba(177, 188, 206, 0.38) !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .compose-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .compose-intro,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .compose-preview,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .actions-fixed,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .card-body-fixed {
+  background: #171d24 !important;
+  background-color: #171d24 !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+  border-color: #334155 !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .compose-preview {
+  background: #1e2733 !important;
+  background-color: #1e2733 !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .chat-shell,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .chat-left,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .chat-right,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .fixed-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .fixed-head,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .fixed-body,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .members-list-wrap,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .members-search,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .members-scroll,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .conv-split,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .conv-main,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .conv-topbar,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .conv-history,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .history-card,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .history-head,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .history-search,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .history-scroll,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .msg-scroll,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .composer-fixed,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .search-bar,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .list-group-item {
+  background: #171d24 !important;
+  background-color: #171d24 !important;
+  background-image: none !important;
+  color: #e8edf5 !important;
+  border-color: #334155 !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .members-search input,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .history-search input,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .composer-row textarea {
+  background: #252f3d !important;
+  background-color: #252f3d !important;
+  color: #e8edf5 !important;
+  border-color: rgba(177, 188, 206, 0.38) !important;
+}
+
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .sidebar-search::placeholder,
+html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed-compose-input::placeholder {
+  color: #b1bcce !important;
+  opacity: 0.72;
+}
+
 /* Keep love reactions purple */
 html.dark-auto:not([data-msb-appearance]) .is-love,
 html.dark-auto:not([data-msb-appearance]) .is-loved,
@@ -1699,4 +2464,147 @@ html.dark-auto:not([data-msb-appearance]) .mf-act.is-love i,
 html.dark-auto:not([data-msb-appearance]) .ig-profile-love-btn.is-loved,
 html.dark-auto:not([data-msb-appearance]) .ig-profile-love-btn.is-loved i {
   color: var(--msb-love-color, #7c3aed) !important;
+}
+
+/* Profile door — final contrast (wins over overlay + dark-auto inheritance) */
+html #ttLeftbarOverlays .tt-profile-head .title,
+html .msb-profile-door-host .tt-profile-head .title,
+html #ttLeftbarOverlays .tt-profile-name,
+html .msb-profile-door-host .tt-profile-name,
+html #ttLeftbarOverlays .tt-profile-badge,
+html .msb-profile-door-host .tt-profile-badge,
+html #ttLeftbarOverlays .tt-profile-nav a,
+html .msb-profile-door-host .tt-profile-nav a {
+  color: var(--msb-palette-text, var(--tt-text, #101828)) !important;
+  -webkit-text-fill-color: var(--msb-palette-text, var(--tt-text, #101828)) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html #ttLeftbarOverlays .tt-profile-nav a .icon,
+html .msb-profile-door-host .tt-profile-nav a .icon {
+  color: var(--msb-palette-text, var(--msb-palette-icon, var(--tt-text, #101828))) !important;
+  opacity: 1 !important;
+}
+
+html #ttLeftbarOverlays .tt-profile-email,
+html #ttLeftbarOverlays .tt-profile-code,
+html .msb-profile-door-host .tt-profile-email,
+html .msb-profile-door-host .tt-profile-code {
+  color: var(--msb-palette-text-muted, var(--msb-palette-text, var(--tt-muted, #475569))) !important;
+  opacity: 1 !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head .title,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-name,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-badge,
+html.dark-auto:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-head .title,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-name,
+html.dark-auto:not([data-msb-appearance]) .msb-profile-door-host .tt-profile-nav a,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-head .title,
+html[data-theme="dark"]:not([data-msb-appearance]) #ttLeftbarOverlays .tt-profile-nav a {
+  color: var(--msb-palette-text, var(--tt-text, #e8edf5)) !important;
+  -webkit-text-fill-color: var(--msb-palette-text, var(--tt-text, #e8edf5)) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-name,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-badge,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-name,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a,
+html.dark-auto[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head .title,
+html.dark-auto[data-msb-appearance] #ttLeftbarOverlays .tt-profile-name,
+html.dark-auto[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a,
+html.dark-auto[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a {
+  color: var(--msb-palette-text) !important;
+  -webkit-text-fill-color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon,
+html[data-msb-appearance] .msb-profile-door-host .tt-profile-nav a .icon,
+html.dark-auto[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon {
+  color: var(--msb-palette-text) !important;
+}
+
+/* Shop left rail — brands/filters panel uses Gear appearance (not grey surface-2) */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-nav,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html[data-msb-appearance] body.shop-page .feed-left-rail,
+html[data-msb-appearance] body.shop-page .feed-left-nav,
+html[data-msb-appearance] body.shop-page .shop-nav-filters,
+html[data-msb-appearance] body.shop-page .shop-brand-nav,
+html.dark-auto[data-msb-appearance] body.shop-page .feed-left-rail,
+html.dark-auto[data-msb-appearance] body.shop-page .feed-left-nav,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-nav-filters,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav {
+  background-color: var(--msb-palette-bg, var(--shop-surface, #171d24)) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, var(--shop-text, #b1bcce)) !important;
+  border-color: var(--msb-palette-border, var(--shop-border, rgba(255,255,255,.12))) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-title,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-toggle,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text strong,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-title,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filter-toggle,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text strong,
+html[data-msb-appearance] body.shop-page .feed-left-rail-page-title,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-toggle,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-text strong {
+  color: var(--msb-palette-text, var(--shop-text, #b1bcce)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-sub,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-head,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text span,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-option,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-sub,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav-head,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text span,
+html[data-msb-appearance] body.shop-page .feed-left-rail-page-sub,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-head,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-text span,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-option {
+  color: var(--msb-palette-text-muted, var(--shop-text-muted, #b1bcce)) !important;
+}
+
+/* Shop top header — user name strip + search bar */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-header,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-header,
+html[data-msb-appearance] body.shop-page .ig-feed-header,
+html.dark-auto[data-msb-appearance] body.shop-page .ig-feed-header,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .sh-pagebody,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .sh-pagebody,
+html[data-msb-appearance] body.shop-page .sh-pagebody {
+  background-color: var(--msb-palette-bg, var(--shop-surface, #171d24)) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, var(--shop-text, #b1bcce)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-user-name,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-user-name,
+html[data-msb-appearance] body.shop-page .ig-feed-user-name,
+html.dark-auto[data-msb-appearance] body.shop-page .ig-feed-user-name {
+  background-color: transparent !important;
+  color: var(--msb-palette-text, var(--shop-text, #b1bcce)) !important;
+  -webkit-text-fill-color: var(--msb-palette-text, var(--shop-text, #b1bcce)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-user-name:hover,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-user-name:focus,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-user-name:hover,
+html[data-msb-appearance] body.shop-page .ig-feed-user-name:hover,
+html[data-msb-appearance] body.shop-page .ig-feed-user-name:focus {
+  color: var(--msb-palette-link, var(--shop-link, #93c5fd)) !important;
+  -webkit-text-fill-color: var(--msb-palette-link, var(--shop-link, #93c5fd)) !important;
 }

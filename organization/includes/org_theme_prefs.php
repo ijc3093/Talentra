@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../public_user/includes/publisher_organization_bridg
 require_once __DIR__ . '/../../public_user/includes/staff_publisher_access.php';
 require_once __DIR__ . '/../../public_user/includes/appearance_palettes.php';
 require_once __DIR__ . '/../../public_user/includes/appearance_bridge.php';
+require_once __DIR__ . '/session_org_login.php';
 
 /** Resolve linked publisher users.id from org session (never BUSINESS_ONLY_USER). */
 function org_theme_resolve_publisher_user_id(PDO $dbh): int
@@ -78,7 +79,7 @@ function org_theme_js_config(PDO $dbh, int $userId): array
 
     return [
         'userId' => $userId,
-        'autoEnabled' => ($mode === 'system'),
+        'autoEnabled' => appearance_bridge_theme_auto_enabled($dbh, $userId),
         'manualMode' => $manualMode,
         'appearanceMode' => $mode,
     ];

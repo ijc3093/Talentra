@@ -10,6 +10,7 @@ ini_set('display_errors', '1');
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/../public_user/includes/publisher_accounts.php';
 require_once __DIR__ . '/../public_user/includes/publisher_authority.php';
+require_once __DIR__ . '/../public_user/includes/org_commerce_brands.php';
 
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 $adminRole = (int)($_SESSION['userRole'] ?? 0);
@@ -23,6 +24,7 @@ if (!$isAdmin) {
 $controller = new Controller();
 $dbh = $controller->pdo();
 publisher_authority_ensure_schema($dbh);
+org_commerce_brands_ensure_schema($dbh);
 
 $msg = '';
 $error = '';
@@ -55,6 +57,8 @@ if (isset($_POST['approve_request'])) {
     if (!empty($result['ok'])) {
         if (!empty($result['repaired'])) {
             $msg = 'Restored publisher name: ' . (string)($result['name'] ?? '');
+        } elseif (!empty($result['message']) && strpos((string)$result['message'], 'Commerce') !== false) {
+            $msg = (string)$result['message'];
         } else {
             $msg = 'Approved publisher name: ' . (string)($result['name'] ?? '');
         }
@@ -246,8 +250,9 @@ $pendingCount = publisher_authority_pending_count($dbh);
         <table class="table table-hover mg-b-0-force" id="requestsTable">
           <thead>
             <tr>
-              <th>Publisher name</th>
+              <th>Publisher / brand</th>
               <th>Category</th>
+              <th>Applicant</th>
               <th>Organization</th>
               <th>Contact</th>
               <th>Request note</th>
@@ -259,7 +264,7 @@ $pendingCount = publisher_authority_pending_count($dbh);
           <tbody>
           <?php if (!$requests): ?>
             <tr>
-              <td colspan="8" style="padding:24px;color:var(--muted);font-weight:700;">No requests in this view.</td>
+              <td colspan="9" style="padding:24px;color:var(--muted);font-weight:700;">No requests in this view.</td>
             </tr>
           <?php else: ?>
             <?php foreach ($requests as $row): ?>
@@ -269,12 +274,32 @@ $pendingCount = publisher_authority_pending_count($dbh);
                 $entityLabel = $entityTypes[$entityType] ?? $entityType;
                 $categoryKey = strtolower((string)($row['publisher_category'] ?? 'news'));
                 $categoryLabel = $categories[$categoryKey] ?? $categoryKey;
+                $isCommerce = publisher_authority_is_commerce_request($row);
+                $brandId = (int)($row['commerce_brand_id'] ?? 0);
+                $brandRow = $brandId > 0 ? org_commerce_brands_get($dbh, $brandId) : null;
                 $legalName = trim((string)($row['legal_entity_name'] ?? ''));
                 $orgLine = $legalName !== '' ? $legalName : $entityLabel;
+                $applicantUsername = trim((string)($row['applicant_username'] ?? ''));
+                $applicantEmail = trim((string)($row['applicant_email'] ?? ''));
               ?>
               <tr>
-                <td><strong><?= h($row['publisher_name'] ?? '') ?></strong></td>
+                <td>
+                  <strong><?= h($row['publisher_name'] ?? '') ?></strong>
+                  <?php if ($isCommerce && $brandRow): ?>
+                    <div style="font-size:11px;color:var(--muted);">Brand system: <?= h($brandRow['name'] ?? '') ?></div>
+                  <?php elseif ($isCommerce && $brandId <= 0): ?>
+                    <div style="font-size:11px;color:var(--muted);">New commerce brand system request</div>
+                  <?php endif; ?>
+                </td>
                 <td><?= h($categoryLabel) ?></td>
+                <td>
+                  <?php if ($applicantUsername !== '' || $applicantEmail !== ''): ?>
+                    <div><?= h($applicantUsername !== '' ? $applicantUsername : '—') ?></div>
+                    <div style="font-size:11px;color:var(--muted);"><?= h($applicantEmail) ?></div>
+                  <?php else: ?>
+                    <span style="color:var(--muted);">—</span>
+                  <?php endif; ?>
+                </td>
                 <td>
                   <div><?= h($orgLine) ?></div>
                   <div style="font-size:11px;color:var(--muted);"><?= h($entityLabel) ?></div>

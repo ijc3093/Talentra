@@ -47,10 +47,33 @@
   // Shared layout class names used outside feed.php — keep these style blocks when importing.
   var ORG_PAGE_LAYOUT_RE = /\.(dashboard-card|rows-scroll|post-card|posts-tabs|members-card|bulkbar|sh-mainpanel|sh-pagebody|card-body-fixed|dash-toprow|feed-toolbar|searchbar|pager|member-row)\b/;
 
+  var THEME_STYLE_IDS = {
+    'org-layout-critical': true,
+    'org-no-feed-media': true,
+    'org-page-bg-critical': true,
+    'org-tail-light-critical': true,
+    'org-tail-dark-critical': true,
+    'msb-door-shell-critical': true,
+    'msb-builtin-theme-paint': true,
+    'msb-palette-paint': true,
+    'pub-page-light-critical': true
+  };
+
+  function isPreservedThemeStyle(style) {
+    if (!style) return false;
+    if (style.id && THEME_STYLE_IDS[style.id]) return true;
+    if (style.getAttribute('data-msb-theme-style') === '1') return true;
+    return false;
+  }
+
   function shouldSkipImportedStyle(css, allowFeedStyles) {
     if (allowFeedStyles) return false;
     if (!FEED_STYLE_RE.test(css)) return false;
     if (ORG_PAGE_LAYOUT_RE.test(css)) return false;
+    // Keep messages/compose Dark auto theme blocks that mention feed-badge etc.
+    if (/\.org-page-messages\b|\.org-page-compose\b|\.org-page-commerce\b|\.org-page-sales_management\b|\.chat-shell\b|\.composer-fixed\b|\.members-list-wrap\b|\.commerce-panel\b|\.commerce-page\b|\.sales-management-metric\b/.test(css)) {
+      return false;
+    }
     return true;
   }
 
@@ -375,6 +398,10 @@
 
   function clearPageAssets() {
     document.querySelectorAll('style[data-org-page-style="1"]').forEach(function (el) {
+      if (isPreservedThemeStyle(el)) {
+        el.removeAttribute('data-org-page-style');
+        return;
+      }
       el.parentNode.removeChild(el);
     });
     var scriptHost = document.getElementById('org-page-scripts');
@@ -386,7 +413,7 @@
     var allowFeedStyles = isFeedPage(url);
 
     doc.head.querySelectorAll('style').forEach(function (style) {
-      if (style.id === 'org-layout-critical' || style.id === 'org-no-feed-media') return;
+      if (isPreservedThemeStyle(style)) return;
       var css = style.textContent || '';
       if (!css.trim()) return;
       if (shouldSkipImportedStyle(css, allowFeedStyles)) return;
@@ -396,6 +423,51 @@
       clone.textContent = css;
       document.head.appendChild(clone);
     });
+
+    // Ensure page theme stylesheets survive SPA navigations.
+    var page = pageFromUrl(url);
+    var msgTheme = document.getElementById('org-messages-theme-css');
+    if (page === 'messages.php') {
+      if (!msgTheme) {
+        msgTheme = document.createElement('link');
+        msgTheme.id = 'org-messages-theme-css';
+        msgTheme.rel = 'stylesheet';
+        msgTheme.href = 'css/org-messages-theme.css?v=3';
+        document.head.appendChild(msgTheme);
+      }
+    } else if (msgTheme && msgTheme.parentNode) {
+      msgTheme.parentNode.removeChild(msgTheme);
+    }
+
+    var commercePages = {
+      'commerce.php': true,
+      'sales_management.php': true,
+      'orders.php': true,
+      'products.php': true,
+      'shop_settings.php': true,
+      'seller_journey.php': true,
+      'quotations.php': true,
+      'invoices.php': true,
+      'payments.php': true,
+      'delivery.php': true,
+      'returns_refunds.php': true,
+      'discounts_promotions.php': true,
+      'commerce_brand_select.php': true,
+      'recent_orders.php': true,
+      'commerce_analytics.php': true
+    };
+    var commerceTheme = document.getElementById('org-commerce-theme-css');
+    if (commercePages[page] || page.indexOf('sales_') === 0) {
+      if (!commerceTheme) {
+        commerceTheme = document.createElement('link');
+        commerceTheme.id = 'org-commerce-theme-css';
+        commerceTheme.rel = 'stylesheet';
+        commerceTheme.href = 'css/org-commerce-theme.css?v=2';
+        document.head.appendChild(commerceTheme);
+      }
+    } else if (commerceTheme && commerceTheme.parentNode) {
+      commerceTheme.parentNode.removeChild(commerceTheme);
+    }
   }
 
   function syncBodyState(doc, url) {
@@ -644,9 +716,42 @@
     syncBodyPageClass(window.location.href);
 
     document.head.querySelectorAll('style').forEach(function (style) {
-      if (style.id === 'org-layout-critical' || style.id === 'org-no-feed-media') return;
+      if (isPreservedThemeStyle(style)) return;
       style.setAttribute('data-org-page-style', '1');
     });
+
+    if (pageFromUrl(window.location.href) === 'messages.php' && !document.getElementById('org-messages-theme-css')) {
+      var msgThemeBoot = document.createElement('link');
+      msgThemeBoot.id = 'org-messages-theme-css';
+      msgThemeBoot.rel = 'stylesheet';
+      msgThemeBoot.href = 'css/org-messages-theme.css?v=3';
+      document.head.appendChild(msgThemeBoot);
+    }
+    var bootPage = pageFromUrl(window.location.href);
+    var commercePagesBoot = {
+      'commerce.php': true,
+      'sales_management.php': true,
+      'orders.php': true,
+      'products.php': true,
+      'shop_settings.php': true,
+      'seller_journey.php': true,
+      'quotations.php': true,
+      'invoices.php': true,
+      'payments.php': true,
+      'delivery.php': true,
+      'returns_refunds.php': true,
+      'discounts_promotions.php': true,
+      'commerce_brand_select.php': true,
+      'recent_orders.php': true,
+      'commerce_analytics.php': true
+    };
+    if ((commercePagesBoot[bootPage] || bootPage.indexOf('sales_') === 0) && !document.getElementById('org-commerce-theme-css')) {
+      var commerceThemeBoot = document.createElement('link');
+      commerceThemeBoot.id = 'org-commerce-theme-css';
+      commerceThemeBoot.rel = 'stylesheet';
+      commerceThemeBoot.href = 'css/org-commerce-theme.css?v=2';
+      document.head.appendChild(commerceThemeBoot);
+    }
 
     bindLinks(document);
 

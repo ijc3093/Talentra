@@ -120,6 +120,11 @@
   apply();
   document.addEventListener('DOMContentLoaded', apply);
 
+  // Re-check at day/night boundaries (Dark auto follows clock time, not only OS theme).
+  setInterval(function(){
+    if (readPrefs().autoEnabled) apply();
+  }, 60000);
+
   try {
     if (window.matchMedia) {
       var mq = window.matchMedia('(prefers-color-scheme: dark)');

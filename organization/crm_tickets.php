@@ -5,6 +5,8 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm.php';
 
 $orgId = (int)orgActiveOrgId();
@@ -34,7 +36,7 @@ $pageTitle = 'CRM Tickets';
 require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open($pageTitle);
 ?>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="card bd-0 shadow-base">
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
       <h6 class="card-title tx-uppercase tx-14 mg-b-0">Support tickets</h6>
@@ -48,7 +50,7 @@ org_page_shell_open($pageTitle);
       <?php if ($ok): ?><div class="alert alert-success"><?= org_crm_h($ok) ?></div><?php endif; ?>
 
       <?php if ($showNew): ?>
-      <form method="post" class="mg-b-20 pd-15" style="background:#f8fafc;border-radius:12px;">
+      <form method="post" class="mg-b-20 pd-15 org-form-panel">
         <input type="hidden" name="create_ticket" value="1">
         <div class="row">
           <div class="col-md-8 form-group"><label>Subject *</label><input name="subject" class="form-control" required></div>

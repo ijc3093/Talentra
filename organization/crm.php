@@ -5,6 +5,8 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 org_require_manager();
+
+org_require_commerce_seller();
 require_once __DIR__ . '/includes/org_crm_lifecycle.php';
 
 $orgId = (int)orgActiveOrgId();
@@ -22,20 +24,33 @@ org_page_shell_open($pageTitle);
 <style>
 .crm-lifecycle { display:flex; flex-direction:column; align-items:center; gap:12px; }
 .crm-stage-row { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; width:100%; }
-.crm-stage { flex:1; min-width:140px; max-width:200px; text-align:center; padding:16px 12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; text-decoration:none; color:inherit; transition:box-shadow .15s; }
-.crm-stage:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); text-decoration:none; color:inherit; }
-.crm-stage strong { display:block; font-size:14px; margin-bottom:4px; }
-.crm-stage .crm-count { font-size:22px; font-weight:700; color:#0861bc; }
-.crm-stage .crm-sub { font-size:11px; color:#64748b; }
-.crm-hub { width:100%; max-width:520px; margin:8px 0; padding:24px; border-radius:50%; aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,#0861bc,#0ea5e9); color:#fff; text-align:center; }
+.crm-stage {
+  flex:1; min-width:140px; max-width:200px; text-align:center; padding:16px 12px; border-radius:12px;
+  background:var(--bg-card, var(--msb-palette-bg, #f8fafc));
+  border:1px solid var(--border-color, #e2e8f0);
+  text-decoration:none; color:var(--text-primary, inherit); transition:box-shadow .15s;
+}
+.crm-stage:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); text-decoration:none; color:var(--text-primary, inherit); }
+.crm-stage strong { display:block; font-size:14px; margin-bottom:4px; color:var(--text-primary, inherit); }
+.crm-stage .crm-count { font-size:22px; font-weight:700; color:var(--msb-palette-action, #0861bc); }
+.crm-stage .crm-sub { font-size:11px; color:var(--text-muted, #64748b); }
+.crm-hub { width:100%; max-width:520px; margin:8px 0; padding:24px; border-radius:50%; aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--msb-palette-action-strong, #0861bc),var(--msb-palette-action, #0ea5e9)); color:#fff; text-align:center; }
 .crm-hub h5 { color:#fff; margin:0 0 8px; font-weight:700; }
 .crm-hub-modules { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:8px; }
 .crm-hub-modules a { font-size:11px; padding:4px 8px; background:rgba(255,255,255,.2); border-radius:20px; color:#fff; text-decoration:none; }
 .crm-hub-modules a:hover { background:rgba(255,255,255,.35); color:#fff; }
-.crm-arrow { color:#94a3b8; font-size:20px; }
+.crm-arrow { color:var(--text-muted, #94a3b8); font-size:20px; }
+html[data-msb-appearance] .crm-stage {
+  background:var(--msb-palette-bg) !important;
+  border-color:var(--msb-palette-border) !important;
+  color:var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] .crm-stage strong { color:var(--msb-palette-text) !important; }
+html[data-msb-appearance] .crm-stage .crm-sub,
+html[data-msb-appearance] .crm-arrow { color:var(--msb-palette-text-muted, var(--msb-palette-text)) !important; }
 @media (max-width:768px) { .crm-hub { max-width:280px; padding:16px; } }
 </style>
-<div class="sh-pagebody">
+<?php org_page_body_open(); ?>
   <div class="d-flex flex-wrap justify-content-between align-items-center mg-b-20">
     <div>
       <h4 class="mg-b-5">CRM lifecycle</h4>

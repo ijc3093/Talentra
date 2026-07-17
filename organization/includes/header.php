@@ -51,9 +51,39 @@ $bg = '';
 $accent = $ORG_THEME_ACCENT !== '' ? $ORG_THEME_ACCENT : '#4f46e5';
 $fontSz = $ORG_FONT_SIZE !== '' ? $ORG_FONT_SIZE : '12px';
 
-// --- Unread badge counts (messages + feed updates) ---
+if (!function_exists('org_accent_button_text')) {
+  function org_accent_button_text(string $hex): string {
+    $hex = ltrim(trim($hex), '#');
+    if ($hex === '') {
+      return '#ffffff';
+    }
+    if (strlen($hex) === 3) {
+      $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+    }
+    if (!preg_match('/^[0-9a-fA-F]{6}$/', $hex)) {
+      return '#ffffff';
+    }
+    $r = hexdec(substr($hex, 0, 2));
+    $g = hexdec(substr($hex, 2, 2));
+    $b = hexdec(substr($hex, 4, 2));
+    $luminance = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
+    return $luminance > 0.55 ? '#0f172a' : '#ffffff';
+  }
+}
+$accentBtnText = org_accent_button_text($accent);
+
+// --- Unread badge counts (messages + feed updates + sales attention) ---
 $unreadCount = 0;
 $feedUnreadCount = 0;
+$salesAttentionCount = 0;
+$salesAttentionBreakdown = [
+    'orders' => 0,
+    'delivery' => 0,
+    'products' => 0,
+    'customers' => 0,
+    'returns' => 0,
+    'notification' => 0,
+];
 try {
     if (function_exists('orgMemberId')) {
         $meMid = (int)orgMemberId();
@@ -63,10 +93,19 @@ try {
             $unreadCount = org_header_message_unread_count($dbh, $orgId, $meMid);
             $feedUnreadCount = org_header_feed_unread_count($dbh, $orgId, $meMid);
         }
+        if ($orgId > 0 && $isManager) {
+            require_once __DIR__ . '/org_manager_guard.php';
+            if (org_active_is_commerce_seller($dbh)) {
+                require_once __DIR__ . '/org_sales.php';
+                $salesAttentionBreakdown = org_sales_attention_counts($dbh, $orgId);
+                $salesAttentionCount = (int)($salesAttentionBreakdown['total'] ?? 0);
+            }
+        }
     }
 } catch (Throwable $e) {
     $unreadCount = 0;
     $feedUnreadCount = 0;
+    $salesAttentionCount = 0;
 }
 
 // ✅ Active org display
@@ -94,18 +133,36 @@ if ($isManager) {
 
 <?php if (!org_theme_head_was_printed()) { org_theme_print_head_bootstrap($dbh); } ?>
 <?php if (!org_theme_css_was_printed()): ?>
-<link rel="stylesheet" href="../css/dark-auto.css">
+<link rel="stylesheet" href="../css/dark-auto.css?v=23">
 <?php endif; ?>
-<script src="../js/dark-auto.js?v=6" defer></script>
 
 <style>
   :root{
-    --org-bg: #171d24;
+    --org-bg: var(--org-page-bg, #171d24);
     --org-accent: var(--msb-palette-action, <?= h($accent) ?>);
+    --org-btn-on-accent: var(--msb-palette-btn-text, <?= h($accentBtnText) ?>);
+    --org-btn-filled-bg: var(--msb-palette-btn-bg, var(--org-accent, <?= h($accent) ?>));
+    --org-btn-filled-text: var(--msb-palette-btn-text, var(--org-btn-on-accent, <?= h($accentBtnText) ?>));
     --org-font: <?= h($fontSz) ?>;
   }
-  body{
-    background: #171d24 !important;
+  html:not([data-msb-appearance]):not(.msb-palette-active) body.org-app{
+    background: var(--org-page-bg, #171d24) !important;
+    font-size: var(--org-font);
+  }
+  html[data-msb-appearance] body.org-app,
+  html.msb-palette-active body.org-app{
+    background-color: var(--msb-palette-bg) !important;
+    background-image: none !important;
+    font-size: var(--org-font);
+  }
+  html[data-msb-org-light]:not(.dark-auto) body.org-app{
+    background-color: #ffffff !important;
+    background-image: none !important;
+    font-size: var(--org-font);
+  }
+  html.dark-auto[data-msb-org-light] body.org-app{
+    background-color: var(--org-page-bg, #171d24) !important;
+    background-image: none !important;
     font-size: var(--org-font);
   }
   .sh-logo-text{ text-transform: none !important; }
@@ -114,7 +171,7 @@ if ($isManager) {
     font-weight: 600;
     font-family: cursive;
     line-height: 1.25;
-    color: #fff;
+    color: var(--msb-palette-text-on-nav, var(--msb-palette-action, var(--org-accent, #4f46e5)));
     max-width: 140px;
     word-break: break-word;
   }
@@ -146,6 +203,42 @@ if ($isManager) {
   }
   .msg-badge.pulse{ animation: badgePulse 1.3s infinite; }
 
+  @keyframes orgHeaderSalesBadgeAlert {
+    0%, 100% {
+      transform: scale(1) translate(0, 0);
+      box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.55);
+    }
+    12% {
+      transform: scale(1.18) translate(0, -1px);
+      box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
+    }
+    24% {
+      transform: scale(1.08) translate(0, 0);
+      box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+    }
+    36% {
+      transform: scale(1.14) translate(0, -1px);
+      box-shadow: 0 0 0 5px rgba(220, 53, 69, 0);
+    }
+    50%, 78% {
+      transform: scale(1) translate(0, 0);
+      box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.35);
+    }
+    82% {
+      transform: scale(1.1) translate(-2px, 0);
+      box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.15);
+    }
+    86% {
+      transform: scale(1.1) translate(2px, 0);
+    }
+    90% {
+      transform: scale(1.06) translate(-1px, 0);
+    }
+    94% {
+      transform: scale(1.04) translate(1px, 0);
+    }
+  }
+
   @keyframes badgePop {0% { transform: scale(1); }40% { transform: scale(1.25); }100% { transform: scale(1); }}
   .msg-badge.pop{ animation: badgePop .35s ease; }
 
@@ -171,6 +264,65 @@ if ($isManager) {
     opacity:.95;
     font-size:12px;
     margin-left:2px;
+  }
+  .org-header-context{
+    display:inline-flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-right:12px;
+    min-width:0;
+  }
+  .org-header-page-title{
+    position:relative;
+    color:var(--msb-palette-text, #111827);
+    font-size:13px;
+    font-weight:800;
+    line-height:1;
+    white-space:nowrap;
+    margin-top:0;
+    text-decoration:none !important;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .org-header-page-title:hover,
+  .org-header-page-title:focus{
+    color:var(--msb-palette-action, var(--org-accent, #2563eb));
+    text-decoration:none !important;
+  }
+  .org-header-sales-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:18px;
+    height:18px;
+    padding:0 5px;
+    border-radius:999px;
+    background:#dc3545 !important;
+    color:#ffffff !important;
+    font-size:10px;
+    font-weight:800;
+    line-height:1;
+    border:2px solid var(--msb-palette-nav-bg, #171d24);
+    box-shadow:0 0 0 1px rgba(220,53,69,.25);
+    transform-origin:center center;
+  }
+  .org-header-sales-badge.is-pulse,
+  .org-header-sales-badge.is-alert{
+    animation: orgHeaderSalesBadgeAlert 2.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .org-header-sales-badge.is-pulse,
+    .org-header-sales-badge.is-alert{
+      animation: none;
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.35);
+    }
+  }
+  html[data-msb-appearance] body.org-app .org-header-page-title,
+  html.msb-palette-active body.org-app .org-header-page-title{
+    color:var(--msb-palette-text) !important;
   }
 
   /* 7-day feed stats in blue header (feed page) */
@@ -353,7 +505,7 @@ if ($isManager) {
 <?php endif; ?>
 
 <div class="sh-logopanel" style="padding: 10px;">
-  <a href="feed.php" class="sh-logo-text" style="display:flex;align-items:center;gap:1px;">
+  <a href="publisher_public_enter.php?to=feed" class="sh-logo-text" style="display:flex;align-items:center;gap:1px;">
    
     <span class="org-logo-label"><?= h($logoText) ?></span>
   </a>
@@ -441,7 +593,53 @@ if ($isManager) {
     ?>
 
     <?php if ($isManager && $activeOrgId > 0): ?>
-      <div class="dropdown" style="margin-right:12px;">
+      <div class="org-header-context" aria-label="Current organization context">
+        <?php
+          require_once __DIR__ . '/org_manager_guard.php';
+          $headerIsCommerceSeller = org_active_is_commerce_seller(isset($dbh) && $dbh instanceof PDO ? $dbh : null);
+          if ($headerIsCommerceSeller) {
+              $headerPageTitle = 'Sales Management';
+              $headerPageHref = 'sales_management.php';
+          } else {
+              $headerPageTitle = 'Publisher hub';
+              $headerPageHref = 'dashboard.php';
+          }
+          $salesBadgeLabel = $salesAttentionCount > 99 ? '99+' : (string)(int)$salesAttentionCount;
+          $salesBadgeTitleParts = [];
+          if ((int)($salesAttentionBreakdown['orders'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['orders'] . ' open order(s)';
+          }
+          if ((int)($salesAttentionBreakdown['delivery'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['delivery'] . ' ready to ship';
+          }
+          if ((int)($salesAttentionBreakdown['products'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['products'] . ' product alert(s)';
+          }
+          if ((int)($salesAttentionBreakdown['customers'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['customers'] . ' customer alert(s)';
+          }
+          if ((int)($salesAttentionBreakdown['returns'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['returns'] . ' return(s)';
+          }
+          if ((int)($salesAttentionBreakdown['notification'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['notification'] . ' notification(s)';
+          }
+          $salesBadgeTitle = $salesBadgeTitleParts
+              ? ('Attention: ' . implode(', ', $salesBadgeTitleParts))
+              : 'Sales management';
+        ?>
+        <a
+          class="org-header-page-title"
+          href="<?= h($headerPageHref) ?>"
+          title="<?= h($salesBadgeTitle) ?>"
+          aria-label="<?= h($headerPageTitle . ($salesAttentionCount > 0 ? (' — ' . $salesBadgeLabel . ' items need attention') : '')) ?>"
+        >
+          <span><?= h($headerPageTitle) ?></span>
+          <?php if ($headerIsCommerceSeller && $salesAttentionCount > 0): ?>
+            <span class="org-header-sales-badge is-pulse is-alert" aria-hidden="true"><?= h($salesBadgeLabel) ?></span>
+          <?php endif; ?>
+        </a>
+        <div class="dropdown">
         <a href="#" class="org-pill dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
           <?= h($activeOrgName !== '' ? $activeOrgName : 'Organization') ?>
           <?php if ($activeOrgCode !== ''): ?>
@@ -466,6 +664,7 @@ if ($isManager) {
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="select_org.php">Manage organizations</a>
         </div>
+      </div>
       </div>
     <?php endif; ?>
 

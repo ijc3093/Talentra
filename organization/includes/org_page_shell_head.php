@@ -31,6 +31,12 @@ if (!function_exists('h')) {
 
 $orgName = h((string)($ORG['name'] ?? 'Organization'));
 $titleEsc = h((string)$pageTitle);
+$pageSlug = preg_replace('/\.php$/i', '', basename((string)($_SERVER['PHP_SELF'] ?? 'page')));
+$pageSlug = preg_replace('/[^a-z0-9_-]+/i', '', (string)$pageSlug);
+if ($pageSlug === '') {
+    $pageSlug = 'page';
+}
+$bodyPageClass = 'org-page-' . $pageSlug;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -53,7 +59,7 @@ $titleEsc = h((string)$pageTitle);
     .sh-pagebody { flex: 1 1 auto; }
   </style>
 </head>
-<body class="org-app">
+<body class="org-app <?= h($bodyPageClass) ?>">
 <?php include __DIR__ . '/header.php'; ?>
 <?php include __DIR__ . '/leftbar.php'; ?>
 <div class="sh-mainpanel">

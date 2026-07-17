@@ -5,8 +5,12 @@ if (!empty($GLOBALS['msb_profile_door_included'])) {
 $GLOBALS['msb_profile_door_included'] = true;
 
 $__profileStandalone = !empty($msbProfileDoorStandalone);
+$__profileDoorHref = trim((string)($railProfileHref ?? 'profile.php'));
+if ($__profileDoorHref === '') {
+  $__profileDoorHref = 'profile.php';
+}
 $__profileMenuItems = is_array($railProfileMenuItems ?? null) ? $railProfileMenuItems : [
-  ['href' => 'profile.php', 'icon' => 'ion-ios-person', 'label' => 'Profile'],
+  ['href' => $__profileDoorHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
   ['href' => 'change-password.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
@@ -71,15 +75,21 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   font-weight:800;
   font-size:20px;
   line-height:1.1;
-  color:var(--tt-text, var(--msb-palette-text, #101828));
+  color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
+  -webkit-text-fill-color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
+  border:0 !important;
+  box-shadow:none !important;
 }
 .msb-profile-door-host .tt-close,
 #ttLeftbarOverlays .tt-profile-wrap .tt-close{
   width:34px;
   height:34px;
-  border:0;
+  border:1px solid var(--msb-palette-border-strong, var(--tt-panel-border, rgba(15,23,42,.12)));
   border-radius:50%;
-  background:transparent;
+  background:var(--msb-palette-surface-2, transparent);
   color:var(--tt-text, var(--msb-palette-text, #101828));
   display:inline-flex;
   align-items:center;
@@ -92,8 +102,11 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
 .msb-profile-door-host .tt-close i,
 #ttLeftbarOverlays .tt-profile-wrap .tt-close i{ font-size:20px; }
 .msb-profile-door-host .tt-close:hover,
-#ttLeftbarOverlays .tt-profile-wrap .tt-close:hover{
-  background:var(--tt-control-hover, var(--msb-palette-nav-hover, #e9edf3));
+#ttLeftbarOverlays .tt-profile-wrap .tt-close:hover,
+.msb-profile-door-host .tt-close:focus,
+#ttLeftbarOverlays .tt-profile-wrap .tt-close:focus{
+  background:var(--tt-control-hover, var(--msb-palette-hover-bg, #e9edf3));
+  color:var(--msb-palette-text-on-hover, var(--msb-palette-text, #101828));
 }
 .tt-profile-body{
   flex:1 1 auto !important;
@@ -121,6 +134,15 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   align-items:center;
   justify-content:center;
   box-shadow:0 10px 22px rgba(17,24,39,.12);
+  text-decoration:none;
+  color:inherit;
+}
+.tt-profile-avatar:hover,
+.tt-profile-avatar:focus{
+  text-decoration:none;
+  color:inherit;
+  outline:none;
+  box-shadow:0 10px 22px rgba(17,24,39,.18);
 }
 .tt-profile-avatar img{
   width:100%;
@@ -136,21 +158,21 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   font-size:17px;
   font-weight:800;
   line-height:1.2;
-  color:var(--tt-text, var(--msb-palette-text, #101828));
+  color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
 }
 .tt-profile-badge{
   margin-top:4px;
   font-size:13px;
   font-weight:700;
   line-height:1.2;
-  color:var(--tt-text, var(--msb-palette-text, #101828));
+  color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
 }
 .tt-profile-email,
 .tt-profile-code{
   margin-top:4px;
   font-size:13px;
   line-height:1.35;
-  color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
+  color:var(--msb-palette-text-muted, var(--msb-palette-text, #475569)) !important;
   word-break:break-word;
 }
 .tt-profile-divider{
@@ -174,16 +196,16 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   min-height:44px;
   padding:10px 12px;
   border-radius:10px;
-  color:var(--tt-text, var(--msb-palette-text, #101828));
+  color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
   font-size:15px;
-  font-weight:500;
+  font-weight:600;
   text-decoration:none;
   transition:background .15s ease, color .15s ease;
 }
 .tt-profile-nav a:hover,
 .tt-profile-nav a:focus{
-  background:var(--tt-control-hover, var(--msb-palette-nav-hover, #e9edf3));
-  color:var(--tt-text, var(--msb-palette-text, #101828));
+  background:var(--tt-control-hover, var(--msb-palette-hover-bg, #e9edf3));
+  color:var(--msb-palette-text-on-hover, var(--msb-palette-text, #101828)) !important;
   text-decoration:none;
   outline:none;
 }
@@ -191,7 +213,12 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   width:20px;
   text-align:center;
   font-size:18px;
-  color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
+  color:var(--msb-palette-text, var(--msb-palette-icon, #101828)) !important;
+  opacity:1;
+}
+.tt-profile-nav a:hover .icon,
+.tt-profile-nav a:focus .icon{
+  color:inherit;
 }
 body.msb-profile-door-open{ overflow:hidden !important; }
 body.msb-profile-door-open .msb-profile-door-host{ pointer-events:auto; }
@@ -231,9 +258,9 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
   </div>
   <div class="tt-profile-body">
     <div class="tt-profile-top">
-      <span class="tt-profile-avatar" data-avatar-key="<?= htmlspecialchars($__profileAvatarKey, ENT_QUOTES, 'UTF-8') ?>"<?= $__profileAvatarGrad !== '' ? ' style="' . htmlspecialchars($__profileAvatarGrad, ENT_QUOTES, 'UTF-8') . '"' : '' ?> aria-hidden="true">
+      <a class="tt-profile-avatar" href="<?= htmlspecialchars($__profileDoorHref, ENT_QUOTES, 'UTF-8') ?>" title="Open profile" aria-label="Open profile" data-profile-door-link="1" data-avatar-key="<?= htmlspecialchars($__profileAvatarKey, ENT_QUOTES, 'UTF-8') ?>"<?= $__profileAvatarGrad !== '' ? ' style="' . htmlspecialchars($__profileAvatarGrad, ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
         <img src="<?= htmlspecialchars($__profileAvatarUrl, ENT_QUOTES, 'UTF-8') ?>" data-live-avatar="1" data-avatar-base="<?= htmlspecialchars($__profileAvatarUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Avatar">
-      </span>
+      </a>
       <div class="tt-profile-meta">
         <div class="tt-profile-name"><?= htmlspecialchars($__profileDisplayName, ENT_QUOTES, 'UTF-8') ?></div>
         <?php if ($__profileBadge !== ''): ?>
@@ -255,7 +282,7 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
         $label = trim((string)($item['label'] ?? 'Open'));
         if ($href === '' || $label === '') continue;
       ?>
-        <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><i class="icon <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a></li>
+        <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" data-profile-door-link="1"><i class="icon <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a></li>
       <?php endforeach; ?>
     </ul>
   </div>
@@ -333,6 +360,18 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
     e.preventDefault();
     e.stopPropagation();
     toggleProfilePanel();
+  }, true);
+
+  $profileWrap?.addEventListener('click', function(e){
+    var link = e.target && e.target.closest ? e.target.closest('[data-profile-door-link]') : null;
+    if(!link || !link.href) return;
+    if(e.defaultPrevented) return;
+    if(e.button !== 0) return;
+    if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeProfilePanel();
+    window.location.assign(link.href);
   }, true);
 
   window.TTProfile = {
