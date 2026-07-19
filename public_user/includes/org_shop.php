@@ -1934,6 +1934,9 @@ function org_shop_list_buyer_orders(PDO $dbh, int $buyerUserId, int $limit = 100
             SELECT o.*,
                    org.name AS seller_name,
                    org.publisher_user_id,
+                   org.commerce_brand_id,
+                   cb.slug AS commerce_brand_slug,
+                   cb.name AS commerce_brand_name,
                    COALESCE(NULLIF(TRIM(o.product_title), ''), p.title, 'Product') AS product_title,
                    p.cover_image_path,
                    p.category,
@@ -1944,6 +1947,7 @@ function org_shop_list_buyer_orders(PDO $dbh, int $buyerUserId, int $limit = 100
               AND org.commerce_brand_id IS NOT NULL
               AND org.commerce_brand_id > 0
               AND LOWER(TRIM(COALESCE(org.publisher_category, ''))) IN ('', 'commerce')
+            LEFT JOIN commerce_brands cb ON cb.id = org.commerce_brand_id AND cb.is_active = 1
             LEFT JOIN org_products p ON p.id = o.product_id AND p.is_deleted = 0
             LEFT JOIN org_order_receipts r ON r.order_id = o.id
             WHERE o.buyer_user_id = :uid
@@ -1959,6 +1963,9 @@ function org_shop_list_buyer_orders(PDO $dbh, int $buyerUserId, int $limit = 100
                 SELECT o.*,
                        org.name AS seller_name,
                        org.publisher_user_id,
+                       org.commerce_brand_id,
+                       cb.slug AS commerce_brand_slug,
+                       cb.name AS commerce_brand_name,
                        COALESCE(NULLIF(TRIM(o.product_title), ''), p.title, 'Product') AS product_title,
                        p.cover_image_path,
                        p.category,
@@ -1969,6 +1976,7 @@ function org_shop_list_buyer_orders(PDO $dbh, int $buyerUserId, int $limit = 100
                   AND org.commerce_brand_id IS NOT NULL
                   AND org.commerce_brand_id > 0
                   AND LOWER(TRIM(COALESCE(org.publisher_category, ''))) IN ('', 'commerce')
+                LEFT JOIN commerce_brands cb ON cb.id = org.commerce_brand_id AND cb.is_active = 1
                 LEFT JOIN org_products p ON p.id = o.product_id AND p.is_deleted = 0
                 LEFT JOIN org_order_receipts r ON r.order_id = o.id
                 WHERE o.buyer_user_id = :uid
@@ -1981,6 +1989,19 @@ function org_shop_list_buyer_orders(PDO $dbh, int $buyerUserId, int $limit = 100
             return [];
         }
     }
+}
+
+/** Shop brand-group URL for a buyer order row (`shop.php?cbrand=…`), or empty if unknown. */
+function org_shop_order_brand_shop_url(array $order): string
+{
+    $slug = trim((string)($order['commerce_brand_slug'] ?? ''));
+    if ($slug === '') {
+        return '';
+    }
+    if (!function_exists('org_commerce_brands_shop_url')) {
+        require_once __DIR__ . '/org_commerce_brands.php';
+    }
+    return org_commerce_brands_shop_url($slug);
 }
 
 /**
@@ -3453,6 +3474,10 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                 continue;
             }
             $seller = trim((string)($order['seller_name'] ?? '')) ?: 'Seller';
+            $brandLabel = trim((string)($order['commerce_brand_name'] ?? ''));
+            if ($brandLabel === '') {
+                $brandLabel = $seller;
+            }
             $code = trim((string)($order['order_code'] ?? ''));
             $title = trim((string)($order['product_title'] ?? 'Product'));
             $whenRaw = (string)($order['updated_at'] ?? $order['created_at'] ?? '');
@@ -3462,7 +3487,8 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                 (string)($order['buyer_notes'] ?? ''),
                 (string)($order['seller_notes'] ?? '')
             );
-            $action = 'my_orders.php';
+            $brandUrl = org_shop_order_brand_shop_url($order);
+            $action = $brandUrl !== '' ? $brandUrl : 'my_orders.php';
             if ($status === 'cancelled') {
                 $by = (string)$meta['by'];
                 $reason = (string)$meta['reason'];
@@ -3470,57 +3496,62 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                 $feed[] = [
                     'type' => $isSeller ? 'Cancel' : 'Cancellation',
                     'title' => $isSeller
-                        ? ('Seller Cancel · ' . $seller)
+                        ? ('Seller Cancel · ' . $brandLabel)
                         : 'Your Cancellation',
                     'message' => ($code !== '' ? $code . ' · ' : '') . $title . ' · Reason: ' . $reason,
                     'when' => $when,
                     'sort' => $sort,
-                    'from' => $seller,
+                    'from' => $brandLabel,
                     'action' => $action,
+                    'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             } elseif (in_array($status, ['pending', 'confirmed'], true)) {
                 $feed[] = [
                     'type' => 'Pending',
-                    'title' => 'Pending — awaiting payment · ' . $seller,
+                    'title' => 'Pending — awaiting payment · ' . $brandLabel,
                     'message' => ($code !== '' ? $code . ' · ' : '') . $title,
                     'when' => $when,
                     'sort' => $sort,
-                    'from' => $seller,
+                    'from' => $brandLabel,
                     'action' => $action,
+                    'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             } elseif ($status === 'paid') {
                 $feed[] = [
                     'type' => 'Paid',
-                    'title' => 'Paid — seller preparing shipment · ' . $seller,
+                    'title' => 'Paid — seller preparing shipment · ' . $brandLabel,
                     'message' => ($code !== '' ? $code . ' · ' : '') . $title,
                     'when' => $when,
                     'sort' => $sort,
-                    'from' => $seller,
+                    'from' => $brandLabel,
                     'action' => $action,
+                    'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             } elseif ($status === 'shipped') {
                 $track = trim((string)($order['tracking_number'] ?? ''));
                 $carr = trim((string)($order['carrier'] ?? ''));
                 $feed[] = [
                     'type' => 'Shipping',
-                    'title' => 'Shipping — in transit · ' . $seller,
+                    'title' => 'Shipping — in transit · ' . $brandLabel,
                     'message' => ($code !== '' ? $code . ' · ' : '') . $title
                         . ($carr !== '' ? ' · ' . $carr : '')
                         . ($track !== '' ? ' · Tracking ' . $track : ''),
                     'when' => $when,
                     'sort' => $sort,
-                    'from' => $seller,
+                    'from' => $brandLabel,
                     'action' => $action,
+                    'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             } else {
                 $feed[] = [
                     'type' => 'Delivery',
-                    'title' => 'Delivery confirmed · ' . $seller,
+                    'title' => 'Delivery confirmed · ' . $brandLabel,
                     'message' => ($code !== '' ? $code . ' · ' : '') . $title,
                     'when' => $when,
                     'sort' => $sort,
-                    'from' => $seller,
-                    'action' => 'Your_Shopping_preferences.php#order-history',
+                    'from' => $brandLabel,
+                    'action' => $brandUrl !== '' ? $brandUrl : 'Your_Shopping_preferences.php#order-history',
+                    'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             }
         }

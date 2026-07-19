@@ -126,6 +126,50 @@ if ($buyerSellerRelEdit === null && $buyerSellerRels) {
     $buyerSellerRelEditOrg = (int)($buyerSellerRelEdit['org_id'] ?? 0);
 }
 
+$sellerMsgContacts = commerce_list_buyer_seller_contacts($dbh, $meId);
+$sellerMsgUnread = commerce_buyer_seller_unread_count($dbh, $meId);
+$sellerMsgPeerId = (int)($_GET['seller_msg'] ?? $_GET['id'] ?? 0);
+$sellerMsgAboutProduct = (int)($_GET['about_product'] ?? 0);
+$sellerMsgAboutOrder = trim((string)($_GET['about_order'] ?? ''));
+$sellerMsgDraft = commerce_messaging_compose_draft($dbh, $sellerMsgAboutProduct, $sellerMsgAboutOrder);
+$sellerMsgActive = null;
+if ($sellerMsgPeerId > 0 && commerce_can_dm_pair($dbh, $meId, $sellerMsgPeerId)) {
+    foreach ($sellerMsgContacts as $c) {
+        if ((int)($c['publisher_user_id'] ?? 0) === $sellerMsgPeerId) {
+            $sellerMsgActive = $c;
+            break;
+        }
+    }
+    if ($sellerMsgActive === null) {
+        try {
+            $stPeer = $dbh->prepare("
+                SELECT id, friend_code,
+                       COALESCE(NULLIF(TRIM(name), ''), NULLIF(TRIM(username), ''), friend_code) AS seller_name
+                FROM users WHERE id = :id AND status = 1 LIMIT 1
+            ");
+            $stPeer->execute([':id' => $sellerMsgPeerId]);
+            $peerRow = $stPeer->fetch(PDO::FETCH_ASSOC) ?: null;
+            if ($peerRow) {
+                $sellerMsgActive = [
+                    'publisher_user_id' => $sellerMsgPeerId,
+                    'org_id' => 0,
+                    'seller_name' => trim((string)($peerRow['seller_name'] ?? 'Seller')),
+                    'friend_code' => strtoupper(trim((string)($peerRow['friend_code'] ?? ''))),
+                    'last_message' => '',
+                    'last_at' => '',
+                    'unread' => 0,
+                ];
+                array_unshift($sellerMsgContacts, $sellerMsgActive);
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+} elseif ($sellerMsgContacts) {
+    $sellerMsgActive = $sellerMsgContacts[0];
+    $sellerMsgPeerId = (int)($sellerMsgActive['publisher_user_id'] ?? 0);
+}
+
 $buyerOrders = org_shop_list_buyer_orders($dbh, $meId, 200);
 $buyerOrderCount = 0;
 $buyerSpentCents = 0;
@@ -816,7 +860,8 @@ if ($buyerOrderHistorySelected) {
     .shop-pref-head a{font-size:13px;font-weight:800;color:var(--shop-link,var(--msb-palette-action,#2563eb));text-decoration:none;}
     .shop-pref-head a:hover{text-decoration:underline;}
     .shop-pref-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:18px;align-items:start;margin-top:16px;}
-    .shop-pref-nav{border:1px solid var(--shop-border,var(--msb-palette-border,#e5e7eb));border-radius:6px;background:var(--shop-card-bg,var(--msb-palette-bg,#fff));padding:10px;position:sticky;height:min(520px,calc(100vh - 230px));min-height:310px;display:flex;flex-direction:column;overflow:hidden;}
+    .shop-pref-side{display:flex;flex-direction:column;gap:10px;position:sticky;top:12px;align-self:start;}
+    .shop-pref-nav{border:1px solid var(--shop-border,var(--msb-palette-border,#e5e7eb));border-radius:6px;background:var(--shop-card-bg,var(--msb-palette-bg,#fff));padding:10px;height:min(520px,calc(100vh - 280px));min-height:310px;display:flex;flex-direction:column;overflow:hidden;}
     .shop-pref-nav-title{flex:0 0 auto;margin:0 0 8px;padding:4px 6px;font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));}
     .shop-pref-nav-list{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:3px;margin:0;padding:0 4px 0 0;list-style:none;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--shop-border-strong,var(--shop-border,#475569)) transparent;}
     .shop-pref-nav-list::-webkit-scrollbar{width:6px;}
@@ -825,6 +870,16 @@ if ($buyerOrderHistorySelected) {
     .shop-pref-nav-link:hover,.shop-pref-nav-link:focus,.shop-pref-nav-link.is-active{background:var(--shop-hover-bg,var(--msb-palette-hover-bg,#f3f4f6));text-decoration:none;}
     .shop-pref-nav-link i{width:16px;text-align:center;color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));font-size:15px;}
     .shop-pref-nav-badge{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#dc3545;color:#fff;font-size:10px;font-weight:800;line-height:1;}
+    .shop-pref-support-center{
+      display:flex;align-items:center;gap:8px;padding:8px 10px;
+      color:var(--shop-text,var(--msb-palette-text,#111827));font-size:14px;font-weight:850;
+      text-decoration:none;line-height:1.2;
+    }
+    .shop-pref-support-center:hover,.shop-pref-support-center:focus,.shop-pref-support-center.is-active{
+      color:var(--shop-link,var(--msb-palette-action,#2563eb));text-decoration:none;
+    }
+    .shop-pref-support-center i{font-size:16px;color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));}
+    .shop-pref-support-center.is-active i,.shop-pref-support-center:hover i{color:inherit;}
     .shop-buyer-notif-life{border:1px solid var(--shop-border,var(--msb-palette-border,#e5e7eb));border-radius:10px;padding:14px 16px;background:var(--shop-card-bg,var(--msb-palette-bg,#fff));}
     .shop-buyer-notif-life h3{margin:0 0 4px;font-size:14px;font-weight:700;}
     .shop-buyer-notif-life > p{margin:0 0 12px;font-size:12px;line-height:1.4;color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));max-width:760px;}
@@ -856,7 +911,42 @@ if ($buyerOrderHistorySelected) {
     body.shopping-preferences-page .sh-pagebody{max-width:none;}
     body.shopping-preferences-page.shop-page.feed-insta-ui .shop-page-shell{padding-left:24px !important;padding-right:24px !important;}
     body.shopping-preferences-page .shop-pref-layout{max-width:none;width:100%;}
-    @media (max-width:1100px){.shop-pref-layout{grid-template-columns:1fr;}.shop-pref-nav{position:static;height:320px;}.shop-pref-nav-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;}.shop-customer-hub{grid-template-columns:1fr;}.shop-invoice-layout{grid-template-columns:1fr;}}
+    .shop-seller-msg-layout{display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);gap:12px;min-height:420px;}
+    .shop-seller-msg-list{border:1px solid var(--shop-border,rgba(148,163,184,.35));border-radius:8px;overflow:auto;max-height:520px;background:var(--shop-card-bg,transparent);}
+    .shop-seller-msg-item{display:block;padding:10px 12px;border-bottom:1px solid var(--shop-border,rgba(148,163,184,.25));color:inherit;text-decoration:none;}
+    .shop-seller-msg-item:hover,.shop-seller-msg-item.is-active{background:var(--shop-hover-bg,rgba(148,163,184,.12));}
+    .shop-seller-msg-item strong{display:block;font-size:13px;}
+    .shop-seller-msg-item span{display:block;font-size:11px;opacity:.75;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .shop-seller-msg-chat{border:1px solid var(--shop-border,rgba(148,163,184,.35));border-radius:8px;display:flex;flex-direction:column;min-height:420px;max-height:520px;background:var(--shop-card-bg,transparent);}
+    .shop-seller-msg-head{padding:10px 12px;border-bottom:1px solid var(--shop-border,rgba(148,163,184,.25));font-weight:800;font-size:14px;}
+    .shop-seller-msg-thread{flex:1 1 auto;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
+    .shop-seller-msg-bubble{max-width:85%;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.4;white-space:pre-wrap;word-break:break-word;}
+    .shop-seller-msg-bubble.me{align-self:flex-end;background:#2563eb;color:#fff;}
+    .shop-seller-msg-bubble.them{align-self:flex-start;background:rgba(148,163,184,.18);}
+    .shop-seller-msg-meta{font-size:10px;opacity:.7;margin-top:4px;}
+    .shop-seller-msg-compose{display:flex;gap:8px;padding:10px;border-top:1px solid var(--shop-border,rgba(148,163,184,.25));}
+    .shop-seller-msg-compose textarea{flex:1 1 auto;min-height:44px;max-height:120px;resize:none;}
+    .shop-seller-msg-empty{padding:24px 12px;text-align:center;opacity:.8;font-size:13px;}
+    @media (max-width:900px){.shop-seller-msg-layout{grid-template-columns:1fr;}}
+    .shop-admin-support{display:grid;grid-template-columns:minmax(200px,260px) minmax(0,1fr);gap:12px;margin-top:14px;min-height:420px;}
+    .shop-admin-support-guide{border:1px solid var(--shop-border,rgba(148,163,184,.35));border-radius:8px;padding:12px;background:var(--shop-card-bg,transparent);}
+    .shop-admin-support-guide h3{margin:0 0 8px;font-size:13px;font-weight:850;}
+    .shop-admin-support-guide ol{margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--shop-text,var(--msb-palette-text,#111827));}
+    .shop-admin-support-guide li{margin:0 0 6px;}
+    .shop-admin-support-guide p{margin:10px 0 0;font-size:12px;color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));}
+    .shop-admin-support-chat{border:1px solid var(--shop-border,rgba(148,163,184,.35));border-radius:8px;display:flex;flex-direction:column;min-height:420px;max-height:560px;background:var(--shop-card-bg,transparent);}
+    .shop-admin-support-head{padding:10px 12px;border-bottom:1px solid var(--shop-border,rgba(148,163,184,.25));font-weight:800;font-size:14px;}
+    .shop-admin-support-topics{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border-bottom:1px solid var(--shop-border,rgba(148,163,184,.25));}
+    .shop-admin-topic{border:1px solid var(--shop-border,var(--msb-palette-border,#d1d5db));border-radius:4px;background:var(--shop-btn-outline-bg,transparent);color:var(--shop-text,var(--msb-palette-text,#111827));font-size:11px;font-weight:800;padding:5px 9px;cursor:pointer;}
+    .shop-admin-topic.is-active{border-color:var(--shop-link,var(--msb-palette-action,#2563eb));color:var(--shop-link,var(--msb-palette-action,#2563eb));background:rgba(37,99,235,.08);}
+    .shop-admin-support-thread{flex:1 1 auto;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
+    .shop-admin-support-compose{display:flex;flex-direction:column;gap:8px;padding:10px;border-top:1px solid var(--shop-border,rgba(148,163,184,.25));}
+    .shop-admin-support-compose .shop-admin-support-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .shop-admin-support-compose textarea{min-height:64px;max-height:140px;resize:none;}
+    .shop-admin-support-compose-row{display:flex;gap:8px;align-items:flex-end;}
+    .shop-admin-support-compose-row textarea{flex:1 1 auto;}
+    @media (max-width:900px){.shop-admin-support{grid-template-columns:1fr;}.shop-admin-support-compose .shop-admin-support-meta{grid-template-columns:1fr;}}
+
     @media (max-width:1024px){body.shopping-preferences-page.shop-page.feed-insta-ui .shop-page-shell{padding-left:calc(var(--feedRailW, 84px) + 12px) !important;}}
     @media (max-width:640px){body.shopping-preferences-page.shop-page.feed-insta-ui .shop-page-shell{padding-left:12px !important;padding-right:12px !important;}.shop-pref-nav-list{grid-template-columns:1fr;}.shop-customer-stats,.shop-pref-panel-list{grid-template-columns:repeat(2,minmax(0,1fr));}}
   </style>
@@ -882,34 +972,47 @@ if ($buyerOrderHistorySelected) {
         <a href="shop.php">&larr; Back to shop</a>
       </div>
       <div class="shop-pref-layout">
-        <aside class="shop-pref-nav" aria-label="Shopping preferences navigation">
-          <p class="shop-pref-nav-title">Customer menu</p>
-          <ul class="shop-pref-nav-list">
-            <li><a class="shop-pref-nav-link is-active" href="#customer-dashboard" data-shop-pref-target="customer-dashboard"><i class="icon ion-speedometer"></i>Dashboard</a></li>
-            <li><a class="shop-pref-nav-link" href="#order-history" data-shop-pref-target="order-history"><i class="icon ion-ios-list"></i>Order history</a></li>
-            <li><a class="shop-pref-nav-link" href="#order-details" data-shop-pref-target="order-details"><i class="icon ion-document-text"></i>Order details</a></li>
-            <!-- <li><a class="shop-pref-nav-link" href="#shopping-cart" data-shop-pref-target="shopping-cart"><i class="icon ion-ios-cart"></i>Shopping cart</a></li> -->
-            <li><a class="shop-pref-nav-link" href="#wishlist" data-shop-pref-target="wishlist"><i class="icon ion-bookmark"></i>Wishlist</a></li>
-            <li><a class="shop-pref-nav-link" href="#invoices-payments" data-shop-pref-target="invoices-payments"><i class="icon ion-card"></i>Invoices &amp; payments</a></li>
-            <li><a class="shop-pref-nav-link" href="#returns-refunds" data-shop-pref-target="returns-refunds"><i class="icon ion-reply"></i>Returns &amp; refunds</a></li>
-            <li><a class="shop-pref-nav-link" href="#seller-relationships" data-shop-pref-target="seller-relationships"><i class="icon ion-ios-people"></i>Seller relationships</a></li>
-            <li><a class="shop-pref-nav-link" href="#reviews-ratings" data-shop-pref-target="reviews-ratings"><i class="icon ion-star"></i>Reviews &amp; ratings</a></li>
-            <li><a class="shop-pref-nav-link" href="#addresses" data-shop-pref-target="addresses"><i class="icon ion-location"></i>Addresses</a></li>
-            <!-- <li><a class="shop-pref-nav-link" href="#contact-information" data-shop-pref-target="contact-information"><i class="icon ion-email"></i>Contact information</a></li> -->
-            <!-- <li><a class="shop-pref-nav-link" href="#customer-groups" data-shop-pref-target="customer-groups"><i class="icon ion-ios-people"></i>Customer groups</a></li> -->
-            <li>
-              <a class="shop-pref-nav-link" href="#notifications" data-shop-pref-target="notifications">
-                <i class="icon ion-android-notifications"></i>Notifications
-                <?php if ($buyerNotifCount > 0): ?>
-                  <span class="shop-pref-nav-badge"><?= $buyerNotifCount > 99 ? '99+' : (int)$buyerNotifCount ?></span>
-                <?php endif; ?>
-              </a>
-            </li>
-            <li><a class="shop-pref-nav-link" href="#loyalty-program" data-shop-pref-target="loyalty-program"><i class="icon ion-ribbon-b"></i>Loyalty program</a></li>
-            <li><a class="shop-pref-nav-link" href="#support-tickets" data-shop-pref-target="support-tickets"><i class="icon ion-help-buoy"></i>Support tickets</a></li>
-            <li><a class="shop-pref-nav-link" href="#documents" data-shop-pref-target="documents"><i class="icon ion-folder"></i>Documents</a></li>
-          </ul>
-        </aside>
+        <div class="shop-pref-side">
+          <aside class="shop-pref-nav" aria-label="Shopping preferences navigation">
+            <p class="shop-pref-nav-title">Customer menu</p>
+            <ul class="shop-pref-nav-list">
+              <li><a class="shop-pref-nav-link is-active" href="#customer-dashboard" data-shop-pref-target="customer-dashboard"><i class="icon ion-speedometer"></i>Dashboard</a></li>
+              <li><a class="shop-pref-nav-link" href="#order-history" data-shop-pref-target="order-history"><i class="icon ion-ios-list"></i>Order history</a></li>
+              <li><a class="shop-pref-nav-link" href="#order-details" data-shop-pref-target="order-details"><i class="icon ion-document-text"></i>Order details</a></li>
+              <!-- <li><a class="shop-pref-nav-link" href="#shopping-cart" data-shop-pref-target="shopping-cart"><i class="icon ion-ios-cart"></i>Shopping cart</a></li> -->
+              <li><a class="shop-pref-nav-link" href="#wishlist" data-shop-pref-target="wishlist"><i class="icon ion-bookmark"></i>Wishlist</a></li>
+              <li><a class="shop-pref-nav-link" href="#invoices-payments" data-shop-pref-target="invoices-payments"><i class="icon ion-card"></i>Invoices &amp; payments</a></li>
+              <li><a class="shop-pref-nav-link" href="#returns-refunds" data-shop-pref-target="returns-refunds"><i class="icon ion-reply"></i>Returns &amp; refunds</a></li>
+              <li><a class="shop-pref-nav-link" href="#seller-relationships" data-shop-pref-target="seller-relationships"><i class="icon ion-ios-people"></i>Seller relationships</a></li>
+              <li>
+                <a class="shop-pref-nav-link" href="#seller-messages" data-shop-pref-target="seller-messages">
+                  <i class="icon ion-chatboxes"></i>Messages
+                  <?php if ($sellerMsgUnread > 0): ?>
+                    <span class="shop-pref-nav-badge"><?= $sellerMsgUnread > 99 ? '99+' : (int)$sellerMsgUnread ?></span>
+                  <?php endif; ?>
+                </a>
+              </li>
+              <li><a class="shop-pref-nav-link" href="#reviews-ratings" data-shop-pref-target="reviews-ratings"><i class="icon ion-star"></i>Reviews &amp; ratings</a></li>
+              <li><a class="shop-pref-nav-link" href="#addresses" data-shop-pref-target="addresses"><i class="icon ion-location"></i>Addresses</a></li>
+              <!-- <li><a class="shop-pref-nav-link" href="#contact-information" data-shop-pref-target="contact-information"><i class="icon ion-email"></i>Contact information</a></li> -->
+              <!-- <li><a class="shop-pref-nav-link" href="#customer-groups" data-shop-pref-target="customer-groups"><i class="icon ion-ios-people"></i>Customer groups</a></li> -->
+              <li>
+                <a class="shop-pref-nav-link" href="#notifications" data-shop-pref-target="notifications">
+                  <i class="icon ion-android-notifications"></i>Notifications
+                  <?php if ($buyerNotifCount > 0): ?>
+                    <span class="shop-pref-nav-badge"><?= $buyerNotifCount > 99 ? '99+' : (int)$buyerNotifCount ?></span>
+                  <?php endif; ?>
+                </a>
+              </li>
+              <li><a class="shop-pref-nav-link" href="#loyalty-program" data-shop-pref-target="loyalty-program"><i class="icon ion-ribbon-b"></i>Loyalty program</a></li>
+              <li><a class="shop-pref-nav-link" href="#support-tickets" data-shop-pref-target="support-tickets"><i class="icon ion-help-buoy"></i>Support tickets</a></li>
+              <li><a class="shop-pref-nav-link" href="#documents" data-shop-pref-target="documents"><i class="icon ion-folder"></i>Documents</a></li>
+            </ul>
+          </aside>
+          <a class="shop-pref-support-center" href="#support-center" data-shop-pref-target="support-center">
+            <i class="icon ion-ios-help"></i>Support Center
+          </a>
+        </div>
         <section class="shop-customer-hub" aria-label="Customer module">
           <div class="shop-customer-card">
             <div class="shop-pref-panel is-active" id="customer-dashboard" data-shop-pref-panel="customer-dashboard">
@@ -926,8 +1029,8 @@ if ($buyerOrderHistorySelected) {
               </div>
               <div class="shop-customer-actions">
                 <a class="shop-customer-action" href="#order-history" data-shop-pref-target="order-history"><i class="icon ion-ios-list"></i> Orders</a>
+                <a class="shop-customer-action" href="#seller-messages" data-shop-pref-target="seller-messages"><i class="icon ion-chatboxes"></i> Messages</a>
                 <a class="shop-customer-action" href="#shopping-cart" data-shop-pref-target="shopping-cart"><i class="icon ion-ios-cart"></i> Cart</a>
-                <a class="shop-customer-action" href="#contact-information" data-shop-pref-target="contact-information"><i class="icon ion-person"></i> Edit customer info</a>
                 <a class="shop-customer-action" href="#support-tickets" data-shop-pref-target="support-tickets"><i class="icon ion-help-buoy"></i> Support</a>
               </div>
             </div>
@@ -1281,6 +1384,47 @@ if ($buyerOrderHistorySelected) {
                 </div>
               <?php endif; ?>
             </div>
+            <div class="shop-pref-panel" id="seller-messages" data-shop-pref-panel="seller-messages">
+              <div>
+                <p class="shop-customer-kicker">Messages</p>
+                <h2 class="shop-customer-name">Chat with sellers</h2>
+                <p class="shop-customer-sub">Ask about a product, order, pickup, or delivery — messages go directly to the seller.</p>
+              </div>
+              <?php if (!$sellerMsgContacts): ?>
+                <div class="shop-seller-msg-empty">
+                  No seller chats yet. Open a product and choose <strong>Message seller about this product</strong>, or place an order first.
+                  <div class="mg-t-10"><a class="btn btn-sm btn-primary" href="shop.php">Browse shop</a></div>
+                </div>
+              <?php else: ?>
+                <div class="shop-seller-msg-layout" id="shopSellerMsgRoot"
+                  data-peer="<?= h((string)($sellerMsgActive['friend_code'] ?? '')) ?>"
+                  data-peer-name="<?= h((string)($sellerMsgActive['seller_name'] ?? 'Seller')) ?>"
+                  data-draft="<?= h($sellerMsgDraft) ?>"
+                >
+                  <div class="shop-seller-msg-list" aria-label="Sellers">
+                    <?php foreach ($sellerMsgContacts as $c):
+                      $cid = (int)($c['publisher_user_id'] ?? 0);
+                      $isActive = $cid === (int)($sellerMsgActive['publisher_user_id'] ?? 0);
+                      $href = commerce_message_seller_url($cid, $isActive ? $sellerMsgAboutProduct : 0, $isActive ? $sellerMsgAboutOrder : '');
+                    ?>
+                      <a class="shop-seller-msg-item<?= $isActive ? ' is-active' : '' ?>" href="<?= h($href) ?>" data-peer="<?= h((string)($c['friend_code'] ?? '')) ?>">
+                        <strong><?= h((string)($c['seller_name'] ?? 'Seller')) ?><?php if ((int)($c['unread'] ?? 0) > 0): ?> <span class="shop-pref-nav-badge"><?= (int)$c['unread'] ?></span><?php endif; ?></strong>
+                        <span><?= h((string)(($c['last_message'] !== '' ? $c['last_message'] : 'Start a conversation'))) ?></span>
+                      </a>
+                    <?php endforeach; ?>
+                  </div>
+                  <div class="shop-seller-msg-chat">
+                    <div class="shop-seller-msg-head" id="shopSellerMsgHead"><?= h((string)($sellerMsgActive['seller_name'] ?? 'Seller')) ?></div>
+                    <div class="shop-seller-msg-thread" id="shopSellerMsgThread" aria-live="polite"></div>
+                    <div class="shop-seller-msg-compose">
+                      <textarea id="shopSellerMsgInput" class="form-control" rows="2" placeholder="Write a message about the product or order…"></textarea>
+                      <button type="button" class="btn btn-primary btn-sm" id="shopSellerMsgSend">Send</button>
+                    </div>
+                    <p class="tx-danger tx-12 mg-b-0" id="shopSellerMsgErr" style="padding:0 10px 8px;" hidden></p>
+                  </div>
+                </div>
+              <?php endif; ?>
+            </div>
             <div class="shop-pref-panel" id="reviews-ratings" data-shop-pref-panel="reviews-ratings">
               <div><p class="shop-customer-kicker">Reviews &amp; ratings</p><h2 class="shop-customer-name"><?= (int)$buyerReviews ?> submitted review<?= (int)$buyerReviews === 1 ? '' : 's' ?></h2><p class="shop-customer-sub">Product reviews submitted by this customer account.</p></div>
               <div class="shop-pref-table-wrap"><table class="shop-pref-table"><thead><tr><th>Product</th><th>Rating</th><th>Review</th><th>Date</th></tr></thead><tbody>
@@ -1464,6 +1608,45 @@ if ($buyerOrderHistorySelected) {
             <div class="shop-pref-panel" id="documents" data-shop-pref-panel="documents">
               <div><p class="shop-customer-kicker">Documents</p><h2 class="shop-customer-name">Buyer documents</h2><p class="shop-customer-sub">Tax ID or business files for B2B seller checks show here.</p></div>
               <div class="shop-pref-table-wrap"><table class="shop-pref-table"><thead><tr><th>Document</th><th>Use</th><th>Status</th></tr></thead><tbody><tr><td>Tax ID</td><td>B2B seller checks</td><td>Not uploaded</td></tr><tr><td>Business license</td><td>Wholesale review</td><td>Not uploaded</td></tr></tbody></table></div>
+            </div>
+            <div class="shop-pref-panel" id="support-center" data-shop-pref-panel="support-center">
+              <div>
+                <p class="shop-customer-kicker">Support Center</p>
+                <h2 class="shop-customer-name">Chat with Admin</h2>
+                <p class="shop-customer-sub">Open a dispute against a seller, or ask Admin for help with an order, payment, or account issue.</p>
+              </div>
+              <div class="shop-admin-support" id="shopAdminSupportRoot" data-endpoint="ajax/admin_support_chat.php">
+                <div class="shop-admin-support-guide">
+                  <h3>How to get Admin help</h3>
+                  <ol>
+                    <li>Try <strong>Message sellers</strong> first for product, pickup, or delivery questions.</li>
+                    <li>Choose <strong>Dispute with seller</strong> if the seller will not resolve an order problem.</li>
+                    <li>Choose <strong>Need help</strong> for payments, account, or other platform questions.</li>
+                    <li>Add the order code and seller name when you can, then send your message.</li>
+                    <li>Admin replies appear in this same chat thread.</li>
+                  </ol>
+                  <p>Disputes and help requests go to Admin — not to the seller.</p>
+                </div>
+                <div class="shop-admin-support-chat">
+                  <div class="shop-admin-support-head">Admin support chat</div>
+                  <div class="shop-admin-support-topics" role="group" aria-label="Support topic">
+                    <button type="button" class="shop-admin-topic is-active" data-topic="dispute">Dispute with seller</button>
+                    <button type="button" class="shop-admin-topic" data-topic="help">Need help</button>
+                  </div>
+                  <div class="shop-admin-support-thread" id="shopAdminSupportThread" aria-live="polite"></div>
+                  <div class="shop-admin-support-compose">
+                    <div class="shop-admin-support-meta">
+                      <input type="text" class="form-control form-control-sm" id="shopAdminSupportOrder" placeholder="Order code (optional)" maxlength="80">
+                      <input type="text" class="form-control form-control-sm" id="shopAdminSupportSeller" placeholder="Seller name (optional)" maxlength="120">
+                    </div>
+                    <div class="shop-admin-support-compose-row">
+                      <textarea id="shopAdminSupportInput" class="form-control" rows="2" placeholder="Describe the dispute or what you need help with…"></textarea>
+                      <button type="button" class="btn btn-primary btn-sm" id="shopAdminSupportSend">Send</button>
+                    </div>
+                    <p class="tx-danger tx-12 mg-b-0" id="shopAdminSupportErr" hidden></p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1743,6 +1926,239 @@ document.addEventListener('DOMContentLoaded', function () {
   <?php if ($addrFlashErr !== ''): ?>
   openAddrModal();
   <?php endif; ?>
+
+  /* Seller product chat (Shopping Preferences — not messages.php) */
+  (function () {
+    var root = document.getElementById('shopSellerMsgRoot');
+    if (!root) return;
+    var thread = document.getElementById('shopSellerMsgThread');
+    var input = document.getElementById('shopSellerMsgInput');
+    var sendBtn = document.getElementById('shopSellerMsgSend');
+    var errEl = document.getElementById('shopSellerMsgErr');
+    var peer = String(root.getAttribute('data-peer') || '').trim().toUpperCase();
+    var draft = String(root.getAttribute('data-draft') || '');
+    var lastId = 0;
+    var polling = false;
+
+    function setErr(msg) {
+      if (!errEl) return;
+      if (!msg) { errEl.hidden = true; errEl.textContent = ''; return; }
+      errEl.hidden = false;
+      errEl.textContent = msg;
+    }
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function appendItems(items, replace) {
+      if (!thread) return;
+      if (replace) thread.innerHTML = '';
+      (items || []).forEach(function (item) {
+        var id = parseInt(item.id || 0, 10);
+        if (id > lastId) lastId = id;
+        var div = document.createElement('div');
+        div.className = 'shop-seller-msg-bubble ' + (item.is_me ? 'me' : 'them');
+        div.innerHTML = esc(item.text || '') + '<div class="shop-seller-msg-meta">' + esc(item.time_label || '') + '</div>';
+        thread.appendChild(div);
+      });
+      thread.scrollTop = thread.scrollHeight;
+    }
+    async function loadHistory() {
+      if (!peer) return;
+      try {
+        var res = await fetch('ajax/user_chat_poll.php?peer=' + encodeURIComponent(peer) + '&after=0&wait=0&mark=1', { credentials: 'same-origin' });
+        var data = await res.json();
+        if (data && data.ok) {
+          lastId = 0;
+          appendItems(data.items || [], true);
+          if (!(data.items || []).length) {
+            thread.innerHTML = '<div class="shop-seller-msg-empty">No messages yet. Ask about the product, stock, pickup, or delivery.</div>';
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    async function pollNew() {
+      if (!peer || polling) return;
+      polling = true;
+      try {
+        var res = await fetch('ajax/user_chat_poll.php?peer=' + encodeURIComponent(peer) + '&after=' + lastId + '&wait=0&mark=1', { credentials: 'same-origin' });
+        var data = await res.json();
+        if (data && data.ok && (data.items || []).length) {
+          if (thread && thread.querySelector('.shop-seller-msg-empty')) thread.innerHTML = '';
+          appendItems(data.items, false);
+        }
+      } catch (e) { /* ignore */ }
+      polling = false;
+    }
+    async function sendMessage() {
+      setErr('');
+      if (!peer) { setErr('Select a seller first.'); return; }
+      var text = input ? String(input.value || '').trim() : '';
+      if (!text) { setErr('Type a message.'); return; }
+      if (sendBtn) sendBtn.disabled = true;
+      try {
+        var body = new URLSearchParams();
+        body.set('to', peer);
+        body.set('message', text);
+        var res = await fetch('ajax/user_chat_send.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+          credentials: 'same-origin'
+        });
+        var data = await res.json();
+        if (!data || !data.ok) {
+          setErr((data && (data.error || data.message)) || 'Could not send.');
+          return;
+        }
+        if (input) input.value = '';
+        await pollNew();
+      } catch (e) {
+        setErr('Could not send message.');
+      } finally {
+        if (sendBtn) sendBtn.disabled = false;
+      }
+    }
+
+    if (input && draft && !String(input.value || '').trim()) {
+      input.value = draft;
+    }
+    if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+    if (input) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+    }
+    loadHistory();
+    setInterval(pollNew, 4000);
+  })();
+
+  /* Admin support chat (Support Center) */
+  (function () {
+    var root = document.getElementById('shopAdminSupportRoot');
+    if (!root) return;
+    var endpoint = String(root.getAttribute('data-endpoint') || 'ajax/admin_support_chat.php');
+    var thread = document.getElementById('shopAdminSupportThread');
+    var input = document.getElementById('shopAdminSupportInput');
+    var sendBtn = document.getElementById('shopAdminSupportSend');
+    var errEl = document.getElementById('shopAdminSupportErr');
+    var orderEl = document.getElementById('shopAdminSupportOrder');
+    var sellerEl = document.getElementById('shopAdminSupportSeller');
+    var topicBtns = Array.prototype.slice.call(root.querySelectorAll('.shop-admin-topic'));
+    var topic = 'dispute';
+    var lastId = 0;
+    var polling = false;
+
+    function setErr(msg) {
+      if (!errEl) return;
+      if (!msg) { errEl.hidden = true; errEl.textContent = ''; return; }
+      errEl.hidden = false;
+      errEl.textContent = msg;
+    }
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function appendItems(items, replace) {
+      if (!thread) return;
+      if (replace) thread.innerHTML = '';
+      (items || []).forEach(function (item) {
+        var id = parseInt(item.id || 0, 10);
+        if (id > lastId) lastId = id;
+        var div = document.createElement('div');
+        div.className = 'shop-seller-msg-bubble ' + (item.is_me ? 'me' : 'them');
+        div.innerHTML = esc(item.text || '') + '<div class="shop-seller-msg-meta">' + esc(item.from || '') + ' · ' + esc(item.time_label || '') + '</div>';
+        thread.appendChild(div);
+      });
+      thread.scrollTop = thread.scrollHeight;
+    }
+    async function loadHistory() {
+      try {
+        var res = await fetch(endpoint + '?mode=history&after=0&mark=1', { credentials: 'same-origin' });
+        var data = await res.json();
+        if (data && data.ok) {
+          lastId = 0;
+          appendItems(data.items || [], true);
+          if (!(data.items || []).length) {
+            thread.innerHTML = '<div class="shop-seller-msg-empty">No Admin messages yet. Choose a topic and describe your dispute or help request.</div>';
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    async function pollNew() {
+      if (polling) return;
+      polling = true;
+      try {
+        var res = await fetch(endpoint + '?mode=history&after=' + lastId + '&mark=1', { credentials: 'same-origin' });
+        var data = await res.json();
+        if (data && data.ok && (data.items || []).length) {
+          if (thread && thread.querySelector('.shop-seller-msg-empty')) thread.innerHTML = '';
+          appendItems(data.items, false);
+        }
+      } catch (e) { /* ignore */ }
+      polling = false;
+    }
+    async function sendMessage() {
+      setErr('');
+      var text = input ? String(input.value || '').trim() : '';
+      if (!text) { setErr('Type a message for Admin.'); return; }
+      if (sendBtn) sendBtn.disabled = true;
+      try {
+        var body = new URLSearchParams();
+        body.set('mode', 'send');
+        body.set('topic', topic);
+        body.set('message', text);
+        if (orderEl) body.set('order_code', String(orderEl.value || '').trim());
+        if (sellerEl) body.set('seller_name', String(sellerEl.value || '').trim());
+        var res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+          credentials: 'same-origin'
+        });
+        var data = await res.json();
+        if (!data || !data.ok) {
+          setErr((data && (data.error || data.message)) || 'Could not send.');
+          return;
+        }
+        if (input) input.value = '';
+        if (data.item) {
+          if (thread && thread.querySelector('.shop-seller-msg-empty')) thread.innerHTML = '';
+          appendItems([data.item], false);
+        } else {
+          await pollNew();
+        }
+      } catch (e) {
+        setErr('Could not send message.');
+      } finally {
+        if (sendBtn) sendBtn.disabled = false;
+      }
+    }
+
+    topicBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        topic = String(btn.getAttribute('data-topic') || 'help');
+        topicBtns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+        if (input) {
+          input.placeholder = topic === 'dispute'
+            ? 'Describe the dispute with the seller…'
+            : 'Describe what you need help with…';
+        }
+      });
+    });
+    if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+    if (input) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+    }
+    loadHistory();
+    setInterval(pollNew, 5000);
+  })();
 });
 </script>
 </body>

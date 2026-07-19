@@ -3,6 +3,15 @@
    Maps local page tokens to --msb-palette-* for public_user + organization
    ===================================================== */
 
+/* Hide browser textarea resize grip (corner handle) everywhere */
+textarea,
+textarea.form-control,
+.form-control[rows],
+.studio-textarea,
+.tt-stories-textarea {
+  resize: none !important;
+}
+
 html {
   --bg-main: var(--msb-palette-bg, #f5f7fb);
   --bg-card: var(--msb-palette-surface, #ffffff);

@@ -261,6 +261,15 @@ body.org-app .org-panel-muted {
   /* box-shadow: var(--msb-palette-shadow, 0 10px 18px rgba(0, 0, 0, 0.28)) !important; */
 }
 
+/* Hide browser textarea resize grip (corner handle) */
+body.org-app textarea,
+body.org-app textarea.form-control,
+body.org-app .form-control[rows],
+body.org-app .feed-compose-input,
+body.org-app .composer-row textarea {
+  resize: none !important;
+}
+
 /* ----- Forms & inputs ----- */
 body.org-app .form-control,
 body.org-app select.form-control,
@@ -777,6 +786,7 @@ html[data-msb-org-light]:not([data-msb-appearance]) body.org-app :is(
   a.btn-primary,
   a.btn-success,
   a.btn-info,
+  button.btn-primary,
   .ch-btn-primary,
   .feed-actions .btn-success,
   .feed-compose-send,
@@ -784,7 +794,10 @@ html[data-msb-org-light]:not([data-msb-appearance]) body.org-app :is(
   .feed-tabs > a.active,
   .posts-tabs > a.active
 ) {
+  background-color: var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
+  border-color: var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
   color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 html[data-msb-theme-auto] body.org-app :is(

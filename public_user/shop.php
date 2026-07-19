@@ -71,7 +71,9 @@ if ($shopHasFilters) {
         if ($shopFilterBrand !== '' && strcasecmp($brand, $shopFilterBrand) !== 0) {
             return false;
         }
-        if ($shopLocationActive && !shop_location_product_in_range($p, $shopBuyerLocation)) {
+        // Brand group pages (cbrand=…) show the full brand catalog — don't hide items by radius.
+        // Location radius still applies on the general marketplace browse.
+        if ($shopLocationActive && $shopFilterCommerceBrand === '' && !shop_location_product_in_range($p, $shopBuyerLocation)) {
             return false;
         }
         if ($shopFilterType !== '') {
@@ -485,9 +487,9 @@ if (!function_exists('shop_price_parts')) {
       <div class="shop-market-empty">
         <i class="icon ion-bag" style="font-size:42px;display:block;margin-bottom:10px;"></i>
         <?php if ($shopSearchQ !== '' || $shopHasFilters): ?>
-          <?php if ($shopActiveCommerceBrand && $shopSearchQ === '' && !$shopLocationActive): ?>
+          <?php if ($shopActiveCommerceBrand && $shopSearchQ === ''): ?>
             No products listed for <?= h((string)$shopActiveCommerceBrand['name']) ?> yet. Sellers on this brand may still be setting up their menu.
-          <?php elseif ($shopLocationActive): ?>
+          <?php elseif ($shopLocationActive && ($shopFilterCommerceBrand ?? '') === ''): ?>
             No products near <?= h($shopLocationSummary) ?>. Tap the location link to search a different place or widen the radius.
           <?php else: ?>
             No products match your current search or filters.

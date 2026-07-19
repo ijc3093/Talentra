@@ -25,6 +25,19 @@ if (!function_exists('h') && function_exists('org_ecommerce_h')) {
 $sellerProfileSettings = is_array($sellerProfileSettings ?? null) ? $sellerProfileSettings : [];
 $sellerProfileOk = (string)($sellerProfileOk ?? '');
 $sellerProfileErr = (string)($sellerProfileErr ?? '');
+
+// Home / mailing address (self-service per logged-in user; managers see all).
+$myHomeAddress = is_array($myHomeAddress ?? null) ? $myHomeAddress : [];
+$myMemberName = (string)($myMemberName ?? 'Team member');
+$homeAddrOk = (string)($homeAddrOk ?? '');
+$homeAddrErr = (string)($homeAddrErr ?? '');
+$homeAddrMembers = is_array($homeAddrMembers ?? null) ? $homeAddrMembers : [];
+$homeAddrMap = is_array($homeAddrMap ?? null) ? $homeAddrMap : [];
+$isManagerView = !empty($isManager);
+$myHomeText = ($myHomeAddress && function_exists('org_member_address_format'))
+    ? org_member_address_format($myHomeAddress)
+    : '';
+$homeModalOpenOnLoad = $homeAddrErr !== '';
 $sellerProfileFormAction = (string)($sellerProfileFormAction ?? '');
 $sellerProfileHash = (string)($sellerProfileHash ?? '#settings');
 if ($sellerProfileHash !== '' && $sellerProfileHash[0] !== '#') {
@@ -53,6 +66,7 @@ $openModalOnLoad = $sellerProfileErr !== '';
   .seller-profile-panel .seller-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px;}
   .seller-profile-panel .seller-profile-card{border:1px solid rgba(148,163,184,.35);border-radius:8px;background:var(--card-bg,#fff);padding:14px 16px;}
   .seller-profile-panel .seller-profile-card h3{margin:0 0 10px;font-size:14px;font-weight:700;}
+  .seller-profile-panel .seller-profile-home{border-color:var(--msb-palette-action,#4f46e5);border-left-width:4px;}
   .seller-profile-panel .seller-profile-line{margin:0 0 7px;font-size:13px;line-height:1.45;}
   .seller-profile-panel .seller-profile-line strong{display:inline-block;min-width:88px;color:#64748b;font-weight:600;}
   .seller-profile-panel .seller-profile-muted{color:#64748b;}
@@ -75,6 +89,32 @@ $openModalOnLoad = $sellerProfileErr !== '';
     background:rgba(148,163,184,.2);color:inherit;font-size:22px;line-height:1;cursor:pointer;
   }
   @media (max-width:800px){.seller-profile-panel .seller-profile-grid{grid-template-columns:1fr;}}
+
+  /* Follow gear-tab appearance selection (dark-auto "On" + custom palette) */
+  html.dark-auto .seller-profile-panel .seller-profile-card{
+    background:#171d24 !important;
+    color:#e8edf5 !important;
+  }
+  html.dark-auto .seller-profile-panel .seller-profile-card h3,
+  html.dark-auto .seller-profile-panel .seller-profile-block{
+    color:#e8edf5 !important;
+  }
+  html.dark-auto .seller-profile-panel .seller-profile-muted,
+  html.dark-auto .seller-profile-panel .seller-profile-line strong{
+    color:#b1bcce !important;
+  }
+  html[data-msb-appearance] .seller-profile-panel .seller-profile-card{
+    background:var(--msb-palette-bg) !important;
+    color:var(--msb-palette-text) !important;
+  }
+  html[data-msb-appearance] .seller-profile-panel .seller-profile-card h3,
+  html[data-msb-appearance] .seller-profile-panel .seller-profile-block{
+    color:var(--msb-palette-text) !important;
+  }
+  html[data-msb-appearance] .seller-profile-panel .seller-profile-muted,
+  html[data-msb-appearance] .seller-profile-panel .seller-profile-line strong{
+    color:var(--msb-palette-text-muted,var(--msb-palette-text)) !important;
+  }
 </style>
 
 <div class="seller-profile-panel">
@@ -85,99 +125,73 @@ $openModalOnLoad = $sellerProfileErr !== '';
     <div class="alert alert-success"><?= h($sellerProfileOk) ?></div>
   <?php endif; ?>
 
-  <div class="seller-profile-toolbar">
-    <button type="button" class="btn btn-primary btn-sm" id="sellerProfileOpenModal"><?= h($editBtnLabel) ?></button>
-    <a href="shop_settings.php#seller-information" class="btn btn-outline-secondary btn-sm">Open shop settings</a>
-  </div>
+  <!-- Home / mailing address: personal to the logged-in user -->
+  <?php if ($homeAddrErr !== ''): ?><div class="alert alert-danger"><?= h($homeAddrErr) ?></div><?php endif; ?>
+  <?php if ($homeAddrOk !== ''): ?><div class="alert alert-success"><?= h($homeAddrOk) ?></div><?php endif; ?>
 
-  <div class="seller-profile-grid">
-    <div class="seller-profile-card">
-      <h3>Contact</h3>
-      <p class="seller-profile-line"><strong>Full name</strong> <?= $fullName !== '' ? h($fullName) : '<span class="seller-profile-muted">Not set</span>' ?></p>
-      <p class="seller-profile-line"><strong>Store name</strong> <?= $storeName !== '' ? h($storeName) : '<span class="seller-profile-muted">Not set</span>' ?></p>
-      <p class="seller-profile-line"><strong>Email</strong> <?= $email !== '' ? h($email) : '<span class="seller-profile-muted">Not set</span>' ?></p>
-      <p class="seller-profile-line"><strong>Phone</strong> <?= $phone !== '' ? h($phone) : '<span class="seller-profile-muted">Not set</span>' ?></p>
-      <?php if ($tagline !== ''): ?>
-        <p class="seller-profile-line"><strong>Tagline</strong> <?= h($tagline) ?></p>
+  <div class="seller-profile-card seller-profile-home" style="margin-bottom:16px;">
+    <h3>My home address (for mailing letters)</h3>
+    <p class="seller-profile-line seller-profile-muted" style="margin-bottom:12px;">
+      This is <strong><?= h($myMemberName) ?></strong>'s personal mailing address. Your manager uses it to post letters to your home.
+      Only you can edit your own address.
+    </p>
+    <div id="homeAddrSummary">
+      <?php if (trim($myHomeText) !== ''): ?>
+        <p class="seller-profile-block mg-b-0"><?= h($myHomeText) ?></p>
+      <?php else: ?>
+        <p class="seller-profile-muted mg-b-0">No home address yet. Click <strong>Add or edit home address</strong> to add it.</p>
       <?php endif; ?>
     </div>
-    <div class="seller-profile-card">
-      <h3>Business address</h3>
-      <div id="sellerProfileAddressSummary">
-        <?php if ($addressText !== ''): ?>
-          <p class="seller-profile-block"><?= h($addressText) ?></p>
-        <?php else: ?>
-          <p class="seller-profile-muted mg-b-0">No address yet. Click <strong>Add or edit address</strong> so buyers can use it for pickup and invoices.</p>
-        <?php endif; ?>
-      </div>
+    <div style="margin-top:12px;">
+      <button type="button" class="btn btn-primary btn-sm" id="homeAddrOpenModal">Add or edit home address</button>
     </div>
   </div>
+
 </div>
 
-<div class="seller-profile-modal<?= $openModalOnLoad ? ' is-open' : '' ?>" id="sellerProfileModal" aria-hidden="<?= $openModalOnLoad ? 'false' : 'true' ?>">
-  <div class="seller-profile-modal-backdrop" data-close-seller-profile-modal></div>
-  <div class="seller-profile-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="sellerProfileModalTitle">
-    <button type="button" class="seller-profile-modal-close" data-close-seller-profile-modal aria-label="Close">&times;</button>
-    <h3 id="sellerProfileModalTitle">Edit seller profile</h3>
-    <p>Buyers see these details on orders, invoices, pickup, and seller contact.</p>
-    <form method="post" action="<?= h($formAction) ?>">
-      <input type="hidden" name="seller_profile_action" value="save">
-      <div class="row row-sm">
-        <div class="col-md-6 form-group">
-          <label for="sellerFullName">Full name</label>
-          <input id="sellerFullName" name="full_name" class="form-control" maxlength="120" value="<?= h($fullName) ?>" placeholder="Jane Seller">
-        </div>
-        <div class="col-md-6 form-group">
-          <label for="sellerStoreName">Store / seller name <span class="tx-danger">*</span></label>
-          <input id="sellerStoreName" name="store_name" class="form-control" maxlength="120" required value="<?= h($storeName) ?>" placeholder="Jane's Auto Shop">
-        </div>
+<div class="seller-profile-modal<?= $homeModalOpenOnLoad ? ' is-open' : '' ?>" id="homeAddrModal" aria-hidden="<?= $homeModalOpenOnLoad ? 'false' : 'true' ?>">
+  <div class="seller-profile-modal-backdrop" data-close-home-addr-modal></div>
+  <div class="seller-profile-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="homeAddrModalTitle">
+    <button type="button" class="seller-profile-modal-close" data-close-home-addr-modal aria-label="Close">&times;</button>
+    <h3 id="homeAddrModalTitle">My home address</h3>
+    <p>Your manager uses this to post letters to your home. Only you can edit it.</p>
+    <form method="post" action="sales_management.php#settings">
+      <input type="hidden" name="home_addr_action" value="1">
+      <div class="form-group">
+        <label for="homeRecipient">Recipient name</label>
+        <input id="homeRecipient" name="recipient_name" class="form-control" maxlength="160" value="<?= h((string)($myHomeAddress['recipient_name'] ?? '')) ?>" placeholder="<?= h($myMemberName) ?>">
       </div>
       <div class="form-group">
-        <label for="sellerTagline">Tagline</label>
-        <input id="sellerTagline" name="tagline" class="form-control" maxlength="200" value="<?= h($tagline) ?>" placeholder="Quality cars & parts">
-      </div>
-      <div class="row row-sm">
-        <div class="col-md-6 form-group">
-          <label for="sellerEmail">Contact email</label>
-          <input id="sellerEmail" name="contact_email" type="email" class="form-control" value="<?= h($email) ?>" placeholder="you@example.com">
-        </div>
-        <div class="col-md-6 form-group">
-          <label for="sellerPhone">Contact phone</label>
-          <input id="sellerPhone" name="contact_phone" class="form-control" value="<?= h($phone) ?>" placeholder="+1 555 0100">
-        </div>
-      </div>
-      <hr>
-      <div class="form-group">
-        <label for="sellerAddr1">Address line 1 <span class="tx-danger">*</span></label>
-        <input id="sellerAddr1" name="address_line1" class="form-control" value="<?= h((string)($addr['line1'] ?? '')) ?>" placeholder="123 Main St" required>
+        <label for="homeLine1">Address line 1</label>
+        <input id="homeLine1" name="home_line1" class="form-control" maxlength="200" value="<?= h((string)($myHomeAddress['line1'] ?? '')) ?>" placeholder="123 Main St">
       </div>
       <div class="form-group">
-        <label for="sellerAddr2">Address line 2</label>
-        <input id="sellerAddr2" name="address_line2" class="form-control" value="<?= h((string)($addr['line2'] ?? '')) ?>" placeholder="Suite 200">
+        <label for="homeLine2">Address line 2</label>
+        <input id="homeLine2" name="home_line2" class="form-control" maxlength="200" value="<?= h((string)($myHomeAddress['line2'] ?? '')) ?>" placeholder="Apt, unit (optional)">
       </div>
       <div class="row row-sm">
         <div class="col-sm-6 form-group">
-          <label for="sellerCity">City <span class="tx-danger">*</span></label>
-          <input id="sellerCity" name="address_city" class="form-control" value="<?= h((string)($addr['city'] ?? '')) ?>" required>
+          <label for="homeCity">City</label>
+          <input id="homeCity" name="home_city" class="form-control" maxlength="120" value="<?= h((string)($myHomeAddress['city'] ?? '')) ?>">
         </div>
         <div class="col-sm-6 form-group">
-          <label for="sellerState">State / Province <span class="tx-danger">*</span></label>
-          <input id="sellerState" name="address_state" class="form-control" value="<?= h((string)($addr['state'] ?? '')) ?>" required>
+          <label for="homeState">State / Province</label>
+          <input id="homeState" name="home_state" class="form-control" maxlength="120" value="<?= h((string)($myHomeAddress['state'] ?? '')) ?>">
         </div>
       </div>
       <div class="row row-sm">
         <div class="col-sm-6 form-group">
-          <label for="sellerPostal">Postal code</label>
-          <input id="sellerPostal" name="address_postal_code" class="form-control" value="<?= h((string)($addr['postal_code'] ?? '')) ?>">
+          <label for="homePostal">ZIP / Postal code</label>
+          <input id="homePostal" name="home_postal_code" class="form-control" maxlength="40" value="<?= h((string)($myHomeAddress['postal_code'] ?? '')) ?>">
         </div>
         <div class="col-sm-6 form-group">
-          <label for="sellerCountry">Country</label>
-          <input id="sellerCountry" name="address_country" class="form-control" value="<?= h((string)($addr['country'] ?? '')) ?>">
+          <label for="homeCountry">Country</label>
+          <input id="homeCountry" name="home_country" class="form-control" maxlength="120" value="<?= h((string)($myHomeAddress['country'] ?? '')) ?>">
         </div>
       </div>
       <div class="seller-profile-modal-actions">
-        <button type="submit" class="btn btn-primary btn-sm">Save seller profile</button>
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-close-seller-profile-modal>Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save my home address</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-close-home-addr-modal>Cancel</button>
       </div>
     </form>
   </div>
@@ -185,72 +199,29 @@ $openModalOnLoad = $sellerProfileErr !== '';
 
 <script>
 (function () {
-  var modal = document.getElementById('sellerProfileModal');
-  var openBtn = document.getElementById('sellerProfileOpenModal');
-  if (!modal || !openBtn) return;
-
-  function openModal() {
-    modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-    var first = document.getElementById('sellerFullName') || document.getElementById('sellerAddr1');
-    if (first) setTimeout(function () { first.focus(); }, 40);
-  }
-  function closeModal() {
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-  }
-
-  openBtn.addEventListener('click', function (e) {
-    e.preventDefault();
-    openModal();
-  });
-  modal.querySelectorAll('[data-close-seller-profile-modal]').forEach(function (el) {
-    el.addEventListener('click', closeModal);
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
-  });
-
-  if (modal.classList.contains('is-open')) {
-    document.body.style.overflow = 'hidden';
-  }
-
-  /** Keep Settings in sync when address is saved from #products (same page, no reload). */
-  function applySellerAddressUpdate(detail) {
-    detail = detail || {};
-    var addr = detail.address || {};
-    var text = String(detail.address_text || '').trim();
-    var map = {
-      sellerAddr1: addr.line1,
-      sellerAddr2: addr.line2,
-      sellerCity: addr.city,
-      sellerState: addr.state,
-      sellerPostal: addr.postal_code,
-      sellerCountry: addr.country
+  var modal = document.getElementById('homeAddrModal');
+  var openBtn = document.getElementById('homeAddrOpenModal');
+  if (modal && openBtn) {
+    var open = function () {
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      var first = document.getElementById('homeRecipient');
+      if (first) setTimeout(function () { first.focus(); }, 40);
     };
-    Object.keys(map).forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el && map[id] != null) el.value = String(map[id]);
+    var close = function () {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    };
+    openBtn.addEventListener('click', function (e) { e.preventDefault(); open(); });
+    modal.querySelectorAll('[data-close-home-addr-modal]').forEach(function (el) {
+      el.addEventListener('click', close);
     });
-    var summary = document.getElementById('sellerProfileAddressSummary');
-    if (!summary) return;
-    summary.innerHTML = '';
-    if (text !== '') {
-      var p = document.createElement('p');
-      p.className = 'seller-profile-block';
-      p.textContent = text;
-      summary.appendChild(p);
-    } else {
-      var empty = document.createElement('p');
-      empty.className = 'seller-profile-muted mg-b-0';
-      empty.innerHTML = 'No address yet. Click <strong>Add or edit address</strong> so buyers can use it for pickup and invoices.';
-      summary.appendChild(empty);
-    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) close();
+    });
+    if (modal.classList.contains('is-open')) document.body.style.overflow = 'hidden';
   }
-  document.addEventListener('msb:seller-address-updated', function (e) {
-    applySellerAddressUpdate((e && e.detail) || {});
-  });
 })();
 </script>

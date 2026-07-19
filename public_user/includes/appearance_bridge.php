@@ -848,7 +848,7 @@ function appearance_bridge_print_css_link(string $assetPrefix = './'): void
     }
     $GLOBALS['__MSB_APPEARANCE_BRIDGE_CSS'] = true;
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
-    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=52', ENT_QUOTES, 'UTF-8');
+    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=53', ENT_QUOTES, 'UTF-8');
     echo '<link rel="stylesheet" href="' . $href . '">' . "\n";
 }
 
@@ -992,7 +992,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
     if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
         $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
-        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=105', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=106', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
@@ -1001,7 +1001,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=32', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=33', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);

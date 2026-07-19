@@ -65,7 +65,7 @@ if (!function_exists('org_layout_footer_assets')) {
                 appearance_bridge_print_org_tail_critical($dbh, $orgTailUserId);
             }
         }
-        echo '<link rel="stylesheet" href="css/org-contrast.css?v=23">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-contrast.css?v=25">' . "\n";
         echo '<style id="org-sales-nav-badge-lock">'
             . 'body.org-app .org-sales-nav-badge rect{fill:#dc3545!important;}'
             . 'body.org-app .org-sales-nav-badge text{fill:#ffffff!important;color:#ffffff!important;}'

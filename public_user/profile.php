@@ -2638,7 +2638,11 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html.dark-auto body.profile-page #profilePostsFeed .mf-title,
     html.dark-auto body.profile-page #profilePostsFeed .mf-body,
     html.dark-auto body.profile-page #profilePostsFeed .mf-actions,
-    html.dark-auto body.profile-page #profilePostsFeed .mf-foot {
+    html.dark-auto body.profile-page #profilePostsFeed .mf-foot,
+    html.dark-auto body.profile-page #profilePostsFeed,
+    html.dark-auto body.profile-page #profilePostsFeed.mf-feed,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed.mf-feed {
       background-color: var(--msb-palette-bg, #171d24) !important;
       background-image: none !important;
       color: var(--msb-palette-text, #f3f6fb) !important;

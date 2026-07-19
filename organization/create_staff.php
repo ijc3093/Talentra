@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
+require_once __DIR__ . '/includes/org_payroll.php';
 
 if (!isOrgManager()) {
     header("Location: feed.php");
@@ -43,6 +44,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email    = trim((string)($_POST['email'] ?? ''));
         $rel      = trim((string)($_POST['relationship_label'] ?? ''));
         $pass     = (string)($_POST['password'] ?? '');
+
+        // Pay setup (payroll onboarding) captured on the same form.
+        $payType       = (string)($_POST['pay_type'] ?? 'salary');
+        $payFrequency  = (string)($_POST['pay_frequency'] ?? 'monthly');
+        $annualSalary  = (string)($_POST['annual_salary'] ?? '0');
+        $hourlyRate    = (string)($_POST['hourly_rate'] ?? '0');
+        $taxStatus     = (string)($_POST['tax_status'] ?? 'single');
+        $bankName      = trim((string)($_POST['bank_name'] ?? ''));
+        $defaultGross  = (string)($_POST['gross'] ?? '0');
+        $defaultDed    = (string)($_POST['deductions'] ?? '0');
+        $otEligible    = isset($_POST['overtime_eligible']);
 
         if ($username === '' || $pass === '') {
             $err = "Username and password required.";
@@ -136,6 +148,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             $dbh->commit();
 
+                            // Save the pay agreement so it's ready in Payroll and visible on the Time card.
+                            try {
+                                org_payroll_save_profile(
+                                    $dbh,
+                                    $orgActive,
+                                    $orgMemberId,
+                                    $payType,
+                                    org_payroll_money_to_cents($defaultGross),
+                                    org_payroll_money_to_cents($defaultDed),
+                                    0, // employer taxes auto-computed at pay-run time
+                                    '',
+                                    org_payroll_money_to_cents($hourlyRate),
+                                    $payFrequency,
+                                    org_payroll_money_to_cents($annualSalary),
+                                    $taxStatus,
+                                    $bankName,
+                                    $otEligible
+                                );
+                            } catch (Throwable $e) {
+                                // Staff is created; pay setup can still be edited later in Payroll.
+                            }
+
                             $created = [
                                 'username'=>$username,
                                 'password'=>$pass,
@@ -215,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div><strong>Username:</strong> <code><?= h($created['username']) ?></code></div>
                 <div><strong>Password:</strong> <code><?= h($created['password']) ?></code></div>
                 <div><strong>Friend Code:</strong> <code><?= h($created['friend_code']) ?></code></div>
-                <small style="opacity:.85;">Staff will be forced to change password on first login.</small>
+                <small style="opacity:.85;">Staff will be forced to change password on first login. Pay setup was saved — edit it anytime in <a href="sales_management.php#payroll">Payroll</a>, and the employee sees their rate on the <a href="sales_management.php#timecard">Time card</a>.</small>
               </div>
             <?php endif; ?>
 
@@ -243,6 +277,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <label>Temporary password</label>
               <input type="text" name="password" class="form-control" required value="<?= h((string)($_POST['password'] ?? '')) ?>">
               <small class="form-text text-muted">Staff will be required to change password on first login.</small>
+            </div>
+
+            <?php
+              $pv = static function (string $key, string $default = '') {
+                  return h((string)($_POST[$key] ?? $default));
+              };
+              $sel = static function (string $key, string $val, string $default): string {
+                  $cur = (string)($_POST[$key] ?? $default);
+                  return $cur === $val ? ' selected' : '';
+              };
+              $otChecked = (!isset($_POST['pay_type']) || isset($_POST['overtime_eligible'])) ? ' checked' : '';
+            ?>
+            <hr>
+            <h5 style="font-weight:850;margin-bottom:4px;">Pay setup (payroll onboarding)</h5>
+            <p class="tx-12 tx-color-03" style="margin-bottom:14px;">
+              Record the pay agreement now. For <strong>Salary</strong>, enter the <strong>Annual salary</strong> and pay frequency —
+              per-period Gross is calculated automatically. For <strong>Hourly</strong>, enter the <strong>Hourly rate</strong>; pay runs
+              compute Gross from approved time card hours (Overtime at 1.5× over 40h/week when eligible). The employee sees their
+              rate on the <strong>Time card</strong>.
+            </p>
+
+            <div class="row">
+              <div class="form-group col-md-6">
+                <label>Pay type</label>
+                <select name="pay_type" class="form-control">
+                  <option value="salary"<?= $sel('pay_type','salary','salary') ?>>Salary</option>
+                  <option value="hourly"<?= $sel('pay_type','hourly','salary') ?>>Hourly</option>
+                  <option value="commission"<?= $sel('pay_type','commission','salary') ?>>Commission</option>
+                </select>
+              </div>
+              <div class="form-group col-md-6">
+                <label>Pay frequency</label>
+                <select name="pay_frequency" class="form-control">
+                  <option value="weekly"<?= $sel('pay_frequency','weekly','monthly') ?>>Weekly</option>
+                  <option value="bi_weekly"<?= $sel('pay_frequency','bi_weekly','monthly') ?>>Bi-weekly</option>
+                  <option value="monthly"<?= $sel('pay_frequency','monthly','monthly') ?>>Monthly</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="form-group col-md-6">
+                <label>Annual salary</label>
+                <input type="number" step="0.01" min="0" name="annual_salary" class="form-control" value="<?= $pv('annual_salary','0') ?>">
+              </div>
+              <div class="form-group col-md-6">
+                <label>Hourly rate</label>
+                <input type="number" step="0.01" min="0" name="hourly_rate" class="form-control" value="<?= $pv('hourly_rate','0') ?>">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="form-group col-md-6">
+                <label>Tax status</label>
+                <select name="tax_status" class="form-control">
+                  <option value="single"<?= $sel('tax_status','single','single') ?>>Single</option>
+                  <option value="married"<?= $sel('tax_status','married','single') ?>>Married</option>
+                  <option value="head"<?= $sel('tax_status','head','single') ?>>Head of household</option>
+                </select>
+              </div>
+              <div class="form-group col-md-6">
+                <label>Bank</label>
+                <input type="text" name="bank_name" class="form-control" maxlength="120" placeholder="e.g. Chase" value="<?= $pv('bank_name','') ?>">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="form-group col-md-6">
+                <label>Default Gross (per period)</label>
+                <input type="number" step="0.01" min="0" name="gross" class="form-control" value="<?= $pv('gross','0') ?>">
+              </div>
+              <div class="form-group col-md-6">
+                <label>Default Deductions</label>
+                <input type="number" step="0.01" min="0" name="deductions" class="form-control" value="<?= $pv('deductions','0') ?>">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label style="display:flex;align-items:center;gap:8px;font-weight:700;">
+                <input type="checkbox" name="overtime_eligible" value="1"<?= $otChecked ?>> Overtime eligible
+              </label>
             </div>
 
           </div>

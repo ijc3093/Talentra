@@ -991,7 +991,10 @@ if (!$notFound && !$galleryImages && $cover !== '') {
                   : $sellerLabel;
                 $sellerFullName = trim((string)($sellerPublicInfo['full_name'] ?? ''));
                 $sellerTagline = trim((string)($sellerPublicInfo['tagline'] ?? ''));
-                $sellerEmail = trim((string)($sellerPublicInfo['email'] ?? ''));
+                $sellerUsername = trim((string)($product['publisher_username'] ?? ''));
+                if ($sellerUsername === '' && $publisherId > 0 && function_exists('org_shop_user_username')) {
+                    $sellerUsername = org_shop_user_username($dbh, $publisherId);
+                }
                 $sellerPhone = trim((string)($sellerPublicInfo['phone'] ?? ''));
                 $sellerAddress = trim((string)($sellerPublicInfo['address'] ?? ''));
               ?>
@@ -1000,14 +1003,28 @@ if (!$notFound && !$galleryImages && $cover !== '') {
                 <?php if ($sellerTagline !== ''): ?>
                   <p class="pd-seller-tagline"><?= h($sellerTagline) ?></p>
                 <?php endif; ?>
-                <?php if ($sellerFullName !== '' || $sellerEmail !== '' || $sellerPhone !== '' || $sellerAddress !== ''): ?>
+                <?php if ($sellerFullName !== '' || $sellerUsername !== '' || $sellerPhone !== '' || $sellerAddress !== ''): ?>
                   <table class="pd-seller-table">
                     <tbody>
                       <?php if ($sellerFullName !== ''): ?>
                         <tr><th scope="row">Contact name</th><td><?= h($sellerFullName) ?></td></tr>
                       <?php endif; ?>
-                      <?php if ($sellerEmail !== ''): ?>
-                        <tr><th scope="row">Email</th><td><a href="mailto:<?= h($sellerEmail) ?>"><?= h($sellerEmail) ?></a></td></tr>
+                      <?php if ($sellerUsername !== ''): ?>
+                        <tr>
+                          <th scope="row">Username</th>
+                          <td>
+                            <?php if ($messageSellerUrl !== ''): ?>
+                              <a href="<?= h($messageSellerUrl) ?>" title="Message this seller">@<?= h($sellerUsername) ?></a>
+                            <?php else: ?>
+                              @<?= h($sellerUsername) ?>
+                            <?php endif; ?>
+                          </td>
+                        </tr>
+                      <?php elseif ($messageSellerUrl !== ''): ?>
+                        <tr>
+                          <th scope="row">Username</th>
+                          <td><a href="<?= h($messageSellerUrl) ?>" title="Message this seller">Message seller</a></td>
+                        </tr>
                       <?php endif; ?>
                       <?php if ($sellerPhone !== ''): ?>
                         <tr><th scope="row">Phone</th><td><a href="tel:<?= h(preg_replace('/\s+/', '', $sellerPhone) ?? $sellerPhone) ?>"><?= h($sellerPhone) ?></a></td></tr>

@@ -27,6 +27,7 @@ $salesAttention = [
     'customers' => 0,
     'returns' => 0,
     'notification' => 0,
+    'messages' => 0,
 ];
 if ($isManager && $isCommerceSeller) {
     try {
@@ -34,6 +35,20 @@ if ($isManager && $isCommerceSeller) {
         $salesAttention = org_sales_attention_counts($leftbarDbh, (int)orgActiveOrgId());
     } catch (Throwable $e) {
         // keep zeros
+    }
+    try {
+        require_once __DIR__ . '/../../public_user/includes/commerce_messaging.php';
+        require_once __DIR__ . '/../../public_user/includes/staff_publisher_access.php';
+        $pubId = staff_pub_org_publisher_user_id($leftbarDbh, (int)orgActiveOrgId());
+        if ($pubId <= 0) {
+            $pubId = (int)($_SESSION['org_publisher_user_id'] ?? 0);
+        }
+        if ($pubId > 0) {
+            $salesAttention['messages'] = commerce_seller_buyer_unread_count($leftbarDbh, $pubId);
+            $salesAttention['total'] = (int)($salesAttention['total'] ?? 0) + (int)$salesAttention['messages'];
+        }
+    } catch (Throwable $e) {
+        // keep zero messages
     }
 }
 $salesManagementNav = [
@@ -46,11 +61,14 @@ $salesManagementNav = [
     ['Orders', 'orders', 'ion-ios-list', '', 'orders'],
     ['Returns & Refunds', 'returns-refunds', 'ion-reply', '', 'returns'],
     ['Notification', 'notification', 'ion-alert-circled', '', 'notification'],
+    ['Messages', 'message', 'ion-chatboxes', '', 'messages'],
     ['Invoices', 'invoices', 'ion-card', '', ''],
     ['Discounts & Promotions', 'discounts-promotions', 'ion-pricetag', '', ''],
     ['Settings', 'settings', 'ion-ios-gear', '', ''],
     ['Customers', 'customers', 'ion-ios-people', '', 'customers'],
     ['Payments', 'payments', 'ion-cash', '', ''],
+    ['Payroll', 'payroll', 'ion-ios-briefcase', '', ''],
+    ['Time card', 'timecard', 'ion-ios-clock', '', ''],
     ['Sales reports', 'sales-reports', 'ion-stats-bars', '', ''],
 ];
 
@@ -153,6 +171,34 @@ $salesNavBadgeHtml = static function (int $count): string {
     align-items:center;
     gap:8px;
   }
+  .org-sales-support-center{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:8px 14px 10px;
+    padding:8px 10px;
+    color:var(--msb-palette-text, var(--org-text, #111827));
+    font-size:14px;
+    font-weight:850;
+    text-decoration:none;
+    line-height:1.2;
+  }
+  .org-sales-support-center:hover,
+  .org-sales-support-center:focus,
+  .org-sales-support-center.active{
+    color:var(--msb-palette-action, var(--org-accent, #2563eb));
+    text-decoration:none;
+  }
+  .org-sales-support-center i{
+    font-size:16px;
+    color:var(--msb-palette-text-muted, var(--org-text-muted, #64748b));
+  }
+  .org-sales-support-center:hover i,
+  .org-sales-support-center:focus i,
+  .org-sales-support-center.active i{
+    color:inherit;
+  }
 </style>
 <div class="sh-sideleft-menu org-sideleft-shell">
   <div class="org-sideleft-top">
@@ -181,6 +227,10 @@ $salesNavBadgeHtml = static function (int $count): string {
         <?php foreach ($salesManagementNav as $item): ?>
           <?php
             $salesNavSlug = (string)($item[1] ?? '');
+            // Payroll & Payments are manager-only; staff never see them.
+            if (!$isManager && in_array($salesNavSlug, ['payroll', 'payments'], true)) {
+                continue;
+            }
             $salesNavHref = trim((string)($item[3] ?? ''));
             $salesNavIsExternal = $salesNavHref !== '';
             $salesNavLink = $salesNavIsExternal ? $salesNavHref : ('sales_management.php#' . $salesNavSlug);
@@ -296,12 +346,30 @@ $salesNavBadgeHtml = static function (int $count): string {
       </li>
       <?php endif; ?>
 
+      <?php if (!$isManager && $isCommerceSeller): ?>
+      <li class="nav-item">
+        <a href="sales_management.php" class="nav-link"<?= org_layout_nav_attrs('sales_management.php') ?>>
+          <i class="icon ion-speedometer"></i>
+          <span>Sales management</span>
+        </a>
+      </li>
+      <?php endif; ?>
+
       <li class="nav-item">
         <a href="members.php" class="nav-link"<?= org_layout_nav_attrs('members.php') ?>>
           <i class="icon ion-person-stalker"></i>
           <span>Team</span>
         </a>
       </li>
+
+      <?php if ($isCommerceSeller): ?>
+      <li class="nav-item">
+        <a href="sales_management.php#timecard" class="nav-link">
+          <i class="icon ion-ios-clock"></i>
+          <span>Time card</span>
+        </a>
+      </li>
+      <?php endif; ?>
 
       <?php if ($isManager): ?>
       <li class="nav-item">
@@ -320,6 +388,16 @@ $salesNavBadgeHtml = static function (int $count): string {
       <?php endif; ?>
     </ul>
     </div>
+    <?php if ($isSalesManagementPage): ?>
+      <a
+        class="org-sales-support-center"
+        href="sales_management.php#support-center"
+        data-sales-nav="support-center"
+      >
+        <i class="icon ion-ios-help"></i>
+        <span>Support Center</span>
+      </a>
+    <?php endif; ?>
   </div>
 
   <div class="org-sideleft-bottom">

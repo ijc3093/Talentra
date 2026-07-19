@@ -1536,6 +1536,29 @@ if (!empty($messages)) {
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Messages</title>
   <?php theme_prefs_print_head_bootstrap($dbh, $themeUserId); ?>
+  <script>
+  /* Keep messages paint locked across hard nav (no white/dark flash). */
+  (function(){
+    try{
+      var raw = sessionStorage.getItem('msb_msg_paint_lock');
+      if(!raw) return;
+      sessionStorage.removeItem('msb_msg_paint_lock');
+      var parts = String(raw).split('|');
+      var bg = parts[0] || '#171d24';
+      var scheme = parts[1] === 'light' ? 'light' : 'dark';
+      var root = document.documentElement;
+      root.style.setProperty('--msb-nav-lock-bg', bg);
+      root.style.setProperty('--msb-nav-lock-scheme', scheme);
+      root.style.background = bg;
+      root.style.colorScheme = scheme;
+      root.classList.add('msg-soft-nav');
+      var s = document.createElement('style');
+      s.id = 'msb-anti-flash';
+      s.textContent = 'html,body,.sh-pagebody,.messages-shell{background:' + bg + ' !important;color-scheme:' + scheme + ';}';
+      (document.head || root).appendChild(s);
+    }catch(_e){}
+  })();
+  </script>
 
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="./lib/Ionicons/css/ionicons.css" rel="stylesheet">
@@ -1644,10 +1667,14 @@ if (!empty($messages)) {
       border-bottom:1px solid rgba(17,24,39,.08);
       /* color:var(--text); */
       text-decoration:none;
-      transition: background .15s ease;
+      -webkit-tap-highlight-color: transparent;
+      transition: none;
     }
-    .chat-item:hover{ background:rgba(37,99,235,.06); }
-    .chat-item.active{ background:rgba(37,99,235,.10); }
+    .chat-item:hover,
+    .chat-item:focus,
+    .chat-item:focus-visible,
+    .chat-item:active,
+    .chat-item.active{ background:rgba(148,163,184,.14); outline:none; }
 
     .chat-left{
       display:flex; align-items:center; gap:10px;
@@ -2199,6 +2226,21 @@ img, video, iframe { max-width: 100% !important; }
     background:var(--msg-bg, var(--msb-palette-bg, #f4f4f6)) !important;
     color:var(--msg-text, var(--msb-palette-text, #1f1f1f));
   }
+  html.dark-auto,
+  html.dark-auto body{
+    background:#171d24 !important;
+  }
+  /* Lock paint during soft chat open — use current theme bg (never force dark). */
+  html.msg-soft-nav,
+  html.msg-soft-nav body,
+  html.msg-soft-nav .sh-pagebody,
+  html.msg-soft-nav .messages-shell{
+    background:var(--msb-nav-lock-bg, #171d24) !important;
+    color-scheme:var(--msb-nav-lock-scheme, dark);
+  }
+  html.msg-soft-nav .messages-shell{
+    opacity:1;
+  }
   .sh-pagebody{
     background:var(--msg-bg, var(--msb-palette-bg, #f4f4f6)) !important;
     padding:34px 18px 16px !important;
@@ -2579,7 +2621,7 @@ img, video, iframe { max-width: 100% !important; }
     border:1px solid var(--msg-border);
     border-radius:18px;
     padding:14px 16px;
-    resize:vertical;
+    resize:none;
     outline:none;
   }
   .group-chat-form textarea:focus{
@@ -2702,9 +2744,18 @@ img, video, iframe { max-width: 100% !important; }
     color:#202124 !important;
     margin-bottom:0;
     position:relative;
+    -webkit-tap-highlight-color: transparent;
+    transition: none;
   }
-  .chat-item:hover{background:#fafbff !important;}
-  .chat-item.active{background:#f8f9ff !important;}
+  .chat-item:hover,
+  .chat-item:focus,
+  .chat-item:focus-visible,
+  .chat-item:active,
+  .chat-item.active{
+    background:rgba(148,163,184,.14) !important;
+    outline:none;
+    text-decoration:none;
+  }
   .chat-item.active::after{
     content:"";
     position:absolute;
@@ -2879,7 +2930,7 @@ img, video, iframe { max-width: 100% !important; }
   }
   .peerTitle,
   .peerTitle > span:not(.peerAvatar):not(.peerOnlineDot){
-    color:#1f1f1f !important;
+    color:var(--msg-text, var(--msb-palette-text, #1f1f1f)) !important;
     font-size:15px;
     font-weight:800;
   }
@@ -6183,6 +6234,7 @@ img, video, iframe { max-width: 100% !important; }
   .vcall-shell.group-mode.host-layout.dodeca-primary-layout .vcall-remote-grid[data-tile-count="13"][data-primary-count="12"] .vcall-primary-11{grid-column:9 / 11 !important;grid-row:2 !important;}
   .vcall-shell.group-mode.host-layout.dodeca-primary-layout .vcall-remote-grid[data-tile-count="13"][data-primary-count="12"] .vcall-primary-12{grid-column:11 / 13 !important;grid-row:2 !important;}
 </style>
+<link rel="stylesheet" href="./css/messages-customer-ui.css?v=6">
 
 </head>
 
@@ -6202,13 +6254,13 @@ img, video, iframe { max-width: 100% !important; }
 
 <div class="sh-mainpanel">
   <div class="sh-pagebody">
-    <div class="messages-shell">
+    <div class="messages-shell customer-msg-ui">
       <div class="messages-shell-head">
-        <div class="messages-shell-title">Message</div>
+        <div class="messages-shell-title">Messages</div>
         <div class="messages-shell-tools">
-          <div class="messages-shell-tabs" aria-label="Chat type tabs">
-            <a href="<?php echo h($privateChatUrl); ?>" class="messages-shell-tab <?php echo !$isGroupChatView ? 'active' : ''; ?>">Private Chat</a>
-            <a href="<?php echo h($groupChatUrl); ?>" class="messages-shell-tab <?php echo $isGroupChatView ? 'active' : ''; ?>">Group Chat</a>
+          <div class="messages-shell-tabs" aria-label="Chat type tabs" id="messagesModeTabs">
+            <a href="<?php echo h($privateChatUrl); ?>" class="messages-shell-tab <?php echo !$isGroupChatView ? 'active' : ''; ?>" data-mode="private" data-url="<?php echo h($privateChatUrl); ?>">Private Chat</a>
+            <a href="<?php echo h($groupChatUrl); ?>" class="messages-shell-tab <?php echo $isGroupChatView ? 'active' : ''; ?>" data-mode="group" data-url="<?php echo h($groupChatUrl); ?>">Group Chat</a>
           </div>
           <?php if ($isGroupChatView): ?>
             <button type="button" class="messages-shell-action-btn" id="openGroupCreateBtn">Create Group Name</button>
@@ -6416,10 +6468,6 @@ img, video, iframe { max-width: 100% !important; }
               </div>
               <div class="peerSub">
                 <span><?php echo $isGroupChatView ? ($selectedGroup ? h(count($groupMembers) . ' member' . (count($groupMembers) === 1 ? '' : 's')) : 'Create and manage your group conversations here.') : ($peerRow ? h($peerCode) : ''); ?></span>
-              </div>
-              <?php if (!empty($isCommerceChat) && $peerRow && !$isGroupChatView): ?>
-                <div class="tx-12" style="margin-top:4px;opacity:.85;">Shop chat — ask about products or orders (friend request not required).</div>
-              <?php endif; ?>
                 <?php if ($isGroupChatView && $selectedGroup): ?>
                   <span style="opacity:.55;">•</span>
                   <span style="text-transform:capitalize;"><?php echo h((string)($selectedGroup['my_role'] ?? 'member')); ?></span>
@@ -6429,6 +6477,9 @@ img, video, iframe { max-width: 100% !important; }
                   <span id="peerOnlineBadge"><?php echo h($peerOnlineInfo['online'] ? 'Online' : $peerOnlineInfo['label']); ?></span>
                 <?php endif; ?>
               </div>
+              <?php if (!empty($isCommerceChat) && $peerRow && !$isGroupChatView): ?>
+                <div class="tx-12" style="margin-top:4px;opacity:.85;">Shop chat — ask about products or orders (friend request not required).</div>
+              <?php endif; ?>
             </div>
 
             <div class="iconbar" style="display:flex;gap:6px;">
@@ -6637,7 +6688,7 @@ img, video, iframe { max-width: 100% !important; }
                 </div>
               <?php endif; ?>
             <?php elseif (!$peerRow): ?>
-              <div class="chat-empty-state">
+              <div class="chat-empty-state" id="chatEmptyState">
                 <div>
                   <div class="chat-empty-state-title">Messages</div>
                   <div class="chat-empty-state-copy">
@@ -6645,6 +6696,7 @@ img, video, iframe { max-width: 100% !important; }
                   </div>
                 </div>
               </div>
+              <div id="chatStream" style="display:none;"></div>
             <?php else: ?>
 
               <div id="chatStream">
@@ -6803,8 +6855,8 @@ img, video, iframe { max-width: 100% !important; }
             <?php endif; ?>
           </div>
 
-          <?php if ($peerRow): ?>
-          <div class="composer">
+          <?php if (!$isGroupChatView): ?>
+          <div class="composer" id="privateComposer"<?php echo $peerRow ? '' : ' style="display:none;"'; ?>>
             <div id="replyPreview" class="reply-preview" aria-hidden="true">
               <div class="reply-preview-main">
                 <div id="replyPreviewTitle" class="reply-preview-title">Replying</div>
@@ -7316,8 +7368,8 @@ img, video, iframe { max-width: 100% !important; }
 
 <script>
 (function(){
-  const peerCode = <?php echo $peerRow ? json_encode($peerCode) : '""'; ?>;
-  const peerDisplay = <?php echo $peerRow ? json_encode($peerDisplay) : '""'; ?>;
+  let peerCode = <?php echo $peerRow ? json_encode($peerCode) : '""'; ?>;
+  let peerDisplay = <?php echo $peerRow ? json_encode($peerDisplay) : '""'; ?>;
   const meDisplay = <?php echo json_encode($meDisplay); ?>;
   const currentUserId = <?php echo (int)$meId; ?>;
   const isGroupChatView = <?php echo $isGroupChatView ? 'true' : 'false'; ?>;
@@ -7341,11 +7393,14 @@ img, video, iframe { max-width: 100% !important; }
           'friend_code' => (string)($member['friend_code'] ?? ''),
       ];
   }, $groupMembers ?? []))); ?>;
-  const peerAvatarUrl = <?php echo $peerRow ? json_encode('avatar.php?friend_code=' . urlencode((string)$peerCode) . '&name=' . urlencode((string)$peerDisplay)) : '""'; ?>;
+  let peerAvatarUrl = <?php echo $peerRow ? json_encode('avatar.php?friend_code=' . urlencode((string)$peerCode) . '&name=' . urlencode((string)$peerDisplay)) : '""'; ?>;
   let lastId = <?php echo (int)$lastId; ?>;
 
-  const chatBox = document.getElementById('chatBox');
-  const chatStream = document.getElementById('chatStream');
+  let chatBox = document.getElementById('chatBox');
+  let chatStream = document.getElementById('chatStream');
+  let privateSwitchSeq = 0;
+  let privateSwitchAbort = null;
+  const privateHistoryCache = new Map();
   const vcallChatList = document.getElementById('vcallChatList');
   const vcallChatGroup = document.getElementById('vcallChatGroup');
   const vcallComposeInput = document.getElementById('vcallComposeInput');
@@ -10436,10 +10491,15 @@ img, video, iframe { max-width: 100% !important; }
   }
 
   let pollBusy = false;
+  let pollStarted = false;
   const CHAT_POLL_WAIT_SECONDS = 0;
   const CHAT_POLL_INTERVAL_MS = 250;
   async function pollMessages(){
-    if(!peerCode || !chatStream || pollBusy) return;
+    if(!peerCode || !chatStream){
+      setTimeout(pollMessages, CHAT_POLL_INTERVAL_MS);
+      return;
+    }
+    if(pollBusy) return;
     pollBusy = true;
     try{
       const url = 'ajax/user_chat_poll.php?peer=' + encodeURIComponent(peerCode) + '&after=' + encodeURIComponent(String(lastId || 0)) + '&wait=' + encodeURIComponent(String(CHAT_POLL_WAIT_SECONDS)) + '&mark=1';
@@ -10457,6 +10517,11 @@ img, video, iframe { max-width: 100% !important; }
       pollBusy = false;
       setTimeout(pollMessages, CHAT_POLL_INTERVAL_MS);
     }
+  }
+  function ensureMessagePoll(){
+    if(pollStarted) return;
+    pollStarted = true;
+    setTimeout(pollMessages, 120);
   }
   let groupVideoChatPollBusy = false;
   async function pollGroupVideoChatMessages(){
@@ -10487,9 +10552,191 @@ img, video, iframe { max-width: 100% !important; }
       setTimeout(pollGroupVideoChatMessages, CHAT_POLL_INTERVAL_MS);
     }
   }
-  if(peerCode && chatStream) setTimeout(pollMessages, 120);
+  if(peerCode && chatStream) ensureMessagePoll();
   if(selectedGroupId) setTimeout(pollGroupVideoChatMessages, 120);
   if(peerCode || isGroupCallContext()) setTimeout(pollVideoCalls, 1200);
+
+  function refreshChatDomRefs(){
+    chatBox = document.getElementById('chatBox');
+    chatStream = document.getElementById('chatStream');
+  }
+
+  function ensurePrivateChatShell(){
+    refreshChatDomRefs();
+    if(!chatBox) return false;
+    if(!document.getElementById('sendForm')) return false;
+    var empty = document.getElementById('chatEmptyState') || chatBox.querySelector('.chat-empty-state');
+    if(empty) empty.style.display = 'none';
+    if(!document.getElementById('chatStream')){
+      var stream = document.createElement('div');
+      stream.id = 'chatStream';
+      chatBox.insertBefore(stream, chatBox.firstChild);
+    }
+    var streamEl = document.getElementById('chatStream');
+    if(streamEl) streamEl.style.display = '';
+    var composer = document.getElementById('privateComposer');
+    if(composer) composer.style.display = '';
+    refreshChatDomRefs();
+    return !!chatStream;
+  }
+
+  function updatePrivateHeader(meta){
+    meta = meta || {};
+    var title = document.getElementById('peerTitle');
+    if(title){
+      var av = String(meta.avatarUrl || peerAvatarUrl || '');
+      var name = String(meta.display || peerDisplay || '');
+      title.innerHTML =
+        '<span class="peerAvatar"><img src="'+esc(av)+'" data-live-avatar="1" data-avatar-base="'+esc(av)+'" alt="Avatar"></span>' +
+        '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(name)+'</span>' +
+        '<span class="peerOnlineDot'+(meta.online ? ' on' : '')+'"></span>';
+    }
+    var sub = document.querySelector('#conversationPanel .peerSub');
+    if(sub){
+      sub.innerHTML =
+        '<span>'+esc(String(meta.code || peerCode || ''))+'</span>' +
+        '<span style="opacity:.55;">•</span>' +
+        '<span id="peerOnlineBadge">'+esc(String(meta.onlineLabel || (meta.online ? 'Online' : 'Offline')))+'</span>';
+    }
+    var iconbar = document.querySelector('#conversationPanel .iconbar');
+    if(iconbar && !document.getElementById('btnVoiceCall')){
+      iconbar.innerHTML =
+        '<a href="javascript:void(0)" id="btnVoiceCall" title="Call"><i class="ion ion-ios-telephone"></i></a>' +
+        '<a href="javascript:void(0)" id="btnVideoCall" title="Video"><i class="ion ion-ios-videocam"></i></a>' +
+        '<a type="button" id="peerInfoToggle" class="chat-info-toggle" title="Peer details" aria-label="Open peer details" aria-expanded="false"><i class="icon ion-information-circled"></i></a>';
+    }
+    var infoName = document.querySelector('#chatInfoPanel .chat-info-name');
+    var infoHandle = document.querySelector('#chatInfoPanel .chat-info-handle');
+    var infoAvatar = document.querySelector('#chatInfoPanel .chat-info-avatar img');
+    if(infoName) infoName.textContent = String(meta.display || peerDisplay || '');
+    if(infoHandle) infoHandle.textContent = '@' + String(meta.display || peerDisplay || '').toLowerCase().replace(/\s+/g, '_');
+    if(infoAvatar){
+      infoAvatar.src = String(meta.avatarUrl || peerAvatarUrl || '');
+      infoAvatar.alt = String(meta.display || peerDisplay || '');
+    }
+    var vname = document.getElementById('vcallPeerName');
+    var vstage = document.getElementById('vcallStagePeerName');
+    if(vname) vname.textContent = String(meta.display || peerDisplay || '');
+    if(vstage) vstage.textContent = String(meta.display || peerDisplay || '');
+    var stage = document.getElementById('chatStage');
+    if(stage) stage.classList.add('is-info-collapsed');
+  }
+
+  function renderPrivateHistory(items){
+    refreshChatDomRefs();
+    if(!chatStream) return;
+    chatStream.innerHTML = '';
+    lastId = 0;
+    (items || []).forEach(appendMessageItem);
+    setTimeout(scrollToBottom, 20);
+  }
+
+  async function switchPrivatePeer(nextPeer, meta){
+    nextPeer = String(nextPeer || '').toUpperCase().trim();
+    if(!nextPeer || isGroupChatView) return false;
+    meta = meta || {};
+
+    try{ closeReplyPreview(); }catch(_e){}
+    try{ clearPreview(); }catch(_e){}
+
+    if(!ensurePrivateChatShell()) return false;
+
+    peerCode = nextPeer;
+    peerDisplay = String(meta.display || peerDisplay || nextPeer);
+    peerAvatarUrl = String(meta.avatarUrl || ('avatar.php?friend_code=' + encodeURIComponent(peerCode) + '&name=' + encodeURIComponent(peerDisplay)));
+    lastId = 0;
+    updatePrivateHeader({
+      code: peerCode,
+      display: peerDisplay,
+      avatarUrl: peerAvatarUrl,
+      online: !!meta.online,
+      onlineLabel: meta.onlineLabel || ''
+    });
+
+    try{ history.pushState({}, '', 'messages.php?peer=' + encodeURIComponent(peerCode)); }catch(_e){}
+    try{
+      if(window.matchMedia('(max-width: 991.98px)').matches){
+        document.body.classList.add('m-mode-chat');
+        document.body.classList.remove('m-mode-list');
+      }
+    }catch(_e){}
+
+    var seq = ++privateSwitchSeq;
+    var cached = privateHistoryCache.get(peerCode);
+    if(cached && Array.isArray(cached.items) && (Date.now() - (cached.at || 0)) < 60000){
+      renderPrivateHistory(cached.items);
+      lastId = Number(cached.lastId || lastId || 0);
+    } else if(chatStream){
+      chatStream.innerHTML = '';
+    }
+
+    if(privateSwitchAbort){
+      try{ privateSwitchAbort.abort(); }catch(_e){}
+    }
+    privateSwitchAbort = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+
+    try{
+      var res = await fetch('ajax/user_chat_open.php?peer=' + encodeURIComponent(peerCode), {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: privateSwitchAbort ? privateSwitchAbort.signal : undefined
+      });
+      var data = await res.json();
+      if(seq !== privateSwitchSeq) return true;
+      if(!data || !data.ok) return false;
+
+      peerCode = String(data.peer_code || peerCode).toUpperCase();
+      peerDisplay = String(data.peer_display || peerDisplay);
+      peerAvatarUrl = String(data.peer_avatar_url || peerAvatarUrl);
+      lastId = Number(data.last_id || 0);
+      updatePrivateHeader({
+        code: peerCode,
+        display: peerDisplay,
+        avatarUrl: peerAvatarUrl,
+        online: !!data.online,
+        onlineLabel: data.online_label || ''
+      });
+      var items = Array.isArray(data.items) ? data.items : [];
+      privateHistoryCache.set(peerCode, { items: items, lastId: lastId, at: Date.now() });
+      renderPrivateHistory(items);
+      ensureMessagePoll();
+      try{
+        if(typeof window.MSBMessages.onPrivatePeerChanged === 'function'){
+          window.MSBMessages.onPrivatePeerChanged();
+        }
+      }catch(_e){}
+      return true;
+    }catch(err){
+      if(err && err.name === 'AbortError') return true;
+      return false;
+    }
+  }
+
+  window.MSBMessages = window.MSBMessages || {};
+  window.MSBMessages.switchPrivatePeer = switchPrivatePeer;
+  window.MSBMessages.getPeerCode = function(){ return peerCode; };
+  window.MSBMessages._cache = privateHistoryCache;
+  window.MSBMessages.getPrivateUrl = function(){
+    return peerCode ? ('messages.php?peer=' + encodeURIComponent(peerCode)) : 'messages.php';
+  };
+  window.MSBMessages.onPrivatePeerChanged = function(){
+    try{
+      var url = window.MSBMessages.getPrivateUrl();
+      var tab = document.querySelector('.messages-shell-tab[data-mode="private"]');
+      if(tab){
+        tab.setAttribute('href', url);
+        tab.setAttribute('data-url', url);
+      }
+      sessionStorage.removeItem('msb_msg_mode_html_private');
+      sessionStorage.removeItem('msb_msg_mode_url_private');
+    }catch(_e){}
+    if(window.MSBMessagesMode && typeof window.MSBMessagesMode.invalidate === 'function'){
+      window.MSBMessagesMode.invalidate('private');
+      if(typeof window.MSBMessagesMode.prefetch === 'function'){
+        window.MSBMessagesMode.prefetch('private');
+      }
+    }
+  };
 })();
 </script>
 
@@ -10688,6 +10935,396 @@ document.addEventListener('DOMContentLoaded', function () {
   window.addEventListener('resize', function(){
     setMode();
   });
+})();
+</script>
+
+<script>
+/* Instant left-row chat switch — JSON open, no full page reload */
+(function(){
+  var STORAGE_SCROLL = 'msb_messages_chat_list_scroll';
+
+  function restoreListScroll(){
+    try{
+      var y = sessionStorage.getItem(STORAGE_SCROLL);
+      if(y === null) return;
+      sessionStorage.removeItem(STORAGE_SCROLL);
+      var list = document.getElementById('chatList');
+      if(list) list.scrollTop = parseInt(y, 10) || 0;
+    }catch(_e){}
+  }
+
+  function peerFromItem(item){
+    var key = (item.getAttribute('data-orig-code') || item.getAttribute('data-key') || '').toUpperCase().trim();
+    if(key) return key;
+    try{
+      var u = new URL(item.href || item.getAttribute('href') || '', window.location.href);
+      return String(u.searchParams.get('peer') || '').toUpperCase().trim();
+    }catch(_e){
+      return '';
+    }
+  }
+
+  function markActive(list, item){
+    list.querySelectorAll('a.chatItem.active').forEach(function(el){
+      if(el !== item) el.classList.remove('active');
+    });
+    item.classList.add('active');
+    var badge = item.querySelector('.unreadBadge');
+    if(badge) badge.remove();
+    var dot = item.querySelector('.chat-list-dot');
+    if(dot) dot.classList.remove('is-visible');
+  }
+
+  function isPrivatePeerHref(href){
+    try{
+      var u = new URL(href, window.location.href);
+      var path = (u.pathname || '').split('/').pop() || '';
+      if(path !== 'messages.php' && !/\/messages\.php$/i.test(u.pathname || '')) return false;
+      if(u.searchParams.get('chat_type') === 'group' || u.searchParams.get('group_id')) return false;
+      return !!(u.searchParams.get('peer') || '').trim();
+    }catch(_e){
+      return false;
+    }
+  }
+
+  var prefetchedPeers = Object.create(null);
+  function prefetchPeer(peer){
+    peer = String(peer || '').toUpperCase().trim();
+    if(!peer || prefetchedPeers[peer]) return;
+    prefetchedPeers[peer] = 1;
+    fetch('ajax/user_chat_open.php?peer=' + encodeURIComponent(peer), {
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function(res){ return res.json(); }).then(function(data){
+      if(!data || !data.ok) return;
+      try{
+        var map = window.MSBMessages && window.MSBMessages._cache;
+        if(map && typeof map.set === 'function'){
+          map.set(String(data.peer_code || peer).toUpperCase(), {
+            items: Array.isArray(data.items) ? data.items : [],
+            lastId: Number(data.last_id || 0),
+            at: Date.now()
+          });
+        }
+      }catch(_e){}
+    }).catch(function(){
+      delete prefetchedPeers[peer];
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    restoreListScroll();
+    document.documentElement.classList.remove('msg-soft-nav');
+
+    var list = document.getElementById('chatList');
+    if(!list) return;
+
+    list.addEventListener('pointerenter', function(e){
+      var item = e.target && e.target.closest ? e.target.closest('a.chatItem') : null;
+      if(!item || !list.contains(item)) return;
+      var href = item.href || item.getAttribute('href') || '';
+      if(!isPrivatePeerHref(href)) return;
+      var peer = peerFromItem(item);
+      if(peer) prefetchPeer(peer);
+    }, true);
+
+    list.addEventListener('click', function(e){
+      var item = e.target && e.target.closest ? e.target.closest('a.chatItem') : null;
+      if(!item || !list.contains(item)) return;
+      if(e.defaultPrevented) return;
+      if(e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+      var href = item.href || item.getAttribute('href') || '';
+      if(!href || !isPrivatePeerHref(href)) return;
+
+      var peer = peerFromItem(item);
+      if(!peer) return;
+
+      e.preventDefault();
+      try{ sessionStorage.setItem(STORAGE_SCROLL, String(list.scrollTop || 0)); }catch(_e){}
+      markActive(list, item);
+
+      var display = item.getAttribute('data-orig-name') || (item.querySelector('.chatName') || {}).textContent || peer;
+      var avatarImg = item.querySelector('.avatar img');
+      var avatarUrl = avatarImg ? (avatarImg.getAttribute('src') || '') : '';
+      var online = !!(item.querySelector('.presenceDot.on'));
+
+      var api = window.MSBMessages;
+      if(api && typeof api.switchPrivatePeer === 'function'){
+        // Already on this peer — selection only.
+        if(String(api.getPeerCode ? api.getPeerCode() : '').toUpperCase() === peer){
+          return;
+        }
+        Promise.resolve(api.switchPrivatePeer(peer, {
+          display: String(display || peer).trim(),
+          avatarUrl: avatarUrl,
+          online: online,
+          onlineLabel: online ? 'Online' : ''
+        })).then(function(ok){
+          if(ok === false) window.location.href = href;
+        }).catch(function(){
+          window.location.href = href;
+        });
+        return;
+      }
+
+      window.location.href = href;
+    }, true);
+  });
+
+  window.addEventListener('popstate', function(){
+    window.location.reload();
+  });
+})();
+</script>
+
+<script>
+/* Instant Private ↔ Group tab switch (prefetch + cached soft open) */
+(function(){
+  var memoryCache = Object.create(null);
+  var inflight = Object.create(null);
+  var busy = false;
+  var currentMode = <?php echo $isGroupChatView ? "'group'" : "'private'"; ?>;
+
+  function defaultUrl(mode){
+    if(mode === 'group') return 'messages.php?chat_type=group';
+    try{
+      if(window.MSBMessages && typeof window.MSBMessages.getPrivateUrl === 'function'){
+        return window.MSBMessages.getPrivateUrl();
+      }
+    }catch(_e){}
+    var tab = document.querySelector('.messages-shell-tab[data-mode="private"]');
+    return (tab && (tab.getAttribute('data-url') || tab.getAttribute('href'))) || 'messages.php';
+  }
+
+  function storageKey(mode){ return 'msb_msg_mode_html_' + mode; }
+  function storageUrlKey(mode){ return 'msb_msg_mode_url_' + mode; }
+
+  function readStored(mode, url){
+    try{
+      var storedUrl = sessionStorage.getItem(storageUrlKey(mode));
+      var html = sessionStorage.getItem(storageKey(mode));
+      if(html && storedUrl === url) return html;
+    }catch(_e){}
+    return '';
+  }
+
+  function writeStored(mode, url, html){
+    try{
+      sessionStorage.setItem(storageUrlKey(mode), url);
+      sessionStorage.setItem(storageKey(mode), html);
+    }catch(_e){
+      try{
+        sessionStorage.removeItem(storageKey(mode));
+        sessionStorage.removeItem(storageUrlKey(mode));
+      }catch(__e){}
+    }
+  }
+
+  function getCached(mode, url){
+    var mem = memoryCache[mode];
+    if(mem && mem.url === url && mem.html) return mem.html;
+    var stored = readStored(mode, url);
+    if(stored){
+      memoryCache[mode] = { url: url, html: stored };
+      return stored;
+    }
+    return '';
+  }
+
+  function setCached(mode, url, html){
+    if(!html || html.indexOf('messages-shell') === -1) return;
+    memoryCache[mode] = { url: url, html: html };
+    writeStored(mode, url, html);
+  }
+
+  function invalidate(mode){
+    delete memoryCache[mode];
+    delete inflight[mode];
+    try{
+      sessionStorage.removeItem(storageKey(mode));
+      sessionStorage.removeItem(storageUrlKey(mode));
+    }catch(_e){}
+  }
+
+  function isDarkTheme(){
+    var root = document.documentElement;
+    try{
+      if(root.classList.contains('dark-auto')) return true;
+      if(root.getAttribute('data-theme') === 'dark') return true;
+      if(document.body && document.body.classList.contains('dark-auto')) return true;
+    }catch(_e){}
+    return false;
+  }
+
+  function lockPaintTheme(){
+    var root = document.documentElement;
+    var dark = isDarkTheme();
+    var bg = dark ? '#171d24' : '#f4f4f6';
+    try{
+      var cs = getComputedStyle(root).backgroundColor;
+      if(cs && cs !== 'rgba(0, 0, 0, 0)' && cs !== 'transparent') bg = cs;
+    }catch(_e){}
+    root.style.setProperty('--msb-nav-lock-bg', bg);
+    root.style.setProperty('--msb-nav-lock-scheme', dark ? 'dark' : 'light');
+    root.style.background = bg;
+    root.style.colorScheme = dark ? 'dark' : 'light';
+    root.classList.add('msg-soft-nav');
+    return { bg: bg, scheme: dark ? 'dark' : 'light' };
+  }
+
+  function htmlAttrEscape(v){
+    return String(v || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  }
+
+  function writeWithAntiFlash(html, paint){
+    var root = document.documentElement;
+    var cls = (root.className || '').replace(/\s+/g, ' ').trim();
+    if(cls.indexOf('msg-soft-nav') === -1) cls = (cls + ' msg-soft-nav').trim();
+    var attrBits = [
+      'lang="' + htmlAttrEscape(root.getAttribute('lang') || 'en') + '"',
+      'class="' + htmlAttrEscape(cls) + '"',
+      'style="background:' + htmlAttrEscape(paint.bg) + ';color-scheme:' + paint.scheme + '"'
+    ];
+    ['data-theme', 'data-msb-appearance'].forEach(function(name){
+      var v = root.getAttribute(name);
+      if(v != null && v !== '') attrBits.push(name + '="' + htmlAttrEscape(v) + '"');
+    });
+    var headMatch = html.match(/<head[^>]*>/i);
+    var rest = headMatch ? html.slice(html.indexOf(headMatch[0]) + headMatch[0].length) : null;
+    var boot =
+      '<!DOCTYPE html><html ' + attrBits.join(' ') + '><head>' +
+      '<meta charset="utf-8">' +
+      '<meta name="color-scheme" content="' + paint.scheme + '">' +
+      '<style id="msb-anti-flash">html,body,.sh-pagebody,.messages-shell{background:' +
+        paint.bg + ' !important;color-scheme:' + paint.scheme + ';}</style>';
+    document.open();
+    if(rest !== null){
+      document.write(boot);
+      document.write(rest);
+    } else {
+      document.write(html);
+    }
+    document.close();
+  }
+
+  function prefetch(mode){
+    mode = mode === 'group' ? 'group' : 'private';
+    var url = defaultUrl(mode);
+    var existing = getCached(mode, url);
+    if(existing) return Promise.resolve(existing);
+    if(inflight[mode]) return inflight[mode];
+    inflight[mode] = fetch(url, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Accept': 'text/html', 'X-Requested-With': 'MSBMessagesMode' }
+    }).then(function(res){
+      if(!res.ok) throw new Error('prefetch failed');
+      return res.text();
+    }).then(function(html){
+      setCached(mode, url, html);
+      return html;
+    }).catch(function(){
+      return '';
+    }).finally(function(){
+      delete inflight[mode];
+    });
+    return inflight[mode];
+  }
+
+  function markTabActive(mode){
+    document.querySelectorAll('.messages-shell-tab').forEach(function(tab){
+      tab.classList.toggle('active', tab.getAttribute('data-mode') === mode);
+    });
+  }
+
+  function switchMode(mode, url){
+    mode = mode === 'group' ? 'group' : 'private';
+    url = url || defaultUrl(mode);
+    if(mode === currentMode) return;
+    if(busy) return;
+    busy = true;
+    markTabActive(mode);
+    var paint = lockPaintTheme();
+    var leaveMode = currentMode;
+
+    var go = function(html){
+      if(!html || html.indexOf('messages-shell') === -1){
+        busy = false;
+        document.documentElement.classList.remove('msg-soft-nav');
+        try{ sessionStorage.setItem('msb_msg_paint_lock', paint.bg + '|' + paint.scheme); }catch(_e){}
+        window.location.href = url;
+        return;
+      }
+      setCached(mode, url, html);
+      try{ history.pushState({}, '', url); }catch(_e){}
+      writeWithAntiFlash(html, paint);
+    };
+
+    var targetCached = getCached(mode, url);
+    if(targetCached){
+      // Instant path: target already warm. Cache leave-page in background for return trip.
+      prefetch(leaveMode);
+      go(targetCached);
+      return;
+    }
+
+    // Target not ready yet — warm leave + target, then open.
+    Promise.all([prefetch(leaveMode), prefetch(mode)]).then(function(results){
+      go((results && results[1]) || getCached(mode, url) || '');
+    }).catch(function(){
+      busy = false;
+      document.documentElement.classList.remove('msg-soft-nav');
+      window.location.href = url;
+    });
+  }
+
+  window.MSBMessagesMode = {
+    invalidate: invalidate,
+    prefetch: prefetch,
+    switchMode: switchMode,
+    getCurrent: function(){ return currentMode; }
+  };
+
+  // Start warming caches immediately (script is at end of body).
+  prefetch(currentMode);
+  prefetch(currentMode === 'group' ? 'private' : 'group');
+
+  function bindTabs(){
+    var tabs = document.getElementById('messagesModeTabs');
+    if(!tabs || tabs.__msbModeBound) return;
+    tabs.__msbModeBound = true;
+
+    tabs.addEventListener('pointerenter', function(e){
+      var tab = e.target && e.target.closest ? e.target.closest('a.messages-shell-tab') : null;
+      if(!tab || !tabs.contains(tab)) return;
+      var mode = tab.getAttribute('data-mode') || '';
+      if(mode === 'private' || mode === 'group') prefetch(mode);
+    }, true);
+
+    tabs.addEventListener('click', function(e){
+      var tab = e.target && e.target.closest ? e.target.closest('a.messages-shell-tab') : null;
+      if(!tab || !tabs.contains(tab)) return;
+      if(e.defaultPrevented) return;
+      if(e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var mode = tab.getAttribute('data-mode') || '';
+      if(mode !== 'private' && mode !== 'group') return;
+      var url = tab.getAttribute('data-url') || tab.getAttribute('href') || defaultUrl(mode);
+      if(mode === currentMode){
+        e.preventDefault();
+        markTabActive(mode);
+        return;
+      }
+      e.preventDefault();
+      switchMode(mode, url);
+    }, true);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', bindTabs);
+  } else {
+    bindTabs();
+  }
 })();
 </script>
 

@@ -1220,11 +1220,14 @@ body.org-app .commerce-page button.btn {
   color: var(--org-btn-text, #e8edf5) !important;
 }
 
+/* Must beat `.commerce-page button.btn` (element+class) so primary stays filled + white label */
 body.org-app .commerce-page .btn-primary,
-body.org-app .commerce-page a.btn-primary {
-  background-color: var(--org-accent, #2563eb) !important;
-  border-color: var(--org-accent-strong, #1d4ed8) !important;
-  color: #ffffff !important;
+body.org-app .commerce-page a.btn-primary,
+body.org-app .commerce-page button.btn-primary,
+body.org-app .commerce-page button.btn.btn-primary {
+  background-color: var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
+  border-color: var(--org-btn-filled-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  color: var(--org-btn-filled-text, #ffffff) !important;
 }
 
 body.org-app .commerce-page .btn:hover,
@@ -1233,9 +1236,12 @@ body.org-app .commerce-page a.btn:hover {
 }
 
 body.org-app .commerce-page .btn-primary:hover,
-body.org-app .commerce-page a.btn-primary:hover {
-  background-color: var(--org-accent-strong, #1d4ed8) !important;
-  color: #ffffff !important;
+body.org-app .commerce-page a.btn-primary:hover,
+body.org-app .commerce-page button.btn-primary:hover,
+body.org-app .commerce-page button.btn.btn-primary:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  border-color: var(--msb-palette-btn-hover-bg, var(--org-accent-strong, #1d4ed8)) !important;
+  color: var(--org-btn-filled-text, #ffffff) !important;
 }
 
 .commerce-brand-grid {

@@ -284,6 +284,11 @@ function my_orders_status_class(string $status): string
                   $status = (string)($o['status'] ?? 'pending');
                   $publisherId = (int)($o['publisher_user_id'] ?? 0);
                   $seller = trim((string)($o['seller_name'] ?? '')) ?: 'Shop';
+                  $brandName = trim((string)($o['commerce_brand_name'] ?? ''));
+                  if ($brandName === '') {
+                      $brandName = $seller;
+                  }
+                  $brandShopUrl = org_shop_order_brand_shop_url($o);
                   $tracking = trim((string)($o['tracking_number'] ?? ''));
                   $carrier = trim((string)($o['carrier'] ?? ''));
                   $fulfillment = strtoupper((string)($o['fulfillment_method'] ?? 'fbm'));
@@ -367,7 +372,14 @@ function my_orders_status_class(string $status): string
                     <div class="orders-line-total"><?= h($total) ?></div>
                     <span class="<?= h(my_orders_status_class($status)) ?>"><?= h($status) ?></span>
                     <div class="orders-seller">
-                      <?php if ($publisherId > 0): ?>
+                      <?php if ($brandShopUrl !== ''): ?>
+                        <a href="<?= h($brandShopUrl) ?>" title="View <?= h($brandName) ?> brand group"><?= h($brandName) ?></a>
+                        <?php if ($publisherId > 0): ?>
+                          <div class="tx-11" style="margin-top:4px;">
+                            <a href="<?= h(commerce_message_seller_url($publisherId, (int)($o['product_id'] ?? 0), (string)($o['order_code'] ?? ''))) ?>">Message seller</a>
+                          </div>
+                        <?php endif; ?>
+                      <?php elseif ($publisherId > 0): ?>
                         <a href="profile.php?tab=shop&amp;id=<?= $publisherId ?>"><?= h($seller) ?></a>
                         <div class="tx-11" style="margin-top:4px;">
                           <a href="<?= h(commerce_message_seller_url($publisherId, (int)($o['product_id'] ?? 0), (string)($o['order_code'] ?? ''))) ?>">Message seller</a>

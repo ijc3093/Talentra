@@ -372,7 +372,7 @@ input[type="month"] {
 
 textarea {
   overflow: auto;
-  resize: vertical;
+  resize: none;
 }
 
 fieldset {
@@ -3801,8 +3801,8 @@ tbody.collapse.show {
 }
 
 .alert {
-  padding: 0.75rem 1.25rem;
-  margin-bottom: 1rem;
+  /* padding: 0.75rem 1.25rem; */
+  /* margin-bottom: 1rem; */
   border: 1px solid transparent;
   border-radius: 3px;
 }
@@ -8144,7 +8144,7 @@ a.text-dark:focus, a.text-dark:hover {
 .alert {
   border-width: 0;
   border-radius: 0;
-  padding: 15px 20px;
+  /* padding: 15px 20px; */
   position: relative;
 }
 .alert .close {

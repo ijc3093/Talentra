@@ -302,7 +302,7 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       border:1px solid var(--shop-border-strong,rgba(15,23,42,.14));
       border-radius:10px;color:var(--shop-text,inherit);padding:10px 12px;font-size:14px;
     }
-    .sbd-field textarea.form-control{min-height:84px;resize:vertical;}
+    .sbd-field textarea.form-control{min-height:84px;resize:none;}
     .sbd-address-foot{padding:0 16px 16px;flex-shrink:0;}
     .sbd-total{
       display:flex;align-items:center;justify-content:space-between;gap:10px;

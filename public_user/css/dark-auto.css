@@ -219,9 +219,19 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
 
 
 :is(html.dark-auto, body.dark-auto) .right-active,
-:is(html.dark-auto, body.dark-auto) .active:not(.ig-tab){
+:is(html.dark-auto, body.dark-auto) .active:not(.ig-tab):not(.chat-item):not(.messages-shell-tab):not(.profile-panel){
     background:#394451 !important;
   color:#e6edf3;
+}
+
+/* Profile posts/gallery panels use .active for visibility — keep Appearance Dark canvas */
+:is(html.dark-auto, body.dark-auto) .profile-panel.active,
+:is(html.dark-auto, body.dark-auto) body.profile-page .profile-panel.active,
+:is(html.dark-auto, body.dark-auto) body.profile-page #profilePostsFeed,
+:is(html.dark-auto, body.dark-auto) body.profile-page #profilePostsFeed.mf-feed {
+  background: var(--msb-palette-bg, #171d24) !important;
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  color: var(--msb-palette-text, #e6edf3);
 }
 
 /* Cards */
@@ -643,7 +653,14 @@ html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary {
 }
 
 :is(html.dark-auto, body.dark-auto) .stat-pill{ background:#0b1220; border-color:#334155; box-shadow:none; }
-:is(html.dark-auto, body.dark-auto) .mf-card{background: #4d4b4b; color:white;}
+:is(html.dark-auto, body.dark-auto) .mf-card,
+:is(html.dark-auto, body.dark-auto) .mf-feed,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed.mf-feed{
+  background: var(--msb-palette-bg, #171d24) !important;
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  color: var(--msb-palette-text, #e6edf3);
+}
 :is(html.dark-auto, body.dark-auto) .stat-pill .num{ color:#f3f4f6; }
 :is(html.dark-auto, body.dark-auto) .stat-pill .lbl{ color:#cbd5e1; }
 :is(html.dark-auto, body.dark-auto) .stat-pill .sub{ color:#94a3b8; }
@@ -1370,10 +1387,18 @@ body.dark-auto{
   body.dark-auto .chat-member-avatar{
     background:#30363d !important;
   }
-  body.dark-auto .chat-item,
+  body.dark-auto .chat-item{
+    background:transparent !important;
+    color:#e6edf3 !important;
+    border-color:rgba(255,255,255,.06) !important;
+    transition: none !important;
+  }
   body.dark-auto .chat-item:hover,
+  body.dark-auto .chat-item:focus,
+  body.dark-auto .chat-item:focus-visible,
+  body.dark-auto .chat-item:active,
   body.dark-auto .chat-item.active{
-    background:#171d24 !important;
+    background:rgba(148,163,184,.12) !important;
     color:#e6edf3 !important;
     border-color:rgba(255,255,255,.06) !important;
   }

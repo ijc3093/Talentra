@@ -449,7 +449,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .field.full{grid-column:1/-1;}
     .field label{font-size:13px;font-weight:700;color:var(--msb-palette-text-muted,#334155);}
     .field input,.field textarea,.field select{width:100%;border:1px solid var(--msb-palette-border,#dbe1ea);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--msb-palette-text,#0f172a);background:var(--msb-palette-bg,#fff);outline:none;}
-    .field textarea{min-height:110px;resize:vertical;}
+    .field textarea{min-height:110px;resize:none;}
     .field input:focus,.field textarea:focus,.field select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
     .muted{font-size:12px;color:#64748b;}
     .alert{border-radius:14px;padding:12px 14px;font-size:14px;margin-bottom:16px;}

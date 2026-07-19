@@ -423,7 +423,7 @@ body.dashboard-page .card .card-body{
 body.dashboard-page textarea.form-control{
   min-height:0 !important;
   height:auto !important;
-  resize:vertical;
+  resize:none;
 }
 
 body.dashboard-page .row-sm{

@@ -7,9 +7,14 @@ ini_set('display_errors','1');
 
 require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
+require_once __DIR__ . '/includes/org_member_address.php';
 
 $orgId      = (int)orgActiveOrgId();
 $meMemberId = (int)orgMemberId();
+
+// Managers can see everyone's home address so they can mail letters.
+$canSeeHomeAddr = isOrgManager();
+$homeAddrMap    = $canSeeHomeAddr ? org_member_address_map($dbh, $orgId) : [];
 
 if (!function_exists('h')) {
     function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
@@ -210,6 +215,9 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
     .member-meta { min-width:0; }
     .member-name { font-weight:600; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .member-sub { margin:0; opacity:.75; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .member-addr { margin:4px 0 0; font-size:12px; opacity:.85; white-space:normal; line-height:1.35; }
+    .member-addr .icon { opacity:.7; margin-right:2px; }
+    .member-addr-empty { opacity:.6; font-style:italic; }
     .badge { font-weight:600; }
 
     /* ===============================
@@ -412,6 +420,12 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                       $sub = $rel !== '' ? $rel : 'Manager';
 
                       [$presenceLabel, $presenceCls] = fmtPresence($m['last_seen'] ?? null);
+
+                      $addrText = '';
+                      if ($canSeeHomeAddr) {
+                          $addrRow = $homeAddrMap[(int)$m['member_row_id']] ?? [];
+                          if ($addrRow) $addrText = org_member_address_format($addrRow);
+                      }
                     ?>
                     <div class="list-group-item">
                       <div class="member-row">
@@ -420,6 +434,16 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                           <div class="member-meta">
                             <p class="member-name"><?= h($name) ?></p>
                             <p class="member-sub"><?= h($sub) ?><?= !empty($m['email']) ? ' • '.h((string)$m['email']) : '' ?></p>
+                            <?php if ($canSeeHomeAddr): ?>
+                              <p class="member-addr">
+                                <i class="icon ion-ios-email-outline"></i>
+                                <?php if (trim($addrText) !== ''): ?>
+                                  <?= h(str_replace("\n", ", ", $addrText)) ?>
+                                <?php else: ?>
+                                  <span class="member-addr-empty">No home address</span>
+                                <?php endif; ?>
+                              </p>
+                            <?php endif; ?>
                           </div>
                         </div>
                         <span class="<?= h($presenceCls) ?>"><?= h($presenceLabel) ?></span>
@@ -448,6 +472,12 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                       $sub = $rel !== '' ? $rel : 'Staff';
 
                       [$presenceLabel, $presenceCls] = fmtPresence($s['last_seen'] ?? null);
+
+                      $addrText = '';
+                      if ($canSeeHomeAddr) {
+                          $addrRow = $homeAddrMap[(int)$s['member_row_id']] ?? [];
+                          if ($addrRow) $addrText = org_member_address_format($addrRow);
+                      }
                     ?>
                     <div class="list-group-item">
                       <div class="member-row">
@@ -456,6 +486,16 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                           <div class="member-meta">
                             <p class="member-name"><?= h($name) ?></p>
                             <p class="member-sub"><?= h($sub) ?><?= !empty($s['email']) ? ' • '.h((string)$s['email']) : '' ?></p>
+                            <?php if ($canSeeHomeAddr): ?>
+                              <p class="member-addr">
+                                <i class="icon ion-ios-email-outline"></i>
+                                <?php if (trim($addrText) !== ''): ?>
+                                  <?= h(str_replace("\n", ", ", $addrText)) ?>
+                                <?php else: ?>
+                                  <span class="member-addr-empty">No home address</span>
+                                <?php endif; ?>
+                              </p>
+                            <?php endif; ?>
                           </div>
                         </div>
                         <span class="<?= h($presenceCls) ?>"><?= h($presenceLabel) ?></span>

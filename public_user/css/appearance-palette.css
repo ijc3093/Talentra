@@ -2512,6 +2512,9 @@ html.dark-auto:not([data-msb-appearance]) .feed-desktop-layout,
 html.dark-auto:not([data-msb-appearance]) .ig-wrap,
 html.dark-auto:not([data-msb-appearance]) .ig-main,
 html.dark-auto:not([data-msb-appearance]) .notifications-page,
+html.dark-auto:not([data-msb-appearance]) .mf-feed,
+html.dark-auto:not([data-msb-appearance]) .mf-card,
+html.dark-auto:not([data-msb-appearance]) #profilePostsFeed,
 html[data-theme="dark"]:not([data-msb-appearance]) .sh-mainpanel,
 html[data-theme="dark"]:not([data-msb-appearance]) .sh-pagebody,
 html[data-theme="dark"]:not([data-msb-appearance]) .live-main,
@@ -2519,9 +2522,60 @@ html[data-theme="dark"]:not([data-msb-appearance]) .live-wrap,
 html[data-theme="dark"]:not([data-msb-appearance]) .messages-shell,
 html[data-theme="dark"]:not([data-msb-appearance]) .feed-desktop-layout,
 html[data-theme="dark"]:not([data-msb-appearance]) .ig-wrap,
-html[data-theme="dark"]:not([data-msb-appearance]) .ig-main {
+html[data-theme="dark"]:not([data-msb-appearance]) .ig-main,
+html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed,
+html[data-theme="dark"]:not([data-msb-appearance]) .mf-card,
+html[data-theme="dark"]:not([data-msb-appearance]) #profilePostsFeed {
   background-color: var(--msb-palette-bg, #171d24) !important;
   background-image: none !important;
+}
+
+/* Built-in Dark — profile.php posts / scroll surfaces (match header Dark) */
+html.dark-auto:not([data-msb-appearance]) body.profile-page,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .sh-mainpanel,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .sh-pagebody,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-wrap,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-profile-shell,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-profile-head,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-profile-scroll,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-highlights,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-tabs,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .profile-panel,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .coming-wrap,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .ig-card,
+html.dark-auto:not([data-msb-appearance]) body.profile-page .mf-feed-empty,
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed,
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed.mf-feed,
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-card,
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-head:not(.mf-head--on-media),
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-title,
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-body,
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-actions,
+html.dark-auto:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-foot,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .sh-mainpanel,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .sh-pagebody,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-profile-shell,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-profile-head,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-profile-scroll,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-highlights,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-tabs,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .profile-panel,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .coming-wrap,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .ig-card,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page .mf-feed-empty,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed.mf-feed,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-card,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-head:not(.mf-head--on-media),
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-title,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-body,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-actions,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #profilePostsFeed .mf-foot {
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
 }
 
 /* Built-in Dark — public/feed header chrome */

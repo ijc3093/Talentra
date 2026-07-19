@@ -5,24 +5,85 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 require_once __DIR__ . '/includes/org_sales.php';
+require_once __DIR__ . '/includes/org_timecard.php';
+require_once __DIR__ . '/includes/org_payroll.php';
+require_once __DIR__ . '/includes/org_member_address.php';
 
-org_require_manager();
-
+// Staff may use Sales Management too (e.g. to maintain the seller address).
+// Manager-only areas (Payroll, Payments, time card approvals) are gated below with $isManager.
 org_require_commerce_seller();
 
 require_once __DIR__ . '/../public_user/includes/org_shop.php';
 require_once __DIR__ . '/includes/org_ecommerce.php';
+require_once __DIR__ . '/../public_user/includes/commerce_messaging.php';
+require_once __DIR__ . '/../public_user/includes/staff_publisher_access.php';
 
 $orgId = (int)orgActiveOrgId();
 $memberId = (int)orgMemberId();
+$isManager = isOrgManager();
 org_ecommerce_ensure_schema($dbh);
 org_crm_lifecycle_ensure_schema($dbh);
+org_payroll_ensure_schema($dbh);
 
 $stats = org_ecommerce_dashboard_stats($dbh, $orgId);
 $crmStats = org_crm_dashboard_stats($dbh, $orgId);
 $lifecycle = org_crm_lifecycle_stats($dbh, $orgId);
 $payments = org_sales_payment_totals($dbh, $orgId);
 $alerts = org_sales_notifications($dbh, $orgId);
+
+$sellerMsgPublisherId = staff_pub_org_publisher_user_id($dbh, $orgId);
+if ($sellerMsgPublisherId <= 0) {
+    $sellerMsgPublisherId = (int)($_SESSION['org_publisher_user_id'] ?? 0);
+}
+$sellerBuyerMsgContacts = $sellerMsgPublisherId > 0
+    ? commerce_list_seller_buyer_contacts($dbh, $sellerMsgPublisherId)
+    : [];
+$sellerBuyerMsgUnread = $sellerMsgPublisherId > 0
+    ? commerce_seller_buyer_unread_count($dbh, $sellerMsgPublisherId)
+    : 0;
+$sellerBuyerMsgPeerId = (int)($_GET['buyer_msg'] ?? 0);
+$sellerBuyerMsgAboutProduct = (int)($_GET['about_product'] ?? 0);
+$sellerBuyerMsgAboutOrder = trim((string)($_GET['about_order'] ?? ''));
+$sellerBuyerMsgDraft = commerce_messaging_compose_draft($dbh, $sellerBuyerMsgAboutProduct, $sellerBuyerMsgAboutOrder);
+$sellerBuyerMsgActive = null;
+if ($sellerBuyerMsgPeerId > 0 && $sellerMsgPublisherId > 0
+    && commerce_can_dm_pair($dbh, $sellerMsgPublisherId, $sellerBuyerMsgPeerId)
+) {
+    foreach ($sellerBuyerMsgContacts as $c) {
+        if ((int)($c['buyer_user_id'] ?? 0) === $sellerBuyerMsgPeerId) {
+            $sellerBuyerMsgActive = $c;
+            break;
+        }
+    }
+    if ($sellerBuyerMsgActive === null) {
+        try {
+            $stPeer = $dbh->prepare("
+                SELECT id, friend_code,
+                       COALESCE(NULLIF(TRIM(name), ''), NULLIF(TRIM(username), ''), friend_code) AS buyer_name
+                FROM users WHERE id = :id AND status = 1 LIMIT 1
+            ");
+            $stPeer->execute([':id' => $sellerBuyerMsgPeerId]);
+            $peerRow = $stPeer->fetch(PDO::FETCH_ASSOC) ?: null;
+            if ($peerRow) {
+                $sellerBuyerMsgActive = [
+                    'buyer_user_id' => $sellerBuyerMsgPeerId,
+                    'buyer_name' => trim((string)($peerRow['buyer_name'] ?? 'Customer')),
+                    'friend_code' => strtoupper(trim((string)($peerRow['friend_code'] ?? ''))),
+                    'last_message' => '',
+                    'last_at' => '',
+                    'unread' => 0,
+                    'order_code' => $sellerBuyerMsgAboutOrder,
+                ];
+                array_unshift($sellerBuyerMsgContacts, $sellerBuyerMsgActive);
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+} elseif ($sellerBuyerMsgContacts) {
+    $sellerBuyerMsgActive = $sellerBuyerMsgContacts[0];
+    $sellerBuyerMsgPeerId = (int)($sellerBuyerMsgActive['buyer_user_id'] ?? 0);
+}
 
 $omsErr = '';
 $omsOk = '';
@@ -173,6 +234,361 @@ if (!empty($_SESSION['seller_profile_flash_ok']) || !empty($_SESSION['seller_pro
     $sellerProfileSettings = org_ecommerce_get_shop_settings_for_display($dbh, $orgId);
 }
 
+// Home (mailing) address — each logged-in member maintains ONLY their own,
+// scoped to their unique session identity (org_id + org_member_id).
+org_member_address_ensure_schema($dbh);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['home_addr_action'])) {
+    // Ignore any posted member id: always bind to the session user, so nobody can
+    // edit someone else's home address.
+    $res = org_member_address_save($dbh, $orgId, $memberId, [
+        'recipient_name' => (string)($_POST['recipient_name'] ?? ''),
+        'line1' => (string)($_POST['home_line1'] ?? ''),
+        'line2' => (string)($_POST['home_line2'] ?? ''),
+        'city' => (string)($_POST['home_city'] ?? ''),
+        'state' => (string)($_POST['home_state'] ?? ''),
+        'postal_code' => (string)($_POST['home_postal_code'] ?? ''),
+        'country' => (string)($_POST['home_country'] ?? ''),
+    ]);
+    $_SESSION['home_addr_flash_' . (!empty($res['ok']) ? 'ok' : 'err')] = !empty($res['ok'])
+        ? 'Your home address was saved. Your manager can post letters to it.'
+        : (string)($res['error'] ?? 'Could not save your home address.');
+    header('Location: sales_management.php#settings');
+    exit;
+}
+$homeAddrOk = '';
+$homeAddrErr = '';
+if (!empty($_SESSION['home_addr_flash_ok']) || !empty($_SESSION['home_addr_flash_err'])) {
+    $homeAddrOk = (string)($_SESSION['home_addr_flash_ok'] ?? '');
+    $homeAddrErr = (string)($_SESSION['home_addr_flash_err'] ?? '');
+    unset($_SESSION['home_addr_flash_ok'], $_SESSION['home_addr_flash_err']);
+}
+$myHomeAddress = org_member_address_get($dbh, $orgId, $memberId) ?? [];
+$myMemberName = trim((string)(org_timecard_member($dbh, $orgId, $memberId)['name'] ?? 'Team member'));
+
+$payrollOk = '';
+$payrollErr = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['payroll_action']) && $isManager) {
+    $payrollAction = strtolower(trim((string)($_POST['payroll_action'] ?? '')));
+    $payRunIdPost = (int)($_POST['pay_run_id'] ?? 0);
+    $redirRun = $payRunIdPost > 0 ? ('?pay_run=' . $payRunIdPost) : '';
+
+    if ($payrollAction === 'create_run') {
+        $res = org_payroll_create_run(
+            $dbh,
+            $orgId,
+            $memberId,
+            (string)($_POST['period_start'] ?? ''),
+            (string)($_POST['period_end'] ?? ''),
+            (string)($_POST['label'] ?? ''),
+            true,
+            (string)($_POST['pay_frequency'] ?? 'monthly'),
+            (int)($_POST['run_member_id'] ?? 0)
+        );
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Pay run started. Enter Gross Pay, Deductions, and Employer Taxes, then mark paid.';
+            $redirRun = '?pay_run=' . (int)($res['run_id'] ?? 0);
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not create pay run.');
+        }
+    } elseif ($payrollAction === 'save_line') {
+        $lineMemberId = (int)($_POST['org_member_id'] ?? 0);
+        $rateCentsPost = isset($_POST['hourly_rate']) && trim((string)$_POST['hourly_rate']) !== ''
+            ? org_payroll_money_to_cents((string)$_POST['hourly_rate'])
+            : null;
+
+        $grossArr = [
+            'regular' => org_payroll_money_to_cents((string)($_POST['g_regular'] ?? '0')),
+            'overtime' => org_payroll_money_to_cents((string)($_POST['g_overtime'] ?? '0')),
+            'bonus' => org_payroll_money_to_cents((string)($_POST['g_bonus'] ?? '0')),
+            'commission' => org_payroll_money_to_cents((string)($_POST['g_commission'] ?? '0')),
+            'holiday' => org_payroll_money_to_cents((string)($_POST['g_holiday'] ?? '0')),
+            'vacation' => org_payroll_money_to_cents((string)($_POST['g_vacation'] ?? '0')),
+        ];
+        $dedArr = [
+            'federal' => org_payroll_money_to_cents((string)($_POST['d_federal'] ?? '0')),
+            'state' => org_payroll_money_to_cents((string)($_POST['d_state'] ?? '0')),
+            'health' => org_payroll_money_to_cents((string)($_POST['d_health'] ?? '0')),
+            'dental' => org_payroll_money_to_cents((string)($_POST['d_dental'] ?? '0')),
+            'retirement' => org_payroll_money_to_cents((string)($_POST['d_retirement'] ?? '0')),
+            'other' => org_payroll_money_to_cents((string)($_POST['d_other'] ?? '0')),
+        ];
+        $etaxArr = null; // auto-compute from gross
+        if (strtolower((string)($_POST['etax_mode'] ?? 'auto')) === 'manual') {
+            $etaxArr = [
+                'social' => org_payroll_money_to_cents((string)($_POST['et_social'] ?? '0')),
+                'medicare' => org_payroll_money_to_cents((string)($_POST['et_medicare'] ?? '0')),
+                'unemp' => org_payroll_money_to_cents((string)($_POST['et_unemp'] ?? '0')),
+                'workers' => org_payroll_money_to_cents((string)($_POST['et_workers'] ?? '0')),
+            ];
+        }
+
+        // Derive worked/OT/leave seconds from the run period time cards.
+        $regSecs = $otSecs = $leaveSecs = 0;
+        $runForLine = org_payroll_get_run($dbh, $orgId, $payRunIdPost);
+        if ($runForLine) {
+            $comp = org_payroll_period_components(
+                $dbh,
+                $orgId,
+                $lineMemberId,
+                (string)($runForLine['period_start'] ?? ''),
+                (string)($runForLine['period_end'] ?? '')
+            );
+            $regSecs = (int)$comp['regular_secs'];
+            $otSecs = (int)$comp['overtime_secs'];
+            $leaveSecs = (int)$comp['paid_leave_secs'];
+        }
+
+        $res = org_payroll_upsert_line(
+            $dbh,
+            $orgId,
+            $payRunIdPost,
+            $lineMemberId,
+            $grossArr,
+            $dedArr,
+            $etaxArr,
+            (string)($_POST['line_note'] ?? ''),
+            $rateCentsPost,
+            $regSecs + $otSecs,
+            $otSecs,
+            $leaveSecs
+        );
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Employee pay line saved. Net Pay = Gross − Deductions.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not save pay line.');
+        }
+    } elseif ($payrollAction === 'approve_run') {
+        $res = org_payroll_approve_run($dbh, $orgId, $payRunIdPost, $memberId);
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Payroll approved. Review complete — you can now mark it paid.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not approve pay run.');
+        }
+    } elseif ($payrollAction === 'reopen_run') {
+        $res = org_payroll_reopen_run($dbh, $orgId, $payRunIdPost);
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Pay run reopened for edits.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not reopen pay run.');
+        }
+    } elseif ($payrollAction === 'refresh_run') {
+        $res = org_payroll_refresh_run($dbh, $orgId, $payRunIdPost);
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Pulled in approved time cards (' . (int)($res['count'] ?? 0) . ' employee line' . (((int)($res['count'] ?? 0)) === 1 ? '' : 's') . '). Manual bonuses/deductions were kept.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not refresh from time cards.');
+        }
+    } elseif ($payrollAction === 'timecard_approve') {
+        $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), true, $memberId);
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Time card approved. Those hours now feed the employee’s Gross Pay.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not approve time card.');
+        }
+        $redirRun = '';
+    } elseif ($payrollAction === 'timecard_reject') {
+        $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), false, $memberId);
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Time card rejected. The employee can correct and resubmit it.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not reject time card.');
+        }
+        $redirRun = '';
+    } elseif ($payrollAction === 'timecard_approve_all') {
+        $res = org_timecard_approve_all_submitted($dbh, $orgId, $memberId);
+        $_SESSION['payroll_flash_ok'] = 'Approved ' . (int)($res['approved'] ?? 0) . ' submitted time card entr' . (((int)($res['approved'] ?? 0)) === 1 ? 'y' : 'ies') . '.';
+        $redirRun = '';
+    } elseif ($payrollAction === 'delete_line') {
+        $res = org_payroll_delete_line($dbh, $orgId, $payRunIdPost, (int)($_POST['line_id'] ?? 0));
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Employee removed from this pay run.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not remove pay line.');
+        }
+    } elseif ($payrollAction === 'mark_paid') {
+        $res = org_payroll_mark_paid($dbh, $orgId, $payRunIdPost);
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Pay run marked paid. Net Pay is what the employee receives; Employer Taxes are recorded as employer cost.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not mark paid.');
+        }
+    } elseif ($payrollAction === 'delete_run') {
+        $res = org_payroll_delete_run($dbh, $orgId, $payRunIdPost);
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Draft pay run deleted.';
+            $redirRun = '';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not delete pay run.');
+        }
+    } elseif ($payrollAction === 'save_profile') {
+        $res = org_payroll_save_profile(
+            $dbh,
+            $orgId,
+            (int)($_POST['org_member_id'] ?? 0),
+            (string)($_POST['pay_type'] ?? 'salary'),
+            org_payroll_money_to_cents((string)($_POST['gross'] ?? '0')),
+            org_payroll_money_to_cents((string)($_POST['deductions'] ?? '0')),
+            org_payroll_money_to_cents((string)($_POST['employer_tax'] ?? '0')),
+            (string)($_POST['notes'] ?? ''),
+            org_payroll_money_to_cents((string)($_POST['hourly_rate'] ?? '0')),
+            (string)($_POST['pay_frequency'] ?? 'monthly'),
+            org_payroll_money_to_cents((string)($_POST['annual_salary'] ?? '0')),
+            (string)($_POST['tax_status'] ?? 'single'),
+            (string)($_POST['bank_name'] ?? ''),
+            !empty($_POST['overtime_eligible'])
+        );
+        if (!empty($res['ok'])) {
+            $_SESSION['payroll_flash_ok'] = 'Employee pay defaults saved for future pay runs.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not save defaults.');
+        }
+    } else {
+        $_SESSION['payroll_flash_err'] = 'Unknown payroll action.';
+    }
+
+    header('Location: sales_management.php' . $redirRun . '#payroll');
+    exit;
+}
+if (!empty($_SESSION['payroll_flash_ok']) || !empty($_SESSION['payroll_flash_err'])) {
+    $payrollOk = (string)($_SESSION['payroll_flash_ok'] ?? '');
+    $payrollErr = (string)($_SESSION['payroll_flash_err'] ?? '');
+    unset($_SESSION['payroll_flash_ok'], $_SESSION['payroll_flash_err']);
+}
+
+// Time card actions (moved here from the standalone timecard.php → #timecard section).
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['timecard_action'])) {
+    $tcAction = strtolower(trim((string)($_POST['timecard_action'] ?? '')));
+    $tcNote = (string)($_POST['note'] ?? '');
+
+    // Managers may act on another employee; everyone else acts on self only.
+    $tcTargetMemberId = $memberId;
+    if ($isManager) {
+        $tcRequested = (int)($_POST['org_member_id'] ?? 0);
+        if ($tcRequested > 0) {
+            $tcTargetMemberId = $tcRequested;
+        }
+    }
+
+    // Submitting a time card requires a home address on file: payroll needs the
+    // employee's state so Federal/State tax deductions can be estimated correctly.
+    if (in_array($tcAction, ['submit_timecard', 'submit_entry'], true)) {
+        $tcAddr = org_member_address_get($dbh, $orgId, $tcTargetMemberId);
+        $tcAddrOk = is_array($tcAddr)
+            && trim((string)($tcAddr['line1'] ?? '')) !== ''
+            && trim((string)($tcAddr['city'] ?? '')) !== ''
+            && trim((string)($tcAddr['state'] ?? '')) !== '';
+        if (!$tcAddrOk) {
+            $_SESSION['tc_flash_err'] = ($tcTargetMemberId === $memberId)
+                ? 'Add your home address (street, city, and state) in Settings before submitting your time card. Your address tells payroll which state you work from, so Federal and State tax are calculated correctly.'
+                : 'This employee has no home address on file. Ask them to add it in Settings (street, city, state) so payroll can calculate their state taxes before submitting their time card.';
+            header('Location: sales_management.php#' . ($tcTargetMemberId === $memberId ? 'settings' : 'timecard'));
+            exit;
+        }
+    }
+
+    if ($tcAction === 'clock_in') {
+        $res = org_timecard_clock_in($dbh, $orgId, $tcTargetMemberId, $tcNote);
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
+            ? 'Clocked in. Your start time was recorded.'
+            : (string)($res['error'] ?? 'Could not clock in.');
+    } elseif ($tcAction === 'clock_out') {
+        $res = org_timecard_clock_out($dbh, $orgId, $tcTargetMemberId, $tcNote);
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
+            ? 'Clocked out. Submit your timesheet when ready.'
+            : (string)($res['error'] ?? 'Could not clock out.');
+    } elseif ($tcAction === 'log_hours') {
+        $res = org_timecard_log_hours(
+            $dbh,
+            $orgId,
+            $tcTargetMemberId,
+            (string)($_POST['entry_date'] ?? date('Y-m-d')),
+            (float)($_POST['hours'] ?? 0),
+            (string)($_POST['entry_type'] ?? 'regular'),
+            $tcNote
+        );
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
+            ? 'Hours logged. Submit your timesheet when ready.'
+            : (string)($res['error'] ?? 'Could not log hours.');
+    } elseif ($tcAction === 'submit_timecard') {
+        $res = org_timecard_submit_entries($dbh, $orgId, $tcTargetMemberId);
+        $_SESSION['tc_flash_ok'] = 'Submitted ' . (int)($res['submitted'] ?? 0) . ' entr' . (((int)($res['submitted'] ?? 0)) === 1 ? 'y' : 'ies') . ' to Payroll for approval.';
+    } elseif ($tcAction === 'submit_entry') {
+        $res = org_timecard_submit_entry($dbh, $orgId, $tcTargetMemberId, (int)($_POST['entry_id'] ?? 0));
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
+            ? 'Sent to Payroll for approval. Status is now Pending.'
+            : (string)($res['error'] ?? 'Could not submit entry.');
+    } elseif ($tcAction === 'approve_entry' && $isManager) {
+        $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), true, $memberId);
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok'] ? 'Time card entry approved.' : (string)($res['error'] ?? 'Could not approve.');
+    } elseif ($tcAction === 'reject_entry' && $isManager) {
+        $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), false, $memberId);
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok'] ? 'Time card entry rejected.' : (string)($res['error'] ?? 'Could not reject.');
+    } elseif ($tcAction === 'approve_all' && $isManager) {
+        $res = org_timecard_approve_all_submitted($dbh, $orgId, $memberId);
+        $_SESSION['tc_flash_ok'] = 'Approved ' . (int)($res['approved'] ?? 0) . ' submitted entr' . (((int)($res['approved'] ?? 0)) === 1 ? 'y' : 'ies') . '.';
+    } else {
+        $_SESSION['tc_flash_err'] = 'Unknown time card action.';
+    }
+
+    header('Location: sales_management.php#timecard');
+    exit;
+}
+
+$payrollStats = org_payroll_dashboard_stats($dbh, $orgId);
+$payrollEmployees = org_payroll_list_employees($dbh, $orgId);
+$payrollRuns = org_payroll_list_runs($dbh, $orgId, 40);
+$payrollActiveRunId = (int)($_GET['pay_run'] ?? 0);
+$payrollActiveRun = null;
+$payrollActiveLines = [];
+if ($payrollActiveRunId > 0) {
+    $payrollActiveRun = org_payroll_get_run($dbh, $orgId, $payrollActiveRunId);
+    if ($payrollActiveRun) {
+        $payrollActiveLines = org_payroll_run_lines($dbh, $orgId, $payrollActiveRunId);
+    } else {
+        $payrollActiveRunId = 0;
+    }
+} elseif ($payrollRuns) {
+    $payrollActiveRun = $payrollRuns[0];
+    $payrollActiveRunId = (int)($payrollActiveRun['id'] ?? 0);
+    if ($payrollActiveRunId > 0) {
+        $payrollActiveRun = org_payroll_get_run($dbh, $orgId, $payrollActiveRunId) ?: $payrollActiveRun;
+        $payrollActiveLines = org_payroll_run_lines($dbh, $orgId, $payrollActiveRunId);
+    }
+}
+
+// Worked hours from time cards for the active pay period (for hourly gross).
+$payrollPeriodHours = [];
+$payrollPeriodBreakdown = [];
+if ($payrollActiveRun) {
+    $payrollPeriodHours = org_timecard_period_hours_map(
+        $dbh,
+        $orgId,
+        (string)($payrollActiveRun['period_start'] ?? ''),
+        (string)($payrollActiveRun['period_end'] ?? '')
+    );
+    foreach ($payrollEmployees as $emp) {
+        $mid = (int)($emp['org_member_id'] ?? 0);
+        if ($mid <= 0) {
+            continue;
+        }
+        $payrollPeriodBreakdown[$mid] = org_payroll_period_components(
+            $dbh,
+            $orgId,
+            $mid,
+            (string)($payrollActiveRun['period_start'] ?? ''),
+            (string)($payrollActiveRun['period_end'] ?? '')
+        );
+    }
+}
+
+// Submitted time cards awaiting manager approval — shown in the Payroll workspace.
+$payrollPendingTimecards = org_timecard_list_submitted($dbh, $orgId, 100);
+
+// Employees whose time cards are approved — only these can start a pay run.
+$payrollApprovedMemberIds = function_exists('org_timecard_approved_member_ids')
+    ? org_timecard_approved_member_ids($dbh, $orgId)
+    : [];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pim_action'])) {
     if (!$commerceBrand) {
         header('Location: commerce_brand_select.php');
@@ -319,8 +735,8 @@ $salesPanels = [
     ],
     'settings' => [
         'kicker' => 'Settings',
-        'title' => 'Seller profile',
-        'summary' => 'Your public seller identity — full name, contact, and business address for buyers.',
+        'title' => 'My home address',
+        'summary' => 'Your personal mailing address so your manager can post letters to your home.',
         'metrics' => [],
         'columns' => [],
         'rows' => [],
@@ -342,6 +758,15 @@ $salesPanels = [
         'columns' => ['Payment', 'Order', 'Amount', 'Status'],
         'rows' => [['PAY-001', 'ORD-27-1A3EBC9D', '$15.98', 'Pending'], ['PAY-002', 'ORD-26-004521FD', '$99.99', 'Pending'], ['PAY-003', 'ORD-28-C880D6B6', '$10.00', 'Pending']],
     ],
+    'payroll' => [
+        'kicker' => 'Payroll',
+        'title' => 'Pay employees',
+        'summary' => 'Pay hired staff with Gross Pay, Deductions, Net Pay, and Employer Taxes.',
+        'metrics' => [],
+        'columns' => [],
+        'rows' => [],
+        'is_payroll_panel' => true,
+    ],
     'sales-reports' => [
         'kicker' => 'Sales reports',
         'title' => 'Sales analytics',
@@ -352,9 +777,14 @@ $salesPanels = [
     ],
 ];
 
+// Staff can use Sales Management but must not see Payroll or Payments.
+if (!$isManager) {
+    unset($salesPanels['payroll'], $salesPanels['payments']);
+}
+
 $pageTitle = 'Sales Management';
 require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=16"><link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css"><link rel="stylesheet" href="css/product-table.css?v=5">');
+org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=17"><link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css"><link rel="stylesheet" href="css/product-table.css?v=5">');
 ?>
 <?php org_page_body_open('commerce-page'); ?>
   <style>
@@ -492,6 +922,105 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
       --ch-line: #334155;
       --ch-border: #334155;
     }
+
+    .seller-admin-support{
+      display:grid;
+      grid-template-columns:minmax(220px,280px) minmax(0,1fr);
+      gap:14px;
+      margin-top:18px;
+      min-height:420px;
+    }
+    .seller-admin-support-guide{
+      border:1px solid rgba(148,163,184,.35);
+      border-radius:8px;
+      padding:14px;
+      background:var(--card-bg,transparent);
+    }
+    .seller-admin-support-guide h3{margin:0 0 8px;font-size:14px;font-weight:850;}
+    .seller-admin-support-guide ol{margin:0;padding-left:18px;font-size:13px;line-height:1.55;}
+    .seller-admin-support-guide li{margin:0 0 6px;}
+    .seller-admin-support-guide p{margin:12px 0 0;font-size:12px;opacity:.8;}
+    .seller-admin-support-chat{
+      border:1px solid rgba(148,163,184,.35);
+      border-radius:8px;
+      display:flex;
+      flex-direction:column;
+      min-height:420px;
+      max-height:560px;
+      background:var(--card-bg,transparent);
+    }
+    .seller-admin-support-head{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(148,163,184,.25);
+      font-weight:800;
+      font-size:14px;
+    }
+    .seller-admin-support-topics{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      padding:8px 10px;
+      border-bottom:1px solid rgba(148,163,184,.25);
+    }
+    .seller-admin-topic{
+      border:1px solid rgba(148,163,184,.4);
+      border-radius:4px;
+      background:transparent;
+      color:inherit;
+      font-size:11px;
+      font-weight:800;
+      padding:5px 9px;
+      cursor:pointer;
+    }
+    .seller-admin-topic.is-active{
+      border-color:var(--org-accent,#2563eb);
+      color:var(--org-accent,#2563eb);
+      background:rgba(37,99,235,.08);
+    }
+    .seller-admin-support-thread{
+      flex:1 1 auto;
+      overflow:auto;
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .seller-admin-support-bubble{
+      max-width:85%;
+      padding:8px 10px;
+      border-radius:10px;
+      font-size:13px;
+      line-height:1.4;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .seller-admin-support-bubble.me{align-self:flex-end;background:#2563eb;color:#fff;}
+    .seller-admin-support-bubble.them{align-self:flex-start;background:rgba(148,163,184,.18);}
+    .seller-admin-support-meta{font-size:10px;opacity:.7;margin-top:4px;}
+    .seller-admin-support-empty{padding:24px 12px;text-align:center;opacity:.8;font-size:13px;}
+    .seller-admin-support-compose{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      padding:10px;
+      border-top:1px solid rgba(148,163,184,.25);
+    }
+    .seller-admin-support-compose-row{display:flex;gap:8px;align-items:flex-end;}
+    .seller-admin-support-compose-row textarea{flex:1 1 auto;min-height:64px;max-height:140px;resize:none;}
+    .seller-admin-support-compose #sellerAdminSupportSend,
+    body.org-app .commerce-page .seller-admin-support-compose #sellerAdminSupportSend.btn.btn-primary{
+      flex:0 0 auto;
+      align-self:stretch;
+      min-width:72px;
+      background-color:var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
+      border:1px solid var(--org-btn-filled-bg, var(--org-accent-strong, #1d4ed8)) !important;
+      color:var(--org-btn-filled-text, #ffffff) !important;
+      -webkit-text-fill-color:var(--org-btn-filled-text, #ffffff) !important;
+      font-weight:800;
+    }
+    @media (max-width:900px){
+      .seller-admin-support{grid-template-columns:1fr;}
+    }
   </style>
   <section class="sales-management-view is-active" data-sales-view="dashboard">
   <section class="commerce-hero commerce-hero-compact">
@@ -559,6 +1088,50 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
     <?php require __DIR__ . '/includes/org_notification_panel.php'; ?>
   </section>
 
+  <section class="sales-management-view" data-sales-view="message">
+    <?php require __DIR__ . '/includes/org_seller_messages_panel.php'; ?>
+  </section>
+
+  <section class="sales-management-view" data-sales-view="support-center">
+    <div class="sales-management-detail-head">
+      <div>
+        <p class="sales-management-kicker">Support Center</p>
+        <h1>Chat with Admin</h1>
+        <p>Ask Admin for seller help with orders, store settings, payouts, or account issues. Messages go to Admin — not to customers.</p>
+      </div>
+    </div>
+
+    <div class="seller-admin-support" id="sellerAdminSupportRoot" data-endpoint="ajax/admin_support_chat.php">
+      <div class="seller-admin-support-guide">
+        <h3>How to get Admin help</h3>
+        <ol>
+          <li>Use <strong>Customer chat</strong> for buyer questions about products and orders.</li>
+          <li>Choose a topic below for what you need from Admin.</li>
+          <li>Add an order code when the issue is about a specific sale.</li>
+          <li>Send your message — Admin replies appear in this same thread.</li>
+        </ol>
+        <p>Use this chat for seller help only. Do not escalate customer DMs here unless Admin must intervene.</p>
+      </div>
+      <div class="seller-admin-support-chat">
+        <div class="seller-admin-support-head">Admin support chat</div>
+        <div class="seller-admin-support-topics" role="group" aria-label="Support topic">
+          <button type="button" class="seller-admin-topic is-active" data-topic="seller_help">Seller help</button>
+          <button type="button" class="seller-admin-topic" data-topic="orders">Orders &amp; fulfillment</button>
+          <button type="button" class="seller-admin-topic" data-topic="account">Store &amp; account</button>
+        </div>
+        <div class="seller-admin-support-thread" id="sellerAdminSupportThread" aria-live="polite"></div>
+        <div class="seller-admin-support-compose">
+          <input type="text" class="form-control form-control-sm" id="sellerAdminSupportOrder" placeholder="Order code (optional)" maxlength="80">
+          <div class="seller-admin-support-compose-row">
+            <textarea id="sellerAdminSupportInput" class="form-control" rows="2" placeholder="Describe what you need Admin help with…"></textarea>
+            <button type="button" class="btn btn-primary btn-sm" id="sellerAdminSupportSend">Send</button>
+          </div>
+          <p class="tx-danger tx-12 mg-b-0" id="sellerAdminSupportErr" hidden></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="sales-management-view" data-sales-view="table_cancel_orders">
     <?php require __DIR__ . '/includes/org_table_cancel_orders_panel.php'; ?>
   </section>
@@ -600,8 +1173,13 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
     ?>
   </section>
 
+  <section class="sales-management-view" data-sales-view="timecard">
+    <?php require __DIR__ . '/includes/org_timecard_panel.php'; ?>
+  </section>
+
   <?php foreach ($salesPanels as $slug => $panel): ?>
     <section class="sales-management-view" data-sales-view="<?= org_ecommerce_h($slug) ?>">
+      <?php if (empty($panel['is_payroll_panel'])): ?>
       <div class="sales-management-detail-head">
         <div>
           <p class="sales-management-kicker"><?= org_ecommerce_h((string)$panel['kicker']) ?></p>
@@ -609,11 +1187,17 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
           <p><?= org_ecommerce_h((string)$panel['summary']) ?></p>
         </div>
       </div>
+      <?php endif; ?>
       <?php if (!empty($panel['is_seller_profile'])): ?>
         <?php
           $sellerProfileFormAction = 'sales_management.php';
           $sellerProfileHash = '#settings';
           require __DIR__ . '/includes/org_seller_profile_panel.php';
+        ?>
+      <?php elseif (!empty($panel['is_payroll_panel'])): ?>
+        <?php
+          $payrollFormAction = 'sales_management.php';
+          require __DIR__ . '/includes/org_payroll_panel.php';
         ?>
       <?php else: ?>
         <div class="sales-management-metrics">
@@ -687,6 +1271,129 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
         showSalesView(slug);
       });
       showSalesView(window.location.hash);
+    })();
+
+    (function(){
+      var root = document.getElementById('sellerAdminSupportRoot');
+      if (!root) return;
+      var endpoint = String(root.getAttribute('data-endpoint') || 'ajax/admin_support_chat.php');
+      var thread = document.getElementById('sellerAdminSupportThread');
+      var input = document.getElementById('sellerAdminSupportInput');
+      var sendBtn = document.getElementById('sellerAdminSupportSend');
+      var errEl = document.getElementById('sellerAdminSupportErr');
+      var orderEl = document.getElementById('sellerAdminSupportOrder');
+      var topicBtns = Array.prototype.slice.call(root.querySelectorAll('.seller-admin-topic'));
+      var topic = 'seller_help';
+      var lastId = 0;
+      var polling = false;
+      var placeholders = {
+        seller_help: 'Describe what you need Admin help with…',
+        orders: 'Describe the order or fulfillment issue…',
+        account: 'Describe the store or account issue…'
+      };
+
+      function setErr(msg) {
+        if (!errEl) return;
+        if (!msg) { errEl.hidden = true; errEl.textContent = ''; return; }
+        errEl.hidden = false;
+        errEl.textContent = msg;
+      }
+      function esc(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+      function appendItems(items, replace) {
+        if (!thread) return;
+        if (replace) thread.innerHTML = '';
+        (items || []).forEach(function (item) {
+          var id = parseInt(item.id || 0, 10);
+          if (id > lastId) lastId = id;
+          var div = document.createElement('div');
+          div.className = 'seller-admin-support-bubble ' + (item.is_me ? 'me' : 'them');
+          div.innerHTML = esc(item.text || '') + '<div class="seller-admin-support-meta">' + esc(item.from || '') + ' · ' + esc(item.time_label || '') + '</div>';
+          thread.appendChild(div);
+        });
+        thread.scrollTop = thread.scrollHeight;
+      }
+      async function loadHistory() {
+        try {
+          var res = await fetch(endpoint + '?mode=history&after=0&mark=1', { credentials: 'same-origin' });
+          var data = await res.json();
+          if (data && data.ok) {
+            lastId = 0;
+            appendItems(data.items || [], true);
+            if (!(data.items || []).length) {
+              thread.innerHTML = '<div class="seller-admin-support-empty">No Admin messages yet. Choose a topic and ask for seller help.</div>';
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
+      async function pollNew() {
+        if (polling) return;
+        polling = true;
+        try {
+          var res = await fetch(endpoint + '?mode=history&after=' + lastId + '&mark=1', { credentials: 'same-origin' });
+          var data = await res.json();
+          if (data && data.ok && (data.items || []).length) {
+            if (thread && thread.querySelector('.seller-admin-support-empty')) thread.innerHTML = '';
+            appendItems(data.items, false);
+          }
+        } catch (e) { /* ignore */ }
+        polling = false;
+      }
+      async function sendMessage() {
+        setErr('');
+        var text = input ? String(input.value || '').trim() : '';
+        if (!text) { setErr('Type a message for Admin.'); return; }
+        if (sendBtn) sendBtn.disabled = true;
+        try {
+          var body = new URLSearchParams();
+          body.set('mode', 'send');
+          body.set('topic', topic);
+          body.set('message', text);
+          if (orderEl) body.set('order_code', String(orderEl.value || '').trim());
+          var res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+            credentials: 'same-origin'
+          });
+          var data = await res.json();
+          if (!data || !data.ok) {
+            setErr((data && (data.error || data.message)) || 'Could not send.');
+            return;
+          }
+          if (input) input.value = '';
+          if (data.item) {
+            if (thread && thread.querySelector('.seller-admin-support-empty')) thread.innerHTML = '';
+            appendItems([data.item], false);
+          } else {
+            await pollNew();
+          }
+        } catch (e) {
+          setErr('Could not send message.');
+        } finally {
+          if (sendBtn) sendBtn.disabled = false;
+        }
+      }
+
+      topicBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          topic = String(btn.getAttribute('data-topic') || 'seller_help');
+          topicBtns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+          if (input) input.placeholder = placeholders[topic] || placeholders.seller_help;
+        });
+      });
+      if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+      if (input) {
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+      }
+      loadHistory();
+      setInterval(pollNew, 5000);
     })();
   </script>
 </div>

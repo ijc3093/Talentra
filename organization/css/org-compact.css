@@ -350,7 +350,7 @@ body.org-app .nav-tabs .nav-link {
 
 body.org-app .alert {
   font-size: var(--org-font-sm) !important;
-  padding: 0.55rem 0.75rem !important;
+  /* padding: 0.55rem 0.75rem !important; */
 }
 
 /* ----- Forms ----- */
