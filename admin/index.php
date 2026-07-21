@@ -99,6 +99,9 @@ if (isset($_POST['login'])) {
                     'friend_code' => (string)($row['friend_code'] ?? ''),
                 ]);
 
+                // Persist session to disk before redirect so refresh keeps the login.
+                session_write_close();
+
                 // Force change password
                 if ((int)($row['force_password_change'] ?? 0) === 1) {
                     header("Location: change-password.php?force=1");

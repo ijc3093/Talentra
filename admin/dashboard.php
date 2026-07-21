@@ -179,7 +179,7 @@ try {
               </div><!-- col -->
               <div class="col-6 col-sm-4 col-md mg-t-10 mg-md-t-0">
                 <?php if ($isAdmin): ?>
-                <a href="userlist.php" class="shortcut-icon" data-admin-nav="1">
+                <a href="userlist.php" class="shortcut-icon">
                   <div>
                     <i class="icon ion-ios-people-outline"></i>
                     <span>All Users</span>
@@ -197,7 +197,7 @@ try {
               </div><!-- col -->
               <div class="col-6 col-sm-4 col-md mg-t-10 mg-md-t-0">
                 <?php if ($isAdmin): ?>
-                <a href="orglist.php" class="shortcut-icon" data-admin-nav="1">
+                <a href="orglist.php" class="shortcut-icon">
                   <div>
                     <i class="icon ion-ios-briefcase-outline"></i>
                     <span>All Orgs</span>
@@ -238,7 +238,7 @@ try {
             <?php if ($isAdmin): ?>
             <div class="alert alert-primary bd bd-primary pd-25 mg-b-20">
               <h6 class="tx-14 mg-b-15"><i class="icon ion-ios-information-outline mg-r-5"></i> Governance vs. your accounts</h6>
-              <p class="mg-b-10 op-8">Use <a href="userlist.php" data-admin-nav="1">User List</a> and <a href="orglist.php" data-admin-nav="1">Organizations</a> to manage everyone. Linked shortcuts above open only your own personal, publisher, and org workspaces.</p>
+              <p class="mg-b-10 op-8">Use <a href="userlist.php">User List</a> and <a href="orglist.php">Organizations</a> to manage everyone. Linked shortcuts above open only your own personal, publisher, and org workspaces.</p>
               <?php if ($userCount > 0): ?>
                 <p class="mg-b-0 tx-12 op-8"><?= (int)$userCount ?> registered users · <?= (int)$deletedCount ?> deleted records</p>
               <?php endif; ?>

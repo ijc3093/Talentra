@@ -448,6 +448,7 @@ function org_admin_render_head(string $title): void
     .detail-grid{
       display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
       gap:12px; padding:16px 18px; border-bottom:1px solid rgba(17,24,39,.06);
+      margin-bottom: 200px;
     }
     .detail-box{
       border:1px solid rgba(17,24,39,.08); border-radius:12px; padding:12px 14px; background:#fff;

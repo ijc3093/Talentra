@@ -146,6 +146,7 @@ function org_payroll_ensure_schema(PDO $dbh): void
     org_payroll_add_column($dbh, 'org_payroll_profiles', 'tax_status', "VARCHAR(20) NOT NULL DEFAULT 'single'");
     org_payroll_add_column($dbh, 'org_payroll_profiles', 'bank_name', "VARCHAR(120) NOT NULL DEFAULT ''");
     org_payroll_add_column($dbh, 'org_payroll_profiles', 'overtime_eligible', "TINYINT NOT NULL DEFAULT 1");
+    org_payroll_add_column($dbh, 'org_payroll_profiles', 'expected_weekly_hours', "DECIMAL(6,2) NOT NULL DEFAULT 40.00");
 
     // Steps 12-14 — pay run approval trail.
     org_payroll_add_column($dbh, 'org_pay_runs', 'approved_at', "DATETIME NULL");
@@ -259,6 +260,7 @@ function org_payroll_list_employees(PDO $dbh, int $orgId): array
               COALESCE(pp.pay_type, 'salary') AS pay_type,
               COALESCE(pp.pay_frequency, 'monthly') AS pay_frequency,
               COALESCE(pp.hourly_rate_cents, 0) AS hourly_rate_cents,
+              COALESCE(pp.expected_weekly_hours, 40) AS expected_weekly_hours,
               COALESCE(pp.default_gross_cents, 0) AS default_gross_cents,
               COALESCE(pp.default_deductions_cents, 0) AS default_deductions_cents,
               COALESCE(pp.default_employer_tax_cents, 0) AS default_employer_tax_cents,
@@ -543,6 +545,16 @@ function org_payroll_periods_per_year(string $freq): int
     }
 }
 
+/** Normalize manager-set weekly hours for time-card income budget (default 40). */
+function org_payroll_normalize_weekly_hours($hours): float
+{
+    $h = round((float)$hours, 2);
+    if ($h <= 0) {
+        return 40.0;
+    }
+    return min(168.0, $h);
+}
+
 /** @return array{ok:bool,error?:string} */
 function org_payroll_save_profile(
     PDO $dbh,
@@ -558,7 +570,8 @@ function org_payroll_save_profile(
     int $annualSalaryCents = 0,
     string $taxStatus = 'single',
     string $bankName = '',
-    bool $overtimeEligible = true
+    bool $overtimeEligible = true,
+    float $expectedWeeklyHours = 40.0
 ): array {
     if ($orgId <= 0 || $orgMemberId <= 0) {
         return ['ok' => false, 'error' => 'Invalid employee.'];
@@ -570,6 +583,7 @@ function org_payroll_save_profile(
         $payType = 'salary';
     }
     $payFrequency = org_payroll_normalize_frequency($payFrequency);
+    $expectedWeeklyHours = org_payroll_normalize_weekly_hours($expectedWeeklyHours);
 
     $taxStatus = strtolower(trim($taxStatus));
     if (!in_array($taxStatus, ['single', 'married', 'head'], true)) {
@@ -592,15 +606,16 @@ function org_payroll_save_profile(
 
         $st = $dbh->prepare("
             INSERT INTO org_payroll_profiles
-              (org_id, org_member_id, pay_type, pay_frequency, hourly_rate_cents,
+              (org_id, org_member_id, pay_type, pay_frequency, hourly_rate_cents, expected_weekly_hours,
                default_gross_cents, default_deductions_cents, default_employer_tax_cents,
                annual_salary_cents, tax_status, bank_name, overtime_eligible, notes)
             VALUES
-              (:org, :mid, :pt, :freq, :rate, :g, :d, :e, :ann, :tax, :bank, :ot, :n)
+              (:org, :mid, :pt, :freq, :rate, :wh, :g, :d, :e, :ann, :tax, :bank, :ot, :n)
             ON DUPLICATE KEY UPDATE
               pay_type = VALUES(pay_type),
               pay_frequency = VALUES(pay_frequency),
               hourly_rate_cents = VALUES(hourly_rate_cents),
+              expected_weekly_hours = VALUES(expected_weekly_hours),
               default_gross_cents = VALUES(default_gross_cents),
               default_deductions_cents = VALUES(default_deductions_cents),
               default_employer_tax_cents = VALUES(default_employer_tax_cents),
@@ -617,6 +632,7 @@ function org_payroll_save_profile(
             ':pt' => $payType,
             ':freq' => $payFrequency,
             ':rate' => max(0, $hourlyRateCents),
+            ':wh' => $expectedWeeklyHours,
             ':g' => max(0, $grossCents),
             ':d' => max(0, $deductionsCents),
             ':e' => max(0, $employerTaxCents),
@@ -628,7 +644,48 @@ function org_payroll_save_profile(
         ]);
         return ['ok' => true];
     } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'Could not save pay defaults.'];
+        // Older DBs may lack expected_weekly_hours briefly — retry without it.
+        try {
+            $st = $dbh->prepare("
+                INSERT INTO org_payroll_profiles
+                  (org_id, org_member_id, pay_type, pay_frequency, hourly_rate_cents,
+                   default_gross_cents, default_deductions_cents, default_employer_tax_cents,
+                   annual_salary_cents, tax_status, bank_name, overtime_eligible, notes)
+                VALUES
+                  (:org, :mid, :pt, :freq, :rate, :g, :d, :e, :ann, :tax, :bank, :ot, :n)
+                ON DUPLICATE KEY UPDATE
+                  pay_type = VALUES(pay_type),
+                  pay_frequency = VALUES(pay_frequency),
+                  hourly_rate_cents = VALUES(hourly_rate_cents),
+                  default_gross_cents = VALUES(default_gross_cents),
+                  default_deductions_cents = VALUES(default_deductions_cents),
+                  default_employer_tax_cents = VALUES(default_employer_tax_cents),
+                  annual_salary_cents = VALUES(annual_salary_cents),
+                  tax_status = VALUES(tax_status),
+                  bank_name = VALUES(bank_name),
+                  overtime_eligible = VALUES(overtime_eligible),
+                  notes = VALUES(notes),
+                  updated_at = CURRENT_TIMESTAMP
+            ");
+            $st->execute([
+                ':org' => $orgId,
+                ':mid' => $orgMemberId,
+                ':pt' => $payType,
+                ':freq' => $payFrequency,
+                ':rate' => max(0, $hourlyRateCents),
+                ':g' => max(0, $grossCents),
+                ':d' => max(0, $deductionsCents),
+                ':e' => max(0, $employerTaxCents),
+                ':ann' => $annualSalaryCents,
+                ':tax' => $taxStatus,
+                ':bank' => mb_substr(trim($bankName), 0, 120),
+                ':ot' => $overtimeEligible ? 1 : 0,
+                ':n' => mb_substr(trim($notes), 0, 500),
+            ]);
+            return ['ok' => true];
+        } catch (Throwable $e2) {
+            return ['ok' => false, 'error' => 'Could not save pay defaults.'];
+        }
     }
 }
 
@@ -851,10 +908,21 @@ function org_payroll_approve_run(PDO $dbh, int $orgId, int $runId, int $approved
     if ($status === 'paid') {
         return ['ok' => false, 'error' => 'This pay run is already paid.'];
     }
+    $lines = org_payroll_run_lines($dbh, $orgId, $runId);
     if ($status === 'approved') {
+        // Idempotent: ensure time cards stay linked (e.g. older approvals before this feature).
+        if (function_exists('org_timecard_attach_to_pay_run') && $lines) {
+            $ps = (string)($run['period_start'] ?? '');
+            $pe = (string)($run['period_end'] ?? '');
+            foreach ($lines as $line) {
+                $mid = (int)($line['org_member_id'] ?? 0);
+                if ($mid > 0) {
+                    org_timecard_attach_to_pay_run($dbh, $orgId, $runId, $mid, $ps, $pe);
+                }
+            }
+        }
         return ['ok' => true];
     }
-    $lines = org_payroll_run_lines($dbh, $orgId, $runId);
     if (!$lines) {
         return ['ok' => false, 'error' => 'Add at least one employee pay line before approving.'];
     }
@@ -871,10 +939,24 @@ function org_payroll_approve_run(PDO $dbh, int $orgId, int $runId, int $approved
             LIMIT 1
         ");
         $st->execute([':by' => $approvedByMemberId > 0 ? $approvedByMemberId : null, ':id' => $runId, ':org' => $orgId]);
-        return ['ok' => true];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not approve pay run.'];
     }
+
+    // Mark covered approved time cards as compensated so those employees leave
+    // the Start pay run Employee list until they have new approved hours.
+    if (function_exists('org_timecard_attach_to_pay_run')) {
+        $ps = (string)($run['period_start'] ?? '');
+        $pe = (string)($run['period_end'] ?? '');
+        foreach ($lines as $line) {
+            $mid = (int)($line['org_member_id'] ?? 0);
+            if ($mid > 0) {
+                org_timecard_attach_to_pay_run($dbh, $orgId, $runId, $mid, $ps, $pe);
+            }
+        }
+    }
+
+    return ['ok' => true];
 }
 
 /** Reopen an approved (not paid) run back to draft for edits. @return array{ok:bool,error?:string} */

@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/org_sales.php';
 require_once __DIR__ . '/includes/org_timecard.php';
 require_once __DIR__ . '/includes/org_payroll.php';
 require_once __DIR__ . '/includes/org_member_address.php';
+require_once __DIR__ . '/includes/org_employee_detail.php';
 
 // Staff may use Sales Management too (e.g. to maintain the seller address).
 // Manager-only areas (Payroll, Payments, time card approvals) are gated below with $isManager.
@@ -181,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pt_action'])) {
     }
     $_SESSION['pt_flash_ok'] = $ptOk;
     $_SESSION['pt_flash_err'] = $ptErr;
-    header('Location: sales_management.php#product-table');
+    header('Location: sales_management.php#inventory');
     exit;
 }
 
@@ -223,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['seller_profile_action
     } else {
         $_SESSION['seller_profile_flash_err'] = (string)($saveResult['error'] ?? 'Could not save seller profile.');
     }
-    header('Location: sales_management.php#settings');
+    header('Location: sales_management.php#detail_employee');
     exit;
 }
 
@@ -252,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['home_addr_action'])) 
     $_SESSION['home_addr_flash_' . (!empty($res['ok']) ? 'ok' : 'err')] = !empty($res['ok'])
         ? 'Your home address was saved. Your manager can post letters to it.'
         : (string)($res['error'] ?? 'Could not save your home address.');
-    header('Location: sales_management.php#settings');
+    header('Location: sales_management.php#detail_employee');
     exit;
 }
 $homeAddrOk = '';
@@ -353,14 +354,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['payroll_action']) && 
             $leaveSecs
         );
         if (!empty($res['ok'])) {
-            $_SESSION['payroll_flash_ok'] = 'Employee pay line saved. Net Pay = Gross − Deductions.';
+            // Keep the employee's Time card "Estimated earnings" rate in sync.
+            if ($rateCentsPost !== null && $rateCentsPost > 0 && $lineMemberId > 0) {
+                $existingPay = null;
+                foreach (org_payroll_list_employees($dbh, $orgId) as $emp) {
+                    if ((int)($emp['org_member_id'] ?? 0) === $lineMemberId) {
+                        $existingPay = $emp;
+                        break;
+                    }
+                }
+                org_payroll_save_profile(
+                    $dbh,
+                    $orgId,
+                    $lineMemberId,
+                    'hourly',
+                    (int)($existingPay['default_gross_cents'] ?? 0),
+                    (int)($existingPay['default_deductions_cents'] ?? 0),
+                    (int)($existingPay['default_employer_tax_cents'] ?? 0),
+                    (string)($existingPay['profile_notes'] ?? ''),
+                    $rateCentsPost,
+                    (string)($existingPay['pay_frequency'] ?? 'monthly'),
+                    (int)($existingPay['annual_salary_cents'] ?? 0),
+                    (string)($existingPay['tax_status'] ?? 'single'),
+                    (string)($existingPay['bank_name'] ?? ''),
+                    !isset($existingPay['overtime_eligible']) || (int)$existingPay['overtime_eligible'] === 1,
+                    org_payroll_normalize_weekly_hours(
+                        isset($_POST['weekly_hours']) && trim((string)$_POST['weekly_hours']) !== ''
+                            ? (float)$_POST['weekly_hours']
+                            : (float)($existingPay['expected_weekly_hours'] ?? 40)
+                    )
+                );
+            }
+            $_SESSION['payroll_flash_ok'] = 'Employee pay line saved. Net Pay = Gross − Deductions. Hourly rate also updates Estimated earnings on Time card.';
         } else {
             $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not save pay line.');
         }
     } elseif ($payrollAction === 'approve_run') {
         $res = org_payroll_approve_run($dbh, $orgId, $payRunIdPost, $memberId);
         if (!empty($res['ok'])) {
-            $_SESSION['payroll_flash_ok'] = 'Payroll approved. Review complete — you can now mark it paid.';
+            $_SESSION['payroll_flash_ok'] = 'Payroll approved. Those people leave the Start pay run list until they have new approved time cards. You can mark this run paid when ready.';
         } else {
             $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not approve pay run.');
         }
@@ -381,7 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['payroll_action']) && 
     } elseif ($payrollAction === 'timecard_approve') {
         $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), true, $memberId);
         if (!empty($res['ok'])) {
-            $_SESSION['payroll_flash_ok'] = 'Time card approved. Those hours now feed the employee’s Gross Pay.';
+            $_SESSION['payroll_flash_ok'] = 'Time card approved. Earnings were sent to their account.';
         } else {
             $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not approve time card.');
         }
@@ -389,14 +421,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['payroll_action']) && 
     } elseif ($payrollAction === 'timecard_reject') {
         $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), false, $memberId);
         if (!empty($res['ok'])) {
-            $_SESSION['payroll_flash_ok'] = 'Time card rejected. The employee can correct and resubmit it.';
+            $_SESSION['payroll_flash_ok'] = 'Time card rejected. Any credited earnings were reversed from their account.';
         } else {
             $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not reject time card.');
         }
         $redirRun = '';
     } elseif ($payrollAction === 'timecard_approve_all') {
         $res = org_timecard_approve_all_submitted($dbh, $orgId, $memberId);
-        $_SESSION['payroll_flash_ok'] = 'Approved ' . (int)($res['approved'] ?? 0) . ' submitted time card entr' . (((int)($res['approved'] ?? 0)) === 1 ? 'y' : 'ies') . '.';
+        $_SESSION['payroll_flash_ok'] = 'Approved ' . (int)($res['approved'] ?? 0) . ' submitted time card entr' . (((int)($res['approved'] ?? 0)) === 1 ? 'y' : 'ies') . '. Earnings were sent to each person’s account.';
+        $redirRun = '';
+    } elseif ($payrollAction === 'timecard_approve_member') {
+        $res = org_timecard_review_member_submitted($dbh, $orgId, (int)($_POST['org_member_id'] ?? 0), true, $memberId);
+        if (!empty($res['ok'])) {
+            $n = (int)($res['count'] ?? 0);
+            $_SESSION['payroll_flash_ok'] = 'Approved ' . $n . ' time card entr' . ($n === 1 ? 'y' : 'ies') . ' for this person. Earnings were sent to their account.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not approve time cards.');
+        }
+        $redirRun = '';
+    } elseif ($payrollAction === 'timecard_reject_member') {
+        $res = org_timecard_review_member_submitted($dbh, $orgId, (int)($_POST['org_member_id'] ?? 0), false, $memberId);
+        if (!empty($res['ok'])) {
+            $n = (int)($res['count'] ?? 0);
+            $_SESSION['payroll_flash_ok'] = 'Rejected ' . $n . ' time card entr' . ($n === 1 ? 'y' : 'ies') . ' for this person.';
+        } else {
+            $_SESSION['payroll_flash_err'] = (string)($res['error'] ?? 'Could not reject time cards.');
+        }
         $redirRun = '';
     } elseif ($payrollAction === 'delete_line') {
         $res = org_payroll_delete_line($dbh, $orgId, $payRunIdPost, (int)($_POST['line_id'] ?? 0));
@@ -435,7 +485,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['payroll_action']) && 
             org_payroll_money_to_cents((string)($_POST['annual_salary'] ?? '0')),
             (string)($_POST['tax_status'] ?? 'single'),
             (string)($_POST['bank_name'] ?? ''),
-            !empty($_POST['overtime_eligible'])
+            !empty($_POST['overtime_eligible']),
+            org_payroll_normalize_weekly_hours((float)($_POST['weekly_hours'] ?? 40))
         );
         if (!empty($res['ok'])) {
             $_SESSION['payroll_flash_ok'] = 'Employee pay defaults saved for future pay runs.';
@@ -473,15 +524,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['timecard_action'])) {
     // employee's state so Federal/State tax deductions can be estimated correctly.
     if (in_array($tcAction, ['submit_timecard', 'submit_entry'], true)) {
         $tcAddr = org_member_address_get($dbh, $orgId, $tcTargetMemberId);
-        $tcAddrOk = is_array($tcAddr)
-            && trim((string)($tcAddr['line1'] ?? '')) !== ''
-            && trim((string)($tcAddr['city'] ?? '')) !== ''
-            && trim((string)($tcAddr['state'] ?? '')) !== '';
+        $tcAddrOk = org_member_address_is_complete($tcAddr);
         if (!$tcAddrOk) {
             $_SESSION['tc_flash_err'] = ($tcTargetMemberId === $memberId)
-                ? 'Add your home address (street, city, and state) in Settings before submitting your time card. Your address tells payroll which state you work from, so Federal and State tax are calculated correctly.'
-                : 'This employee has no home address on file. Ask them to add it in Settings (street, city, state) so payroll can calculate their state taxes before submitting their time card.';
-            header('Location: sales_management.php#' . ($tcTargetMemberId === $memberId ? 'settings' : 'timecard'));
+                ? 'Add your home address (street, city, and state) under Employee detail before submitting your time card. Your address tells payroll which state you work from, so Federal and State tax are calculated correctly.'
+                : 'This employee has no complete home address on file. Ask them to add street, city, and state under Employee detail so payroll can calculate their state taxes before submitting their time card.';
+            header('Location: sales_management.php#' . ($tcTargetMemberId === $memberId ? 'detail_employee' : 'timecard'));
+            exit;
+        }
+    }
+
+    // Weekly income budget: manager rate × 40 hrs. Alert (and block) when earned
+    // income is at least that amount so hours stay under the company setup.
+    if (in_array($tcAction, ['log_hours', 'log_range', 'submit_timecard', 'submit_entry'], true)) {
+        require_once __DIR__ . '/includes/org_timecard.php';
+        $extraSecs = 0;
+        $extraType = 'regular';
+        $forDate = null;
+        if ($tcAction === 'log_hours') {
+            $extraSecs = (int)round(((float)($_POST['hours'] ?? 0)) * 3600);
+            $extraType = (string)($_POST['entry_type'] ?? 'regular');
+            $forDate = (string)($_POST['entry_date'] ?? date('Y-m-d'));
+        } elseif ($tcAction === 'log_range') {
+            $forDate = (string)($_POST['entry_date'] ?? date('Y-m-d'));
+            $startRaw = trim((string)($_POST['start_time'] ?? ''));
+            $endRaw = trim((string)($_POST['end_time'] ?? ''));
+            $startNorm = strlen($startRaw) === 5 ? $startRaw . ':00' : $startRaw;
+            $endNorm = strlen($endRaw) === 5 ? $endRaw . ':00' : $endRaw;
+            $inTs = strtotime($forDate . ' ' . $startNorm);
+            $outTs = strtotime($forDate . ' ' . $endNorm);
+            if ($inTs !== false && $outTs !== false) {
+                if ($outTs <= $inTs) {
+                    $outTs += 86400;
+                }
+                $extraSecs = max(0, $outTs - $inTs);
+            }
+            $extraType = (string)($_POST['entry_type'] ?? 'regular');
+        }
+        $incomeCheck = org_timecard_check_weekly_income_cap(
+            $dbh,
+            $orgId,
+            $tcTargetMemberId,
+            $extraSecs,
+            $extraType,
+            $forDate
+        );
+        if (!empty($incomeCheck['over'])) {
+            $_SESSION['tc_income_alert'] = (string)($incomeCheck['message'] ?? '');
+            $_SESSION['tc_flash_err'] = 'Time card not saved — weekly income is at or over the amount set from your hourly rate.';
+            header('Location: sales_management.php#timecard');
             exit;
         }
     }
@@ -509,6 +600,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['timecard_action'])) {
         $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
             ? 'Hours logged. Submit your timesheet when ready.'
             : (string)($res['error'] ?? 'Could not log hours.');
+        if (!empty($res['ok'])) {
+            $focusDay = trim((string)($_POST['entry_date'] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $focusDay)) {
+                $_SESSION['tc_focus_day'] = $focusDay;
+            }
+        }
+    } elseif ($tcAction === 'log_range') {
+        $res = org_timecard_log_range(
+            $dbh,
+            $orgId,
+            $tcTargetMemberId,
+            (string)($_POST['entry_date'] ?? date('Y-m-d')),
+            (string)($_POST['start_time'] ?? ''),
+            (string)($_POST['end_time'] ?? ''),
+            (string)($_POST['entry_type'] ?? 'regular'),
+            $tcNote
+        );
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
+            ? 'Shift logged. It appears in your timesheet below — submit when ready.'
+            : (string)($res['error'] ?? 'Could not log shift.');
+        if (!empty($res['ok'])) {
+            $focusDay = trim((string)($_POST['entry_date'] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $focusDay)) {
+                $_SESSION['tc_focus_day'] = $focusDay;
+            }
+        }
     } elseif ($tcAction === 'submit_timecard') {
         $res = org_timecard_submit_entries($dbh, $orgId, $tcTargetMemberId);
         $_SESSION['tc_flash_ok'] = 'Submitted ' . (int)($res['submitted'] ?? 0) . ' entr' . (((int)($res['submitted'] ?? 0)) === 1 ? 'y' : 'ies') . ' to Payroll for approval.';
@@ -519,19 +636,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['timecard_action'])) {
             : (string)($res['error'] ?? 'Could not submit entry.');
     } elseif ($tcAction === 'approve_entry' && $isManager) {
         $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), true, $memberId);
-        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok'] ? 'Time card entry approved.' : (string)($res['error'] ?? 'Could not approve.');
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
+            ? 'Time card approved. Earnings were sent to their account.'
+            : (string)($res['error'] ?? 'Could not approve.');
     } elseif ($tcAction === 'reject_entry' && $isManager) {
         $res = org_timecard_review_entry($dbh, $orgId, (int)($_POST['entry_id'] ?? 0), false, $memberId);
-        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok'] ? 'Time card entry rejected.' : (string)($res['error'] ?? 'Could not reject.');
+        $_SESSION['tc_flash_' . ($res['ok'] ? 'ok' : 'err')] = $res['ok']
+            ? 'Time card rejected. Credited earnings were reversed from their account.'
+            : (string)($res['error'] ?? 'Could not reject.');
     } elseif ($tcAction === 'approve_all' && $isManager) {
         $res = org_timecard_approve_all_submitted($dbh, $orgId, $memberId);
-        $_SESSION['tc_flash_ok'] = 'Approved ' . (int)($res['approved'] ?? 0) . ' submitted entr' . (((int)($res['approved'] ?? 0)) === 1 ? 'y' : 'ies') . '.';
+        $_SESSION['tc_flash_ok'] = 'Approved ' . (int)($res['approved'] ?? 0) . ' submitted entr' . (((int)($res['approved'] ?? 0)) === 1 ? 'y' : 'ies') . '. Earnings were sent to each person’s account.';
+    } elseif ($tcAction === 'set_my_rate' && $isManager) {
+        // Managers only: set their own hourly rate for Estimated earnings.
+        // Staff rates are set by managers in Payroll (Edit → Hourly rate → Save).
+        require_once __DIR__ . '/includes/org_payroll.php';
+        $rateCents = function_exists('org_payroll_money_to_cents')
+            ? org_payroll_money_to_cents((string)($_POST['hourly_rate'] ?? '0'))
+            : (int)round(((float)($_POST['hourly_rate'] ?? 0)) * 100);
+        if ($rateCents <= 0) {
+            $_SESSION['tc_flash_err'] = 'Enter an hourly rate greater than zero to see your estimated pay.';
+        } else {
+            $existingPay = null;
+            foreach (org_payroll_list_employees($dbh, $orgId) as $emp) {
+                if ((int)($emp['org_member_id'] ?? 0) === $memberId) {
+                    $existingPay = $emp;
+                    break;
+                }
+            }
+            $weekHours = org_payroll_normalize_weekly_hours(
+                isset($_POST['weekly_hours']) && trim((string)$_POST['weekly_hours']) !== ''
+                    ? (float)$_POST['weekly_hours']
+                    : (float)($existingPay['expected_weekly_hours'] ?? 40)
+            );
+            $res = org_payroll_save_profile(
+                $dbh,
+                $orgId,
+                $memberId,
+                'hourly',
+                (int)($existingPay['default_gross_cents'] ?? 0),
+                (int)($existingPay['default_deductions_cents'] ?? 0),
+                (int)($existingPay['default_employer_tax_cents'] ?? 0),
+                (string)($existingPay['profile_notes'] ?? ''),
+                $rateCents,
+                (string)($existingPay['pay_frequency'] ?? 'monthly'),
+                (int)($existingPay['annual_salary_cents'] ?? 0),
+                (string)($existingPay['tax_status'] ?? 'single'),
+                (string)($existingPay['bank_name'] ?? ''),
+                !isset($existingPay['overtime_eligible']) || (int)$existingPay['overtime_eligible'] === 1,
+                $weekHours
+            );
+            $hoursLabel = rtrim(rtrim(number_format($weekHours, 2), '0'), '.');
+            $_SESSION['tc_flash_' . (!empty($res['ok']) ? 'ok' : 'err')] = !empty($res['ok'])
+                ? ('Your rate is set to ' . org_payroll_format_cents($rateCents) . '/hr × ' . $hoursLabel . ' hrs/week (week max '
+                    . org_payroll_format_cents((int)round($rateCents * $weekHours)) . ').')
+                : (string)($res['error'] ?? 'Could not save your hourly rate.');
+        }
+    } elseif ($tcAction === 'set_my_rate') {
+        $_SESSION['tc_flash_err'] = 'Only a manager can set hourly rates. Ask your manager to set yours in Payroll.';
     } else {
         $_SESSION['tc_flash_err'] = 'Unknown time card action.';
     }
 
     header('Location: sales_management.php#timecard');
     exit;
+}
+
+// One-time backfill: link time cards already covered by approved/paid runs so
+// compensated employees do not keep showing in the Start pay run Employee list.
+if (function_exists('org_timecard_backfill_pay_run_links')) {
+    org_timecard_backfill_pay_run_links($dbh, $orgId);
 }
 
 $payrollStats = org_payroll_dashboard_stats($dbh, $orgId);
@@ -669,7 +843,7 @@ $productCount = org_shop_product_count($dbh, $orgId);
 $modules = [
     ['Dashboard', 'Sales KPIs, revenue, order performance, and seller alerts.', 'commerce.php', 'ion-speedometer'],
     ['Products', 'Add, edit, delete, categorize, price, and publish products.', 'products.php', 'ion-ios-box'],
-    ['Product table', 'Scan all SKUs with stock, price, status, and restock risk.', 'product_table.php', 'ion-grid'],
+    ['Inventory', 'Scan all SKUs with stock, price, status, and restock risk.', 'sales_management.php#inventory', 'ion-grid'],
     ['Customers', 'Manage buyer profiles, lifecycle stage, contacts, and history.', 'crm_contacts.php', 'ion-ios-people'],
     ['Quotations', 'Prepare price quotes before converting a customer to invoice.', 'quotations.php', 'ion-document-text'],
     ['Orders', 'Create, update, assign, and track customer sales orders.', 'orders.php', 'ion-ios-list'],
@@ -681,7 +855,7 @@ $modules = [
     ['Sales reports', 'Analyze revenue, sales trends, top products, and low stock.', 'sales_reports.php', 'ion-stats-bars'],
     ['Salespersons', 'Manage team selling performance and assignment visibility.', 'salespersons.php', 'ion-person-stalker'],
     ['Notifications', 'Review order, payment, inventory, and quote alerts.', 'sales_notifications.php', 'ion-alert-circled'],
-    ['Seller profile', 'Full name, contact, address, and store identity for buyers.', 'sales_management.php#settings', 'ion-ios-gear'],
+    ['Seller profile', 'Full name, contact, address, and store identity for buyers.', 'sales_management.php#detail_employee', 'ion-ios-person'],
 ];
 
 $salesPanels = [
@@ -733,14 +907,14 @@ $salesPanels = [
         'columns' => ['Promotion', 'Type', 'Value', 'Status'],
         'rows' => [['WELCOME10', 'Coupon', '10%', 'Draft'], ['FREESHIP', 'Shipping', 'Free', 'Draft'], ['VIPPRICE', 'Customer group', 'Custom', 'Draft']],
     ],
-    'settings' => [
-        'kicker' => 'Settings',
-        'title' => 'My home address',
-        'summary' => 'Your personal mailing address so your manager can post letters to your home.',
+    'detail_employee' => [
+        'kicker' => 'Employee detail',
+        'title' => 'My employee profile',
+        'summary' => 'View the profile your manager maintains. Employees can edit home address only.',
         'metrics' => [],
         'columns' => [],
         'rows' => [],
-        'is_seller_profile' => true,
+        'is_detail_employee_panel' => true,
     ],
     'customers' => [
         'kicker' => 'Customers',
@@ -782,14 +956,56 @@ if (!$isManager) {
     unset($salesPanels['payroll'], $salesPanels['payments']);
 }
 
+$salesViewSlugs = array_values(array_unique(array_merge(
+    ['dashboard', 'orders', 'notification', 'message', 'support-center', 'table_cancel_orders', 'inventory', 'products', 'timecard'],
+    array_keys($salesPanels)
+)));
+
 $pageTitle = 'Sales Management';
+$salesViewBootScript = '<script>(function(){'
+    . 'var d="dashboard",h=String(location.hash||"").replace(/^#/,"").trim();'
+    . 'if(h==="order-cancel-table")h="notification";'
+    . 'if(h==="settings")h="detail_employee";'
+    . 'if(h==="product-table")h="inventory";'
+    . 'var v=' . json_encode($salesViewSlugs, JSON_UNESCAPED_SLASHES) . ';'
+    . 'document.documentElement.setAttribute("data-sales-initial-view",h&&v.indexOf(h)!==-1?h:d);'
+    . 'document.documentElement.setAttribute("data-sales-active-view",h&&v.indexOf(h)!==-1?h:d);'
+    . '})();</script>';
 require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=17"><link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css"><link rel="stylesheet" href="css/product-table.css?v=5">');
+org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=17"><link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css"><link rel="stylesheet" href="css/product-table.css?v=9">' . $salesViewBootScript);
 ?>
 <?php org_page_body_open('commerce-page'); ?>
   <style>
     .sales-management-view{ display:none; }
     .sales-management-view.is-active{ display:block; }
+    .sales-management-view[data-sales-view="detail_employee"].is-active,
+    html[data-sales-initial-view="detail_employee"] .sales-management-view[data-sales-view="detail_employee"],
+    html[data-sales-active-view="detail_employee"] .sales-management-view[data-sales-view="detail_employee"]{
+      display:flex !important;
+      flex-direction:column;
+      min-height:0;
+      height:calc(100vh - var(--org-header-h, 48px) - 24px);
+      max-height:calc(100vh - var(--org-header-h, 48px) - 24px);
+      overflow:hidden;
+      padding-bottom:0;
+    }
+    .sales-management-view[data-sales-view="detail_employee"] .de-panel-wrap{
+      height:100%;
+      max-height:100%;
+    }
+    html[data-sales-initial-view="detail_employee"] body.org-app,
+    html[data-sales-active-view="detail_employee"] body.org-app,
+    html[data-sales-initial-view="detail_employee"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="detail_employee"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="detail_employee"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="detail_employee"] body.org-app .sh-pagebody{
+      overflow:hidden !important;
+    }
+    /* Before nav JS runs, show the hash target (not dashboard) to avoid green hero flash. */
+    html[data-sales-initial-view] .sales-management-view{ display:none !important; }
+    <?php foreach ($salesViewSlugs as $salesViewSlug): ?>
+    html[data-sales-initial-view="<?= org_ecommerce_h($salesViewSlug) ?>"] .sales-management-view[data-sales-view="<?= org_ecommerce_h($salesViewSlug) ?>"]{ display:block !important; }
+    <?php endforeach; ?>
     .sales-management-view[data-sales-view="dashboard"]{
       padding-top: 212px;
     }
@@ -806,7 +1022,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
       align-items:flex-end;
       justify-content:space-between;
       gap:16px;
-      margin-bottom:18px;
+      margin-bottom:1px;
     }
     .sales-management-kicker{
       margin:0 0 6px;
@@ -1022,7 +1238,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
       .seller-admin-support{grid-template-columns:1fr;}
     }
   </style>
-  <section class="sales-management-view is-active" data-sales-view="dashboard">
+  <section class="sales-management-view" data-sales-view="dashboard">
   <section class="commerce-hero commerce-hero-compact">
     <div class="commerce-hero-inner">
       <div>
@@ -1136,7 +1352,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
     <?php require __DIR__ . '/includes/org_table_cancel_orders_panel.php'; ?>
   </section>
 
-  <section class="sales-management-view product-table-page" data-sales-view="product-table">
+  <section class="sales-management-view product-table-page" data-sales-view="inventory">
     <?php
       $err = $ptErr;
       $ok = $ptOk;
@@ -1144,6 +1360,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
       $ptBackLabel = 'Sales management';
       $ptFormAction = 'sales_management.php';
       $ptShowBack = true;
+      $ptTitle = 'Inventory';
       $ptAddHref = '#products';
       $ptAddAttr = ' data-sales-nav="products"';
       $ptEditBase = 'sales_management.php?edit=';
@@ -1162,8 +1379,8 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
           $err = $pimErr;
           $ok = $pimOk;
           $pimFormAction = 'sales_management.php';
-          $pimTableHref = '#product-table';
-          $pimTableAttr = ' data-sales-nav="product-table"';
+          $pimTableHref = '#inventory';
+          $pimTableAttr = ' data-sales-nav="inventory"';
           $pimCancelHref = 'sales_management.php#products';
           $pimHubHref = 'sales_management.php#dashboard';
           $pimHubLabel = 'Sales management';
@@ -1179,6 +1396,12 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
 
   <?php foreach ($salesPanels as $slug => $panel): ?>
     <section class="sales-management-view" data-sales-view="<?= org_ecommerce_h($slug) ?>">
+      <?php if (!empty($panel['is_detail_employee_panel'])): ?>
+        <?php
+          $dePanelFormAction = 'sales_management.php#detail_employee';
+          require __DIR__ . '/includes/org_detail_employee_panel.php';
+        ?>
+      <?php else: ?>
       <?php if (empty($panel['is_payroll_panel'])): ?>
       <div class="sales-management-detail-head">
         <div>
@@ -1191,7 +1414,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
       <?php if (!empty($panel['is_seller_profile'])): ?>
         <?php
           $sellerProfileFormAction = 'sales_management.php';
-          $sellerProfileHash = '#settings';
+          $sellerProfileHash = '#detail_employee';
           require __DIR__ . '/includes/org_seller_profile_panel.php';
         ?>
       <?php elseif (!empty($panel['is_payroll_panel'])): ?>
@@ -1229,6 +1452,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
           </table>
         </div>
       <?php endif; ?>
+      <?php endif; ?>
     </section>
   <?php endforeach; ?>
 
@@ -1243,6 +1467,8 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
       function normalize(hash) {
         var slug = String(hash || '').replace(/^#/, '').trim();
         if (slug === 'order-cancel-table') slug = 'notification';
+        if (slug === 'settings') slug = 'detail_employee';
+        if (slug === 'product-table') slug = 'inventory';
         if (!slug) return defaultView;
         return views.some(function(view){ return view.getAttribute('data-sales-view') === slug; }) ? slug : defaultView;
       }
@@ -1252,6 +1478,8 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
         views.forEach(function(view){
           view.classList.toggle('is-active', view.getAttribute('data-sales-view') === slug);
         });
+        document.documentElement.removeAttribute('data-sales-initial-view');
+        document.documentElement.setAttribute('data-sales-active-view', slug);
         links.forEach(function(link){
           link.classList.toggle('active', link.getAttribute('data-sales-nav') === slug);
         });

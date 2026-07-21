@@ -389,7 +389,7 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
               <a href="<?= h($pimCancelHref) ?>" class="btn btn-outline-secondary">Cancel edit</a>
             <?php endif; ?>
           </div>
-          <a href="<?= h($pimTableHref) ?>" class="btn btn-sm btn-outline-secondary"<?= $pimTableAttr ?>><?= $editProduct ? 'View all product table' : 'View all product table' ?></a>
+          <a href="<?= h($pimTableHref) ?>" class="btn btn-sm btn-outline-secondary"<?= $pimTableAttr ?>><?= $editProduct ? 'View inventory' : 'View inventory' ?></a>
         </div>
       </form>
     </div>

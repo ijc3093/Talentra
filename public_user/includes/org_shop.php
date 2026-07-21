@@ -30,9 +30,45 @@ function org_shop_ensure_schema(PDO $dbh): void
         '20260716_org_products_selling_type.sql',
         '20260716_org_products_attributes_json.sql',
         '20260716_org_products_product_code.sql',
+        '20260720_org_orders_tax_cents.sql',
+        '20260720_org_orders_service_fee_cents.sql',
     ] as $file) {
         msb_run_sql_migration_file($dbh, $base . $file);
     }
+    if (!platform_rent_db_column_exists($dbh, 'org_orders', 'tax_cents')) {
+        try {
+            $dbh->exec('ALTER TABLE org_orders ADD COLUMN tax_cents INT NOT NULL DEFAULT 0 AFTER shipping_fee_cents');
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    if (!platform_rent_db_column_exists($dbh, 'org_orders', 'service_fee_cents')) {
+        try {
+            $dbh->exec('ALTER TABLE org_orders ADD COLUMN service_fee_cents INT NOT NULL DEFAULT 0 AFTER tax_cents');
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+}
+
+/** Sales tax rate applied to merchandise + shipping (customer-paid). */
+function org_shop_sales_tax_rate(): float
+{
+    return 0.0825;
+}
+
+function org_shop_sales_tax_cents(int $taxableCents): int
+{
+    return (int)round(max(0, $taxableCents) * org_shop_sales_tax_rate());
+}
+
+/**
+ * Fixed online order service fee paid by the customer to the platform/admin
+ * when buying through shop / product detail (not charged to the seller).
+ */
+function org_shop_buyer_service_fee_cents(): int
+{
+    return 199; // $1.99
 }
 
 function org_shop_org_id_for_publisher(PDO $dbh, int $publisherUserId): int
@@ -262,6 +298,40 @@ function org_shop_list_products(PDO $dbh, int $orgId, bool $activeOnly = false):
         }
         unset($row);
         return $rows;
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * Total units ordered per product (excludes cancelled orders).
+ * @return array<int,int> product_id => quantity
+ */
+function org_shop_product_ordered_qty_map(PDO $dbh, int $orgId): array
+{
+    if ($orgId <= 0) {
+        return [];
+    }
+    org_shop_ensure_schema($dbh);
+    try {
+        $st = $dbh->prepare("
+            SELECT product_id, COALESCE(SUM(GREATEST(COALESCE(quantity, 1), 1)), 0) AS ordered_qty
+            FROM org_orders
+            WHERE org_id = :org
+              AND product_id IS NOT NULL
+              AND product_id > 0
+              AND status <> 'cancelled'
+            GROUP BY product_id
+        ");
+        $st->execute([':org' => $orgId]);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $pid = (int)($row['product_id'] ?? 0);
+            if ($pid > 0) {
+                $out[$pid] = (int)($row['ordered_qty'] ?? 0);
+            }
+        }
+        return $out;
     } catch (Throwable $e) {
         return [];
     }
@@ -517,20 +587,24 @@ function org_shop_create_order(
     }
 
     $shippingFeeCents = ($deliveryOption === 'pickup') ? 0 : max(0, (int)($receive['shipping_fee_cents'] ?? 0));
-    $totalCents += $shippingFeeCents;
+    $merchandiseCents = $totalCents;
+    $taxableCents = $merchandiseCents + $shippingFeeCents;
+    $taxCents = org_shop_sales_tax_cents($taxableCents);
+    $serviceFeeCents = org_shop_buyer_service_fee_cents();
+    $totalCents = $taxableCents + $taxCents + $serviceFeeCents;
 
     try {
         $st = $dbh->prepare('
             INSERT INTO org_orders (
                 org_id, order_code, buyer_user_id, buyer_name, buyer_phone, buyer_email,
                 product_id, product_title, unit_price_cents, currency, quantity, total_cents,
-                promo_code, discount_cents, shipping_fee_cents,
+                promo_code, discount_cents, shipping_fee_cents, tax_cents, service_fee_cents,
                 status, order_type, fulfillment_method, delivery_option,
                 buyer_notes, delivery_address, created_at, updated_at
             ) VALUES (
                 :org, :code, :uid, :name, :phone, :email,
                 :pid, :title, :unit, :cur, :qty, :total,
-                :promo, :disc, :shipfee,
+                :promo, :disc, :shipfee, :tax, :svcfee,
                 \'pending\', \'purchase\', :fmethod, :dopt,
                 :notes, :addr, NOW(), NOW()
             )
@@ -551,6 +625,8 @@ function org_shop_create_order(
             ':promo' => $promoCode !== '' ? $promoCode : null,
             ':disc' => $discountCents,
             ':shipfee' => $shippingFeeCents,
+            ':tax' => $taxCents,
+            ':svcfee' => $serviceFeeCents,
             ':fmethod' => $fulfillmentMethod,
             ':dopt' => $deliveryOption,
             ':notes' => $buyerNotes !== '' ? $buyerNotes : null,
@@ -579,12 +655,14 @@ function org_shop_create_order(
             'total_cents' => $totalCents,
             'discount_cents' => $discountCents,
             'shipping_fee_cents' => $shippingFeeCents,
+            'tax_cents' => $taxCents,
+            'service_fee_cents' => $serviceFeeCents,
             'promo_code' => $promoCode,
             'currency' => $currency,
             'org_id' => $orgId,
         ];
     } catch (Throwable $e) {
-        // Fallback if promo / shipping columns missing on partially migrated DB.
+        // Fallback if promo / shipping / service fee columns missing on partially migrated DB.
         try {
             $st = $dbh->prepare('
                 INSERT INTO org_orders (
@@ -640,6 +718,8 @@ function org_shop_create_order(
                 'order_code' => $orderCode,
                 'total_cents' => $totalCents,
                 'shipping_fee_cents' => $shippingFeeCents,
+                'tax_cents' => $taxCents,
+                'service_fee_cents' => $serviceFeeCents,
                 'currency' => $currency,
                 'org_id' => $orgId,
             ];
@@ -1067,7 +1147,7 @@ function org_shop_issue_receipt(
                 status, issued_at, created_at
             ) VALUES (
                 :org, :oid, :code, :uid, :name, :email, :phone,
-                :seller, :title, :qty, :unit, 0, :total, :cur,
+                :seller, :title, :qty, :unit, :tax, :total, :cur,
                 :pm, :pr,
                 \'issued\', NOW(), NOW()
             )
@@ -1084,6 +1164,7 @@ function org_shop_issue_receipt(
             ':title' => $order['product_title'] ?? '',
             ':qty' => (int)($order['quantity'] ?? 1),
             ':unit' => (int)($order['unit_price_cents'] ?? 0),
+            ':tax' => (int)($order['tax_cents'] ?? 0),
             ':total' => (int)($order['total_cents'] ?? 0),
             ':cur' => $order['currency'] ?? 'USD',
             ':pm' => $paymentMethod !== '' ? substr($paymentMethod, 0, 40) : null,
@@ -2580,26 +2661,41 @@ function org_shop_save_seller_plan(PDO $dbh, int $orgId, string $plan): bool
     }
 }
 
-/** @return array{referral_fee_cents:int,fulfillment_fee_cents:int,platform_fee_cents:int,seller_payout_cents:int} */
-function org_shop_calculate_order_fees(PDO $dbh, int $orgId, int $totalCents, string $fulfillmentMethod): array
+/**
+ * Marketplace fees are the seller's responsibility (deducted from payout).
+ * Customer total stays merchandise + shipping; seller receives base minus fees.
+ *
+ * @return array{
+ *   referral_fee_cents:int,
+ *   fulfillment_fee_cents:int,
+ *   platform_fee_cents:int,
+ *   fee_total_cents:int,
+ *   seller_payout_cents:int,
+ *   customer_total_cents:int
+ * }
+ */
+function org_shop_calculate_order_fees(PDO $dbh, int $orgId, int $baseCents, string $fulfillmentMethod): array
 {
-    $totalCents = max(0, $totalCents);
+    $baseCents = max(0, $baseCents);
     $fulfillmentMethod = strtolower(trim($fulfillmentMethod));
     $sellerPlan = org_shop_get_seller_plan($dbh, $orgId);
 
-    $referralFee = (int)round($totalCents * 0.15);
+    $referralFee = (int)round($baseCents * 0.15);
     $fulfillmentFee = 0;
     if ($fulfillmentMethod === 'fba') {
-        $fulfillmentFee = max(350, (int)round($totalCents * 0.05));
+        $fulfillmentFee = max(350, (int)round($baseCents * 0.05));
     }
     $platformFee = $sellerPlan === 'individual' ? 99 : 0;
-    $sellerPayout = max(0, $totalCents - $referralFee - $fulfillmentFee - $platformFee);
+    $feeTotal = $referralFee + $fulfillmentFee + $platformFee;
+    $sellerPayout = max(0, $baseCents - $feeTotal);
 
     return [
         'referral_fee_cents' => $referralFee,
         'fulfillment_fee_cents' => $fulfillmentFee,
         'platform_fee_cents' => $platformFee,
+        'fee_total_cents' => $feeTotal,
         'seller_payout_cents' => $sellerPayout,
+        'customer_total_cents' => $baseCents,
     ];
 }
 
@@ -2608,17 +2704,41 @@ function org_shop_apply_order_fees(PDO $dbh, int $orderId): bool
     if ($orderId <= 0) {
         return false;
     }
+    org_shop_ensure_schema($dbh);
     try {
-        $st = $dbh->prepare('SELECT org_id, total_cents, fulfillment_method FROM org_orders WHERE id = :id LIMIT 1');
+        $st = $dbh->prepare('
+            SELECT org_id, total_cents, fulfillment_method,
+                   COALESCE(tax_cents, 0) AS tax_cents,
+                   COALESCE(service_fee_cents, 0) AS service_fee_cents,
+                   COALESCE(shipping_fee_cents, 0) AS shipping_fee_cents,
+                   COALESCE(unit_price_cents, 0) AS unit_price_cents,
+                   COALESCE(quantity, 1) AS quantity,
+                   COALESCE(discount_cents, 0) AS discount_cents
+            FROM org_orders
+            WHERE id = :id
+            LIMIT 1
+        ');
         $st->execute([':id' => $orderId]);
         $order = $st->fetch(PDO::FETCH_ASSOC);
         if (!$order) {
             return false;
         }
+        $taxCents = max(0, (int)($order['tax_cents'] ?? 0));
+        $serviceFeeCents = max(0, (int)($order['service_fee_cents'] ?? 0));
+        $totalCents = max(0, (int)($order['total_cents'] ?? 0));
+        // Fees are seller-paid on merchandise + shipping (not on sales tax or buyer service fee).
+        $feeBaseCents = max(0, $totalCents - $taxCents - $serviceFeeCents);
+        if ($feeBaseCents <= 0) {
+            $qty = max(1, (int)($order['quantity'] ?? 1));
+            $feeBaseCents = max(
+                0,
+                ((int)($order['unit_price_cents'] ?? 0) * $qty) - (int)($order['discount_cents'] ?? 0)
+            ) + max(0, (int)($order['shipping_fee_cents'] ?? 0));
+        }
         $fees = org_shop_calculate_order_fees(
             $dbh,
             (int)($order['org_id'] ?? 0),
-            (int)($order['total_cents'] ?? 0),
+            $feeBaseCents,
             (string)($order['fulfillment_method'] ?? 'fbm')
         );
         $up = $dbh->prepare('
@@ -2641,7 +2761,41 @@ function org_shop_apply_order_fees(PDO $dbh, int $orderId): bool
         ]);
         return true;
     } catch (Throwable $e) {
-        return false;
+        // Older schemas may lack tax_cents — fall back to total-only base.
+        try {
+            $st = $dbh->prepare('SELECT org_id, total_cents, fulfillment_method FROM org_orders WHERE id = :id LIMIT 1');
+            $st->execute([':id' => $orderId]);
+            $order = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$order) {
+                return false;
+            }
+            $fees = org_shop_calculate_order_fees(
+                $dbh,
+                (int)($order['org_id'] ?? 0),
+                (int)($order['total_cents'] ?? 0),
+                (string)($order['fulfillment_method'] ?? 'fbm')
+            );
+            $dbh->prepare('
+                UPDATE org_orders
+                SET referral_fee_cents = :ref,
+                    fulfillment_fee_cents = :ful,
+                    platform_fee_cents = :plat,
+                    seller_payout_cents = :pay,
+                    payout_status = \'scheduled\',
+                    updated_at = NOW()
+                WHERE id = :id
+                LIMIT 1
+            ')->execute([
+                ':ref' => $fees['referral_fee_cents'],
+                ':ful' => $fees['fulfillment_fee_cents'],
+                ':plat' => $fees['platform_fee_cents'],
+                ':pay' => $fees['seller_payout_cents'],
+                ':id' => $orderId,
+            ]);
+            return true;
+        } catch (Throwable $e2) {
+            return false;
+        }
     }
 }
 

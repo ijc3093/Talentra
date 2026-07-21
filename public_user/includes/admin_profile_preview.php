@@ -25,7 +25,7 @@ function admin_profile_preview_validate(int $targetUserId): bool
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
-        session_name('BUSINESS_ONLY_ADMIN');
+        session_name(defined('ADMIN_SESSION_NAME') ? ADMIN_SESSION_NAME : 'TALENTRA_ADMIN');
         if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
         }

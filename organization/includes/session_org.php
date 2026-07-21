@@ -6,6 +6,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     $bootstrapLoad = __DIR__ . '/../../admin/includes/admin_linked_bootstrap_load.php';
     if (is_file($bootstrapLoad)) {
         require_once $bootstrapLoad;
+        // Default PHPSESSID — set cookie path before start (name already default).
         admin_linked_apply_session_cookie_path();
     }
     session_start();

@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 require_once __DIR__ . '/includes/org_sales.php';
+require_once __DIR__ . '/includes/org_ecommerce.php';
 require_once __DIR__ . '/../public_user/includes/org_shop.php';
 require_once __DIR__ . '/../public_user/includes/commerce_messaging.php';
 require_once __DIR__ . '/../public_user/includes/buyer_seller_relationship.php';
@@ -16,9 +17,36 @@ org_ecommerce_ensure_schema($dbh);
 buyer_seller_rel_ensure_schema($dbh);
 
 $orgId = (int)orgActiveOrgId();
-$orderId = (int)($_GET['id'] ?? 0);
+$orderId = (int)($_GET['id'] ?? $_POST['order_id'] ?? 0);
 $embed = ((string)($_GET['embed'] ?? '') === '1');
 $download = ((string)($_GET['download'] ?? '') === '1');
+$fulfillFlashOk = '';
+$fulfillFlashErr = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['od_fulfill_action'])) {
+    $postOrderId = (int)($_POST['order_id'] ?? 0);
+    $newStatus = strtolower(trim((string)($_POST['status'] ?? '')));
+    $sellerNotes = trim((string)($_POST['seller_notes'] ?? ''));
+    $tracking = trim((string)($_POST['tracking_number'] ?? ''));
+    $carrier = trim((string)($_POST['carrier'] ?? ''));
+    $redirEmbed = ((string)($_POST['embed'] ?? '') === '1') || $embed;
+
+    if ($postOrderId > 0 && org_ecommerce_update_fulfillment($dbh, $orgId, $postOrderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
+        $qs = 'id=' . $postOrderId . ($redirEmbed ? '&embed=1' : '');
+        $_SESSION['od_fulfill_flash_ok'] = 'Carrier and tracking saved.';
+        header('Location: order_details.php?' . $qs);
+        exit;
+    }
+    $fulfillFlashErr = 'Could not update carrier / tracking.';
+    $orderId = $postOrderId > 0 ? $postOrderId : $orderId;
+    $embed = $redirEmbed;
+}
+
+if (!empty($_SESSION['od_fulfill_flash_ok'])) {
+    $fulfillFlashOk = (string)$_SESSION['od_fulfill_flash_ok'];
+    unset($_SESSION['od_fulfill_flash_ok']);
+}
+
 $order = org_sales_order($dbh, $orgId, $orderId);
 if (!$order) {
     if ($embed || $download) {
@@ -64,6 +92,15 @@ $dateLabel = (string)($batch['date_label'] ?? ($order['created_at'] ?? ''));
 $deliveryOption = str_replace('_', ' ', (string)($order['delivery_option'] ?? 'home_delivery'));
 $payoutLabel = org_sales_money((int)($order['seller_payout_cents'] ?? 0), $currency);
 $payoutStatus = (string)($order['payout_status'] ?? 'pending');
+$sellerFeeCents = (int)($order['referral_fee_cents'] ?? 0)
+    + (int)($order['fulfillment_fee_cents'] ?? 0)
+    + (int)($order['platform_fee_cents'] ?? 0);
+$sellerFeeLabel = org_sales_money($sellerFeeCents, $currency);
+$buyerServiceFeeCents = max(0, (int)($order['service_fee_cents'] ?? 0));
+if ($buyerServiceFeeCents <= 0 && function_exists('org_shop_buyer_service_fee_cents')) {
+    $buyerServiceFeeCents = 0; // keep stored value; admin page can infer older rows
+}
+$buyerServiceFeeLabel = org_sales_money($buyerServiceFeeCents, $currency);
 $carrier = trim((string)($order['carrier'] ?? ''));
 $tracking = trim((string)($order['tracking_number'] ?? ''));
 $buyerNotes = trim((string)($order['buyer_notes'] ?? ''));
@@ -433,6 +470,33 @@ if ($embed) {
       color:#fff;
     }
     html.dark-auto .od-btn-primary{color:#042f2e;}
+    .od-flash{
+      margin:0 0 12px;
+      padding:10px 12px;
+      border-radius:10px;
+      font-size:12px;
+      font-weight:700;
+      line-height:1.4;
+      background:#ecfdf5;
+      color:#065f46;
+    }
+    .od-flash-err{background:#fef2f2;color:#991b1b;}
+    .od-fulfill-form{margin-top:4px;}
+    .od-fulfill-form .od-row{align-items:center;}
+    .od-fulfill-form input[type="text"]{
+      width:100%;
+      min-height:34px;
+      padding:6px 10px;
+      border:1px solid var(--od-line);
+      border-radius:8px;
+      background:var(--od-soft);
+      color:var(--od-text);
+      font:inherit;
+      font-size:13px;
+      font-weight:600;
+    }
+    .od-fulfill-form .od-btn{width:100%;margin-top:8px;}
+    .od-hint{margin:8px 0 0;font-size:11px;font-weight:600;color:var(--od-muted);}
   </style>
   <script>
     (function () {
@@ -536,24 +600,49 @@ if ($embed) {
 
     <section class="od-section">
       <h2>Fulfillment</h2>
+      <?php if ($fulfillFlashOk !== ''): ?>
+        <p class="od-flash"><?= $h($fulfillFlashOk) ?></p>
+      <?php endif; ?>
+      <?php if ($fulfillFlashErr !== ''): ?>
+        <p class="od-flash od-flash-err"><?= $h($fulfillFlashErr) ?></p>
+      <?php endif; ?>
       <dl class="od-kv">
         <div class="od-row">
           <dt>Method</dt>
           <dd><?= $h(strtoupper((string)($order['fulfillment_method'] ?? 'fbm'))) ?> · <?= $h($deliveryOption) ?></dd>
         </div>
-        <div class="od-row">
-          <dt>Carrier</dt>
-          <dd><?= $carrier !== '' ? $h($carrier) : '<span class="od-muted">Not set</span>' ?></dd>
-        </div>
-        <div class="od-row">
-          <dt>Tracking</dt>
-          <dd><?= $tracking !== '' ? $h($tracking) : '<span class="od-muted">Not set</span>' ?></dd>
-        </div>
-        <div class="od-row">
-          <dt>Payout</dt>
-          <dd><?= $h($payoutLabel) ?> · <?= $h($payoutStatus) ?></dd>
-        </div>
       </dl>
+      <form method="post" action="order_details.php?id=<?= (int)$orderId ?>&amp;embed=1" class="od-fulfill-form">
+        <input type="hidden" name="od_fulfill_action" value="1">
+        <input type="hidden" name="order_id" value="<?= (int)$orderId ?>">
+        <input type="hidden" name="embed" value="1">
+        <input type="hidden" name="status" value="<?= $h(strtolower((string)($order['status'] ?? 'shipped'))) ?>">
+        <input type="hidden" name="seller_notes" value="<?= $h($sellerNotes) ?>">
+        <dl class="od-kv">
+          <div class="od-row">
+            <dt>Carrier</dt>
+            <dd><input type="text" name="carrier" value="<?= $h($carrier) ?>" placeholder="e.g. UPS, FedEx, USPS" autocomplete="off"></dd>
+          </div>
+          <div class="od-row">
+            <dt>Tracking</dt>
+            <dd><input type="text" name="tracking_number" value="<?= $h($tracking) ?>" placeholder="Tracking #" autocomplete="off"></dd>
+          </div>
+          <div class="od-row">
+            <dt>Buyer service fee</dt>
+            <dd><?= $buyerServiceFeeCents > 0 ? $h($buyerServiceFeeLabel) . ' <span class="od-muted">(paid to Admin)</span>' : '<span class="od-muted">$0.00</span>' ?></dd>
+          </div>
+          <div class="od-row">
+            <dt>Seller fees</dt>
+            <dd><?= $sellerFeeCents > 0 ? $h($sellerFeeLabel) . ' <span class="od-muted">(referral / platform)</span>' : '<span class="od-muted">Not set</span>' ?></dd>
+          </div>
+          <div class="od-row">
+            <dt>Payout</dt>
+            <dd><?= $h($payoutLabel) ?> · <?= $h($payoutStatus) ?></dd>
+          </div>
+        </dl>
+        <button type="submit" class="od-btn od-btn-primary">Save carrier &amp; tracking</button>
+        <p class="od-hint">Enter both to mark the order shipping and notify the customer.</p>
+      </form>
     </section>
 
     <section class="od-section">

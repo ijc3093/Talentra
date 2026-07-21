@@ -197,14 +197,27 @@ $buyerAddress = $notFound ? '' : trim((string)($order['delivery_address'] ?? '')
 $buyerName = $notFound ? '' : trim((string)($order['buyer_name'] ?? ''));
 $shippingLines = $notFound ? [] : order_detail_shipping_lines($buyerName, $buyerAddress);
 $currency = $notFound ? 'USD' : (string)($order['currency'] ?? 'USD');
-$subtotalCents = $notFound ? 0 : (int)($order['unit_price_cents'] ?? 0) * $qty;
-$taxCents = $notFound ? 0 : (int)($order['tax_cents'] ?? 0);
+$subtotalCents = $notFound ? 0 : max(0, ((int)($order['unit_price_cents'] ?? 0) * $qty) - (int)($order['discount_cents'] ?? 0));
+$taxCents = $notFound ? 0 : max(0, (int)($order['tax_cents'] ?? 0));
+$shippingCents = $notFound ? 0 : max(0, (int)($order['shipping_fee_cents'] ?? 0));
+$serviceFeeCents = $notFound ? 0 : max(0, (int)($order['service_fee_cents'] ?? 0));
 $totalCents = $notFound ? 0 : (int)($order['total_cents'] ?? 0);
-$shippingCents = max(0, $totalCents - $subtotalCents - $taxCents);
+if ($serviceFeeCents <= 0 && function_exists('org_shop_buyer_service_fee_cents') && $totalCents > ($subtotalCents + $shippingCents + $taxCents)) {
+    // Older rows may lack the column; infer only when leftover matches the fixed fee.
+    $leftover = max(0, $totalCents - $subtotalCents - $shippingCents - $taxCents);
+    if ($leftover === org_shop_buyer_service_fee_cents()) {
+        $serviceFeeCents = $leftover;
+    }
+}
+if ($taxCents <= 0 && $totalCents > ($subtotalCents + $shippingCents + $serviceFeeCents)) {
+    $taxCents = max(0, $totalCents - $subtotalCents - $shippingCents - $serviceFeeCents);
+}
 $subtotal = $notFound ? '' : org_shop_format_price($subtotalCents, $currency);
 $tax = $notFound ? '' : org_shop_format_price($taxCents, $currency);
+$serviceFee = $notFound ? '' : org_shop_format_price($serviceFeeCents, $currency);
 $shippingPrice = $shippingCents > 0 ? org_shop_format_price($shippingCents, $currency) : 'Free';
 $shippingIsFree = $shippingCents <= 0;
+$total = $notFound ? '' : org_shop_format_price($totalCents, $currency);
 $paymentBrand = $notFound ? ['label' => '', 'icon' => 'pending'] : order_detail_payment_brand($order);
 $paidAt = $notFound ? '' : (string)($order['paid_at'] ?? '');
 $paymentWhen = $paidAt !== '' ? $paidAt : (in_array(strtolower($status), ['paid', 'shipped', 'delivered'], true) ? $createdAt : '');
@@ -626,6 +639,12 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
                 <span>Tax*</span>
                 <span><?= h($tax) ?></span>
               </div>
+              <?php if ($serviceFeeCents > 0): ?>
+              <div class="od-pay-line">
+                <span>Service fee</span>
+                <span><?= h($serviceFee) ?></span>
+              </div>
+              <?php endif; ?>
               <div class="od-pay-line is-total">
                 <span>Order total</span>
                 <span><?= h($total) ?></span>

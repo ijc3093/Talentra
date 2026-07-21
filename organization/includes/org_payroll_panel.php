@@ -34,6 +34,9 @@ $payrollActiveLines = is_array($payrollActiveLines ?? null) ? $payrollActiveLine
 $payrollPeriodHours = is_array($payrollPeriodHours ?? null) ? $payrollPeriodHours : [];
 $payrollPeriodBreakdown = is_array($payrollPeriodBreakdown ?? null) ? $payrollPeriodBreakdown : [];
 $payrollPendingTimecards = is_array($payrollPendingTimecards ?? null) ? $payrollPendingTimecards : [];
+$payrollPendingGroups = function_exists('org_timecard_group_submitted')
+    ? org_timecard_group_submitted($payrollPendingTimecards)
+    : [];
 $payrollApprovedMemberIds = is_array($payrollApprovedMemberIds ?? null) ? array_map('intval', $payrollApprovedMemberIds) : [];
 $payrollOk = (string)($payrollOk ?? '');
 $payrollErr = (string)($payrollErr ?? '');
@@ -122,6 +125,7 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
     return ' data-member="' . $mid . '"'
         . ' data-pay-type="' . $esc($emp['pay_type'] ?? 'salary') . '"'
         . ' data-rate="' . number_format(((int)($emp['hourly_rate_cents'] ?? 0)) / 100, 2, '.', '') . '"'
+        . ' data-weekly-hours="' . number_format((float)($emp['expected_weekly_hours'] ?? 40), 2, '.', '') . '"'
         . ' data-reg-hours="' . number_format(((int)($bd['regular_secs'] ?? 0)) / 3600, 2, '.', '') . '"'
         . ' data-ot-hours="' . number_format(((int)($bd['overtime_secs'] ?? 0)) / 3600, 2, '.', '') . '"'
         . ' data-leave-hours="' . number_format(((int)($bd['paid_leave_secs'] ?? 0)) / 3600, 2, '.', '') . '"'
@@ -135,7 +139,7 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
 ?>
 <style>
   .org-payroll-panel{margin-top:4px;}
-  .org-payroll-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0 18px;}
+  .org-payroll-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:1px 0 5px;}
   .org-payroll-metric{border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:12px 14px;background:var(--card-bg,transparent);}
   .org-payroll-metric strong{display:block;font-size:18px;font-weight:850;line-height:1.2;}
   .org-payroll-metric span{display:block;margin-top:4px;font-size:12px;opacity:.75;}
@@ -163,10 +167,33 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
   .org-payroll-detail .org-payroll-card-head{ position:sticky; top:0; z-index:2; background:var(--msb-palette-bg, var(--card-bg, #171d24)); }
 
   /* Time card approvals: box + its title stay; only the rows scroll inside it. */
-  .org-payroll-approvals{ display:flex; flex-direction:column; max-height:34vh; }
+  .org-payroll-approvals{ display:flex; flex-direction:column; max-height:42vh; }
   .org-payroll-approvals > .org-payroll-card-head{ flex:0 0 auto; }
   .org-payroll-approvals > .org-payroll-card-body{ flex:1 1 auto; min-height:0; overflow-y:auto; }
   .org-payroll-approvals .org-payroll-table thead th{ position:sticky; top:0; z-index:1; background:var(--msb-palette-bg, var(--card-bg, #171d24)); }
+  .org-payroll-tc-groups{display:flex;flex-direction:column;gap:12px;}
+  .org-payroll-tc-group{
+    border:1px solid rgba(148,163,184,.4);border-radius:8px;overflow:hidden;
+    background:rgba(148,163,184,.04);
+  }
+  .org-payroll-tc-group + .org-payroll-tc-group{margin-top:2px;}
+  .org-payroll-tc-group-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.28);
+    background:rgba(59,130,246,.1);
+  }
+  .org-payroll-tc-group-head strong{font-size:14px;font-weight:850;}
+  .org-payroll-tc-group-meta{font-size:12px;opacity:.8;margin-top:2px;}
+  .org-payroll-tc-group-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .org-payroll-tc-day{padding:8px 12px 10px;border-top:1px dashed rgba(148,163,184,.28);}
+  .org-payroll-tc-day:first-of-type{border-top:0;}
+  .org-payroll-tc-day-head{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    margin:0 0 6px;font-size:12px;font-weight:800;
+  }
+  .org-payroll-tc-day-head span{font-weight:600;opacity:.75;}
+  .org-payroll-tc-group .org-payroll-table{min-width:640px;margin:0;}
+  .org-payroll-tc-group .org-payroll-table td.tc-type-break{opacity:.85;font-style:italic;}
   .org-payroll-help{font-size:12px;line-height:1.55;opacity:.85;margin:0 0 12px;}
   .org-payroll-help strong{font-weight:800;}
   .org-payroll-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -203,7 +230,19 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
   .org-payroll-hint{display:block;margin-top:3px;font-size:10px;line-height:1.35;opacity:.75;}
   .org-payroll-inputs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
   .org-payroll-inputs .with-hint small{display:block;font-size:10px;opacity:.6;margin-top:2px;}
-  .org-payroll-topline{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;align-items:end;}
+  .org-payroll-topline{display:grid;grid-template-columns:2fr 1.2fr auto;gap:8px;align-items:end;}
+  .org-payroll-topline-save{min-width:88px;}
+  .org-payroll-perhour{
+    margin:10px 0 12px;padding:12px;border:1px solid rgba(59,130,246,.35);border-radius:8px;
+    background:rgba(59,130,246,.04);
+  }
+  .org-payroll-perhour h6{margin:0 0 4px;font-size:12px;font-weight:850;}
+  .org-payroll-perhour > p{margin:0 0 10px;font-size:11px;line-height:1.35;opacity:.8;}
+  .org-payroll-perhour-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;}
+  .org-payroll-perhour-grid label{display:block;font-size:11px;font-weight:700;margin-bottom:2px;opacity:.8;}
+  @media (max-width:700px){
+    .org-payroll-perhour-grid{grid-template-columns:1fr;}
+  }
   .org-payroll-totals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px;}
   .org-payroll-total{border:1px solid rgba(148,163,184,.3);border-radius:6px;padding:8px 10px;}
   .org-payroll-total span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;opacity:.7;}
@@ -275,57 +314,120 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
     </div>
     <div class="org-payroll-card-body">
       <p class="org-payroll-help">
-        When an employee taps <strong>Submit</strong> on the <a href="sales_management.php#timecard">Time card</a>, their hours land here as
-        <strong>Pending</strong>. Approve them and those hours flow into the employee’s Gross Pay; the Time card status turns
-        <strong>Approved</strong>. Rejected entries go back to the employee to fix and resubmit.
+        When a staff member or manager taps <strong>Submit</strong> on the <a href="sales_management.php#timecard">Time card</a>, their hours land here as
+        <strong>Pending</strong>, grouped by person and by day (Regular, Break, and other types for the same day stay together).
+        Each employee is in a separate block so reviews stay clear. Approve them and those hours flow into Gross Pay (and their <a href="account.php">Account</a>);
+        the Time card status turns <strong>Approved</strong>. Their name then appears under Employee below.
+        Rejected entries go back to fix and resubmit.
       </p>
-      <?php if (!$payrollPendingTimecards): ?>
+      <?php if (!$payrollPendingGroups): ?>
         <div class="org-payroll-empty">No time cards waiting for approval.</div>
       <?php else: ?>
-        <div class="org-payroll-table-wrap">
-          <table class="org-payroll-table" style="min-width:720px;">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Type</th>
-                <th>Date</th>
-                <th class="num">Hours</th>
-                <th>Note</th>
-                <th>Review</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($payrollPendingTimecards as $tc):
-                $tcId = (int)($tc['id'] ?? 0);
-                $tcSecs = (int)($tc['worked_seconds'] ?? 0);
-                $tcType = function_exists('org_timecard_entry_type_label')
-                    ? org_timecard_entry_type_label((string)($tc['entry_type'] ?? 'regular'))
-                    : ucfirst((string)($tc['entry_type'] ?? 'regular'));
-                $tcDate = (string)($tc['clock_in'] ?? '');
-                $tcDate = $tcDate !== '' ? date('M j, Y', strtotime($tcDate)) : '';
+        <div class="org-payroll-tc-groups">
+          <?php foreach ($payrollPendingGroups as $group):
+            $gMid = (int)($group['org_member_id'] ?? 0);
+            $gName = (string)($group['employee_name'] ?? 'Employee');
+            $gRole = trim((string)($group['employee_role'] ?? ''));
+            $gCount = (int)($group['entry_count'] ?? 0);
+            $gHours = number_format(((int)($group['total_seconds'] ?? 0)) / 3600, 2);
+            $gDays = is_array($group['days'] ?? null) ? $group['days'] : [];
+          ?>
+            <section class="org-payroll-tc-group" aria-label="<?= h($gName) ?> time cards">
+              <div class="org-payroll-tc-group-head">
+                <div>
+                  <strong><?= h($gName) ?></strong>
+                  <?php if ($gRole !== ''): ?>
+                    <span class="org-payroll-note" style="margin-left:6px;">(<?= h($gRole) ?>)</span>
+                  <?php endif; ?>
+                  <div class="org-payroll-tc-group-meta">
+                    <?= (int)$gCount ?> entr<?= $gCount === 1 ? 'y' : 'ies' ?>
+                    · <?= h($gHours) ?> hrs total
+                    · <?= count($gDays) ?> day<?= count($gDays) === 1 ? '' : 's' ?>
+                  </div>
+                </div>
+                <?php if ($gMid > 0): ?>
+                  <div class="org-payroll-tc-group-actions">
+                    <form method="post" action="<?= h($payrollFormAction) ?>#payroll" style="margin:0;" onsubmit="return confirm('Approve all pending time cards for <?= h($gName) ?>?');">
+                      <input type="hidden" name="payroll_action" value="timecard_approve_member">
+                      <input type="hidden" name="org_member_id" value="<?= $gMid ?>">
+                      <button type="submit" class="btn btn-success btn-sm">Approve <?= h($gName) ?></button>
+                    </form>
+                    <form method="post" action="<?= h($payrollFormAction) ?>#payroll" style="margin:0;" onsubmit="return confirm('Reject all pending time cards for <?= h($gName) ?>?');">
+                      <input type="hidden" name="payroll_action" value="timecard_reject_member">
+                      <input type="hidden" name="org_member_id" value="<?= $gMid ?>">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">Reject all</button>
+                    </form>
+                  </div>
+                <?php endif; ?>
+              </div>
+              <?php foreach ($gDays as $day):
+                $dayLabel = (string)($day['date_label'] ?? '');
+                $dayHours = number_format(((int)($day['total_seconds'] ?? 0)) / 3600, 2);
+                $dayEntries = is_array($day['entries'] ?? null) ? $day['entries'] : [];
               ?>
-                <tr>
-                  <td><strong><?= h((string)($tc['employee_name'] ?? 'Employee')) ?></strong></td>
-                  <td><?= h($tcType) ?></td>
-                  <td><?= h($tcDate) ?></td>
-                  <td class="num"><?= h(number_format($tcSecs / 3600, 2)) ?></td>
-                  <td><?= h((string)($tc['note'] ?? '')) ?></td>
-                  <td style="display:flex;gap:6px;">
-                    <form method="post" action="<?= h($payrollFormAction) ?>#payroll" style="margin:0;">
-                      <input type="hidden" name="payroll_action" value="timecard_approve">
-                      <input type="hidden" name="entry_id" value="<?= $tcId ?>">
-                      <button type="submit" class="btn btn-success btn-sm">Approve</button>
-                    </form>
-                    <form method="post" action="<?= h($payrollFormAction) ?>#payroll" style="margin:0;">
-                      <input type="hidden" name="payroll_action" value="timecard_reject">
-                      <input type="hidden" name="entry_id" value="<?= $tcId ?>">
-                      <button type="submit" class="btn btn-outline-danger btn-sm">Reject</button>
-                    </form>
-                  </td>
-                </tr>
+                <div class="org-payroll-tc-day">
+                  <div class="org-payroll-tc-day-head">
+                    <strong><?= h($dayLabel) ?></strong>
+                    <span><?= h($dayHours) ?> hrs · <?= count($dayEntries) ?> type<?= count($dayEntries) === 1 ? '' : 's' ?></span>
+                  </div>
+                  <div class="org-payroll-table-wrap">
+                    <table class="org-payroll-table">
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Time</th>
+                          <th class="num">Hours</th>
+                          <th>Note</th>
+                          <th>Review</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <?php foreach ($dayEntries as $tc):
+                          $tcId = (int)($tc['id'] ?? 0);
+                          $tcSecs = (int)($tc['worked_seconds'] ?? 0);
+                          $tcTypeRaw = strtolower((string)($tc['entry_type'] ?? 'regular'));
+                          $tcType = function_exists('org_timecard_entry_type_label')
+                              ? org_timecard_entry_type_label($tcTypeRaw)
+                              : ucfirst($tcTypeRaw);
+                          $tcUnpaid = function_exists('org_timecard_is_unpaid_type') && org_timecard_is_unpaid_type($tcTypeRaw);
+                          $cin = (string)($tc['clock_in'] ?? '');
+                          $cout = (string)($tc['clock_out'] ?? '');
+                          $timeLabel = '';
+                          if ($cin !== '') {
+                              $timeLabel = date('g:i A', strtotime($cin));
+                              if ($cout !== '') {
+                                  $timeLabel .= ' – ' . date('g:i A', strtotime($cout));
+                              }
+                          }
+                        ?>
+                          <tr>
+                            <td class="<?= $tcTypeRaw === 'break' ? 'tc-type-break' : '' ?>">
+                              <?= h($tcType) ?><?= $tcUnpaid ? ' <span class="org-payroll-note">(unpaid)</span>' : '' ?>
+                            </td>
+                            <td><?= h($timeLabel) ?></td>
+                            <td class="num"><?= h(number_format($tcSecs / 3600, 2)) ?></td>
+                            <td><?= h((string)($tc['note'] ?? '')) ?></td>
+                            <td style="display:flex;gap:6px;">
+                              <form method="post" action="<?= h($payrollFormAction) ?>#payroll" style="margin:0;">
+                                <input type="hidden" name="payroll_action" value="timecard_approve">
+                                <input type="hidden" name="entry_id" value="<?= $tcId ?>">
+                                <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                              </form>
+                              <form method="post" action="<?= h($payrollFormAction) ?>#payroll" style="margin:0;">
+                                <input type="hidden" name="payroll_action" value="timecard_reject">
+                                <input type="hidden" name="entry_id" value="<?= $tcId ?>">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Reject</button>
+                              </form>
+                            </td>
+                          </tr>
+                        <?php endforeach; ?>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               <?php endforeach; ?>
-            </tbody>
-          </table>
+            </section>
+          <?php endforeach; ?>
         </div>
       <?php endif; ?>
     </div>
@@ -346,20 +448,22 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
             <div class="full">
               <label for="payrollRunMember">Employee</label>
               <select class="form-control form-control-sm" id="payrollRunMember" name="run_member_id">
-                <option value="0" data-freq="">All employees (with approved time cards)</option>
+                <option value="0" data-freq="">All (staff &amp; managers with unpaid approved time cards)</option>
                 <?php foreach ($payrollRunEmployees as $emp):
                   $mid = (int)($emp['org_member_id'] ?? 0);
                   if ($mid <= 0) {
                       continue;
                   }
-                  $ename = trim((string)($emp['name'] ?? 'Employee'));
+                  $ename = trim((string)($emp['name'] ?? 'Team member'));
                   $erole = (string)($emp['member_type'] ?? '');
                 ?>
                   <option value="<?= $mid ?>" data-freq="<?= h((string)($emp['pay_frequency'] ?? 'monthly')) ?>"><?= h($ename) ?><?= $erole !== '' ? ' (' . h($erole) . ')' : '' ?></option>
                 <?php endforeach; ?>
               </select>
               <?php if (!$payrollRunEmployees): ?>
-                <p class="org-payroll-note" style="margin-top:6px;">No approved time cards yet. Approve an employee's time card above and their name shows up here.</p>
+                <p class="org-payroll-note" style="margin-top:6px;">No one waiting for a pay run. Approve a staff or manager time card above to add a name here. After you Approve payroll, that name leaves this list until they have new approved hours.</p>
+              <?php else: ?>
+                <p class="org-payroll-note" style="margin-top:6px;">Select a staff member or manager with approved time cards, then Start pay run. Approving payroll removes them from this list (hours are compensated and do not return).</p>
               <?php endif; ?>
             </div>
             <div class="full">
@@ -447,6 +551,12 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
                   $lineRegSecs = max(0, $lineSecs - $lineOtSecs);
                   $lineRate = (int)($line['hourly_rate_cents'] ?? 0);
                   $lineId = (int)($line['id'] ?? 0);
+                  $lineMid = (int)($line['org_member_id'] ?? 0);
+                  $lineWeekHours = (float)(($payrollEmpById[$lineMid]['expected_weekly_hours'] ?? 40));
+                  if ($lineWeekHours <= 0) {
+                      $lineWeekHours = 40.0;
+                  }
+                  $lineWeekMaxCents = $lineRate > 0 ? (int)round($lineRate * $lineWeekHours) : 0;
                 ?>
                   <tr>
                     <td>
@@ -455,7 +565,15 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
                     </td>
                     <td class="num"><?= $lineRegSecs > 0 ? h(number_format($lineRegSecs / 3600, 2)) : '—' ?></td>
                     <td class="num"><?= $lineOtSecs > 0 ? h(number_format($lineOtSecs / 3600, 2)) : '—' ?></td>
-                    <td class="num"><?= $lineRate > 0 ? h(org_payroll_format_cents($lineRate)) . '/hr' : '—' ?></td>
+                    <td class="num">
+                      <?= $lineRate > 0 ? h(org_payroll_format_cents($lineRate)) . '/hr' : '—' ?>
+                      <?php if ($lineWeekMaxCents > 0): ?>
+                        <div class="org-payroll-note" style="margin-top:2px;">
+                          Week max <?= h(org_payroll_format_cents($lineWeekMaxCents)) ?>
+                          · <?= h(rtrim(rtrim(number_format($lineWeekHours, 2), '0'), '.')) ?> hrs
+                        </div>
+                      <?php endif; ?>
+                    </td>
                     <td class="num"><?= h(org_payroll_format_cents((int)($line['gross_cents'] ?? 0))) ?></td>
                     <td class="num"><?= h(org_payroll_format_cents((int)($line['deductions_cents'] ?? 0))) ?></td>
                     <td class="num"><?= h(org_payroll_format_cents((int)($line['net_cents'] ?? 0))) ?></td>
@@ -506,14 +624,34 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
                   <input class="form-control form-control-sm" type="text" id="payrollMemberName" readonly value="" placeholder="Click “Edit” on a row above">
                 </div>
                 <div>
-                  <label for="payrollRate">Hourly rate</label>
-                  <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="payrollRate" name="hourly_rate" placeholder="0.00" value="0">
-                </div>
-                <div>
-                  <label>Hours (approved)</label>
+                  <label>Hours (approved this period)</label>
                   <input class="form-control form-control-sm" type="text" id="payrollHoursHint" readonly value="—">
                 </div>
+                <div class="org-payroll-topline-save">
+                  <label>&nbsp;</label>
+                  <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Save</button>
+                </div>
               </div>
+
+              <div class="org-payroll-perhour" id="orgPayrollPerHour">
+                <h6>Per hour work</h6>
+                <p>Same as Create Staff — set <strong>Per hour rate</strong> and <strong>hours per week</strong>. Week max = rate × hours (Time card income check).</p>
+                <div class="org-payroll-perhour-grid">
+                  <div>
+                    <label for="payrollRate">Per hour rate ($/hr)</label>
+                    <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="payrollRate" name="hourly_rate" placeholder="e.g. 35.00" value="0">
+                  </div>
+                  <div>
+                    <label for="payrollWeeklyHours">Hours per week</label>
+                    <input class="form-control form-control-sm" type="number" step="0.25" min="0.25" max="168" id="payrollWeeklyHours" name="weekly_hours" placeholder="e.g. 40" value="40">
+                  </div>
+                  <div>
+                    <label for="payrollWeekMax">Week max income</label>
+                    <input class="form-control form-control-sm" type="text" id="payrollWeekMax" readonly value="—" style="font-weight:800;">
+                  </div>
+                </div>
+              </div>
+              <p class="org-payroll-note" style="margin:0 0 10px;">After changing Per hour work, click <strong>Save</strong> above (or <strong>Save employee line</strong> at the bottom).</p>
 
               <div class="org-payroll-fieldset">
                 <h5>Gross pay (Step 7-8)</h5>
@@ -653,6 +791,8 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
     var hidden = document.getElementById('payrollMemberId');
     var nameField = document.getElementById('payrollMemberName');
     var rate = document.getElementById('payrollRate');
+    var weeklyHours = document.getElementById('payrollWeeklyHours');
+    var weekMax = document.getElementById('payrollWeekMax');
     var hoursHint = document.getElementById('payrollHoursHint');
     var pg = Array.prototype.slice.call(form.querySelectorAll('.pg'));
     var pd = Array.prototype.slice.call(form.querySelectorAll('.pd'));
@@ -661,6 +801,18 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
     var ot = document.getElementById('pg_overtime');
     var vac = document.getElementById('pg_vacation');
     var etaxRadios = form.querySelectorAll('input[name="etax_mode"]');
+
+    function syncWeekMax() {
+      if (!weekMax) return;
+      var r = num(rate && rate.value);
+      var h = num(weeklyHours && weeklyHours.value);
+      if (!(h > 0)) h = 40;
+      if (!(r > 0)) {
+        weekMax.value = '—';
+        return;
+      }
+      weekMax.value = money(r * h) + ' / week';
+    }
 
     function etaxManual() {
       var v = form.querySelector('input[name="etax_mode"]:checked');
@@ -707,6 +859,11 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
       if (hidden) hidden.value = el.getAttribute('data-member') || '';
       if (nameField) nameField.value = el.getAttribute('data-name') || '';
       if (rate) rate.value = r.toFixed(2);
+      if (weeklyHours) {
+        var wh = num(el.getAttribute('data-weekly-hours'));
+        weeklyHours.value = (wh > 0 ? wh : 40).toFixed(2);
+      }
+      syncWeekMax();
       if (hoursHint) hoursHint.value = regH.toFixed(2) + ' reg · ' + otH.toFixed(2) + ' OT · ' + leaveH.toFixed(2) + ' leave';
       if (payType === 'hourly' && r > 0) {
         if (reg) reg.value = (regH * r).toFixed(2);
@@ -774,6 +931,9 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
     pg.concat(pd).forEach(function (i) { i.addEventListener('input', recompute); });
     Object.keys(pe).forEach(function (k) { if (pe[k]) pe[k].addEventListener('input', recompute); });
     Array.prototype.forEach.call(etaxRadios, function (r) { r.addEventListener('change', setEtaxReadonly); });
+    if (rate) rate.addEventListener('input', syncWeekMax);
+    if (weeklyHours) weeklyHours.addEventListener('input', syncWeekMax);
+    syncWeekMax();
     setEtaxReadonly();
   })();
 

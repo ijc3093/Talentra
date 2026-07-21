@@ -44,6 +44,123 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
   padding-bottom: 28px;
 }
 
+.pt-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 14px;
+  align-items: start;
+}
+
+.pt-card-main {
+  min-width: 0;
+}
+
+.pt-categories {
+  padding: 12px 12px 14px;
+  position: sticky;
+  top: 12px;
+}
+
+.pt-categories-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pt-categories-head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 850;
+  color: var(--pt-ink);
+}
+
+.pt-cat-all {
+  border: 1px solid var(--pt-line);
+  background: transparent;
+  color: var(--pt-muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pt-cat-all.is-active,
+.pt-cat-item.is-active {
+  border-color: var(--pt-accent);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--pt-accent-deep);
+}
+
+.pt-categories-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pt-muted);
+  line-height: 1.45;
+}
+
+.pt-cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+
+.pt-cat-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-bg);
+  color: var(--pt-ink);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pt-cat-item:hover {
+  border-color: var(--pt-accent);
+}
+
+.pt-cat-name {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.pt-cat-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pt-muted);
+}
+
+.pt-cat-meta {
+  font-size: 11px;
+  color: var(--pt-muted);
+  margin-top: 2px;
+}
+
+@media (max-width: 980px) {
+  .pt-layout {
+    grid-template-columns: 1fr;
+  }
+  .pt-categories {
+    position: static;
+    order: -1;
+  }
+  .pt-cat-list {
+    max-height: 220px;
+  }
+}
+
 .pt-head {
   display: flex;
   align-items: flex-start;
@@ -148,27 +265,31 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 .pt-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 640px;
+  table-layout: auto;
 }
 
 .pt-table thead th {
-  padding: 14px 16px;
+  padding: 6px 8px;
   text-align: left;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--pt-muted);
   border-bottom: 1px solid var(--pt-line);
   background: var(--pt-bg);
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .pt-table tbody td {
-  padding: 14px 16px;
+  padding: 6px 8px;
   vertical-align: middle;
   border-bottom: 1px solid var(--pt-line);
   color: var(--pt-ink);
-  font-size: 14px;
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .pt-table tbody tr:last-child td {
@@ -180,19 +301,19 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 }
 
 .pt-col-product {
-  min-width: 220px;
+  min-width: 160px;
 }
 
 .pt-col-id {
-  width: 108px;
+  width: 88px;
   white-space: nowrap;
 }
 
 .pt-id-code {
   display: inline-block;
-  padding: 3px 7px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .02em;
   background: rgba(148, 163, 184, .16);
@@ -218,21 +339,135 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 }
 
 .pt-col-actions {
-  min-width: 280px;
+  width: 40px;
+  min-width: 40px;
   text-align: right;
+  vertical-align: middle;
+}
+
+.pt-fries-wrap {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.pt-fries-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pt-ink);
+  cursor: pointer;
+}
+
+.pt-fries-btn:hover,
+.pt-fries-btn:focus,
+.pt-fries-wrap.is-open .pt-fries-btn {
+  background: var(--pt-bg);
+  outline: none;
+}
+
+.pt-fries-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  width: 12px;
+}
+
+.pt-fries-bar {
+  display: block;
+  height: 2px;
+  width: 12px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.pt-fries-bar--short {
+  width: 7px;
+}
+
+.pt-fries-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 9999;
+  min-width: 160px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-surface);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+}
+
+.pt-fries-menu[hidden] {
+  display: none !important;
+}
+
+.pt-fries-form {
+  margin: 0;
+}
+
+.pt-fries-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--pt-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  line-height: 1.25;
+}
+
+.pt-fries-item:hover,
+.pt-fries-item:focus {
+  background: var(--pt-bg);
+  color: var(--pt-ink);
+  text-decoration: none;
+  outline: none;
+}
+
+.pt-fries-item.is-danger {
+  color: #b91c1c;
+}
+
+.pt-fries-item.is-danger:hover,
+.pt-fries-item.is-danger:focus {
+  background: rgba(185, 28, 28, 0.08);
+  color: #991b1b;
+}
+
+.pt-fries-item-meta {
+  font-weight: 600;
+  opacity: 0.8;
+  border-top: 1px solid var(--pt-line);
+  margin-top: 4px;
+  border-radius: 0 0 7px 7px;
 }
 
 .pt-product-cell {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .pt-thumb {
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--pt-bg);
   border: 1px solid var(--pt-line);
   display: flex;
@@ -240,7 +475,7 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
   justify-content: center;
   overflow: hidden;
   color: var(--pt-muted);
-  font-size: 20px;
+  font-size: 14px;
 }
 
 .pt-thumb img {
@@ -251,16 +486,16 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 
 .pt-product-text strong {
   display: block;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   color: var(--pt-ink);
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .pt-product-text span {
   display: block;
-  margin-top: 2px;
-  font-size: 12px;
+  margin-top: 1px;
+  font-size: 10px;
   color: var(--pt-muted);
 }
 
@@ -272,14 +507,35 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 .pt-status {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: lowercase;
   background: #f1f5f9;
   color: #334155;
   border: 1px solid #e2e8f0;
+}
+
+.pt-num {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pt-stock-low-badge {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px !important;
+  border-radius: 999px;
+  background: #dc3545 !important;
+  color: #fff !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1;
 }
 
 .pt-status.is-active {
@@ -435,6 +691,23 @@ html[data-msb-org-light] body.org-app .pt-empty {
 html[data-msb-org-light] body.org-app .pt-action {
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
+}
+
+html[data-msb-org-light] body.org-app .pt-fries-btn {
+  color: #0f172a !important;
+}
+
+html[data-msb-org-light] body.org-app .pt-fries-menu {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-msb-org-light] body.org-app .pt-fries-item {
+  color: #0f172a !important;
+}
+
+html[data-msb-org-light] body.org-app .pt-fries-item.is-danger {
+  color: #b91c1c !important;
 }
 
 html[data-msb-org-light] body.org-app .pt-action:hover {

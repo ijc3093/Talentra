@@ -8,6 +8,9 @@ ini_set('display_errors','1');
 require_once __DIR__ . '/includes/session_org.php';
 require_once __DIR__ . '/includes/org_context.php';
 require_once __DIR__ . '/includes/org_member_address.php';
+require_once __DIR__ . '/includes/org_manager_guard.php';
+
+org_require_manager();
 
 $orgId      = (int)orgActiveOrgId();
 $meMemberId = (int)orgMemberId();
@@ -15,6 +18,17 @@ $meMemberId = (int)orgMemberId();
 // Managers can see everyone's home address so they can mail letters.
 $canSeeHomeAddr = isOrgManager();
 $homeAddrMap    = $canSeeHomeAddr ? org_member_address_map($dbh, $orgId) : [];
+
+// Managers: load pay profiles so Staff / Managers tabs show Per hour work clearly.
+$payByMember = [];
+if ($canSeeHomeAddr) {
+    require_once __DIR__ . '/includes/org_payroll.php';
+    org_payroll_ensure_schema($dbh);
+    foreach (org_payroll_list_employees($dbh, $orgId) as $emp) {
+        $payByMember[(int)($emp['org_member_id'] ?? 0)] = $emp;
+    }
+}
+$staffPayByMember = $payByMember; // keep older name used in Staff tab
 
 if (!function_exists('h')) {
     function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
@@ -321,7 +335,7 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
       opacity: 1 !important;
     }
 
-    /* ✅ Sticky invites header (only inside scroll area) */
+    /* Sticky invites / staff header (only inside scroll area) */
     .rows-scroll table thead th{
       position:sticky;
       top:0;
@@ -334,6 +348,18 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
       background: var(--bg-main, var(--org-surface, var(--msb-palette-bg, #171d24))) !important;
       color: var(--text-primary, var(--org-text, #e8edf5)) !important;
     }
+
+    .staff-roster-note{font-size:12px;opacity:.8;margin:0 0 12px;line-height:1.4;}
+    .staff-roster-table{margin:0;min-width:920px;}
+    .staff-roster-table th,.staff-roster-table td{
+      vertical-align:middle;font-size:12px;white-space:nowrap;
+    }
+    .staff-roster-table .num{text-align:right;font-variant-numeric:tabular-nums;}
+    .staff-roster-name{font-weight:800;margin:0;font-size:13px;}
+    .staff-roster-sub{margin:2px 0 0;font-size:11px;opacity:.72;}
+    .staff-roster-addr{margin:3px 0 0;font-size:11px;opacity:.7;white-space:normal;max-width:220px;}
+    .staff-roster-muted{opacity:.55;}
+    .staff-roster-weekmax{font-weight:800;}
 
     /* Search input box spacing */
     #memberSearch{ height:42px; border-radius:10px; }
@@ -408,6 +434,99 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
             <div class="rows-scroll">
               <?php if (!$managers): ?>
                 <div class="alert alert-info">No managers found in this organization.</div>
+              <?php elseif ($canSeeHomeAddr): ?>
+                <p class="staff-roster-note">
+                  Per hour work for each manager: <strong>rate × hours/week = week max</strong>
+                  (same setup as staff). Open <strong>View</strong> to edit profile, pay, and bank details.
+                </p>
+                <div class="table-responsive" style="margin:0;">
+                  <table class="table table-bordered table-hover staff-roster-table">
+                    <thead class="thead-light">
+                      <tr>
+                        <th>Manager</th>
+                        <th>Role</th>
+                        <th class="num">Per hour rate</th>
+                        <th class="num">Hours/week</th>
+                        <th class="num">Week max</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($managers as $m):
+                        $name = trim((string)$m['fullname']);
+                        if ($name === '') $name = trim((string)$m['username']);
+                        if ($name === '') $name = 'Manager';
+
+                        $rel = trim((string)($m['relationship_label'] ?? ''));
+                        $roleLabel = $rel !== '' ? $rel : 'Manager';
+                        [$presenceLabel, $presenceCls] = fmtPresence($m['last_seen'] ?? null);
+
+                        $mid = (int)($m['member_row_id'] ?? 0);
+                        $pay = $payByMember[$mid] ?? [];
+                        $rateCents = (int)($pay['hourly_rate_cents'] ?? 0);
+                        $weekHours = (float)($pay['expected_weekly_hours'] ?? 40);
+                        if ($weekHours <= 0) {
+                            $weekHours = 40.0;
+                        }
+                        $weekMaxCents = $rateCents > 0 ? (int)round($rateCents * $weekHours) : 0;
+                        $payType = strtolower((string)($pay['pay_type'] ?? 'hourly'));
+
+                        $addrText = '';
+                        $addrRow = $homeAddrMap[$mid] ?? [];
+                        if ($addrRow) {
+                            $addrText = org_member_address_format($addrRow);
+                        }
+                      ?>
+                        <tr>
+                          <td style="white-space:normal;min-width:180px;">
+                            <p class="staff-roster-name"><?= h($name) ?></p>
+                            <?php if (!empty($m['email'])): ?>
+                              <p class="staff-roster-sub"><?= h((string)$m['email']) ?></p>
+                            <?php endif; ?>
+                            <?php if (trim($addrText) !== ''): ?>
+                              <p class="staff-roster-addr"><?= h(str_replace("\n", ', ', $addrText)) ?></p>
+                            <?php else: ?>
+                              <p class="staff-roster-addr staff-roster-muted">No home address</p>
+                            <?php endif; ?>
+                          </td>
+                          <td>
+                            <?= h($roleLabel) ?>
+                            <?php if ($payType !== ''): ?>
+                              <div class="staff-roster-sub"><?= h(ucfirst($payType)) ?></div>
+                            <?php endif; ?>
+                          </td>
+                          <td class="num">
+                            <?php if ($rateCents > 0): ?>
+                              <?= h(org_payroll_format_cents($rateCents)) ?>/hr
+                            <?php else: ?>
+                              <span class="staff-roster-muted">Not set</span>
+                            <?php endif; ?>
+                          </td>
+                          <td class="num">
+                            <?php if ($rateCents > 0): ?>
+                              <?= h(rtrim(rtrim(number_format($weekHours, 2), '0'), '.')) ?> hrs
+                            <?php else: ?>
+                              <span class="staff-roster-muted">—</span>
+                            <?php endif; ?>
+                          </td>
+                          <td class="num">
+                            <?php if ($weekMaxCents > 0): ?>
+                              <span class="staff-roster-weekmax"><?= h(org_payroll_format_cents($weekMaxCents)) ?></span>
+                            <?php else: ?>
+                              <span class="staff-roster-muted">—</span>
+                            <?php endif; ?>
+                          </td>
+                          <td><span class="<?= h($presenceCls) ?>"><?= h($presenceLabel) ?></span></td>
+                          <td style="white-space:nowrap;">
+                            <a class="btn btn-sm btn-primary" href="detail_employee.php?id=<?= (int)$mid ?>">View</a>
+                            <a class="btn btn-sm btn-outline-primary" href="sales_management.php#payroll">Payroll</a>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
               <?php else: ?>
                 <div class="list-group">
                   <?php foreach ($managers as $m): ?>
@@ -420,12 +539,6 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                       $sub = $rel !== '' ? $rel : 'Manager';
 
                       [$presenceLabel, $presenceCls] = fmtPresence($m['last_seen'] ?? null);
-
-                      $addrText = '';
-                      if ($canSeeHomeAddr) {
-                          $addrRow = $homeAddrMap[(int)$m['member_row_id']] ?? [];
-                          if ($addrRow) $addrText = org_member_address_format($addrRow);
-                      }
                     ?>
                     <div class="list-group-item">
                       <div class="member-row">
@@ -434,16 +547,6 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                           <div class="member-meta">
                             <p class="member-name"><?= h($name) ?></p>
                             <p class="member-sub"><?= h($sub) ?><?= !empty($m['email']) ? ' • '.h((string)$m['email']) : '' ?></p>
-                            <?php if ($canSeeHomeAddr): ?>
-                              <p class="member-addr">
-                                <i class="icon ion-ios-email-outline"></i>
-                                <?php if (trim($addrText) !== ''): ?>
-                                  <?= h(str_replace("\n", ", ", $addrText)) ?>
-                                <?php else: ?>
-                                  <span class="member-addr-empty">No home address</span>
-                                <?php endif; ?>
-                              </p>
-                            <?php endif; ?>
                           </div>
                         </div>
                         <span class="<?= h($presenceCls) ?>"><?= h($presenceLabel) ?></span>
@@ -459,7 +562,101 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
           <div class="tab-pane fade <?= $tab==='staff'?'show active':'' ?>">
             <div class="rows-scroll">
               <?php if (!$staff): ?>
-                <div class="alert alert-info">No staff/family members yet.</div>
+                <div class="alert alert-info">No staff/family members yet.<?php if ($canSeeHomeAddr): ?> <a href="create_staff.php">Create Staff</a> to hire someone.<?php endif; ?></div>
+              <?php elseif ($canSeeHomeAddr): ?>
+                <p class="staff-roster-note">
+                  Per hour work for each staff member: <strong>rate × hours/week = week max</strong>
+                  (same setup as Create Staff). Week max drives the Time card income check.
+                  Edit rates in <a href="sales_management.php#payroll">Payroll</a> or when hiring.
+                </p>
+                <div class="table-responsive" style="margin:0;">
+                  <table class="table table-bordered table-hover staff-roster-table">
+                    <thead class="thead-light">
+                      <tr>
+                        <th>Staff</th>
+                        <th>Role</th>
+                        <th class="num">Per hour rate</th>
+                        <th class="num">Hours/week</th>
+                        <th class="num">Week max</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($staff as $s):
+                        $name = trim((string)$s['fullname']);
+                        if ($name === '') $name = trim((string)$s['username']);
+                        if ($name === '') $name = 'Member';
+
+                        $rel = trim((string)($s['relationship_label'] ?? ''));
+                        $roleLabel = $rel !== '' ? $rel : 'Staff';
+                        [$presenceLabel, $presenceCls] = fmtPresence($s['last_seen'] ?? null);
+
+                        $mid = (int)($s['member_row_id'] ?? 0);
+                        $pay = $staffPayByMember[$mid] ?? [];
+                        $rateCents = (int)($pay['hourly_rate_cents'] ?? 0);
+                        $weekHours = (float)($pay['expected_weekly_hours'] ?? 40);
+                        if ($weekHours <= 0) {
+                            $weekHours = 40.0;
+                        }
+                        $weekMaxCents = $rateCents > 0 ? (int)round($rateCents * $weekHours) : 0;
+                        $payType = strtolower((string)($pay['pay_type'] ?? 'hourly'));
+
+                        $addrText = '';
+                        $addrRow = $homeAddrMap[$mid] ?? [];
+                        if ($addrRow) {
+                            $addrText = org_member_address_format($addrRow);
+                        }
+                      ?>
+                        <tr>
+                          <td style="white-space:normal;min-width:180px;">
+                            <p class="staff-roster-name"><?= h($name) ?></p>
+                            <?php if (!empty($s['email'])): ?>
+                              <p class="staff-roster-sub"><?= h((string)$s['email']) ?></p>
+                            <?php endif; ?>
+                            <?php if (trim($addrText) !== ''): ?>
+                              <p class="staff-roster-addr"><?= h(str_replace("\n", ', ', $addrText)) ?></p>
+                            <?php else: ?>
+                              <p class="staff-roster-addr staff-roster-muted">No home address</p>
+                            <?php endif; ?>
+                          </td>
+                          <td>
+                            <?= h($roleLabel) ?>
+                            <?php if ($payType !== ''): ?>
+                              <div class="staff-roster-sub"><?= h(ucfirst($payType)) ?></div>
+                            <?php endif; ?>
+                          </td>
+                          <td class="num">
+                            <?php if ($rateCents > 0): ?>
+                              <?= h(org_payroll_format_cents($rateCents)) ?>/hr
+                            <?php else: ?>
+                              <span class="staff-roster-muted">Not set</span>
+                            <?php endif; ?>
+                          </td>
+                          <td class="num">
+                            <?php if ($rateCents > 0): ?>
+                              <?= h(rtrim(rtrim(number_format($weekHours, 2), '0'), '.')) ?> hrs
+                            <?php else: ?>
+                              <span class="staff-roster-muted">—</span>
+                            <?php endif; ?>
+                          </td>
+                          <td class="num">
+                            <?php if ($weekMaxCents > 0): ?>
+                              <span class="staff-roster-weekmax"><?= h(org_payroll_format_cents($weekMaxCents)) ?></span>
+                            <?php else: ?>
+                              <span class="staff-roster-muted">—</span>
+                            <?php endif; ?>
+                          </td>
+                          <td><span class="<?= h($presenceCls) ?>"><?= h($presenceLabel) ?></span></td>
+                          <td style="white-space:nowrap;">
+                            <a class="btn btn-sm btn-primary" href="detail_employee.php?id=<?= (int)$mid ?>">View</a>
+                            <a class="btn btn-sm btn-outline-primary" href="sales_management.php#payroll">Payroll</a>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
               <?php else: ?>
                 <div class="list-group">
                   <?php foreach ($staff as $s): ?>
@@ -472,12 +669,6 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                       $sub = $rel !== '' ? $rel : 'Staff';
 
                       [$presenceLabel, $presenceCls] = fmtPresence($s['last_seen'] ?? null);
-
-                      $addrText = '';
-                      if ($canSeeHomeAddr) {
-                          $addrRow = $homeAddrMap[(int)$s['member_row_id']] ?? [];
-                          if ($addrRow) $addrText = org_member_address_format($addrRow);
-                      }
                     ?>
                     <div class="list-group-item">
                       <div class="member-row">
@@ -486,16 +677,6 @@ if (!isOrgManager() && $tab === 'invites') $tab = 'managers';
                           <div class="member-meta">
                             <p class="member-name"><?= h($name) ?></p>
                             <p class="member-sub"><?= h($sub) ?><?= !empty($s['email']) ? ' • '.h((string)$s['email']) : '' ?></p>
-                            <?php if ($canSeeHomeAddr): ?>
-                              <p class="member-addr">
-                                <i class="icon ion-ios-email-outline"></i>
-                                <?php if (trim($addrText) !== ''): ?>
-                                  <?= h(str_replace("\n", ", ", $addrText)) ?>
-                                <?php else: ?>
-                                  <span class="member-addr-empty">No home address</span>
-                                <?php endif; ?>
-                              </p>
-                            <?php endif; ?>
                           </div>
                         </div>
                         <span class="<?= h($presenceCls) ?>"><?= h($presenceLabel) ?></span>

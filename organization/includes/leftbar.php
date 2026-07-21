@@ -57,17 +57,18 @@ $salesManagementNav = [
     ['Delivery / Shipping', 'delivery-shipping', 'ion-model-s', '', 'delivery'],
     ['Salespersons', 'salespersons', 'ion-person-stalker', '', ''],
     ['Create New Products', 'products', 'ion-ios-box', '', ''],
-    ['Product Table', 'product-table', 'ion-grid', '', 'products'],
+    ['Inventory', 'inventory', 'ion-grid', '', 'products'],
     ['Orders', 'orders', 'ion-ios-list', '', 'orders'],
     ['Returns & Refunds', 'returns-refunds', 'ion-reply', '', 'returns'],
     ['Notification', 'notification', 'ion-alert-circled', '', 'notification'],
     ['Messages', 'message', 'ion-chatboxes', '', 'messages'],
     ['Invoices', 'invoices', 'ion-card', '', ''],
     ['Discounts & Promotions', 'discounts-promotions', 'ion-pricetag', '', ''],
-    ['Settings', 'settings', 'ion-ios-gear', '', ''],
+    ['Employee detail', 'detail_employee', 'ion-ios-person', '', ''],
     ['Customers', 'customers', 'ion-ios-people', '', 'customers'],
     ['Payments', 'payments', 'ion-cash', '', ''],
     ['Payroll', 'payroll', 'ion-ios-briefcase', '', ''],
+    ['Account', 'account', 'ion-ios-wallet', 'account.php', ''],
     ['Time card', 'timecard', 'ion-ios-clock', '', ''],
     ['Sales reports', 'sales-reports', 'ion-stats-bars', '', ''],
 ];
@@ -333,9 +334,9 @@ $salesNavBadgeHtml = static function (int $count): string {
         </a>
       </li>
       <li class="nav-item">
-        <a href="sales_management.php#settings" class="nav-link">
-          <i class="icon ion-ios-gear"></i>
-          <span>Settings</span>
+        <a href="sales_management.php#detail_employee" class="nav-link" data-sales-nav="detail_employee">
+          <i class="icon ion-ios-person"></i>
+          <span>Employee detail</span>
         </a>
       </li>
       <li class="nav-item">
@@ -355,18 +356,32 @@ $salesNavBadgeHtml = static function (int $count): string {
       </li>
       <?php endif; ?>
 
+      <?php if ($isManager): ?>
       <li class="nav-item">
         <a href="members.php" class="nav-link"<?= org_layout_nav_attrs('members.php') ?>>
           <i class="icon ion-person-stalker"></i>
           <span>Team</span>
         </a>
       </li>
+      <?php endif; ?>
 
       <?php if ($isCommerceSeller): ?>
+      <li class="nav-item">
+        <a href="account.php" class="nav-link"<?= org_layout_nav_attrs('account.php') ?>>
+          <i class="icon ion-ios-wallet"></i>
+          <span>Account</span>
+        </a>
+      </li>
       <li class="nav-item">
         <a href="sales_management.php#timecard" class="nav-link">
           <i class="icon ion-ios-clock"></i>
           <span>Time card</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="<?= $isManager ? 'members.php?tab=managers' : 'detail_employee.php' ?>" class="nav-link"<?= $isManager ? org_layout_nav_attrs('members.php') : org_layout_nav_attrs('detail_employee.php') ?>>
+          <i class="icon ion-ios-person"></i>
+          <span><?= $isManager ? 'Team details' : 'My details' ?></span>
         </a>
       </li>
       <?php endif; ?>

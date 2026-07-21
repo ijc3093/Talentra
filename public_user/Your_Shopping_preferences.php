@@ -352,6 +352,9 @@ foreach ($buyerOrders as $order) {
             'date_sort' => $createdTs ?: 0,
             'currency' => (string)($order['currency'] ?? 'USD'),
             'total_cents' => 0,
+            'shipping_fee_cents' => 0,
+            'tax_cents' => 0,
+            'service_fee_cents' => 0,
             'statuses' => [],
             'receipts' => [],
             'order_codes' => [],
@@ -366,6 +369,9 @@ foreach ($buyerOrders as $order) {
     }
     $g = &$buyerPaymentGroups[$groupKey];
     $g['total_cents'] += (int)($order['total_cents'] ?? 0);
+    $g['shipping_fee_cents'] += max(0, (int)($order['shipping_fee_cents'] ?? 0));
+    $g['tax_cents'] += max(0, (int)($order['tax_cents'] ?? 0));
+    $g['service_fee_cents'] += max(0, (int)($order['service_fee_cents'] ?? 0));
     $orderIdRow = (int)($order['id'] ?? 0);
     if ($orderIdRow > 0 && !in_array($orderIdRow, $g['order_ids'], true)) {
         $g['order_ids'][] = $orderIdRow;
@@ -389,7 +395,16 @@ foreach ($buyerOrders as $order) {
     }
     $qty = max(1, (int)($order['quantity'] ?? 1));
     $title = trim((string)($order['product_title'] ?? '')) ?: 'Product';
-    $lineCents = (int)($order['total_cents'] ?? 0);
+    $shipCents = max(0, (int)($order['shipping_fee_cents'] ?? 0));
+    $taxCents = max(0, (int)($order['tax_cents'] ?? 0));
+    $svcCents = max(0, (int)($order['service_fee_cents'] ?? 0));
+    $lineTotal = (int)($order['total_cents'] ?? 0);
+    $lineCents = max(0, $lineTotal - $shipCents - $taxCents - $svcCents);
+    if ($lineCents <= 0) {
+        $unit = (int)($order['unit_price_cents'] ?? 0);
+        $disc = max(0, (int)($order['discount_cents'] ?? 0));
+        $lineCents = max(0, ($unit * $qty) - $disc);
+    }
     $g['products'][] = [
         'title' => $title,
         'qty' => $qty,
@@ -417,6 +432,16 @@ foreach ($buyerPaymentGroups as &$group) {
         $group['status'] = 'pending';
     }
     $group['total'] = org_shop_format_price((int)$group['total_cents'], (string)$group['currency']);
+    $shipCents = max(0, (int)($group['shipping_fee_cents'] ?? 0));
+    $taxCents = max(0, (int)($group['tax_cents'] ?? 0));
+    $svcCents = max(0, (int)($group['service_fee_cents'] ?? 0));
+    $group['shipping_label'] = $shipCents > 0
+        ? org_shop_format_price($shipCents, (string)$group['currency'])
+        : 'Free';
+    $group['shipping_is_free'] = $shipCents <= 0;
+    $group['tax_label'] = org_shop_format_price($taxCents, (string)$group['currency']);
+    $group['service_fee_label'] = org_shop_format_price($svcCents, (string)$group['currency']);
+    $group['service_fee_cents'] = $svcCents;
     if (count($group['receipts']) === 1) {
         $group['receipt_label'] = $group['receipts'][0];
     } elseif (count($group['receipts']) > 1) {
@@ -509,6 +534,13 @@ foreach ($buyerPaymentGroups as $group) {
         'status' => (string)$group['status'],
         'total_cents' => (int)$group['total_cents'],
         'total' => (string)$group['total'],
+        'shipping_fee_cents' => (int)($group['shipping_fee_cents'] ?? 0),
+        'shipping_label' => (string)($group['shipping_label'] ?? 'Free'),
+        'shipping_is_free' => !empty($group['shipping_is_free']),
+        'tax_cents' => (int)($group['tax_cents'] ?? 0),
+        'tax_label' => (string)($group['tax_label'] ?? '$0.00'),
+        'service_fee_cents' => (int)($group['service_fee_cents'] ?? 0),
+        'service_fee_label' => (string)($group['service_fee_label'] ?? '$0.00'),
         'currency' => (string)$group['currency'],
         'date' => (string)$group['date'],
         'due' => (string)$group['due'],
@@ -523,9 +555,19 @@ foreach ($buyerPaymentGroups as $group) {
 
 $buyerPaymentSelected = $buyerOrderHistoryRows[0] ?? null;
 $buyerOrderHistorySelected = $buyerOrderHistoryRows[0] ?? null;
+$buyerPaymentStatus = 'pending';
+$buyerPaymentTotal = '$0.00';
+$buyerPaymentShipping = 'Free';
+$buyerPaymentShippingFree = true;
+$buyerPaymentTax = '$0.00';
+$buyerPaymentServiceFee = '$0.00';
 if ($buyerPaymentSelected) {
     $buyerPaymentStatus = (string)$buyerPaymentSelected['status'];
     $buyerPaymentTotal = (string)$buyerPaymentSelected['total'];
+    $buyerPaymentShipping = (string)($buyerPaymentSelected['shipping_label'] ?? 'Free');
+    $buyerPaymentShippingFree = !empty($buyerPaymentSelected['shipping_is_free']);
+    $buyerPaymentTax = (string)($buyerPaymentSelected['tax_label'] ?? '$0.00');
+    $buyerPaymentServiceFee = (string)($buyerPaymentSelected['service_fee_label'] ?? '$0.00');
 }
 $buyerOrderHistoryCode = $buyerOrderHistorySelected
     ? (string)$buyerOrderHistorySelected['invoice_label']
@@ -1224,6 +1266,10 @@ if ($buyerOrderHistorySelected) {
                       data-payment-code="<?= h((string)$payRow['invoice_label']) ?>"
                       data-payment-status="<?= h((string)$payRow['status']) ?>"
                       data-payment-total="<?= h((string)$payRow['total']) ?>"
+                      data-payment-shipping="<?= h((string)($payRow['shipping_label'] ?? 'Free')) ?>"
+                      data-payment-shipping-free="<?= !empty($payRow['shipping_is_free']) ? '1' : '0' ?>"
+                      data-payment-tax="<?= h((string)($payRow['tax_label'] ?? '$0.00')) ?>"
+                      data-payment-service-fee="<?= h((string)($payRow['service_fee_label'] ?? '$0.00')) ?>"
                       data-payment-company="<?= h((string)$payRow['company']) ?>"
                       data-payment-date="<?= h((string)$payRow['date']) ?>"
                       data-payment-products="<?= $productsJson ?>"
@@ -1267,8 +1313,9 @@ if ($buyerOrderHistorySelected) {
                         <div class="shop-payment-items-empty">No products in this invoice.</div>
                       <?php endif; ?>
                     </div>
-                    <div class="shop-payment-line"><span>Shipping</span><span class="shop-payment-free">Free</span></div>
-                    <div class="shop-payment-line"><span>Tax*</span><span>$0.00</span></div>
+                    <div class="shop-payment-line"><span>Shipping</span><span data-payment-field="shipping" class="<?= $buyerPaymentShippingFree ? 'shop-payment-free' : '' ?>"><?= h($buyerPaymentShipping) ?></span></div>
+                    <div class="shop-payment-line"><span>Tax*</span><span data-payment-field="tax"><?= h($buyerPaymentTax) ?></span></div>
+                    <div class="shop-payment-line"><span>Service fee</span><span data-payment-field="service_fee"><?= h($buyerPaymentServiceFee) ?></span></div>
                     <div class="shop-payment-line shop-payment-total"><strong>Order total</strong><strong data-payment-field="total"><?= h($buyerPaymentTotal) ?></strong></div>
                     <p class="shop-payment-tax-note">*We're required by law to collect sales tax and applicable fees for certain tax authorities.</p>
                   </div>
@@ -1826,11 +1873,17 @@ document.addEventListener('DOMContentLoaded', function () {
         status: row.getAttribute('data-payment-status') || 'pending',
         amount: row.getAttribute('data-payment-total') || '$0.00',
         total: row.getAttribute('data-payment-total') || '$0.00',
+        shipping: row.getAttribute('data-payment-shipping') || 'Free',
+        tax: row.getAttribute('data-payment-tax') || '$0.00',
+        service_fee: row.getAttribute('data-payment-service-fee') || '$0.00',
         company: row.getAttribute('data-payment-company') || 'Seller'
       };
       Object.keys(values).forEach(function (key) {
         Array.prototype.slice.call(panel.querySelectorAll('[data-payment-field="' + key + '"]')).forEach(function (field) {
           field.textContent = values[key];
+          if (key === 'shipping') {
+            field.classList.toggle('shop-payment-free', row.getAttribute('data-payment-shipping-free') === '1');
+          }
         });
       });
       var products = [];

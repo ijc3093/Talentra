@@ -5,14 +5,110 @@ declare(strict_types=1);
 require_once __DIR__ . '/role_helpers.php';
 require_once __DIR__ . '/app_session_lifetime_load.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-  $bootstrapLoad = __DIR__ . '/admin_linked_bootstrap_load.php';
-  if (is_file($bootstrapLoad)) {
-    require_once $bootstrapLoad;
-    admin_linked_apply_session_cookie_path();
+/** Current admin session cookie name (v2 — avoids clashing with old path-scoped cookies). */
+if (!defined('ADMIN_SESSION_NAME')) {
+  define('ADMIN_SESSION_NAME', 'TALENTRA_ADMIN');
+}
+
+if (!function_exists('admin_expire_old_session_cookies')) {
+  /**
+   * Remove pre-v2 BUSINESS_ONLY_ADMIN cookies that still sit on /myStoryBook or /MyStoryBook.
+   * Those duplicates make PHP pick an empty session and look like an instant sign-out.
+   */
+  function admin_expire_old_session_cookies(): void {
+    static $done = false;
+    if ($done || headers_sent()) {
+      return;
+    }
+    $done = true;
+
+    if (!isset($_COOKIE['BUSINESS_ONLY_ADMIN'])) {
+      return;
+    }
+
+    if (!function_exists('admin_linked_expire_session_cookie_on_paths')) {
+      return;
+    }
+
+    $paths = ['/'];
+    if (function_exists('admin_linked_legacy_session_cookie_paths')) {
+      $paths = array_values(array_unique(array_merge($paths, admin_linked_legacy_session_cookie_paths())));
+    }
+
+    admin_linked_expire_session_cookie_on_paths('BUSINESS_ONLY_ADMIN', $paths);
   }
-  session_name('BUSINESS_ONLY_ADMIN');
-  session_start();
+}
+
+if (!function_exists('admin_emit_session_cookie')) {
+  /**
+   * Force-send the live session cookie. Uses a session cookie (Expires=0 / no Max-Age)
+   * so browsers keep it reliably across refresh; server still enforces the 12h cap.
+   */
+  function admin_emit_session_cookie(): void {
+    if (headers_sent()) {
+      return;
+    }
+    $id = session_id();
+    if ($id === '') {
+      return;
+    }
+    $name = session_name();
+    $params = session_get_cookie_params();
+    $domain = (string)($params['domain'] ?? '');
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+
+    if (PHP_VERSION_ID >= 70300) {
+      setcookie($name, $id, [
+        'expires' => 0,
+        'path' => '/',
+        'domain' => $domain,
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+      ]);
+    } else {
+      setcookie($name, $id, 0, '/', $domain, $secure, true);
+    }
+  }
+}
+
+if (!function_exists('admin_session_bootstrap')) {
+  function admin_session_bootstrap(): void {
+    $bootstrapLoad = __DIR__ . '/admin_linked_bootstrap_load.php';
+    if (is_file($bootstrapLoad)) {
+      require_once $bootstrapLoad;
+    }
+
+    $lifetime = app_session_lifetime_seconds();
+    @ini_set('session.gc_maxlifetime', (string)$lifetime);
+    @ini_set('session.cookie_lifetime', '0');
+    @ini_set('session.use_only_cookies', '1');
+    // Keep strict mode off: a missing session file after GC must not reject the cookie id.
+
+    $savePath = '/Applications/MAMP/tmp/php';
+    if (is_dir($savePath) && is_writable($savePath)) {
+      session_save_path($savePath);
+    }
+
+    session_name(ADMIN_SESSION_NAME);
+    if (function_exists('admin_linked_apply_session_cookie_path')) {
+      admin_linked_apply_session_cookie_path();
+    }
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+      session_start();
+    }
+
+    admin_expire_old_session_cookies();
+  }
+}
+
+if (session_status() === PHP_SESSION_NONE) {
+  admin_session_bootstrap();
+} elseif (session_name() !== ADMIN_SESSION_NAME) {
+  if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+  }
+  admin_session_bootstrap();
 }
 
 if (!function_exists('sendNoCacheHeaders')) {
@@ -28,10 +124,29 @@ if (!function_exists('clearAdminSession')) {
   function clearAdminSession(): void {
     $_SESSION = [];
     if (ini_get("session.use_cookies")) {
-      $params = session_get_cookie_params();
-      setcookie(session_name(), '', time() - 42000, $params['path'] ?? '/', $params['domain'] ?? '', (bool)($params['secure'] ?? false), true);
+      $name = session_name();
+      if (PHP_VERSION_ID >= 70300) {
+        setcookie($name, '', [
+          'expires' => time() - 42000,
+          'path' => '/',
+          'domain' => '',
+          'secure' => false,
+          'httponly' => true,
+          'samesite' => 'Lax',
+        ]);
+      } else {
+        setcookie($name, '', time() - 42000, '/', '', false, true);
+      }
+      if (function_exists('admin_linked_expire_session_cookie_on_paths')
+          && function_exists('admin_linked_legacy_session_cookie_paths')) {
+        $paths = array_values(array_unique(array_merge(['/'], admin_linked_legacy_session_cookie_paths())));
+        admin_linked_expire_session_cookie_on_paths($name, $paths);
+        admin_linked_expire_session_cookie_on_paths('BUSINESS_ONLY_ADMIN', $paths);
+      }
     }
-    session_destroy();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_destroy();
+    }
   }
 }
 
@@ -59,6 +174,15 @@ if (!function_exists('fetchAdminSessionRow')) {
 
 if (!function_exists('requireAdminLogin')) {
   function requireAdminLogin(): void {
+    // After HTML has started, Location redirects cannot work — avoid wiping the session.
+    if (headers_sent()) {
+      if (empty($_SESSION['admin_id']) || empty($_SESSION['userRole'])) {
+        echo '<script>window.location.href="index.php";</script>';
+        exit;
+      }
+      return;
+    }
+
     sendNoCacheHeaders();
 
     if (empty($_SESSION['admin_id']) || empty($_SESSION['userRole'])) {
@@ -70,6 +194,13 @@ if (!function_exists('requireAdminLogin')) {
       clearAdminSession();
       app_session_redirect_with_expired('index.php');
     }
+
+    if (function_exists('app_session_touch_activity')) {
+      app_session_touch_activity();
+    }
+
+    // Refresh cookie so it survives browser refresh.
+    admin_emit_session_cookie();
 
     $adminId = (int)$_SESSION['admin_id'];
     $rawRoleId = (int)$_SESSION['userRole'];
@@ -123,7 +254,10 @@ if (!function_exists('requireAdminLogin')) {
 
 if (!function_exists('setAdminSession')) {
   function setAdminSession(array $admin): void {
-    session_regenerate_id(true);
+    // Keep old session data until the new id is established (avoid refresh races).
+    if (session_status() === PHP_SESSION_ACTIVE) {
+      session_regenerate_id(false);
+    }
 
     $_SESSION['admin_id'] = (int)($admin['idadmin'] ?? 0);
     $_SESSION['admin_login'] = (string)($admin['username'] ?? '');
@@ -132,5 +266,6 @@ if (!function_exists('setAdminSession')) {
     $_SESSION['admin_image'] = (string)($admin['image'] ?? 'default.jpg');
     $_SESSION['admin_friend_code'] = (string)($admin['friend_code'] ?? '');
     app_session_login_mark();
+    admin_emit_session_cookie();
   }
 }

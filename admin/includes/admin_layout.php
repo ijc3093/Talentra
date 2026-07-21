@@ -30,7 +30,7 @@ if (!function_exists('admin_layout_footer_assets')) {
             return;
         }
         $emitted = true;
-        echo '<script src="js/admin-nav.js?v=1" defer></script>' . "\n";
+        // Intentionally no admin-nav.js — use normal full-page link navigation.
     }
 }
 
@@ -52,16 +52,8 @@ if (!function_exists('admin_layout_nav_class')) {
 if (!function_exists('admin_layout_nav_attrs')) {
     function admin_layout_nav_attrs(string $href, bool $enabled = true): string
     {
-        if (!$enabled) {
-            return '';
-        }
-
-        $path = parse_url($href, PHP_URL_PATH) ?: $href;
-        $base = basename($path);
-        if ($base === 'logout.php' || $base === '') {
-            return '';
-        }
-
-        return ' data-admin-nav="1"';
+        // Full page navigation only — do not mark links for AJAX admin-nav.
+        // (SPA nav was dropping the admin session for some pages, e.g. Service Fees.)
+        return '';
     }
 }

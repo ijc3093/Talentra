@@ -53,7 +53,7 @@ function roleIn(string $base, array $list): bool {
           </a>
         </li><!-- nav-item -->
         <?php if ($leftbarLinkedPortals): ?>
-        <li class="nav-item">
+        <!-- <li class="nav-item">
           <a href="<?= htmlspecialchars((string)($leftbarLinkedPortals['personal']['url'] ?? 'open_linked_portal.php?portal=personal'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link" target="_blank" rel="noopener noreferrer">
             <i class="icon ion-ios-person-outline"></i>
             <span>My Personal Feed</span>
@@ -66,7 +66,8 @@ function roleIn(string $base, array $list): bool {
             <i class="icon ion-ios-briefcase-outline"></i>
             <span>My Organization</span>
           </a>
-        </li><!-- nav-item -->
+        </li> -->
+        <!-- nav-item -->
         <?php endif; ?>
         <?php if (roleIs($base,'admin')): ?>
         <li class="nav-item">
@@ -98,6 +99,10 @@ function roleIn(string $base, array $list): bool {
           <a href="org_rent.php" class="<?php echo admin_layout_nav_class('org_rent.php', $currentPage); ?>"<?php echo admin_layout_nav_attrs('org_rent.php'); ?>>
             <i class="icon ion-card"></i>
             <span>Shop Rent</span>
+          </a>
+          <a href="service_fees.php" class="<?php echo admin_layout_nav_class('service_fees.php', $currentPage); ?>"<?php echo admin_layout_nav_attrs('service_fees.php'); ?>>
+            <i class="icon ion-cash"></i>
+            <span>Service Fees</span>
           </a>
           <a href="org_commerce_brands.php" class="<?php echo admin_layout_nav_class('org_commerce_brands.php', $currentPage); ?>"<?php echo admin_layout_nav_attrs('org_commerce_brands.php'); ?>>
             <i class="icon ion-ios-cart"></i>

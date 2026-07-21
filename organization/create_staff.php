@@ -46,18 +46,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pass     = (string)($_POST['password'] ?? '');
 
         // Pay setup (payroll onboarding) captured on the same form.
-        $payType       = (string)($_POST['pay_type'] ?? 'salary');
+        $payType       = (string)($_POST['pay_type'] ?? 'hourly');
         $payFrequency  = (string)($_POST['pay_frequency'] ?? 'monthly');
         $annualSalary  = (string)($_POST['annual_salary'] ?? '0');
         $hourlyRate    = (string)($_POST['hourly_rate'] ?? '0');
+        $weeklyHours   = (string)($_POST['weekly_hours'] ?? '40');
         $taxStatus     = (string)($_POST['tax_status'] ?? 'single');
         $bankName      = trim((string)($_POST['bank_name'] ?? ''));
         $defaultGross  = (string)($_POST['gross'] ?? '0');
         $defaultDed    = (string)($_POST['deductions'] ?? '0');
         $otEligible    = isset($_POST['overtime_eligible']);
+        $hourlyRateCents = org_payroll_money_to_cents($hourlyRate);
+        $weeklyHoursNum = org_payroll_normalize_weekly_hours($weeklyHours);
 
         if ($username === '' || $pass === '') {
             $err = "Username and password required.";
+        } elseif (in_array(strtolower($payType), ['hourly', ''], true) && $hourlyRateCents <= 0) {
+            $err = "Enter a per hour rate greater than zero (used on the Time card and weekly income check).";
         } else {
             // Uniqueness checks
             try {
@@ -164,7 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     org_payroll_money_to_cents($annualSalary),
                                     $taxStatus,
                                     $bankName,
-                                    $otEligible
+                                    $otEligible,
+                                    $weeklyHoursNum
                                 );
                             } catch (Throwable $e) {
                                 // Staff is created; pay setup can still be edited later in Payroll.
@@ -174,6 +180,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'username'=>$username,
                                 'password'=>$pass,
                                 'friend_code'=>$friend,
+                                'hourly_rate' => $hourlyRateCents > 0
+                                    ? org_payroll_format_cents($hourlyRateCents) . '/hr'
+                                    : '',
+                                'weekly_hours' => rtrim(rtrim(number_format($weeklyHoursNum, 2), '0'), '.'),
+                                'week_max' => $hourlyRateCents > 0
+                                    ? org_payroll_format_cents((int)round($hourlyRateCents * $weeklyHoursNum))
+                                    : '',
                             ];
                         } catch (Throwable $e) {
                             if ($dbh->inTransaction()) $dbh->rollBack();
@@ -249,6 +262,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div><strong>Username:</strong> <code><?= h($created['username']) ?></code></div>
                 <div><strong>Password:</strong> <code><?= h($created['password']) ?></code></div>
                 <div><strong>Friend Code:</strong> <code><?= h($created['friend_code']) ?></code></div>
+                <?php if (!empty($created['hourly_rate'])): ?>
+                  <div><strong>Per hour:</strong> <code><?= h((string)$created['hourly_rate']) ?></code>
+                    × <code><?= h((string)($created['weekly_hours'] ?? '40')) ?> hrs</code>
+                    <?php if (!empty($created['week_max'])): ?>
+                      · Week max <code><?= h((string)$created['week_max']) ?></code>
+                    <?php endif; ?>
+                  </div>
+                <?php endif; ?>
                 <small style="opacity:.85;">Staff will be forced to change password on first login. Pay setup was saved — edit it anytime in <a href="sales_management.php#payroll">Payroll</a>, and the employee sees their rate on the <a href="sales_management.php#timecard">Time card</a>.</small>
               </div>
             <?php endif; ?>
@@ -288,23 +309,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   return $cur === $val ? ' selected' : '';
               };
               $otChecked = (!isset($_POST['pay_type']) || isset($_POST['overtime_eligible'])) ? ' checked' : '';
+              $payTypeDefault = 'hourly';
             ?>
             <hr>
             <h5 style="font-weight:850;margin-bottom:4px;">Pay setup (payroll onboarding)</h5>
             <p class="tx-12 tx-color-03" style="margin-bottom:14px;">
-              Record the pay agreement now. For <strong>Salary</strong>, enter the <strong>Annual salary</strong> and pay frequency —
-              per-period Gross is calculated automatically. For <strong>Hourly</strong>, enter the <strong>Hourly rate</strong>; pay runs
-              compute Gross from approved time card hours (Overtime at 1.5× over 40h/week when eligible). The employee sees their
-              rate on the <strong>Time card</strong>.
+              Set how this employee is paid. Enter <strong>Per hour rate</strong> and how many <strong>hours per week</strong>
+              you want to give them. Week max = rate × hours (used on the Time card income check).
             </p>
 
             <div class="row">
               <div class="form-group col-md-6">
                 <label>Pay type</label>
-                <select name="pay_type" class="form-control">
-                  <option value="salary"<?= $sel('pay_type','salary','salary') ?>>Salary</option>
-                  <option value="hourly"<?= $sel('pay_type','hourly','salary') ?>>Hourly</option>
-                  <option value="commission"<?= $sel('pay_type','commission','salary') ?>>Commission</option>
+                <select name="pay_type" id="csPayType" class="form-control">
+                  <option value="hourly"<?= $sel('pay_type','hourly',$payTypeDefault) ?>>Hourly (per hour)</option>
+                  <option value="salary"<?= $sel('pay_type','salary',$payTypeDefault) ?>>Salary</option>
+                  <option value="commission"<?= $sel('pay_type','commission',$payTypeDefault) ?>>Commission</option>
                 </select>
               </div>
               <div class="form-group col-md-6">
@@ -317,14 +337,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               </div>
             </div>
 
-            <div class="row">
+            <div class="card shadow-base mg-b-15" id="csPerHourCard" style="border:1px solid rgba(59,130,246,.35);">
+              <div class="card-body pd-15">
+                <h6 style="font-weight:850;margin:0 0 6px;">Per hour work</h6>
+                <p class="tx-12 tx-color-03 mg-b-10">
+                  Required for hourly staff. Type the hourly rate and the number of hours you want to give this employee each week.
+                </p>
+                <div class="row">
+                  <div class="form-group col-md-4">
+                    <label for="csHourlyRate">Per hour rate ($/hr) <span class="tx-danger">*</span></label>
+                    <div class="input-group">
+                      <div class="input-group-prepend"><span class="input-group-text">$</span></div>
+                      <input type="number" step="0.01" min="0" name="hourly_rate" id="csHourlyRate" class="form-control"
+                        placeholder="e.g. 35.00" value="<?= $pv('hourly_rate','') ?>">
+                      <div class="input-group-append"><span class="input-group-text">/hr</span></div>
+                    </div>
+                  </div>
+                  <div class="form-group col-md-4">
+                    <label for="csWeeklyHours">Hours per week <span class="tx-danger">*</span></label>
+                    <div class="input-group">
+                      <input type="number" step="0.25" min="0.25" max="168" name="weekly_hours" id="csWeeklyHours" class="form-control"
+                        placeholder="e.g. 40" value="<?= $pv('weekly_hours','40') ?>">
+                      <div class="input-group-append"><span class="input-group-text">hrs</span></div>
+                    </div>
+                    <small class="form-text text-muted">Manager chooses hours for this employee</small>
+                  </div>
+                  <div class="form-group col-md-4">
+                    <label>Week max income</label>
+                    <input type="text" class="form-control" id="csWeekMax" readonly value="—" style="font-weight:800;">
+                    <small class="form-text text-muted">Rate × hours you entered</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row" id="csSalaryRow">
               <div class="form-group col-md-6">
                 <label>Annual salary</label>
                 <input type="number" step="0.01" min="0" name="annual_salary" class="form-control" value="<?= $pv('annual_salary','0') ?>">
               </div>
               <div class="form-group col-md-6">
-                <label>Hourly rate</label>
-                <input type="number" step="0.01" min="0" name="hourly_rate" class="form-control" value="<?= $pv('hourly_rate','0') ?>">
+                <label class="tx-color-03">Optional notes</label>
+                <input type="text" class="form-control" disabled value="Salary staff can still have a per hour rate for Time card estimates" style="opacity:.85;">
               </div>
             </div>
 
@@ -356,7 +410,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
               <label style="display:flex;align-items:center;gap:8px;font-weight:700;">
-                <input type="checkbox" name="overtime_eligible" value="1"<?= $otChecked ?>> Overtime eligible
+                <input type="checkbox" name="overtime_eligible" value="1"<?= $otChecked ?>> Overtime eligible (1.5× over 40h/week)
               </label>
             </div>
 
@@ -379,6 +433,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?php include __DIR__ . '/includes/footer.php'; ?>
 
 </div>
+<script>
+(function () {
+  var typeEl = document.getElementById('csPayType');
+  var rateEl = document.getElementById('csHourlyRate');
+  var hoursEl = document.getElementById('csWeeklyHours');
+  var weekEl = document.getElementById('csWeekMax');
+  var salaryRow = document.getElementById('csSalaryRow');
+  if (!typeEl || !rateEl || !weekEl) return;
+
+  function money(n) {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n);
+    } catch (e) {
+      return '$' + n.toFixed(2);
+    }
+  }
+
+  function syncWeekMax() {
+    var rate = parseFloat(String(rateEl.value || '0').replace(/[^0-9.]/g, ''));
+    var hours = parseFloat(String((hoursEl && hoursEl.value) || '40').replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(hours) || hours <= 0) hours = 40;
+    if (!Number.isFinite(rate) || rate <= 0) {
+      weekEl.value = '—';
+      return;
+    }
+    weekEl.value = money(rate * hours) + ' / week';
+  }
+
+  function syncPayType() {
+    var isHourly = String(typeEl.value || '') === 'hourly';
+    rateEl.required = isHourly;
+    if (hoursEl) hoursEl.required = isHourly;
+    if (salaryRow) salaryRow.style.opacity = isHourly ? '0.55' : '1';
+    syncWeekMax();
+  }
+
+  typeEl.addEventListener('change', syncPayType);
+  rateEl.addEventListener('input', syncWeekMax);
+  if (hoursEl) hoursEl.addEventListener('input', syncWeekMax);
+  syncPayType();
+})();
+</script>
 <?php require_once __DIR__ . '/includes/org_layout.php'; org_layout_footer_assets(); ?>
 </body>
 </html>

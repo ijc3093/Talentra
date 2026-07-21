@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Seller profile for sales_management.php#settings.
+ * Seller profile for sales_management.php#detail_employee.
  * Summary cards + modal form opened by "Add or edit address".
  *
  * Expected vars:
@@ -12,7 +12,7 @@ declare(strict_types=1);
  * - string $sellerProfileOk
  * - string $sellerProfileErr
  * - string $sellerProfileFormAction (optional post target)
- * - string $sellerProfileHash (optional, default #settings)
+ * - string $sellerProfileHash (optional, default #detail_employee)
  */
 
 if (!function_exists('h') && function_exists('org_ecommerce_h')) {
@@ -39,7 +39,7 @@ $myHomeText = ($myHomeAddress && function_exists('org_member_address_format'))
     : '';
 $homeModalOpenOnLoad = $homeAddrErr !== '';
 $sellerProfileFormAction = (string)($sellerProfileFormAction ?? '');
-$sellerProfileHash = (string)($sellerProfileHash ?? '#settings');
+$sellerProfileHash = (string)($sellerProfileHash ?? '#detail_employee');
 if ($sellerProfileHash !== '' && $sellerProfileHash[0] !== '#') {
     $sellerProfileHash = '#' . $sellerProfileHash;
 }
@@ -155,15 +155,15 @@ $openModalOnLoad = $sellerProfileErr !== '';
     <button type="button" class="seller-profile-modal-close" data-close-home-addr-modal aria-label="Close">&times;</button>
     <h3 id="homeAddrModalTitle">My home address</h3>
     <p>Your manager uses this to post letters to your home. Only you can edit it.</p>
-    <form method="post" action="sales_management.php#settings">
+    <form method="post" action="sales_management.php#detail_employee">
       <input type="hidden" name="home_addr_action" value="1">
       <div class="form-group">
-        <label for="homeRecipient">Recipient name</label>
+        <label for="homeRecipient">Recipient name (person, not street)</label>
         <input id="homeRecipient" name="recipient_name" class="form-control" maxlength="160" value="<?= h((string)($myHomeAddress['recipient_name'] ?? '')) ?>" placeholder="<?= h($myMemberName) ?>">
       </div>
       <div class="form-group">
-        <label for="homeLine1">Address line 1</label>
-        <input id="homeLine1" name="home_line1" class="form-control" maxlength="200" value="<?= h((string)($myHomeAddress['line1'] ?? '')) ?>" placeholder="123 Main St">
+        <label for="homeLine1">Address line 1 (street) *</label>
+        <input id="homeLine1" name="home_line1" class="form-control" maxlength="200" required value="<?= h((string)($myHomeAddress['line1'] ?? '')) ?>" placeholder="123 Main St">
       </div>
       <div class="form-group">
         <label for="homeLine2">Address line 2</label>
@@ -171,12 +171,12 @@ $openModalOnLoad = $sellerProfileErr !== '';
       </div>
       <div class="row row-sm">
         <div class="col-sm-6 form-group">
-          <label for="homeCity">City</label>
-          <input id="homeCity" name="home_city" class="form-control" maxlength="120" value="<?= h((string)($myHomeAddress['city'] ?? '')) ?>">
+          <label for="homeCity">City *</label>
+          <input id="homeCity" name="home_city" class="form-control" maxlength="120" required value="<?= h((string)($myHomeAddress['city'] ?? '')) ?>">
         </div>
         <div class="col-sm-6 form-group">
-          <label for="homeState">State / Province</label>
-          <input id="homeState" name="home_state" class="form-control" maxlength="120" value="<?= h((string)($myHomeAddress['state'] ?? '')) ?>">
+          <label for="homeState">State / Province *</label>
+          <input id="homeState" name="home_state" class="form-control" maxlength="120" required value="<?= h((string)($myHomeAddress['state'] ?? '')) ?>">
         </div>
       </div>
       <div class="row row-sm">

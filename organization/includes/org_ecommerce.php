@@ -833,7 +833,7 @@ function org_ecommerce_update_fulfillment(
 
     try {
         $prevSt = $dbh->prepare('
-            SELECT status, buyer_user_id, order_code, carrier, tracking_number
+            SELECT status, buyer_user_id, order_code, carrier, tracking_number, seller_notes
             FROM org_orders
             WHERE id = :id AND org_id = :org
             LIMIT 1
@@ -847,25 +847,46 @@ function org_ecommerce_update_fulfillment(
         $buyerUserId = (int)($prev['buyer_user_id'] ?? 0);
         $orderCode = (string)($prev['order_code'] ?? '');
 
+        // Keep existing values when the form field is left blank (avoid wiping on status-only saves).
+        if ($carrier === '') {
+            $carrier = trim((string)($prev['carrier'] ?? ''));
+        }
+        if ($trackingNumber === '') {
+            $trackingNumber = trim((string)($prev['tracking_number'] ?? ''));
+        }
+        if ($sellerNotes === '') {
+            $sellerNotes = trim((string)($prev['seller_notes'] ?? ''));
+        }
+
+        // Unique placeholders required: PDO ATTR_EMULATE_PREPARES=false cannot reuse :st.
         $sql = '
             UPDATE org_orders
-            SET status = :st,
+            SET status = :status,
                 seller_notes = :notes,
                 tracking_number = :track,
                 carrier = :carrier,
                 paid_at = CASE
-                    WHEN :st = \'paid\' AND paid_at IS NULL THEN NOW()
+                    WHEN :status_paid = \'paid\' AND paid_at IS NULL THEN NOW()
                     ELSE paid_at
                 END,
-                shipped_at = CASE WHEN :st = \'shipped\' AND shipped_at IS NULL THEN NOW() ELSE shipped_at END,
-                delivered_at = CASE WHEN :st = \'delivered\' AND delivered_at IS NULL THEN NOW() ELSE delivered_at END,
+                shipped_at = CASE
+                    WHEN :status_ship = \'shipped\' AND shipped_at IS NULL THEN NOW()
+                    ELSE shipped_at
+                END,
+                delivered_at = CASE
+                    WHEN :status_del = \'delivered\' AND delivered_at IS NULL THEN NOW()
+                    ELSE delivered_at
+                END,
                 updated_at = NOW()
             WHERE id = :id AND org_id = :org
             LIMIT 1
         ';
         $st = $dbh->prepare($sql);
         $st->execute([
-            ':st' => $status,
+            ':status' => $status,
+            ':status_paid' => $status,
+            ':status_ship' => $status,
+            ':status_del' => $status,
             ':notes' => $sellerNotes !== '' ? $sellerNotes : null,
             ':track' => $trackingNumber !== '' ? $trackingNumber : null,
             ':carrier' => $carrier !== '' ? $carrier : null,
@@ -897,6 +918,12 @@ function org_ecommerce_update_fulfillment(
             }
             return true;
         }
+        // Paid/shipped orders should always have a receipt (covers test pay → ship path).
+        if (in_array($status, ['shipped', 'delivered'], true)
+            || in_array($prevStatus, ['paid', 'shipped', 'delivered'], true)
+        ) {
+            org_shop_issue_receipt($dbh, $orgId, $orderId);
+        }
         if (in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
             org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
         }
@@ -913,7 +940,61 @@ function org_ecommerce_update_fulfillment(
         }
         return true;
     } catch (Throwable $e) {
+        // Fallback: status + carrier/tracking without CASE reuse (native prepares).
+        try {
+            $up = $dbh->prepare('
+                UPDATE org_orders
+                SET status = :status,
+                    seller_notes = :notes,
+                    tracking_number = :track,
+                    carrier = :carrier,
+                    paid_at = IF(:is_paid = 1 AND paid_at IS NULL, NOW(), paid_at),
+                    shipped_at = IF(:is_ship = 1 AND shipped_at IS NULL, NOW(), shipped_at),
+                    delivered_at = IF(:is_del = 1 AND delivered_at IS NULL, NOW(), delivered_at),
+                    updated_at = NOW()
+                WHERE id = :id AND org_id = :org
+                LIMIT 1
+            ');
+            $up->execute([
+                ':status' => $status,
+                ':notes' => $sellerNotes !== '' ? $sellerNotes : null,
+                ':track' => $trackingNumber !== '' ? $trackingNumber : null,
+                ':carrier' => $carrier !== '' ? $carrier : null,
+                ':is_paid' => $status === 'paid' ? 1 : 0,
+                ':is_ship' => $status === 'shipped' ? 1 : 0,
+                ':is_del' => $status === 'delivered' ? 1 : 0,
+                ':id' => $orderId,
+                ':org' => $orgId,
+            ]);
+            if ($up->rowCount() > 0) {
+                if (in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+                    org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
+                }
+                return true;
+            }
+        } catch (Throwable $e2) {
+            // continue to status-only fallback
+        }
         $ok = org_shop_update_order_status($dbh, $orgId, $orderId, $status, $sellerNotes);
+        if ($ok && ($carrier !== '' || $trackingNumber !== '')) {
+            try {
+                $dbh->prepare('
+                    UPDATE org_orders
+                    SET carrier = :carrier,
+                        tracking_number = :track,
+                        updated_at = NOW()
+                    WHERE id = :id AND org_id = :org
+                    LIMIT 1
+                ')->execute([
+                    ':carrier' => $carrier !== '' ? $carrier : null,
+                    ':track' => $trackingNumber !== '' ? $trackingNumber : null,
+                    ':id' => $orderId,
+                    ':org' => $orgId,
+                ]);
+            } catch (Throwable $e3) {
+                // ignore
+            }
+        }
         if ($ok && in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
             org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
         }

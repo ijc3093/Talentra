@@ -26,10 +26,40 @@ $deliveryOption = trim((string)($_POST['delivery_option'] ?? 'home_delivery'));
 $fulfillmentMethod = trim((string)($_POST['fulfillment_method'] ?? ''));
 $promoCode = trim((string)($_POST['promo_code'] ?? ''));
 $returnProfileId = (int)($_POST['profile_id'] ?? 0);
+$paymentMethod = strtolower(trim((string)($_POST['payment_method'] ?? '')));
+
+/** Parse dollars like "121768.26" or "$121,768.26" into cents. */
+$parseDollarsToCents = static function (string $raw): int {
+    $cleaned = preg_replace('/[^0-9.]/', '', trim($raw)) ?? '';
+    if ($cleaned === '' || $cleaned === '.') {
+        return 0;
+    }
+    if (!is_numeric($cleaned)) {
+        return 0;
+    }
+    return max(0, (int)round(((float)$cleaned) * 100));
+};
+
+$isTestCostPay = ($paymentMethod === 'test_cost');
+$testCostCents = (int)($_POST['test_cost_cents'] ?? 0);
+if ($testCostCents <= 0 && $isTestCostPay) {
+    $testCostCents = $parseDollarsToCents((string)($_POST['test_cost'] ?? ''));
+}
 
 if ($productId <= 0) {
     echo json_encode(['ok' => false, 'message' => 'Invalid product.']);
     exit;
+}
+
+if ($isTestCostPay && $testCostCents <= 0) {
+    echo json_encode(['ok' => false, 'message' => 'Enter a Cost $ amount greater than zero to place this test order.']);
+    exit;
+}
+
+if ($isTestCostPay) {
+    $testNote = 'Test payment Cost $: ' . org_shop_format_price($testCostCents, 'USD')
+        . ' (no real card charged). Seller: confirm and ship.';
+    $buyerNotes = $buyerNotes !== '' ? ($buyerNotes . "\n" . $testNote) : $testNote;
 }
 
 $result = org_shop_create_order(
@@ -56,6 +86,77 @@ $orderId = (int)($result['order_id'] ?? 0);
 $orderCode = (string)($result['order_code'] ?? '');
 $totalCents = (int)($result['total_cents'] ?? 0);
 $currency = (string)($result['currency'] ?? 'USD');
+$orgId = (int)($result['org_id'] ?? 0);
+
+// Test Cost $: override order total and mark paid so Revenue MTD updates
+// without a real card. Marketplace fees (~15%) are seller-paid via apply_order_fees.
+if ($isTestCostPay && $orderId > 0 && $testCostCents > 0) {
+    try {
+        $st = $dbh->prepare("
+            UPDATE org_orders
+            SET total_cents = :total,
+                status = 'paid',
+                paid_at = COALESCE(paid_at, NOW()),
+                payment_method = 'test_cost',
+                payment_reference = :pref,
+                updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ");
+        $st->execute([
+            ':total' => $testCostCents,
+            ':pref' => 'TEST-' . $orderCode,
+            ':id' => $orderId,
+        ]);
+    } catch (Throwable $e) {
+        try {
+            $dbh->prepare("
+                UPDATE org_orders
+                SET total_cents = :total,
+                    status = 'paid',
+                    updated_at = NOW()
+                WHERE id = :id
+                LIMIT 1
+            ")->execute([':total' => $testCostCents, ':id' => $orderId]);
+        } catch (Throwable $e2) {
+            // ignore
+        }
+    }
+    $totalCents = $testCostCents;
+    org_shop_apply_order_fees($dbh, $orderId);
+    if ($orgId > 0) {
+        org_shop_issue_receipt($dbh, $orgId, $orderId, 'test_cost', 'TEST-' . $orderCode);
+    }
+
+    if ($orgId > 0 && function_exists('org_shop_notify_seller_order_status')) {
+        try {
+            org_shop_notify_seller_order_status($dbh, $orgId, $meId, 'paid', [$orderCode]);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    if ($orgId > 0 && function_exists('org_ecommerce_sync_buyer_to_crm')) {
+        try {
+            org_ecommerce_sync_buyer_to_crm($dbh, $orgId, $orderId, 0);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+
+    $totalLabel = org_shop_format_price($totalCents, $currency);
+    echo json_encode([
+        'ok' => true,
+        'stripe' => false,
+        'test_cost' => true,
+        'message' => 'Test order placed. Seller can ship from Orders.',
+        'order_id' => $orderId,
+        'order_code' => $orderCode,
+        'total_cents' => $totalCents,
+        'currency' => $currency,
+    ]);
+    exit;
+}
+
 $totalLabel = org_shop_format_price($totalCents, $currency);
 
 $product = org_shop_get_product($dbh, $productId);

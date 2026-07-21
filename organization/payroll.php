@@ -35,6 +35,11 @@ function payroll_rate_row(array $p): string
     $email = trim((string)($p['email'] ?? ''));
     $payType = strtolower((string)($p['pay_type'] ?? 'salary'));
     $rateCents = (int)($p['hourly_rate_cents'] ?? 0);
+    $weekHours = (float)($p['expected_weekly_hours'] ?? 40);
+    if ($weekHours <= 0) {
+        $weekHours = 40.0;
+    }
+    $weekMaxCents = $rateCents > 0 ? (int)round($rateCents * $weekHours) : 0;
     $freq = function_exists('org_payroll_frequency_label')
         ? org_payroll_frequency_label((string)($p['pay_frequency'] ?? 'monthly'))
         : 'Monthly';
@@ -43,18 +48,31 @@ function payroll_rate_row(array $p): string
     $rateLabel = $rateCents > 0
         ? (org_payroll_format_cents($rateCents) . '/hr')
         : '<span class="pr-muted">Not set</span>';
+    $hoursLabel = $rateCents > 0
+        ? (rtrim(rtrim(number_format($weekHours, 2), '0'), '.') . ' hrs')
+        : '<span class="pr-muted">—</span>';
+    $weekMaxLabel = $weekMaxCents > 0
+        ? org_payroll_format_cents($weekMaxCents)
+        : '<span class="pr-muted">—</span>';
     $payTypeLabel = ucfirst($payType);
     $grossLabel = $payType === 'hourly'
         ? '<span class="pr-muted">by hours</span>'
         : ($grossCents > 0 ? org_payroll_format_cents($grossCents) : '<span class="pr-muted">Not set</span>');
 
+    $viewBtn = '<a class="btn btn-sm btn-primary" href="detail_employee.php?id=' . $mid . '">View</a> ';
+
     return '<tr>'
         . '<td><strong>' . h($name) . '</strong>' . ($email !== '' ? '<div class="pr-sub">' . h($email) . '</div>' : '') . '</td>'
         . '<td>' . h($payTypeLabel) . '</td>'
         . '<td class="num">' . $rateLabel . '</td>'
+        . '<td class="num">' . $hoursLabel . '</td>'
+        . '<td class="num">' . $weekMaxLabel . '</td>'
         . '<td>' . h($freq) . '</td>'
         . '<td class="num">' . $grossLabel . '</td>'
-        . '<td><a class="btn btn-sm btn-outline-primary" href="sales_management.php#payroll">Set rate</a></td>'
+        . '<td style="white-space:nowrap;">'
+        . $viewBtn
+        . '<a class="btn btn-sm btn-outline-primary" href="sales_management.php#payroll">Set rate</a>'
+        . '</td>'
         . '</tr>';
 }
 
@@ -85,7 +103,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
   <div class="pr-head">
     <a href="sales_management.php#payroll" class="tx-12">&larr; Payroll workspace</a>
     <h4>Payroll rates</h4>
-    <p>View the hourly rate and pay setup for managers and employees. Worked hours live on the <a href="sales_management.php#timecard">Time card</a>. Use <strong>Set rate</strong> to edit, or run pay in the <a href="sales_management.php#payroll">Payroll workspace</a>.</p>
+    <p>View Per hour work (rate × hours/week = week max) for managers and employees. Worked hours live on the <a href="sales_management.php#timecard">Time card</a>. Use <strong>Set rate</strong> to edit, or run pay in the <a href="sales_management.php#payroll">Payroll workspace</a>.</p>
   </div>
 
   <div class="pr-card">
@@ -93,11 +111,11 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
     <div class="pr-table-wrap">
       <table class="pr-table">
         <thead>
-          <tr><th>Employee</th><th>Pay type</th><th class="num">Hourly rate</th><th>Frequency</th><th class="num">Default gross</th><th></th></tr>
+          <tr><th>Employee</th><th>Pay type</th><th class="num">Per hour rate</th><th class="num">Hours/week</th><th class="num">Week max</th><th>Frequency</th><th class="num">Default gross</th><th></th></tr>
         </thead>
         <tbody>
           <?php if (!$employees): ?>
-            <tr><td colspan="6" class="pr-empty">No employees yet. <a href="create_staff.php">Hire staff</a> to add them here.</td></tr>
+            <tr><td colspan="8" class="pr-empty">No employees yet. <a href="create_staff.php">Hire staff</a> to add them here.</td></tr>
           <?php else: foreach ($employees as $p): ?>
             <?= payroll_rate_row($p) ?>
           <?php endforeach; endif; ?>
@@ -111,11 +129,11 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
     <div class="pr-table-wrap">
       <table class="pr-table">
         <thead>
-          <tr><th>Manager</th><th>Pay type</th><th class="num">Hourly rate</th><th>Frequency</th><th class="num">Default gross</th><th></th></tr>
+          <tr><th>Manager</th><th>Pay type</th><th class="num">Per hour rate</th><th class="num">Hours/week</th><th class="num">Week max</th><th>Frequency</th><th class="num">Default gross</th><th></th></tr>
         </thead>
         <tbody>
           <?php if (!$managers): ?>
-            <tr><td colspan="6" class="pr-empty">No managers found for this organization.</td></tr>
+            <tr><td colspan="8" class="pr-empty">No managers found for this organization.</td></tr>
           <?php else: foreach ($managers as $p): ?>
             <?= payroll_rate_row($p) ?>
           <?php endforeach; endif; ?>
@@ -124,6 +142,6 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
     </div>
   </div>
 
-  <p class="tx-12 tx-color-03">Hourly rates feed pay runs: Gross Pay = clocked hours × hourly rate. Manage rates and run payroll in the <a href="sales_management.php#payroll">Payroll workspace</a>.</p>
+  <p class="tx-12 tx-color-03">Per hour work feeds Time card estimated earnings and weekly income checks (week max = rate × hours). Pay runs use clocked hours × hourly rate. Manage rates in the <a href="sales_management.php#payroll">Payroll workspace</a> or when you <a href="create_staff.php">hire staff</a>.</p>
 </div>
 <?php org_page_shell_close(); ?>

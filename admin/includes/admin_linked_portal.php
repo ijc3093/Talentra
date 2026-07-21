@@ -105,7 +105,7 @@ function admin_linked_start_public_session(PDO $dbh, int $adminId, string $accou
 
     session_write_close();
 
-    session_name($previousName !== '' ? $previousName : 'BUSINESS_ONLY_ADMIN');
+    session_name($previousName !== '' ? $previousName : (defined('ADMIN_SESSION_NAME') ? ADMIN_SESSION_NAME : 'TALENTRA_ADMIN'));
     if ($previousId !== '') {
         session_id($previousId);
     }
@@ -155,7 +155,7 @@ function admin_linked_start_org_session(PDO $dbh, int $adminId): bool
 
     session_write_close();
 
-    session_name($previousName !== '' ? $previousName : 'BUSINESS_ONLY_ADMIN');
+    session_name($previousName !== '' ? $previousName : (defined('ADMIN_SESSION_NAME') ? ADMIN_SESSION_NAME : 'TALENTRA_ADMIN'));
     if ($previousId !== '') {
         session_id($previousId);
     }

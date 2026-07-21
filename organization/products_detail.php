@@ -26,7 +26,7 @@ $fromSales = ((string)($_GET['from'] ?? '') === 'sales');
 $product = $productId > 0 ? org_shop_get_product($dbh, $productId, $orgId) : null;
 
 if (!$product) {
-    header('Location: ' . ($fromSales ? 'sales_management.php#product-table' : 'product_table.php'));
+    header('Location: ' . ($fromSales ? 'sales_management.php#inventory' : 'product_table.php'));
     exit;
 }
 
@@ -86,7 +86,7 @@ foreach (org_shop_product_gallery_paths($dbh, $product) as $path) {
 }
 
 $sellerPublicInfo = org_shop_seller_pickup_display($dbh, $orgId);
-$backHref = $fromSales ? 'sales_management.php#product-table' : 'product_table.php';
+$backHref = $fromSales ? 'sales_management.php#inventory' : 'product_table.php';
 $editHref = $fromSales
     ? ('sales_management.php?edit=' . $productId . '#products')
     : ('products.php?edit=' . $productId);

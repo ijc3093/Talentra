@@ -49,9 +49,10 @@ $ptShowBack = true;
 $ptDetailBase = 'products_detail.php?id=';
 $ptDetailSuffix = '';
 
-$pageTitle = 'Product table';
+$pageTitle = 'Inventory';
+$ptTitle = 'Inventory';
 require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/product-table.css?v=5">');
+org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/product-table.css?v=9">');
 ?>
 <?php org_page_body_open('product-table-page'); ?>
 <?php require __DIR__ . '/includes/org_product_table_panel.php'; ?>

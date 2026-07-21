@@ -451,7 +451,7 @@ function org_sales_notifications(PDO $dbh, int $orgId): array
                 ? ('Products are now low in stock — ' . (int)$inv['low']
                     . ' product(s) have less than 5 units. Sold-out items leave the public shop automatically. Restock soon.')
                 : ('Inventory needs attention — sold-out items leave the public shop; drafts stay unpublished until activated.'),
-            'action' => 'sales_management.php#product-table',
+            'action' => 'sales_management.php#inventory',
             'count' => max(1, (int)$inv['total']),
             'meta' => $meta,
             'detail' => implode(' · ', $parts),

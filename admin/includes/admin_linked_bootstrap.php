@@ -39,30 +39,115 @@ function admin_linked_absolute_app_url(string $relativePath): string
     return rtrim($base, '/') . '/' . $relativePath;
 }
 
-function admin_linked_apply_session_cookie_path(): void
+/**
+ * Legacy cookie paths that must be expired.
+ * Cookie paths are case-sensitive: /myStoryBook and /MyStoryBook are different to the browser
+ * even when the OS filesystem is not — which caused admin "instant sign-out" on nav.
+ *
+ * @return list<string>
+ */
+function admin_linked_legacy_session_cookie_paths(): array
 {
-    static $applied = false;
-    if ($applied || session_status() === PHP_SESSION_ACTIVE) {
+    $paths = [];
+
+    $fromScript = admin_linked_web_base_path();
+    if ($fromScript !== '' && $fromScript !== '/') {
+        $paths[] = $fromScript;
+        $paths[] = '/' . strtolower(ltrim($fromScript, '/'));
+    }
+
+    $docRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    $appRoot = realpath(dirname(__DIR__, 2));
+    if ($docRoot && $appRoot && strpos($appRoot, $docRoot) === 0) {
+        $rel = str_replace('\\', '/', substr($appRoot, strlen($docRoot)));
+        if ($rel !== '' && $rel !== '/') {
+            if ($rel[0] !== '/') {
+                $rel = '/' . $rel;
+            }
+            $paths[] = $rel;
+            $paths[] = '/' . strtolower(ltrim($rel, '/'));
+            // Common typed variant on macOS/MAMP (folder myStoryBook, URL MyStoryBook).
+            if (preg_match('#^/([a-z])(.*)$#', $rel, $m)) {
+                $paths[] = '/' . strtoupper($m[1]) . $m[2];
+            }
+        }
+    }
+
+    return array_values(array_unique(array_filter($paths, static function ($p) {
+        return is_string($p) && $p !== '' && $p !== '/';
+    })));
+}
+
+function admin_linked_expire_session_cookie_on_paths(string $cookieName, array $paths): void
+{
+    if ($cookieName === '' || headers_sent()) {
         return;
     }
-    $applied = true;
 
-    $path = admin_linked_web_base_path();
-    if ($path === '') {
-        $path = '/';
+    $params = session_get_cookie_params();
+    $domain = (string)($params['domain'] ?? '');
+    $secure = !empty($params['secure']);
+
+    foreach ($paths as $path) {
+        if (!is_string($path) || $path === '') {
+            continue;
+        }
+        // Use header(..., false) so multiple Set-Cookie lines for the same name
+        // (different paths) are kept. setcookie() + session_start() can collapse them.
+        $parts = [
+            rawurlencode($cookieName) . '=deleted',
+            'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+            'Max-Age=0',
+            'Path=' . $path,
+            'HttpOnly',
+            'SameSite=Lax',
+        ];
+        if ($domain !== '') {
+            $parts[] = 'Domain=' . $domain;
+        }
+        if ($secure) {
+            $parts[] = 'Secure';
+        }
+        header('Set-Cookie: ' . implode('; ', $parts), false);
+    }
+}
+
+function admin_linked_apply_session_cookie_path(): void
+{
+    static $paramsApplied = false;
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
     }
 
     $lifetime = app_session_lifetime_seconds();
     @ini_set('session.gc_maxlifetime', (string)$lifetime);
 
+    if ($paramsApplied) {
+        return;
+    }
+    $paramsApplied = true;
+
+    // Session cookie (lifetime 0) is more reliable across refresh on localhost/MAMP.
+    // Server-side app_session_is_expired() still enforces the 12-hour hard cap.
+    $cookieLifetime = 0;
+    $path = '/';
+
     $params = session_get_cookie_params();
-    session_set_cookie_params(
-        $lifetime,
-        $path,
-        (string)($params['domain'] ?? ''),
-        (bool)($params['secure'] ?? false),
-        (bool)($params['httponly'] ?? true)
-    );
+    $domain = (string)($params['domain'] ?? '');
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params([
+            'lifetime' => $cookieLifetime,
+            'path' => $path,
+            'domain' => $domain,
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    } else {
+        session_set_cookie_params($cookieLifetime, $path, $domain, $secure, true);
+    }
 }
 
 /** @param callable():mixed $fn */
@@ -81,7 +166,7 @@ function admin_linked_with_admin_session(callable $fn)
     }
 
     admin_linked_apply_session_cookie_path();
-    session_name('BUSINESS_ONLY_ADMIN');
+    session_name(defined('ADMIN_SESSION_NAME') ? ADMIN_SESSION_NAME : 'TALENTRA_ADMIN');
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }

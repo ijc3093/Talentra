@@ -132,6 +132,21 @@ function org_member_address_save(PDO $dbh, int $orgId, int $orgMemberId, array $
     $postal = $clip($fields['postal_code'] ?? '', 40);
     $country = $clip($fields['country'] ?? '', 120);
 
+    // If street was typed into recipient and line1 left blank, recover it.
+    if ($line1 === '' && $recipient !== '' && preg_match('/\d/', $recipient)) {
+        $line1 = $recipient;
+        $recipient = '';
+    }
+
+    $check = org_member_address_validate([
+        'line1' => $line1,
+        'city' => $city,
+        'state' => $state,
+    ]);
+    if (empty($check['ok'])) {
+        return $check;
+    }
+
     try {
         $st = $dbh->prepare("
             INSERT INTO org_member_addresses
@@ -163,6 +178,39 @@ function org_member_address_save(PDO $dbh, int $orgId, int $orgMemberId, array $
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not save address.'];
     }
+}
+
+/**
+ * True when street, city, and state are all present (payroll / time-card tax gate).
+ * Recipient name alone does not count — street must be in line1.
+ */
+function org_member_address_is_complete(?array $row): bool
+{
+    if (!is_array($row)) {
+        return false;
+    }
+    return trim((string)($row['line1'] ?? '')) !== ''
+        && trim((string)($row['city'] ?? '')) !== ''
+        && trim((string)($row['state'] ?? '')) !== '';
+}
+
+/**
+ * Validate fields before save. Street (line1), city, and state are required.
+ * @param array<string,string> $fields
+ * @return array{ok:bool,error?:string}
+ */
+function org_member_address_validate(array $fields): array
+{
+    $line1 = trim((string)($fields['line1'] ?? ''));
+    $city = trim((string)($fields['city'] ?? ''));
+    $state = trim((string)($fields['state'] ?? ''));
+    if ($line1 === '' || $city === '' || $state === '') {
+        return [
+            'ok' => false,
+            'error' => 'Street address (Address line 1), city, and state are required for payroll tax.',
+        ];
+    }
+    return ['ok' => true];
 }
 
 /** Format an address row as a single mailing block string. */

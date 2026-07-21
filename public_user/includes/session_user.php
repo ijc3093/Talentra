@@ -15,9 +15,11 @@ if (session_status() === PHP_SESSION_NONE) {
     $bootstrapLoad = dirname(__DIR__, 2) . '/admin/includes/admin_linked_bootstrap_load.php';
     if (is_file($bootstrapLoad)) {
         require_once $bootstrapLoad;
-        admin_linked_apply_session_cookie_path();
     }
     session_name('BUSINESS_ONLY_USER');
+    if (function_exists('admin_linked_apply_session_cookie_path')) {
+        admin_linked_apply_session_cookie_path();
+    }
     session_start();
 }
 
