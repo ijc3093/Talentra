@@ -187,209 +187,35 @@ $displayEmail = trim((string)($user->email ?? ''));
 
 // stable key for color hashing
 $avatarKey = trim((string)($user->username ?? (string)$adminId));
-?>
 
+// Shared Azia logo + header (same as dashboard) for every page that includes header.php
+require_once __DIR__ . '/admin_chrome.php';
+$pageLabel = preg_replace('/\.php$/i', '', admin_layout_current_page()) ?: 'Admin';
+$pageLabel = ucwords(str_replace(['-', '_'], ' ', (string)$pageLabel));
+$chromeLabels = [
+    'userlist' => 'User List',
+    'adminroles' => 'Roles & Accounts',
+    'publisher_requests' => 'Publisher Requests',
+    'security-log' => 'Security Logs',
+    'feedback' => 'Inbox',
+    'notification' => 'Notifications',
+    'change-password' => 'Change Password',
+    'mailbox' => 'Mailbox',
+    'register' => 'Register',
+    'roleslist' => 'Roles',
+    'compose' => 'Compose',
+];
+$key = strtolower(str_replace('.php', '', admin_layout_current_page()));
+if (isset($chromeLabels[$key])) {
+    $pageLabel = $chromeLabels[$key];
+}
+
+admin_chrome_logo();
+admin_chrome_header($pageLabel);
+?>
 <script>
+document.body && document.body.classList.add('azia-admin');
 window.addEventListener("pageshow", function (event) {
   if (event.persisted) window.location.reload();
 });
-</script>
-
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Mailbox</title>
-
-    <link href="../lib/font-awesome/css/font-awesome.css" rel="stylesheet">
-    <link href="../lib/Ionicons/css/ionicons.css" rel="stylesheet">
-    <link href="../lib/perfect-scrollbar/css/perfect-scrollbar.css" rel="stylesheet">
-    <link href="../lib/summernote/summernote-bs4.css" rel="stylesheet">
-    <link href="../lib/bootstrap/bootstrap.css" rel="stylesheet">
-    <link rel="stylesheet" href="../css/shamcey.css">
-    <?php require_once __DIR__ . '/admin_layout.php'; admin_layout_head_assets(); ?>
-
-    <style>
-      .note-modal-backdrop { z-index:10550!important; }
-      .note-modal { z-index:10560!important; }
-      .note-modal .modal-dialog { z-index:10570!important; }
-      .modal-backdrop { z-index:10540!important; }
-      .modal { z-index:10560!important; }
-
-      .mailboxbody {
-          position: absolute;
-          top: 0;
-          right: 250px;
-          bottom: 0;
-          padding: 5px;
-          overflow-y: auto;
-          display: none;
-          z-index: 50;
-          background-color: #dbd0d6;
-      }
-
-      @media (min-width: 992px) {
-        .mailbox-right { width: 250px; }
-      }
-
-      .mailbox-right {
-        position: absolute;
-        padding: 10px;
-        height: 100%;
-        width: 233px;
-        top: 0;
-        right: 0;
-        z-index: 40;
-      }
-
-      .inputgroup {
-        position: relative;
-        display: flex;
-        width: 100%;
-        padding: 5px;
-      }
-
-      .note-toolbar{
-        position:sticky;
-        top:0;
-        z-index:20;
-        background:#fff;
-      }
-      .note-editable{ max-height:180px; overflow-y:auto; }
-
-      .mailboxlist{
-        bottom: 0;
-        position: absolute;
-        top: 71px;
-        left: 0;
-        padding: 10px;
-        right: 0;
-        bottom: 0;
-        overflow-y: auto;
-      }
-
-      .dropdown-profile .dropdown-link { display:flex; align-items:center; }
-    </style>
-  </head>
-
-  <body>
-    <div class="sh-logopanel">
-      <a href="" class="sh-logo-text">Private App</a>
-      <a id="navicon" href="" class="sh-navicon d-none d-xl-block"><i class="icon ion-navicon"></i></a>
-      <a id="naviconMobile" href="" class="sh-navicon d-xl-none"><i class="icon ion-navicon"></i></a>
-    </div>
-
-    <div class="sh-headpanel">
-      <div class="sh-headpanel-left">
-        <a href="" class="sh-icon-link">
-          <div><i class="icon ion-ios-folder-outline"></i><span>Directory</span></div>
-        </a>
-        <a href="" class="sh-icon-link">
-          <div><i class="icon ion-ios-calendar-outline"></i><span>Events</span></div>
-        </a>
-        <a href="" class="sh-icon-link">
-          <div><i class="icon ion-ios-gear-outline"></i><span>Settings</span></div>
-        </a>
-      </div>
-
-      <div class="sh-headpanel-right">
-
-        <div class="dropdown dropdown-notification">
-          <a href="mailbox.php" data-toggle="dropdown" class="dropdown-link dropdown-link-notification">
-            <i class="icon ion-ios-filing-outline tx-24"></i>
-            <span id="chatBadge" style="display:none;position:absolute;top:1px;right:2px;background:red;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;font-weight:700;"></span>
-          </a>
-          <div class="dropdown-menu dropdown-menu-right">
-            <div class="dropdown-menu-header">
-              <label>Mailbox</label>
-              <a href="">Mark All as Read</a>
-            </div>
-            <div class="media-list">
-              <div class="media-list-footer">
-                <a href="mailbox.php" class="tx-12"><i class="fa fa-angle-down mg-r-5"></i> Show All Messages</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="dropdown dropdown-notification">
-          <a href="" data-toggle="dropdown" class="dropdown-link dropdown-link-notification">
-            <i class="icon ion-ios-bell-outline tx-24"></i>
-            <span id="notiBadge" style="display:none;position:absolute;top:1px;right:2px;background:red;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;font-weight:700;"></span>
-          </a>
-          <div class="dropdown-menu dropdown-menu-right">
-            <div class="dropdown-menu-header">
-              <label>Notifications</label>
-              <a href="">Mark All as Read</a>
-            </div>
-            <div class="media-list">
-              <div class="media-list-footer">
-                <a href="notification.php" class="tx-12"><i class="fa fa-angle-down mg-r-5"></i> Show All Notifications</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="dropdown dropdown-profile">
-          <a href="" data-toggle="dropdown" class="dropdown-link">
-            <?php echo render_avatar_html($displayName, $avatarKey, $avatarWeb, 46); ?>
-          </a>
-
-          <div class="dropdown-menu dropdown-menu-right">
-            <div class="media align-items-center">
-              <?php echo render_avatar_html($displayName, $avatarKey, $avatarWeb, 56); ?>
-              <div class="media-body" style="margin-left:12px;">
-                <h6 class="tx-inverse tx-15 mg-b-5"><?php echo h($shortName); ?></h6>
-                <p class="mg-b-0 tx-12"><?php echo h($displayEmail); ?></p>
-              </div>
-            </div>
-            <hr>
-            <ul class="dropdown-profile-nav">
-              <li><a href=""><i class="icon ion-ios-person"></i> Edit Profile</a></li>
-              <li><a href=""><i class="icon ion-ios-gear"></i> Settings</a></li>
-              <li><a href=""><i class="icon ion-ios-download"></i> Downloads</a></li>
-              <li><a href=""><i class="icon ion-ios-star"></i> Favorites</a></li>
-              <li><a href="logout.php"><i class="icon ion-power"></i> Sign Out</a></li>
-            </ul>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-<script>
-(function(){
-  function setBadge(el, n){
-    if(!el) return;
-    n = parseInt(n||0,10);
-    if(n>0){
-      el.style.display='inline-block';
-      el.textContent = n>99?'99+':n;
-    }else{
-      el.style.display='none';
-    }
-  }
-
-  async function pollNotifications(){
-    try{
-      const r = await fetch('ajax/notifications_poll.php',{cache:'no-store'});
-      const d = await r.json();
-      if(d && d.ok) setBadge(document.getElementById('notiBadge'), d.unread);
-    }catch(e){}
-  }
-
-  async function pollChat(){
-    try{
-      const r = await fetch('ajax/chat_unread_poll.php',{cache:'no-store'});
-      const d = await r.json();
-      if(d && d.ok) setBadge(document.getElementById('chatBadge'), d.unread);
-    }catch(e){}
-  }
-
-  pollNotifications();
-  pollChat();
-  setInterval(pollNotifications,5000);
-  setInterval(pollChat,4000);
-})();
 </script>

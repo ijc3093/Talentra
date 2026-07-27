@@ -22,7 +22,7 @@ body.add-contact-page .feed-ig-rail{
   border-right:1px solid var(--msb-palette-border-strong, #d1d5db) !important;
 }
 body.public-page.feed-insta-ui .feed-ig-rail{
-  border-right-color:var(--public-border-strong, rgba(15,23,42,.16)) !important;
+  border-right-color:var(--public-border-strong, #c0c2c4) !important;
 }
 .feed-ig-rail .feed-ig-logo{
   width:var(--msb-feed-chrome-size) !important;
@@ -667,15 +667,15 @@ body.public-page.feed-insta-ui .public-publisher-search button:hover{
   }
   body.feed-insta-ui .feed-desktop-center > .feed-top-search,
   body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
-    position:sticky !important;
-    top:0 !important;
+    position:relative !important;
+    top:auto !important;
     width:100% !important;
     margin:0 !important;
     background:var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))) !important;
   }
   body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
-    position:sticky !important;
-    top:0 !important;
+    position:relative !important;
+    top:auto !important;
     width:100% !important;
     margin:0 !important;
     background:var(--public-surface, var(--msb-palette-bg, #fff)) !important;

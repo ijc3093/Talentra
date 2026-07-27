@@ -18,7 +18,7 @@ function post_media_stage_css(string $scope = ''): string
 
     $lines = [];
 
-    $lines[] = $card . '{--post-media-radius:18px;--post-media-max:680px;--post-phone-max:430px;--post-tablet-max:620px;--post-landscape-max:760px;--post-square-max:620px;--post-portrait-max:520px}';
+    $lines[] = $card . '{--post-media-radius:10px;--post-media-max:680px;--post-phone-max:430px;--post-tablet-max:620px;--post-landscape-max:760px;--post-square-max:620px;--post-portrait-max:520px}';
     $lines[] = $card . '.is-single-video-post:not(.mf-card-phone-shot){width:min(100%,var(--post-media-card-width,var(--post-media-max)));max-width:100%;margin-left:auto;margin-right:auto}';
     $lines[] = $card . '.is-single-image-post:not(.mf-card-phone-shot){width:min(100%,var(--post-media-card-width,var(--post-media-max)));max-width:100%;margin-left:auto;margin-right:auto}';
     $lines[] = $card . '.is-multi-media-post{width:100%;max-width:100%;margin-left:auto;margin-right:auto}';

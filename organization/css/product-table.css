@@ -258,6 +258,46 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
   overflow: hidden;
 }
 
+.pt-toolbar {
+  padding: 12px 14px 0;
+}
+
+.pt-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  padding: 8px 12px;
+  border: 1px solid var(--pt-line);
+  border-radius: 10px;
+  background: var(--pt-bg, var(--pt-surface));
+  color: var(--pt-muted);
+}
+
+.pt-search .icon {
+  font-size: 16px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.pt-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--pt-text, inherit);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.pt-search input::placeholder {
+  color: var(--pt-muted);
+  font-weight: 500;
+}
+
 .pt-table-wrap {
   overflow-x: auto;
 }
@@ -305,7 +345,8 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 }
 
 .pt-col-id {
-  width: 88px;
+  width: 110px;
+  min-width: 96px;
   white-space: nowrap;
 }
 

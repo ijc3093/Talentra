@@ -1,8 +1,8 @@
 <?php
-// /Business_only3/config.php
+// /config.php — shared by admin, public_user, organization
+// Local MAMP only (Hostinger credentials will be set later)
 declare(strict_types=1);
 
-// Example: /Business_only3/admin/config.php
 if (!defined('APP_SIGNING_KEY')) {
     define('APP_SIGNING_KEY', 'CHANGE_ME_TO_A_LONG_RANDOM_SECRET_64+CHARS');
 }
@@ -13,47 +13,38 @@ if (!class_exists('Config', false)) {
         private PDO $dbh;
 
         /* =========================
-           DATABASE
+           DATABASE (local MAMP)
         ========================= */
-        public string $DB_HOST = "localhost";
-        public string $DB_USER = "root";
-        public string $DB_PASS = "root";
-        public string $DB_NAME = "talentra";
+        public string $DB_HOST = 'localhost';
+        public string $DB_USER = 'root';
+        public string $DB_PASS = 'root';
+        public string $DB_NAME = 'talentra';
+        public int    $DB_PORT = 8889;
 
         /* =========================
            SMTP (GMAIL - APP PASSWORD)
-           ✅ Use App Password (16 chars, spaces OK)
-           ✅ Port 587 + STARTTLS
         ========================= */
-        public string $SMTP_HOST = "smtp.gmail.com";
+        public string $SMTP_HOST = 'smtp.gmail.com';
         public int    $SMTP_PORT = 587;
-        public string $SMTP_USER = "isaaccuma3093@gmail.com";
-        public string $SMTP_PASS = "vjwu vqug zrty ucrz"; // Gmail App Password
-        public string $SMTP_FROM = "isaaccuma3093@gmail.com";
-        public string $SMTP_FROM_NAME = "Private App";
+        public string $SMTP_USER = 'isaaccuma3093@gmail.com';
+        public string $SMTP_PASS = 'vjwu vqug zrty ucrz';
+        public string $SMTP_FROM = 'isaaccuma3093@gmail.com';
+        public string $SMTP_FROM_NAME = 'Private App';
 
-        /* =========================
-           ALERT ROUTING
-           If notireceiver = 'Admin', email goes to this address
-        ========================= */
-        public string $ADMIN_ALERT_EMAIL = "isaaccuma3093@gmail.com";
+        public string $ADMIN_ALERT_EMAIL = 'isaaccuma3093@gmail.com';
 
-        /* =========================
-           STRIPE (shop checkout)
-           Set secret + publishable keys from Stripe Dashboard.
-           Webhook endpoint: /public_user/ajax/stripe_webhook.php
-        ========================= */
         public string $STRIPE_SECRET_KEY = '';
         public string $STRIPE_PUBLISHABLE_KEY = '';
         public string $STRIPE_WEBHOOK_SECRET = '';
 
         public function __construct()
         {
-            $socket = '/Applications/MAMP/tmp/mysql/mysql.sock';
-            if ($socket !== '' && file_exists($socket)) {
-                $dsn = "mysql:unix_socket={$socket};dbname={$this->DB_NAME};charset=utf8mb4";
+            $mampSocket = '/Applications/MAMP/tmp/mysql/mysql.sock';
+
+            if (file_exists($mampSocket)) {
+                $dsn = "mysql:unix_socket={$mampSocket};dbname={$this->DB_NAME};charset=utf8mb4";
             } else {
-                $dsn = "mysql:host=127.0.0.1;port=8889;dbname={$this->DB_NAME};charset=utf8mb4";
+                $dsn = "mysql:host=127.0.0.1;port={$this->DB_PORT};dbname={$this->DB_NAME};charset=utf8mb4";
             }
 
             try {
@@ -68,8 +59,8 @@ if (!class_exists('Config', false)) {
                     ]
                 );
             } catch (PDOException $e) {
-                // In production you should log this instead of echoing it.
-                die("Database could not be connected: " . $e->getMessage());
+                http_response_code(500);
+                die('Database could not be connected: ' . $e->getMessage());
             }
         }
 

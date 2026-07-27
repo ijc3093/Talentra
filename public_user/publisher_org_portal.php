@@ -7,6 +7,7 @@ requireUserLogin();
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/publisher_organization_bridge.php';
+require_once __DIR__ . '/includes/org_shop.php';
 
 $controller = new Controller();
 $dbh = $controller->pdo();
@@ -17,7 +18,7 @@ if ($meId <= 0) {
     $meId = (int)($_SESSION['user_id'] ?? 0);
 }
 if ($meId <= 0) {
-    header('Location: feed.php');
+    header('Location: feed.php?enterprise_error=login');
     exit;
 }
 
@@ -37,7 +38,7 @@ try {
 $sessionKind = strtolower(trim((string)($_SESSION['user_account_kind'] ?? '')));
 $isPublisherAccount = publisher_user_row_looks_like_publisher($dbh, $meRow) || $sessionKind === 'publisher';
 if (!$isPublisherAccount) {
-    header('Location: feed.php');
+    header('Location: feed.php?enterprise_error=not_publisher');
     exit;
 }
 
@@ -51,7 +52,7 @@ if ($orgId <= 0 && $orgs) {
 }
 
 if ($orgId <= 0 || !publisher_org_public_user_can_access($dbh, $meId, $orgId)) {
-    header('Location: feed.php');
+    header('Location: feed.php?enterprise_error=no_org');
     exit;
 }
 
@@ -81,9 +82,16 @@ try {
 
 $managerId = publisher_org_begin_session_for_publisher($dbh, $meId, $orgId);
 if ($managerId <= 0) {
-    header('Location: feed.php');
+    header('Location: feed.php?enterprise_error=session');
     exit;
 }
 
-header('Location: ../organization/feed.php');
+$query = publisher_org_enterprise_handoff_query($managerId, $orgId, $meId);
+if ($query === '') {
+    header('Location: feed.php?enterprise_error=handoff');
+    exit;
+}
+
+// New request starts PHPSESSID only — avoids wiping BUSINESS_ONLY_USER after headers sent.
+header('Location: ../organization/enterprise_enter.php?' . $query);
 exit;

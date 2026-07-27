@@ -37,6 +37,7 @@ $cancelCountLabel = $cancelCount === 1 ? '1 cancelled purchase' : $cancelCount .
           <thead>
             <tr>
               <th class="text-center oms-col-narrow">Product #</th>
+              <th class="oms-col-product-id">Product ID</th>
               <th class="oms-col-products">Products</th>
               <th class="text-center oms-col-narrow">Qty #</th>
               <th class="oms-col-narrow">Customer</th>
@@ -50,7 +51,7 @@ $cancelCountLabel = $cancelCount === 1 ? '1 cancelled purchase' : $cancelCount .
           </thead>
           <tbody>
             <?php if (!$cancelGroups): ?>
-              <tr><td colspan="10" class="text-center tx-color-03">No cancelled orders yet.</td></tr>
+              <tr><td colspan="11" class="text-center tx-color-03">No cancelled orders yet.</td></tr>
             <?php else: foreach ($cancelGroups as $g): ?>
               <?php
                 $primaryId = (int)$g['primary_order_id'];
@@ -66,6 +67,7 @@ $cancelCountLabel = $cancelCount === 1 ? '1 cancelled purchase' : $cancelCount .
                     $primaryId = (int)($primary['id'] ?? 0);
                 }
                 $productSummary = implode(', ', $g['product_titles']);
+                $productIdList = isset($g['product_ids']) && is_array($g['product_ids']) ? $g['product_ids'] : [];
                 $cancelledBy = 'Customer';
                 $notesBlob = '';
                 foreach (array_reverse($g['lines']) as $line) {
@@ -87,9 +89,28 @@ $cancelCountLabel = $cancelCount === 1 ? '1 cancelled purchase' : $cancelCount .
                         href="order_details.php?id=<?= $primaryId ?>"
                         class="js-open-org-order-door"
                         data-door-url="order_details.php?id=<?= $primaryId ?>&amp;embed=1"
+                        data-door-title="Order details"
                         data-door-label="<?= h((string)$g['buyer_name'] . ' · cancelled') ?>"
                       >Details</a>
                     </div>
+                    <div class="tx-11 mg-t-2">
+                      <a
+                        href="order_invoice.php?id=<?= $primaryId ?>"
+                        class="js-open-org-order-door"
+                        data-door-url="order_invoice.php?id=<?= $primaryId ?>&amp;embed=1"
+                        data-door-title="Invoice"
+                        data-door-label="<?= h((string)$g['buyer_name'] . ' · receipt') ?>"
+                      >Invoice</a>
+                    </div>
+                  <?php endif; ?>
+                </td>
+                <td class="oms-col-product-id">
+                  <?php if ($productIdList): ?>
+                    <?php foreach ($productIdList as $pidCode): ?>
+                      <div><code class="tx-11"><?= h((string)$pidCode) ?></code></div>
+                    <?php endforeach; ?>
+                  <?php else: ?>
+                    <span class="tx-color-03">—</span>
                   <?php endif; ?>
                 </td>
                 <td class="oms-col-products">

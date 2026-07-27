@@ -32,6 +32,7 @@ function org_shop_ensure_schema(PDO $dbh): void
         '20260716_org_products_product_code.sql',
         '20260720_org_orders_tax_cents.sql',
         '20260720_org_orders_service_fee_cents.sql',
+        '20260722_org_orders_product_unit_code.sql',
     ] as $file) {
         msb_run_sql_migration_file($dbh, $base . $file);
     }
@@ -49,6 +50,40 @@ function org_shop_ensure_schema(PDO $dbh): void
             // ignore
         }
     }
+    if (!platform_rent_db_column_exists($dbh, 'org_products', 'product_code')) {
+        try {
+            $dbh->exec("ALTER TABLE org_products ADD COLUMN product_code VARCHAR(32) NULL DEFAULT NULL AFTER sku");
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    org_shop_repair_unique_product_codes($dbh);
+    try {
+        $idx = $dbh->query("SHOW INDEX FROM org_products WHERE Key_name = 'uq_org_products_product_code'");
+        $hasIdx = $idx && $idx->fetch(PDO::FETCH_ASSOC);
+        if (!$hasIdx) {
+            $dbh->exec('ALTER TABLE org_products ADD UNIQUE KEY uq_org_products_product_code (product_code)');
+        }
+    } catch (Throwable $e) {
+        // ignore — duplicates may still be repairing, or engine limits
+    }
+    if (!platform_rent_db_column_exists($dbh, 'org_orders', 'product_unit_code')) {
+        try {
+            $dbh->exec("ALTER TABLE org_orders ADD COLUMN product_unit_code VARCHAR(40) NULL DEFAULT NULL AFTER product_title");
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    org_shop_repair_unique_product_unit_codes($dbh);
+    try {
+        $idx = $dbh->query("SHOW INDEX FROM org_orders WHERE Key_name = 'uq_org_orders_product_unit_code'");
+        $hasIdx = $idx && $idx->fetch(PDO::FETCH_ASSOC);
+        if (!$hasIdx) {
+            $dbh->exec('ALTER TABLE org_orders ADD UNIQUE KEY uq_org_orders_product_unit_code (product_unit_code)');
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
 }
 
 /** Sales tax rate applied to merchandise + shipping (customer-paid). */
@@ -65,10 +100,28 @@ function org_shop_sales_tax_cents(int $taxableCents): int
 /**
  * Fixed online order service fee paid by the customer to the platform/admin
  * when buying through shop / product detail (not charged to the seller).
+ * Active Customer Plus members ($10/mo) pay $0 service fee.
  */
-function org_shop_buyer_service_fee_cents(): int
+function org_shop_buyer_service_fee_cents(?PDO $dbh = null, int $buyerUserId = 0): int
 {
-    return 199; // $1.99
+    $default = 199; // $1.99
+    if ($buyerUserId > 0) {
+        try {
+            if (!function_exists('buyer_membership_is_active')) {
+                require_once __DIR__ . '/buyer_membership.php';
+            }
+            $pdo = $dbh;
+            if (!$pdo instanceof PDO && isset($GLOBALS['dbh']) && $GLOBALS['dbh'] instanceof PDO) {
+                $pdo = $GLOBALS['dbh'];
+            }
+            if ($pdo instanceof PDO && buyer_membership_is_active($pdo, $buyerUserId)) {
+                return buyer_membership_member_service_fee_cents();
+            }
+        } catch (Throwable $e) {
+            // fall through to default
+        }
+    }
+    return $default;
 }
 
 function org_shop_org_id_for_publisher(PDO $dbh, int $publisherUserId): int
@@ -213,59 +266,287 @@ function org_shop_gen_order_code(int $orgId): string
     return 'ORD-' . $orgId . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
 }
 
-/** Product listing code shown in Product table (e.g. PRD-09E82). */
-function org_shop_gen_product_code(PDO $dbh, int $orgId): string
+/** Product listing code shown in Product table / Orders (e.g. PRD-9E82A). Always unique. */
+function org_shop_product_code_from_id(int $productId): string
 {
-    for ($i = 0; $i < 12; $i++) {
-        $code = 'PRD-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
-        try {
-            $st = $dbh->prepare('SELECT 1 FROM org_products WHERE org_id = :org AND product_code = :code LIMIT 1');
-            $st->execute([':org' => $orgId, ':code' => $code]);
-            if (!$st->fetchColumn()) {
-                return $code;
+    $productId = max(1, $productId);
+    // Deterministic from primary key — same car model never shares this ID.
+    return 'PRD-' . strtoupper(base_convert((string)$productId, 10, 36));
+}
+
+function org_shop_product_code_is_taken(PDO $dbh, string $code, int $exceptProductId = 0): bool
+{
+    $code = trim($code);
+    if ($code === '') {
+        return false;
+    }
+    try {
+        if ($exceptProductId > 0) {
+            $st = $dbh->prepare('
+                SELECT 1 FROM org_products
+                WHERE product_code = :code AND id <> :id
+                LIMIT 1
+            ');
+            $st->execute([':code' => $code, ':id' => $exceptProductId]);
+        } else {
+            $st = $dbh->prepare('SELECT 1 FROM org_products WHERE product_code = :code LIMIT 1');
+            $st->execute([':code' => $code]);
+        }
+        return (bool)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function org_shop_gen_product_code(PDO $dbh, int $orgId, int $productId = 0): string
+{
+    if ($productId > 0) {
+        $code = org_shop_product_code_from_id($productId);
+        if (!org_shop_product_code_is_taken($dbh, $code, $productId)) {
+            return $code;
+        }
+        // Extremely rare collision with a legacy random code — add a suffix.
+        for ($i = 0; $i < 8; $i++) {
+            $alt = $code . strtoupper(substr(bin2hex(random_bytes(2)), 0, 3));
+            if (!org_shop_product_code_is_taken($dbh, $alt, $productId)) {
+                return $alt;
             }
-        } catch (Throwable $e) {
+        }
+        return $code . strtoupper(substr(bin2hex(random_bytes(3)), 0, 4));
+    }
+
+    // Pre-insert provisional code (global uniqueness — not per-org / not by model).
+    for ($i = 0; $i < 16; $i++) {
+        $code = 'PRD-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+        if (!org_shop_product_code_is_taken($dbh, $code, 0)) {
             return $code;
         }
     }
-    return 'PRD-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 5));
+    return 'PRD-' . strtoupper(substr(bin2hex(random_bytes(5)), 0, 8));
 }
 
 /**
- * Ensure a product has a listing code; backfills older rows.
+ * Ensure a product has a unique listing code; backfills older rows and fixes duplicates.
  */
 function org_shop_ensure_product_code(PDO $dbh, int $orgId, int $productId, ?string $existing = null): string
 {
-    $existing = trim((string)$existing);
-    if ($existing !== '') {
-        return $existing;
-    }
     if ($orgId <= 0 || $productId <= 0) {
         return '';
     }
-    $code = org_shop_gen_product_code($dbh, $orgId);
+    $existing = trim((string)$existing);
+    if ($existing !== '' && !org_shop_product_code_is_taken($dbh, $existing, $productId)) {
+        return $existing;
+    }
+
+    $code = org_shop_gen_product_code($dbh, $orgId, $productId);
     try {
         $st = $dbh->prepare('
             UPDATE org_products
             SET product_code = :code, updated_at = NOW()
             WHERE id = :id AND org_id = :org
-              AND (product_code IS NULL OR TRIM(product_code) = \'\')
             LIMIT 1
         ');
         $st->execute([':code' => $code, ':id' => $productId, ':org' => $orgId]);
-        if ($st->rowCount() > 0) {
+        return $code;
+    } catch (Throwable $e) {
+        // Unique-index race: generate another and retry once.
+        try {
+            $code = org_shop_gen_product_code($dbh, $orgId, 0) . strtoupper(base_convert((string)$productId, 10, 36));
+            $st = $dbh->prepare('
+                UPDATE org_products
+                SET product_code = :code, updated_at = NOW()
+                WHERE id = :id AND org_id = :org
+                LIMIT 1
+            ');
+            $st->execute([':code' => $code, ':id' => $productId, ':org' => $orgId]);
+            return $code;
+        } catch (Throwable $e2) {
             return $code;
         }
-        $fresh = org_shop_get_product($dbh, $productId, $orgId);
-        return trim((string)($fresh['product_code'] ?? $code));
+    }
+}
+
+/** Repair blank / duplicate product_code values (same model must still get unique IDs). */
+function org_shop_repair_unique_product_codes(PDO $dbh): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        // Blank codes.
+        $st = $dbh->query("
+            SELECT id, org_id
+            FROM org_products
+            WHERE product_code IS NULL OR TRIM(product_code) = ''
+            ORDER BY id ASC
+        ");
+        $rows = $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+        foreach ($rows as $row) {
+            org_shop_ensure_product_code(
+                $dbh,
+                (int)($row['org_id'] ?? 0),
+                (int)($row['id'] ?? 0),
+                ''
+            );
+        }
+
+        // Duplicate codes — keep the lowest id, reassign the rest.
+        $dup = $dbh->query("
+            SELECT product_code
+            FROM org_products
+            WHERE product_code IS NOT NULL AND TRIM(product_code) <> ''
+            GROUP BY product_code
+            HAVING COUNT(*) > 1
+        ");
+        $dupCodes = $dup ? ($dup->fetchAll(PDO::FETCH_COLUMN) ?: []) : [];
+        foreach ($dupCodes as $code) {
+            $st2 = $dbh->prepare('
+                SELECT id, org_id, product_code
+                FROM org_products
+                WHERE product_code = :code
+                ORDER BY id ASC
+            ');
+            $st2->execute([':code' => (string)$code]);
+            $hits = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $first = true;
+            foreach ($hits as $hit) {
+                if ($first) {
+                    $first = false;
+                    continue;
+                }
+                org_shop_ensure_product_code(
+                    $dbh,
+                    (int)($hit['org_id'] ?? 0),
+                    (int)($hit['id'] ?? 0),
+                    '' // force new unique code
+                );
+            }
+        }
     } catch (Throwable $e) {
-        return $code;
+        // ignore — column/index may not exist yet
     }
 }
 
 function org_shop_gen_receipt_code(int $orgId): string
 {
     return 'RCP-' . $orgId . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+}
+
+/**
+ * Unique Product ID per sold unit / order line.
+ * Same catalog car model can sell many times — each sale gets its own ID.
+ */
+function org_shop_product_unit_code_from_order_id(int $orderId): string
+{
+    $orderId = max(1, $orderId);
+    // Unique per order line (same catalog Mustang sold twice => two IDs).
+    return 'PRD-' . strtoupper(str_pad(base_convert((string)$orderId, 10, 36), 5, '0', STR_PAD_LEFT));
+}
+
+function org_shop_product_unit_code_is_taken(PDO $dbh, string $code, int $exceptOrderId = 0): bool
+{
+    $code = trim($code);
+    if ($code === '') {
+        return false;
+    }
+    try {
+        if ($exceptOrderId > 0) {
+            $st = $dbh->prepare('
+                SELECT 1 FROM org_orders
+                WHERE product_unit_code = :code AND id <> :id
+                LIMIT 1
+            ');
+            $st->execute([':code' => $code, ':id' => $exceptOrderId]);
+        } else {
+            $st = $dbh->prepare('SELECT 1 FROM org_orders WHERE product_unit_code = :code LIMIT 1');
+            $st->execute([':code' => $code]);
+        }
+        return (bool)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function org_shop_ensure_product_unit_code(PDO $dbh, int $orderId, ?string $existing = null): string
+{
+    if ($orderId <= 0) {
+        return '';
+    }
+    $existing = trim((string)$existing);
+    if ($existing !== '' && !org_shop_product_unit_code_is_taken($dbh, $existing, $orderId)) {
+        return $existing;
+    }
+
+    $code = org_shop_product_unit_code_from_order_id($orderId);
+    if (org_shop_product_unit_code_is_taken($dbh, $code, $orderId)) {
+        $code = 'PRD-' . strtoupper(base_convert((string)$orderId, 10, 36))
+            . strtoupper(substr(bin2hex(random_bytes(2)), 0, 3));
+    }
+
+    try {
+        $st = $dbh->prepare('
+            UPDATE org_orders
+            SET product_unit_code = :code, updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ');
+        $st->execute([':code' => $code, ':id' => $orderId]);
+        return $code;
+    } catch (Throwable $e) {
+        return $code;
+    }
+}
+
+function org_shop_repair_unique_product_unit_codes(PDO $dbh): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $st = $dbh->query("
+            SELECT id, product_unit_code
+            FROM org_orders
+            WHERE product_unit_code IS NULL OR TRIM(product_unit_code) = ''
+            ORDER BY id ASC
+        ");
+        $rows = $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+        foreach ($rows as $row) {
+            org_shop_ensure_product_unit_code($dbh, (int)($row['id'] ?? 0), '');
+        }
+
+        $dup = $dbh->query("
+            SELECT product_unit_code
+            FROM org_orders
+            WHERE product_unit_code IS NOT NULL AND TRIM(product_unit_code) <> ''
+            GROUP BY product_unit_code
+            HAVING COUNT(*) > 1
+        ");
+        $dupCodes = $dup ? ($dup->fetchAll(PDO::FETCH_COLUMN) ?: []) : [];
+        foreach ($dupCodes as $code) {
+            $st2 = $dbh->prepare('
+                SELECT id, product_unit_code
+                FROM org_orders
+                WHERE product_unit_code = :code
+                ORDER BY id ASC
+            ');
+            $st2->execute([':code' => (string)$code]);
+            $hits = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $first = true;
+            foreach ($hits as $hit) {
+                if ($first) {
+                    $first = false;
+                    continue;
+                }
+                org_shop_ensure_product_unit_code($dbh, (int)($hit['id'] ?? 0), '');
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
 }
 
 /** @return list<array<string, mixed>> */
@@ -590,7 +871,7 @@ function org_shop_create_order(
     $merchandiseCents = $totalCents;
     $taxableCents = $merchandiseCents + $shippingFeeCents;
     $taxCents = org_shop_sales_tax_cents($taxableCents);
-    $serviceFeeCents = org_shop_buyer_service_fee_cents();
+    $serviceFeeCents = org_shop_buyer_service_fee_cents($dbh, $buyerUserId);
     $totalCents = $taxableCents + $taxCents + $serviceFeeCents;
 
     try {
@@ -633,6 +914,9 @@ function org_shop_create_order(
             ':addr' => $deliveryAddress !== '' ? $deliveryAddress : null,
         ]);
         $orderId = (int)$dbh->lastInsertId();
+        if ($orderId > 0) {
+            org_shop_ensure_product_unit_code($dbh, $orderId, '');
+        }
 
         if ($stock !== null && $stock !== '' && (int)$stock > 0) {
             $dbh->prepare('UPDATE org_products SET stock_qty = GREATEST(0, stock_qty - :q), updated_at = NOW() WHERE id = :id LIMIT 1')
@@ -696,6 +980,9 @@ function org_shop_create_order(
                 ':addr' => $deliveryAddress !== '' ? $deliveryAddress : null,
             ]);
             $orderId = (int)$dbh->lastInsertId();
+            if ($orderId > 0) {
+                org_shop_ensure_product_unit_code($dbh, $orderId, '');
+            }
             if ($stock !== null && $stock !== '' && (int)$stock > 0) {
                 try {
                     $dbh->prepare('UPDATE org_products SET stock_qty = GREATEST(0, stock_qty - :q), updated_at = NOW() WHERE id = :id LIMIT 1')
@@ -796,17 +1083,23 @@ function org_shop_list_orders(PDO $dbh, int $orgId, string $statusFilter = 'all'
     $where = ['o.org_id = :org'];
     $params = [':org' => $orgId];
     $statusFilter = strtolower(trim($statusFilter));
-    if ($statusFilter !== '' && $statusFilter !== 'all') {
+    if ($statusFilter === 'history') {
+        // Completed orders archive (left the active OMS inbox).
+        $where[] = "o.status IN ('shipped', 'delivered')";
+    } elseif ($statusFilter !== '' && $statusFilter !== 'all') {
         $where[] = 'o.status = :status';
         $params[':status'] = $statusFilter;
     } else {
-        // Default list hides cancelled orders (customer cancel removes them from OMS inbox).
-        $where[] = "o.status <> 'cancelled'";
+        // Active Orders inbox: needs seller action. Shipped/delivered live in History Order.
+        $where[] = "o.status IN ('pending', 'confirmed', 'paid')";
     }
     $sql = "
-        SELECT o.*, u.username AS buyer_username
+        SELECT o.*,
+               u.username AS buyer_username,
+               p.product_code AS product_code
         FROM org_orders o
         LEFT JOIN users u ON u.id = o.buyer_user_id
+        LEFT JOIN org_products p ON p.id = o.product_id
         WHERE " . implode(' AND ', $where) . "
         ORDER BY o.created_at DESC, o.id DESC
         LIMIT {$limit}
@@ -814,7 +1107,17 @@ function org_shop_list_orders(PDO $dbh, int $orgId, string $statusFilter = 'all'
     try {
         $st = $dbh->prepare($sql);
         $st->execute($params);
-        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as &$row) {
+            $oid = (int)($row['id'] ?? 0);
+            if ($oid <= 0) {
+                continue;
+            }
+            $unit = trim((string)($row['product_unit_code'] ?? ''));
+            $row['product_unit_code'] = org_shop_ensure_product_unit_code($dbh, $oid, $unit);
+        }
+        unset($row);
+        return $rows;
     } catch (Throwable $e) {
         return [];
     }
@@ -931,16 +1234,45 @@ function org_shop_group_seller_customer_orders(array $orders, bool $cancelledOnl
         $title = trim((string)($order['product_title'] ?? '')) ?: 'Product';
         $qty = max(1, (int)($order['quantity'] ?? 1));
         $lineCents = (int)($order['total_cents'] ?? 0);
-        $titleKey = mb_strtolower($title);
+        $productId = (int)($order['product_id'] ?? 0);
+        $catalogCode = trim((string)($order['product_code'] ?? ''));
+        if ($catalogCode === '' && $productId > 0) {
+            $catalogCode = '#' . $productId;
+        }
+        // Per-sale Product ID (unique even when catalog/model is the same).
+        $unitCode = trim((string)($order['product_unit_code'] ?? ''));
+        if ($unitCode === '') {
+            $oid = (int)($order['id'] ?? 0);
+            $unitCode = $oid > 0 ? org_shop_product_unit_code_from_order_id($oid) : $catalogCode;
+        }
+        $productCode = $unitCode !== '' ? $unitCode : $catalogCode;
+        $titleKey = $productId > 0 ? ('id:' . $productId) : mb_strtolower($title);
         if (!isset($g['products'][$titleKey])) {
             $g['products'][$titleKey] = [
                 'title' => $title,
                 'qty' => $qty,
                 'amount_cents' => $lineCents,
+                'product_id' => $productId,
+                'product_code' => $productCode,
+                'product_codes' => $productCode !== '' ? [$productCode] : [],
             ];
         } else {
             $g['products'][$titleKey]['qty'] += $qty;
             $g['products'][$titleKey]['amount_cents'] += $lineCents;
+            if ($productId > 0 && (int)($g['products'][$titleKey]['product_id'] ?? 0) <= 0) {
+                $g['products'][$titleKey]['product_id'] = $productId;
+            }
+            if ($productCode !== '') {
+                $codes = $g['products'][$titleKey]['product_codes'] ?? [];
+                if (!in_array($productCode, $codes, true)) {
+                    $codes[] = $productCode;
+                }
+                $g['products'][$titleKey]['product_codes'] = $codes;
+                // Keep a representative code for older callers.
+                if (trim((string)($g['products'][$titleKey]['product_code'] ?? '')) === '') {
+                    $g['products'][$titleKey]['product_code'] = $productCode;
+                }
+            }
         }
         $g['lines'][] = $order;
         unset($g);
@@ -952,9 +1284,21 @@ function org_shop_group_seller_customer_orders(array $orders, bool $cancelledOnl
         $orderNum = count($products);
         $quantityNum = 0;
         $titles = [];
+        $productIds = [];
         foreach ($products as $p) {
             $quantityNum += max(1, (int)($p['qty'] ?? 1));
             $titles[] = (string)$p['title'] . ((int)$p['qty'] > 1 ? ' × ' . (int)$p['qty'] : '');
+            $codes = $p['product_codes'] ?? [];
+            if (!is_array($codes) || !$codes) {
+                $code = trim((string)($p['product_code'] ?? ''));
+                $codes = $code !== '' ? [$code] : [];
+            }
+            foreach ($codes as $code) {
+                $code = trim((string)$code);
+                if ($code !== '' && !in_array($code, $productIds, true)) {
+                    $productIds[] = $code;
+                }
+            }
         }
         $statuses = array_values(array_unique($g['statuses']));
         if (count($statuses) === 1) {
@@ -991,6 +1335,7 @@ function org_shop_group_seller_customer_orders(array $orders, bool $cancelledOnl
             'order_num' => $orderNum,
             'quantity_num' => $quantityNum,
             'product_titles' => $titles,
+            'product_ids' => $productIds,
             'products' => $products,
             'order_ids' => $g['order_ids'],
             'order_codes' => $g['order_codes'],
@@ -1456,10 +1801,18 @@ function org_shop_save_product(PDO $dbh, int $orgId, array $data, ?int $productI
                 ':org' => $orgId,
             ]);
             org_shop_ensure_product_code($dbh, $orgId, $productId);
-            return ['ok' => true, 'product_id' => $productId];
+            $code = '';
+            try {
+                $stCode = $dbh->prepare('SELECT product_code FROM org_products WHERE id = :id AND org_id = :org LIMIT 1');
+                $stCode->execute([':id' => $productId, ':org' => $orgId]);
+                $code = trim((string)($stCode->fetchColumn() ?: ''));
+            } catch (Throwable $e) {
+                $code = '';
+            }
+            return ['ok' => true, 'product_id' => $productId, 'product_code' => $code];
         }
 
-        $productCode = org_shop_gen_product_code($dbh, $orgId);
+        $productCode = org_shop_gen_product_code($dbh, $orgId, 0);
         $st = $dbh->prepare('
             INSERT INTO org_products (
                 org_id, sku, product_code, title, description, seo_title, seo_description, slug,
@@ -1503,7 +1856,13 @@ function org_shop_save_product(PDO $dbh, int $orgId, array $data, ?int $productI
             ':status' => $status,
             ':member' => $memberId > 0 ? $memberId : null,
         ]);
-        return ['ok' => true, 'product_id' => (int)$dbh->lastInsertId()];
+        $newId = (int)$dbh->lastInsertId();
+        // Lock Product ID to this row so identical car models never share a code.
+        if ($newId > 0) {
+            $finalCode = org_shop_ensure_product_code($dbh, $orgId, $newId, '');
+            return ['ok' => true, 'product_id' => $newId, 'product_code' => $finalCode];
+        }
+        return ['ok' => true, 'product_id' => $newId];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not save product.'];
     }

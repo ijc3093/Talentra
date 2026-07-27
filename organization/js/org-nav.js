@@ -124,6 +124,18 @@
     try {
       var left = new URL(a, window.location.href);
       var right = new URL(b, window.location.href);
+      return left.pathname === right.pathname
+        && left.search === right.search
+        && left.hash === right.hash;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function samePathSearch(a, b) {
+    try {
+      var left = new URL(a, window.location.href);
+      var right = new URL(b, window.location.href);
       return left.pathname === right.pathname && left.search === right.search;
     } catch (e) {
       return false;
@@ -225,7 +237,7 @@
     document.querySelectorAll('.sh-sideleft-menu a.nav-link').forEach(function (link) {
       link.classList.remove('is-nav-pending');
       if (!isOrgNavLink(link)) return;
-      link.classList.toggle('active', sameUrl(link.href, url));
+      link.classList.toggle('active', samePathSearch(link.href, url));
     });
   }
 
@@ -584,6 +596,43 @@
     return isFeedPage(fromUrl) && !isFeedPage(toUrl);
   }
 
+  function shouldHardEnterFeed(fromUrl, toUrl) {
+    return !isFeedPage(fromUrl) && isFeedPage(toUrl);
+  }
+
+  function isMessagesPage(url) {
+    return pageFromUrl(url) === 'messages.php';
+  }
+
+  function shouldHardEnterMessages(fromUrl, toUrl) {
+    return !isMessagesPage(fromUrl) && isMessagesPage(toUrl);
+  }
+
+  function shouldHardLeaveMessages(fromUrl, toUrl) {
+    return isMessagesPage(fromUrl) && !isMessagesPage(toUrl);
+  }
+
+  function isShopRentPage(url) {
+    return pageFromUrl(url) === 'shop_rent.php';
+  }
+
+  function shouldHardEnterShopRent(fromUrl, toUrl) {
+    return !isShopRentPage(fromUrl) && isShopRentPage(toUrl);
+  }
+
+  function shouldHardLeaveShopRent(fromUrl, toUrl) {
+    return isShopRentPage(fromUrl) && !isShopRentPage(toUrl);
+  }
+
+  function shouldHardNav(fromUrl, toUrl) {
+    return shouldHardLeaveFeed(fromUrl, toUrl)
+      || shouldHardEnterFeed(fromUrl, toUrl)
+      || shouldHardLeaveMessages(fromUrl, toUrl)
+      || shouldHardEnterMessages(fromUrl, toUrl)
+      || shouldHardLeaveShopRent(fromUrl, toUrl)
+      || shouldHardEnterShopRent(fromUrl, toUrl);
+  }
+
   async function navigateTo(url, options) {
     options = options || {};
     var push = options.push !== false;
@@ -596,11 +645,18 @@
 
     if (sameUrl(url, window.location.href)) {
       setActiveNav(url);
-      teardownForTarget(url);
       return;
     }
 
-    if (shouldHardLeaveFeed(window.location.href, url)) {
+    // Same page, different #hash — update URL only (do not tear down the page).
+    if (samePathSearch(url, window.location.href)) {
+      if (push) history.pushState({ orgNav: true, url: url }, '', url);
+      else history.replaceState({ orgNav: true, url: url }, '', url);
+      setActiveNav(url);
+      return;
+    }
+
+    if (shouldHardNav(window.location.href, url)) {
       window.location.href = url;
       return;
     }
@@ -667,7 +723,7 @@
     showNavShieldNow();
     destroyAllFeedMedia(target);
 
-    if (shouldHardLeaveFeed(window.location.href, target)) {
+    if (shouldHardNav(window.location.href, target)) {
       teardownForTarget(target);
       return;
     }
@@ -686,7 +742,7 @@
     event.preventDefault();
     onLinkActivate(link);
 
-    if (shouldHardLeaveFeed(window.location.href, link.href)) {
+    if (shouldHardNav(window.location.href, link.href)) {
       window.location.href = link.href;
       return;
     }

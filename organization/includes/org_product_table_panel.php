@@ -146,11 +146,23 @@ $ptCategoryGroups = array_values($ptCategoryGroups);
 
   <div class="pt-layout">
   <div class="pt-card pt-card-main">
+    <div class="pt-toolbar">
+      <label class="pt-search" for="ptProductSearch">
+        <i class="icon ion-ios-search" aria-hidden="true"></i>
+        <input
+          type="search"
+          id="ptProductSearch"
+          placeholder="Search by Product ID, title, or SKU…"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </label>
+    </div>
     <div class="pt-table-wrap">
       <table class="pt-table" id="ptInventoryTable">
         <thead>
           <tr>
-            <th class="pt-col-id">ID</th>
+            <th class="pt-col-id">Product ID</th>
             <th class="pt-col-product">Title / SKU</th>
             <th>Type</th>
             <th>Price</th>
@@ -176,22 +188,42 @@ $ptCategoryGroups = array_values($ptCategoryGroups);
                 $categoryKey = mb_strtolower($category !== '' ? $category : 'Uncategorized');
                 $sku = trim((string)($p['sku'] ?? ''));
                 $subLabel = $category !== '' ? $category : ($sku !== '' ? 'SKU ' . $sku : '');
+                $productId = (int)($p['id'] ?? 0);
                 $productCode = trim((string)($p['product_code'] ?? ''));
                 if ($productCode === '' && function_exists('org_shop_ensure_product_code')) {
-                    $productCode = org_shop_ensure_product_code($dbh, (int)$orgId, (int)($p['id'] ?? 0), '');
+                    $productCode = org_shop_ensure_product_code($dbh, (int)$orgId, $productId, '');
                 }
-                $orderedQty = (int)($orderedQtyMap[(int)($p['id'] ?? 0)] ?? 0);
+                $displayProductId = $productCode !== '' ? $productCode : ('#' . $productId);
+                $orderedQty = (int)($orderedQtyMap[$productId] ?? 0);
                 $stockTracked = $p['stock_qty'] !== null && $p['stock_qty'] !== '';
                 $stockQty = $stockTracked ? (int)$p['stock_qty'] : null;
                 // Product # = remaining stock + units already ordered (so 8 + 2 = 10).
                 // Helps the seller confirm nothing is missing from inventory.
                 $productTotalQty = $stockTracked ? max(0, $stockQty) + max(0, $orderedQty) : max(0, $orderedQty);
-                $detailUrl = $ptDetailBase . (int)($p['id'] ?? 0) . $ptDetailSuffix;
+                $detailUrl = $ptDetailBase . $productId . $ptDetailSuffix;
+                $searchBlob = mb_strtolower(trim(implode(' ', array_filter([
+                    $displayProductId,
+                    (string)$productId,
+                    $productCode,
+                    (string)($p['title'] ?? ''),
+                    $sku,
+                    $category,
+                    $status,
+                ]))));
               ?>
-              <tr class="pt-row-link" data-href="<?= h($detailUrl) ?>" data-category="<?= h($categoryKey) ?>" tabindex="0" role="link" aria-label="Open product <?= h($productCode !== '' ? $productCode : (string)(int)($p['id'] ?? 0)) ?>">
+              <tr
+                class="pt-row-link"
+                data-href="<?= h($detailUrl) ?>"
+                data-category="<?= h($categoryKey) ?>"
+                data-product-id="<?= h($displayProductId) ?>"
+                data-search="<?= h($searchBlob) ?>"
+                tabindex="0"
+                role="link"
+                aria-label="Open product <?= h($displayProductId) ?>"
+              >
                 <td class="pt-col-id">
-                  <a href="<?= h($detailUrl) ?>" class="pt-id-link" onclick="event.stopPropagation();">
-                    <code class="pt-id-code"><?= h($productCode !== '' ? $productCode : ('#' . (int)($p['id'] ?? 0))) ?></code>
+                  <a href="<?= h($detailUrl) ?>" class="pt-id-link" onclick="event.stopPropagation();" title="Product ID">
+                    <code class="pt-id-code"><?= h($displayProductId) ?></code>
                   </a>
                 </td>
                 <td class="pt-col-product">
@@ -250,19 +282,19 @@ $ptCategoryGroups = array_values($ptCategoryGroups);
                     </button>
                     <div class="pt-fries-menu" role="menu" hidden>
                       <a href="<?= h($detailUrl) ?>" class="pt-fries-item" role="menuitem">View</a>
-                      <a href="<?= h($ptEditBase . (int)$p['id'] . $ptEditHash) ?>" class="pt-fries-item" role="menuitem">Edit</a>
+                      <a href="<?= h($ptEditBase . $productId . $ptEditHash) ?>" class="pt-fries-item" role="menuitem">Edit</a>
                       <?php if ($status === 'active'): ?>
                         <form method="post"<?= $ptFormAction !== '' ? ' action="' . h($ptFormAction) . '"' : '' ?> class="pt-fries-form">
                           <input type="hidden" name="pt_action" value="1">
                           <input type="hidden" name="action" value="publish_feed">
-                          <input type="hidden" name="product_id" value="<?= (int)$p['id'] ?>">
+                          <input type="hidden" name="product_id" value="<?= $productId ?>">
                           <button type="submit" class="pt-fries-item" role="menuitem">Publish to Feed</button>
                         </form>
                       <?php endif; ?>
                       <form method="post"<?= $ptFormAction !== '' ? ' action="' . h($ptFormAction) . '"' : '' ?> class="pt-fries-form" onsubmit="return confirm('Remove this product?');">
                         <input type="hidden" name="pt_action" value="1">
                         <input type="hidden" name="action" value="delete">
-                        <input type="hidden" name="product_id" value="<?= (int)$p['id'] ?>">
+                        <input type="hidden" name="product_id" value="<?= $productId ?>">
                         <button type="submit" class="pt-fries-item is-danger" role="menuitem">Delete</button>
                       </form>
                       <?php if (!empty($p['public_post_id'])): ?>
@@ -392,11 +424,15 @@ $ptCategoryGroups = array_values($ptCategoryGroups);
     window.addEventListener('scroll', function(){ closeAllPtFries(null); }, true);
     window.addEventListener('resize', function(){ closeAllPtFries(null); });
 
-    // Category filter (right panel).
+    // Category + Product ID / title / SKU search.
     var catButtons = Array.prototype.slice.call(document.querySelectorAll('[data-pt-cat]'));
     var rows = Array.prototype.slice.call(document.querySelectorAll('#ptInventoryTable tbody tr.pt-row-link'));
-    function setPtCategoryFilter(cat) {
-      cat = String(cat || '').toLowerCase();
+    var searchInput = document.getElementById('ptProductSearch');
+    var activeCat = '';
+
+    function applyPtFilters() {
+      var cat = String(activeCat || '').toLowerCase();
+      var q = searchInput ? String(searchInput.value || '').trim().toLowerCase() : '';
       catButtons.forEach(function(btn){
         var isAll = btn.classList.contains('pt-cat-all');
         var key = String(btn.getAttribute('data-pt-cat') || '').toLowerCase();
@@ -405,9 +441,18 @@ $ptCategoryGroups = array_values($ptCategoryGroups);
       });
       rows.forEach(function(row){
         var rowCat = String(row.getAttribute('data-category') || '').toLowerCase();
-        row.hidden = cat !== '' && rowCat !== cat;
+        var blob = String(row.getAttribute('data-search') || '').toLowerCase();
+        var catOk = cat === '' || rowCat === cat;
+        var searchOk = q === '' || blob.indexOf(q) !== -1;
+        row.hidden = !(catOk && searchOk);
       });
     }
+
+    function setPtCategoryFilter(cat) {
+      activeCat = String(cat || '');
+      applyPtFilters();
+    }
+
     catButtons.forEach(function(btn){
       btn.addEventListener('click', function(){
         var key = String(btn.getAttribute('data-pt-cat') || '');
@@ -418,5 +463,10 @@ $ptCategoryGroups = array_values($ptCategoryGroups);
         setPtCategoryFilter(key);
       });
     });
+
+    if (searchInput) {
+      searchInput.addEventListener('input', applyPtFilters);
+      searchInput.addEventListener('search', applyPtFilters);
+    }
   })();
   </script>

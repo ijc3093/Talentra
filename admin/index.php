@@ -23,7 +23,6 @@ if (!empty($_SESSION['admin_id']) && !empty($_SESSION['userRole'])) {
 if (isset($_GET['inactiveRole'])) $error = "ERROR: Your role is invalid. Contact Admin.";
 if (isset($_GET['inactive']))     $error = "ERROR: Your account is inactive. Contact Admin.";
 if (isset($_GET['locked']))       $error = "ERROR: Your account is temporarily locked. Try again later.";
-if (isset($_GET['expired']))      $error = app_session_expired_message();
 
 if (isset($_POST['login'])) {
     $login = trim((string)($_POST['username'] ?? ''));

@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
+require_once __DIR__ . '/includes/appearance_palettes.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
@@ -20,6 +21,62 @@ $dbh = $controller->pdo();
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $isModalCreate = (string)($_GET['modal'] ?? '') === '1';
 $isStoryCreate = ((string)($_GET['story'] ?? '') === '1');
+
+/* Modal create-post: resolve Gear Appearance color (parent may pass live selection) */
+$modalAppearanceMode = appearance_palette_normalize_mode((string)($_GET['appearance'] ?? ''));
+if ($modalAppearanceMode === 'system' || $modalAppearanceMode === '') {
+    $modalAppearanceMode = theme_prefs_appearance_mode($dbh, $meId);
+}
+$modalAppearanceIsNamed = !in_array($modalAppearanceMode, ['system', 'light', 'dark'], true);
+$modalAutoEnabled = appearance_bridge_theme_auto_enabled($dbh, $meId);
+$modalPageBg = '#171d24';
+$modalPageText = '#b1bcce';
+$modalPageMuted = '#94a3b8';
+$modalInputBg = '#ffffff';
+if ($modalAppearanceIsNamed) {
+    $modalPageBg = appearance_palette_unified_bg_hex($modalAppearanceMode);
+    $usesDarkChrome = appearance_palette_uses_dark_chrome($modalAppearanceMode);
+    $modalPageText = $usesDarkChrome ? '#f3f6fb' : appearance_palette_chromatic_text_hex($modalAppearanceMode);
+    $modalPageMuted = $usesDarkChrome ? '#cbd5e1' : appearance_palette_chromatic_muted_hex($modalAppearanceMode);
+    $modalInputBg = $modalPageBg;
+} elseif ($modalAppearanceMode === 'light') {
+    $modalPageBg = '#f5f7fb';
+    $modalPageText = '#0f172a';
+    $modalPageMuted = '#64748b';
+    $modalInputBg = '#ffffff';
+} elseif ($modalAppearanceMode === 'dark') {
+    $modalPageBg = '#171d24';
+    $modalPageText = '#b1bcce';
+    $modalPageMuted = '#94a3b8';
+    $modalInputBg = '#1f2937';
+} elseif (!$modalAutoEnabled || !appearance_bridge_is_night_now()) {
+    /* system + day (or auto off) → light canvas */
+    $modalPageBg = '#f5f7fb';
+    $modalPageText = '#0f172a';
+    $modalPageMuted = '#64748b';
+    $modalInputBg = '#ffffff';
+}
+/* Parent live canvas color (from Gear Appearance) — wins for create-post iframe */
+$parentPaletteBg = trim((string)($_GET['palette_bg'] ?? ''));
+if (preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $parentPaletteBg)) {
+    if (strlen($parentPaletteBg) === 4) {
+        $parentPaletteBg = '#' . $parentPaletteBg[1] . $parentPaletteBg[1] . $parentPaletteBg[2] . $parentPaletteBg[2] . $parentPaletteBg[3] . $parentPaletteBg[3];
+    }
+    $modalPageBg = strtolower($parentPaletteBg);
+    if ($modalAppearanceIsNamed) {
+        $modalInputBg = $modalPageBg;
+    }
+}
+$modalPageBgCss = htmlspecialchars($modalPageBg, ENT_QUOTES, 'UTF-8');
+$modalPageTextCss = htmlspecialchars($modalPageText, ENT_QUOTES, 'UTF-8');
+$modalPageMutedCss = htmlspecialchars($modalPageMuted, ENT_QUOTES, 'UTF-8');
+$modalInputBgCss = htmlspecialchars($modalInputBg, ENT_QUOTES, 'UTF-8');
+$modalAppearanceAttr = $modalAppearanceIsNamed
+    ? ' data-msb-appearance="' . htmlspecialchars($modalAppearanceMode, ENT_QUOTES, 'UTF-8') . '"'
+    : (($modalAppearanceMode === 'light' || ($modalAppearanceMode === 'system' && (!$modalAutoEnabled || !appearance_bridge_is_night_now())))
+        ? ' data-msb-org-light="1"'
+        : '');
+
 ensurePostCategorySchema($dbh);
 device_profile_ensure_post_columns($dbh);
 publisher_ensure_schema($dbh);
@@ -39,6 +96,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string)($_POST['action'
     }
     if ($isStoryCreate) {
         $params['story'] = 1;
+    }
+    if ($modalAppearanceIsNamed) {
+        $params['appearance'] = $modalAppearanceMode;
     }
     if ((int)($_GET['edit'] ?? 0) > 0) {
         $params['edit'] = (int)($_GET['edit'] ?? 0);
@@ -62,6 +122,8 @@ $postCategories = fetchUserPostCategories($dbh, $meId);
 // edit mode
 $editId = (int)($_GET['edit'] ?? 0);
 $editPost = null;
+$editAttachmentCount = 0;
+$editBodyText = '';
 if ($editId > 0 && $meId > 0) {
     try {
         $stE = $dbh->prepare("SELECT * FROM public_posts WHERE id = :id AND user_id = :uid AND is_deleted = 0 LIMIT 1");
@@ -103,6 +165,17 @@ $loggedEmail = $_SESSION['user_login'];
 $currentLayoutOverride = '';
 $currentCategoryId = 0;
 if ($editPost) {
+    $editBodyText = trim((string)($editPost['body'] ?? ''));
+    if ($editBodyText === '') {
+        $editBodyText = strip_layout_override_marker((string)($editPost['description'] ?? ''));
+    }
+    try {
+        $stAtt = $dbh->prepare("SELECT COUNT(*) FROM public_post_attachments WHERE post_id = :pid");
+        $stAtt->execute([':pid' => (int)$editPost['id']]);
+        $editAttachmentCount = (int)($stAtt->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        $editAttachmentCount = 0;
+    }
     foreach (['layout_type','layout','post_type','type'] as $k) {
         if (!empty($editPost[$k])) {
             $currentLayoutOverride = trim((string)$editPost[$k]);
@@ -120,7 +193,7 @@ if ($editPost) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"<?php echo $isModalCreate ? $modalAppearanceAttr : ''; ?>>
   <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
@@ -327,9 +400,9 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-bo
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-header,
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card-footer,
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .card.mb-3{
-  background:#171d24 !important;
-  color:var(--msb-palette-text, #b1bcce) !important;
-  border-color:var(--msb-palette-border, rgba(177,188,206,.18)) !important;
+  background:var(--msb-palette-bg, #f5f7fb) !important;
+  color:var(--msb-palette-text, #0f172a) !important;
+  border-color:var(--msb-palette-border, rgba(15,23,42,.12)) !important;
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page label,
@@ -344,50 +417,95 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page small{
 }
 
 html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .alert-info{
-  background:#171d24 !important;
-  border-color:rgba(177,188,206,.22) !important;
-  color:var(--msb-palette-text, #b1bcce) !important;
+  background:var(--msb-palette-bg, #f5f7fb) !important;
+  border-color:var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  color:var(--msb-palette-text, #0f172a) !important;
 }
 
 <?php if ($isModalCreate): ?>
 html, body{
   height:100% !important;
   min-height:0 !important;
-  background:#171d24 !important;
-  color:var(--msb-palette-text, #b1bcce) !important;
 }
 
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page,
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .sh-mainpanel,
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .sh-pagebody,
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .card,
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .card-body{
-  background:#171d24 !important;
+/* Default dark canvas only when no Gear appearance color / light canvas */
+html:not([data-msb-appearance]):not([data-msb-org-light]),
+html:not([data-msb-appearance]):not([data-msb-org-light]) body,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page .sh-mainpanel,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page .sh-pagebody,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page .card,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page .card-body,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page .alert-info{
+  background:var(--msb-palette-bg, #171d24) !important;
+  background-color:var(--msb-palette-bg, #171d24) !important;
   color:var(--msb-palette-text, #b1bcce) !important;
   border-color:var(--msb-palette-border, rgba(177,188,206,.18)) !important;
 }
 
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page label,
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .card-title,
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page h6{
-  color:var(--msb-palette-text, #0f172a) !important;
-}
-
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .text-muted,
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page small{
-  color:var(--msb-palette-text-muted, #64748b) !important;
-}
-
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .form-control{
-  background:#171d24 !important;
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page .form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page select.form-control,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-modal-page textarea.form-control{
+  background:var(--msb-palette-input-bg, var(--msb-palette-bg, #171d24)) !important;
   color:var(--msb-palette-text, #b1bcce) !important;
   border-color:var(--msb-palette-border, rgba(177,188,206,.22)) !important;
 }
 
-html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-modal-page .alert-info{
-  background:#171d24 !important;
-  border-color:rgba(177,188,206,.22) !important;
-  color:var(--msb-palette-text, #b1bcce) !important;
+/* Gear Appearance color — paint create-post iframe to selected palette */
+html[data-msb-appearance],
+html[data-msb-appearance] body,
+html[data-msb-appearance] body.dashboard-modal-page,
+html[data-msb-appearance] body.dashboard-modal-page .sh-mainpanel,
+html[data-msb-appearance] body.dashboard-modal-page .sh-pagebody,
+html[data-msb-appearance] body.dashboard-modal-page .row,
+html[data-msb-appearance] body.dashboard-modal-page .row-sm,
+html[data-msb-appearance] body.dashboard-modal-page .col-lg-12,
+html[data-msb-appearance] body.dashboard-modal-page .card,
+html[data-msb-appearance] body.dashboard-modal-page .card-body,
+html[data-msb-appearance] body.dashboard-modal-page .card.mb-3,
+html[data-msb-appearance] body.dashboard-modal-page .alert,
+html[data-msb-appearance] body.dashboard-modal-page .alert-info,
+html[data-msb-appearance] body.dashboard-modal-page #instructionBox{
+  background:var(--msb-palette-bg) !important;
+  background-color:var(--msb-palette-bg) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text) !important;
+  border-color:var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+}
+
+html[data-msb-appearance] body.dashboard-modal-page label,
+html[data-msb-appearance] body.dashboard-modal-page .card-title,
+html[data-msb-appearance] body.dashboard-modal-page h6,
+html[data-msb-appearance] body.dashboard-modal-page .form-check-label{
+  color:var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.dashboard-modal-page .text-muted,
+html[data-msb-appearance] body.dashboard-modal-page small,
+html[data-msb-appearance] body.dashboard-modal-page .form-text{
+  color:var(--msb-palette-text-muted, var(--msb-palette-text)) !important;
+}
+
+html[data-msb-appearance] body.dashboard-modal-page .form-control,
+html[data-msb-appearance] body.dashboard-modal-page select.form-control,
+html[data-msb-appearance] body.dashboard-modal-page textarea.form-control,
+html[data-msb-appearance] body.dashboard-modal-page .msb-readonly-field{
+  background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;
+  color:var(--msb-palette-text) !important;
+  border-color:var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto),
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto) body,
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto) body.dashboard-modal-page,
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto) body.dashboard-modal-page .sh-mainpanel,
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto) body.dashboard-modal-page .sh-pagebody,
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto) body.dashboard-modal-page .card,
+html[data-msb-org-light]:not([data-msb-appearance]):not(.dark-auto) body.dashboard-modal-page .card-body{
+  background:#ffffff !important;
+  background-color:#ffffff !important;
+  color:#111827 !important;
+  border-color:rgba(15,23,42,.12) !important;
 }
 
 body.dashboard-page{
@@ -570,6 +688,77 @@ html[data-msb-org-light] body.dashboard-page small,
 html[data-msb-org-light] body.dashboard-page .form-text {
   color:#64748b !important;
 }
+
+<?php if ($isModalCreate): ?>
+/* Final paint: Gear Appearance color for create-post modal (literal hex wins over dark defaults) */
+html,
+html[data-theme="light"],
+html[data-theme="dark"],
+html.dark-auto,
+html:not([data-msb-appearance]),
+html[data-msb-appearance],
+html[data-msb-org-light] {
+  --msb-palette-bg: <?php echo $modalPageBgCss; ?>;
+  --msb-palette-text: <?php echo $modalPageTextCss; ?>;
+  --msb-palette-text-muted: <?php echo $modalPageMutedCss; ?>;
+  --msb-palette-input-bg: <?php echo $modalInputBgCss; ?>;
+}
+html body.dashboard-page.dashboard-modal-page,
+html[data-theme="light"] body.dashboard-page.dashboard-modal-page,
+html[data-theme="dark"] body.dashboard-page.dashboard-modal-page,
+html.dark-auto body.dashboard-page.dashboard-modal-page,
+html:not([data-msb-appearance]) body.dashboard-page.dashboard-modal-page,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboard-modal-page,
+html[data-msb-appearance] body.dashboard-page.dashboard-modal-page,
+html[data-msb-org-light] body.dashboard-page.dashboard-modal-page,
+html body.dashboard-page.dashboard-modal-page .sh-mainpanel,
+html body.dashboard-page.dashboard-modal-page .sh-pagebody,
+html body.dashboard-page.dashboard-modal-page .row,
+html body.dashboard-page.dashboard-modal-page .row-sm,
+html body.dashboard-page.dashboard-modal-page .col-lg-12,
+html body.dashboard-page.dashboard-modal-page .card,
+html body.dashboard-page.dashboard-modal-page .card-body,
+html body.dashboard-page.dashboard-modal-page .card-header,
+html body.dashboard-page.dashboard-modal-page .card-footer,
+html body.dashboard-page.dashboard-modal-page .card.mb-3,
+html body.dashboard-page.dashboard-modal-page .alert,
+html body.dashboard-page.dashboard-modal-page .alert.alert-info,
+html body.dashboard-page.dashboard-modal-page .alert.alert-info.create-post-type-box,
+html body.dashboard-page.dashboard-modal-page #instructionBox,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboard-modal-page .card,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboard-modal-page .card-body,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboard-modal-page .alert-info,
+html:not([data-msb-appearance]):not([data-msb-org-light]) body.dashboard-page.dashboard-modal-page .alert-info {
+  background: <?php echo $modalPageBgCss; ?> !important;
+  background-color: <?php echo $modalPageBgCss; ?> !important;
+  background-image: none !important;
+  color: <?php echo $modalPageTextCss; ?> !important;
+}
+html body.dashboard-page.dashboard-modal-page label,
+html body.dashboard-page.dashboard-modal-page .card-title,
+html body.dashboard-page.dashboard-modal-page h6,
+html body.dashboard-page.dashboard-modal-page .form-check-label,
+html body.dashboard-page.dashboard-modal-page .alert.alert-info,
+html body.dashboard-page.dashboard-modal-page .alert.alert-info strong,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboard-modal-page label {
+  color: <?php echo $modalPageTextCss; ?> !important;
+}
+html body.dashboard-page.dashboard-modal-page .text-muted,
+html body.dashboard-page.dashboard-modal-page small,
+html body.dashboard-page.dashboard-modal-page .form-text {
+  color: <?php echo $modalPageMutedCss; ?> !important;
+}
+html body.dashboard-page.dashboard-modal-page .form-control,
+html body.dashboard-page.dashboard-modal-page select.form-control,
+html body.dashboard-page.dashboard-modal-page textarea.form-control,
+html body.dashboard-page.dashboard-modal-page .msb-readonly-field,
+html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboard-modal-page .form-control {
+  background: <?php echo $modalInputBgCss; ?> !important;
+  background-color: <?php echo $modalInputBgCss; ?> !important;
+  color: <?php echo $modalPageTextCss; ?> !important;
+  border-color: rgba(15,23,42,.18) !important;
+}
+<?php endif; ?>
 </style>
 
 <script src="./js/device_profile.js"></script>
@@ -668,12 +857,12 @@ html[data-msb-org-light] body.dashboard-page .form-text {
                 </div>
 
                 <!-- ✅ HOW TO CREATE A POST (Instructions) -->
-                <div class="alert alert-info" style="border-left:4px solid #0861bc;">
+                <div class="alert alert-info create-post-type-box" style="border-left:4px solid #0861bc;background:<?php echo $isModalCreate ? $modalPageBgCss : 'var(--msb-palette-bg, #f5f7fb)'; ?> !important;color:<?php echo $isModalCreate ? $modalPageTextCss : 'var(--msb-palette-text, #0f172a)'; ?> !important;">
                   <!-- <div style="font-weight:900; font-size:15px; margin-bottom:6px;">
                     How to create a new post (Mobile/Tablet Feed)
                   </div> -->
 
-                  <div style="font-size:13px; margin-bottom:10px;">
+                  <div style="font-size:13px; margin-bottom:10px;color:inherit;">
                     Select a post type so your Feed card layout looks correct:
                   </div>
 
@@ -831,18 +1020,26 @@ html[data-msb-org-light] body.dashboard-page .form-text {
                 });
                 </script>
 
-                <form action="post_save.php" method="post" enctype="multipart/form-data"<?php echo $isModalCreate ? ' target="_top"' : ''; ?>>
+                <form id="createPostForm" action="post_save.php" method="post" enctype="multipart/form-data" data-modal="<?= $isModalCreate ? '1' : '0' ?>">
                   <?php echo csrfInput(); ?>
-                  <input type="hidden" name="post_id" value="<?= (int)($editPost['id'] ?? 0) ?>">
+                  <input type="hidden" name="ajax" value="1">
+                  <input type="hidden" name="post_id" id="createPostId" value="<?= (int)($editPost['id'] ?? 0) ?>">
                   <input type="hidden" name="device_label" value="">
                   <input type="hidden" name="device_viewport" value="">
+                  <input type="hidden" name="return_to" id="createPostReturnTo" value="feed.php">
+                  <div id="pendingUploadTokens"></div>
                   <?php if ($isPublisherAccount): ?>
-                  <input type="hidden" name="return_to" value="feed.php">
                   <input type="hidden" name="publisher_account" value="1">
                   <?php endif; ?>
 
                   <?php if ($isStoryCreate): ?>
                   <input type="hidden" name="layout_override" value="story">
+                  <?php endif; ?>
+                  <?php if ($editPost): ?>
+                  <div class="alert alert-secondary py-2 px-3 mb-3" style="font-size:13px;">
+                    Editing post #<?= (int)$editPost['id'] ?><?= $editAttachmentCount > 0 ? (' · ' . $editAttachmentCount . ' existing media file' . ($editAttachmentCount === 1 ? '' : 's') . ' kept unless you add new ones') : '' ?>.
+                    Change <strong>Friends</strong> / <strong>Public</strong> above to move this post between feed and public.
+                  </div>
                   <?php endif; ?>
                   <div class="form-row">
                     <div class="form-group col-md-6">
@@ -855,14 +1052,15 @@ html[data-msb-org-light] body.dashboard-page .form-text {
                       <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
                       <?php if ($isPublisherAccount): ?>
                         <input type="hidden" name="visibility" value="public">
-                        <div class="form-control msb-readonly-field" style="font-weight:700">Public audience — visible on public.php, news.php, and in followers’ feeds</div>
-                        <small class="text-muted">Publisher workspace: one public post from here appears on <strong>feed.php</strong>, <strong>public.php</strong>, and <strong>news.php</strong> at the same time. Personal users cannot post to news.php. After submit, you return to feed.php.</small>
+                        <div class="form-control msb-readonly-field" style="font-weight:700">Public — publisher posts</div>
+                        <small class="text-muted"><strong>feed.php</strong> = your publisher feed &amp; followers. <strong>public.php</strong> = discovery for people who have not followed you. <strong>news.php</strong> = publisher news browse (not a personal post destination). After submit you return to feed.php.</small>
                       <?php else: ?>
                       <?php $vis = (string)($editPost['visibility'] ?? 'friends'); ?>
-                      <select name="visibility" class="form-control">
-                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isStoryCreate ? 'Friends (story circle on feed.php)' : 'Friends to Friends (goes to feed.php only)' ?></option>
-                        <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isStoryCreate ? 'Public (story circle on public.php)' : 'Public (goes to public.php only)' ?></option>
+                      <select name="visibility" id="createPostVisibility" class="form-control">
+                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>>Friends</option>
+                        <option value="public" <?= $vis==='public'?'selected':'' ?>>Public</option>
                       </select>
+                      <small class="text-muted"><strong>feed.php</strong> = friends posts. <strong>public.php</strong> = public posts for everyone. <strong>news.php</strong> = publisher news browse only (not a create destination).</small>
                       <?php endif; ?>
                     </div>
                   </div>
@@ -906,20 +1104,28 @@ html[data-msb-org-light] body.dashboard-page .form-text {
                   <input type="hidden" name="description" value="">
 <div class="form-group">
                     <label>Body (optional — leave empty for media-only posts)</label>
-                    <textarea name="body" class="form-control" rows="4" placeholder="Write your post…"><?= h((string)($editPost['body'] ?? '')) ?></textarea>
+                    <textarea name="body" class="form-control" rows="4" placeholder="Write your post…"><?= h($editBodyText) ?></textarea>
                   </div>
 
                   <div class="form-group">
                     <label>Upload Media / Files (optional)</label>
-                    <input type="file" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip">
-                    <small class="text-muted">You can upload more than one file. Images, videos, GIFs, PDFs, and common office files.</small>
+                    <input type="file" id="createPostAttachments" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip">
+                    <div id="createPostUploadStatus" class="small text-muted mt-1" aria-live="polite"><?php
+                      if ($editPost && $editAttachmentCount > 0) {
+                          echo h($editAttachmentCount . ' file' . ($editAttachmentCount === 1 ? '' : 's') . ' already on this post. New uploads are added; existing media stays.');
+                      }
+                    ?></div>
+                    <div id="createPostUploadProgress" class="progress mt-2" style="height:6px;display:none;overflow:hidden;border-radius:999px;background:rgba(15,23,42,.08);">
+                      <div id="createPostUploadBar" class="progress-bar" role="progressbar" style="width:0%;height:100%;transition:width .18s linear;background:#2563eb;"></div>
+                    </div>
+                    <small class="text-muted">Images are optimized and upload as soon as you pick them so Submit is fast.</small>
                   </div>
 
                   <div class="d-flex align-items-center">
                     <!-- Edit/Post -->
-                    <button type="submit" class="btn btn-primary mr-2"><?= $editPost ? '' : '' ?><i class="icon ion-arrow-up-a" style="font-size:20px;"></i></button>
-                    <?php if ($editPost): ?>
-                      <a href="dashboard.php<?php echo $isModalCreate ? ('?modal=1' . ($isStoryCreate ? '&story=1' : '')) : ''; ?>" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" id="createPostSubmitBtn" class="btn btn-primary mr-2"><?= $editPost ? '' : '' ?><i class="icon ion-arrow-up-a" style="font-size:20px;"></i></button>
+                    <?php if ($editPost || $isModalCreate): ?>
+                      <a href="dashboard.php<?php echo $isModalCreate ? ('?modal=1' . ($isStoryCreate ? '&story=1' : '') . ($editPost ? ('&edit=' . (int)$editPost['id']) : '')) : ''; ?>" class="btn btn-outline-secondary"<?= $isModalCreate ? ' onclick="try{if(window.parent&&window.parent.MSBCreatePostModal){window.parent.MSBCreatePostModal.close();return false;}}catch(_e){}"' : '' ?>>Cancel</a>
                     <?php endif; ?>
                     <?php if (!$isModalCreate): ?>
                       <a href="feed.php" class="btn btn-outline-primary ml-auto<?= $isPublisherAccount ? '' : ' mr-2' ?>"><?= $isPublisherAccount ? 'Back to Feed' : 'Go to Feed' ?></a>
@@ -1041,18 +1247,385 @@ function qaValidatePost(form){
   // Title is OPTIONAL for all post types.
   return true;
 }
-// attach to first form
+
 document.addEventListener('DOMContentLoaded', function(){
-  const f = document.querySelector('form[action="post_save.php"]');
-  if(f && !f.dataset.qaBound){
-    f.dataset.qaBound = "1";
-    f.addEventListener('submit', function(ev){
-      if(!qaValidatePost(f)){ ev.preventDefault(); ev.stopPropagation(); }
-    });
+  const f = document.getElementById('createPostForm') || document.querySelector('form[action="post_save.php"]');
+  if (!f) return;
+
+  if (!f.dataset.qaBound) {
+    f.dataset.qaBound = '1';
   }
-  if(window.MSBDeviceProfile && typeof window.MSBDeviceProfile.bindForm === 'function'){
+  if (window.MSBDeviceProfile && typeof window.MSBDeviceProfile.bindForm === 'function') {
     window.MSBDeviceProfile.bindForm(f);
   }
+
+  const fileInput = document.getElementById('createPostAttachments') || f.querySelector('input[type="file"][name="attachments[]"]');
+  const tokenBox = document.getElementById('pendingUploadTokens');
+  const statusEl = document.getElementById('createPostUploadStatus');
+  const progressWrap = document.getElementById('createPostUploadProgress');
+  const progressBar = document.getElementById('createPostUploadBar');
+  const submitBtn = document.getElementById('createPostSubmitBtn') || f.querySelector('button[type="submit"]');
+  const csrfInput = f.querySelector('input[name="csrf_token"]');
+  const visibilitySel = document.getElementById('createPostVisibility') || f.querySelector('select[name="visibility"]');
+  const returnToInput = document.getElementById('createPostReturnTo') || f.querySelector('input[name="return_to"]');
+  const isModal = f.getAttribute('data-modal') === '1';
+  let pendingCount = 0;
+  let uploading = false;
+  let activeUploads = 0;
+  let progressDisplay = 0;
+  let progressTarget = 0;
+  let progressRaf = 0;
+
+  function syncReturnToFromVisibility(){
+    if (!returnToInput) return;
+    // Publisher accounts keep feed.php. Personal: public → public.php, friends → feed.php.
+    const hasPublisherFlag = !!(f.querySelector('input[name="publisher_account"]'));
+    if (hasPublisherFlag) {
+      returnToInput.value = 'feed.php';
+      return;
+    }
+    const vis = visibilitySel ? String(visibilitySel.value || 'friends') : 'friends';
+    returnToInput.value = (vis === 'public') ? 'public.php' : 'feed.php';
+  }
+  syncReturnToFromVisibility();
+  if (visibilitySel) {
+    visibilitySel.addEventListener('change', syncReturnToFromVisibility);
+  }
+
+  function setStatus(msg, isError){
+    if (!statusEl) return;
+    statusEl.textContent = msg || '';
+    statusEl.style.color = isError ? '#b91c1c' : '';
+  }
+
+  function paintProgress(){
+    progressRaf = 0;
+    const diff = progressTarget - progressDisplay;
+    if (Math.abs(diff) < 0.4) {
+      progressDisplay = progressTarget;
+    } else {
+      progressDisplay += diff * 0.35;
+      progressRaf = requestAnimationFrame(paintProgress);
+    }
+    if (!progressWrap || !progressBar) return;
+    const show = progressTarget > 0 || uploading;
+    progressWrap.style.display = show ? 'block' : 'none';
+    progressBar.style.width = Math.max(0, Math.min(100, progressDisplay)) + '%';
+  }
+
+  function setProgress(pct, show){
+    if (!show) {
+      progressTarget = 0;
+      progressDisplay = 0;
+      if (progressWrap) progressWrap.style.display = 'none';
+      if (progressBar) progressBar.style.width = '0%';
+      return;
+    }
+    progressTarget = Math.max(0, Math.min(100, pct || 0));
+    if (!progressRaf) progressRaf = requestAnimationFrame(paintProgress);
+  }
+
+  function syncSubmitEnabled(){
+    if (!submitBtn) return;
+    submitBtn.disabled = uploading;
+    submitBtn.style.opacity = uploading ? '0.7' : '';
+  }
+
+  function addToken(token){
+    if (!tokenBox || !token) return;
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'pending_tokens[]';
+    input.value = token;
+    input.dataset.pendingToken = '1';
+    tokenBox.appendChild(input);
+    pendingCount++;
+  }
+
+  function formatBytes(n){
+    n = Number(n || 0);
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // Compress large photos before upload so the progress bar finishes in seconds.
+  function compressImageFile(file){
+    return new Promise(function(resolve){
+      try {
+        if (!file || !/^image\/(jpeg|jpg|png|webp)$/i.test(file.type || '')) {
+          resolve(file);
+          return;
+        }
+        // Skip tiny files and animated gif.
+        if (file.size < 450 * 1024) {
+          resolve(file);
+          return;
+        }
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = function(){
+          URL.revokeObjectURL(url);
+          const maxEdge = 1600;
+          let w = img.naturalWidth || img.width || 0;
+          let h = img.naturalHeight || img.height || 0;
+          if (!w || !h) {
+            resolve(file);
+            return;
+          }
+          const scale = Math.min(1, maxEdge / Math.max(w, h));
+          w = Math.max(1, Math.round(w * scale));
+          h = Math.max(1, Math.round(h * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d', { alpha: false });
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(function(blob){
+            if (!blob || blob.size >= file.size * 0.95) {
+              resolve(file);
+              return;
+            }
+            const base = String(file.name || 'photo').replace(/\.[^.]+$/, '');
+            resolve(new File([blob], base + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
+          }, 'image/jpeg', 0.78);
+        };
+        img.onerror = function(){
+          URL.revokeObjectURL(url);
+          resolve(file);
+        };
+        img.src = url;
+      } catch (_e) {
+        resolve(file);
+      }
+    });
+  }
+
+  function uploadOneFile(file, onByteProgress){
+    return new Promise(function(resolve){
+      const csrf = csrfInput ? String(csrfInput.value || '') : '';
+      const fd = new FormData();
+      if (csrf) fd.append('csrf_token', csrf);
+      fd.append('attachments[]', file, file.name);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'ajax/post_media_upload.php', true);
+      xhr.responseType = 'json';
+      xhr.upload.onprogress = function(ev){
+        if (!ev.lengthComputable) return;
+        if (typeof onByteProgress === 'function') onByteProgress(ev.loaded, ev.total);
+      };
+      xhr.onload = function(){
+        let data = xhr.response;
+        if (!data || typeof data !== 'object') {
+          try { data = JSON.parse(xhr.responseText || '{}'); } catch (_e) { data = null; }
+        }
+        if (!data || !data.ok || !Array.isArray(data.files) || !data.files.length) {
+          resolve({ ok: false });
+          return;
+        }
+        resolve({ ok: true, files: data.files });
+      };
+      xhr.onerror = function(){ resolve({ ok: false }); };
+      xhr.send(fd);
+    });
+  }
+
+  function uploadSelectedFiles(fileList){
+    if (!fileList || !fileList.length) return;
+    const files = Array.prototype.slice.call(fileList);
+    uploading = true;
+    activeUploads = files.length;
+    syncSubmitEnabled();
+    progressDisplay = 0;
+    progressTarget = 2;
+    setProgress(2, true);
+    setStatus('Preparing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…', false);
+
+    // Clear input immediately so picking the same file again still works,
+    // and submit never re-sends original bytes.
+    if (fileInput) fileInput.value = '';
+
+    const sizes = files.map(function(){ return 1; });
+    const loaded = files.map(function(){ return 0; });
+    const totals = files.map(function(){ return 1; });
+
+    // Sequential uploads avoid PHP session-lock stalls; images are pre-compressed so each is quick.
+    let chain = Promise.resolve({ okFiles: 0 });
+    files.forEach(function(file, idx){
+      chain = chain.then(function(acc){
+        setStatus('Optimizing ' + (idx + 1) + '/' + files.length + '…', false);
+        setProgress(Math.max(8, 8 + (idx / files.length) * 10), true);
+        return compressImageFile(file).then(function(out){
+          sizes[idx] = out.size || file.size || 1;
+          totals[idx] = sizes[idx];
+          loaded[idx] = 0;
+          setStatus('Uploading ' + (idx + 1) + '/' + files.length + ' (' + formatBytes(out.size) + ')…', false);
+          return uploadOneFile(out, function(byteLoaded, byteTotal){
+            totals[idx] = Math.max(1, byteTotal || sizes[idx]);
+            loaded[idx] = Math.min(totals[idx], byteLoaded || 0);
+            // Weight each file equally in the bar so multi-file progress feels even.
+            let fileFrac = 0;
+            for (let i = 0; i < files.length; i++) {
+              const t = Math.max(1, totals[i]);
+              const l = (i < idx) ? t : (i === idx ? loaded[i] : 0);
+              fileFrac += (l / t) / files.length;
+            }
+            setProgress(12 + Math.round(fileFrac * 80), true);
+          }).then(function(res){
+            loaded[idx] = totals[idx];
+            if (res && res.ok && res.files) {
+              res.files.forEach(function(item){
+                if (item && item.token) {
+                  addToken(String(item.token));
+                  acc.okFiles++;
+                }
+              });
+            }
+            return acc;
+          });
+        });
+      });
+    });
+
+    chain.then(function(acc){
+      uploading = false;
+      activeUploads = 0;
+      syncSubmitEnabled();
+      if (!acc || acc.okFiles <= 0) {
+        setStatus('Upload failed. You can still submit and files will upload then.', true);
+        setTimeout(function(){ setProgress(0, false); }, 700);
+        return;
+      }
+      progressTarget = 100;
+      setProgress(100, true);
+      setStatus(pendingCount + ' file' + (pendingCount > 1 ? 's' : '') + ' ready — click submit.', false);
+      setTimeout(function(){ setProgress(0, false); }, 450);
+    }).catch(function(){
+      uploading = false;
+      activeUploads = 0;
+      syncSubmitEnabled();
+      setStatus('Network error while uploading. Try again or submit to upload on save.', true);
+      setProgress(0, false);
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', function(){
+      if (fileInput.files && fileInput.files.length) {
+        uploadSelectedFiles(fileInput.files);
+      }
+    });
+  }
+
+  f.addEventListener('submit', function(ev){
+    if (!qaValidatePost(f)) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      return;
+    }
+    // Always use AJAX save so modal can return to feed without a slow full reload mid-upload.
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    if (uploading) {
+      setStatus('Please wait for media upload to finish…', true);
+      return;
+    }
+
+    if (window.MSBDeviceProfile && typeof window.MSBDeviceProfile.bindForm === 'function') {
+      window.MSBDeviceProfile.bindForm(f);
+    }
+    syncReturnToFromVisibility();
+
+    const fd = new FormData(f);
+    // Guarantee edit id is sent even if the hidden field was wiped by a partial DOM refresh.
+    const postIdInput = document.getElementById('createPostId') || f.querySelector('input[name="post_id"]');
+    const editPostId = postIdInput ? Number(postIdInput.value || 0) : 0;
+    if (editPostId > 0) {
+      fd.set('post_id', String(editPostId));
+    }
+    // If files were pre-uploaded, do not send empty file fields.
+    if (pendingCount > 0 && fileInput && (!fileInput.files || !fileInput.files.length)) {
+      fd.delete('attachments[]');
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.7';
+    }
+    setStatus('Publishing…', false);
+    setProgress(30, true);
+
+    const publishStarted = Date.now();
+    const tick = setInterval(function(){
+      const elapsed = Date.now() - publishStarted;
+      setProgress(Math.min(90, 30 + elapsed / 40), true);
+    }, 80);
+
+    fetch('post_save.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    }).then(function(res){
+      return res.json().catch(function(){ return null; }).then(function(data){
+        return { res: res, data: data };
+      });
+    }).then(function(payload){
+      clearInterval(tick);
+      setProgress(100, true);
+      const data = payload && payload.data;
+      if (data && data.ok) {
+        const target = String(data.redirect || ('feed.php?post=' + String(data.post_id || '') + '&fresh=1'));
+        const postId = Number(data.post_id || 0);
+        setStatus('Posted!', false);
+        // Modal: soft-refresh parent feed (no full page reload) for ~2–3s publish.
+        try {
+          if (isModal && window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'msb-create-post-done',
+              postId: postId,
+              redirect: target,
+              story: !!(data.story),
+              visibility: String(data.visibility || (returnToInput && returnToInput.value === 'public.php' ? 'public' : 'friends')),
+              surface: String(data.surface || '')
+            }, '*');
+            // If parent handled it, this iframe is torn down. Otherwise hard-navigate.
+            setTimeout(function(){
+              try {
+                if (window.top && window.top !== window) window.top.location.replace(target);
+                else window.location.replace(target);
+              } catch (_fb) {
+                try { window.location.replace(target); } catch (_e2) {}
+              }
+            }, 1500);
+            return;
+          }
+        } catch (_e) {}
+        try { window.location.replace(target); } catch (_e3) { window.location.href = target; }
+        return;
+      }
+      setProgress(0, false);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '';
+      }
+      setStatus((data && data.error) ? ('Could not save (' + data.error + ').') : 'Could not save post. Please try again.', true);
+    }).catch(function(){
+      clearInterval(tick);
+      setProgress(0, false);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '';
+      }
+      setStatus('Network error while publishing. Please try again.', true);
+    });
+  });
 });
 </script>
 

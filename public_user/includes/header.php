@@ -567,7 +567,7 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <link rel="stylesheet" href="./css/dark-auto.css">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=78">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=98">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
@@ -589,8 +589,8 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
   --msb-logo-book: #7dd3fc;  /* soft sky */
   --msb-dd-surface: #ffffff;
   --msb-dd-surface-strong: #f8fafc;
-  --msb-dd-border: rgba(17,24,39,.10);
-  --msb-dd-divider: rgba(15,23,42,.08);
+  --msb-dd-border: #c0c2c4;
+  --msb-dd-divider: #c0c2c4;
   --msb-dd-text: #0f172a;
   --msb-dd-muted: #64748b;
   --msb-dd-soft: #334155;
@@ -602,7 +602,7 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
   --msb-dd-head-bg: linear-gradient(135deg, rgba(2,6,23,1), rgba(30,41,59,1));
   --msb-dd-head-text: #ffffff;
   --msb-rx-surface: rgba(255,255,255,.96);
-  --msb-rx-border: rgba(15,23,42,.12);
+  --msb-rx-border: #c0c2c4;
   --msb-rx-shadow: 0 18px 48px rgba(15,23,42,.22);
   --msb-rx-text: #0f172a;
 }
@@ -611,8 +611,8 @@ html.dark-auto,
 html[data-theme="dark"]{
   --msb-dd-surface: #1f2937;
   --msb-dd-surface-strong: #243041;
-  --msb-dd-border: rgba(148,163,184,.20);
-  --msb-dd-divider: rgba(148,163,184,.16);
+  --msb-dd-border: #34383c;
+  --msb-dd-divider: #34383c;
   --msb-dd-text: #e5edf5;
   --msb-dd-muted: #9fb0c2;
   --msb-dd-soft: #c6d3e1;
@@ -622,7 +622,7 @@ html[data-theme="dark"]{
   --msb-dd-warn-hover: rgba(146,64,14,.34);
   --msb-dd-shadow: 0 24px 70px rgba(2,6,23,.46);
   --msb-rx-surface: rgba(15,23,42,.96);
-  --msb-rx-border: rgba(148,163,184,.22);
+  --msb-rx-border: #34383c;
   --msb-rx-shadow: 0 22px 54px rgba(2,6,23,.5);
   --msb-rx-text: #e5edf5;
 }
@@ -1775,8 +1775,8 @@ iframe{
   justify-content:space-between;
   gap:16px;
   padding:0 18px;
-  background:#111827;
-  color:#fff;
+  background:var(--msb-palette-btn-bg, var(--msb-palette-header, var(--msb-palette-bg, #111827)));
+  color:var(--msb-palette-btn-text, var(--msb-palette-header-text, #fff));
 }
 
 .create-post-title{
@@ -1785,6 +1785,7 @@ iframe{
   gap:10px;
   font-size:16px;
   font-weight:800;
+  color:inherit;
 }
 
 .create-post-close{
@@ -1793,7 +1794,7 @@ iframe{
   border:0;
   border-radius:999px;
   background:rgba(255,255,255,.12);
-  color:#fff;
+  color:inherit;
   font-size:28px;
   line-height:1;
   cursor:pointer;
@@ -4172,6 +4173,47 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     return /(^|\/)live_watch\.php\?/.test(String(url || ''));
   }
 
+  function createPostModalSrc(src){
+    var nextSrc = String(src || 'dashboard.php?modal=1').trim() || 'dashboard.php?modal=1';
+    try {
+      var url = new URL(nextSrc, window.location.href);
+      if (!url.searchParams.get('modal')) url.searchParams.set('modal', '1');
+      var appearance = document.documentElement.getAttribute('data-msb-appearance') || '';
+      if (!appearance) {
+        try {
+          var prefs = (window.MSBTheme && typeof window.MSBTheme.getPrefs === 'function')
+            ? window.MSBTheme.getPrefs()
+            : (window.__MSBThemePrefs || null);
+          var mode = prefs && prefs.appearanceMode ? String(prefs.appearanceMode) : '';
+          if (mode && mode !== 'system' && mode !== 'light' && mode !== 'dark') {
+            appearance = mode;
+          }
+        } catch (_prefsErr) {}
+      }
+      if (appearance) {
+        url.searchParams.set('appearance', appearance);
+      } else {
+        url.searchParams.delete('appearance');
+      }
+      try {
+        var cs = window.getComputedStyle(document.documentElement);
+        var paletteBg = (cs.getPropertyValue('--msb-palette-bg') || '').trim();
+        if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(paletteBg)) {
+          url.searchParams.set('palette_bg', paletteBg);
+        } else {
+          url.searchParams.delete('palette_bg');
+        }
+      } catch (_bgErr) {
+        url.searchParams.delete('palette_bg');
+      }
+      url.searchParams.set('_t', String(Date.now()));
+      var rel = url.pathname.split('/').pop() || 'dashboard.php';
+      return rel + url.search + url.hash;
+    } catch (_e) {
+      return nextSrc;
+    }
+  }
+
   function openCreatePostModal(src){
     if (!createPostModal) return;
     if (STAFF_READONLY) {
@@ -4188,12 +4230,41 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     if (!createPostModalFrame) return;
     createPostModal.classList.remove('is-readonly-notice');
     if (createPostReadonlyNotice) createPostReadonlyNotice.setAttribute('hidden', 'hidden');
-    var nextSrc = String(src || 'dashboard.php?modal=1').trim() || 'dashboard.php?modal=1';
+    var nextSrc = createPostModalSrc(src);
+    var titleEl = createPostModal.querySelector('.create-post-title');
+    var dialogEl = createPostModal.querySelector('.create-post-dialog');
+    var isEdit = /(?:^|[?&#])edit=\d+/i.test(String(nextSrc)) || /(?:^|[?&#])edit=\d+/i.test(String(src || ''));
+    if (titleEl) {
+      titleEl.innerHTML = isEdit
+        ? '<i class="icon ion-compose"></i> Edit post'
+        : '<i class="icon ion-compose"></i> Create new post';
+    }
+    if (dialogEl) {
+      dialogEl.setAttribute('aria-label', isEdit ? 'Edit post' : 'Create post');
+    }
     createPostModal.classList.add('is-open');
     createPostModal.setAttribute('aria-hidden', 'false');
-    if (createPostModalFrame.getAttribute('src') !== nextSrc) {
-      createPostModalFrame.setAttribute('src', nextSrc);
-    }
+    try {
+      var cs = window.getComputedStyle(document.documentElement);
+      var bg = (cs.getPropertyValue('--msb-palette-bg') || '').trim();
+      var text = (cs.getPropertyValue('--msb-palette-text') || '').trim();
+      var btnBg = (cs.getPropertyValue('--msb-palette-btn-bg') || bg || '').trim();
+      var btnText = (cs.getPropertyValue('--msb-palette-btn-text') || text || '').trim();
+      var dialog = createPostModal.querySelector('.create-post-dialog');
+      var body = createPostModal.querySelector('.create-post-body');
+      var frame = createPostModal.querySelector('.create-post-frame');
+      var topbar = createPostModal.querySelector('.create-post-topbar');
+      if (bg) {
+        if (dialog) dialog.style.setProperty('background', bg, 'important');
+        if (body) body.style.setProperty('background', bg, 'important');
+        if (frame) frame.style.setProperty('background', bg, 'important');
+      }
+      if (topbar) {
+        if (btnBg) topbar.style.setProperty('background', btnBg, 'important');
+        if (btnText) topbar.style.setProperty('color', btnText, 'important');
+      }
+    } catch (_styleErr) {}
+    createPostModalFrame.setAttribute('src', nextSrc);
     document.body.style.overflow = 'hidden';
   }
 
@@ -5361,7 +5432,17 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     const createTrigger = e.target.closest('[data-create-post-modal]');
     if (createTrigger) {
       e.preventDefault();
-      openCreatePostModal(createTrigger.getAttribute('href') || createTrigger.getAttribute('data-modal-src') || 'dashboard.php?modal=1');
+      var modalSrc = createTrigger.getAttribute('href') || createTrigger.getAttribute('data-modal-src') || '';
+      if (!modalSrc || !/[?&]edit=\d+/i.test(modalSrc)) {
+        var card = createTrigger.closest('[data-edit-url], .public-post-card, .mf-card');
+        var fromCard = card ? String(card.getAttribute('data-edit-url') || '') : '';
+        if (fromCard) modalSrc = fromCard;
+        if ((!modalSrc || !/[?&]edit=\d+/i.test(modalSrc)) && createTrigger.classList.contains('pcm-edit') && card) {
+          var pid = parseInt(card.getAttribute('data-post-id') || card.getAttribute('data-id') || '0', 10) || 0;
+          if (pid > 0) modalSrc = 'dashboard.php?modal=1&edit=' + String(pid);
+        }
+      }
+      openCreatePostModal(modalSrc || 'dashboard.php?modal=1');
       return;
     }
 
@@ -5436,9 +5517,66 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
       if (!createPostModal || !createPostModal.classList.contains('is-open')) return;
       try {
         const doc = createPostModalFrame.contentDocument;
-        if (!doc) return;
-        if (doc.documentElement) doc.documentElement.scrollTop = 0;
+        const win = createPostModalFrame.contentWindow;
+        if (!doc || !doc.documentElement) return;
+        doc.documentElement.scrollTop = 0;
         if (doc.body) doc.body.scrollTop = 0;
+
+        /* Keep create-post iframe in sync with Gear Appearance color on the parent page */
+        const parentRoot = document.documentElement;
+        const childRoot = doc.documentElement;
+        const appearance = parentRoot.getAttribute('data-msb-appearance') || '';
+        const orgLight = parentRoot.getAttribute('data-msb-org-light');
+        const themeAuto = parentRoot.getAttribute('data-msb-theme-auto');
+        if (appearance) {
+          childRoot.setAttribute('data-msb-appearance', appearance);
+          childRoot.classList.add('msb-palette-active', 'msb-palette-unified');
+          childRoot.removeAttribute('data-msb-org-light');
+        } else {
+          childRoot.removeAttribute('data-msb-appearance');
+          childRoot.classList.remove('msb-palette-active', 'msb-palette-unified');
+          if (orgLight) childRoot.setAttribute('data-msb-org-light', orgLight);
+          else childRoot.removeAttribute('data-msb-org-light');
+        }
+        if (themeAuto) childRoot.setAttribute('data-msb-theme-auto', themeAuto);
+        else childRoot.removeAttribute('data-msb-theme-auto');
+        if (parentRoot.classList.contains('dark-auto')) childRoot.classList.add('dark-auto');
+        else childRoot.classList.remove('dark-auto');
+        const parentTheme = parentRoot.getAttribute('data-theme');
+        if (parentTheme) childRoot.setAttribute('data-theme', parentTheme);
+
+        const cs = window.getComputedStyle(parentRoot);
+        for (let i = 0; i < cs.length; i++) {
+          const prop = cs[i];
+          if (!prop || prop.indexOf('--') !== 0) continue;
+          if (prop.indexOf('--msb-') === 0
+            || prop.indexOf('--bg-') === 0
+            || prop.indexOf('--org-') === 0
+            || prop.indexOf('--public-') === 0
+            || prop.indexOf('--feed-') === 0
+            || prop === '--blue'
+            || prop === '--text-primary'
+            || prop === '--shadow'
+            || prop === '--shadow-strong') {
+            childRoot.style.setProperty(prop, cs.getPropertyValue(prop));
+          }
+        }
+
+        if (win && win.__MSBThemeCore && typeof win.__MSBThemeCore.applyThemeFromPrefs === 'function') {
+          try {
+            const prefs = (typeof win.__MSBThemeCore.readPrefs === 'function')
+              ? win.__MSBThemeCore.readPrefs()
+              : null;
+            if (prefs && appearance) {
+              prefs.appearanceMode = appearance;
+              prefs.autoEnabled = false;
+            }
+            win.__MSBThemeCore.applyThemeFromPrefs(prefs || undefined);
+            if (typeof win.__MSBThemeCore.refreshThemePaint === 'function') {
+              win.__MSBThemeCore.refreshThemePaint();
+            }
+          } catch (_themeErr) {}
+        }
       } catch (_e) {}
     });
   }
@@ -5465,6 +5603,72 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     open: openCreatePostModal,
     close: closeCreatePostModal
   };
+
+  // After create/edit: close modal, then land on the surface that matches Friends/Public.
+  window.addEventListener('message', function(ev){
+    var data = ev && ev.data;
+    if (!data || data.type !== 'msb-create-post-done') return;
+    try { closeCreatePostModal(); } catch (err) {}
+    var postId = Number(data.postId || 0);
+    var redirect = String(data.redirect || '');
+    var visibility = String(data.visibility || '').toLowerCase();
+    var redirectPath = '';
+    try {
+      redirectPath = String((new URL(redirect, window.location.href)).pathname || '').split('/').pop() || '';
+    } catch (errUrl) {
+      redirectPath = redirect.split('?')[0].split('/').pop() || '';
+    }
+    if (!redirectPath && data.surface) {
+      redirectPath = String(data.surface);
+    }
+    if (visibility === 'public' && !/public\.php$/i.test(redirectPath) && !/news\.php$/i.test(redirectPath)) {
+      redirectPath = 'public.php';
+      redirect = 'public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+    } else if (visibility === 'friends' && !/feed\.php$/i.test(redirectPath)) {
+      redirectPath = 'feed.php';
+      redirect = 'feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+    }
+
+    var pathNow = String(window.location.pathname || '');
+    var onFeed = /feed\.php$/i.test(pathNow);
+    var onPublic = /public\.php$/i.test(pathNow);
+    var wantsFeed = /feed\.php$/i.test(redirectPath);
+    var wantsPublic = /public\.php$/i.test(redirectPath);
+    var wantsNews = /news\.php$/i.test(redirectPath);
+    var switchingSurface = (onFeed && !wantsFeed) || (onPublic && !wantsPublic) || (wantsNews && !/news\.php$/i.test(pathNow));
+
+    // Moving Friends ↔ Public: drop the card on the current page, then open the destination.
+    if (switchingSurface && postId > 0) {
+      try {
+        document.querySelectorAll('.mf-card[data-id="' + String(postId) + '"]').forEach(function(node){ node.remove(); });
+        document.querySelectorAll('.public-post-card[data-post-id="' + String(postId) + '"]').forEach(function(node){ node.remove(); });
+      } catch (errRm) {}
+    }
+
+    // Soft-insert only when staying on feed.php for a Friends destination.
+    if (onFeed && wantsFeed && !switchingSurface && !data.story && typeof window.MSBFeedOnPostCreated === 'function') {
+      try {
+        window.MSBFeedOnPostCreated(postId, {
+          story: !!(data.story),
+          redirect: redirect,
+          visibility: visibility || 'friends'
+        });
+        return;
+      } catch (err2) {}
+    }
+
+    if (redirect) {
+      try { window.location.replace(redirect); } catch (err3) { window.location.href = redirect; }
+      return;
+    }
+    if (wantsPublic) {
+      window.location.replace('public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+    } else if (wantsNews) {
+      window.location.replace('news.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+    } else {
+      window.location.replace('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+    }
+  });
 
   if (liveConfirmCancel) {
     liveConfirmCancel.addEventListener('click', function(){

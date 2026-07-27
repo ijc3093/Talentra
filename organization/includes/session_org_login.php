@@ -23,25 +23,6 @@ function orgRequireLoginOnly(): void {
             exit;
         }
     }
-
-    if (app_session_is_expired()) {
-        unset(
-            $_SESSION['org_auth'],
-            $_SESSION['org_account_type'],
-            $_SESSION['org_account_id'],
-            $_SESSION['org_active_org_id'],
-            $_SESSION['org_member_id'],
-            $_SESSION['org_role_id'],
-            $_SESSION['org_publisher_user_id'],
-            $_SESSION['_session_login_at']
-        );
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000, $params['path'] ?? '/', $params['domain'] ?? '', (bool)($params['secure'] ?? false), true);
-        }
-        session_destroy();
-        app_session_redirect_with_expired('login.php');
-    }
 }
 
 function orgRequireManagerOnly(): void {

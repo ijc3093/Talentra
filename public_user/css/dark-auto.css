@@ -13,25 +13,25 @@ html.dark-auto *,
 /* Base */
 html.dark-auto,
 :is(html.dark-auto, body.dark-auto){
-  background:#171d24 !important;
-  color:#b1bcce;
+  background:var(--msb-palette-bg, #171d24) !important;
+  color:var(--msb-palette-text, #b1bcce);
   color-scheme: dark;
 
   /* video */
   --msb-dark-auto-chrome:#b1bcce;
   --studio-line:#394451;
-  --studio-text:#b1bcce;
-  --studio-muted:#b1bcce;
-  --studio-bg:#171d24;
-  --studio-card:#2b3137;
-  --studio-border:rgba(255,255,255,.12);
-  --studio-input:#1e1f1f;
-  background:#171d24;
+  --studio-text:var(--msb-palette-text, #b1bcce);
+  --studio-muted:var(--msb-palette-text-muted, #b1bcce);
+  --studio-bg:var(--msb-palette-bg, #171d24);
+  --studio-card:var(--msb-palette-surface-2, #2b3137);
+  --studio-border:var(--msb-palette-border, rgba(255,255,255,.12));
+  --studio-input:var(--msb-palette-input-bg, #1e1f1f);
+  background:var(--msb-palette-bg, #171d24);
   color:var(--studio-text);
 }
 
 html.dark-auto body{
-  background:#171d24 !important;
+  background:var(--msb-palette-bg, #171d24) !important;
   color:var(--studio-text) !important;
 }
 
@@ -243,8 +243,8 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
 :is(html.dark-auto, body.dark-auto) .card.bd-0,
 :is(html.dark-auto, body.dark-auto) .post,
 :is(html.dark-auto, body.dark-auto) .feed-ig-rail{
-  background:#171d24 !important;
-  color:#e6edf3;
+  background:var(--msb-palette-bg, #171d24) !important;
+  color:var(--msb-palette-text, #e6edf3);
   border-color:var(--studio-border) !important;
 }
 
@@ -2632,4 +2632,29 @@ html[data-msb-appearance] body.shop-page .ig-feed-user-name:hover,
 html[data-msb-appearance] body.shop-page .ig-feed-user-name:focus {
   color: var(--msb-palette-link, var(--shop-link, #93c5fd)) !important;
   -webkit-text-fill-color: var(--msb-palette-link, var(--shop-link, #93c5fd)) !important;
+}
+
+/* =====================================================
+   Appearance color wins over Dark-auto black when Gear color is set
+   ===================================================== */
+html.dark-auto[data-msb-appearance],
+html.dark-auto[data-msb-appearance] body,
+html.dark-auto[data-msb-appearance] body.dashboard-page,
+html.dark-auto[data-msb-appearance] body.dashboard-modal-page,
+html.dark-auto[data-msb-appearance] body.dashboard-page .sh-mainpanel,
+html.dark-auto[data-msb-appearance] body.dashboard-page .sh-pagebody,
+html.dark-auto[data-msb-appearance] body.dashboard-page .card,
+html.dark-auto[data-msb-appearance] body.dashboard-page .card-body,
+html.dark-auto[data-msb-appearance] body.dashboard-page .card-header,
+html.dark-auto[data-msb-appearance] body.dashboard-page .card-footer,
+html.dark-auto[data-msb-appearance] body.dashboard-page .row,
+html.dark-auto[data-msb-appearance] body.dashboard-page .row-sm,
+html.dark-auto[data-msb-appearance] body.dashboard-page .col-lg-12,
+html.dark-auto[data-msb-appearance] body.dashboard-page .alert,
+html.dark-auto[data-msb-appearance] body.dashboard-page .alert-info,
+html.dark-auto[data-msb-appearance] body.dashboard-page #instructionBox{
+  background: var(--msb-palette-bg) !important;
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
 }

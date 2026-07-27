@@ -95,12 +95,13 @@ function admin_linked_verify_credentials(PDO $dbh, string $login, string $passwo
         return null;
     }
 
-    $st = $dbh->prepare('
-        SELECT idadmin, fullname, username, email, password, status, role, image, friend_code
+    $friendCol = admin_linked_column_exists($dbh, 'friend_code') ? ', friend_code' : ", '' AS friend_code";
+    $st = $dbh->prepare("
+        SELECT idadmin, fullname, username, email, password, status, role, image{$friendCol}
         FROM admin
         WHERE username = :u OR email = :e
         LIMIT 1
-    ');
+    ");
     $st->execute([':u' => $login, ':e' => $login]);
     $row = $st->fetch(PDO::FETCH_ASSOC);
     if (!$row || (int)($row['status'] ?? 0) !== 1) {

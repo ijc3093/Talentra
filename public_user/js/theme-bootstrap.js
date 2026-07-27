@@ -283,6 +283,29 @@
     return contrastRatio(bg, dark) >= contrastRatio(bg, light) ? dark : light;
   }
 
+  /** Blend ink onto bg at alpha, returning a solid hex (for measurable border contrast). */
+  function blendOnto(inkHex, bgHex, alpha){
+    var ink = hexToRgb(inkHex);
+    var bgRgb = hexToRgb(bgHex);
+    if (!ink || !bgRgb) return bgHex;
+    var a = Math.max(0, Math.min(1, alpha));
+    return rgbToHex(
+      ink.r * a + bgRgb.r * (1 - a),
+      ink.g * a + bgRgb.g * (1 - a),
+      ink.b * a + bgRgb.b * (1 - a)
+    );
+  }
+
+  /**
+   * Soft borders matched to preferred chrome:
+   * light UI → #c0c2c4; dark UI → #34383c (sampled from preferred dark divider).
+   */
+  function borderPairOnBackground(bg, accentHex){
+    var lum = relativeLuminance(bg);
+    var preferred = lum > 0.45 ? '#c0c2c4' : '#34383c';
+    return { border: preferred, borderStrong: preferred };
+  }
+
   function mutedOn(bg){
     var primary = ensureContrast(null, bg, 4.5);
     var lightPrimary = relativeLuminance(primary) > 0.5;
@@ -336,6 +359,7 @@
     if (useDarkFg) {
       var hoverBg = hoverBgOn(bg, false);
       var hoverText = '#0a0a0a';
+      var lightBorders = borderPairOnBackground(bg);
       return {
         mode: 'dark-fg',
         text: '#0a0a0a',
@@ -344,8 +368,8 @@
         icon: '#0a0a0a',
         link: '#111827',
         linkHover: '#0a0a0a',
-        border: 'rgba(0,0,0,0.24)',
-        borderStrong: 'rgba(0,0,0,0.36)',
+        border: lightBorders.border,
+        borderStrong: lightBorders.borderStrong,
         btnBg: '#111827',
         btnText: '#ffffff',
         btnHoverBg: '#000000',
@@ -365,6 +389,7 @@
     var darkHoverText = ensureContrast(null, darkHoverBg, 4.5);
     var darkActiveBg = mixHex(bg, '#ffffff', 0.12);
     var darkActiveText = ensureContrast(null, darkActiveBg, 4.5);
+    var darkBorders = borderPairOnBackground(bg);
     return {
       mode: 'light-fg',
       text: '#f8fafc',
@@ -373,8 +398,8 @@
       icon: '#f8fafc',
       link: '#e2e8f0',
       linkHover: darkHoverText,
-      border: 'rgba(255,255,255,0.14)',
-      borderStrong: 'rgba(255,255,255,0.24)',
+      border: darkBorders.border,
+      borderStrong: darkBorders.borderStrong,
       btnBg: mixHex('#f8fafc', bg, 0.15),
       btnText: '#0a0a0a',
       btnHoverBg: mixHex('#ffffff', bg, 0.22),
@@ -418,6 +443,7 @@
       var navActive = surfaceTint(0.26);
       var hoverBg = surfaceTint(0.12);
       var btnBg = inkDark(0.52);
+      var chromaticLightBorders = borderPairOnBackground(bg, accent);
       return {
         mode: base.mode,
         text: darkInk,
@@ -426,8 +452,8 @@
         icon: darkInk,
         link: inkDark(0.48),
         linkHover: darkInk,
-        border: rgbaFromHex(accent, 0.22),
-        borderStrong: rgbaFromHex(accent, 0.34),
+        border: chromaticLightBorders.border,
+        borderStrong: chromaticLightBorders.borderStrong,
         btnBg: btnBg,
         btnText: ensureContrast(null, btnBg, 4.5),
         btnHoverBg: inkDark(0.62),
@@ -449,6 +475,7 @@
     var navHoverD = mixHex(bg, accent, 0.22);
     var navActiveD = mixHex(bg, accent, 0.14);
     var btnBgD = inkLight(0.5);
+    var chromaticDarkBorders = borderPairOnBackground(bg, accent);
     return {
       mode: base.mode,
       text: lightInk,
@@ -457,8 +484,8 @@
       icon: lightInk,
       link: inkLight(0.62),
       linkHover: lightInk,
-      border: rgbaFromHex(accent, 0.18),
-      borderStrong: rgbaFromHex(accent, 0.28),
+      border: chromaticDarkBorders.border,
+      borderStrong: chromaticDarkBorders.borderStrong,
       btnBg: btnBgD,
       btnText: ensureContrast(null, btnBgD, 4.5),
       btnHoverBg: inkLight(0.58),
@@ -720,10 +747,10 @@
     for (i = 0; i < scripts.length; i++) {
       var src = scripts[i].src || '';
       if (src.indexOf('theme-bootstrap.js') !== -1) {
-        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=37');
+        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=98');
       }
     }
-    return './css/appearance-palette.css?v=37';
+    return './css/appearance-palette.css?v=98';
   }
 
   function ensurePaletteStylesheet(){
@@ -1738,6 +1765,8 @@
       '--feed-surface-strong': t.bg,
       '--feed-border': t.border,
       '--feed-border-strong': t.borderStrong,
+      '--feed-post-divider': t.borderStrong,
+      '--feed-post-column-border': t.borderStrong,
       '--feed-text': t.text,
       '--feed-muted': t.muted,
       '--feed-soft-text': t.muted,
@@ -1875,8 +1904,10 @@
     var link = actionAccent;
     var linkOnSurface = actionAccent;
     var linkHover = actionAccentHover;
-    var border = fg.border;
-    var borderStrong = fg.borderStrong;
+    // Always recompute borders against the unified page bg so Gear colors stay contrasted.
+    var borderPair = borderPairOnBackground(bg, hex);
+    var border = borderPair.border;
+    var borderStrong = borderPair.borderStrong;
     var btnBg = fg.btnBg || btnBgOn(hex, bg, isDark);
     var btnText = fg.btnText || ensureContrast(null, btnBg, 4.5);
     if (contrastRatio(btnText, btnBg) < 4.5) {
@@ -2000,6 +2031,8 @@
     root.style.setProperty('--feed-surface-strong', bg);
     root.style.setProperty('--feed-border', border);
     root.style.setProperty('--feed-border-strong', borderStrong);
+    root.style.setProperty('--feed-post-divider', borderStrong);
+    root.style.setProperty('--feed-post-column-border', borderStrong);
     root.style.setProperty('--feed-text', text);
     root.style.setProperty('--feed-muted', muted);
     root.style.setProperty('--feed-soft-text', mutedOnSurface);
@@ -2073,8 +2106,18 @@
     root.style.setProperty('--msb-palette-icon', chrome);
     root.style.setProperty('--msb-palette-link', chrome);
     root.style.setProperty('--msb-palette-link-hover', chrome);
-    root.style.setProperty('--msb-palette-border', 'rgba(255,255,255,.12)');
-    root.style.setProperty('--msb-palette-border-strong', 'rgba(255,255,255,.16)');
+    var darkBorderPair = borderPairOnBackground(bg);
+    root.style.setProperty('--msb-palette-border', darkBorderPair.border);
+    root.style.setProperty('--msb-palette-border-strong', darkBorderPair.borderStrong);
+    root.style.setProperty('--feed-border', darkBorderPair.border);
+    root.style.setProperty('--feed-border-strong', darkBorderPair.borderStrong);
+    root.style.setProperty('--feed-post-divider', darkBorderPair.borderStrong);
+    root.style.setProperty('--feed-post-column-border', darkBorderPair.borderStrong);
+    root.style.setProperty('--feed-control-border', darkBorderPair.borderStrong);
+    root.style.setProperty('--public-border', darkBorderPair.border);
+    root.style.setProperty('--public-border-strong', darkBorderPair.borderStrong);
+    root.style.setProperty('--border', darkBorderPair.border);
+    root.style.setProperty('--border-color', darkBorderPair.border);
     root.style.setProperty('--msb-palette-hover-bg', 'rgba(255,255,255,.08)');
     root.style.setProperty('--msb-palette-nav-hover', '#2f3a4a');
     root.style.setProperty('--msb-palette-text-on-nav-hover', '#e8edf5');
@@ -2108,8 +2151,9 @@
     var text = '#0f172a';
     var muted = ensureContrast('#475569', bg, 4.5);
     var soft = ensureContrast('#334155', bg, 4.5);
-    var border = 'rgba(15,23,42,.12)';
-    var borderStrong = 'rgba(15,23,42,.16)';
+    var lightBorderPair = borderPairOnBackground(bg);
+    var border = lightBorderPair.border;
+    var borderStrong = lightBorderPair.borderStrong;
     var surface = bg;
     var surfaceAlt = '#eef3fb';
     var accent = '#2563eb';
@@ -2154,6 +2198,8 @@
     root.style.setProperty('--feed-surface-strong', '#eef3f8');
     root.style.setProperty('--feed-border', border);
     root.style.setProperty('--feed-border-strong', borderStrong);
+    root.style.setProperty('--feed-post-divider', borderStrong);
+    root.style.setProperty('--feed-post-column-border', borderStrong);
     root.style.setProperty('--feed-text', text);
     root.style.setProperty('--feed-muted', muted);
     root.style.setProperty('--feed-soft-text', soft);
@@ -2474,7 +2520,8 @@
       : 'html:not(.dark-auto):not([data-msb-appearance])';
     var paintBg = isDark ? appearanceDarkBg() : appearanceLightBg();
     var paintText = isDark ? appearanceDarkChrome() : '#0f172a';
-    var paintBorder = isDark ? 'rgba(255,255,255,.12)' : 'rgba(15,23,42,.12)';
+    var paintBorderPair = borderPairOnBackground(paintBg);
+    var paintBorder = paintBorderPair.borderStrong;
     var style = document.getElementById(BUILTIN_PAINT_STYLE_ID);
     if (!style) {
       style = document.createElement('style');
@@ -2490,6 +2537,18 @@
       '  background-image: none !important;\n' +
       '  color: ' + paintText + ' !important;\n' +
       '  border-color: ' + paintBorder + ' !important;\n' +
+      '}\n' +
+      scope + ' {\n' +
+      '  --msb-palette-border: ' + paintBorderPair.border + ';\n' +
+      '  --msb-palette-border-strong: ' + paintBorderPair.borderStrong + ';\n' +
+      '  --feed-border: ' + paintBorderPair.border + ';\n' +
+      '  --feed-border-strong: ' + paintBorderPair.borderStrong + ';\n' +
+      '  --feed-post-divider: ' + paintBorderPair.borderStrong + ';\n' +
+      '  --feed-post-column-border: ' + paintBorderPair.borderStrong + ';\n' +
+      '  --feed-control-border: ' + paintBorderPair.borderStrong + ';\n' +
+      '  --public-border: ' + paintBorderPair.border + ';\n' +
+      '  --public-border-strong: ' + paintBorderPair.borderStrong + ';\n' +
+      '  --public-control-border: ' + paintBorderPair.borderStrong + ';\n' +
       '}\n' +
       scopeSelectors(scope, BUILTIN_GEAR_FG_SELECTORS) + ' {\n' +
       '  color: ' + paintText + ' !important;\n' +
@@ -2678,12 +2737,11 @@
     var useDarkAutoClass = false;
 
     if (namedPalette) {
+      // Named/fixed appearance colors never mix with Dark auto chrome (avoids flash).
       applyPaletteVars(root, appearanceMode);
       clearBuiltinThemePaintStyle();
       on = paletteUsesDarkChrome(appearanceMode, paletteMeta(appearanceMode));
-      if (prefs.autoEnabled) {
-        useDarkAutoClass = shouldAutoDark();
-      }
+      useDarkAutoClass = false;
     } else {
       clearPaletteVars(root);
       on = resolveBuiltinDarkChrome(prefs, appearanceMode);

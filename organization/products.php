@@ -89,7 +89,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($savedId > 0) {
             org_shop_save_product_images_from_request($dbh, $orgId, $savedId);
         }
-        $ok = $pid > 0 ? 'Product updated.' : 'Product created.';
+        $savedCode = trim((string)($result['product_code'] ?? ''));
+        if ($savedCode === '' && $savedId > 0) {
+            $savedCode = org_shop_ensure_product_code($dbh, $orgId, $savedId, '');
+        }
+        if ($pid > 0) {
+            $ok = $savedCode !== '' ? ('Product updated. Product ID: ' . $savedCode) : 'Product updated.';
+        } else {
+            $ok = $savedCode !== '' ? ('Product created. Product ID: ' . $savedCode) : 'Product created.';
+        }
         $productCount = org_shop_product_count($dbh, $orgId);
     } else {
         $err = (string)($result['error'] ?? 'Save failed.');

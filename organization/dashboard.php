@@ -611,18 +611,24 @@ if ($publisherUserId > 0) {
             <div class="alert alert-danger" style="margin-top:12px;">
               <strong>Shop hidden from customers.</strong>
               Monthly platform rent is <?= h($rentLive) ?>.
-              Contact the platform admin to pay rent and restore your public shop.
+              <a href="shop_rent.php">Pay Small Business rent ($1/mo)</a> or choose another plan to restore your public shop.
             </div>
             <?php elseif ($rentLive === 'trial'): ?>
             <div class="alert alert-warning" style="margin-top:12px;">
               <strong>Free trial.</strong>
               Your shop is live<?= $rentUntil !== '' ? (' until ' . h(date('M j, Y', strtotime($rentUntil)))) : '' ?>.
-              After trial, pay monthly rent to keep selling on the public feed.
+              After trial, <a href="shop_rent.php">pay Small Business ($1/mo minimum)</a> or pick a larger plan — rent starts at $1, not $0.
             </div>
             <?php elseif ($rentLive === 'active' && $rentUntil !== ''): ?>
             <div class="alert alert-success" style="margin-top:12px;">
               <strong>Rent active</strong> until <?= h(date('M j, Y', strtotime($rentUntil))) ?>.
               Your shop is visible to customers.
+              <a href="shop_rent.php" class="mg-l-5">Manage plan</a>
+            </div>
+            <?php elseif ($rentLive === 'active'): ?>
+            <div class="alert alert-success" style="margin-top:12px;">
+              <strong>Shop live</strong> on <?= h((string)($rentSnapshot['plan_name'] ?? 'your plan')) ?>.
+              <a href="shop_rent.php" class="mg-l-5">Manage plan</a>
             </div>
             <?php endif; ?>
           <?php endif; ?>

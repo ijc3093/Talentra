@@ -27,6 +27,12 @@ $searchHits = publisher_attach_follow_state(
     publisher_search($pubDbh, (string)$publisherSearchQuery, 12, true),
     (int)($meId ?? 0)
 );
+if ($panelMeId > 0 && $searchHits) {
+    $searchHits = array_values(array_filter(
+        $searchHits,
+        static fn(array $pub): bool => (int)($pub['id'] ?? 0) !== $panelMeId
+    ));
+}
 if (!$searchHits) {
     return;
 }
@@ -46,12 +52,23 @@ if (!function_exists('h')) {
         $pid = (int)($pub['id'] ?? 0);
         $catKey = (string)($pub['publisher_category'] ?? '');
         $catLabel = publisher_categories()[$catKey] ?? $catKey;
+        $pubFriendCode = strtoupper(trim((string)($pub['friend_code'] ?? '')));
+        $pubUsername = trim((string)($pub['username'] ?? ''));
+        if ($pubFriendCode !== '') {
+            $pubProfileHref = 'profile.php?friend_code=' . rawurlencode($pubFriendCode);
+        } elseif ($pubUsername !== '') {
+            $pubProfileHref = 'profile.php?username=' . rawurlencode($pubUsername);
+        } elseif ($pid > 0) {
+            $pubProfileHref = 'profile.php?id=' . $pid;
+        } else {
+            $pubProfileHref = 'profile.php';
+        }
       ?>
       <article class="pub-discover-card">
-        <a href="profile.php?u=<?= rawurlencode((string)($pub['username'] ?? '')) ?>" class="pub-discover-avatar">
+        <a href="<?= h($pubProfileHref) ?>" class="pub-discover-avatar" aria-label="Open <?= h((string)($pub['name'] ?? 'publisher')) ?> profile">
           <img src="<?= h(user_avatar_url($pub, 96)) ?>" alt="" loading="lazy">
         </a>
-        <div class="pub-discover-name"><?= h((string)($pub['name'] ?? '')) ?></div>
+        <div class="pub-discover-name"><a href="<?= h($pubProfileHref) ?>"><?= h((string)($pub['name'] ?? '')) ?></a></div>
         <?php if ($catLabel !== ''): ?><div class="pub-discover-cat"><?= h($catLabel) ?></div><?php endif; ?>
         <button type="button" class="pub-follow-btn<?= !empty($pub['is_following']) ? ' is-following' : '' ?>" data-publisher-id="<?= $pid ?>">
           <?= !empty($pub['is_following']) ? 'Following' : 'Follow' ?>

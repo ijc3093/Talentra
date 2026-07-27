@@ -1064,6 +1064,24 @@ body.org-app .oms-data-table td.oms-col-products {
   word-break: break-word;
 }
 
+body.org-app .oms-data-table th.oms-col-product-id,
+body.org-app .oms-data-table td.oms-col-product-id {
+  min-width: 96px;
+  max-width: 140px;
+  white-space: nowrap;
+  vertical-align: top !important;
+}
+
+body.org-app .oms-data-table td.oms-col-product-id code {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 10px !important;
+  font-weight: 700;
+  letter-spacing: .02em;
+  background: rgba(148, 163, 184, .16);
+}
+
 body.org-app .oms-data-table th.oms-col-contact,
 body.org-app .oms-data-table td.oms-col-contact,
 body.org-app .oms-data-table th.oms-col-address,
@@ -1085,4 +1103,70 @@ body.org-app .oms-data-table th.oms-col-narrow,
 body.org-app .oms-data-table td.oms-col-narrow {
   white-space: nowrap;
   width: 1%;
+}
+
+/* Kill shamcey / dark-auto black nav hover on org sidebar (Home feed + modules) */
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html body.org-app .org-sideleft-top .nav > .nav-item > .nav-link,
+html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html.dark-auto body.org-app .org-sideleft-top .nav > .nav-item > .nav-link,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link,
+html[data-msb-appearance] body.org-app .org-sideleft-top .nav > .nav-item > .nav-link {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
+html body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
+html body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus,
+html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
+html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:focus,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
+html.dark-auto body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
+html.dark-auto body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus,
+html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
+html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:focus,
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
+html[data-msb-appearance] body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
+html[data-msb-appearance] body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:focus,
+html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+html.msb-palette-active body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  background-image: none !important;
+  color: #334155 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus span,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus i,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"],
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus [class*="ion-"],
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"],
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"] {
+  color: #334155 !important;
+  background-color: transparent !important;
+}
+
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
+html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  color: #1d4ed8 !important;
+  box-shadow: none !important;
 }

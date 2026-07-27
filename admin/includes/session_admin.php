@@ -5,14 +5,24 @@ declare(strict_types=1);
 require_once __DIR__ . '/role_helpers.php';
 require_once __DIR__ . '/app_session_lifetime_load.php';
 
-/** Current admin session cookie name (v2 — avoids clashing with old path-scoped cookies). */
+/**
+ * Cookie name v3 — drops any leftover timed TALENTRA_ADMIN cookies that caused
+ * empty sessions / instant sign-out on refresh.
+ */
 if (!defined('ADMIN_SESSION_NAME')) {
-  define('ADMIN_SESSION_NAME', 'TALENTRA_ADMIN');
+  define('ADMIN_SESSION_NAME', 'TALENTRA_ADMIN_V3');
+}
+
+if (!function_exists('admin_legacy_session_cookie_names')) {
+  /** @return list<string> */
+  function admin_legacy_session_cookie_names(): array {
+    return ['TALENTRA_ADMIN', 'BUSINESS_ONLY_ADMIN'];
+  }
 }
 
 if (!function_exists('admin_expire_old_session_cookies')) {
   /**
-   * Remove pre-v2 BUSINESS_ONLY_ADMIN cookies that still sit on /myStoryBook or /MyStoryBook.
+   * Remove legacy admin session cookies (old names + path-scoped duplicates).
    * Those duplicates make PHP pick an empty session and look like an instant sign-out.
    */
   function admin_expire_old_session_cookies(): void {
@@ -21,10 +31,6 @@ if (!function_exists('admin_expire_old_session_cookies')) {
       return;
     }
     $done = true;
-
-    if (!isset($_COOKIE['BUSINESS_ONLY_ADMIN'])) {
-      return;
-    }
 
     if (!function_exists('admin_linked_expire_session_cookie_on_paths')) {
       return;
@@ -35,14 +41,18 @@ if (!function_exists('admin_expire_old_session_cookies')) {
       $paths = array_values(array_unique(array_merge($paths, admin_linked_legacy_session_cookie_paths())));
     }
 
-    admin_linked_expire_session_cookie_on_paths('BUSINESS_ONLY_ADMIN', $paths);
+    foreach (admin_legacy_session_cookie_names() as $cookieName) {
+      if (isset($_COOKIE[$cookieName])) {
+        admin_linked_expire_session_cookie_on_paths($cookieName, $paths);
+      }
+    }
   }
 }
 
 if (!function_exists('admin_emit_session_cookie')) {
   /**
-   * Force-send the live session cookie. Uses a session cookie (Expires=0 / no Max-Age)
-   * so browsers keep it reliably across refresh; server still enforces the 12h cap.
+   * Keep the admin session cookie alive across page refresh.
+   * There is no timed auto sign-out — only Sign Out clears it.
    */
   function admin_emit_session_cookie(): void {
     if (headers_sent()) {
@@ -56,10 +66,11 @@ if (!function_exists('admin_emit_session_cookie')) {
     $params = session_get_cookie_params();
     $domain = (string)($params['domain'] ?? '');
     $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    $expires = time() + (365 * 24 * 3600);
 
     if (PHP_VERSION_ID >= 70300) {
       setcookie($name, $id, [
-        'expires' => 0,
+        'expires' => $expires,
         'path' => '/',
         'domain' => $domain,
         'secure' => $secure,
@@ -67,7 +78,7 @@ if (!function_exists('admin_emit_session_cookie')) {
         'samesite' => 'Lax',
       ]);
     } else {
-      setcookie($name, $id, 0, '/', $domain, $secure, true);
+      setcookie($name, $id, $expires, '/', $domain, $secure, true);
     }
   }
 }
@@ -79,11 +90,12 @@ if (!function_exists('admin_session_bootstrap')) {
       require_once $bootstrapLoad;
     }
 
-    $lifetime = app_session_lifetime_seconds();
-    @ini_set('session.gc_maxlifetime', (string)$lifetime);
-    @ini_set('session.cookie_lifetime', '0');
+    // Keep session files; never use a short cookie lifetime for auto-logout.
+    $retain = app_session_lifetime_seconds();
+    @ini_set('session.gc_maxlifetime', (string)$retain);
+    @ini_set('session.cookie_lifetime', (string)$retain);
     @ini_set('session.use_only_cookies', '1');
-    // Keep strict mode off: a missing session file after GC must not reject the cookie id.
+    @ini_set('session.gc_probability', '0'); // avoid GC wiping active admin sessions on MAMP
 
     $savePath = '/Applications/MAMP/tmp/php';
     if (is_dir($savePath) && is_writable($savePath)) {
@@ -125,23 +137,37 @@ if (!function_exists('clearAdminSession')) {
     $_SESSION = [];
     if (ini_get("session.use_cookies")) {
       $name = session_name();
-      if (PHP_VERSION_ID >= 70300) {
-        setcookie($name, '', [
-          'expires' => time() - 42000,
-          'path' => '/',
-          'domain' => '',
-          'secure' => false,
-          'httponly' => true,
-          'samesite' => 'Lax',
-        ]);
-      } else {
-        setcookie($name, '', time() - 42000, '/', '', false, true);
+      $params = session_get_cookie_params();
+      $domain = (string)($params['domain'] ?? '');
+      $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+      $past = time() - 42000;
+
+      $variants = [
+        ['secure' => $secure],
+        ['secure' => !$secure],
+      ];
+      foreach ($variants as $variant) {
+        if (PHP_VERSION_ID >= 70300) {
+          setcookie($name, '', [
+            'expires' => $past,
+            'path' => '/',
+            'domain' => $domain,
+            'secure' => (bool)$variant['secure'],
+            'httponly' => true,
+            'samesite' => 'Lax',
+          ]);
+        } else {
+          setcookie($name, '', $past, '/', $domain, (bool)$variant['secure'], true);
+        }
       }
+
       if (function_exists('admin_linked_expire_session_cookie_on_paths')
           && function_exists('admin_linked_legacy_session_cookie_paths')) {
         $paths = array_values(array_unique(array_merge(['/'], admin_linked_legacy_session_cookie_paths())));
         admin_linked_expire_session_cookie_on_paths($name, $paths);
-        admin_linked_expire_session_cookie_on_paths('BUSINESS_ONLY_ADMIN', $paths);
+        foreach (admin_legacy_session_cookie_names() as $legacyName) {
+          admin_linked_expire_session_cookie_on_paths($legacyName, $paths);
+        }
       }
     }
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -190,16 +216,6 @@ if (!function_exists('requireAdminLogin')) {
       exit;
     }
 
-    if (app_session_is_expired()) {
-      clearAdminSession();
-      app_session_redirect_with_expired('index.php');
-    }
-
-    if (function_exists('app_session_touch_activity')) {
-      app_session_touch_activity();
-    }
-
-    // Refresh cookie so it survives browser refresh.
     admin_emit_session_cookie();
 
     $adminId = (int)$_SESSION['admin_id'];
@@ -254,7 +270,6 @@ if (!function_exists('requireAdminLogin')) {
 
 if (!function_exists('setAdminSession')) {
   function setAdminSession(array $admin): void {
-    // Keep old session data until the new id is established (avoid refresh races).
     if (session_status() === PHP_SESSION_ACTIVE) {
       session_regenerate_id(false);
     }

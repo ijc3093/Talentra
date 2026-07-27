@@ -66,9 +66,28 @@ function avatarColor(string $key): string {
 
 function userlist_row_is_publisher(object $row): bool
 {
+    return userlist_row_kind($row) === 'publisher';
+}
+
+function userlist_row_is_commerce(object $row): bool
+{
+    return userlist_row_kind($row) === 'commerce';
+}
+
+/** @return 'personal'|'publisher'|'commerce' */
+function userlist_row_kind(object $row): string
+{
     $accountKind = strtolower(trim((string)($row->account_kind ?? 'personal')));
+    $category = strtolower(trim((string)($row->publisher_category ?? '')));
     $friendCode = strtoupper(trim((string)($row->friend_code ?? '')));
-    return $accountKind === 'publisher' || strpos($friendCode, 'PUB-') === 0;
+
+    if ($accountKind === 'commerce' || $category === 'commerce') {
+        return 'commerce';
+    }
+    if ($accountKind === 'publisher' || strpos($friendCode, 'PUB-') === 0) {
+        return 'publisher';
+    }
+    return 'personal';
 }
 
 // -----------------------------
@@ -158,21 +177,42 @@ if (isset($_POST['set_status'])) {
 // -----------------------------
 try {
     $sql = "SELECT id, name, username, email, gender, mobile, designation, image, status,
-                   account_kind, friend_code, created_at
+                   account_kind, friend_code, created_at,
+                   COALESCE(publisher_category, '') AS publisher_category
             FROM users
             ORDER BY created_at DESC";
     $query = $dbh->prepare($sql);
     $query->execute();
     $results = $query->fetchAll(PDO::FETCH_OBJ);
 } catch (Throwable $e) {
-    $results = [];
-    $error = "Database error: " . $e->getMessage();
+    // Older schemas may not have publisher_category yet.
+    try {
+        $sql = "SELECT id, name, username, email, gender, mobile, designation, image, status,
+                       account_kind, friend_code, created_at
+                FROM users
+                ORDER BY created_at DESC";
+        $query = $dbh->prepare($sql);
+        $query->execute();
+        $results = $query->fetchAll(PDO::FETCH_OBJ);
+        foreach ($results as $row) {
+            if (!isset($row->publisher_category)) {
+                $row->publisher_category = '';
+            }
+        }
+    } catch (Throwable $e2) {
+        $results = [];
+        $error = "Database error: " . $e2->getMessage();
+    }
 }
 
 $personalCount = 0;
 $publisherCount = 0;
+$commerceCount = 0;
 foreach ($results as $countRow) {
-    if (userlist_row_is_publisher($countRow)) {
+    $kind = userlist_row_kind($countRow);
+    if ($kind === 'commerce') {
+        $commerceCount++;
+    } elseif ($kind === 'publisher') {
         $publisherCount++;
     } else {
         $personalCount++;
@@ -180,9 +220,13 @@ foreach ($results as $countRow) {
 }
 
 $listKind = strtolower(trim((string)($_GET['kind'] ?? 'personal')));
-if (!in_array($listKind, ['personal', 'publisher'], true)) {
+if (!in_array($listKind, ['personal', 'publisher', 'commerce'], true)) {
     $listKind = 'personal';
 }
+
+$visibleSeedCount = $listKind === 'commerce'
+    ? $commerceCount
+    : ($listKind === 'publisher' ? $publisherCount : $personalCount);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -200,6 +244,7 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
 
   <!-- Shamcey CSS -->
   <link rel="stylesheet" href="../css/shamcey.css">
+  <link rel="stylesheet" href="css/admin-tables-shamcey.css?v=6">
 
   <style>
     :root{
@@ -234,6 +279,8 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
       display:flex;
       flex-direction:column;
       background: var(--bg);
+      margin-left: 28px !important;
+      margin-right: 28px !important;
     }
 
     .users-card{
@@ -327,12 +374,21 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
       flex-direction:column;
     }
 
-    /* ✅ ONLY SCROLL AREA */
+    /* ✅ ONLY SCROLL AREA — vertical only */
     .table-scroll{
       flex:1 1 auto;
       min-height:0;
-      overflow:auto;
-      /* padding: 14px 18px 18px 18px; */
+      overflow-x:hidden;
+      overflow-y:auto;
+      max-width:100%;
+    }
+
+    #datatable1,
+    table.dataTable{
+      width:100% !important;
+      max-width:100% !important;
+      min-width:0 !important;
+      table-layout:fixed !important;
     }
 
     /* ✅ two-letter avatar */
@@ -386,19 +442,14 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
     .icon-btn.danger i{ color: #ef4444; }
     .icon-btn.primary i{ color: #2563eb; }
 
-    /* sticky header so only rows move */
+    /* sticky header — bordered cells come from admin-tables-shamcey.css */
     #datatable1 thead th{
       position: sticky;
       top: 0;
-      background: #fff;
       z-index: 5;
-      border-bottom: 1px solid rgba(17,24,39,.12) !important;
-      font-weight: 900;
-      color: rgba(17,24,39,.78);
     }
     #datatable1 tbody td{
       vertical-align: middle;
-      border-bottom: 1px solid rgba(17,24,39,.06);
     }
 
     /* DataTables controls style */
@@ -446,9 +497,7 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
     #datatable1 thead th{
       position: sticky;
       top: var(--fixed-top-offset);
-      background: #fff;
-      z-index: 20; /* higher than buttons */
-      box-shadow: 0 2px 0 rgba(0,0,0,.06);
+      z-index: 20;
     }
   </style>
 </head>
@@ -484,7 +533,8 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
       </div>
     <?php endif; ?>
 
-    <div class="users-card">
+    <div class="card users-card sh-admin-table-card">
+      <!-- <div class="card-header">User List</div> -->
       <!-- <div class="card-header pro">
         <div style="font-size:16px;">All Public User-side Accounts</div>
         <div class="sub">Manage users, status, and safe deletions with confirmation modals.</div>
@@ -494,7 +544,7 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
         <div class="pro-tools-left">
           <div class="hint">
             <b>Total Users:</b>
-            <span id="visibleUserCount"><?php echo $listKind === 'publisher' ? (int)$publisherCount : (int)$personalCount; ?></span>
+            <span id="visibleUserCount"><?php echo (int)$visibleSeedCount; ?></span>
             <span style="opacity:.6;">•</span>
             Search by name/email/phone/designation.
           </div>
@@ -510,6 +560,11 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
                     data-kind="publisher">
               Publisher (<?php echo (int)$publisherCount; ?>)
             </button>
+            <button type="button"
+                    class="account-kind-btn<?php echo $listKind === 'commerce' ? ' is-active' : ''; ?>"
+                    data-kind="commerce">
+              Commerce (<?php echo (int)$commerceCount; ?>)
+            </button>
           </div>
         </div>
 
@@ -519,7 +574,15 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
 
           <button type="button"
                   class="btn btn-primary btn-sm"
-                  onclick="window.location.href='user_form.php<?php echo $listKind === 'publisher' ? '?account_kind=publisher' : ''; ?>';">
+                  onclick="window.location.href='<?php
+                    if ($listKind === 'commerce') {
+                      echo 'user_form.php?account_kind=publisher&publisher_category=commerce';
+                    } elseif ($listKind === 'publisher') {
+                      echo 'user_form.php?account_kind=publisher';
+                    } else {
+                      echo 'user_form.php';
+                    }
+                  ?>';">
             <i class="fa fa-plus"></i> Add User
           </button>
 
@@ -535,19 +598,19 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
 
       <div class="card-body-fixed">
         <div class="table-scroll">
-          <table id="datatable1" class="table display responsive nowrap" style="width:100%;">
+          <table id="datatable1" class="table table-bordered table-hover display mg-b-0" style="width:100%;">
             <thead>
               <tr>
-                <th style="width:70px;">ID</th>
-                <th style="width:300px;">Full Name</th>
-                <th style="width:210px;">Email</th>
-                <th style="width:110px;">Type</th>
-                <th style="width:120px;">Gender</th>
-                <th style="width:140px;">Phone</th>
-                <th style="width:170px;">Designation</th>
-                <th style="width:170px;">Created</th>
-                <th style="width:150px;">Account</th>
-                <th style="width:170px;">Actions</th>
+                <th style="width:56px;">ID</th>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th style="width:90px;">Type</th>
+                <th style="width:80px;">Gender</th>
+                <th style="width:110px;">Phone</th>
+                <th style="width:120px;">Designation</th>
+                <th style="width:120px;">Created</th>
+                <th style="width:100px;">Account</th>
+                <th style="width:64px;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -559,9 +622,9 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
                 $uname = (string)($r->username ?? '');
                 $status = (int)($r->status ?? 0);
                 $isConfirmed = ($status === 1);
-                $accountKind = strtolower(trim((string)($r->account_kind ?? 'personal')));
-                $isPublisher = userlist_row_is_publisher($r);
-                $rowKind = $isPublisher ? 'publisher' : 'personal';
+                $rowKind = userlist_row_kind($r);
+                $isPublisher = ($rowKind === 'publisher');
+                $isCommerce = ($rowKind === 'commerce');
 
                 $labelForIni = $name !== '' ? $name : ($email !== '' ? $email : 'User');
                 $ini = initials2($labelForIni);
@@ -571,13 +634,13 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
                 <td class="mono"><?php echo $uid; ?></td>
 
                 <td>
-                  <div style="display:flex;align-items:center;gap:12px;min-width:260px;">
+                  <div style="display:flex;align-items:center;gap:10px;min-width:0;max-width:100%;">
                     <span class="ava2" style="background:<?php echo h($bg); ?>;"><?php echo h($ini); ?></span>
-                    <div style="min-width:0;">
-                      <div style="font-weight:900;color:#0f172a;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;">
+                    <div style="min-width:0;overflow:hidden;">
+                      <div style="font-weight:900;color:#0f172a;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                         <?php echo h($name); ?>
                       </div>
-                      <div class="mono" style="color:rgba(17,24,39,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">
+                      <div class="mono" style="color:rgba(17,24,39,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                         <?php echo h($designation); ?>
                       </div>
                     </div>
@@ -586,7 +649,9 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
 
                 <td class="mono"><?php echo h($email); ?></td>
                 <td>
-                  <?php if ($isPublisher): ?>
+                  <?php if ($isCommerce): ?>
+                    <span class="pill" style="background:rgba(244,153,23,.14);border-color:rgba(217,132,15,.28);color:#b36d0a;">Commerce</span>
+                  <?php elseif ($isPublisher): ?>
                     <span class="pill" style="background:rgba(37,99,235,.10);border-color:rgba(37,99,235,.18);color:#1d4ed8;">Publisher</span>
                   <?php else: ?>
                     <span class="pill">Personal</span>
@@ -606,42 +671,41 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
                 </td>
 
                 <td>
-                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <a class="icon-btn"
-                       href="user_form.php?user_id=<?php echo $uid; ?>"
-                       title="Edit user">
-                      <i class="fa fa-pencil"></i>
-                    </a>
-
-                    <a class="icon-btn primary"
-                       href="<?php echo h(user_admin_public_profile_href($uid)); ?>"
-                       target="_blank"
-                       rel="noopener"
-                       title="Open public profile">
-                      <i class="fa fa-eye"></i>
-                    </a>
-
-                    <button type="button"
-                            class="icon-btn"
-                            title="<?php echo $isConfirmed ? 'Block account (disable login)' : 'Unblock account'; ?>"
-                            data-id="<?php echo $uid; ?>"
-                            data-email="<?php echo h($email); ?>"
-                            data-name="<?php echo h($name); ?>"
-                            data-status="<?php echo $isConfirmed ? '0' : '1'; ?>"
-                            onclick="openStatusModal(this);">
-                      <i class="fa <?php echo $isConfirmed ? 'fa-ban' : 'fa-check'; ?>"></i>
+                  <div class="fries-menu">
+                    <button type="button" class="fries-toggle" title="Actions" aria-label="Actions" aria-haspopup="true">
+                      <span class="fries-icon" aria-hidden="true"></span>
                     </button>
-
-                    <button type="button"
-                            class="icon-btn danger"
-                            title="Delete user"
-                            data-id="<?php echo $uid; ?>"
-                            data-email="<?php echo h($email); ?>"
-                            data-username="<?php echo h($uname); ?>"
-                            data-name="<?php echo h($name); ?>"
-                            onclick="openDeleteModal(this);">
-                      <i class="fa fa-trash"></i>
-                    </button>
+                    <div class="fries-dropdown" role="menu">
+                      <a class="fries-item" role="menuitem" href="user_form.php?user_id=<?php echo $uid; ?>">
+                        <i class="fa fa-pencil"></i> Edit
+                      </a>
+                      <a class="fries-item" role="menuitem"
+                         href="<?php echo h(user_admin_public_profile_href($uid)); ?>"
+                         target="_blank" rel="noopener">
+                        <i class="fa fa-eye"></i> View profile
+                      </a>
+                      <button type="button"
+                              class="fries-item"
+                              role="menuitem"
+                              data-id="<?php echo $uid; ?>"
+                              data-email="<?php echo h($email); ?>"
+                              data-name="<?php echo h($name); ?>"
+                              data-status="<?php echo $isConfirmed ? '0' : '1'; ?>"
+                              onclick="openStatusModal(this);">
+                        <i class="fa <?php echo $isConfirmed ? 'fa-ban' : 'fa-check'; ?>"></i>
+                        <?php echo $isConfirmed ? 'Block' : 'Unblock'; ?>
+                      </button>
+                      <button type="button"
+                              class="fries-item fries-item-danger"
+                              role="menuitem"
+                              data-id="<?php echo $uid; ?>"
+                              data-email="<?php echo h($email); ?>"
+                              data-username="<?php echo h($uname); ?>"
+                              data-name="<?php echo h($name); ?>"
+                              onclick="openDeleteModal(this);">
+                        <i class="fa fa-trash"></i> Delete
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -819,7 +883,7 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
       info: false,
       responsive: false,
       autoWidth: false,
-      scrollX: true,
+      scrollX: false,
       language: {
         searchPlaceholder: 'Search users...',
         sSearch: '',
@@ -833,7 +897,7 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
     }
 
     function setAccountKind(kind) {
-      if (kind !== 'personal' && kind !== 'publisher') {
+      if (kind !== 'personal' && kind !== 'publisher' && kind !== 'commerce') {
         return;
       }
       activeKind = kind;
@@ -845,6 +909,17 @@ if (!in_array($listKind, ['personal', 'publisher'], true)) {
       var url = new URL(window.location.href);
       url.searchParams.set('kind', kind);
       window.history.replaceState({}, '', url.toString());
+
+      var addBtn = document.querySelector('.dt-tools .btn-primary');
+      if (addBtn) {
+        if (kind === 'commerce') {
+          addBtn.setAttribute('onclick', "window.location.href='user_form.php?account_kind=publisher&publisher_category=commerce';");
+        } else if (kind === 'publisher') {
+          addBtn.setAttribute('onclick', "window.location.href='user_form.php?account_kind=publisher';");
+        } else {
+          addBtn.setAttribute('onclick', "window.location.href='user_form.php';");
+        }
+      }
     }
 
     $('.account-kind-btn').on('click', function() {

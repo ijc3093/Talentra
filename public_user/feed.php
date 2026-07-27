@@ -17,6 +17,9 @@ require_once __DIR__ . '/includes/publisher_accounts_load.php';
 require_once __DIR__ . '/includes/publisher_organization_bridge.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
+require_once __DIR__ . '/includes/friend_system.php';
+require_once __DIR__ . '/includes/device_profile.php';
+require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 
@@ -24,12 +27,18 @@ error_reporting(E_ALL);
 ini_set('display_errors', '0');
 
 requireUserLogin();
+sendNoCacheHeadersUser();
 
 $controller = new Controller();
 $dbh = $controller->pdo();
+device_profile_ensure_post_columns($dbh);
 
 $loggedEmail = $_SESSION['user_login'];
+$sessionMeId = (int)($_SESSION['user_id'] ?? 0);
 $meId = theme_prefs_viewer_user_id();
+if ($meId <= 0) {
+    $meId = $sessionMeId;
+}
 publisher_ensure_schema($dbh);
 $isPublisherAccount = publisher_account_is($dbh, $meId);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
@@ -40,9 +49,96 @@ $feedLeftRailPublicPublishers = staff_pub_menu_for_viewer($dbh, $meId);
 $feedAlertPostId = (int)($_GET['open_post'] ?? $_GET['post'] ?? 0);
 $feedAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 $feedStoryPostId = (int)($_GET['story_post'] ?? 0);
+// Story create also lands with an id — keep it pinned for handoff.
+if ($feedAlertPostId <= 0 && $feedStoryPostId > 0) {
+    $feedAlertPostId = $feedStoryPostId;
+}
 $feedUploadWarn = (string)($_GET['upload_warn'] ?? '') === '1';
 $feedSearchQ = trim((string)($_GET['q'] ?? ''));
+// Only the post-create redirect skips the boot skeleton. Normal refresh (even with ?post=) shows loading.
+$feedFreshCreate = ((string)($_GET['fresh'] ?? '') === '1');
 $feedAppearanceMode = theme_prefs_appearance_mode($dbh, $meId);
+
+/**
+ * Build one list-shaped feed row for create→feed handoff (SSR seed).
+ * Avoids blank feed when Ajax list races or boot skeleton covers cards.
+ */
+$feedBootItems = [];
+if ($feedAlertPostId > 0 && $meId > 0) {
+    try {
+        $layoutSelect = post_layout_select_sql($dbh);
+        $stBoot = $dbh->prepare("
+          SELECT
+            p.id,
+            p.user_id,
+            COALESCE(p.views_count, 0) AS views_count,
+            COALESCE(p.title,'') AS title,
+            COALESCE(p.description,'') AS description,
+            COALESCE(p.body,'') AS body,
+            {$layoutSelect}
+            COALESCE(p.device_label,'') AS device_label,
+            COALESCE(p.device_viewport,'') AS device_viewport,
+            COALESCE(p.music_title,'') AS music_title,
+            COALESCE(p.music_artist,'') AS music_artist,
+            COALESCE(p.is_archived,0) AS is_archived,
+            p.created_at,
+            COALESCE(p.updated_at, p.created_at) AS updated_at,
+            u.username,
+            COALESCE(u.name, u.username) AS display_name,
+            COALESCE(u.friend_code,'') AS friend_code,
+            COALESCE(u.account_kind, 'personal') AS account_kind,
+            (SELECT a.file_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY a.id ASC LIMIT 1) AS preview_path,
+            (SELECT a.thumb_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY a.id ASC LIMIT 1) AS preview_thumb_path,
+            (SELECT a.type FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY a.id ASC LIMIT 1) AS preview_type,
+            (SELECT COUNT(*) FROM public_post_attachments a WHERE a.post_id = p.id) AS attachment_count
+          FROM public_posts p
+          JOIN users u ON u.id = p.user_id
+          WHERE p.id = :pid
+            AND p.is_deleted = 0
+            AND COALESCE(p.is_archived,0) = 0
+          LIMIT 1
+        ");
+        $stBoot->execute([':pid' => $feedAlertPostId]);
+        $bootRow = $stBoot->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($bootRow && publisher_can_view_post($dbh, $meId, $bootRow)) {
+            if (!empty($bootRow['preview_path'])) {
+                $bootRow['preview_path'] = preg_replace('#^public_user/#', '', (string)$bootRow['preview_path']);
+            }
+            if (!empty($bootRow['preview_thumb_path'])) {
+                $bootRow['preview_thumb_path'] = preg_replace('#^public_user/#', '', (string)$bootRow['preview_thumb_path']);
+            }
+            if (trim((string)($bootRow['declared_layout'] ?? '')) === '') {
+                $bootRow['declared_layout'] = post_declared_layout($bootRow);
+            }
+            $bootRow['author_id'] = (int)($bootRow['user_id'] ?? 0);
+            $bootRow['me_id'] = $meId;
+            $bootRow['is_story'] = post_is_story_only($bootRow) ? 1 : 0;
+            $bootRow['is_unread'] = 1;
+            $bootRow['friend_status'] = ((int)($bootRow['user_id'] ?? 0) === $meId)
+                ? 'self'
+                : fs_friend_status($dbh, $meId, (int)$bootRow['user_id']);
+            $bootRow['attachment_count'] = (int)($bootRow['attachment_count'] ?? 0);
+            $bootRow['media_count'] = (int)($bootRow['attachment_count'] ?? 0);
+            $deviceMeta = device_profile_card_meta(
+                (string)($bootRow['device_label'] ?? ''),
+                (string)($bootRow['device_viewport'] ?? '')
+            );
+            $bootRow['device_frame'] = (string)($deviceMeta['device_frame'] ?? '');
+            $bootRow['phone_shot'] = !empty($deviceMeta['phone_shot']) ? 1 : 0;
+            $bootRow['tablet_shot'] = !empty($deviceMeta['tablet_shot']) ? 1 : 0;
+            $bootRow['device_style'] = (string)($deviceMeta['style'] ?? '');
+            $bootRow['media_shape'] = device_profile_media_shape(
+                (string)($bootRow['preview_type'] ?? ''),
+                (string)($bootRow['preview_path'] ?? ''),
+                (string)($bootRow['preview_thumb_path'] ?? ''),
+                (int)($bootRow['attachment_count'] ?? 0)
+            );
+            $feedBootItems[] = $bootRow;
+        }
+    } catch (Throwable $e) {
+        $feedBootItems = [];
+    }
+}
 
 // ✅ Fetch my display name (for "Find me" button)
 $meDisplayName = '';
@@ -68,9 +164,8 @@ if ($meDisplayName === '') $meDisplayName = (string)$loggedEmail; // fallback
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Feed</title>
-
     <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
-    <link rel="stylesheet" href="./css/dark-auto.css?v=10">
+    <link rel="stylesheet" href="./css/dark-auto.css?v=34">
     <script src="./js/dark-auto.js?v=6" defer></script>
     <style>
       html, body { background: var(--msb-palette-bg, var(--feed-page-bg, #f5f7fb)); }
@@ -300,7 +395,7 @@ if ($meDisplayName === '') $meDisplayName = (string)$loggedEmail; // fallback
   .search-input{
     flex:1;
     height:52px;
-    border:1px solid #3a3a3a;
+    border:1px solid var(--feed-control-border, var(--msb-palette-border-strong, #3a3a3a));
     border-right:0;
     border-radius:999px 0 0 999px;
     padding:0 22px;
@@ -313,7 +408,7 @@ if ($meDisplayName === '') $meDisplayName = (string)$loggedEmail; // fallback
     flex:0 0 auto;
     width:88px;
     height:52px;
-    border:1px solid #3a3a3a;
+    border:1px solid var(--feed-control-border, var(--msb-palette-border-strong, #3a3a3a));
     border-radius:0 999px 999px 0;
     padding:0;
     font-weight:800;
@@ -1906,29 +2001,32 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   .media-slide > video{ object-fit:contain; object-position:center center; }
   .mf-media-nav,
   .media-nav{
-    position:absolute;
-    top:50%;
-    transform:translateY(-50%);
-    width:46px;
-    height:46px;
-    border:none;
-    border-radius:999px;
-    background:rgba(255,255,255,.82);
-    color:#1f2937;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:20px;
+    position:absolute !important;
+    top:50% !important;
+    transform:translateY(-50%) !important;
+    width:36px !important;
+    height:36px !important;
+    border:none !important;
+    border-radius:999px !important;
+    background:rgba(255,255,255,.9) !important;
+    color:#1f2937 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    font-size:18px !important;
     cursor:pointer;
-    box-shadow:0 8px 24px rgba(0,0,0,.18);
-    z-index:4;
+    box-shadow:0 8px 24px rgba(0,0,0,.18) !important;
+    z-index:6 !important;
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
   }
   .mf-media-nav:hover,
-  .media-nav:hover{ background:#fff; }
+  .media-nav:hover{ background:#fff !important; }
   .mf-media-nav.prev,
-  .media-nav.prev{ left:12px; }
+  .media-nav.prev{ left:12px !important; }
   .mf-media-nav.next,
-  .media-nav.next{ right:12px; }
+  .media-nav.next{ right:12px !important; }
   .mf-media-dots,
   .media-dots{
     position:absolute;
@@ -2632,7 +2730,8 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     margin-bottom:0;
   }
   .mf-body .mf-body-formatted.is-clamped{
-    max-height:14em;
+    /* Preview limited to ~3 sentences in JS; soft CSS cap as backup */
+    max-height:6.6em;
     overflow:hidden;
   }
   .mf-body .mf-readmore{
@@ -2925,10 +3024,10 @@ body{
   --feed-surface:#f5f7fb;
   --feed-surface-alt:#eef3fb;
   --feed-surface-strong:#eef3fb;
-  --feed-post-divider:rgba(15,23,42,.12);
-  --feed-post-column-border:rgba(15,23,42,.12);
-  --feed-border:rgba(15,23,42,.12);
-  --feed-border-strong:rgba(15,23,42,.16);
+  --feed-post-divider:#c0c2c4;
+  --feed-post-column-border:#c0c2c4;
+  --feed-border:#c0c2c4;
+  --feed-border-strong:#c0c2c4;
   --feed-text:#132033;
   --feed-muted:#5f6c7c;
   --feed-soft-text:#7a8797;
@@ -2936,7 +3035,7 @@ body{
   --feed-topbar-text:#112033;
   --feed-control-bg:#ffffff;
   --feed-control-soft:#eef3fb;
-  --feed-control-border:rgba(15,23,42,.14);
+  --feed-control-border:#c0c2c4;
   --feed-control-placeholder:#667085;
   --feed-accent:#0d61bc;
   --feed-accent-soft:rgba(13,97,188,.10);
@@ -2968,18 +3067,30 @@ html[data-msb-appearance][data-theme="dark"] body.feed-page{
   --feed-surface:var(--msb-palette-bg);
   --feed-surface-alt:var(--msb-palette-surface-2, var(--msb-palette-bg));
   --feed-surface-strong:var(--msb-palette-surface, var(--msb-palette-bg));
+  --feed-border:var(--msb-palette-border);
+  --feed-border-strong:var(--msb-palette-border-strong);
+  --feed-post-divider:var(--msb-palette-border-strong);
+  --feed-post-column-border:var(--msb-palette-border-strong);
+  --feed-control-border:var(--msb-palette-border-strong);
   --feed-accent:var(--msb-palette-action);
   --feed-accent-soft:var(--msb-palette-action-soft);
   --feed-accent-strong:var(--msb-palette-action-strong);
   background:var(--msb-palette-bg) !important;
   background-image:none !important;
 }
-html[data-theme="dark"] body{
+html[data-theme="light"]:not([data-msb-appearance]) body{
+  --feed-post-divider:#c0c2c4;
+  --feed-post-column-border:#c0c2c4;
+  --feed-border:#c0c2c4;
+  --feed-border-strong:#c0c2c4;
+  --feed-control-border:#c0c2c4;
+}
+html[data-theme="dark"]:not([data-msb-appearance]) body{
   --feed-surface:#171d24;
   --feed-surface-alt:#1d2530;
   --feed-surface-strong:#111821;
-  --feed-border:rgba(255,255,255,.08);
-  --feed-border-strong:rgba(255,255,255,.14);
+  --feed-border:#34383c;
+  --feed-border-strong:#34383c;
   --feed-text:#eef4ff;
   --feed-muted:#9ba8b8;
   --feed-soft-text:#c2cbd7;
@@ -2987,21 +3098,24 @@ html[data-theme="dark"] body{
   --feed-topbar-text:#f4f7fb;
   --feed-control-bg:#10161e;
   --feed-control-soft:#1a222c;
-  --feed-control-border:rgba(255,255,255,.12);
+  --feed-control-border:#34383c;
   --feed-control-placeholder:#8f9baa;
   --feed-accent:#7cb2ff;
   --feed-accent-soft:rgba(124,178,255,.16);
   --feed-accent-strong:#b9d7ff;
-  --feed-post-divider:rgba(255,255,255,.14);
-  --feed-post-column-border:rgba(255,255,255,.14);
+  --feed-post-divider:#34383c;
+  --feed-post-column-border:#34383c;
   background:#171d24 !important;
   background-image:none !important;
 }
 html.dark-auto:not([data-msb-appearance]) body,
 html.dark-auto:not([data-msb-appearance]) body.feed-page,
 html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui{
-  --feed-post-divider:rgba(177, 188, 206, 0.22);
-  --feed-post-column-border:rgba(177, 188, 206, 0.22);
+  --feed-post-divider:#34383c;
+  --feed-post-column-border:#34383c;
+  --feed-border:#34383c;
+  --feed-border-strong:#34383c;
+  --feed-control-border:#34383c;
 }
 html.dark-auto:not([data-msb-appearance]) body.feed-page.feed-insta-ui .sh-pagebody,
 html[data-theme="dark"]:not([data-msb-appearance]) body.feed-page.feed-insta-ui .sh-pagebody,
@@ -3707,16 +3821,16 @@ html[data-theme="dark"]:not([data-msb-appearance]) .ig-stories-next:hover{
   width:100%;
   padding:12px 16px 8px;
   box-sizing:border-box;
-  position:sticky;
-  top:0;
+  position:relative;
+  top:auto;
   z-index:105;
   background:var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb)));
   flex:0 0 auto;
 }
 body.feed-insta-ui .feed-desktop-center > .feed-top-search,
 body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
-  position:sticky;
-  top:0;
+  position:relative;
+  top:auto;
   z-index:105;
   width:100%;
   margin:0;
@@ -3738,7 +3852,7 @@ body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-s
   width:100%;
   min-width:0;
   height:42px;
-  border:1px solid var(--feed-control-border, rgba(15,23,42,.14));
+  border:1px solid var(--feed-control-border, #c0c2c4);
   border-radius:999px;
   padding:0 44px 0 16px;
   font-size:14px;
@@ -3817,7 +3931,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
   }
   body.feed-insta-ui .ig-stories-wrap{
     display:block !important;
-    max-width:614px;
+    max-width:614px !important;
     width:100%;
     margin:0 auto;
   }
@@ -3877,14 +3991,27 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 @media (min-width:1025px){
   body.feed-insta-ui{
     --feed-left-nav-box-h:min(340px, calc(100vh - 280px));
+    --feed-center-w:614px;
+    --feed-side-gap:28px;
+    --feed-left-nav-w:236px;
+    --feed-right-rail-w:248px;
+    --feed-main-inset:0px;
   }
   body.feed-insta-ui .feed-left-rail{
     display:flex;
     flex-direction:column;
     position:fixed;
-    left:calc(var(--feedRailW, 84px) + 40px);
+    /* Same as public.php: sit beside the centered feed column */
+    left:max(
+      calc(var(--feedRailW, 84px) + 8px),
+      calc(
+        var(--feedRailW, 84px) + var(--feed-main-inset)
+        + (100vw - var(--feedRailW, 84px) - var(--feed-main-inset) - var(--feed-center-w)) / 2
+        - var(--feed-side-gap) - var(--feed-left-nav-w)
+      )
+    );
     top:var(--feed-left-rail-top, 220px);
-    width:236px;
+    width:var(--feed-left-nav-w);
     height:var(--feed-left-nav-box-h);
     max-height:var(--feed-left-nav-box-h);
     overflow:hidden;
@@ -4026,8 +4153,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     box-sizing:border-box;
   }
   body.feed-insta-ui .feed-desktop-center{
-    width:614px;
-    max-width:614px;
+    /* Same vertical-line measure as public.php */
+    width:614px !important;
+    max-width:614px !important;
     margin:0 auto;
     min-width:0;
   }
@@ -4040,10 +4168,15 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
   body.feed-insta-ui .feed-right-rail{
     display:block;
     position:fixed;
-    right:24px;
-    top:auto;
+    /* Sit just right of the centered 614px column (fills top-right gap like public.php) */
+    left:calc(
+      var(--feedRailW, 84px) + var(--feed-main-inset)
+      + (100vw - var(--feedRailW, 84px) - var(--feed-main-inset) - var(--feed-center-w)) / 2
+      + var(--feed-center-w) + var(--feed-side-gap)
+    );
+    right:auto;
     top:250px;
-    width:248px;
+    width:var(--feed-right-rail-w);
     z-index:90;
     padding:0;
     box-sizing:border-box;
@@ -4131,6 +4264,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     max-height:100vh !important;
   }
   body.feed-insta-ui .sh-mainpanel{
+    /* Match public.php measure: flush light panel to the icon rail */
+    margin-left:var(--feedRailW, 84px) !important;
+    width:calc(100% - var(--feedRailW, 84px)) !important;
+    max-width:calc(100% - var(--feedRailW, 84px)) !important;
     height:100vh !important;
     max-height:100vh !important;
     overflow:hidden !important;
@@ -4144,6 +4281,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     display:flex !important;
     flex-direction:column !important;
     padding:0 !important;
+    margin-right:0 !important;
+    width:100% !important;
+    max-width:100% !important;
     background:var(--feed-surface, var(--msb-palette-bg, #fff)) !important;
   }
   body.feed-insta-ui .ig-feed-header{
@@ -4152,6 +4292,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     top:auto !important;
     z-index:110 !important;
     margin:0 !important;
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
     background:var(--feed-surface, var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #fff)))) !important;
     border-bottom:1px solid var(--feed-post-divider, var(--feed-border-strong, rgba(177, 188, 206, 0.22))) !important;
   }
@@ -4163,9 +4306,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     background:var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))) !important;
     padding:12px 16px 8px !important;
   }
+  /* Search stays fixed above scroll; scrollbar starts at post list top */
   body.feed-insta-ui .feed-desktop-center > .feed-top-search{
-    position:sticky !important;
-    top:0 !important;
+    position:relative !important;
+    top:auto !important;
     z-index:105 !important;
     flex:0 0 auto !important;
     width:100% !important;
@@ -4173,6 +4317,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     background:var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))) !important;
   }
   body.feed-insta-ui .feed-desktop-layout{
+    display:flex !important;
+    flex-direction:column !important;
     flex:1 1 auto !important;
     min-height:0 !important;
     overflow:hidden !important;
@@ -4180,26 +4326,34 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     background:var(--msb-palette-bg, var(--feed-page-bg, transparent)) !important;
   }
   body.feed-insta-ui .feed-desktop-center{
+    display:flex !important;
+    flex-direction:column !important;
     height:100% !important;
     max-height:100% !important;
+    overflow:hidden !important;
+    background:var(--msb-palette-bg, var(--feed-page-bg, transparent)) !important;
+  }
+  body.feed-insta-ui .feed-desktop-center > .mf-feed,
+  body.feed-insta-ui .feed-desktop-layout .mf-feed{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    margin-top:0 !important;
+    padding-bottom:96px !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
     scrollbar-width:thin;
     scrollbar-color:rgba(0,0,0,.22) transparent;
-    background:var(--msb-palette-bg, var(--feed-page-bg, transparent)) !important;
   }
-  body.feed-insta-ui .feed-desktop-center::-webkit-scrollbar{
+  body.feed-insta-ui .feed-desktop-center > .mf-feed::-webkit-scrollbar,
+  body.feed-insta-ui .feed-desktop-layout .mf-feed::-webkit-scrollbar{
     width:6px;
   }
-  body.feed-insta-ui .feed-desktop-center::-webkit-scrollbar-thumb{
+  body.feed-insta-ui .feed-desktop-center > .mf-feed::-webkit-scrollbar-thumb,
+  body.feed-insta-ui .feed-desktop-layout .mf-feed::-webkit-scrollbar-thumb{
     background:rgba(0,0,0,.22);
     border-radius:999px;
-  }
-  body.feed-insta-ui .feed-desktop-layout .mf-feed{
-    margin-top:0 !important;
-    padding-bottom:96px !important;
   }
 }
 @media (max-width:1024px){
@@ -4233,14 +4387,23 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     background:var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))) !important;
   }
   body.feed-page.feed-insta-ui .feed-desktop-layout{
+    display:flex !important;
+    flex-direction:column !important;
     flex:1 1 auto !important;
     min-height:0 !important;
     overflow:hidden !important;
     width:100% !important;
   }
   body.feed-page.feed-insta-ui .feed-desktop-center{
+    display:flex !important;
+    flex-direction:column !important;
     height:100% !important;
     max-height:100% !important;
+    overflow:hidden !important;
+  }
+  body.feed-page.feed-insta-ui .feed-desktop-center > .mf-feed{
+    flex:1 1 auto !important;
+    min-height:0 !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
@@ -4302,9 +4465,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 <a type="button" class="ig-stories-next" aria-label="Next stories" onclick="var t=document.getElementById('igStoriesTrack');if(t){t.scrollBy({left:140,behavior:'smooth'});}"><i class="fa fa-chevron-right"></i></a>
                 </div>
               </div>
-              <div class="ig-feed-top-actions" aria-label="Header actions">
-                <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
-              </div>
+              <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
             </div>
             <div class="feed-desktop-layout">
               <div class="feed-desktop-center">
@@ -4330,7 +4491,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 <div id="mfFeed" class="mf-feed mobile-only mf-hydrating" aria-label="Mobile/Tablet feed"></div>
               </div>
             </div>
-            <?php $suggestedForYouMode = 'none'; include __DIR__ . '/includes/suggested_for_you.php'; ?>
+            <?php
+              // Friends Feed: no publisher "Suggested for you" rail.
+              // Discovery / Follow suggestions live on public.php and news.php only.
+            ?>
             <div class="row row-sm desktop-only">
             <!-- LEFT: Viewer -->
             <div class="col-lg-8 feedViewerCol" id="feedPostScrollCol">
@@ -5066,7 +5230,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           line-height:1.65;
           display:-webkit-box;
           -webkit-box-orient: vertical;
-          -webkit-line-clamp: 4;
+          -webkit-line-clamp: 3;
           overflow:hidden;
           white-space:normal;
           word-break:break-word;
@@ -6186,6 +6350,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
       const MSB_VIEWER_CAN_FOLLOW_PUBLISHERS = <?= $canFollowPublishers ? 'true' : 'false' ?>;
       const ME_NAME = <?= json_encode((string)$meDisplayName) ?>;
       const FEED_PIN_POST_ID = <?= (int)$feedAlertPostId ?>;
+      const FEED_FRESH_CREATE = <?= !empty($feedFreshCreate) ? 'true' : 'false' ?>;
+      const FEED_BOOT_ITEMS = <?= json_encode($feedBootItems, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' ?>;
       const FEED_SEARCH_Q = <?= json_encode($feedSearchQ) ?>;
       const API_URL = <?= json_encode(rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/feed_api.php') ?>;
       const PCM_FRIES_ICON = <?= json_encode(post_card_menu_fries_icon_html(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
@@ -6547,9 +6713,21 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           return m.isValid() ? m : null;
         }
         function isWithin24h(dt){
-          var m = parseMoment(dt);
-          if(!m) return false;
-          return moment().diff(m, 'hours', true) < 24;
+          try{
+            var m = parseMoment(dt);
+            if(!m) return false;
+            return moment().diff(m, 'hours', true) < 24;
+          }catch(e){
+            return false;
+          }
+        }
+        function isFeedFreshItem(it){
+          // Own posts and deep-linked new posts must always stay on the Friends Feed.
+          var id = Number(it && it.id || 0);
+          var uid = Number(it && (it.user_id || it.author_id) || 0);
+          if(FEED_PIN_POST_ID > 0 && id === Number(FEED_PIN_POST_ID)) return true;
+          if(uid > 0 && uid === Number(ME_ID || 0)) return true;
+          return isWithin24h(itemDate(it));
         }
         function itemDate(it){
           return (it && (it.updated_at || it.created_at)) ? (it.updated_at || it.created_at) : '';
@@ -7109,14 +7287,14 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           return parts.length;
         }
 
-        // ✅ Read-me logic: show ONLY when there are >= 4 sentences
+        // Read-more: show when description is longer than 3 sentences
         function applyReadMeForText(fullText){
           var txt = String(fullText||'').trim();
           var btn = document.getElementById('btnReadMore');
           if(!btn) return;
 
           var n = sentenceCount(txt);
-          btn.style.display = (n >= 4) ? 'inline-block' : 'none';
+          btn.style.display = (n > 3) ? 'inline-block' : 'none';
         }
 
         // Backward-compatible call (older parts call applyReadMore(desc))
@@ -7587,10 +7765,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           var filter = String($('#filterSel').val() || 'all');
 
-          // Right sidebar rows must disappear after 24 hours.
-          // Only items already inside the 24-hour window are rendered here.
+          // Right sidebar rows must disappear after 24 hours (except own / pinned).
           var fresh = (items || []).filter(function(it){
-            return isWithin24h(itemDate(it));
+            return isFeedFreshItem(it);
           });
 
           function renderOne(it){
@@ -7681,18 +7858,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
         function mfTruncate(text, maxSent){
           text = String(text||'').trim();
+          maxSent = Number(maxSent || 3);
           if(!text) return { short:'', full:'', truncated:false };
-          var parts = text.split(/([.!?]+\s+)/); // keep separators
-          // Rebuild sentences
-          var out = '';
-          var sent = 0;
-          for(var i=0;i<parts.length;i++){
-            out += parts[i];
-            if(/[.!?]+\s*$/.test(parts[i]) || /[.!?]+\s+/.test(parts[i])){
-              // heuristic: count when we see punctuation separator chunk
-            }
-          }
-          // Fallback simpler:
           var sents = text.split(/[.!?]+/).map(function(s){return s.trim();}).filter(Boolean);
           if(sents.length <= maxSent) return { short:text, full:text, truncated:false };
           var short = sents.slice(0, maxSent).join('. ') + '.';
@@ -7712,11 +7879,25 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
         function mfBuildBodyHtml(className, text, maxSent){
           className = String(className || 'mf-body');
+          maxSent = Number(maxSent || 3);
+          var maxChars = 170;
           text = formatReadMoreTextPreserve(String(text || '').trim());
           if(!text) return '';
           var sc = mfSentenceCount(text);
-          var formatted = formatPostCardTextHtml(text);
-          if(sc >= maxSent){
+          var needsMore = (sc > maxSent) || (sc <= maxSent && text.length > maxChars);
+          var display = text;
+          if(needsMore){
+            if(sc > maxSent){
+              display = mfTruncate(text, maxSent).short || text;
+            } else {
+              display = text.slice(0, maxChars).trim();
+              var sp = display.lastIndexOf(' ');
+              if(sp > Math.floor(maxChars * 0.6)) display = display.slice(0, sp);
+              display = display.replace(/[.,;:\s]+$/,'') + '…';
+            }
+          }
+          var formatted = formatPostCardTextHtml(display);
+          if(needsMore){
             return '<div class="'+esc(className)+' mf-body-has-more" data-full="'+esc(text)+'" data-expanded="0">'+
                      '<div class="mf-body-formatted is-clamped">'+formatted+'</div>'+
                      '<a href="#" class="mf-readmore js-open-readmore-door">Read more</a>'+
@@ -7878,7 +8059,6 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
         function mfPrimeStandardFeedVideo(video){
           if(!video) return;
-          var stage = video.closest('.media-stage.standard-video-stage');
           var reveal = function(){
             var card = video.closest('.mf-card.is-single-video-post');
             if(card) card.classList.add('mf-video-error');
@@ -8062,7 +8242,6 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
 
         function renderMobileFeed(items){
-          if(!mfIsMobile()) return;
           var $wrap = $('#mfFeed');
           if(!$wrap.length) return;
           $wrap.addClass('mf-hydrating');
@@ -8079,15 +8258,21 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var slice = items.slice(0, maxCards);
 
           for(var i=0;i<slice.length;i++){
-            $wrap.append(mfRenderCardShell(slice[i]));
             try{
+              var shell = mfRenderCardShell(slice[i]);
+              if(!shell) continue;
+              $wrap.append(shell);
               var $card = $wrap.children('.mf-card').last();
               if($card.length){
                 mfMountFollowOnMedia($card, slice[i]);
                 mfPreflightSingleMediaCard($card[0], slice[i]);
                 mfApplyListItemCounts($card, slice[i]);
               }
-            }catch(e){}
+            }catch(cardErr){}
+          }
+
+          if(!$wrap.children('.mf-card').length){
+            $wrap.append(mfFeedEmptyHtml());
           }
 
           mfSyncAllCardMediaShapes($wrap);
@@ -8165,6 +8350,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             dots += '<button type="button" class="mf-media-dot'+(i === 0 ? ' is-active' : '')+'" data-index="'+i+'" aria-label="Go to media '+(i+1)+'" style="width:10px;height:10px;min-width:10px;min-height:10px;flex:0 0 10px;display:block;border:none;border-radius:50%;padding:0;margin:0;background:'+(i === 0 ? '#fff' : 'rgba(255,255,255,.45)')+';cursor:pointer;-webkit-appearance:none;appearance:none;box-shadow:none;font-size:0;line-height:0;color:transparent;text-indent:-9999px;overflow:hidden;"></button>';
           }
           return '<div class="mf-media-dots" role="tablist" aria-label="Media slides" style="position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(17,24,39,.5);z-index:5;">' + dots + '</div>';
+        }
+
+        function mfCarouselNavButtonsHtml(){
+          return ''+
+            '<button type="button" class="media-nav mf-media-nav prev js-mf-media-prev" aria-label="Previous media" style="position:absolute;top:50%;left:12px;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:999px;background:rgba(255,255,255,.9);color:#1f2937;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:6;"><i class="fa fa-chevron-left"></i></button>'+
+            '<button type="button" class="media-nav mf-media-nav next js-mf-media-next" aria-label="Next media" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);width:36px;height:36px;border:none;border-radius:999px;background:rgba(255,255,255,.9);color:#1f2937;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:6;"><i class="fa fa-chevron-right"></i></button>';
         }
 
         function mfFileTileHtml(src, kind){
@@ -8444,26 +8635,51 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           return ''+
             '<div class="media-carousel mf-media-carousel" data-index="0" style="position:relative;width:100%;overflow:hidden;border-radius:8px;background:transparent;">'+
               '<div class="media-slides mf-media-slides" style="display:flex;flex-wrap:nowrap;flex-direction:row;width:100%;transition:transform .28s ease;">'+slides+'</div>'+
-              '<button type="button" class="media-nav mf-media-nav prev js-mf-media-prev" aria-label="Previous media" style="position:absolute;top:50%;left:12px;transform:translateY(-50%);width:20px;height:20px;border:none;border-radius:999px;background:rgba(255,255,255,.82);color:#1f2937;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:4;"><i class="fa fa-chevron-left"></i></button>'+
-              '<button type="button" class="media-nav mf-media-nav next js-mf-media-next" aria-label="Next media" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);width:20px;height:20px;border:none;border-radius:999px;background:rgba(255,255,255,.82);color:#1f2937;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:4;"><i class="fa fa-chevron-right"></i></button>'+
-              mfMediaDots(atts.length).replace('mf-media-dots', 'media-dots mf-media-dots')+
+              mfCarouselNavButtonsHtml()+
+              mfMediaDots(atts.length)+
             '</div>';
         }
 
         function mfSetCarouselIndex($carousel, nextIndex){
           $carousel = $carousel && $carousel.jquery ? $carousel : $($carousel);
           if(!$carousel.length) return;
-          var $slides = $carousel.find('.mf-media-slides').first();
-          var $items = $slides.children('.mf-media-slide');
+          if(!$carousel.hasClass('mf-media-carousel') && !$carousel.hasClass('media-carousel')){
+            var $inner = $carousel.find('.mf-media-carousel, .media-carousel').first();
+            if($inner.length) $carousel = $inner;
+          }
+          var $slides = $carousel.find('.mf-media-slides, .media-slides').first();
+          var $items = $slides.children('.mf-media-slide, .media-slide');
           var total = $items.length;
           if(!total) return;
-          nextIndex = Number(nextIndex || 0);
+          nextIndex = Number(nextIndex);
+          if(!isFinite(nextIndex)) nextIndex = 0;
           if(nextIndex < 0) nextIndex = total - 1;
           if(nextIndex >= total) nextIndex = 0;
           $carousel.attr('data-index', String(nextIndex));
+          $carousel.closest('.js-media-carousel, .media-stage').attr('data-index', String(nextIndex));
           $slides.css('transform', 'translateX(' + String(nextIndex * -100) + '%)');
-          $carousel.find('.mf-media-dot').removeClass('is-active')
-            .filter('[data-index="'+String(nextIndex)+'"]').addClass('is-active');
+
+          var $dots = $carousel.find('.mf-media-dot');
+          if(!$dots.length){
+            $dots = $carousel.closest('.js-media-carousel, .media-stage, .mf-media').find('.mf-media-dot');
+          }
+          $dots.each(function(){
+            var $dot = $(this);
+            var idx = Number($dot.attr('data-index'));
+            if(!isFinite(idx)) idx = $dot.index();
+            var on = idx === nextIndex;
+            $dot.toggleClass('is-active', on);
+            $dot.css('background', on ? '#fff' : 'rgba(255,255,255,.45)');
+          });
+
+          $items.each(function(slideIndex){
+            var videos = this.querySelectorAll('video');
+            for(var v = 0; v < videos.length; v += 1){
+              try{
+                if(slideIndex !== nextIndex) videos[v].pause();
+              }catch(err){}
+            }
+          });
         }
 
         function mfRenderCardShell(it){
@@ -8520,7 +8736,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           }
 
           if(hasBody){
-            bodyHtml = mfBuildBodyHtml('mf-body', body, 4);
+            bodyHtml = mfBuildBodyHtml('mf-body', body, 3);
           }
 
           function normalActions(){
@@ -8614,16 +8830,23 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 shapeClass: shapeClass,
                 isMultiMedia: isMultiMedia
               });
-              mediaHtml = '<div class="'+imageMediaClass+'"'+mediaStyleAttr+' data-shape-ready="1">'+
-                          '<img src="'+esc(psrc)+'" alt="">'+
-                          mfMediaDots(attCount)+
+              mediaHtml = '<div class="'+imageMediaClass+'"'+mediaStyleAttr+' data-shape-ready="1" data-count="'+attCount+'" data-index="0">'+
+                          (isMultiMedia
+                            ? ('<div class="media-carousel mf-media-carousel" data-index="0" data-pending-hydrate="1" style="position:relative;width:100%;overflow:hidden;border-radius:8px;background:transparent;">'+
+                                 '<div class="media-slides mf-media-slides" style="display:flex;flex-wrap:nowrap;flex-direction:row;width:100%;transition:transform .28s ease;">'+
+                                   '<div class="media-slide mf-media-slide" data-slide-index="0" style="flex:0 0 100%;width:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;border-radius:8px;"><img src="'+esc(psrc)+'" alt=""></div>'+
+                                 '</div>'+
+                                 mfCarouselNavButtonsHtml()+
+                                 mfMediaDots(attCount)+
+                               '</div>')
+                            : ('<img src="'+esc(psrc)+'" alt="">'))+
                           '</div>';
             } else if(pkind === 'video'){
               if(isReelCard){
                 cardClass += ' mf-card-reel';
                 mediaHtml = ''+
                   '<div class="mf-media">'+
-                    '<video class="ig-smart-feed-video js-mf-reel-video" src="'+esc(psrc)+'" playsinline muted loop preload="metadata" data-smart-video="1"></video>'+
+                    '<video class="ig-smart-feed-video js-mf-reel-video" src="'+esc(psrc)+'" playsinline muted loop preload="none" data-smart-video="1"></video>'+
                     mfMediaDots(attCount)+
                   '</div>';
                 actionsHtml = normalActions();
@@ -8640,7 +8863,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 var videoPosterAttr = pthumb ? (' poster="'+esc(pthumb)+'"') : '';
                 mediaHtml = ''+
                   '<div class="'+videoMediaClass+'"'+mediaStyleAttr+' data-shape-ready="'+shapeReady+'">'+
-                    '<video class="ig-smart-feed-video" src="'+esc(psrc)+'"'+videoPosterAttr+' controls playsinline preload="metadata" data-smart-video="1"></video>'+
+                    '<video class="ig-smart-feed-video" src="'+esc(psrc)+'"'+videoPosterAttr+' playsinline muted preload="none" data-smart-video="1"></video>'+
                     mfMediaDots(attCount)+
                   '</div>';
                 actionsHtml = normalActions();
@@ -8679,8 +8902,13 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var cardPeerUsername = String(it.username || '');
 
           var initialCardStyle = '';
-          if(!isLiveCard && !isReelCard && !isMultiMedia && isSingleMedia && hasMedia && (pkind === 'image' || pkind === 'gif' || pkind === 'video')){
-            initialCardStyle = mfInitialMediaCardStyleFromDims(deviceDims || mfInitialMediaAspect(it, null), isPhoneShot);
+          if(!isLiveCard && !isReelCard && !isMultiMedia && isSingleMedia && hasMedia){
+            if(pkind === 'video'){
+              // Pending video: full-width feed rectangle (matches neighbors while buffering).
+              initialCardStyle = 'width:100%;max-width:100%;margin-left:auto;margin-right:auto;--post-media-card-width:100%;';
+            } else if(pkind === 'image' || pkind === 'gif'){
+              initialCardStyle = mfInitialMediaCardStyleFromDims(deviceDims || mfInitialMediaAspect(it, null), isPhoneShot);
+            }
           }
           var initialCardStyleAttr = initialCardStyle ? (' style="'+esc(initialCardStyle)+'"') : '';
 
@@ -8937,19 +9165,31 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(!$card.hasClass('mf-card-reel') && atts.length > 1){
             var $shell = $card.find('.mf-media-shell').first();
             var $mediaWrap = $shell.length ? $shell.find('.mf-media').first() : $card.find('.mf-media').first();
-            if($mediaWrap.length && !$mediaWrap.find('.mf-media-carousel').length){
-              var $followOverlay = ($shell.length ? $shell : $mediaWrap).find('.mf-media-top-actions').detach();
-              var $headOverlay = ($shell.length ? $shell : $mediaWrap.parent()).find('.mf-head--on-media').detach();
-              $mediaWrap.addClass('media-stage has-carousel js-media-carousel');
-              $mediaWrap.html(mfBuildHydratedCarousel(atts));
-              var $mountTarget = $shell.length ? $shell : $mediaWrap;
-              if($headOverlay.length) $mountTarget.append($headOverlay);
-              if($followOverlay.length){
-                $mountTarget.append($followOverlay);
-              } else if(post){
-                mfRemountFollowOnCard($card, post);
+            if($mediaWrap.length){
+              var $existingCarousel = $mediaWrap.find('.mf-media-carousel').first();
+              var existingSlides = $existingCarousel.length
+                ? $existingCarousel.find('.mf-media-slide, .media-slide').length
+                : 0;
+              var needsRebuild = !$existingCarousel.length
+                || $existingCarousel.attr('data-pending-hydrate') === '1'
+                || existingSlides < atts.length;
+              if(needsRebuild){
+                var keepIndex = Number(($existingCarousel.attr('data-index') || $mediaWrap.attr('data-index') || 0));
+                if(!isFinite(keepIndex) || keepIndex < 0) keepIndex = 0;
+                var $followOverlay = ($shell.length ? $shell : $mediaWrap).find('.mf-media-top-actions').detach();
+                var $headOverlay = ($shell.length ? $shell : $mediaWrap.parent()).find('.mf-head--on-media').detach();
+                $mediaWrap.addClass('media-stage has-carousel js-media-carousel');
+                $mediaWrap.attr('data-count', String(atts.length));
+                $mediaWrap.html(mfBuildHydratedCarousel(atts));
+                var $mountTarget = $shell.length ? $shell : $mediaWrap;
+                if($headOverlay.length) $mountTarget.append($headOverlay);
+                if($followOverlay.length){
+                  $mountTarget.append($followOverlay);
+                } else if(post){
+                  mfRemountFollowOnCard($card, post);
+                }
+                mfSetCarouselIndex($mediaWrap.find('.mf-media-carousel'), keepIndex);
               }
-              mfSetCarouselIndex($mediaWrap.find('.mf-media-carousel'), 0);
             }
           }
           mfRemountFollowOnCard($card, mfMergeListItemAuthorMeta({}, post || {}, $card));
@@ -9097,20 +9337,49 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         $(document).on('click', '.js-mf-media-prev, .js-mf-media-next, .mf-media-dot', function(e){
           e.preventDefault();
           e.stopPropagation();
-          var $carousel = $(this).closest('.mf-media-carousel');
+          var $btn = $(this);
+          // Click may land on the <i> icon inside the button.
+          if(!$btn.hasClass('js-mf-media-prev') && !$btn.hasClass('js-mf-media-next') && !$btn.hasClass('mf-media-dot')){
+            $btn = $btn.closest('.js-mf-media-prev, .js-mf-media-next, .mf-media-dot');
+          }
+          if(!$btn.length) return;
+
+          var $carousel = $btn.closest('.mf-media-carousel');
+          if(!$carousel.length){
+            $carousel = $btn.closest('.js-media-carousel, .media-stage, .mf-media').find('.mf-media-carousel').first();
+          }
           if(!$carousel.length) return;
+
           var current = Number($carousel.attr('data-index') || 0);
-          if($(this).hasClass('js-mf-media-prev')){
-            mfSetCarouselIndex($carousel, current - 1);
+          if(!isFinite(current)) current = 0;
+          var wantIndex = current;
+          if($btn.hasClass('js-mf-media-prev')) wantIndex = current - 1;
+          else if($btn.hasClass('js-mf-media-next')) wantIndex = current + 1;
+          else if($btn.hasClass('mf-media-dot')) wantIndex = Number($btn.attr('data-index') || 0);
+
+          var slideCount = $carousel.find('.mf-media-slide, .media-slide').length;
+          var needsHydrate = ($carousel.attr('data-pending-hydrate') === '1' || slideCount <= 1)
+            && $carousel.find('.mf-media-dot').length > 1;
+
+          if(needsHydrate){
+            var $card = $carousel.closest('.mf-card');
+            var pid = Number($card.data('id') || $card.attr('data-id') || 0);
+            if(pid <= 0) return;
+            if($carousel.data('hydrating')) return;
+            $carousel.data('hydrating', 1);
+            $.getJSON(API_URL, { ajax:'view', id:pid, count_view:0, lite:1, _: Date.now() }, function(res){
+              $carousel.data('hydrating', 0);
+              if(!res || !res.ok) return;
+              mfHydrateCard(pid, res.post || {}, res.counts || {}, res.attachments || []);
+              var $fresh = $card.find('.mf-media-carousel').first();
+              if($fresh.length) mfSetCarouselIndex($fresh, wantIndex);
+            }).fail(function(){
+              $carousel.data('hydrating', 0);
+            });
             return;
           }
-          if($(this).hasClass('js-mf-media-next')){
-            mfSetCarouselIndex($carousel, current + 1);
-            return;
-          }
-          if($(this).hasClass('mf-media-dot')){
-            mfSetCarouselIndex($carousel, Number($(this).attr('data-index') || 0));
-          }
+
+          mfSetCarouselIndex($carousel, wantIndex);
         });
 
 
@@ -9343,9 +9612,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             });
           }
 
-          // Right sidebar rows expire after 24 hours for every filter/search mode.
+          // Right sidebar / feed rows: keep last 24h, but never drop your own or pinned new posts.
           items = items.filter(function(it){
-            return isWithin24h(itemDate(it));
+            return isFeedFreshItem(it);
           });
 
           if(FEED_PIN_POST_ID > 0){
@@ -9377,6 +9646,111 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           // the primary view, and auto-loading the hidden viewer causes a second visible reflow.
         }
 
+        function listItemFromViewResponse(viewRes){
+          var post = (viewRes && viewRes.post) ? viewRes.post : null;
+          if(!post) return null;
+          var atts = (viewRes.attachments && viewRes.attachments.length) ? viewRes.attachments : [];
+          var first = atts[0] || {};
+          var counts = (viewRes && viewRes.counts) ? viewRes.counts : {};
+          var previewPath = String(first.file_path || first.url || post.preview_path || '').trim();
+          var previewThumb = String(first.thumb_path || first.thumb_url || post.preview_thumb_path || '').trim();
+          var previewType = String(first.type || post.preview_type || '').trim();
+          var row = $.extend({}, post, {
+            id: Number(post.id || 0),
+            user_id: Number(post.user_id || post.author_id || 0),
+            author_id: Number(post.user_id || post.author_id || 0),
+            preview_path: previewPath.replace(/^public_user\//, ''),
+            preview_thumb_path: previewThumb.replace(/^public_user\//, ''),
+            preview_type: previewType,
+            attachment_count: atts.length || Number(post.attachment_count || 0),
+            media_count: atts.length || Number(post.media_count || post.attachment_count || 0),
+            like_count: Number(counts.like_count != null ? counts.like_count : (post.like_count || 0)),
+            love_count: Number(counts.love_count != null ? counts.love_count : (post.love_count || 0)),
+            comment_count: Number(counts.comment_count != null ? counts.comment_count : (post.comment_count || 0)),
+            share_count: Number(counts.share_count != null ? counts.share_count : (post.share_count || 0)),
+            save_count: Number(counts.save_count != null ? counts.save_count : (post.save_count || 0)),
+            my_reaction: String(counts.my_reaction != null ? counts.my_reaction : (post.my_reaction || '')),
+            my_shared: Number(counts.is_shared != null ? counts.is_shared : (post.my_shared || 0)),
+            my_saved: Number(counts.is_saved != null ? counts.is_saved : (post.my_saved || 0)),
+            is_unread: 1
+          });
+          if(!row.declared_layout && typeof postDeclaredLayout === 'function'){
+            row.declared_layout = postDeclaredLayout(row);
+          }
+          if(typeof isStoryPost === 'function'){
+            row.is_story = isStoryPost(row) ? 1 : 0;
+          }
+          return row;
+        }
+
+        function mergeFeedItemsPreserve(incoming, previous, pinId){
+          incoming = Array.isArray(incoming) ? incoming.slice(0) : [];
+          previous = Array.isArray(previous) ? previous : [];
+          pinId = Number(pinId || 0);
+          var seen = {};
+          incoming.forEach(function(it){
+            var id = Number(it && it.id || 0);
+            if(id > 0) seen[id] = true;
+          });
+          previous.forEach(function(prev){
+            var id = Number(prev && prev.id || 0);
+            if(id <= 0 || seen[id]) return;
+            var uid = Number(prev.user_id || prev.author_id || 0);
+            var keep = (pinId > 0 && id === pinId)
+              || (uid > 0 && uid === Number(ME_ID || 0))
+              || (Array.isArray(FEED_BOOT_ITEMS) && FEED_BOOT_ITEMS.some(function(b){ return Number(b && b.id || 0) === id; }));
+            if(keep){
+              incoming.unshift(prev);
+              seen[id] = true;
+            }
+          });
+          if(Array.isArray(FEED_BOOT_ITEMS)){
+            FEED_BOOT_ITEMS.forEach(function(boot){
+              var bid = Number(boot && boot.id || 0);
+              if(bid <= 0 || seen[bid]) return;
+              incoming.unshift(boot);
+              seen[bid] = true;
+            });
+          }
+          if(pinId > 0) incoming = pinFeedItemFirst(incoming, pinId);
+          return incoming;
+        }
+
+        function upsertFeedItem(row){
+          row = row || null;
+          var id = Number(row && row.id || 0);
+          if(id <= 0) return false;
+          if(!Array.isArray(allItems)) allItems = [];
+          var idx = -1;
+          for(var i = 0; i < allItems.length; i++){
+            if(Number(allItems[i] && allItems[i].id || 0) === id){ idx = i; break; }
+          }
+          if(idx >= 0) allItems[idx] = $.extend({}, allItems[idx], row);
+          else allItems.unshift(row);
+          allItems = pinFeedItemFirst(allItems, Number(FEED_PIN_POST_ID || id));
+          return true;
+        }
+
+        function fetchPinnedPostIntoFeed(done){
+          var pinId = Number(FEED_PIN_POST_ID || 0);
+          if(pinId <= 0){
+            if(typeof done === 'function') done(false);
+            return;
+          }
+          $.getJSON(API_URL, { ajax:'view', id:pinId, lite:1, _: Date.now() }, function(viewRes){
+            var row = listItemFromViewResponse(viewRes);
+            var ok = false;
+            if(row && Number(row.id || 0) === pinId){
+              ok = upsertFeedItem(row);
+              try{ applySearchFilter(); }catch(e){}
+              try{ $('#mfFeed').removeClass('mf-hydrating'); }catch(e){}
+            }
+            if(typeof done === 'function') done(ok);
+          }).fail(function(){
+            if(typeof done === 'function') done(false);
+          });
+        }
+
         function refreshList(keepSelection){
           var filter = $('#filterSel').val();
           var keepScroll = (desiredSidebarScroll !== null)
@@ -9385,30 +9759,106 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           var sendFilter = (String(filter||'all') === 'mine' || String(filter||'all') === 'top') ? 'all' : filter;
           var sendOrder  = (String(filter||'all') === 'top') ? 'views' : 'recent';
+          var previousItems = (allItems || []).slice(0);
 
-          $.getJSON(API_URL, { ajax:'list', filter:sendFilter, order:sendOrder, limit:200 }, function(res){
+          function endRefreshUi(){
+            try{ $('#mfFeed').removeClass('mf-hydrating'); }catch(e){}
+          }
+
+          $.ajax({
+            url: API_URL,
+            method: 'GET',
+            dataType: 'json',
+            cache: false,
+            data: { ajax:'list', filter:sendFilter, order:sendOrder, limit:200, _: Date.now() }
+          }).done(function(res){
             if(!res || !res.ok){
               var errMsg = (res && res.error) ? String(res.error) : 'Unable to load posts (API not reachable).';
-              var $plErr = $('#postList');
-              $plErr.empty().append($('<div class="p-2 text-danger"></div>').text(errMsg));
-              try{ renderMobileFeed([]); }catch(e){}
-              try{ rebuildStoriesBar([]); }catch(e){}
-              updateUnreadBadge(0);
+              if(!(allItems && allItems.length) && Array.isArray(FEED_BOOT_ITEMS) && FEED_BOOT_ITEMS.length){
+                allItems = FEED_BOOT_ITEMS.slice(0);
+                try{ applySearchFilter(); }catch(e){}
+              } else if(!(allItems && allItems.length)){
+                var $plErr = $('#postList');
+                $plErr.empty().append($('<div class="p-2 text-danger"></div>').text(errMsg));
+                try{ renderMobileFeed([]); }catch(e){}
+                try{ rebuildStoriesBar([]); }catch(e){}
+                updateUnreadBadge(0);
+              }
               setTimeout(function(){ setSidebarScroll(keepScroll); }, 0);
               desiredSidebarScroll = null;
+              endRefreshUi();
               return;
             }
 
-            allItems = res.items || [];
+            var pinId = Number(FEED_PIN_POST_ID || 0);
+            allItems = mergeFeedItemsPreserve(res.items || [], previousItems, pinId);
             if(res.me_id) window.__MSB_FEED_ME_ID = Number(res.me_id || 0);
             if(!keepSelection) selectedId = 0;
 
-            applySearchFilter();
+            var pinMissing = pinId > 0 && !allItems.some(function(it){
+              return Number(it && it.id || 0) === pinId;
+            });
 
+            function finishRefresh(){
+              allItems = mergeFeedItemsPreserve(allItems, previousItems, pinId);
+              applySearchFilter();
+              setTimeout(function(){ setSidebarScroll(keepScroll); }, 0);
+              setTimeout(function(){ setSidebarScroll(keepScroll); }, 120);
+              desiredSidebarScroll = null;
+              endRefreshUi();
+              if(pinId > 0){
+                setTimeout(function(){
+                  try{
+                    var card = document.querySelector('#mfFeed .mf-card[data-id="'+String(pinId)+'"]');
+                    if(card){
+                      card.classList.add('mf-video-ready', 'mf-image-ready');
+                      var stage = card.querySelector('.media-stage');
+                      if(stage) stage.classList.add('mf-media-sized');
+                    }
+                    if(card && card.scrollIntoView){
+                      card.scrollIntoView({ behavior:'smooth', block:'start' });
+                    } else {
+                      var center = document.querySelector('.feed-desktop-center');
+                      if(center) center.scrollTop = 0;
+                    }
+                  }catch(err){}
+                }, 120);
+              }
+            }
+
+            if(!pinMissing){
+              finishRefresh();
+              return;
+            }
+
+            // Newly created post may race list indexing; pull it in so the card appears.
+            $.ajax({
+              url: API_URL,
+              method: 'GET',
+              dataType: 'json',
+              cache: false,
+              data: { ajax:'view', id:pinId, lite:1, _: Date.now() }
+            }).done(function(viewRes){
+              var row = listItemFromViewResponse(viewRes);
+              if(row && Number(row.id || 0) === pinId){
+                upsertFeedItem(row);
+              }
+              finishRefresh();
+            }).fail(function(){ finishRefresh(); });
+          }).fail(function(){
+            if(!(allItems && allItems.length) && Array.isArray(FEED_BOOT_ITEMS) && FEED_BOOT_ITEMS.length){
+              allItems = FEED_BOOT_ITEMS.slice(0);
+              try{ applySearchFilter(); }catch(e){}
+            } else if(!(allItems && allItems.length)){
+              var $plErr = $('#postList');
+              $plErr.empty().append($('<div class="p-2 text-danger"></div>').text('Unable to load posts (network error).'));
+              try{ renderMobileFeed([]); }catch(e){}
+              try{ rebuildStoriesBar([]); }catch(e){}
+              updateUnreadBadge(0);
+            }
             setTimeout(function(){ setSidebarScroll(keepScroll); }, 0);
-            setTimeout(function(){ setSidebarScroll(keepScroll); }, 120);
-
             desiredSidebarScroll = null;
+            endRefreshUi();
           });
         }
 
@@ -9436,6 +9886,56 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
 
         window.refreshList = refreshList;
+        window.MSBFeedApplyVideoCardWidth = mfApplyPublicVideoCardWidth;
+
+        // Soft-insert newly created post after modal submit (avoids full feed.php reload).
+        window.MSBFeedOnPostCreated = function(postId, meta){
+          postId = Number(postId || 0);
+          meta = meta || {};
+          var vis = String(meta.visibility || '').toLowerCase();
+          // Public-destination posts do not stay on Friends Feed.
+          if(vis === 'public'){
+            try{
+              document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"]').forEach(function(node){ node.remove(); });
+            }catch(e){}
+            var go = String(meta.redirect || ('public.php?post=' + encodeURIComponent(String(postId)) + '&fresh=1'));
+            try{ window.location.replace(go); }catch(e2){ window.location.href = go; }
+            return;
+          }
+          try{
+            var feedEl = document.querySelector('.mf-feed') || document.querySelector('.feed-desktop-center');
+            if(feedEl) feedEl.scrollTop = 0;
+          }catch(e){}
+          if(postId <= 0 || meta.story){
+            try{ refreshList(false); }catch(e){}
+            return;
+          }
+          $.getJSON(API_URL, { ajax:'view', id:postId, lite:1, _: Date.now() }, function(viewRes){
+            var row = listItemFromViewResponse(viewRes);
+            if(row && Number(row.id || 0) === postId){
+              try{
+                upsertFeedItem(row);
+                allItems = pinFeedItemFirst(allItems, postId);
+                applySearchFilter();
+                setTimeout(function(){
+                  try{
+                    var card = document.querySelector('#mfFeed .mf-card[data-id="'+String(postId)+'"]');
+                    if(card){
+                      card.classList.add('mf-video-ready', 'mf-image-ready');
+                      var stage = card.querySelector('.media-stage');
+                      if(stage) stage.classList.add('mf-media-sized');
+                      if(card.scrollIntoView) card.scrollIntoView({ behavior:'smooth', block:'start' });
+                    }
+                  }catch(err){}
+                }, 40);
+                return;
+              }catch(e){}
+            }
+            try{ refreshList(false); }catch(e2){}
+          }).fail(function(){
+            try{ refreshList(false); }catch(e3){}
+          });
+        };
 
         function srcOf(a){
           var s = (a && (a.url || a.file_path || a.path || a.src)) ? (a.url || a.file_path || a.path || a.src) : '';
@@ -9736,7 +10236,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               $('#pvCapReadMore').text('See more').show();
             }else{
               $('#pvCapText').text(capText || '');
-              if(sentenceCount(capText) >= 4) $('#pvCapReadMore').text('See more').show();
+              if(sentenceCount(capText) > 3) $('#pvCapReadMore').text('See more').show();
               else $('#pvCapReadMore').hide();
             }
             $('#pvCap').show();
@@ -10191,12 +10691,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           $('#pvBody').hide().empty();
           $('#pvDesc').hide().empty();
 
-          // Helper: build inline "Read more" that only appears when >= 4 sentences
+          // Helper: build inline "Read more" that only appears when > 3 sentences
           function inlineTextBlock(txt, clampLines){
             txt = String(txt||'').trim();
             if(!txt) return '';
             var nSent = sentenceCount(txt);
-            var showInline = (nSent >= 4);
+            var showInline = (nSent > 3);
             var inlineBtn = showInline
               ? '<a href="javascript:void(0)" class="pv-readmore-inline" id="pvInlineReadMore">Read more</a>'
               : '';
@@ -10274,9 +10774,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 $('#pvCapReadMore').text('Read more');
               }
 
-              // Only show Read more if >= 4 sentences
+              // Only show Read more if more than 3 sentences (or reel preview truncated)
               var n = sentenceCount(capText);
-              if((useBottomReelCaption && capNeedsMore) || (!useBottomReelCaption && n >= 4)) $('#pvCapReadMore').show();
+              if((useBottomReelCaption && capNeedsMore) || (!useBottomReelCaption && n > 3)) $('#pvCapReadMore').show();
               else $('#pvCapReadMore').hide();
 
               $('#pvCap').show();
@@ -10358,7 +10858,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           // - Media on the left
           // - Long body beside media
           // - Short text under actions
-          // - Read more ONLY at end of the long body (inline), when >= 4 sentences
+          // - Read more ONLY at end of the long body (inline), when > 3 sentences
           if(hasLong){
             setBookMode(true);
 
@@ -10384,7 +10884,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           // - Title top
           // - Media full
           // - Actions under media
-          // - Short text under actions (and inline read more if >= 4 sentences)
+          // - Short text under actions (and inline read more if > 3 sentences)
           if(hasTitle && hasShort && !hasLong){
             setMediaOnlyMode(true);
             $('#pvTextBelow').show().html(inlineTextBlock(shortDesc, 6));
@@ -10922,8 +11422,39 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             $('#searchBox').val(FEED_SEARCH_Q);
             $('#feedTopSearchInput').val(FEED_SEARCH_Q);
           }
+          // Paint the just-created post immediately from SSR seed, then refresh from API.
+          if(Array.isArray(FEED_BOOT_ITEMS) && FEED_BOOT_ITEMS.length){
+            allItems = FEED_BOOT_ITEMS.slice(0);
+            try{ applySearchFilter(); }catch(e){}
+            try{ $('#mfFeed').removeClass('mf-hydrating'); }catch(e){}
+          }
+          // Pull the pinned/create post via view in parallel — do not wait on the heavy list call.
+          fetchPinnedPostIntoFeed(function(){});
           refreshList(false);
           updateBackButton();
+          if(FEED_FRESH_CREATE){
+            try{
+              var u = new URL(window.location.href);
+              if(u.searchParams.has('fresh')){
+                u.searchParams.delete('fresh');
+                window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
+              }
+            }catch(_u){}
+          }
+          // Safety: never leave the card feed stuck invisible after create/refresh.
+          setTimeout(function(){
+            try{ $('#mfFeed').removeClass('mf-hydrating'); }catch(e){}
+          }, FEED_FRESH_CREATE ? 400 : 1600);
+        });
+
+        // Back-forward cache can restore a pre-create feed document — force a fresh list.
+        window.addEventListener('pageshow', function(ev){
+          try{
+            if(ev && ev.persisted){
+              fetchPinnedPostIntoFeed(function(){});
+              refreshList(true);
+            }
+          }catch(_ps){}
         });
 
         // ✅ Reel Leftbar buttons (Mobile/Tablet)
@@ -12029,12 +12560,25 @@ function feedGoToPost(){
     return true;
   }
 
+  function markVideoFrameReady(v){
+    if(!v) return;
+    try{ v.classList.add('is-frame-ready'); }catch(e){}
+    try{
+      var card = v.closest && v.closest('.mf-card.is-single-video-post');
+      if(card) card.classList.add('mf-video-ready');
+      var stage = v.closest && v.closest('.media-stage.standard-video-stage');
+      if(stage) stage.classList.add('mf-media-sized');
+    }catch(e){}
+  }
+
   function ensureVideoDefaults(v){
     try{ v.playsInline = true; }catch(e){}
     try{ v.setAttribute('playsinline',''); }catch(e){}
+    try{ v.removeAttribute('controls'); }catch(e){}
+    try{ v.controls = false; }catch(e){}
     try{
-      if(!v.hasAttribute('preload') || v.getAttribute('preload') === 'none'){
-        v.setAttribute('preload', 'none');
+      if(!v.hasAttribute('preload')){
+        v.setAttribute('preload', 'metadata');
       }
     }catch(e){}
     try{ if(!v.dataset.userUnmuted || v.dataset.userUnmuted !== '1') v.muted = true; }catch(e){}
@@ -12043,9 +12587,18 @@ function feedGoToPost(){
   function primeVideoForPlayback(v){
     if(!v) return;
     try{
-      if(v.getAttribute('preload') === 'none' && v.readyState < 1){
-        v.setAttribute('preload', 'metadata');
-        v.load();
+      if(v.readyState < 2){
+        if(v.getAttribute('preload') === 'none'){
+          v.setAttribute('preload', 'metadata');
+        }
+        if(v.dataset.mfQuietLoad !== '1'){
+          v.dataset.mfQuietLoad = '1';
+          v.addEventListener('loadeddata', function(){ markVideoFrameReady(v); }, { once:true });
+          v.addEventListener('canplay', function(){ markVideoFrameReady(v); }, { once:true });
+          v.load();
+        }
+      } else {
+        markVideoFrameReady(v);
       }
     }catch(e){}
   }
@@ -12066,8 +12619,8 @@ function feedGoToPost(){
     pauseAllExcept(v);
     try{
       var pr = v.play && v.play();
-      if(pr && typeof pr.catch === 'function'){
-        pr.catch(function(){});
+      if(pr && typeof pr.then === 'function'){
+        pr.then(function(){ markVideoFrameReady(v); }).catch(function(){});
       }
     }catch(e){}
   }
@@ -12079,6 +12632,7 @@ function feedGoToPost(){
   document.addEventListener('play', function(e){
     var v = e && e.target;
     if(!v || !v.matches || !v.matches('video.ig-smart-feed-video[data-smart-video="1"]')) return;
+    markVideoFrameReady(v);
     pauseAllExcept(v);
   }, true);
 
@@ -12718,6 +13272,7 @@ html[data-theme="dark"] .ig-post-progress{
   }
   body.feed-insta-ui .sh-pagebody{
     padding:0 !important;
+    margin-right:0 !important;
   }
 
   body .mf-feed{
@@ -13279,7 +13834,7 @@ html[data-theme="dark"] .ig-post-progress{
     margin-bottom:0 !important;
   }
   body .mf-feed .mf-body-formatted.is-clamped{
-    max-height:14em !important;
+    max-height:7.5em !important;
     overflow:hidden !important;
   }
 
@@ -13866,13 +14421,21 @@ function pvFormatRichText(text){
   return '<div class="pv-richtext">' + out.join('') + '</div>';
 }
 
-function pvTruncateText(s, limit){
+function pvTruncateText(s, maxSent){
   const txt = (s ?? '').toString().trim();
-  const lim = Math.max(20, Number(limit || 160));
+  const max = Math.max(1, Number(maxSent || 3));
+  const maxChars = 170;
   if (!txt) return { short:'', full:'', truncated:false };
-  if (txt.length <= lim) return { short:txt, full:txt, truncated:false };
-  // ✅ Keep as "incomplete sentence" (hard cut) + add Read more
-  const short = txt.slice(0, lim).trimEnd();
+  const sents = txt.split(/[.!?]+/).map(function(x){ return String(x || '').trim(); }).filter(Boolean);
+  if (sents.length <= max && txt.length <= maxChars) {
+    return { short:txt, full:txt, truncated:false };
+  }
+  if (sents.length > max) {
+    return { short: sents.slice(0, max).join('. ') + '.', full:txt, truncated:true };
+  }
+  let short = txt.slice(0, maxChars).trimEnd();
+  const sp = short.lastIndexOf(' ');
+  if (sp > Math.floor(maxChars * 0.6)) short = short.slice(0, sp);
   return { short, full:txt, truncated:true };
 }
 
@@ -13989,7 +14552,7 @@ function pvRenderCaption(post, atts){
     return;
   }
 
-  const t = pvTruncateText(desc, 170);
+  const t = pvTruncateText(desc, 3);
 
   if (!t.truncated) {
     pv.caption.innerHTML = `<div class="pv-cap">${titleHtml}<div class="pv-cap-desc">${pvFormatRichText(t.full)}</div></div>`;
@@ -14061,7 +14624,7 @@ function pvRenderMedia(post, atts){
     return;
   }
 
-  const cut = pvTruncateText(text, 220);
+  const cut = pvTruncateText(text, 3);
   pv.media.innerHTML = `
     <div class="pv-media-shell">
       <div class="pv-media-copy">

@@ -760,8 +760,11 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
         </section>
 
         <div class="sbd-form-bottom">
-        <section class="sbd-summary" id="sbdSummary" data-shipping-cents="<?= (int)$initialShippingCents ?>" data-delivery-shipping-cents="<?= (int)$deliveryShippingCents ?>" data-tax-rate="0.0825" data-service-fee-cents="<?= (int)org_shop_buyer_service_fee_cents() ?>" aria-labelledby="sbdSummaryHead">
+        <section class="sbd-summary" id="sbdSummary" data-shipping-cents="<?= (int)$initialShippingCents ?>" data-delivery-shipping-cents="<?= (int)$deliveryShippingCents ?>" data-tax-rate="0.0825" data-service-fee-cents="<?= (int)org_shop_buyer_service_fee_cents($dbh, $meId) ?>" aria-labelledby="sbdSummaryHead">
           <h2 class="sbd-summary-head" id="sbdSummaryHead">Order Summary</h2>
+          <?php if (org_shop_buyer_service_fee_cents($dbh, $meId) <= 0): ?>
+            <p class="tx-12" style="margin:0 0 10px;opacity:.8;">Customer Plus member — $0 platform service fee</p>
+          <?php endif; ?>
           <div class="sbd-summary-line">
             <span id="sbdSummaryItemLabel">Item (<?= (int)$initialQty ?>)</span>
             <span id="sbdSummarySubtotal"><?= h($unitPrice) ?></span>
@@ -776,7 +779,7 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
           </div>
           <div class="sbd-summary-line">
             <span>Service fee</span>
-            <span id="sbdSummaryServiceFee"><?= h(org_shop_format_price(org_shop_buyer_service_fee_cents(), $currency)) ?></span>
+            <span id="sbdSummaryServiceFee"><?= h(org_shop_format_price(org_shop_buyer_service_fee_cents($dbh, $meId), $currency)) ?></span>
           </div>
           <div class="sbd-summary-line is-total">
             <span>Order total</span>

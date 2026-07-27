@@ -1,0 +1,522 @@
+/* Bordered table UI (Shamcey + basic bordered look) */
+
+.sh-admin-table-card.card,
+.card.bd-primary.sh-admin-table-card,
+.card.admin-card.sh-admin-table-card,
+.accounts-card.sh-admin-table-card,
+.users-card.sh-admin-table-card,
+.requests-card.sh-admin-table-card {
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
+  background: #fff;
+  overflow: hidden;
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 22px !important;
+  padding-right: 22px !important;
+}
+
+/* Title block like “BORDERED TABLE” */
+.sh-admin-table-card > .card-header.bg-primary,
+.sh-admin-table-card > .card-header {
+  background: transparent !important;
+  color: #1c273c !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  padding: 18px 0 10px !important;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sh-admin-table-card > .card-header .sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #8392a5 !important;
+  opacity: 1;
+}
+
+.sh-admin-table-card .pro-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0 14px !important;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.sh-admin-table-card .filter-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sh-admin-table-card .filter-tabs a,
+.sh-admin-table-card .btn-link-pill,
+.sh-admin-table-card .account-kind-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 3px;
+  border: 1px solid #d7dde5;
+  background: #fff;
+  color: #596882;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sh-admin-table-card .filter-tabs a.is-active,
+.sh-admin-table-card .btn-link-pill.is-active,
+.sh-admin-table-card .account-kind-btn.is-active {
+  background: #0866c6;
+  border-color: #0866c6;
+  color: #fff;
+}
+
+.sh-admin-table-card .btn-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 5px 12px;
+  border-radius: 3px;
+  border: 1px solid #d7dde5;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #1c273c;
+  cursor: pointer;
+}
+
+.sh-admin-table-card .btn-mini.primary,
+.sh-admin-table-card .btn-mini.btn-primary {
+  background: #0866c6;
+  border-color: #0759ad;
+  color: #fff;
+}
+
+.sh-admin-table-card .btn-mini.warn {
+  background: #f49917;
+  border-color: #d9840f;
+  color: #fff;
+}
+
+.sh-admin-table-card .btn-mini.danger {
+  background: #dc3545;
+  border-color: #c82333;
+  color: #fff;
+}
+
+.sh-admin-table-card .search-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sh-admin-table-card .search-form input[type="text"],
+.sh-admin-table-card .search-form input[type="search"] {
+  min-width: 200px;
+  height: 34px;
+  border: 1px solid #d7dde5;
+  border-radius: 3px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.sh-admin-table-card .table-scroll,
+.sh-admin-table-card .table-responsive {
+  background: #fff;
+  border: 0;
+  padding: 0;
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  max-width: 100%;
+}
+
+/* ---- Bordered table (screenshot style) ---- */
+.sh-admin-table-card .table,
+.sh-admin-table-card table.admin-table,
+.sh-admin-table-card table.dataTable,
+.sh-admin-table-card #datatable1,
+.sh-admin-table-card .table-bordered {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-bottom: 0 !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  border: 1px solid #e3e7ed !important;
+  table-layout: fixed !important;
+}
+
+.sh-admin-table-card .table thead > tr > th,
+.sh-admin-table-card .admin-table thead > tr > th,
+.sh-admin-table-card table.dataTable thead > tr > th,
+.sh-admin-table-card #datatable1 thead th,
+.sh-admin-table-card .table-bordered thead > tr > th {
+  border: 1px solid #e3e7ed !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.6px !important;
+  background-color: #fff !important;
+  color: #98a2b3 !important;
+  white-space: nowrap;
+  vertical-align: middle;
+  text-align: left;
+  padding: 12px 10px !important;
+  box-shadow: none !important;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sh-admin-table-card .table tbody > tr > td,
+.sh-admin-table-card .admin-table tbody > tr > td,
+.sh-admin-table-card table.dataTable tbody > tr > td,
+.sh-admin-table-card #datatable1 tbody td,
+.sh-admin-table-card .table-bordered tbody > tr > td {
+  border: 1px solid #e3e7ed !important;
+  color: #4b5565;
+  vertical-align: middle;
+  text-align: left;
+  padding: 12px 10px !important;
+  background: #fff !important;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0; /* lets fixed layout shrink columns evenly */
+}
+
+/* Actions column should not ellipsis the fries button */
+.sh-admin-table-card .table tbody > tr > td:last-child,
+.sh-admin-table-card .admin-table tbody > tr > td:last-child,
+.sh-admin-table-card #datatable1 tbody td:last-child {
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+}
+
+.sh-admin-table-card .table tbody > tr > td:last-child:has(.fries-menu),
+.sh-admin-table-card .admin-table tbody > tr > td:last-child:has(.fries-menu),
+.sh-admin-table-card #datatable1 tbody td:last-child:has(.fries-menu) {
+  white-space: nowrap;
+  width: 64px;
+}
+
+/* Kill DataTables horizontal scroll chrome */
+.sh-admin-table-card .dataTables_wrapper,
+.sh-admin-table-card .dataTables_scroll,
+.sh-admin-table-card .dataTables_scrollHead,
+.sh-admin-table-card .dataTables_scrollBody {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+.sh-admin-table-card .dataTables_scrollHeadInner,
+.sh-admin-table-card .dataTables_scrollHeadInner table {
+  width: 100% !important;
+}
+
+/* First column (often ID) slightly stronger */
+.sh-admin-table-card .table tbody > tr > td:first-child,
+.sh-admin-table-card .admin-table tbody > tr > td:first-child,
+.sh-admin-table-card #datatable1 tbody td:first-child {
+  font-weight: 700;
+  color: #1c273c;
+}
+
+.sh-admin-table-card .table-hover tbody tr:hover > td,
+.sh-admin-table-card .table tbody tr:hover > td {
+  background-color: #f8fafc !important;
+}
+
+.sh-admin-table-card .pill,
+.sh-admin-table-card .badge {
+  font-weight: 600;
+}
+
+.sh-admin-table-card .pill.ok {
+  background: rgba(35, 191, 8, 0.12);
+  color: #1a8a06;
+}
+
+.sh-admin-table-card .pill.bad {
+  background: rgba(220, 53, 69, 0.12);
+  color: #b02a37;
+}
+
+.sh-admin-table-card .pill.info {
+  background: rgba(8, 102, 198, 0.12);
+  color: #0759ad;
+}
+
+.sh-admin-table-card .pill.warn {
+  background: rgba(244, 153, 23, 0.15);
+  color: #b36d0a;
+}
+
+.sh-admin-table-card .muted,
+.sh-admin-table-card .tx-color-03 {
+  color: #8392a5 !important;
+  font-size: 12px;
+}
+
+.sh-admin-table-card .avatarWrap,
+.sh-admin-table-card .nameBlock,
+.sh-admin-table-card .cell-ellip {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sh-admin-table-card .nameBlock .full,
+.sh-admin-table-card .nameBlock .small,
+.sh-admin-table-card .cell-ellip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Fries actions menu ---- */
+.fries-menu {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.fries-toggle {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e3e7ed;
+  border-radius: 8px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  color: #596882;
+  box-shadow: 0 1px 2px rgba(28, 39, 60, 0.04);
+}
+
+.fries-toggle:hover,
+.fries-menu.is-open .fries-toggle {
+  background: #f4f6f9;
+  border-color: #d0d7e2;
+  color: #1c273c;
+}
+
+.fries-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Staggered 4-bar “fries” icon */
+.fries-icon {
+  display: block;
+  width: 16px;
+  height: 12px;
+  background:
+    linear-gradient(currentColor, currentColor) left top / 100% 2px no-repeat,
+    linear-gradient(currentColor, currentColor) left 3.5px / 55% 2px no-repeat,
+    linear-gradient(currentColor, currentColor) left 7px / 100% 2px no-repeat,
+    linear-gradient(currentColor, currentColor) left 10.5px / 55% 2px no-repeat;
+}
+
+.fries-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 168px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e3e7ed;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(28, 39, 60, 0.14);
+  z-index: 40;
+}
+
+.fries-menu.is-open .fries-dropdown,
+.fries-dropdown.is-fixed-open {
+  display: block;
+}
+
+.fries-dropdown.is-fixed-open {
+  position: fixed;
+  z-index: 3000;
+}
+
+.fries-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c273c;
+  text-decoration: none;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.fries-item i {
+  width: 14px;
+  text-align: center;
+  color: #8392a5;
+}
+
+.fries-item:hover {
+  background: #f4f6f9;
+  color: #1c273c;
+  text-decoration: none;
+}
+
+.fries-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fries-item-danger,
+.fries-item-danger i {
+  color: #dc3545;
+}
+
+.fries-item-danger:hover {
+  background: rgba(220, 53, 69, 0.08);
+}
+
+.fries-item-form {
+  margin: 0;
+  padding: 0;
+}
+
+/* Compact metric / filter chips (service fees + shared) */
+.azia-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  flex: 0 0 auto;
+}
+
+.azia-filters.azia-filters-7 {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.azia-filters.azia-filters-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+a.azia-filter,
+.azia-filter {
+  background: #fff;
+  border: 1px solid rgba(28, 39, 60, 0.08);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 0 10px rgba(28, 39, 60, 0.06);
+  min-height: 72px;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+a.azia-filter:hover {
+  text-decoration: none;
+  color: inherit;
+  border-color: rgba(91, 71, 251, 0.28);
+  box-shadow: 0 8px 22px rgba(28, 39, 60, 0.1);
+}
+
+.azia-filter > .fa:first-child,
+.azia-filter > .azia-filter-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(91, 71, 251, 0.1);
+  color: #5b47fb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.azia-filter .lbl {
+  display: block;
+  font-size: 11px;
+  color: #8392a5;
+  margin-bottom: 2px;
+}
+
+.azia-filter strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c273c;
+  line-height: 1.2;
+}
+
+.azia-filter .sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #8392a5;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.azia-filter .caret {
+  margin-left: auto;
+  color: #8392a5;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1399px) {
+  .azia-filters,
+  .azia-filters.azia-filters-7 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 991px) {
+  .azia-filters,
+  .azia-filters.azia-filters-7,
+  .azia-filters.azia-filters-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .azia-filters,
+  .azia-filters.azia-filters-7,
+  .azia-filters.azia-filters-4 {
+    grid-template-columns: 1fr;
+  }
+}
+

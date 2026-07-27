@@ -12,6 +12,7 @@ require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 
 requireUserLogin();
+sendNoCacheHeadersUser();
 
 $controller = new Controller();
 $dbh = $controller->pdo();
@@ -45,6 +46,17 @@ function jexit(array $data): void {
 
 // Try to detect your session user id key (some of your files use different names)
 $meId = (int)($_SESSION['user_id'] ?? $_SESSION['id'] ?? $_SESSION['userid'] ?? 0);
+if (function_exists('theme_prefs_viewer_user_id')) {
+  try {
+    require_once __DIR__ . '/includes/theme_prefs.php';
+    $viewerId = theme_prefs_viewer_user_id();
+    if ($viewerId > 0) {
+      $meId = $viewerId;
+    }
+  } catch (Throwable $e) {
+    // keep session id
+  }
+}
 if ($meId <= 0) {
   jexit(['ok' => false, 'error' => 'Invalid session (missing user id in session)']);
 }

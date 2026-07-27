@@ -333,35 +333,62 @@ function staff_pub_begin_org_session(PDO $dbh, int $staffId, int $orgId): bool
         return false;
     }
 
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_write_close();
-    }
-
-    session_name('PHPSESSID');
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_start();
-    }
-
-    $_SESSION['org_auth'] = 1;
-    $_SESSION['org_account_type'] = 'staff';
-    $_SESSION['org_account_id'] = $staffId;
-    $_SESSION['org_active_org_id'] = $orgId;
-    unset($_SESSION['org_member_id'], $_SESSION['org_role_id']);
-
-    $publisherUserId = staff_pub_org_publisher_user_id($dbh, $orgId);
-    if ($publisherUserId > 0) {
-        $_SESSION['org_publisher_user_id'] = $publisherUserId;
-    } else {
-        unset($_SESSION['org_publisher_user_id']);
-    }
-
-    require_once __DIR__ . '/account_display_helpers.php';
-    $portalRole = account_org_staff_role_label($dbh, $staffId, $orgId);
-    if ($portalRole !== '') {
-        $_SESSION['portal_staff_role_label'] = $portalRole;
-    }
-
+    // Do not switch sessions here — headers are already sent under BUSINESS_ONLY_USER.
+    // staff_org_portal.php uses a signed handoff into organization/staff_enter.php.
     return true;
+}
+
+function staff_pub_enterprise_signing_key(): string
+{
+    $bootstrapLoad = dirname(__DIR__, 2) . '/admin/includes/admin_linked_bootstrap_load.php';
+    if (is_file($bootstrapLoad)) {
+        require_once $bootstrapLoad;
+    }
+    if (function_exists('admin_linked_signing_key')) {
+        return admin_linked_signing_key();
+    }
+    return 'talentra-staff-enterprise-handoff-fallback';
+}
+
+function staff_pub_enterprise_handoff_query(int $staffId, int $orgId): string
+{
+    if ($staffId <= 0 || $orgId <= 0) {
+        return '';
+    }
+    $ts = time();
+    $payload = $staffId . '|' . $orgId . '|' . $ts;
+    $sig = hash_hmac('sha256', $payload, staff_pub_enterprise_signing_key());
+    return http_build_query([
+        'staff_enterprise' => '1',
+        'sid' => $staffId,
+        'oid' => $orgId,
+        'ts' => $ts,
+        'sig' => $sig,
+    ]);
+}
+
+/** @return array{staff_id:int,org_id:int}|null */
+function staff_pub_verify_enterprise_handoff(): ?array
+{
+    if ((string)($_GET['staff_enterprise'] ?? '') !== '1') {
+        return null;
+    }
+    $staffId = (int)($_GET['sid'] ?? 0);
+    $orgId = (int)($_GET['oid'] ?? 0);
+    $ts = (int)($_GET['ts'] ?? 0);
+    $sig = (string)($_GET['sig'] ?? '');
+    if ($staffId <= 0 || $orgId <= 0 || $ts <= 0 || $sig === '') {
+        return null;
+    }
+    if ($ts + 900 < time()) {
+        return null;
+    }
+    $payload = $staffId . '|' . $orgId . '|' . $ts;
+    $expected = hash_hmac('sha256', $payload, staff_pub_enterprise_signing_key());
+    if (!hash_equals($expected, $sig)) {
+        return null;
+    }
+    return ['staff_id' => $staffId, 'org_id' => $orgId];
 }
 
 /** Open public_user publisher session for org staff (view-only). */

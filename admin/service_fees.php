@@ -161,24 +161,12 @@ $money = static function (int $cents, string $currency = 'USD'): string {
 
 org_admin_render_head('Service Fees');
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Service Fees');
+?>
 
 <div class="sh-mainpanel">
-  <div class="sh-pagetitle">
-    <div class="sh-pagetitle-left">
-      <div class="sh-pagetitle-icon"><i class="icon ion-cash"></i></div>
-      <div>
-        <h2>Service Fees</h2>
-        <p class="mg-b-0">$<?= number_format($feeFixed / 100, 2) ?> online fee paid by customers when they order in Shop — collected for Admin</p>
-      </div>
-    </div>
-    <div class="sh-pagetitle-right">
-      <a href="org_rent.php" class="btn-mini">Shop rent</a>
-    </div>
-  </div>
-
   <div class="sh-pagebody">
     <?php if (!$hasServiceFeeCol): ?>
       <div class="alert-lite bad">
@@ -186,32 +174,43 @@ org_admin_render_head('Service Fees');
       </div>
     <?php endif; ?>
 
-    <div class="card admin-card" style="margin-bottom:16px;">
-      <div class="detail-grid" style="padding:16px;">
-        <div class="detail-box">
-          <div class="label">Fee per order</div>
-          <div class="value"><?= org_admin_h($money($feeFixed)) ?></div>
-          <div class="muted" style="margin-top:6px;">Fixed buyer service fee</div>
+    <div class="azia-filters azia-filters-4">
+      <div class="azia-filter">
+        <i class="fa fa-tag"></i>
+        <div>
+          <span class="lbl">Fee per order</span>
+          <strong><?= org_admin_h($money($feeFixed)) ?></strong>
+          <span class="sub">Fixed buyer service fee</span>
         </div>
-        <div class="detail-box">
-          <div class="label">Orders with fee</div>
-          <div class="value"><?= (int)$feeOrderCount ?></div>
-          <div class="muted" style="margin-top:6px;">Matching current filter</div>
+      </div>
+      <div class="azia-filter">
+        <i class="fa fa-check-circle"></i>
+        <div>
+          <span class="lbl">Orders with fee</span>
+          <strong><?= (int)$feeOrderCount ?></strong>
+          <span class="sub">Matching current filter</span>
         </div>
-        <div class="detail-box">
-          <div class="label">Total collected</div>
-          <div class="value"><?= org_admin_h($money($totalFeeCents)) ?></div>
-          <div class="muted" style="margin-top:6px;">Sum of buyer service fees</div>
+      </div>
+      <div class="azia-filter">
+        <i class="fa fa-usd"></i>
+        <div>
+          <span class="lbl">Total collected</span>
+          <strong><?= org_admin_h($money($totalFeeCents)) ?></strong>
+          <span class="sub">Sum of buyer service fees</span>
         </div>
-        <div class="detail-box">
-          <div class="label">Orders listed</div>
-          <div class="value"><?= (int)$orderCount ?></div>
-          <div class="muted" style="margin-top:6px;">Up to 300 newest shown below</div>
+      </div>
+      <div class="azia-filter">
+        <i class="fa fa-list"></i>
+        <div>
+          <span class="lbl">Orders listed</span>
+          <strong><?= (int)$orderCount ?></strong>
+          <span class="sub">Up to 300 newest shown below</span>
         </div>
       </div>
     </div>
 
-    <div class="card admin-card">
+    <div class="card admin-card sh-admin-table-card">
+      <div class="card-header">Shop Orders</div>
       <div class="pro-tools">
         <div class="filter-tabs">
           <?php
@@ -238,7 +237,7 @@ org_admin_render_head('Service Fees');
       </div>
 
       <div class="table-scroll">
-        <table class="table admin-table">
+        <table class="table table-bordered table-hover mg-b-0 admin-table">
           <thead>
             <tr>
               <th>When</th>

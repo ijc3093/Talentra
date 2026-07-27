@@ -175,6 +175,38 @@ if ($isManager) {
     max-width: 140px;
     word-break: break-word;
   }
+  .sh-header-welcome{
+    display:inline-flex;
+    flex-direction:row;
+    align-items:center;
+    align-self:center;
+    height:var(--org-header-h, 48px);
+    min-width:0;
+    padding:0 12px 0 8px;
+    margin:0;
+    box-sizing:border-box;
+  }
+  .sh-header-welcome strong{
+    display:block;
+    margin:0;
+    padding:0;
+    font-size:15px;
+    font-weight:700;
+    line-height:1;
+    letter-spacing:-0.02em;
+    color:var(--msb-palette-text-on-nav, #fff);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  body.org-app .sh-headpanel{
+    align-items:center !important;
+  }
+  body.org-app .sh-headpanel-left{
+    display:flex !important;
+    align-items:center !important;
+    height:var(--org-header-h, 48px) !important;
+  }
 
   /* Legacy peer-list pills on messages page */
   .msg-badge{
@@ -576,7 +608,19 @@ if ($isManager) {
 
 <div class="sh-headpanel">
   <div class="sh-headpanel-left">
-    <?php if ($isManager): ?>
+    <?php
+      $headerPageBase = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+      $hideHeaderCreateLinks = ($headerPageBase === 'sales_management.php');
+      $headerWelcomeFirst = '';
+      if ($hideHeaderCreateLinks) {
+        $headerWelcomeFirst = trim(explode(' ', $displayName !== '' ? $displayName : 'there')[0] ?: 'there');
+      }
+    ?>
+    <?php if ($hideHeaderCreateLinks): ?>
+      <div class="sh-header-welcome">
+        <strong>Hi, welcome back<?= $headerWelcomeFirst !== '' && strtolower($headerWelcomeFirst) !== 'there' ? ', ' . h($headerWelcomeFirst) : '' ?>!</strong>
+      </div>
+    <?php elseif ($isManager): ?>
       <a href="create_org.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('create_org.php'); ?>><div><i class="icon ion-ios-plus-outline"></i><span>New Org</span></div></a>
       <a href="create_staff.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('create_staff.php'); ?>><div><i class="icon ion-person-add"></i><span>Create Staff</span></div></a>
       <!-- <a href="settings.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('settings.php'); ?>><div><i class="icon ion-gear-b"></i><span>Setting</span></div></a> -->

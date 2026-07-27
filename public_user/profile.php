@@ -45,7 +45,7 @@ $profileAlertPostId = (int)($_GET['open_post'] ?? 0);
 $profileAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 
 $reqId = (int)($_GET['id'] ?? 0);
-$reqUsername = trim((string)($_GET['username'] ?? ''));
+$reqUsername = trim((string)($_GET['username'] ?? $_GET['u'] ?? ''));
 $reqFriendCode = strtoupper(trim((string)($_GET['friend_code'] ?? '')));
 $requestedPeer = ($reqFriendCode !== '' || $reqUsername !== '' || $reqId > 0);
 $peerFound = false;
@@ -536,7 +536,7 @@ if (!function_exists('u_sub')) {
   }
 }
 if (!function_exists('sentence_snippet')) {
-  function sentence_snippet(string $text, int $maxSentences = 5, int $maxChars = 160): string {
+  function sentence_snippet(string $text, int $maxSentences = 3, int $maxChars = 170): string {
     $text = trim(preg_replace('/\s+/', ' ', $text) ?? $text);
     if ($text === '') return '';
     $parts = preg_split('/(?<=[\.\!\?])\s+/', $text) ?: [];
@@ -1068,8 +1068,8 @@ $gearGroups = [
     'icon' => 'ion-android-color-palette',
     'desc' => 'Fine-tune how the profile feels on desktop, laptop, tablet, and mobile.',
     'rows' => [
-      ['label' => 'Dark auto', 'meta' => 'Turn automatic day/night theme switching on or off for all pages.', 'icon' => 'ion-ios-moon', 'tag' => 'Live', 'field_local' => 'theme_auto_enabled', 'options' => $themeAutoOptions, 'default_value' => $themeAutoDefault],
-      ['label' => 'Appearance color', 'meta' => 'Pick Light, Dark, or any HTML color name. Applies to all pages for your account (and your publisher org).', 'icon' => 'ion-contrast', 'tag' => 'Live', 'field' => 'appearance_mode', 'option_groups' => $appearanceModeOptionGroups, 'default_value' => $manualAppearanceDefault],
+      ['label' => 'Dark auto', 'meta' => 'Turn automatic day/night theme switching on or off. When On, Appearance color is set to Off.', 'icon' => 'ion-ios-moon', 'tag' => 'Live', 'field_local' => 'theme_auto_enabled', 'options' => $themeAutoOptions, 'default_value' => $themeAutoDefault],
+      ['label' => 'Appearance color', 'meta' => 'Pick Off, Light, Dark, or any HTML color. Choosing a color turns Dark auto Off to avoid conflicts.', 'icon' => 'ion-contrast', 'tag' => 'Live', 'field' => 'appearance_mode', 'option_groups' => $appearanceModeOptionGroups, 'default_value' => $manualAppearanceDefault],
       ['label' => 'Grid size for gallery', 'meta' => 'Control how many columns or tile sizes appear in your gallery.', 'icon' => 'ion-grid', 'tag' => 'Live', 'field' => 'gallery_grid_size', 'options' => $gridSizeOptions],
       ['label' => 'Autoplay videos on / off', 'meta' => 'Choose whether videos start automatically.', 'icon' => 'ion-videocamera', 'tag' => 'Live', 'field' => 'autoplay_videos', 'options' => $yesNoOptions],
       ['label' => 'Sound on / off', 'meta' => 'Control sound for video posts and reels.', 'icon' => 'ion-volume-high', 'tag' => 'Live', 'field' => 'sound_enabled', 'options' => $yesNoOptions],
@@ -1540,7 +1540,7 @@ if (!function_exists('profile_render_post_grid')) {
         $bdy = trim((string)($it['body'] ?? ''));
 
         $snippetSource = $dsc !== '' ? $dsc : $bdy;
-        $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 5, $isMobile ? 110 : 160);
+        $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 3, $isMobile ? 110 : 170);
 
         $showVideo = ($atype === 'video' && $filePath !== '' && is_video_path($filePath));
         $imgSrc = $thumb !== '' ? $thumb : $filePath;
@@ -1625,7 +1625,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     $description = trim((string)($it['descr'] ?? ''));
     $body = trim((string)($it['body'] ?? ''));
     $snippetSource = $description !== '' ? $description : $body;
-    $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 5, $isMobile ? 110 : 160);
+    $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 3, $isMobile ? 110 : 170);
     $isVideo = ($atype === 'video' && $filePath !== '' && is_video_path($filePath));
     $hasMedia = ($filePath !== '' || $thumb !== '');
 
@@ -1717,7 +1717,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 
   <style>
     .ig-wrap{max-width:980px;width:100%;margin:0 auto;}
-    .ig-card{background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));}
+    .ig-card{background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, #c0c2c4);}
     body.profile-page{
       overflow:hidden !important;
       height:100vh;
@@ -1727,13 +1727,13 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     body.profile-page::after{
       content:"";
       position:fixed;
-      left:var(--profile-header-divider-left, 0px);
+      left:var(--feedRailW, 84px);
       right:0;
       top:var(--profile-header-divider-top, -10px);
       height:1px;
       background:var(--msb-palette-border, rgba(15,23,42,.08));
       pointer-events:none;
-      z-index:95;
+      z-index:1210;
     }
     body.profile-page .sh-mainpanel{
       height:100vh !important;
@@ -1771,14 +1771,14 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       flex:0 0 auto;
       z-index:40;
       background:var(--msb-palette-bg, #f5f7fb);
-      border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));
+      border-bottom:0;
       box-shadow:0 4px 14px rgba(15,23,42,.04);
     }
     .ig-profile-scroll{
       flex:1 1 auto;
       min-height:0;
-      border-left:1px solid var(--msb-palette-border, rgba(15,23,42,.08));
-      border-right:1px solid var(--msb-palette-border, rgba(15,23,42,.08));
+      border-left:1px solid var(--msb-palette-border, #c0c2c4);
+      border-right:1px solid var(--msb-palette-border, #c0c2c4);
       box-sizing:border-box;
       overflow-y:auto;
       overflow-x:hidden;
@@ -1886,7 +1886,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color:#667085;
     }
 
-    .ig-tabs{border-top:1px solid var(--msb-palette-border, rgba(15,23,42,.08));display:flex;justify-content:center;gap:18px;padding:12px 10px 0;flex-wrap:wrap;background:var(--msb-palette-bg, #f5f7fb);}
+    .ig-tabs{border-top:1px solid var(--msb-palette-border, #c0c2c4);display:flex;justify-content:center;gap:18px;padding:12px 10px 0;flex-wrap:wrap;background:var(--msb-palette-bg, #f5f7fb);}
     .ig-tab{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:.08em;color:var(--msb-palette-text-muted, #667085);padding:10px 2px;border-top:2px solid transparent;text-transform:uppercase;cursor:pointer;user-select:none;border-radius:15px;padding: 8px;}
     .ig-tab.active{background:var(--msb-palette-nav-active-bg,var(--msb-palette-action-soft,rgba(79,70,229,.12)));color:var(--msb-palette-nav-active-text,var(--msb-palette-text,#0b1220));border-top-color:var(--msb-palette-nav-active-text,var(--msb-palette-text,#0b1220));}
     .ig-tab i{font-size:14px}
@@ -1915,7 +1915,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
 
     /* Desktop: 3 cols | Mobile/Tablet: 2 cols */
-    .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 26px 26px;--post-media-radius:18px;}
+    .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 26px 26px;--post-media-radius:10px;}
     @media (max-width: 992px){ .ig-grid{grid-template-columns:repeat(2,1fr);} }
 
     .ig-item{position:relative;width:100%;aspect-ratio:1/1;background:#eef2f7;overflow:hidden;border:1px solid rgba(15,23,42,.06);text-decoration:none;}
@@ -2192,13 +2192,13 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     /* Posts tab feed — match feed.php card column (614px) and dimensions */
     #profilePostsFeed.mf-feed{
       width:100%;max-width:614px;margin:0 auto;padding:10px 10px 26px;box-sizing:border-box;
-      --post-media-radius:18px;
+      --post-media-radius:10px;
     }
     #profilePostsFeed .mf-card{
       width:100%;max-width:100%;
       background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));border-radius:22px;overflow:hidden;
       margin:0 auto 16px;box-shadow:none;
-      --post-media-radius:18px;
+      --post-media-radius:10px;
     }
     #profilePostsFeed .mf-card.mf-card-text-only:not(.mf-card-phone-shot){
       width:100% !important;max-width:100% !important;
@@ -2348,7 +2348,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     #profilePostsFeed .mf-body .mf-body-formatted{text-align:left;}
     #profilePostsFeed .mf-body .post-card-paragraph{margin:0 0 12px;text-align:left;white-space:normal;word-break:break-word;display:block;}
     #profilePostsFeed .mf-body .post-card-paragraph:last-child{margin-bottom:0;}
-    #profilePostsFeed .mf-body .mf-body-formatted.is-clamped{max-height:14em;overflow:hidden;}
+    #profilePostsFeed .mf-body .mf-body-formatted.is-clamped{max-height:6.6em;overflow:hidden;}
     #profilePostsFeed .mf-body .mf-readmore{font-weight:900;margin-left:6px;text-decoration:none;color:var(--msb-palette-action, #2563eb);white-space:nowrap;}
     #profilePostsFeed .mf-actions{padding:10px 22px 8px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
     #profilePostsFeed .mf-card:has(.mf-head--on-media) > .mf-actions{padding:10px 0 8px!important;}
@@ -2480,9 +2480,9 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 
 
     .gear-wrap{padding:0;background:var(--msb-palette-bg, #f5f7fb);background-image:none;min-height:480px;}
-    .gear-shell{display:flex;align-items:stretch;min-height:480px;border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));background:var(--msb-palette-bg, #f5f7fb);overflow:hidden;}
-    .gear-sidebar{width:min(320px, 38vw);flex:0 0 min(320px, 38vw);border-right:1px solid var(--msb-palette-border, rgba(15,23,42,.08));background:var(--msb-palette-bg, #f5f7fb);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-    .gear-sidebar-head{flex:0 0 auto;padding:22px 18px 14px;border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));background:var(--msb-palette-bg, #f5f7fb);}
+    .gear-shell{display:flex;align-items:stretch;min-height:480px;border:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);overflow:hidden;}
+    .gear-sidebar{width:min(320px, 38vw);flex:0 0 min(320px, 38vw);border-right:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+    .gear-sidebar-head{flex:0 0 auto;padding:22px 18px 14px;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);}
     .gear-sidebar-title{font-size:22px;font-weight:900;color:var(--msb-palette-text, #0b1220);line-height:1.15;margin:0;}
     .gear-search{width:100%;height:40px;border-radius:999px;border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.12));background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:700;padding:0 14px 0 38px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='16.65' y1='16.65' x2='21' y2='21'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:14px center;}
     .gear-search:focus{border-color:#4f46e5;box-shadow:0 0 0 4px rgba(79,70,229,.12);}
@@ -2519,7 +2519,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-detail-panel{display:none !important;}
     .gear-detail-panel.is-active{display:block !important;}
     .gear-detail-panel[hidden]{display:none !important;}
-    .gear-detail-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));}
+    .gear-detail-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);}
     .gear-detail-icon{width:52px;height:52px;border-radius:16px;background:var(--msb-palette-hover-bg, #eef2ff);color:var(--msb-palette-link, #4338ca);display:flex;align-items:center;justify-content:center;flex:0 0 52px;}
     .gear-detail-icon i{font-size:24px;}
     .gear-detail-title{font-size:20px;font-weight:900;color:var(--msb-palette-text, #0b1220);line-height:1.2;margin:0 0 6px;}
@@ -2535,7 +2535,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-note{margin-top:16px;padding:12px 14px;border:1px dashed var(--msb-palette-border-strong, rgba(79,70,229,.24));background:var(--msb-palette-surface-2, #f8faff);color:var(--msb-palette-link, #4338ca);font-size:13px;font-weight:700;}
     .gear-control-wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .gear-control-wrap--detail{align-items:flex-start;flex-direction:column;}
-    .gear-control{width:100%;max-width:360px;min-width:180px;height:44px;border-radius:10px;border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.14));background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:800;padding:0 12px;outline:none;}
+    .gear-control{width:100%;max-width:360px;min-width:180px;height:44px;border-radius:10px;border:1px solid var(--msb-palette-border-strong, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:800;padding:0 12px;outline:none;}
     .gear-control:focus{border-color:#4f46e5;box-shadow:0 0 0 4px rgba(79,70,229,.12);}
     .gear-appearance-select{max-width:360px;}
     .gear-save-state{font-size:11px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#98a2b3;min-width:46px;}
@@ -2544,7 +2544,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-save-state.is-error{color:#b42318;}
     @media (max-width: 991px){
       .gear-shell{flex-direction:column;min-height:0;}
-      .gear-sidebar{width:100%;flex:0 0 auto;min-height:0;max-height:none;border-right:0;border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));}
+      .gear-sidebar{width:100%;flex:0 0 auto;min-height:0;max-height:none;border-right:0;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);}
       .gear-nav{max-height:min(340px, 42vh);}
       .gear-nav-section.is-open .gear-nav-items{max-height:min(160px, 22vh);}
       .gear-main{padding:18px 16px 24px;}
@@ -2874,12 +2874,12 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   #profilePostsFeed .media-stage.standard-image-stage,
   #profilePostsFeed .media-stage{
     overflow:hidden !important;
-    border-radius:var(--post-media-radius,18px) !important;
+    border-radius:var(--post-media-radius,10px) !important;
   }
   #profilePostsFeed .media-stage.standard-video-stage > video,
   #profilePostsFeed .media-stage.standard-image-stage > img,
   #profilePostsFeed video.ig-smart-feed-video{
-    border-radius:var(--post-media-radius,18px) !important;
+    border-radius:var(--post-media-radius,10px) !important;
     overflow:hidden !important;
   }
 </style>
@@ -3467,7 +3467,7 @@ include __DIR__ . '/includes/header.php';
   .pv-overlay.show{display:flex;}
   .pv-modal{width:min(1120px,96vw);height:min(720px,88vh);background:#fff;overflow:hidden;display:flex;box-shadow:0 30px 90px rgba(0,0,0,.45);}
   .pv-left{flex:1.15;min-width:0;background:#0b1220;display:flex;align-items:center;justify-content:center;}
-  .pv-media{width:100%;height:100%;display:flex;align-items:center;justify-content:center;--post-media-radius:18px;}
+  .pv-media{width:100%;height:100%;display:flex;align-items:center;justify-content:center;--post-media-radius:10px;}
   .pv-media img,.pv-media video,.pv-media iframe{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:var(--post-media-radius);}
   .pv-media video{width:100%;height:100%;object-fit:contain;border-radius:var(--post-media-radius);}
   /* ✅ Mobile/Tablet: allow long LEFT description (no media) to scroll */
@@ -3963,13 +3963,21 @@ function pvFormatRichText(text){
   return '<div class="pv-richtext">' + out.join('') + '</div>';
 }
 
-function pvTruncateText(s, limit){
+function pvTruncateText(s, maxSent){
   const txt = (s ?? '').toString().trim();
-  const lim = Math.max(20, Number(limit || 160));
+  const max = Math.max(1, Number(maxSent || 3));
+  const maxChars = 170;
   if (!txt) return { short:'', full:'', truncated:false };
-  if (txt.length <= lim) return { short:txt, full:txt, truncated:false };
-  // ✅ Keep as "incomplete sentence" (hard cut) + add Read more
-  const short = txt.slice(0, lim).trimEnd();
+  const sents = txt.split(/[.!?]+/).map(function(x){ return String(x || '').trim(); }).filter(Boolean);
+  if (sents.length <= max && txt.length <= maxChars) {
+    return { short:txt, full:txt, truncated:false };
+  }
+  if (sents.length > max) {
+    return { short: sents.slice(0, max).join('. ') + '.', full:txt, truncated:true };
+  }
+  let short = txt.slice(0, maxChars).trimEnd();
+  const sp = short.lastIndexOf(' ');
+  if (sp > Math.floor(maxChars * 0.6)) short = short.slice(0, sp);
   return { short, full:txt, truncated:true };
 }
 
@@ -4157,7 +4165,7 @@ function pvRenderCaption(post, atts){
     return;
   }
 
-  const t = pvTruncateText(desc, 170);
+  const t = pvTruncateText(desc, 3);
 
   if (!t.truncated) {
     pv.caption.innerHTML = `<div class="pv-cap">${titleHtml}<div class="pv-cap-desc">${pvFormatRichText(t.full)}</div></div>`;
@@ -4229,7 +4237,7 @@ function pvRenderMedia(post, atts){
     return;
   }
 
-  const cut = pvTruncateText(text, 220);
+  const cut = pvTruncateText(text, 3);
   pv.media.innerHTML = `
     <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:26px;">
       <div style="max-width:640px;color:#fff;text-align:left;">
@@ -4802,13 +4810,35 @@ pv.text.addEventListener('keydown', (e)=>{
     meta.textContent = label || '';
   }
 
+  function isNamedAppearanceMode(mode){
+    mode = normalizeAppearanceMode(mode);
+    return mode !== 'system' && mode !== 'light' && mode !== 'dark'
+      && !!(window.__MSB_APPEARANCE_PALETTES && window.__MSB_APPEARANCE_PALETTES[mode]);
+  }
+
+  function appearanceModeLabel(mode){
+    mode = normalizeAppearanceMode(mode);
+    var ctrls = getThemeControls();
+    if (ctrls.manualCtrl) {
+      for (var i = 0; i < ctrls.manualCtrl.options.length; i++) {
+        if (String(ctrls.manualCtrl.options[i].value) === mode) {
+          return String(ctrls.manualCtrl.options[i].textContent || mode).trim() || mode;
+        }
+      }
+    }
+    if (mode === 'system') return 'Off';
+    if (mode === 'light') return 'Light';
+    if (mode === 'dark') return 'Dark';
+    return mode;
+  }
+
   function syncThemeNavMeta(prefs){
     prefs = prefs || currentThemePrefs();
     setGearNavMetaBySelector('[data-local-field="theme_auto_enabled"]', prefs.autoEnabled ? 'On' : 'Off');
-    var ctrls = getThemeControls();
-    if (ctrls.manualCtrl && ctrls.manualCtrl.selectedIndex >= 0 && ctrls.manualCtrl.options[ctrls.manualCtrl.selectedIndex]) {
-      setGearNavMetaBySelector('[data-field="appearance_mode"]', ctrls.manualCtrl.options[ctrls.manualCtrl.selectedIndex].textContent || '');
-    }
+    setGearNavMetaBySelector(
+      '[data-field="appearance_mode"]',
+      appearanceModeLabel(prefs.autoEnabled ? 'system' : (prefs.appearanceMode || 'system'))
+    );
   }
 
   function applyThemePrefs(next){
@@ -4856,7 +4886,7 @@ pv.text.addEventListener('keydown', (e)=>{
     var form = new FormData();
     form.append('field', 'theme_auto_enabled');
     form.append('value', enabled ? '1' : '0');
-    flashState(state, 'Saving', 'is-saving');
+    if (state) flashState(state, 'Saving', 'is-saving');
     return fetch('save_privacy.php', {
       method: 'POST',
       body: form,
@@ -4867,25 +4897,30 @@ pv.text.addEventListener('keydown', (e)=>{
     .then(function(data){
       if (!data || !data.ok) throw new Error((data && data.message) ? data.message : 'Save failed');
       data.value = (String(data.value || (enabled ? '1' : '0')) === '1') ? '1' : '0';
-      flashState(state, 'Saved', 'is-saved');
-      window.setTimeout(function(){ flashState(state, '', ''); }, 1300);
+      if (state) {
+        flashState(state, 'Saved', 'is-saved');
+        window.setTimeout(function(){ flashState(state, '', ''); }, 1300);
+      }
       return data;
     })
     .catch(function(err){
-      flashState(state, 'Error', 'is-error');
+      if (state) flashState(state, 'Error', 'is-error');
       throw err;
     });
   }
 
   function applyAppearanceMode(mode, state){
     var ctrls = getThemeControls();
-    mode = normalizeAppearanceMode(mode || 'dark');
+    mode = normalizeAppearanceMode(mode || 'system');
     if (ctrls.manualCtrl) {
       ctrls.manualCtrl.value = mode;
       ctrls.manualCtrl.disabled = false;
     }
+    if (ctrls.autoCtrl && mode !== 'system') {
+      ctrls.autoCtrl.value = '0';
+    }
     applyThemePrefs({
-      autoEnabled: false,
+      autoEnabled: mode === 'system' ? !!(window.__MSBThemePrefs && window.__MSBThemePrefs.autoEnabled) : false,
       appearanceMode: mode,
       manualMode: manualModeForAppearance(mode)
     });
@@ -4895,21 +4930,45 @@ pv.text.addEventListener('keydown', (e)=>{
   function syncThemeGearControls(){
     var prefs = currentThemePrefs();
     var ctrls = getThemeControls();
+    var beforeAuto = !!prefs.autoEnabled;
+    var beforeMode = normalizeAppearanceMode(prefs.appearanceMode || 'system');
+    var hasFixedAppearance = beforeMode === 'light' || beforeMode === 'dark' || isNamedAppearanceMode(beforeMode);
+
+    // Heal conflicted stored state (Dark auto On + fixed Appearance color):
+    // keep the chosen color and turn Dark auto Off so pages stop flashing.
+    if (prefs.autoEnabled && hasFixedAppearance) {
+      prefs.autoEnabled = false;
+    }
+
+    prefs = updateThemeMemory(prefs);
     if (ctrls.autoCtrl) ctrls.autoCtrl.value = prefs.autoEnabled ? '1' : '0';
     if (ctrls.manualCtrl) {
-      var mode = prefs.autoEnabled ? (prefs.appearanceMode || prefs.manualMode || 'dark') : (prefs.appearanceMode || prefs.manualMode || 'dark');
-      ctrls.manualCtrl.value = mode;
-      ctrls.manualCtrl.disabled = false;
+      // Dark auto On locks Appearance color to Off.
+      if (prefs.autoEnabled) {
+        prefs.appearanceMode = 'system';
+        prefs = updateThemeMemory(prefs);
+        ctrls.manualCtrl.value = 'system';
+        ctrls.manualCtrl.disabled = true;
+      } else {
+        ctrls.manualCtrl.value = normalizeAppearanceMode(prefs.appearanceMode || 'system');
+        ctrls.manualCtrl.disabled = false;
+      }
     }
     syncThemeNavMeta(prefs);
+    applyThemePrefs(prefs);
+
+    // Persist heal so reload does not reintroduce the conflict.
+    if (beforeAuto && hasFixedAppearance && !prefs.autoEnabled) {
+      saveThemeAutoEnabled(false, null).catch(function(){});
+    }
   }
 
   function saveThemeAppearanceMode(mode, state){
-    mode = normalizeAppearanceMode(mode || 'dark');
+    mode = normalizeAppearanceMode(mode || 'system');
     var form = new FormData();
     form.append('field', 'appearance_mode');
     form.append('value', mode);
-    flashState(state, 'Saving', 'is-saving');
+    if (state) flashState(state, 'Saving', 'is-saving');
     return fetch('save_privacy.php', {
       method: 'POST',
       body: form,
@@ -4920,12 +4979,14 @@ pv.text.addEventListener('keydown', (e)=>{
     .then(function(data){
       if (!data || !data.ok) throw new Error((data && data.message) ? data.message : 'Save failed');
       data.value = normalizeAppearanceMode(data.value || mode);
-      flashState(state, 'Saved', 'is-saved');
-      window.setTimeout(function(){ flashState(state, '', ''); }, 1300);
+      if (state) {
+        flashState(state, 'Saved', 'is-saved');
+        window.setTimeout(function(){ flashState(state, '', ''); }, 1300);
+      }
       return data;
     })
     .catch(function(err){
-      flashState(state, 'Error', 'is-error');
+      if (state) flashState(state, 'Error', 'is-error');
       throw err;
     });
   }
@@ -4942,14 +5003,23 @@ pv.text.addEventListener('keydown', (e)=>{
       if (localField === 'theme_auto_enabled') {
         var ctrls = getThemeControls();
         var previousPrefs = currentThemePrefs();
-        var appearanceMode = normalizeAppearanceMode(ctrls.manualCtrl ? (ctrls.manualCtrl.value || previousPrefs.appearanceMode || 'dark') : (previousPrefs.appearanceMode || 'dark'));
         var autoEnabled = (ctrl.value === '1');
-        if (ctrls.manualCtrl) ctrls.manualCtrl.disabled = false;
-        saveThemeAutoEnabled(autoEnabled, state)
-          .then(function(data){
-            var savedAuto = String(data.value || '') === '1';
+        // Dark auto On forces Appearance color to Off (system) to avoid flash/conflict.
+        var appearanceMode = autoEnabled
+          ? 'system'
+          : normalizeAppearanceMode(ctrls.manualCtrl ? (ctrls.manualCtrl.value || previousPrefs.appearanceMode || 'system') : (previousPrefs.appearanceMode || 'system'));
+        if (ctrls.manualCtrl) {
+          ctrls.manualCtrl.value = appearanceMode;
+          ctrls.manualCtrl.disabled = !!autoEnabled;
+        }
+        var saves = [saveThemeAutoEnabled(autoEnabled, state)];
+        if (autoEnabled && normalizeAppearanceMode(previousPrefs.appearanceMode || '') !== 'system') {
+          saves.push(saveThemeAppearanceMode('system', state));
+        }
+        Promise.all(saves)
+          .then(function(){
             var savedPrefs = updateThemeMemory({
-              autoEnabled: savedAuto,
+              autoEnabled: autoEnabled,
               appearanceMode: appearanceMode,
               manualMode: manualModeForAppearance(appearanceMode)
             });
@@ -4969,17 +5039,27 @@ pv.text.addEventListener('keydown', (e)=>{
 
       if (field === 'appearance_mode') {
         var previousAppearancePrefs = currentThemePrefs();
-        var nextMode = normalizeAppearanceMode(ctrl.value || 'dark');
-        var saves = [saveThemeAppearanceMode(nextMode, state)];
-        if (previousAppearancePrefs.autoEnabled) {
-          saves.push(saveThemeAutoEnabled(false, state));
+        var nextMode = normalizeAppearanceMode(ctrl.value || 'system');
+        var ctrlsAppearance = getThemeControls();
+        // Selecting any appearance color (or Light/Dark) turns Dark auto Off.
+        // Off (system) leaves Dark auto as-is unless a color was active with auto on.
+        var nextAuto = (nextMode === 'system') ? !!previousAppearancePrefs.autoEnabled : false;
+        if (ctrlsAppearance.autoCtrl) {
+          ctrlsAppearance.autoCtrl.value = nextAuto ? '1' : '0';
         }
-        Promise.all(saves)
+        if (ctrlsAppearance.manualCtrl) {
+          ctrlsAppearance.manualCtrl.disabled = !!nextAuto;
+        }
+        var appearanceSaves = [saveThemeAppearanceMode(nextMode, state)];
+        if (!!previousAppearancePrefs.autoEnabled !== nextAuto) {
+          appearanceSaves.push(saveThemeAutoEnabled(nextAuto, state));
+        }
+        Promise.all(appearanceSaves)
           .then(function(results){
             var data = results[0] || {};
             var savedMode = normalizeAppearanceMode(data.value || nextMode);
             var savedPrefs = updateThemeMemory({
-              autoEnabled: false,
+              autoEnabled: nextAuto,
               appearanceMode: savedMode,
               manualMode: manualModeForAppearance(savedMode)
             });
@@ -4988,7 +5068,7 @@ pv.text.addEventListener('keydown', (e)=>{
             syncThemeNavMeta(savedPrefs);
           })
           .catch(function(){
-            ctrl.value = normalizeAppearanceMode(previousAppearancePrefs.appearanceMode || previousAppearancePrefs.manualMode || 'dark');
+            ctrl.value = normalizeAppearanceMode(previousAppearancePrefs.appearanceMode || previousAppearancePrefs.manualMode || 'system');
             updateThemeMemory(previousAppearancePrefs);
             applyThemePrefs(previousAppearancePrefs);
             syncThemeGearControls();
@@ -5466,7 +5546,7 @@ pv.text.addEventListener('keydown', (e)=>{
   }
   function mfTruncate(text, maxSent){
     text = String(text || '').trim();
-    maxSent = Number(maxSent || 4);
+    maxSent = Number(maxSent || 3);
     if(!text) return { short:'', full:'', truncated:false };
     var sents = text.split(/[.!?]+/).map(function(s){ return s.trim(); }).filter(Boolean);
     if(sents.length <= maxSent) return { short:text, full:text, truncated:false };
@@ -5493,11 +5573,25 @@ pv.text.addEventListener('keydown', (e)=>{
     }).filter(Boolean).join('');
   }
   function mfBuildBodyHtml(text){
+    var maxSent = 3;
+    var maxChars = 170;
     text = formatReadMoreTextPreserve(String(text || '').trim());
     if(!text) return '';
     var sents = text.split(/[.!?]+/).map(function(s){ return s.trim(); }).filter(Boolean);
-    var formatted = formatPostCardTextHtml(text);
-    if(sents.length >= 4){
+    var needsMore = (sents.length > maxSent) || (sents.length <= maxSent && text.length > maxChars);
+    var display = text;
+    if(needsMore){
+      if(sents.length > maxSent){
+        display = mfTruncate(text, maxSent).short || text;
+      } else {
+        display = text.slice(0, maxChars).trim();
+        var sp = display.lastIndexOf(' ');
+        if(sp > Math.floor(maxChars * 0.6)) display = display.slice(0, sp);
+        display = display.replace(/[.,;:\s]+$/,'') + '…';
+      }
+    }
+    var formatted = formatPostCardTextHtml(display);
+    if(needsMore){
       return '<div class="mf-body mf-body-has-more" data-full="'+esc(text)+'" data-expanded="0"><div class="mf-body-formatted is-clamped">'+formatted+'</div><a href="#" class="mf-readmore js-open-readmore">Read more</a></div>';
     }
     return '<div class="mf-body"><div class="mf-body-formatted">'+formatted+'</div></div>';
@@ -6218,13 +6312,10 @@ pv.text.addEventListener('keydown', (e)=>{
   function syncProfileHeaderDivider(){
     var head = document.querySelector('body.profile-page .ig-profile-head');
     if(!head) return;
-    var main = document.querySelector('body.profile-page .sh-mainpanel') || document.querySelector('body.profile-page .sh-pagebody') || document.body;
     var scroll = document.querySelector('body.profile-page .ig-profile-scroll');
     var card = document.querySelector('body.profile-page #profilePostsFeed > .mf-card');
     var headRect = head.getBoundingClientRect();
-    var mainRect = main.getBoundingClientRect();
     document.documentElement.style.setProperty('--profile-header-divider-top', Math.round(headRect.bottom) + 'px');
-    document.documentElement.style.setProperty('--profile-header-divider-left', Math.max(0, Math.round(mainRect.left)) + 'px');
     if(scroll && card){
       var scrollRect = scroll.getBoundingClientRect();
       document.querySelectorAll('body.profile-page #profilePostsFeed > .mf-card').forEach(function(postCard){

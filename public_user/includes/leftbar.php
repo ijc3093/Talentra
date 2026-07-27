@@ -442,13 +442,25 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   border-radius:999px;
 }
 .tt-rm-txt{ min-width:0; }
-.tt-rm-title{ font-weight:800; font-size:14px; color:var(--tt-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tt-rm-author{ font-weight:800; font-size:14px; color:var(--tt-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tt-rm-sub{ font-size:12px; color:var(--tt-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tt-rm-title{
+  flex:0 0 auto;
+  padding:16px 20px 0;
+  font-weight:800;
+  font-size:18px;
+  line-height:1.3;
+  color:var(--tt-text);
+  word-break:break-word;
+  background:var(--tt-panel-bg);
+}
+.tt-rm-title:empty,
+.tt-rm-title.is-empty{ display:none; }
 .tt-rm-body{
   flex:1 1 auto !important;
   min-height:0 !important;
   overflow-y:auto !important;
-  padding:20px;
+  padding:12px 20px 20px;
   font-size:14px;
   line-height:1.5;
   word-break:break-word;
@@ -533,7 +545,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
       <div class="tt-rm-left">
         <div class="tt-rm-avatar" id="ttRmAvatar" aria-hidden="true"></div>
         <div class="tt-rm-txt">
-          <div class="tt-rm-title" id="ttRmTitle"></div>
+          <div class="tt-rm-author" id="ttRmAuthor"></div>
           <div class="tt-rm-sub" id="ttRmSub"></div>
         </div>
       </div>
@@ -541,6 +553,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
         <i class="icon ion-close"></i>
       </button>
     </div>
+    <div class="tt-rm-title" id="ttRmTitle"></div>
     <div class="tt-rm-body" id="ttRmBody"></div>
   </div>
 </div>
@@ -1110,6 +1123,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   const $rmWrap = document.getElementById('tt-readmore-wrap');
   const $rmClose = document.getElementById('ttRmClose');
   const $rmAvatar = document.getElementById('ttRmAvatar');
+  const $rmAuthor = document.getElementById('ttRmAuthor');
   const $rmTitle = document.getElementById('ttRmTitle');
   const $rmSub = document.getElementById('ttRmSub');
   const $rmBody = document.getElementById('ttRmBody');
@@ -1243,7 +1257,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 
     const author = String(payload.author || '').trim();
     const titleRaw = String(payload.title || '').trim();
-    const displayTitle = (titleRaw && titleRaw.toLowerCase() !== 'post') ? titleRaw : author;
+    const displayTitle = (titleRaw && titleRaw.toLowerCase() !== 'post') ? titleRaw : '';
     const avatarUrl = String(payload.avatarUrl || payload.avatar_url || '').trim();
     const avatarText = String(payload.avatarText || 'P').slice(0, 2).toUpperCase();
     const avatarBg = payload.avatarBg || '#111';
@@ -1260,12 +1274,23 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
         $rmAvatar.classList.remove('has-photo');
       }
     }
+    if($rmAuthor){
+      if(author){
+        $rmAuthor.textContent = author;
+        $rmAuthor.style.display = '';
+      } else {
+        $rmAuthor.textContent = '';
+        $rmAuthor.style.display = 'none';
+      }
+    }
     if($rmTitle){
       if(displayTitle){
         $rmTitle.textContent = displayTitle;
+        $rmTitle.classList.remove('is-empty');
         $rmTitle.style.display = '';
       } else {
         $rmTitle.textContent = '';
+        $rmTitle.classList.add('is-empty');
         $rmTitle.style.display = 'none';
       }
     }
@@ -1296,19 +1321,58 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 
   function readMorePayloadFromTrigger(trigger){
     if(!trigger) return null;
-    var card = trigger.closest('.mf-card, .public-post-card, article.post');
-    if(!card) return null;
-    var bodyHost = trigger.closest('.mf-body, .mf-reel-body, .mf-video-body');
-    var body = bodyHost ? String(bodyHost.getAttribute('data-full') || '').trim() : '';
-    if(!body) body = String(card.getAttribute('data-full-desc') || '').trim();
+    var card = trigger.closest('.mf-card, .public-post-card, article.post, .ig-card');
+
+    // Prefer attributes on the Read more link (public.php / news set these).
+    var body = String(
+      trigger.getAttribute('data-body')
+      || trigger.getAttribute('data-full')
+      || ''
+    ).trim();
+
+    var bodyHost = trigger.closest('.mf-body, .mf-reel-body, .mf-video-body, .standard-text-caption, .reel-caption, .post-copy');
+    if(!body && bodyHost){
+      body = String(bodyHost.getAttribute('data-full') || '').trim();
+    }
+    if(!body && card){
+      body = String(card.getAttribute('data-full-desc') || card.getAttribute('data-body') || '').trim();
+    }
     if(!body) return null;
+
+    var title = String(
+      trigger.getAttribute('data-title')
+      || (card && card.getAttribute('data-title'))
+      || 'Post'
+    ).trim();
+    var author = String(
+      trigger.getAttribute('data-author')
+      || (card && card.getAttribute('data-author'))
+      || ''
+    ).trim();
+    var date = String(
+      trigger.getAttribute('data-date')
+      || (card && card.getAttribute('data-date'))
+      || ''
+    ).trim();
+    var avatarText = String(
+      trigger.getAttribute('data-avatar')
+      || trigger.getAttribute('data-avatar-text')
+      || (card && card.getAttribute('data-avatar-text'))
+      || 'P'
+    ).trim() || 'P';
+    var avatarUrl = String(
+      trigger.getAttribute('data-avatar-url')
+      || (card && card.getAttribute('data-avatar-url'))
+      || ''
+    ).trim();
+
     return {
-      title: String(card.getAttribute('data-title') || 'Post'),
-      author: String(card.getAttribute('data-author') || ''),
-      date: String(card.getAttribute('data-date') || ''),
-      avatarText: String(card.getAttribute('data-avatar-text') || 'P'),
+      title: title || 'Post',
+      author: author,
+      date: date,
+      avatarText: avatarText.slice(0, 2).toUpperCase(),
       avatarBg: '#111827',
-      avatarUrl: String(card.getAttribute('data-avatar-url') || ''),
+      avatarUrl: avatarUrl,
       body: body
     };
   }
@@ -1331,6 +1395,10 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     var payload = readMorePayloadFromTrigger(trigger);
     if(payload){
       window.TTReadMore.toggle(payload);
+      document.body.classList.add('public-leftbar-open');
+      if(document.body.classList.contains('profile-page')){
+        document.body.classList.add('profile-leftbar-open');
+      }
     }
   }, true);
 

@@ -65,7 +65,7 @@ if (!function_exists('org_layout_footer_assets')) {
                 appearance_bridge_print_org_tail_critical($dbh, $orgTailUserId);
             }
         }
-        echo '<link rel="stylesheet" href="css/org-contrast.css?v=25">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-contrast.css?v=27">' . "\n";
         echo '<style id="org-sales-nav-badge-lock">'
             . 'body.org-app .org-sales-nav-badge rect{fill:#dc3545!important;}'
             . 'body.org-app .org-sales-nav-badge text{fill:#ffffff!important;color:#ffffff!important;}'
@@ -92,14 +92,14 @@ if (!function_exists('org_layout_footer_assets')) {
             || $currentPage === 'sales_management.php'
             || strpos($currentPage, 'sales_') === 0
             || in_array($currentPage, [
-                'orders.php', 'products.php', 'shop_settings.php', 'seller_journey.php',
+                'orders.php', 'products.php', 'shop_settings.php', 'seller_journey.php', 'shop_rent.php',
                 'quotations.php', 'invoices.php', 'payments.php', 'delivery.php',
                 'returns_refunds.php', 'discounts_promotions.php', 'commerce_brand_select.php',
                 'recent_orders.php', 'commerce_analytics.php',
             ], true)) {
             echo '<link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css">' . "\n";
         }
-        echo '<script src="js/org-nav.js?v=18" defer></script>' . "\n";
+        echo '<script src="js/org-nav.js?v=21" defer></script>' . "\n";
     }
 }
 
@@ -141,6 +141,9 @@ if (!function_exists('org_layout_nav_attrs')) {
 
         // Form/manager tool pages: full reload avoids feed video ghosts flashing during SPA swap.
         static $hardNavPages = [
+            'feed.php',
+            'messages.php',
+            'shop_rent.php',
             'compose_post.php',
             'create_staff.php',
             'create_org.php',
@@ -154,6 +157,7 @@ if (!function_exists('org_layout_nav_attrs')) {
             'product_table.php',
             'orders.php',
             'order_details.php',
+            'order_invoice.php',
             'quotations.php',
             'quotation_details.php',
             'invoices.php',

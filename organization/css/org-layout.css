@@ -95,6 +95,38 @@ body.org-app .org-sideleft-top {
   padding-bottom: 4px;
 }
 
+/* Home feed / top nav — never use shamcey dark hover bar on light chrome */
+body.org-app .org-sideleft-top .nav > .nav-item > .nav-link,
+body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:active {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
+body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus {
+  background-color: var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(37, 99, 235, 0.08))) !important;
+  color: var(--msb-palette-text, var(--org-text, #334155)) !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active):hover,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active):focus {
+  background-color: var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(37, 99, 235, 0.08))) !important;
+  color: var(--msb-palette-text, var(--org-text, #334155)) !important;
+}
+
+html[data-msb-org-light] body.org-app .sh-sideleft-menu,
+html[data-msb-org-light] body.org-app .org-sideleft-shell,
+html[data-msb-org-light] body.org-app .org-sideleft-top,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu,
+html[data-msb-appearance] body.org-app .org-sideleft-shell,
+html[data-msb-appearance] body.org-app .org-sideleft-top,
+html.msb-palette-active body.org-app .sh-sideleft-menu,
+html.msb-palette-active body.org-app .org-sideleft-shell,
+html.msb-palette-active body.org-app .org-sideleft-top {
+  background-color: var(--msb-palette-bg, #ffffff) !important;
+  background-image: none !important;
+}
+
 body.org-app .org-sideleft-scroll {
   flex: 1 1 0;
   min-height: 0;

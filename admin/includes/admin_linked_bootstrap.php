@@ -127,9 +127,8 @@ function admin_linked_apply_session_cookie_path(): void
     }
     $paramsApplied = true;
 
-    // Session cookie (lifetime 0) is more reliable across refresh on localhost/MAMP.
-    // Server-side app_session_is_expired() still enforces the 12-hour hard cap.
-    $cookieLifetime = 0;
+    // Keep the session cookie across refresh. Sign Out is the only logout path.
+    $cookieLifetime = app_session_lifetime_seconds();
     $path = '/';
 
     $params = session_get_cookie_params();
@@ -161,6 +160,11 @@ function admin_linked_with_admin_session(callable $fn)
     $previousId = session_id();
     $wasActive = session_status() === PHP_SESSION_ACTIVE;
 
+    // Never abandon an active public_user session if we cannot restore its id.
+    if ($wasActive && $previousId === '') {
+        return null;
+    }
+
     if ($wasActive) {
         session_write_close();
     }
@@ -174,13 +178,15 @@ function admin_linked_with_admin_session(callable $fn)
     try {
         return $fn();
     } finally {
-        session_write_close();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         session_name($previousName !== '' ? $previousName : 'BUSINESS_ONLY_USER');
         if ($previousId !== '') {
             session_id($previousId);
         }
         if ($wasActive || session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
+            @session_start();
         }
     }
 }

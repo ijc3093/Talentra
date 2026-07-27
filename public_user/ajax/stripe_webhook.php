@@ -36,7 +36,19 @@ if (!is_array($session)) {
 
 $controller = new Controller();
 $dbh = $controller->pdo();
-org_shop_fulfill_stripe_session($dbh, $session);
+require_once __DIR__ . '/../includes/platform_rent.php';
+
+$meta = is_array($session['metadata'] ?? null) ? $session['metadata'] : [];
+$kind = strtolower(trim((string)($meta['kind'] ?? '')));
+if ($kind === 'shop_rent') {
+    require_once __DIR__ . '/../includes/platform_rent.php';
+    platform_rent_fulfill_stripe_session($dbh, $session);
+} elseif ($kind === 'buyer_membership') {
+    require_once __DIR__ . '/../includes/buyer_membership.php';
+    buyer_membership_fulfill_stripe_session($dbh, $session);
+} else {
+    org_shop_fulfill_stripe_session($dbh, $session);
+}
 
 http_response_code(200);
 echo 'ok';

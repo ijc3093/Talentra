@@ -8,6 +8,8 @@ require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/org_shop.php';
 require_once __DIR__ . '/includes/org_cart.php';
 require_once __DIR__ . '/includes/buyer_shipping.php';
+require_once __DIR__ . '/includes/buyer_membership.php';
+require_once __DIR__ . '/includes/stripe_shop.php';
 require_once __DIR__ . '/includes/buyer_seller_relationship.php';
 require_once __DIR__ . '/includes/commerce_messaging.php';
 require_once __DIR__ . '/includes/user_phone.php';
@@ -25,6 +27,8 @@ $addrFlashOk = '';
 $addrFlashErr = '';
 $relFlashOk = '';
 $relFlashErr = '';
+$membershipFlashOk = '';
+$membershipFlashErr = '';
 if (!empty($_SESSION['addr_flash_ok'])) {
     $addrFlashOk = (string)$_SESSION['addr_flash_ok'];
     unset($_SESSION['addr_flash_ok']);
@@ -32,6 +36,45 @@ if (!empty($_SESSION['addr_flash_ok'])) {
 if (!empty($_SESSION['addr_flash_err'])) {
     $addrFlashErr = (string)$_SESSION['addr_flash_err'];
     unset($_SESSION['addr_flash_err']);
+}
+if (!empty($_SESSION['membership_flash_ok'])) {
+    $membershipFlashOk = (string)$_SESSION['membership_flash_ok'];
+    unset($_SESSION['membership_flash_ok']);
+}
+if (!empty($_SESSION['membership_flash_err'])) {
+    $membershipFlashErr = (string)$_SESSION['membership_flash_err'];
+    unset($_SESSION['membership_flash_err']);
+}
+if ((string)($_GET['membership'] ?? '') === '1') {
+    $membershipFlashOk = $membershipFlashOk !== '' ? $membershipFlashOk : 'Membership payment confirmed. Enjoy $0 service fees while your plan is active.';
+}
+if ((string)($_GET['membership'] ?? '') === 'cancel') {
+    $membershipFlashErr = $membershipFlashErr !== '' ? $membershipFlashErr : 'Membership checkout was cancelled.';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['membership_action'])) {
+    buyer_membership_ensure_schema($dbh);
+    $months = max(1, min(12, (int)($_POST['months'] ?? 1)));
+    if ((string)$_POST['membership_action'] === 'subscribe') {
+        if (!stripe_shop_is_configured()) {
+            $_SESSION['membership_flash_err'] = 'Online membership payment is not configured yet. Please try again later or contact Admin.';
+        } else {
+            $base = stripe_shop_public_base_url();
+            $checkout = stripe_shop_create_membership_checkout_session(
+                $meId,
+                $months,
+                $base . '/membership_success.php?session_id={CHECKOUT_SESSION_ID}',
+                $base . '/Your_Shopping_preferences.php?membership=cancel#membership'
+            );
+            if (!empty($checkout['ok']) && !empty($checkout['checkout_url'])) {
+                header('Location: ' . (string)$checkout['checkout_url']);
+                exit;
+            }
+            $_SESSION['membership_flash_err'] = (string)($checkout['error'] ?? 'Could not start membership checkout.');
+        }
+        header('Location: Your_Shopping_preferences.php#membership');
+        exit;
+    }
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['buyer_addr_action'])) {
     $action = (string)$_POST['buyer_addr_action'];
@@ -197,6 +240,17 @@ foreach ($buyerOrders as $buyerOrder) {
 }
 $buyerCartCount = org_cart_count($dbh, $meId);
 $buyerCartItems = org_cart_list_items($dbh, $meId);
+buyer_membership_ensure_schema($dbh);
+$membershipSnap = buyer_membership_snapshot($dbh, $meId) ?: [];
+$membershipActive = !empty($membershipSnap['is_active']);
+$membershipPaidUntil = trim((string)($membershipSnap['paid_until'] ?? ''));
+$membershipPayments = buyer_membership_list_payments($dbh, $meId, 8);
+$membershipPriceLabel = org_shop_format_price(buyer_membership_price_cents(), 'USD');
+$membershipServiceFeeLabel = org_shop_format_price(
+    $membershipActive ? buyer_membership_member_service_fee_cents() : org_shop_buyer_service_fee_cents($dbh, $meId),
+    'USD'
+);
+$stripeMembershipReady = stripe_shop_is_configured();
 $buyerReturnRequests = 0;
 $buyerReviews = 0;
 $buyerReturnRows = [];
@@ -1046,6 +1100,7 @@ if ($buyerOrderHistorySelected) {
                   <?php endif; ?>
                 </a>
               </li>
+              <li><a class="shop-pref-nav-link" href="#membership" data-shop-pref-target="membership"><i class="icon ion-ribbon-a"></i>Membership<?= $membershipActive ? ' · Active' : '' ?></a></li>
               <li><a class="shop-pref-nav-link" href="#loyalty-program" data-shop-pref-target="loyalty-program"><i class="icon ion-ribbon-b"></i>Loyalty program</a></li>
               <li><a class="shop-pref-nav-link" href="#support-tickets" data-shop-pref-target="support-tickets"><i class="icon ion-help-buoy"></i>Support tickets</a></li>
               <li><a class="shop-pref-nav-link" href="#documents" data-shop-pref-target="documents"><i class="icon ion-folder"></i>Documents</a></li>
@@ -1643,6 +1698,81 @@ if ($buyerOrderHistorySelected) {
                   </div>
                 </div>
               <?php endif; ?>
+            </div>
+            <div class="shop-pref-panel" id="membership" data-shop-pref-panel="membership">
+              <div>
+                <p class="shop-customer-kicker">Customer Plus</p>
+                <h2 class="shop-customer-name"><?= $membershipActive ? 'Member' : 'Optional membership' ?></h2>
+                <p class="shop-customer-sub">
+                  Pay <strong><?= h($membershipPriceLabel) ?>/month</strong> if you want membership benefits.
+                  Members pay <strong>$0 service fee</strong> on shop orders (normally $1.99).
+                </p>
+              </div>
+              <?php if ($membershipFlashOk !== ''): ?><div class="alert alert-success"><?= h($membershipFlashOk) ?></div><?php endif; ?>
+              <?php if ($membershipFlashErr !== ''): ?><div class="alert alert-danger"><?= h($membershipFlashErr) ?></div><?php endif; ?>
+
+              <div class="shop-customer-stats" style="margin-bottom:16px;">
+                <div class="shop-customer-stat">
+                  <strong><?= $membershipActive ? 'Active' : 'Not active' ?></strong>
+                  <span>status</span>
+                </div>
+                <div class="shop-customer-stat">
+                  <strong><?= $membershipPaidUntil !== '' ? h(date('M j, Y', strtotime($membershipPaidUntil) ?: time())) : '—' ?></strong>
+                  <span>paid until</span>
+                </div>
+                <div class="shop-customer-stat">
+                  <strong><?= h($membershipServiceFeeLabel) ?></strong>
+                  <span>your service fee</span>
+                </div>
+              </div>
+
+              <div class="shop-pref-table-wrap" style="margin-bottom:16px;">
+                <table class="shop-pref-table">
+                  <thead><tr><th>Benefit</th><th>With membership</th><th>Without</th></tr></thead>
+                  <tbody>
+                    <tr><td>Platform service fee per order</td><td>$0.00</td><td>$1.99</td></tr>
+                    <tr><td>Monthly cost</td><td><?= h($membershipPriceLabel) ?></td><td>$0.00</td></tr>
+                    <tr><td>Shop anytime + order tracking</td><td>Included</td><td>Included</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <form method="post" class="mg-b-20" style="max-width:360px;">
+                <input type="hidden" name="membership_action" value="subscribe">
+                <label class="tx-12" style="display:block;margin-bottom:6px;font-weight:700;">Pay for</label>
+                <select name="months" class="form-control" style="margin-bottom:10px;">
+                  <option value="1">1 month — <?= h($membershipPriceLabel) ?></option>
+                  <option value="3">3 months — <?= h(org_shop_format_price(buyer_membership_price_cents() * 3, 'USD')) ?></option>
+                  <option value="6">6 months — <?= h(org_shop_format_price(buyer_membership_price_cents() * 6, 'USD')) ?></option>
+                  <option value="12">12 months — <?= h(org_shop_format_price(buyer_membership_price_cents() * 12, 'USD')) ?></option>
+                </select>
+                <button type="submit" class="btn btn-primary btn-block">
+                  <?= $membershipActive ? 'Extend membership' : 'Subscribe — $10/month' ?>
+                </button>
+                <?php if (!$stripeMembershipReady): ?>
+                  <p class="tx-12" style="margin-top:8px;opacity:.75;">Card checkout is not enabled yet. Contact Admin if you want to join.</p>
+                <?php endif; ?>
+              </form>
+
+              <div class="shop-pref-table-wrap">
+                <table class="shop-pref-table">
+                  <thead><tr><th>When</th><th>Amount</th><th>Months</th><th>Method</th></tr></thead>
+                  <tbody>
+                    <?php if (!$membershipPayments): ?>
+                      <tr><td colspan="4">No membership payments yet.</td></tr>
+                    <?php else: ?>
+                      <?php foreach ($membershipPayments as $mp): ?>
+                        <tr>
+                          <td><?= h(date('M j, Y', strtotime((string)($mp['paid_at'] ?? '')) ?: time())) ?></td>
+                          <td><?= h(org_shop_format_price((int)($mp['amount_cents'] ?? 0), (string)($mp['currency'] ?? 'USD'))) ?></td>
+                          <td><?= (int)($mp['months_paid'] ?? 1) ?></td>
+                          <td><?= h((string)($mp['payment_method'] ?? '—')) ?></td>
+                        </tr>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
             </div>
             <div class="shop-pref-panel" id="loyalty-program" data-shop-pref-panel="loyalty-program">
               <div><p class="shop-customer-kicker">Loyalty program</p><h2 class="shop-customer-name"><?= (int)floor($buyerSpentCents / 1000) ?> reward points</h2><p class="shop-customer-sub">Estimated reward points from purchases.</p></div>

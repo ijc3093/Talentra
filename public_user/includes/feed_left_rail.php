@@ -163,7 +163,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg></span>
       <span class="feed-left-nav-label">Friends Feed</span>
     </a>
-    <a class="feed-left-nav-item<?= $flrActive('public.php') ?><?= $flrActive('news.php') ?>" href="public.php">
+    <a class="feed-left-nav-item<?= $flrActive('public.php') ?>" href="public.php">
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></span>
       <span class="feed-left-nav-label">Public</span>
     </a>

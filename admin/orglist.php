@@ -34,9 +34,10 @@ $total = count($rows);
 
 org_admin_render_head('Organizations');
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Organizations');
+?>
 
 <div class="sh-mainpanel">
 
@@ -44,11 +45,8 @@ org_admin_render_head('Organizations');
     <?php if ($msg !== ''): ?><div class="alert-lite ok"><?= org_admin_h($msg) ?></div><?php endif; ?>
     <?php if ($error !== ''): ?><div class="alert-lite bad"><?= org_admin_h($error) ?></div><?php endif; ?>
 
-    <div class="card admin-card">
-      <!-- <div class="card-header pro">
-        Organization List
-        <div class="sub"><?= (int)$total ?> organization<?= $total === 1 ? '' : 's' ?></div>
-      </div> -->
+    <div class="card admin-card sh-admin-table-card">
+      <div class="card-header">Organizations</div>
 
       <div class="pro-tools">
         <div class="filter-tabs">
@@ -79,7 +77,7 @@ org_admin_render_head('Organizations');
 
       <div class="card-body-fixed">
         <div class="table-scroll">
-          <table class="table admin-table">
+          <table class="table table-bordered table-hover mg-b-0 admin-table">
           <thead>
             <tr>
               <th>Org</th>
@@ -126,15 +124,25 @@ org_admin_render_head('Organizations');
               <td><?= $isPub ? '<span class="pill info">Publisher</span>' : '<span class="pill">Regular</span>' ?></td>
               <td><?= org_admin_status_badge($status) ?></td>
               <td class="muted"><?= org_admin_h(org_admin_fmt_dt($row['created_at'] ?? '')) ?></td>
-              <td style="white-space:nowrap;">
-                <a class="btn-mini" href="orgdetail.php?id=<?= $orgId ?>">View</a>
-                <form method="post" style="display:inline;" onsubmit="return confirm('Change organization status?');">
-                  <input type="hidden" name="org_id" value="<?= $orgId ?>">
-                  <input type="hidden" name="status_value" value="<?= $status === 1 ? 0 : 1 ?>">
-                  <button type="submit" name="set_org_status" class="btn-mini <?= $status === 1 ? 'warn' : 'primary' ?>">
-                    <?= $status === 1 ? 'Disable' : 'Activate' ?>
+              <td>
+                <div class="fries-menu">
+                  <button type="button" class="fries-toggle" title="Actions" aria-label="Actions" aria-haspopup="true">
+                    <span class="fries-icon" aria-hidden="true"></span>
                   </button>
-                </form>
+                  <div class="fries-dropdown" role="menu">
+                    <a class="fries-item" role="menuitem" href="orgdetail.php?id=<?= $orgId ?>">
+                      <i class="fa fa-eye"></i> View
+                    </a>
+                    <form method="post" class="fries-item-form" onsubmit="return confirm('Change organization status?');">
+                      <input type="hidden" name="org_id" value="<?= $orgId ?>">
+                      <input type="hidden" name="status_value" value="<?= $status === 1 ? 0 : 1 ?>">
+                      <button type="submit" name="set_org_status" class="fries-item" role="menuitem">
+                        <i class="fa <?= $status === 1 ? 'fa-ban' : 'fa-check' ?>"></i>
+                        <?= $status === 1 ? 'Disable' : 'Activate' ?>
+                      </button>
+                    </form>
+                  </div>
+                </div>
               </td>
             </tr>
           <?php endforeach; endif; ?>

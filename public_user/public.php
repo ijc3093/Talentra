@@ -291,26 +291,22 @@ function public_fetch_live_meta(PDO $dbh, int $liveId): ?array {
 }
 
 function limit_sentences(string $text, int $maxSentences = 3): string {
-    $text = trim($text);
-    if ($text === '' || $maxSentences < 1) return $text;
-
-    $parts = preg_split('/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-    if (count($parts) <= $maxSentences) {
-        return $text;
-    }
-
-    return trim(implode(' ', array_slice($parts, 0, $maxSentences)));
+    return post_limit_sentences($text, $maxSentences);
 }
 
-function public_caption_card_html(string $caption, int $maxChars = 170): string {
-    $caption = post_normalize_card_plain_text(trim($caption));
-    if ($caption === '') {
-        return '';
-    }
-    $formatted = post_format_card_text_html($caption);
-    $needsClamp = mb_strlen($caption) > $maxChars;
-    $class = 'post-card-caption-formatted' . ($needsClamp ? ' is-clamped' : '');
-    return '<div class="' . $class . '">' . $formatted . '</div>';
+function public_caption_sentence_count(string $text): int
+{
+    return post_caption_sentence_count($text);
+}
+
+/** True when the card should show Read more (more than 3 sentences, or one very long block). */
+function public_caption_needs_readmore(string $caption, int $maxSentences = 3, int $maxChars = 170): bool
+{
+    return post_caption_needs_readmore($caption, $maxSentences, $maxChars);
+}
+
+function public_caption_card_html(string $caption, int $maxSentences = 3, int $maxChars = 170): string {
+    return post_caption_card_html($caption, $maxSentences, $maxChars);
 }
 
 $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND p.visibility = 'public' AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
@@ -369,6 +365,69 @@ $params[':meFollow'] = $meId;
 $st = $dbh->prepare($sql);
 $st->execute($params);
 $posts = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+// After create-post redirect (?post= / ?story_post=), ensure that card is present
+// even if it would otherwise miss the rolling 24h / discover window.
+$pinPublicId = $publicAlertPostId > 0 ? $publicAlertPostId : $publicStoryPostId;
+if ($pinPublicId > 0 && $meId > 0) {
+    $already = false;
+    foreach ($posts as $existing) {
+        if ((int)($existing['id'] ?? 0) === $pinPublicId) {
+            $already = true;
+            break;
+        }
+    }
+    if (!$already) {
+        try {
+            $pinSql = "
+SELECT
+  p.id, p.user_id, COALESCE(p.title,'') AS title, COALESCE(p.description,'') AS description, COALESCE(p.body,'') AS body,
+  COALESCE(p.views_count,0) AS views_count, p.created_at, COALESCE(p.updated_at,p.created_at) AS updated_at,
+  COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
+  COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
+  COALESCE(p.is_archived,0) AS is_archived,
+  COALESCE(u.name, u.username, CONCAT('User ', u.id)) AS display_name, COALESCE(u.username,'') AS username, COALESCE(u.friend_code,'') AS friend_code,
+  COALESCE(u.account_kind, 'personal') AS account_kind,
+  EXISTS(SELECT 1 FROM public_follows pf WHERE pf.follower_id = :meFollowPin AND pf.following_id = p.user_id) AS is_following,
+  {$layoutSelect}
+  (SELECT COUNT(*) FROM public_post_comments c WHERE c.post_id = p.id AND c.is_deleted = 0) AS comment_count,
+  (SELECT COUNT(*) FROM public_post_reactions r WHERE r.post_id = p.id AND r.reaction <> 'love') AS like_count,
+  (SELECT COUNT(*) FROM public_post_reactions r WHERE r.post_id = p.id AND r.reaction = 'love') AS love_count,
+  (SELECT COUNT(*) FROM public_post_shares s WHERE s.post_id = p.id) AS share_count,
+  (SELECT COUNT(*) FROM public_post_saves s WHERE s.post_id = p.id) AS save_count,
+  (SELECT reaction FROM public_post_reactions r WHERE r.post_id = p.id AND r.user_id = :mePin LIMIT 1) AS my_reaction,
+  EXISTS(SELECT 1 FROM public_post_shares s WHERE s.post_id = p.id AND s.user_id = :me2Pin) AS my_shared,
+  EXISTS(SELECT 1 FROM public_post_saves s WHERE s.post_id = p.id AND s.user_id = :me3Pin) AS my_saved
+FROM public_posts p
+JOIN users u ON u.id = p.user_id
+WHERE p.id = :pinId
+  AND p.is_deleted = 0
+  AND COALESCE(p.is_archived,0) = 0
+  AND p.visibility = 'public'
+LIMIT 1";
+            $stPin = $dbh->prepare($pinSql);
+            $stPin->execute([
+                ':pinId' => $pinPublicId,
+                ':meFollowPin' => $meId,
+                ':mePin' => $meId,
+                ':me2Pin' => $meId,
+                ':me3Pin' => $meId,
+            ]);
+            $pinRow = $stPin->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (is_array($pinRow) && publisher_post_visible_on_public_surface($dbh, $meId, $pinRow)) {
+                $authorKind = strtolower((string)($pinRow['account_kind'] ?? 'personal'));
+                $isPubAuthor = ($authorKind === 'publisher');
+                // public.php accepts personal + publisher public posts.
+                // news.php is publisher-browse only — never pin personal public posts there.
+                if (!$isNewsSurface || $isPubAuthor) {
+                    array_unshift($posts, $pinRow);
+                }
+            }
+        } catch (Throwable $e) {
+            // keep list as-is
+        }
+    }
+}
 
 foreach ($posts as $postIndex => &$post) {
     $pid = (int)$post['id'];
@@ -488,7 +547,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .ig-avatar-mini{margin-top:auto;width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900}
 
     .ig-main{margin-left:var(--sidew);display:flex;justify-content:center;padding:100px 18px 110px}
-    .ig-feed{width:min(100%,620px)}
+    .ig-feed{width:min(100%,614px)}
     .yt-pagebar{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:72px;padding:16px 18px 14px;position:fixed;top:0;left:var(--sidew);right:0;z-index:120;background:#272b31;border-bottom:1px solid rgba(255,255,255,.08)}
     .yt-pagebar,
     .yt-pagebar .yt-brand,
@@ -506,8 +565,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .search-card{width:min(100%,840px);border:0;border-radius:0;background:transparent;padding:0;margin:0}
     .search-row{display:flex;align-items:center;gap:10px;width:100%}
     .yt-search-shell{display:flex;align-items:center;width:min(100%,840px);min-width:0}
-    .search-input{flex:1;height:52px;border:1px solid #3a3a3a;border-right:0;border-radius:999px 0 0 999px;padding:0 22px;font-size:15px;outline:none;background:#121212;color:#fff}
-    .search-btn{flex:0 0 auto;width:88px;height:52px;border:1px solid #3a3a3a;border-radius:0 999px 999px 0;padding:0;font-weight:800;color:#fff;background:#222;cursor:pointer;white-space:nowrap;font-size:24px}
+    .search-input{flex:1;height:52px;border:1px solid var(--feed-control-border, var(--public-control-border, var(--msb-palette-border-strong, #3a3a3a)));border-right:0;border-radius:999px 0 0 999px;padding:0 22px;font-size:15px;outline:none;background:#121212;color:#fff}
+    .search-btn{flex:0 0 auto;width:88px;height:52px;border:1px solid var(--feed-control-border, var(--public-control-border, var(--msb-palette-border-strong, #3a3a3a)));border-radius:0 999px 999px 0;padding:0;font-weight:800;color:#fff;background:#222;cursor:pointer;white-space:nowrap;font-size:24px}
     .yt-mic-btn{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;border:0;background:#181818;color:#fff;font-size:24px;cursor:pointer}
     .yt-signin{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 18px;border-radius:999px;border:1px solid rgba(255,255,255,.12);color:#fff;font-size:18px;font-weight:800}
 
@@ -523,20 +582,20 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
        - horizontal top line: search bar bottom border
        - horizontal lines: each post card divider */
     body.feed-insta-ui .feed-desktop-center{
-      border-left:1px solid var(--public-border-strong, rgba(15,23,42,.16));
-      border-right:1px solid var(--public-border-strong, rgba(15,23,42,.16));
+      border-left:1px solid var(--public-border-strong, #c0c2c4);
+      border-right:1px solid var(--public-border-strong, #c0c2c4);
       box-sizing:border-box;
     }
     body.feed-insta-ui .feed-top-search{
-      border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16));
+      border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4));
     }
+    /* Match feed.php .mf-card: full-width bottom divider under the post (under action icons). */
     body.feed-insta-ui .post.public-post-card{
       margin:0 !important;
       border:0 !important;
-      border-bottom:0 !important;
+      border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4)) !important;
       border-radius:0 !important;
-      /* Reliable 1px bottom divider across different post layouts (reel overlaps etc). */
-      box-shadow:inset 0 -1px 0 var(--public-border-strong, rgba(15,23,42,.16)) !important;
+      box-shadow:none !important;
       position:relative;
       width:100% !important;
       max-width:100% !important;
@@ -572,7 +631,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       top:10px;
       left:14px;
       right:14px;
-      height:4px;
+      height:1px;
       border-radius:999px;
       background:rgba(15,23,42,.10);
       overflow:hidden;
@@ -605,7 +664,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       top:8px;
       left:14px;
       right:14px;
-      height:4px;
+      height:1px;
       border-radius:999px;
       background:rgba(255,255,255,.28);
       overflow:hidden;
@@ -727,7 +786,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       padding-bottom:14px;
     }
     .standard-text-card{
-      padding:16px 16px 14px;
+      padding:16px 16px 10px;
       background:var(--public-surface);
       color:var(--public-text);
     }
@@ -821,7 +880,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       text-align:left;
     }
     .post-card-caption-formatted.is-clamped{
-      max-height:14em;
+      /* Preview is already limited to ~3 sentences in PHP; soft CSS cap as backup */
+      max-height:6.6em;
       overflow:hidden;
     }
     .standard-text-copy .open-inline{
@@ -830,24 +890,29 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     .standard-text-actions{
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:space-between;
       gap:16px;
       margin-top:14px;
       width:100%;
+      padding:12px 0 2px;
+    }
+    .standard-text-meta-bar,
+    .standard-media-meta-bar{
+      display:none !important;
     }
     .standard-text-left,
     .standard-text-right{
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       gap:18px;
       flex-wrap:wrap;
     }
     .standard-text-left{
       flex:1 1 auto;
       min-width:0;
-      flex-direction:column;
-      gap:10px;
+      flex-direction:row;
+      gap:18px;
     }
     .standard-text-row{
       display:flex;
@@ -857,12 +922,21 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     .standard-text-right{
       flex:0 0 auto;
-      flex-direction:column;
-      align-items:flex-end;
-      gap:10px;
+      flex-direction:row;
+      align-items:center;
+      gap:18px;
       text-align:right;
       margin-left:auto;
       min-width:max-content;
+    }
+    .standard-text-meta-bar .standard-text-left,
+    .standard-text-meta-bar .standard-text-right{
+      align-items:flex-start;
+    }
+    .standard-text-meta-bar .standard-text-right{
+      flex-direction:column;
+      align-items:flex-end;
+      gap:10px;
     }
     .standard-text-btn{
       background:none;
@@ -1535,25 +1609,33 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     .standard-media-actions{
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:space-between;
       gap:16px;
       margin-top:0px;
       width:100%;
-      padding-top: 0px;
+      padding:12px 0 2px;
+    }
+    .standard-media-meta-bar{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+      width:100%;
+      margin-top:12px;
     }
     .standard-media-left,
     .standard-media-right{
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       gap:18px;
       flex-wrap:wrap;
     }
     .standard-media-left{
       flex:1 1 auto;
       min-width:0;
-      flex-direction:column;
-      gap:10px;
+      flex-direction:row;
+      gap:18px;
     }
     .standard-media-row{
       display:flex;
@@ -1563,12 +1645,21 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     .standard-media-right{
       flex:0 0 auto;
-      flex-direction:column;
-      align-items:flex-end;
-      gap:10px;
+      flex-direction:row;
+      align-items:center;
+      gap:18px;
       text-align:right;
       margin-left:auto;
       min-width:max-content;
+    }
+    .standard-media-meta-bar .standard-media-left,
+    .standard-media-meta-bar .standard-media-right{
+      align-items:flex-start;
+    }
+    .standard-media-meta-bar .standard-media-right{
+      flex-direction:column;
+      align-items:flex-end;
+      gap:10px;
     }
     .standard-media-btn{
       background:none;
@@ -2157,9 +2248,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       --public-surface-strong:#eef3fb;
       --public-post-card-surface:#f5f7fb;
       /* Reel posts use this variable for their outer border. */
-      --public-post-card-border:var(--public-border-strong, rgba(15,23,42,.16));
-      --public-border:rgba(15,23,42,.12);
-      --public-border-strong:rgba(15,23,42,.16);
+      --public-post-card-border:var(--public-border-strong, #c0c2c4);
+      --public-border:#c0c2c4;
+      --public-border-strong:#c0c2c4;
       --public-text:#132033;
       --public-muted:#5f6c7c;
       --public-soft-text:#7a8797;
@@ -2169,7 +2260,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       --public-sidebar-hover:#eef3fb;
       --public-control-bg:#ffffff;
       --public-control-soft:#eef3fb;
-      --public-control-border:rgba(15,23,42,.14);
+      --public-control-border:#c0c2c4;
       --public-control-placeholder:#667085;
       --public-accent:#0d61bc;
       --public-accent-soft:rgba(13,97,188,.10);
@@ -2195,15 +2286,29 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       --public-accent:var(--msb-palette-action);
       --public-accent-soft:var(--msb-palette-action-soft);
       --public-accent-strong:var(--msb-palette-action-strong);
+      --public-border:var(--msb-palette-border);
+      --public-border-strong:var(--msb-palette-border-strong);
+      --public-control-border:var(--msb-palette-border-strong);
+      --public-post-card-border:var(--msb-palette-border-strong);
+      --feed-post-divider:var(--msb-palette-border-strong);
+      --feed-post-column-border:var(--msb-palette-border-strong);
       background:var(--msb-palette-bg) !important;
       background-image:none !important;
     }
-    html[data-theme="dark"] body{
+    html[data-theme="light"]:not([data-msb-appearance]) body{
+      --public-border:#c0c2c4;
+      --public-border-strong:#c0c2c4;
+      --public-control-border:#c0c2c4;
+      --public-post-card-border:#c0c2c4;
+      --feed-post-divider:#c0c2c4;
+      --feed-post-column-border:#c0c2c4;
+    }
+    html[data-theme="dark"]:not([data-msb-appearance]) body{
       --public-surface:#171d24;
       --public-surface-alt:#1d2530;
       --public-surface-strong:#111821;
-      --public-border:rgba(255,255,255,.08);
-      --public-border-strong:rgba(255,255,255,.14);
+      --public-border:#34383c;
+      --public-border-strong:#34383c;
       --public-text:#eef4ff;
       --public-muted:#9ba8b8;
       --public-soft-text:#c2cbd7;
@@ -2213,11 +2318,14 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       --public-sidebar-hover:#1d2530;
       --public-control-bg:#10161e;
       --public-control-soft:#1a222c;
-      --public-control-border:rgba(255,255,255,.12);
+      --public-control-border:#34383c;
       --public-control-placeholder:#8f9baa;
       --public-accent:#7cb2ff;
       --public-accent-soft:rgba(124,178,255,.16);
       --public-accent-strong:#b9d7ff;
+      --public-post-card-border:#34383c;
+      --feed-post-divider:#34383c;
+      --feed-post-column-border:#34383c;
       background:#171d24 !important;
       background-image:none !important;
     }
@@ -2309,7 +2417,11 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       border-color:var(--public-border);
     }
     .post.public-post-card:not(.is-reel-post){
-      box-shadow:0 16px 36px rgba(15,23,42,.08);
+      box-shadow:none;
+    }
+    body.feed-insta-ui .post.public-post-card:not(.is-reel-post){
+      box-shadow:none !important;
+      border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4)) !important;
     }
     .post.public-post-card:not(.is-reel-post) .actions{
       border-top-color:var(--public-border);
@@ -2523,7 +2635,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         align-self:start;
         justify-self:stretch;
         position:relative;
-        top:auto;
+        top:-9px;
         left:auto;
         right:auto;
         width:calc(100% - 12px);
@@ -2768,12 +2880,12 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .standard-text-caption .post-card-paragraph,
       body .standard-media-caption .post-card-paragraph,
       body .reel-caption-text .post-card-paragraph{
-        margin:0 0 12px;
+        margin:0 0 4px;
         text-align:left;
         display:block;
       }
       body .post-card-caption-formatted.is-clamped{
-        max-height:14em;
+        max-height:6.6em;
         overflow:hidden;
       }
 
@@ -2786,11 +2898,17 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .standard-text-actions,
       body .standard-media-actions{
         display:flex;
-        align-items:flex-start;
+        align-items:center;
         justify-content:space-between;
         gap:16px;
-        margin-top:0px;
+        margin-top:14px;
         width:100%;
+        padding:12px 0 2px;
+      }
+
+      body .standard-text-meta-bar,
+      body .standard-media-meta-bar{
+        display:none !important;
       }
 
       body .standard-text-left,
@@ -2798,7 +2916,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .standard-media-left,
       body .standard-media-right{
         display:flex;
-        align-items:flex-start;
+        align-items:center;
         gap:10px;
       }
 
@@ -2806,16 +2924,30 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .standard-media-left{
         flex:1 1 auto;
         min-width:0;
-        flex-direction:column;
+        flex-direction:row;
       }
 
       body .standard-text-right,
       body .standard-media-right{
         flex:0 0 auto;
-        flex-direction:column;
-        align-items:flex-end;
+        flex-direction:row;
+        align-items:center;
         margin-left:auto;
         min-width:max-content;
+      }
+
+      body .standard-text-meta-bar .standard-text-left,
+      body .standard-text-meta-bar .standard-text-right,
+      body .standard-media-meta-bar .standard-media-left,
+      body .standard-media-meta-bar .standard-media-right{
+        align-items:flex-start;
+      }
+
+      body .standard-text-meta-bar .standard-text-right,
+      body .standard-media-meta-bar .standard-media-right{
+        flex-direction:column;
+        align-items:flex-end;
+        gap:10px;
       }
 
       body .standard-text-row,
@@ -3220,16 +3352,16 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   width:100%;
   padding:12px 16px 8px;
   box-sizing:border-box;
-  position:sticky;
-  top:0;
+  position:relative;
+  top:auto;
   z-index:105;
   background:var(--public-surface, #fff);
   flex:0 0 auto;
 }
 body.feed-insta-ui .feed-desktop-center > .feed-top-search,
 body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
-  position:sticky;
-  top:0;
+  position:relative;
+  top:auto;
   z-index:105;
   width:100%;
   margin:0;
@@ -3351,14 +3483,27 @@ body.feed-insta-ui .avatar-thumb img{
 @media (min-width:1025px){
   body.feed-insta-ui{
     --feed-left-nav-box-h:min(340px, calc(100vh - 280px));
+    --feed-center-w:614px;
+    --feed-side-gap:28px;
+    --feed-left-nav-w:236px;
+    --feed-right-rail-w:248px;
+    --feed-main-inset:0px;
   }
   body.feed-insta-ui .feed-left-rail{
     display:flex;
     flex-direction:column;
     position:fixed;
-    left:calc(var(--feedRailW, 84px) + 40px);
+    /* Sit beside the centered feed column (not pinned to the icon rail). */
+    left:max(
+      calc(var(--feedRailW, 84px) + 8px),
+      calc(
+        var(--feedRailW, 84px) + var(--feed-main-inset)
+        + (100vw - var(--feedRailW, 84px) - var(--feed-main-inset) - var(--feed-center-w)) / 2
+        - var(--feed-side-gap) - var(--feed-left-nav-w)
+      )
+    );
     top:var(--feed-left-rail-top, 220px);
-    width:236px;
+    width:var(--feed-left-nav-w);
     height:var(--feed-left-nav-box-h);
     max-height:var(--feed-left-nav-box-h);
     overflow:hidden;
@@ -3475,8 +3620,8 @@ body.feed-insta-ui .avatar-thumb img{
     font-weight:600;
   }
   body.feed-insta-ui .feed-left-nav-item-under-public{
-    margin-left:12px;
-    padding-left:20px;
+    /* margin-left:12px; */
+    /* padding-left:20px; */
     min-height:38px;
     font-size:13px;
   }
@@ -3484,8 +3629,8 @@ body.feed-insta-ui .avatar-thumb img{
     display:flex !important;
     justify-content:center !important;
     align-items:flex-start !important;
-    padding-left:0;
-    padding-right:0;
+    padding-left:16px;
+    padding-right:16px;
   }
   body.feed-insta-ui .ig-stories-wrap{
     display:block !important;
@@ -3526,10 +3671,14 @@ body.feed-insta-ui .avatar-thumb img{
   body.feed-insta-ui .feed-right-rail{
     display:block;
     position:fixed;
-    right:24px;
-    top:200px;
-    width:320px;
-    max-width:calc(100vw - 720px);
+    left:calc(
+      var(--feedRailW, 84px) + var(--feed-main-inset)
+      + (100vw - var(--feedRailW, 84px) - var(--feed-main-inset) - var(--feed-center-w)) / 2
+      + var(--feed-center-w) + var(--feed-side-gap)
+    );
+    right:auto;
+    top:250px;
+    width:var(--feed-right-rail-w);
     z-index:90;
     padding:0;
     box-sizing:border-box;
@@ -3622,6 +3771,10 @@ body.feed-insta-ui .avatar-thumb img{
     /* background:#fff !important; */
   }
   body.feed-insta-ui .sh-mainpanel{
+    /* Bond light surface flush to the icon rail (drop the +16px gutter). */
+    margin-left:var(--feedRailW, 84px) !important;
+    width:calc(100% - var(--feedRailW, 84px)) !important;
+    max-width:calc(100% - var(--feedRailW, 84px)) !important;
     height:100vh !important;
     max-height:100vh !important;
     overflow:hidden !important;
@@ -3658,8 +3811,8 @@ body.feed-insta-ui .avatar-thumb img{
   }
   body.feed-insta-ui .feed-desktop-center > .feed-top-search,
   body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
-    position:sticky !important;
-    top:0 !important;
+    position:relative !important;
+    top:auto !important;
     z-index:105 !important;
     flex:0 0 auto !important;
     width:100% !important;
@@ -3674,8 +3827,19 @@ body.feed-insta-ui .avatar-thumb img{
     width:100% !important;
   }
   body.feed-insta-ui .feed-desktop-center{
+    display:flex !important;
+    flex-direction:column !important;
     height:100% !important;
     max-height:100% !important;
+    overflow:hidden !important;
+  }
+  /* public.php / news.php use .ig-feed; feed.php uses .mf-feed */
+  body.feed-insta-ui .feed-desktop-center > .mf-feed,
+  body.feed-insta-ui .feed-desktop-layout .mf-feed,
+  body.public-page.feed-insta-ui .feed-desktop-center > .ig-feed,
+  body.public-page.feed-insta-ui .feed-desktop-layout .ig-feed{
+    flex:1 1 auto !important;
+    min-height:0 !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
@@ -3683,8 +3847,14 @@ body.feed-insta-ui .avatar-thumb img{
     scrollbar-width:thin;
     scrollbar-color:rgba(0,0,0,.22) transparent;
   }
-  body.feed-insta-ui .feed-desktop-center::-webkit-scrollbar{width:6px;}
-  body.feed-insta-ui .feed-desktop-center::-webkit-scrollbar-thumb{
+  body.feed-insta-ui .feed-desktop-center > .mf-feed::-webkit-scrollbar,
+  body.feed-insta-ui .feed-desktop-layout .mf-feed::-webkit-scrollbar,
+  body.public-page.feed-insta-ui .feed-desktop-center > .ig-feed::-webkit-scrollbar,
+  body.public-page.feed-insta-ui .feed-desktop-layout .ig-feed::-webkit-scrollbar{width:6px;}
+  body.feed-insta-ui .feed-desktop-center > .mf-feed::-webkit-scrollbar-thumb,
+  body.feed-insta-ui .feed-desktop-layout .mf-feed::-webkit-scrollbar-thumb,
+  body.public-page.feed-insta-ui .feed-desktop-center > .ig-feed::-webkit-scrollbar-thumb,
+  body.public-page.feed-insta-ui .feed-desktop-layout .ig-feed::-webkit-scrollbar-thumb{
     background:rgba(0,0,0,.22);
     border-radius:999px;
   }
@@ -3726,8 +3896,16 @@ body.feed-insta-ui .avatar-thumb img{
     width:100% !important;
   }
   body.public-page.feed-insta-ui .feed-desktop-center{
+    display:flex !important;
+    flex-direction:column !important;
     height:100% !important;
     max-height:100% !important;
+    overflow:hidden !important;
+  }
+  body.public-page.feed-insta-ui .feed-desktop-center > .mf-feed,
+  body.public-page.feed-insta-ui .feed-desktop-center > .ig-feed{
+    flex:1 1 auto !important;
+    min-height:0 !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
@@ -3771,7 +3949,7 @@ body.feed-insta-ui .avatar-thumb img{
 
   <style id="public-post-device-media-css">
     .post.public-post-card{
-      --post-media-radius:18px;
+      --post-media-radius:10px;
       --post-media-max:680px;
       --post-phone-max:430px;
       --post-tablet-max:620px;
@@ -4402,6 +4580,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 <?php if ($caption !== ''): ?>
                   <div class="standard-text-caption">
                     <?= public_caption_card_html($caption) ?>
+                    <?php if (public_caption_needs_readmore($caption)): ?>
                     <a
                       class="open-inline js-open-readmore"
                       href="#post-<?= (int)$post['id'] ?>"
@@ -4413,8 +4592,20 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       data-avatar-url="<?= h($postAvatarUrl) ?>"
                       data-body="<?= h($caption) ?>"
                     >Read more</a>
+                    <?php endif; ?>
                   </div>
                 <?php endif; ?>
+              </div>
+
+              <div class="standard-text-meta-bar" hidden aria-hidden="true">
+                <div class="standard-text-left">
+                  <div class="standard-text-comments js-open-comments" data-post-id="<?= (int)$post['id'] ?>">
+                    View all <span class="js-comment-count"><?= (int)$post['comment_count'] ?></span> comments
+                  </div>
+                </div>
+                <div class="standard-text-right">
+                  <div class="standard-text-views"><?= (int)$post['views_count'] ?> views</div>
+                </div>
               </div>
 
               <div class="standard-text-actions">
@@ -4437,16 +4628,12 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
                     </a>
                   </div>
-                  <div class="standard-text-comments js-open-comments" data-post-id="<?= (int)$post['id'] ?>">
-                    View all <span class="js-comment-count"><?= (int)$post['comment_count'] ?></span> comments
-                  </div>
                 </div>
                 <div class="standard-text-right">
                   <a class="standard-text-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
                     <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
                     <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
                   </a>
-                  <div class="standard-text-views"><?= (int)$post['views_count'] ?> views</div>
                 </div>
               </div>
             </div>
@@ -4594,9 +4781,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 
             <div class="reel-bottom">
               <?php if ($caption !== ''): ?>
-                <div class="reel-caption<?= mb_strlen($caption) > 170 ? ' has-more' : '' ?>">
+                <div class="reel-caption<?= public_caption_needs_readmore($caption) ? ' has-more' : '' ?>">
                   <div class="reel-caption-text"><?= public_caption_card_html($caption) ?></div>
-                  <?php if (mb_strlen($caption) > 170): ?>
+                  <?php if (public_caption_needs_readmore($caption)): ?>
                     <a
                       class="open-inline js-open-readmore"
                       href="#post-<?= (int)$post['id'] ?>"
@@ -4752,6 +4939,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       <?php if ($caption !== ''): ?>
                         <div class="standard-media-caption">
                           <?= public_caption_card_html($caption) ?>
+                          <?php if (public_caption_needs_readmore($caption)): ?>
                           <a
                             class="open-inline js-open-readmore"
                             href="#post-<?= (int)$post['id'] ?>"
@@ -4763,6 +4951,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                             data-avatar-url="<?= h($postAvatarUrl) ?>"
                             data-body="<?= h($caption) ?>"
                           >Read more</a>
+                          <?php endif; ?>
                         </div>
                       <?php endif; ?>
                     </div>
@@ -4851,7 +5040,14 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       </div>
     </div>
     <?php
+      // Right rail: Suggest publishers (and people) on public.php / news.php only — not feed.php.
+      // Followed publishers leave this list and their posts move to Friends Feed.
       $suggestedForYouStaffReadonly = $staffReadonly;
+      if ($isNewsSurface) {
+          // News is publisher discovery: hide personal friend suggestions here.
+          $suggestedForYouMaxFriends = 0;
+          $suggestedForYouMaxFollow = 6;
+      }
       include __DIR__ . '/includes/suggested_for_you.php';
     ?>
   </div><!-- /.sh-pagebody -->
@@ -4901,6 +5097,13 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 
   function cards(){ return Array.prototype.slice.call(document.querySelectorAll('.public-post-card')); }
 
+  function scrollRoot(){
+    return document.querySelector('.feed-desktop-center > .ig-feed')
+      || document.querySelector('.ig-feed')
+      || document.scrollingElement
+      || document.documentElement;
+  }
+
   function currentIndex(){
     var list = cards();
     if(!list.length) return -1;
@@ -4919,7 +5122,16 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var idx = currentIndex();
     if(idx < 0) idx = 0;
     idx = Math.max(0, Math.min(list.length - 1, idx + step));
-    list[idx].scrollIntoView({behavior:'smooth', block:'start'});
+    var card = list[idx];
+    var root = scrollRoot();
+    if (root && card && root.contains(card) && typeof root.scrollTo === 'function') {
+      var rootRect = root.getBoundingClientRect();
+      var cardRect = card.getBoundingClientRect();
+      var nextTop = root.scrollTop + (cardRect.top - rootRect.top);
+      root.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+      return;
+    }
+    card.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
   var up = document.getElementById('btnUp'), down = document.getElementById('btnDown');
@@ -5259,6 +5471,26 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.syncPublisherCards === 'function'){
       window.MSBPostCardMenu.syncPublisherCards(publisherId, on);
     }
+    // Followed publishers leave public.php / news.php and belong on feed.php.
+    if(on){
+      document.querySelectorAll('.public-post-card[data-peer-id="'+String(publisherId)+'"]').forEach(function(card){
+        try{ card.remove(); }catch(_e){}
+      });
+      document.querySelectorAll('.sfy-row[data-sfy-id="'+String(publisherId)+'"]').forEach(function(row){
+        var kind = String(row.getAttribute('data-sfy-kind') || '');
+        if(kind === 'publisher' || kind === 'advertise' || kind === ''){
+          try{ row.remove(); }catch(_e2){}
+        }
+      });
+      var feed = document.querySelector('.ig-feed');
+      if(feed && !feed.querySelector('.public-post-card') && !feed.querySelector('.mf-feed-empty')){
+        var empty = document.createElement('div');
+        empty.className = 'mf-feed-empty';
+        empty.setAttribute('role', 'status');
+        empty.innerHTML = '<i class="icon ion-ios-paper-outline" aria-hidden="true"></i><div class="mf-feed-empty-title"><?= $isNewsSurface ? 'No publisher posts yet' : 'No Feed Available' ?></div>';
+        feed.appendChild(empty);
+      }
+    }
   }
 
   $(document).on('click', '.publisher-follow-btn', function(){
@@ -5582,7 +5814,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     track.style.transform = 'translateX(' + (-100 * nextIndex) + '%)';
 
     dots.forEach(function(dot, dotIndex){
-      dot.classList.toggle('is-active', dotIndex === nextIndex);
+      var on = dotIndex === nextIndex;
+      dot.classList.toggle('is-active', on);
+      dot.style.background = on ? '#fff' : 'rgba(255,255,255,.45)';
+      dot.style.boxShadow = 'none';
     });
 
     slides.forEach(function(slide, slideIndex){
@@ -6170,6 +6405,19 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     }, 140);
   }, { passive:true });
 
+  var publicFeedScrollEl = document.querySelector('.feed-desktop-center > .ig-feed') || document.querySelector('.ig-feed');
+  if (publicFeedScrollEl) {
+    publicFeedScrollEl.addEventListener('scroll', function(){
+      if(publicAutoAdvanceScrollTick){
+        window.clearTimeout(publicAutoAdvanceScrollTick);
+      }
+      publicAutoAdvanceScrollTick = window.setTimeout(function(){
+        publicAutoAdvanceScrollTick = null;
+        refreshPublicAutoAdvance();
+      }, 140);
+    }, { passive:true });
+  }
+
   document.addEventListener('visibilitychange', function(){
     if(document.hidden){
       if(publicAutoAdvanceTimer){
@@ -6418,13 +6666,14 @@ body.news-page.feed-insta-ui .feed-desktop-center{
   box-sizing:border-box !important;
 }
 body.news-page.feed-insta-ui .feed-top-search{
-  border-bottom:1px solid var(--public-border-strong, var(--msb-palette-border, rgba(15,23,42,.16))) !important;
+  border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4)) !important;
 }
 body.news-page.feed-insta-ui .post.public-post-card{
   margin:0 !important;
   border:0 !important;
+  border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4)) !important;
   border-radius:0 !important;
-  box-shadow:inset 0 -1px 0 var(--public-border-strong, var(--msb-palette-border, rgba(15,23,42,.16))) !important;
+  box-shadow:none !important;
   position:relative !important;
   width:100% !important;
   max-width:100% !important;
@@ -6433,7 +6682,8 @@ body.news-page.feed-insta-ui .post.public-post-card{
   overflow:visible !important;
 }
 html[data-msb-appearance] body.news-page.feed-insta-ui .post.public-post-card{
-  box-shadow:inset 0 -1px 0 var(--msb-palette-border, var(--public-border-strong, rgba(15,23,42,.16))) !important;
+  box-shadow:none !important;
+  border-bottom:1px solid var(--feed-post-divider, var(--msb-palette-border-strong, var(--public-border-strong, #c0c2c4))) !important;
 }
 body.news-page.feed-insta-ui .post.public-post-card.is-single-video-post:not(.is-reel-post),
 body.news-page.feed-insta-ui .post.public-post-card.is-single-image-post:not(.is-reel-post){

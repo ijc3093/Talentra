@@ -1,7 +1,25 @@
-/* Admin shell: fixed layout, no slide-in flash on navigation */
+/* Admin shell: narrow icon-rail + Azia header/logo chrome (all admin pages) */
+
+:root {
+  --azia-purple: #5b47fb;
+  --azia-teal: #00cccc;
+  --azia-pink: #f10075;
+  --azia-green: #3bb001;
+  --azia-red: #dc3545;
+  --azia-bg: #f8f9fc;
+  --azia-text: #1c273c;
+  --azia-muted: #8392a5;
+  --azia-card: #ffffff;
+  --azia-radius: 6px;
+  --azia-shadow: 0 0 10px rgba(28, 39, 60, 0.06);
+}
+
 html,
-body.admin-app {
-  background-color: #f8f9fa;
+body,
+body.admin-app,
+body.azia-admin {
+  background-color: var(--azia-bg) !important;
+  color: var(--azia-text);
 }
 
 .sh-logopanel,
@@ -11,43 +29,311 @@ body.admin-app {
   transition: none !important;
 }
 
-@media (min-width: 1200px) {
-  .sh-logopanel {
-    left: 0;
-  }
+/* Narrow logo + sidebar rail */
+.sh-logopanel,
+.sh-sideleft-menu {
+  width: 64px !important;
+  background: #fff !important;
+  border-right: 1px solid rgba(28, 39, 60, 0.06);
+}
 
+.sh-logopanel {
+  border-bottom: 1px solid rgba(28, 39, 60, 0.06);
+  height: 64px !important;
+  padding: 0 !important;
+}
+
+.sh-sideleft-menu {
+  top: 64px !important;
+}
+
+.sh-logopanel .sh-logo-text,
+.sh-logopanel .azia-brand {
+  font-size: 0 !important;
+  width: 100%;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  overflow: hidden;
+  color: var(--azia-purple) !important;
+  font-weight: 700;
+  text-decoration: none !important;
+}
+
+.sh-logopanel .sh-logo-text::before,
+.sh-logopanel .azia-brand::before {
+  content: 'T';
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--azia-purple);
+}
+
+.sh-logopanel .sh-navicon {
+  display: none !important;
+}
+
+@media (min-width: 1200px) {
+  .sh-logopanel,
   .sh-sideleft-menu {
     left: 0;
   }
 
   .sh-headpanel {
-    left: 240px;
+    left: 64px !important;
   }
 
   .sh-mainpanel {
-    margin-left: 240px;
+    margin-left: 64px !important;
   }
 }
 
-/* Smooth sidebar active state without click flash */
+/* Icon-only nav */
 .sh-sideleft-menu .nav > .nav-item > .nav-link {
   -webkit-tap-highlight-color: transparent;
   transition: color 0.16s ease, background-color 0.16s ease;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-left: 3px solid transparent;
+  position: relative;
+  width: 100%;
+  color: #596882;
+  font-weight: 500;
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link > span:not(.admin-nav-badge) {
+  display: none !important;
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link i {
+  margin: 0 !important;
+  width: auto !important;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--azia-purple);
+  opacity: 0.85;
+  text-align: center;
+}
+
+.sh-sideleft-menu .nav > .nav-item > .nav-link:hover {
+  background: rgba(91, 71, 251, 0.05);
+  color: var(--azia-purple);
 }
 
 .sh-sideleft-menu .nav > .nav-item > .nav-link:active:not(.active) {
-  background-color: rgba(8, 102, 198, 0.08);
+  background-color: rgba(91, 71, 251, 0.08);
 }
 
-.sh-sideleft-menu .nav > .nav-item > .nav-link.is-nav-pending {
-  color: #0866c6;
-  background-color: rgba(8, 102, 198, 0.06);
+.sh-sideleft-menu .nav > .nav-item > .nav-link.is-nav-pending,
+.sh-sideleft-menu .nav > .nav-item > .nav-link.active {
+  color: var(--azia-purple);
+  background-color: rgba(91, 71, 251, 0.08);
+  border-left-color: var(--azia-purple);
+  font-weight: 600;
 }
 
-/* Smooth main content transitions during ajax nav */
+/* Count badges on icon-only sidebar (pending / attention queues) */
+.sh-sideleft-menu {
+  overflow: visible !important;
+}
+.sh-sideleft-menu .nav,
+.sh-sideleft-menu .nav > .nav-item,
+.sh-sideleft-menu .nav > .nav-item > .nav-link {
+  overflow: visible !important;
+}
+.sh-sideleft-menu .nav > .nav-item > .nav-link .admin-nav-badge,
+.sh-sideleft-menu .nav > .nav-item > .nav-link b.admin-nav-badge {
+  position: absolute !important;
+  top: -2px !important;
+  right: 2px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  border-radius: 999px !important;
+  background: #ef4444 !important;
+  color: #0f172a !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  font-style: normal !important;
+  line-height: 18px !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 2px solid #fff !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18) !important;
+  pointer-events: none !important;
+  z-index: 30 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Azia top header */
+.azia-headpanel,
+.sh-headpanel.azia-headpanel {
+  background: #fff !important;
+  border-bottom: 1px solid rgba(28, 39, 60, 0.06);
+  box-shadow: none;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  min-height: 70px;
+  gap: 16px;
+}
+
+.azia-head-left,
+.azia-head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.azia-head-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.azia-head-right {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.azia-welcome-in-header h2 {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--azia-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.azia-welcome-in-header p {
+  margin: 0;
+  color: var(--azia-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.azia-search {
+  position: relative;
+  min-width: 200px;
+  max-width: 280px;
+  width: 240px;
+  margin-right: 4px;
+}
+
+.azia-search .fa-search {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--azia-muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.azia-search input {
+  width: 100%;
+  border: 0;
+  background: #f1f2f9;
+  border-radius: 4px;
+  padding: 10px 14px 10px 38px;
+  font-size: 13px;
+  color: var(--azia-text);
+  outline: none;
+}
+
+.azia-search input:focus {
+  box-shadow: 0 0 0 2px rgba(91, 71, 251, 0.2);
+  background: #fff;
+}
+
+.azia-icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #596882;
+  font-size: 20px;
+  text-decoration: none;
+}
+
+.azia-icon-btn:hover {
+  background: #f1f2f9;
+  color: var(--azia-purple);
+  text-decoration: none;
+}
+
+.azia-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--azia-purple);
+  border: 2px solid #fff;
+}
+
+.azia-dot-pink {
+  background: var(--azia-pink);
+}
+
+.azia-profile-link {
+  display: inline-flex;
+  padding: 2px;
+}
+
+.azia-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.azia-avatar-fallback {
+  background: var(--azia-purple);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .sh-mainpanel {
   transition: opacity 0.18s ease !important;
   will-change: opacity;
+  background: var(--azia-bg);
+}
+
+/* Keep page content off the left/right edges */
+.sh-pagebody,
+.azia-pagebody {
+  margin-left: 28px !important;
+  margin-right: 28px !important;
+}
+
+@media (max-width: 767px) {
+  .sh-pagebody,
+  .azia-pagebody {
+    margin-left: 16px !important;
+    margin-right: 16px !important;
+  }
 }
 
 .sh-mainpanel.is-nav-busy {
@@ -61,6 +347,13 @@ body.admin-app {
 
 .sh-mainpanel.is-nav-enter.is-nav-ready {
   opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .azia-search {
+    min-width: 120px;
+    width: 140px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

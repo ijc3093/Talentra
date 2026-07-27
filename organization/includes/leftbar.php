@@ -171,6 +171,34 @@ $salesNavBadgeHtml = static function (int $count): string {
     display:flex;
     align-items:center;
     gap:8px;
+    background:transparent !important;
+    background-color:transparent !important;
+    box-shadow:none !important;
+  }
+  .org-sideleft-nav .nav-link:hover,
+  .org-sideleft-nav .nav-link:focus,
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
+  body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
+  body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus{
+    background:rgba(37, 99, 235, 0.08) !important;
+    background-color:rgba(37, 99, 235, 0.08) !important;
+    color:#334155 !important;
+    box-shadow:none !important;
+  }
+  .org-sideleft-nav .nav-link:hover span,
+  .org-sideleft-nav .nav-link:focus span,
+  .org-sideleft-nav .nav-link:hover i,
+  .org-sideleft-nav .nav-link:focus i,
+  .org-sideleft-nav .nav-link:hover [class*="ion-"],
+  .org-sideleft-nav .nav-link:focus [class*="ion-"]{
+    color:#334155 !important;
+    background:transparent !important;
+  }
+  .org-sideleft-nav .nav-link.active,
+  .org-sideleft-nav .sales-management-nav-link.active{
+    background:rgba(37, 99, 235, 0.12) !important;
+    background-color:rgba(37, 99, 235, 0.12) !important;
   }
   .org-sales-support-center{
     flex:0 0 auto;
@@ -206,14 +234,10 @@ $salesNavBadgeHtml = static function (int $count): string {
     <label class="sh-sidebar-label"><?= h($label) ?></label>
     <ul class="nav org-sideleft-nav">
       <li class="nav-item">
-        <a href="feed.php" class="nav-link">
+        <a href="feed.php#Home_feed" class="nav-link">
           <i class="icon ion-ios-home-outline"></i>
           <span>Home feed</span>
         </a>
-        <!-- <a href="feed.php" class="nav-link"<?= org_layout_nav_attrs('feed.php') ?>>
-          <i class="icon ion-ios-home-outline"></i>
-          <span>Home feed</span>
-        </a> -->
       </li>
     </ul>
   </div>
@@ -256,13 +280,13 @@ $salesNavBadgeHtml = static function (int $count): string {
       <?php else: ?>
       <?php if ($isManager): ?>
       <li class="nav-item">
-        <a href="compose_post.php" class="nav-link"<?= org_layout_nav_attrs('compose_post.php') ?>>
+        <a href="compose_post.php#New_announcement" class="nav-link"<?= org_layout_nav_attrs('compose_post.php') ?>>
           <i class="icon ion-ios-paperplane"></i>
           <span>New announcement</span>
         </a>
       </li>
       <li class="nav-item">
-        <a href="dashboard.php" class="nav-link"<?= org_layout_nav_attrs('dashboard.php') ?>>
+        <a href="dashboard.php#Publisher_hub" class="nav-link"<?= org_layout_nav_attrs('dashboard.php') ?>>
           <i class="icon ion-ios-pulse"></i>
           <span>Publisher hub</span>
         </a>
@@ -270,18 +294,14 @@ $salesNavBadgeHtml = static function (int $count): string {
       <?php endif; ?>
 
       <li class="nav-item">
-        <a href="posts.php" class="nav-link"<?= org_layout_nav_attrs('posts.php') ?>>
+        <a href="posts.php#Posts" class="nav-link"<?= org_layout_nav_attrs('posts.php') ?>>
           <i class="icon ion-ios-list"></i>
           <span>Posts</span>
         </a>
       </li>
 
       <li class="nav-item">
-        <!-- <a href="messages.php" class="nav-link"<?= org_layout_nav_attrs('messages.php') ?>>
-          <i class="icon ion-chatbubble"></i>
-          <span>Messages</span>
-        </a> -->
-        <a href="messages.php" class="nav-link">
+        <a href="messages.php#Messages" class="nav-link">
           <i class="icon ion-chatbubble"></i>
           <span>Messages</span>
         </a>
@@ -320,13 +340,19 @@ $salesNavBadgeHtml = static function (int $count): string {
 
       <?php if ($isManager && $isCommerceSeller): ?>
       <li class="nav-item">
-        <a href="commerce.php" class="nav-link"<?= org_layout_nav_attrs('commerce.php') ?>>
+        <a href="commerce.php#Shop_commerce" class="nav-link"<?= org_layout_nav_attrs('commerce.php') ?>>
           <i class="icon ion-bag"></i>
           <span>Shop &amp; commerce</span>
         </a>
       </li>
       <li class="nav-item">
-        <a href="sales_management.php" class="nav-link"<?= org_layout_nav_attrs('sales_management.php') ?>
+        <a href="shop_rent.php#Shop_rent" class="nav-link">
+          <i class="icon ion-card"></i>
+          <span>Shop rent</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="sales_management.php#dashboard" class="nav-link"<?= org_layout_nav_attrs('sales_management.php') ?>
            <?php if ((int)($salesAttention['total'] ?? 0) > 0): ?>aria-label="Sales management — <?= (int)$salesAttention['total'] > 99 ? '99+' : (int)$salesAttention['total'] ?> items need attention"<?php endif; ?>>
           <i class="icon ion-speedometer"></i>
           <span>Sales management</span>
@@ -340,7 +366,7 @@ $salesNavBadgeHtml = static function (int $count): string {
         </a>
       </li>
       <li class="nav-item">
-        <a href="crm.php" class="nav-link"<?= org_layout_nav_attrs('crm.php') ?>>
+        <a href="crm.php#Customers_CRM" class="nav-link"<?= org_layout_nav_attrs('crm.php') ?>>
           <i class="icon ion-ios-people"></i>
           <span>Customers (CRM)</span>
         </a>
@@ -349,7 +375,7 @@ $salesNavBadgeHtml = static function (int $count): string {
 
       <?php if (!$isManager && $isCommerceSeller): ?>
       <li class="nav-item">
-        <a href="sales_management.php" class="nav-link"<?= org_layout_nav_attrs('sales_management.php') ?>>
+        <a href="sales_management.php#dashboard" class="nav-link"<?= org_layout_nav_attrs('sales_management.php') ?>>
           <i class="icon ion-speedometer"></i>
           <span>Sales management</span>
         </a>
@@ -358,7 +384,7 @@ $salesNavBadgeHtml = static function (int $count): string {
 
       <?php if ($isManager): ?>
       <li class="nav-item">
-        <a href="members.php" class="nav-link"<?= org_layout_nav_attrs('members.php') ?>>
+        <a href="members.php#Team" class="nav-link"<?= org_layout_nav_attrs('members.php') ?>>
           <i class="icon ion-person-stalker"></i>
           <span>Team</span>
         </a>
@@ -367,19 +393,19 @@ $salesNavBadgeHtml = static function (int $count): string {
 
       <?php if ($isCommerceSeller): ?>
       <li class="nav-item">
-        <a href="account.php" class="nav-link"<?= org_layout_nav_attrs('account.php') ?>>
+        <a href="account.php#Account" class="nav-link"<?= org_layout_nav_attrs('account.php') ?>>
           <i class="icon ion-ios-wallet"></i>
           <span>Account</span>
         </a>
       </li>
       <li class="nav-item">
-        <a href="sales_management.php#timecard" class="nav-link">
+        <a href="sales_management.php#timecard" class="nav-link" data-sales-nav="timecard">
           <i class="icon ion-ios-clock"></i>
           <span>Time card</span>
         </a>
       </li>
       <li class="nav-item">
-        <a href="<?= $isManager ? 'members.php?tab=managers' : 'detail_employee.php' ?>" class="nav-link"<?= $isManager ? org_layout_nav_attrs('members.php') : org_layout_nav_attrs('detail_employee.php') ?>>
+        <a href="<?= $isManager ? 'members.php?tab=managers#Team_details' : 'detail_employee.php#My_details' ?>" class="nav-link"<?= $isManager ? org_layout_nav_attrs('members.php') : org_layout_nav_attrs('detail_employee.php') ?>>
           <i class="icon ion-ios-person"></i>
           <span><?= $isManager ? 'Team details' : 'My details' ?></span>
         </a>
@@ -388,13 +414,13 @@ $salesNavBadgeHtml = static function (int $count): string {
 
       <?php if ($isManager): ?>
       <li class="nav-item">
-        <a href="create_staff.php" class="nav-link"<?= org_layout_nav_attrs('create_staff.php') ?>>
+        <a href="create_staff.php#Add_staff" class="nav-link"<?= org_layout_nav_attrs('create_staff.php') ?>>
           <i class="icon ion-person-add"></i>
           <span>Add staff</span>
         </a>
       </li>
       <li class="nav-item">
-        <a href="create_org.php" class="nav-link"<?= org_layout_nav_attrs('create_org.php') ?>>
+        <a href="create_org.php#New_organization" class="nav-link"<?= org_layout_nav_attrs('create_org.php') ?>>
           <i class="icon ion-ios-plus-outline"></i>
           <span>New organization</span>
         </a>
@@ -426,3 +452,4 @@ $salesNavBadgeHtml = static function (int $count): string {
     </ul>
   </div>
 </div>
+

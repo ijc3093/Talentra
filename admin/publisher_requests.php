@@ -92,6 +92,8 @@ $pendingCount = publisher_authority_pending_count($dbh);
   <link href="../lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="../lib/Ionicons/css/ionicons.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
+  <link rel="stylesheet" href="css/admin-tables-shamcey.css?v=6">
+  <?php require_once __DIR__ . '/includes/admin_layout.php'; admin_layout_head_assets(); ?>
   <style>
     :root{
       --bg:#f3f4f6;
@@ -113,6 +115,8 @@ $pendingCount = publisher_authority_pending_count($dbh);
       display:flex;
       flex-direction:column;
       background:var(--bg);
+      margin-left:28px!important;
+      margin-right:28px!important;
     }
     .requests-card{
       flex:1 1 auto;
@@ -169,7 +173,9 @@ $pendingCount = publisher_authority_pending_count($dbh);
     .table-scroll{
       flex:1 1 auto;
       min-height:0;
-      overflow:auto;
+      overflow-x:hidden;
+      overflow-y:auto;
+      max-width:100%;
     }
     .pill{
       display:inline-flex;
@@ -198,9 +204,7 @@ $pendingCount = publisher_authority_pending_count($dbh);
     #requestsTable thead th{
       position:sticky;
       top:0;
-      background:#fff;
       z-index:5;
-      font-weight:900;
     }
   </style>
 </head>
@@ -228,7 +232,8 @@ $pendingCount = publisher_authority_pending_count($dbh);
       <div class="alert alert-success" style="margin:0 0 10px 0;"><?= h($msg) ?></div>
     <?php endif; ?>
 
-    <div class="requests-card">
+    <div class="card requests-card sh-admin-table-card">
+      <div class="card-header">Publisher Requests</div>
       <div class="pro-tools">
         <div class="filter-tabs">
           <a href="publisher_requests.php?status=pending" class="<?= $filter === 'pending' ? 'is-active' : '' ?>">
@@ -247,7 +252,7 @@ $pendingCount = publisher_authority_pending_count($dbh);
           <div class="sub">Approve a request to make the name available for publisher signup. No tax ID is required.</div>
         </div> -->
       <div class="table-scroll">
-        <table class="table table-hover mg-b-0-force" id="requestsTable">
+        <table class="table table-bordered table-hover mg-b-0" id="requestsTable">
           <thead>
             <tr>
               <th>Publisher / brand</th>

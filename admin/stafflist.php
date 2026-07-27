@@ -29,9 +29,10 @@ $total = count($rows);
 
 org_admin_render_head('Org Staff');
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Org Staff');
+?>
 
 <div class="sh-mainpanel">
   <!-- <div class="sh-pagetitle">
@@ -48,11 +49,8 @@ org_admin_render_head('Org Staff');
     <?php if ($msg !== ''): ?><div class="alert-lite ok"><?= org_admin_h($msg) ?></div><?php endif; ?>
     <?php if ($error !== ''): ?><div class="alert-lite bad"><?= org_admin_h($error) ?></div><?php endif; ?>
 
-    <div class="card admin-card">
-      <!-- <div class="card-header pro">
-        Staff Accounts
-        <div class="sub"><?= (int)$total ?> staff account<?= $total === 1 ? '' : 's' ?></div>
-      </div> -->
+    <div class="card admin-card sh-admin-table-card">
+      <div class="card-header">Staff Accounts</div>
 
       <div class="pro-tools">
         <div class="sub"><?= (int)$total ?> staff account<?= $total === 1 ? '' : 's' ?></div>
@@ -64,7 +62,7 @@ org_admin_render_head('Org Staff');
       </div>
 
       <div class="table-scroll">
-        <table class="table admin-table">
+        <table class="table table-bordered table-hover mg-b-0 admin-table">
           <thead>
             <tr>
               <th>Staff</th>
@@ -95,13 +93,21 @@ org_admin_render_head('Org Staff');
               <td><?= org_admin_status_badge($status) ?></td>
               <td class="muted"><?= org_admin_h(org_admin_fmt_dt($row['created_at'] ?? '')) ?></td>
               <td>
-                <form method="post" style="display:inline;" onsubmit="return confirm('Change staff status?');">
-                  <input type="hidden" name="staff_id" value="<?= $staffId ?>">
-                  <input type="hidden" name="status_value" value="<?= $status === 1 ? 0 : 1 ?>">
-                  <button type="submit" name="set_staff_status" class="btn-mini <?= $status === 1 ? 'warn' : 'primary' ?>">
-                    <?= $status === 1 ? 'Disable' : 'Activate' ?>
+                <div class="fries-menu">
+                  <button type="button" class="fries-toggle" title="Actions" aria-label="Actions" aria-haspopup="true">
+                    <span class="fries-icon" aria-hidden="true"></span>
                   </button>
-                </form>
+                  <div class="fries-dropdown" role="menu">
+                    <form method="post" class="fries-item-form" onsubmit="return confirm('Change staff status?');">
+                      <input type="hidden" name="staff_id" value="<?= $staffId ?>">
+                      <input type="hidden" name="status_value" value="<?= $status === 1 ? 0 : 1 ?>">
+                      <button type="submit" name="set_staff_status" class="fries-item" role="menuitem">
+                        <i class="fa <?= $status === 1 ? 'fa-ban' : 'fa-check' ?>"></i>
+                        <?= $status === 1 ? 'Disable' : 'Activate' ?>
+                      </button>
+                    </form>
+                  </div>
+                </div>
               </td>
             </tr>
           <?php endforeach; endif; ?>

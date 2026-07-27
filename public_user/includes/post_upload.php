@@ -1,0 +1,319 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Shared helpers for create-post media upload (eager AJAX + post_save claim).
+ */
+
+function post_upload_safe_filename(string $name): string
+{
+    $name = preg_replace('/[^a-zA-Z0-9_\.-]+/', '_', $name) ?? 'file';
+    $name = trim($name, '._');
+    return $name !== '' ? $name : 'file';
+}
+
+function post_upload_allowed_ext(): array
+{
+    return [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
+        'mp4', 'webm', 'ogg', 'mov', 'm4v',
+        'pdf',
+        'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+        'txt', 'zip',
+    ];
+}
+
+function post_upload_allowed_mime_by_ext(): array
+{
+    return [
+        'jpg' => ['image/jpeg'],
+        'jpeg' => ['image/jpeg'],
+        'png' => ['image/png'],
+        'gif' => ['image/gif'],
+        'webp' => ['image/webp'],
+        'bmp' => ['image/bmp', 'image/x-ms-bmp'],
+        'mp4' => ['video/mp4'],
+        'webm' => ['video/webm'],
+        'ogg' => ['video/ogg', 'application/ogg'],
+        'mov' => ['video/quicktime'],
+        'm4v' => ['video/x-m4v', 'video/mp4'],
+        'pdf' => ['application/pdf'],
+        'doc' => ['application/msword'],
+        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+        'ppt' => ['application/vnd.ms-powerpoint'],
+        'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
+        'xls' => ['application/vnd.ms-excel'],
+        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
+        'txt' => ['text/plain'],
+        'zip' => ['application/zip', 'application/x-zip-compressed', 'multipart/x-zip'],
+    ];
+}
+
+function post_upload_ext_from_mime(string $detectedMime, string $ext): string
+{
+    $detectedMime = strtolower(trim($detectedMime));
+    $ext = strtolower(trim($ext));
+    $map = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        'image/bmp' => 'bmp',
+        'image/x-ms-bmp' => 'bmp',
+        'image/svg+xml' => 'svg',
+        'video/mp4' => 'mp4',
+        'video/webm' => 'webm',
+        'video/quicktime' => 'mov',
+        'video/ogg' => 'ogg',
+        'application/ogg' => 'ogg',
+        'video/x-m4v' => 'm4v',
+        'application/pdf' => 'pdf',
+    ];
+    if ($detectedMime !== '' && isset($map[$detectedMime])) {
+        return $map[$detectedMime];
+    }
+    return $ext !== '' ? $ext : 'bin';
+}
+
+function post_upload_mime_is_allowed(string $detectedMime, string $ext, array $allowedMimeByExt): bool
+{
+    $detectedMime = strtolower(trim($detectedMime));
+    $ext = strtolower(trim($ext));
+    if ($detectedMime === '') {
+        return true;
+    }
+    $allowedMimes = $allowedMimeByExt[$ext] ?? [];
+    if ($allowedMimes && in_array($detectedMime, $allowedMimes, true)) {
+        return true;
+    }
+    $imageMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/x-ms-bmp', 'image/svg+xml'];
+    $imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+    if (in_array($detectedMime, $imageMimes, true) && in_array($ext, $imageExts, true)) {
+        return true;
+    }
+    $videoMimes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg', 'application/ogg', 'video/x-m4v'];
+    $videoExts = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+    if (in_array($detectedMime, $videoMimes, true) && in_array($ext, $videoExts, true)) {
+        return true;
+    }
+    return false;
+}
+
+function post_upload_ensure_dir(): array
+{
+    $baseDir = dirname(__DIR__) . '/uploads/posts';
+    if (!is_dir($baseDir)) {
+        @mkdir($baseDir, 0775, true);
+    }
+    $ym = date('Ym');
+    $subDir = $baseDir . '/' . $ym;
+    if (!is_dir($subDir)) {
+        @mkdir($subDir, 0775, true);
+    }
+    return [$subDir, $ym];
+}
+
+function post_upload_att_type(string $mime, string $ext): string
+{
+    $mime = strtolower($mime);
+    $ext = strtolower($ext);
+    $isImg = (strpos($mime, 'image/') === 0) || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'], true);
+    $isVid = (strpos($mime, 'video/') === 0) || in_array($ext, ['mp4', 'webm', 'ogg', 'mov', 'm4v'], true);
+    $isPdf = ($mime === 'application/pdf') || ($ext === 'pdf');
+    if ($isImg) {
+        return 'image';
+    }
+    if ($isVid) {
+        return 'video';
+    }
+    if ($isPdf) {
+        return 'pdf';
+    }
+    return 'file';
+}
+
+function post_upload_pending_bag(): array
+{
+    if (!isset($_SESSION['post_pending_uploads']) || !is_array($_SESSION['post_pending_uploads'])) {
+        $_SESSION['post_pending_uploads'] = [];
+    }
+    return $_SESSION['post_pending_uploads'];
+}
+
+function post_upload_purge_stale(int $maxAgeSeconds = 7200): void
+{
+    $bag = post_upload_pending_bag();
+    $now = time();
+    $changed = false;
+    foreach ($bag as $token => $row) {
+        $created = (int)($row['created'] ?? 0);
+        if ($created > 0 && ($now - $created) > $maxAgeSeconds) {
+            $abs = (string)($row['abs'] ?? '');
+            if ($abs !== '' && is_file($abs)) {
+                @unlink($abs);
+            }
+            unset($bag[$token]);
+            $changed = true;
+        }
+    }
+    if ($changed) {
+        $_SESSION['post_pending_uploads'] = $bag;
+    }
+}
+
+/**
+ * Save one uploaded file into pending storage for later claim by post_save.
+ * @return array{ok:bool,error?:string,token?:string,name?:string,type?:string,size?:int,web?:string}
+ */
+function post_upload_store_pending(int $userId, array $file): array
+{
+    if ($userId <= 0) {
+        return ['ok' => false, 'error' => 'session'];
+    }
+    $err = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err !== UPLOAD_ERR_OK) {
+        return ['ok' => false, 'error' => 'upload_error'];
+    }
+    $tmp = (string)($file['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        return ['ok' => false, 'error' => 'invalid_tmp'];
+    }
+
+    $orig = post_upload_safe_filename((string)($file['name'] ?? 'file'));
+    $ext = strtolower((string)pathinfo($orig, PATHINFO_EXTENSION));
+    if ($ext === '') {
+        $ext = 'bin';
+    }
+    $allowedExt = post_upload_allowed_ext();
+    if (!in_array($ext, $allowedExt, true)) {
+        return ['ok' => false, 'error' => 'unsupported_type'];
+    }
+
+    $size = (int)($file['size'] ?? 0);
+    $maxBytes = 50 * 1024 * 1024;
+    if ($size > $maxBytes) {
+        return ['ok' => false, 'error' => 'too_large'];
+    }
+
+    // Fast trust path for common image/video extensions — skip full-file finfo sniff.
+    $clientMime = strtolower(trim((string)($file['type'] ?? '')));
+    $fastExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov', 'm4v'];
+    $detectedMime = '';
+    if (in_array($ext, $fastExts, true) && (
+        str_starts_with($clientMime, 'image/') || str_starts_with($clientMime, 'video/') || $clientMime === ''
+    )) {
+        $detectedMime = $clientMime;
+    } else {
+        $finfo = class_exists('finfo') ? new finfo(FILEINFO_MIME_TYPE) : null;
+        if ($finfo) {
+            $detectedMime = strtolower(trim((string)$finfo->file($tmp)));
+        }
+        if (!post_upload_mime_is_allowed($detectedMime, $ext, post_upload_allowed_mime_by_ext())) {
+            return ['ok' => false, 'error' => 'mime_mismatch'];
+        }
+        $ext = post_upload_ext_from_mime($detectedMime, $ext);
+        if (!in_array($ext, $allowedExt, true)) {
+            return ['ok' => false, 'error' => 'unsupported_type'];
+        }
+    }
+
+    $mime = $detectedMime !== '' ? $detectedMime : $clientMime;
+    $attType = post_upload_att_type($mime, $ext);
+
+    [$subDir, $ym] = post_upload_ensure_dir();
+    $token = bin2hex(random_bytes(16));
+    $fname = 'pending_u' . $userId . '_' . $token . '.' . $ext;
+    $destAbs = $subDir . '/' . $fname;
+    if (!move_uploaded_file($tmp, $destAbs)) {
+        return ['ok' => false, 'error' => 'move_failed'];
+    }
+
+    $webPath = 'uploads/posts/' . $ym . '/' . $fname;
+    // Purge stale pending files only ~10% of the time (avoid session/disk churn every upload).
+    if (random_int(0, 9) === 0) {
+        post_upload_purge_stale();
+    }
+    $bag = post_upload_pending_bag();
+    $bag[$token] = [
+        'user_id' => $userId,
+        'abs' => $destAbs,
+        'web' => $webPath,
+        'type' => $attType,
+        'name' => $orig,
+        'size' => $size,
+        'created' => time(),
+    ];
+    $_SESSION['post_pending_uploads'] = $bag;
+
+    return [
+        'ok' => true,
+        'token' => $token,
+        'name' => $orig,
+        'type' => $attType,
+        'size' => $size,
+        'web' => $webPath,
+    ];
+}
+
+/**
+ * Claim pending tokens into public_post_attachments for a post.
+ * @param list<string> $tokens
+ * @return array{saved:int, types:list<string>}
+ */
+function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $tokens, bool $rename = false): array
+{
+    $saved = 0;
+    $types = [];
+    if ($userId <= 0 || $postId <= 0 || $tokens === []) {
+        return ['saved' => 0, 'types' => []];
+    }
+
+    $bag = post_upload_pending_bag();
+    $stA = $dbh->prepare(
+        'INSERT INTO public_post_attachments (post_id, type, file_path, thumb_path, created_at)
+         VALUES (:pid, :t, :fp, NULL, NOW())'
+    );
+
+    foreach ($tokens as $token) {
+        $token = preg_replace('/[^a-f0-9]/i', '', (string)$token) ?? '';
+        if ($token === '' || !isset($bag[$token]) || !is_array($bag[$token])) {
+            continue;
+        }
+        $row = $bag[$token];
+        if ((int)($row['user_id'] ?? 0) !== $userId) {
+            continue;
+        }
+        $abs = (string)($row['abs'] ?? '');
+        $web = (string)($row['web'] ?? '');
+        $type = (string)($row['type'] ?? 'file');
+        if ($abs === '' || $web === '' || !is_file($abs)) {
+            unset($bag[$token]);
+            continue;
+        }
+
+        // Rename is optional — skip on fast submit path (pending_* names are fine).
+        if ($rename) {
+            $dir = dirname($abs);
+            $ext = strtolower((string)pathinfo($abs, PATHINFO_EXTENSION));
+            $finalName = 'p' . $postId . '_' . bin2hex(random_bytes(6)) . ($ext !== '' ? '.' . $ext : '');
+            $finalAbs = $dir . '/' . $finalName;
+            $finalWeb = preg_replace('#/[^/]+$#', '/' . $finalName, $web) ?: $web;
+            if (@rename($abs, $finalAbs)) {
+                $web = $finalWeb;
+                $abs = $finalAbs;
+            }
+        }
+
+        try {
+            $stA->execute([':pid' => $postId, ':t' => $type, ':fp' => $web]);
+            $saved++;
+            $types[] = $type;
+        } catch (Throwable $e) {
+            continue;
+        }
+        unset($bag[$token]);
+    }
+
+    $_SESSION['post_pending_uploads'] = $bag;
+    return ['saved' => $saved, 'types' => $types];
+}

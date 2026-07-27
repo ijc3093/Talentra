@@ -932,7 +932,12 @@ function publisher_org_public_user_can_access(PDO $dbh, int $publisherUserId, in
     }
 }
 
-/** Open an organization session for a publisher and return manager id. */
+/**
+ * Validate publisher can open org and return manager id (does not touch sessions).
+ * Session must be established on organization/enterprise_enter.php via signed handoff —
+ * switching PHPSESSID in the same request as BUSINESS_ONLY_USER fails after headers are sent
+ * and was wiping the public login (looked like sign-out).
+ */
 function publisher_org_begin_session_for_publisher(PDO $dbh, int $publisherUserId, int $orgId): int
 {
     if ($publisherUserId <= 0 || $orgId <= 0) {
@@ -953,13 +958,94 @@ function publisher_org_begin_session_for_publisher(PDO $dbh, int $publisherUserI
         return 0;
     }
 
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_write_close();
+    return $managerId;
+}
+
+function publisher_org_enterprise_signing_key(): string
+{
+    $bootstrapLoad = dirname(__DIR__, 2) . '/admin/includes/admin_linked_bootstrap_load.php';
+    if (is_file($bootstrapLoad)) {
+        require_once $bootstrapLoad;
+    }
+    if (function_exists('admin_linked_signing_key')) {
+        return admin_linked_signing_key();
+    }
+    return 'talentra-enterprise-handoff-fallback';
+}
+
+/** Signed query for organization/enterprise_enter.php (fresh PHPSESSID request). */
+function publisher_org_enterprise_handoff_query(int $managerId, int $orgId, int $publisherUserId): string
+{
+    if ($managerId <= 0 || $orgId <= 0 || $publisherUserId <= 0) {
+        return '';
+    }
+    $ts = time();
+    $payload = $managerId . '|' . $orgId . '|' . $publisherUserId . '|' . $ts;
+    $sig = hash_hmac('sha256', $payload, publisher_org_enterprise_signing_key());
+    return http_build_query([
+        'enterprise' => '1',
+        'mid' => $managerId,
+        'oid' => $orgId,
+        'uid' => $publisherUserId,
+        'ts' => $ts,
+        'sig' => $sig,
+    ]);
+}
+
+/** @return array{manager_id:int,org_id:int,publisher_user_id:int}|null */
+function publisher_org_verify_enterprise_handoff(): ?array
+{
+    if ((string)($_GET['enterprise'] ?? '') !== '1') {
+        return null;
+    }
+    $managerId = (int)($_GET['mid'] ?? 0);
+    $orgId = (int)($_GET['oid'] ?? 0);
+    $publisherUserId = (int)($_GET['uid'] ?? 0);
+    $ts = (int)($_GET['ts'] ?? 0);
+    $sig = (string)($_GET['sig'] ?? '');
+    if ($managerId <= 0 || $orgId <= 0 || $publisherUserId <= 0 || $ts <= 0 || $sig === '') {
+        return null;
+    }
+    if ($ts + 900 < time()) {
+        return null;
+    }
+    $payload = $managerId . '|' . $orgId . '|' . $publisherUserId . '|' . $ts;
+    $expected = hash_hmac('sha256', $payload, publisher_org_enterprise_signing_key());
+    if (!hash_equals($expected, $sig)) {
+        return null;
+    }
+    return [
+        'manager_id' => $managerId,
+        'org_id' => $orgId,
+        'publisher_user_id' => $publisherUserId,
+    ];
+}
+
+/** Apply org_auth on a clean PHPSESSID request (organization/enterprise_enter.php only). */
+function publisher_org_apply_enterprise_session(array $handoff): bool
+{
+    $managerId = (int)($handoff['manager_id'] ?? 0);
+    $orgId = (int)($handoff['org_id'] ?? 0);
+    $publisherUserId = (int)($handoff['publisher_user_id'] ?? 0);
+    if ($managerId <= 0 || $orgId <= 0 || $publisherUserId <= 0) {
+        return false;
     }
 
-    session_name('PHPSESSID');
+    $bootstrapLoad = dirname(__DIR__, 2) . '/admin/includes/admin_linked_bootstrap_load.php';
+    if (is_file($bootstrapLoad)) {
+        require_once $bootstrapLoad;
+    }
+    if (function_exists('admin_linked_apply_session_cookie_path')) {
+        admin_linked_apply_session_cookie_path();
+    }
+
     if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_name('PHPSESSID');
         session_start();
+    }
+
+    if (function_exists('session_regenerate_id')) {
+        @session_regenerate_id(true);
     }
 
     $_SESSION['org_auth'] = 1;
@@ -969,18 +1055,11 @@ function publisher_org_begin_session_for_publisher(PDO $dbh, int $publisherUserI
     unset($_SESSION['org_member_id'], $_SESSION['org_role_id']);
     $_SESSION['org_publisher_user_id'] = $publisherUserId;
 
-    $helpers = dirname(__DIR__) . '/public_user/includes/account_display_helpers.php';
-    if (is_file($helpers)) {
-        require_once $helpers;
-        if (function_exists('account_portal_staff_role_label_from_linked_user')) {
-            $portalRole = account_portal_staff_role_label_from_linked_user($dbh, $publisherUserId);
-            if ($portalRole !== '') {
-                $_SESSION['portal_staff_role_label'] = $portalRole;
-            }
-        }
+    if (function_exists('app_session_login_mark')) {
+        app_session_login_mark();
     }
 
-    return $managerId;
+    return true;
 }
 
 function publisher_org_gen_code(): string

@@ -67,9 +67,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
 $pageTitle = $isEdit ? 'Edit admin account' : '';
 org_admin_render_head($pageTitle);
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open(($pageTitle !== '' ? $pageTitle : 'Admin Account'));
+?>
 
 <div class="sh-mainpanel">
 

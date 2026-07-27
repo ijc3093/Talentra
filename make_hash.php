@@ -1,5 +1,5 @@
 <?php
-echo password_hash("Admin@12345", PASSWORD_DEFAULT);
+echo password_hash("admin123", PASSWORD_DEFAULT);
 
 // After seeing http://localhost:8888/private_project/make_hash.php saying "$2y$10$Z9ixdt1JwMZufq/WdUYoe.pla4k18TV2an43sGLYeOdob771ZTwBW" 
 // then replace with "PASTE_HASH_HERE" below "INSERT INTO admin.....

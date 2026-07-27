@@ -587,20 +587,28 @@ function publisher_session_load_user_row(PDO $dbh, int $userId): ?array
         return null;
     }
 
-    publisher_ensure_schema($dbh);
+    try {
+        publisher_ensure_schema($dbh);
+    } catch (Throwable $e) {
+        // Schema repair must never block auth; fall through to a plain SELECT.
+    }
 
     $cols = [
         'id', 'name', 'username', 'email', 'password', 'friend_code', 'image', 'role', 'status',
         'gender', 'mobile', 'designation',
     ];
-    if (publisher_db_column_exists($dbh, 'users', 'account_kind')) {
-        $cols[] = 'account_kind';
-    }
-    if (publisher_db_column_exists($dbh, 'users', 'publisher_category')) {
-        $cols[] = 'publisher_category';
-    }
-    if (publisher_db_column_exists($dbh, 'users', 'publisher_tagline')) {
-        $cols[] = 'publisher_tagline';
+    try {
+        if (publisher_db_column_exists($dbh, 'users', 'account_kind')) {
+            $cols[] = 'account_kind';
+        }
+        if (publisher_db_column_exists($dbh, 'users', 'publisher_category')) {
+            $cols[] = 'publisher_category';
+        }
+        if (publisher_db_column_exists($dbh, 'users', 'publisher_tagline')) {
+            $cols[] = 'publisher_tagline';
+        }
+    } catch (Throwable $e) {
+        // use base columns only
     }
 
     try {
@@ -612,7 +620,7 @@ function publisher_session_load_user_row(PDO $dbh, int $userId): ?array
         }
         return $row;
     } catch (Throwable $e) {
-        return null;
+        return publisher_session_load_user_row_fallback($dbh, $userId);
     }
 }
 
@@ -627,8 +635,11 @@ function publisher_session_clear_identity(): void
     );
 }
 
-/** Bind BUSINESS_ONLY_USER session to one publisher account (owner login). */
-function publisher_session_bind_owner(PDO $dbh, int $publisherUserId): void
+/**
+ * Bind BUSINESS_ONLY_USER session to one publisher account (owner login).
+ * @param bool $syncOrg When false, only refresh session keys (safe on every page load).
+ */
+function publisher_session_bind_owner(PDO $dbh, int $publisherUserId, bool $syncOrg = true): void
 {
     if ($publisherUserId <= 0) {
         publisher_session_clear_identity();
@@ -640,6 +651,10 @@ function publisher_session_bind_owner(PDO $dbh, int $publisherUserId): void
     $_SESSION['publisher_session_owner'] = 1;
     $_SESSION['user_account_kind'] = 'publisher';
     unset($_SESSION['publisher_session_staff_id']);
+
+    if (!$syncOrg) {
+        return;
+    }
 
     try {
         require_once __DIR__ . '/publisher_organization_bridge.php';
@@ -707,7 +722,8 @@ function publisher_session_ensure_owner_binding(PDO $dbh): void
 
     if (!publisher_session_is_owner()) {
         try {
-            publisher_session_bind_owner($dbh, $userId);
+            // Light bind on page guards — avoid org sync on every navigation.
+            publisher_session_bind_owner($dbh, $userId, false);
         } catch (Throwable $e) {
             // ignore
         }
@@ -715,8 +731,37 @@ function publisher_session_ensure_owner_binding(PDO $dbh): void
 }
 
 /**
+ * Load a minimal active users row when the full publisher session loader fails
+ * (schema repair race, missing optional columns, etc.).
+ */
+function publisher_session_load_user_row_fallback(PDO $dbh, int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    try {
+        $st = $dbh->prepare('
+            SELECT id, name, username, email, friend_code, image, role, status
+            FROM users
+            WHERE id = :id
+            LIMIT 1
+        ');
+        $st->execute([':id' => $userId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row || (int)($row['status'] ?? 0) !== 1) {
+            return null;
+        }
+        return $row;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
  * Ensure publisher/staff sessions still map to one unique users.id row.
- * Returns false when identity is missing or inconsistent (caller should log out).
+ * Prefer repair/rebind over logout so publishers can navigate feed/public/news smoothly.
+ * Returns false only when the account is missing or inactive.
  */
 function publisher_session_validate(PDO $dbh): bool
 {
@@ -727,75 +772,103 @@ function publisher_session_validate(PDO $dbh): bool
 
     $row = publisher_session_load_user_row($dbh, $userId);
     if (!$row) {
-        return false;
+        $row = publisher_session_load_user_row_fallback($dbh, $userId);
+    }
+    if (!$row) {
+        // Keep login if PHP session still has credentials but DB briefly failed.
+        return trim((string)($_SESSION['user_login'] ?? '')) !== '';
     }
 
     $isPublisherRow = publisher_user_row_looks_like_publisher($dbh, $row);
     $sessionKind = strtolower(trim((string)($_SESSION['user_account_kind'] ?? '')));
+    $isStaffSession = publisher_is_staff_workspace_session();
     $isPublisherSession = $isPublisherRow
         || $sessionKind === 'publisher'
-        || publisher_is_staff_workspace_session();
+        || $isStaffSession;
 
+    // Personal accounts: keep session_user_id aligned, drop publisher bindings.
     if (!$isPublisherSession) {
         publisher_session_clear_identity();
         $_SESSION['session_user_id'] = $userId;
+        $_SESSION['user_account_kind'] = 'personal';
+        return true;
+    }
+
+    // Stale/incomplete staff flags must not force logout — fall back to owner/personal.
+    if ($isStaffSession) {
+        $staffId = (int)($_SESSION['staff_account_id'] ?? $_SESSION['publisher_session_staff_id'] ?? 0);
+        $orgId = (int)($_SESSION['staff_org_id'] ?? $_SESSION['publisher_org_id'] ?? 0);
+        $staffOk = false;
+
+        if ($staffId > 0 && $orgId > 0) {
+            if (!function_exists('staff_pub_staff_can_access_org')) {
+                require_once __DIR__ . '/staff_publisher_access.php';
+            }
+            if (!function_exists('staff_pub_org_publisher_user_id')) {
+                require_once __DIR__ . '/staff_publisher_access.php';
+            }
+            try {
+                $staffOk = staff_pub_staff_can_access_org($dbh, $staffId, $orgId)
+                    && staff_pub_org_publisher_user_id($dbh, $orgId) === $userId;
+            } catch (Throwable $e) {
+                $staffOk = false;
+            }
+        }
+
+        if ($staffOk) {
+            publisher_session_bind_staff($userId, $staffId, $orgId);
+            $_SESSION['session_user_id'] = $userId;
+            return true;
+        }
+
+        if (!function_exists('staff_pub_clear_session_flags')) {
+            require_once __DIR__ . '/staff_publisher_access.php';
+        }
+        staff_pub_clear_session_flags();
+        unset($_SESSION['publisher_session_staff_id']);
+        $isStaffSession = false;
+    }
+
+    // Session claims publisher but DB row does not — repair, else demote (stay logged in).
+    if (!$isPublisherRow) {
+        try {
+            publisher_repair_user_as_publisher(
+                $dbh,
+                $userId,
+                trim((string)($row['publisher_category'] ?? ''))
+            );
+            $row = publisher_session_load_user_row($dbh, $userId) ?: $row;
+            $isPublisherRow = publisher_user_row_looks_like_publisher($dbh, $row);
+        } catch (Throwable $e) {
+            // ignore repair failures
+        }
+    }
+
+    if (!$isPublisherRow) {
+        publisher_session_clear_identity();
+        $_SESSION['session_user_id'] = $userId;
+        $_SESSION['user_account_kind'] = 'personal';
         return true;
     }
 
     $canonical = (int)($_SESSION['publisher_session_user_id'] ?? $_SESSION['session_user_id'] ?? 0);
-    if ($canonical <= 0) {
-        if (publisher_is_staff_workspace_session()) {
-            publisher_session_bind_staff(
-                $userId,
-                (int)($_SESSION['staff_account_id'] ?? 0),
-                (int)($_SESSION['staff_org_id'] ?? 0)
-            );
-        } else {
-            publisher_session_bind_owner($dbh, $userId);
-        }
-        $canonical = $userId;
-    }
-
-    if ($canonical !== $userId) {
-        if (publisher_is_staff_workspace_session()) {
-            return false;
-        }
-        if ($isPublisherRow) {
-            publisher_session_bind_owner($dbh, $userId);
-            $canonical = $userId;
-        } else {
-            return false;
+    if ($canonical <= 0 || $canonical !== $userId || (int)($_SESSION['publisher_session_owner'] ?? 0) !== 1) {
+        try {
+            // Do not run org provisioning during auth checks — it slowed/broke nav.
+            publisher_session_bind_owner($dbh, $userId, false);
+        } catch (Throwable $e) {
+            $_SESSION['session_user_id'] = $userId;
+            $_SESSION['publisher_session_user_id'] = $userId;
+            $_SESSION['publisher_session_owner'] = 1;
+            $_SESSION['user_account_kind'] = 'publisher';
+            unset($_SESSION['publisher_session_staff_id']);
         }
     }
 
-    if (publisher_is_staff_workspace_session()) {
-        $staffId = (int)($_SESSION['staff_account_id'] ?? $_SESSION['publisher_session_staff_id'] ?? 0);
-        $orgId = (int)($_SESSION['staff_org_id'] ?? $_SESSION['publisher_org_id'] ?? 0);
-        if ($staffId <= 0 || $orgId <= 0) {
-            return false;
-        }
-        if (!function_exists('staff_pub_staff_can_access_org')) {
-            require_once __DIR__ . '/staff_publisher_access.php';
-        }
-        if (!staff_pub_staff_can_access_org($dbh, $staffId, $orgId)) {
-            return false;
-        }
-        if (!function_exists('staff_pub_org_publisher_user_id')) {
-            require_once __DIR__ . '/staff_publisher_access.php';
-        }
-        return staff_pub_org_publisher_user_id($dbh, $orgId) === $userId;
-    }
-
-    if (!$isPublisherRow) {
-        return false;
-    }
-
-    if ((int)($_SESSION['publisher_session_owner'] ?? 0) !== 1) {
-        publisher_session_bind_owner($dbh, $userId);
-        if ((int)($_SESSION['publisher_session_owner'] ?? 0) !== 1) {
-            return false;
-        }
-    }
+    $_SESSION['session_user_id'] = $userId;
+    $_SESSION['publisher_session_user_id'] = $userId;
+    $_SESSION['publisher_session_owner'] = 1;
+    $_SESSION['user_account_kind'] = 'publisher';
 
     return true;
 }
@@ -819,13 +892,34 @@ function publisher_session_establish_for_manager(PDO $dbh, int $managerId): void
         return;
     }
 
+    // Preserve the caller's session name + id (usually PHPSESSID with org_auth).
+    // setUserSession() regenerates the BUSINESS_ONLY_USER id; without restoring
+    // previousId, PHPSESSID can be overwritten and Enterprise/org access breaks.
     $previousName = session_name();
+    $previousId = session_id();
     $wasActive = session_status() === PHP_SESSION_ACTIVE;
     if ($wasActive) {
         session_write_close();
     }
 
+    $bootstrapLoad = dirname(__DIR__, 2) . '/admin/includes/admin_linked_bootstrap_load.php';
+    if (is_file($bootstrapLoad)) {
+        require_once $bootstrapLoad;
+    }
+    if (function_exists('admin_linked_apply_session_cookie_path')) {
+        admin_linked_apply_session_cookie_path();
+    }
+
     session_name('BUSINESS_ONLY_USER');
+    if (function_exists('session_create_id')) {
+        $freshId = session_create_id('pub');
+        if (is_string($freshId) && $freshId !== '') {
+            session_id($freshId);
+        }
+    } elseif ($previousId !== '') {
+        // Avoid accidentally reopening the org session id under the public cookie name.
+        session_id(bin2hex(random_bytes(16)));
+    }
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
@@ -838,6 +932,9 @@ function publisher_session_establish_for_manager(PDO $dbh, int $managerId): void
 
     session_write_close();
     session_name($previousName !== '' ? $previousName : 'PHPSESSID');
+    if ($previousId !== '') {
+        session_id($previousId);
+    }
     if ($wasActive || session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
@@ -852,36 +949,47 @@ function publisher_post_visibility(PDO $dbh, int $userId, string $requested): st
     return in_array($requested, ['public', 'friends'], true) ? $requested : 'public';
 }
 
-/** After posting, publishers stay on feed.php (brand / star workspace). */
+/** After posting, land on the surface that matches the chosen destination. */
 function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): string
 {
-    if (publisher_account_is($dbh, $userId)) {
+    $visibility = strtolower(trim($visibility));
+
+    // Publisher workspace posts are always public; keep them on the publisher feed.
+    if (publisher_account_is($dbh, $userId) || publisher_workspace_viewer($dbh, $userId)) {
         return 'feed.php';
     }
-    return strtolower(trim($visibility)) === 'public' ? 'public.php' : 'feed.php';
+
+    // Personal users: Friends → feed.php, Public → public.php (news.php is publisher-only browse).
+    if ($visibility === 'public') {
+        return 'public.php';
+    }
+
+    return 'feed.php';
 }
 
 /**
- * Posts that belong in feed.php:
- * - friends-only posts from me or my friends (personal users)
+ * Posts that belong in feed.php (Friends Feed):
+ * - my own friends-destination posts
+ * - friends-only posts from my friends (personal users)
  * - public posts from publishers I follow
- * - my own public posts when I am a publisher
  *
+ * Personal public-destination posts belong on public.php (not here).
+ * Unfollowed publisher posts stay on public.php / news.php.
  * Publisher workspace feed.php is empty until the publisher follows another publisher
- * (or publishes their own content). Unfollowed publisher posts stay on public.php.
+ * (or publishes their own friends/feed content).
  */
 function publisher_workspace_feed_scope_sql(): string
 {
     return "(
-        p.visibility = 'public'
-        AND EXISTS (
-            SELECT 1 FROM users wu
-            WHERE wu.id = p.user_id
-              AND COALESCE(wu.account_kind, 'personal') = 'publisher'
-        )
-        AND (
-            p.user_id = :wsFeedMe
-            OR EXISTS (
+        p.user_id = :wsFeedMe
+        OR (
+            p.visibility = 'public'
+            AND EXISTS (
+                SELECT 1 FROM users wu
+                WHERE wu.id = p.user_id
+                  AND COALESCE(wu.account_kind, 'personal') = 'publisher'
+            )
+            AND EXISTS (
                 SELECT 1 FROM public_follows pf
                 WHERE pf.follower_id = :wsFeedMe2 AND pf.following_id = p.user_id
             )
@@ -892,21 +1000,18 @@ function publisher_workspace_feed_scope_sql(): string
 function publisher_feed_list_scope_sql(): string
 {
     return "(
-        (p.visibility = 'friends' AND (p.user_id = :scopeMe OR EXISTS (
+        (p.user_id = :scopeMeOwn AND LOWER(COALESCE(p.visibility,'friends')) = 'friends')
+        OR
+        (p.visibility = 'friends' AND EXISTS (
             SELECT 1 FROM user_contacts uc
             WHERE uc.owner_user_id = :scopeMe2 AND uc.friend_user_id = p.user_id
-        )))
+        ))
         OR
         (p.visibility = 'public' AND EXISTS (
             SELECT 1 FROM public_follows pf
             INNER JOIN users pu ON pu.id = pf.following_id
             WHERE pf.follower_id = :scopeMe3 AND pf.following_id = p.user_id
               AND COALESCE(pu.account_kind, 'personal') = 'publisher'
-        ))
-        OR
-        (p.visibility = 'public' AND p.user_id = :scopeMeOwn AND EXISTS (
-            SELECT 1 FROM users ou
-            WHERE ou.id = p.user_id AND COALESCE(ou.account_kind, 'personal') = 'publisher'
         ))
     )";
 }
@@ -922,10 +1027,9 @@ function publisher_feed_list_scope_sql_for(PDO $dbh, int $meId): string
 function publisher_feed_list_scope_params(int $meId): array
 {
     return [
-        ':scopeMe' => $meId,
+        ':scopeMeOwn' => $meId,
         ':scopeMe2' => $meId,
         ':scopeMe3' => $meId,
-        ':scopeMeOwn' => $meId,
     ];
 }
 
@@ -943,20 +1047,17 @@ function publisher_feed_list_scope_params_for(PDO $dbh, int $meId): array
 function publisher_feed_unread_scope_named_sql(): string
 {
     return "(
-        (p.visibility = 'friends' AND (p.user_id = :unreadMe OR EXISTS (
+        (p.user_id = :unreadMe4 AND LOWER(COALESCE(p.visibility,'friends')) = 'friends')
+        OR
+        (p.visibility = 'friends' AND EXISTS (
             SELECT 1 FROM user_contacts uc WHERE uc.owner_user_id = :unreadMe2 AND uc.friend_user_id = p.user_id
-        )))
+        ))
         OR
         (p.visibility = 'public' AND EXISTS (
             SELECT 1 FROM public_follows pf
             INNER JOIN users pu ON pu.id = pf.following_id
             WHERE pf.follower_id = :unreadMe3 AND pf.following_id = p.user_id
               AND COALESCE(pu.account_kind, 'personal') = 'publisher'
-        ))
-        OR
-        (p.visibility = 'public' AND p.user_id = :unreadMe4 AND EXISTS (
-            SELECT 1 FROM users ou
-            WHERE ou.id = p.user_id AND COALESCE(ou.account_kind, 'personal') = 'publisher'
         ))
     )";
 }
@@ -978,7 +1079,6 @@ function publisher_feed_unread_scope_params_for(PDO $dbh, int $meId): array
         ];
     }
     return [
-        ':unreadMe' => $meId,
         ':unreadMe2' => $meId,
         ':unreadMe3' => $meId,
         ':unreadMe4' => $meId,
@@ -1007,13 +1107,15 @@ function publisher_feed_can_view_post(PDO $dbh, int $meId, array $post): bool
 
     if ($authorIsPublisher) {
         if ($authorId === $meId) {
-            return false;
+            return true;
         }
         return publisher_user_is_followed($dbh, $meId, $authorId);
     }
 
     if ($authorId === $meId) {
-        return true;
+        $vis = strtolower(trim((string)($post['visibility'] ?? 'friends')));
+        // Own public-destination posts belong on public.php, not Friends Feed.
+        return ($vis === 'friends' || $vis === '' || $vis === 'private');
     }
 
     $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
@@ -1024,7 +1126,7 @@ function publisher_feed_can_view_post(PDO $dbh, int $meId, array $post): bool
         return fs_are_friends($dbh, $meId, $authorId);
     }
 
-    return $vis === 'public';
+    return false;
 }
 
 /** Personal users browse unfollowed publisher public posts on public.php. */
@@ -1144,9 +1246,9 @@ function publisher_profile_can_view_user(PDO $dbh, int $meId, int $viewId): bool
 /**
  * public.php / news.php list scope.
  * - news.php: publisher-authored public posts only (your own + unfollowed publishers).
- *   Followed publisher posts appear in feed.php instead.
+ *   Followed publisher posts appear in feed.php instead. Personal public posts never appear here.
  * - Workspace viewers on public.php: your own + unfollowed publisher posts.
- * - Personal users on public.php: unfollowed publisher posts (+ personal public posts).
+ * - Personal users on public.php: public-destination posts (personal public + unfollowed publishers).
  */
 function publisher_public_discover_exclude_followed_sql(string $meBind = ':pubDiscMe'): string
 {

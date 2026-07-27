@@ -44,10 +44,6 @@ if (isset($_GET['deleted']) && (string)$_GET['deleted'] === '1') {
     $error = user_account_deleted_message();
 }
 
-if (isset($_GET['expired']) && (string)$_GET['expired'] === '1') {
-    $error = app_session_expired_message();
-}
-
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && array_key_exists('session', $_GET)) {
     header("Location: index.php");
     exit;
@@ -146,21 +142,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 }
 
                 if ($error === '') {
-                    $adminAuth = admin_linked_verify_credentials($controller->pdo(), $username, $password);
-                    if ($adminAuth) {
-                        $adminId = (int)($adminAuth['idadmin'] ?? 0);
-                        admin_linked_ensure_provisioned($controller->pdo(), $adminId, $password);
-                        $linkedUser = admin_linked_portal_user(
-                            $controller->pdo(),
-                            $adminId,
-                            $isPublisherLogin ? 'publisher' : 'personal'
-                        );
-                        if ($linkedUser) {
-                            setUserSession($linkedUser);
-                            login_bump_last_seen($controller);
-                            header('Location: feed.php');
-                            exit;
+                    try {
+                        $adminAuth = admin_linked_verify_credentials($controller->pdo(), $username, $password);
+                        if ($adminAuth) {
+                            $adminId = (int)($adminAuth['idadmin'] ?? 0);
+                            admin_linked_ensure_provisioned($controller->pdo(), $adminId, $password);
+                            $linkedUser = admin_linked_portal_user(
+                                $controller->pdo(),
+                                $adminId,
+                                $isPublisherLogin ? 'publisher' : 'personal'
+                            );
+                            if ($linkedUser) {
+                                setUserSession($linkedUser);
+                                login_bump_last_seen($controller);
+                                header('Location: feed.php');
+                                exit;
+                            }
                         }
+                    } catch (Throwable $linkedErr) {
+                        // Admin-linked portal is optional; do not block normal user login.
                     }
                 }
 
@@ -171,7 +171,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 }
             }
         } catch (Throwable $e) {
-            $error = 'Unable to sign in right now. Please try again.';
+            // LOGIN_FIX_2026_07_25 — temporary detail; remove after Hostinger is stable
+            $error = 'Unable to sign in right now. Please try again. [' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . ']';
         }
     }
 }

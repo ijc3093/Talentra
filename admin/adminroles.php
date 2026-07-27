@@ -131,6 +131,7 @@ function initials2(string $name): string {
   <link href="../lib/datatables-responsive/dataTables.responsive.css" rel="stylesheet">
   <link href="../lib/select2/css/select2.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
+  <link rel="stylesheet" href="css/admin-tables-shamcey.css?v=6">
 
   <style>
     :root{
@@ -157,6 +158,8 @@ function initials2(string $name): string {
       display:flex;
       flex-direction:column;
       background: var(--bg);
+      margin-left: 28px !important;
+      margin-right: 28px !important;
     }
 
     .accounts-card{
@@ -205,48 +208,37 @@ function initials2(string $name): string {
       flex-direction:column;
     }
 
-    /* ✅ scroll area: vertical + horizontal when table is wider than viewport */
+    /* ✅ scroll area: vertical only — table fits container width */
     .table-scroll{
       flex:1 1 auto;
       min-height:0;
-      overflow:auto;
+      overflow-x:hidden;
+      overflow-y:auto;
       background:#fff;
       position:relative;
       -webkit-overflow-scrolling:touch;
+      max-width:100%;
     }
 
-    #datatable1{
-      width:100% !important;
-      min-width:1320px;
-      table-layout:auto !important;
-      border-collapse: separate !important;
-      border-spacing: 0;
-    }
-
+    #datatable1,
     table.dataTable{
       width:100% !important;
-      min-width:1320px;
-      table-layout:auto !important;
-      border-collapse: separate !important;
+      max-width:100% !important;
+      min-width:0 !important;
+      table-layout:fixed !important;
+      border-collapse: collapse !important;
       border-spacing: 0;
     }
 
-    /* ✅ sticky header row */
+    /* sticky header — bordered cells come from admin-tables-shamcey.css */
     #datatable1 thead th{
       position: sticky;
       top: 0;
       z-index: 30;
-      background:#fff;
-      border-bottom: 1px solid rgba(17,24,39,.12) !important;
-      box-shadow: 0 2px 0 rgba(0,0,0,.06);
-      font-weight: 900;
-      color: rgba(17,24,39,.78);
     }
 
     table.dataTable tbody td{
       vertical-align: middle;
-      border-bottom: 1px solid rgba(17,24,39,.06);
-      background:#fff;
       overflow:hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -264,12 +256,12 @@ function initials2(string $name): string {
     .nameBlock .full{
       font-weight:900; color:var(--text); line-height:1.15;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      max-width: 240px;
+      max-width: 160px;
     }
     .nameBlock .small{
       color: var(--muted); font-size:12px; font-weight:700;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      max-width: 260px;
+      max-width: 160px;
     }
 
     .pill{
@@ -360,7 +352,8 @@ function initials2(string $name): string {
       </div>
     <?php endif; ?>
 
-    <div class="accounts-card">
+    <div class="card accounts-card sh-admin-table-card">
+      <div class="card-header">List Roles & Accounts</div>
       <!-- <div class="card-header pro">
         <div style="font-size:16px;">List Roles & Accounts</div>
         <div class="sub">All admin-side accounts with photo, role, status, and created date.</div>
@@ -397,17 +390,17 @@ function initials2(string $name): string {
 
       <div class="card-body-fixed">
         <div class="table-scroll" id="tableScroll">
-          <table id="datatable1" class="table display" style="width:100%;">
+          <table id="datatable1" class="table table-bordered table-hover display mg-b-0" style="width:100%;">
             <thead>
               <tr>
-                <th style="min-width:70px;">ID</th>
-                <th style="min-width:250px;">Account</th>
-                <th style="min-width:210px;">Email</th>
-                <th style="min-width:150px;">Friend Code</th>
-                <th style="min-width:130px;">Role</th>
-                <th style="min-width:110px;">Status</th>
-                <th style="min-width:180px;">Created</th>
-                <th style="min-width:170px;">Actions</th>
+                <th style="width:56px;">ID</th>
+                <th>Account</th>
+                <th>Email</th>
+                <th style="width:120px;">Friend Code</th>
+                <th style="width:110px;">Role</th>
+                <th style="width:90px;">Status</th>
+                <th style="width:140px;">Created</th>
+                <th style="width:64px;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -489,36 +482,38 @@ function initials2(string $name): string {
                 </td>
 
                 <td>
-                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <a class="icon-btn"
-                       href="admin_form.php?admin_id=<?php echo $aid; ?>"
-                       title="Edit admin">
-                      <i class="fa fa-pencil"></i>
-                    </a>
-
-                    <button type="button"
-                            class="icon-btn"
-                            title="<?php echo $isActive ? 'Block account (disable login)' : 'Unblock account'; ?>"
-                            data-id="<?php echo $aid; ?>"
-                            data-email="<?php echo h($email); ?>"
-                            data-name="<?php echo h($full !== '' ? $full : $uname); ?>"
-                            data-status="<?php echo $isActive ? '0' : '1'; ?>"
-                            <?php echo $isSelf ? 'disabled' : ''; ?>
-                            onclick="openStatusModal(this);">
-                      <i class="fa <?php echo $isActive ? 'fa-ban' : 'fa-check'; ?>"></i>
+                  <div class="fries-menu">
+                    <button type="button" class="fries-toggle" title="Actions" aria-label="Actions" aria-haspopup="true">
+                      <span class="fries-icon" aria-hidden="true"></span>
                     </button>
-
-                    <button type="button"
-                            class="icon-btn danger"
-                            title="Delete admin"
-                            data-id="<?php echo $aid; ?>"
-                            data-email="<?php echo h($email); ?>"
-                            data-username="<?php echo h($uname); ?>"
-                            data-name="<?php echo h($full !== '' ? $full : $uname); ?>"
-                            <?php echo $isSelf ? 'disabled' : ''; ?>
-                            onclick="openDeleteModal(this);">
-                      <i class="fa fa-trash"></i>
-                    </button>
+                    <div class="fries-dropdown" role="menu">
+                      <a class="fries-item" role="menuitem" href="admin_form.php?admin_id=<?php echo $aid; ?>">
+                        <i class="fa fa-pencil"></i> Edit
+                      </a>
+                      <button type="button"
+                              class="fries-item"
+                              role="menuitem"
+                              data-id="<?php echo $aid; ?>"
+                              data-email="<?php echo h($email); ?>"
+                              data-name="<?php echo h($full !== '' ? $full : $uname); ?>"
+                              data-status="<?php echo $isActive ? '0' : '1'; ?>"
+                              <?php echo $isSelf ? 'disabled' : ''; ?>
+                              onclick="openStatusModal(this);">
+                        <i class="fa <?php echo $isActive ? 'fa-ban' : 'fa-check'; ?>"></i>
+                        <?php echo $isActive ? 'Block' : 'Unblock'; ?>
+                      </button>
+                      <button type="button"
+                              class="fries-item fries-item-danger"
+                              role="menuitem"
+                              data-id="<?php echo $aid; ?>"
+                              data-email="<?php echo h($email); ?>"
+                              data-username="<?php echo h($uname); ?>"
+                              data-name="<?php echo h($full !== '' ? $full : $uname); ?>"
+                              <?php echo $isSelf ? 'disabled' : ''; ?>
+                              onclick="openDeleteModal(this);">
+                        <i class="fa fa-trash"></i> Delete
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>

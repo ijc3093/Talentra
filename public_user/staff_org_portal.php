@@ -31,5 +31,11 @@ if (!staff_pub_begin_org_session($dbh, $staffId, $orgId)) {
     exit;
 }
 
-header('Location: ../organization/feed.php');
+$query = staff_pub_enterprise_handoff_query($staffId, $orgId);
+if ($query === '') {
+    header('Location: feed.php');
+    exit;
+}
+
+header('Location: ../organization/staff_enter.php?' . $query);
 exit;

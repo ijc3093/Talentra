@@ -68,6 +68,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   background:#000;
   z-index:1;
   overflow:hidden;
+  pointer-events:none;
 }
 #tt-stories-wrap.has-story-text .tt-stories-media{
   z-index:1;
@@ -387,7 +388,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   align-items:center;
   justify-content:center;
   cursor:pointer;
-  z-index:8;
+  z-index:50;
   padding:0;
   pointer-events:auto;
   transition:opacity .15s ease;
@@ -400,7 +401,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   line-height:1;
   pointer-events:none;
 }
-.tt-stories-nav:hover:not(:disabled):not(.is-disabled){
+.tt-stories-nav:hover:not(.is-disabled){
   opacity:.9;
 }
 .tt-stories-nav:active{
@@ -409,11 +410,15 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
 .tt-stories-nav:focus{
   outline:none;
 }
-.tt-stories-nav:disabled,
 .tt-stories-nav.is-disabled{
   opacity:.32;
-  cursor:not-allowed;
-  pointer-events:none;
+  cursor:default;
+}
+/* Keep clicks working — HTML disabled + pointer-events:none blocked prev/next */
+.tt-stories-nav:disabled{
+  opacity:.32;
+  cursor:default;
+  pointer-events:auto;
 }
 #tt-stories-wrap:not(.is-open) .tt-stories-nav{
   display:none;
@@ -426,9 +431,29 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
 #tt-stories-wrap:not(.is-publisher-story):not(.is-open) .tt-stories-nav{
   display:none;
 }
-.tt-story-cmt-sheet.is-open ~ .tt-stories-nav{
+.tt-story-cmt-sheet.is-open ~ .tt-stories-nav,
+.tt-story-cmt-sheet.is-open ~ .tt-stories-tap{
   opacity:0;
   pointer-events:none;
+}
+.tt-stories-tap{
+  position:absolute;
+  top:56px;
+  bottom:88px;
+  width:34%;
+  max-width:140px;
+  border:0;
+  padding:0;
+  margin:0;
+  background:transparent;
+  cursor:pointer;
+  z-index:7;
+  -webkit-tap-highlight-color:transparent;
+}
+.tt-stories-tap.prev{ left:0; }
+.tt-stories-tap.next{ right:0; }
+#tt-stories-wrap:not(.is-open) .tt-stories-tap{
+  display:none;
 }
 .tt-stories-overlay-bottom{
   position:absolute;
@@ -1292,6 +1317,8 @@ body.tt-stories-open{ overflow:hidden; }
       </div>
     </div>
 
+    <button type="button" class="tt-stories-tap prev" id="ttStoriesTapPrev" title="Previous" aria-label="Previous story"></button>
+    <button type="button" class="tt-stories-tap next" id="ttStoriesTapNext" title="Next" aria-label="Next story"></button>
     <button type="button" class="tt-stories-nav prev" id="ttStoriesPrev" title="Previous" aria-label="Previous story">
       <i class="icon ion-chevron-left" aria-hidden="true"></i>
     </button>
@@ -2424,17 +2451,30 @@ body.tt-stories-open{ overflow:hidden; }
   function syncStoryNavState(){
     if(!prevBtn || !prevBtn.isConnected) prevBtn = document.getElementById('ttStoriesPrev');
     if(!nextBtn || !nextBtn.isConnected) nextBtn = document.getElementById('ttStoriesNext');
+    var tapPrev = document.getElementById('ttStoriesTapPrev');
+    var tapNext = document.getElementById('ttStoriesTapNext');
     if(!prevBtn || !nextBtn) return;
 
     var canPrev = slideIndex > 0 || storyIndex > 0;
-    var story = currentStory();
-    var slides = story && Array.isArray(story.slides) ? story.slides : [];
-    var canNext = slideIndex < slides.length - 1 || storyIndex < catalog.length - 1;
+    // Next always stays usable while open: advances slide/story, or closes on the last one.
+    var canNext = true;
 
-    prevBtn.disabled = !canPrev;
-    nextBtn.disabled = !canNext;
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
     prevBtn.classList.toggle('is-disabled', !canPrev);
-    nextBtn.classList.toggle('is-disabled', !canNext);
+    nextBtn.classList.toggle('is-disabled', false);
+    prevBtn.setAttribute('aria-disabled', canPrev ? 'false' : 'true');
+    nextBtn.setAttribute('aria-disabled', 'false');
+    if(tapPrev){
+      tapPrev.disabled = false;
+      tapPrev.classList.toggle('is-disabled', !canPrev);
+      tapPrev.setAttribute('aria-disabled', canPrev ? 'false' : 'true');
+    }
+    if(tapNext){
+      tapNext.disabled = false;
+      tapNext.classList.remove('is-disabled');
+      tapNext.setAttribute('aria-disabled', 'false');
+    }
   }
 
   function renderSlide(){
@@ -2838,18 +2878,48 @@ body.tt-stories-open{ overflow:hidden; }
     e.stopPropagation();
     setPaused(!isPaused);
   });
-  prevBtn && prevBtn.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopPropagation();
+
+  function goStoryPrev(e){
+    if(e){
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if(storyCommentsOpen) return;
+    if(!(slideIndex > 0 || storyIndex > 0)) return;
     slideNavInstant = true;
     TTStories.prevSlide();
-  });
-  nextBtn && nextBtn.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopPropagation();
+  }
+  function goStoryNext(e){
+    if(e){
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if(storyCommentsOpen) return;
     slideNavInstant = true;
     TTStories.nextSlide();
-  });
+  }
+
+  // Delegated handlers so nav still works after DOM moves / re-renders.
+  if(wrap && wrap.dataset.ttStoryNavBound !== '1'){
+    wrap.dataset.ttStoryNavBound = '1';
+    wrap.addEventListener('click', function(e){
+      var t = e.target;
+      if(!t || !t.closest) return;
+      if(t.closest('#ttStoriesPrev, #ttStoriesTapPrev, .tt-stories-nav.prev, .tt-stories-tap.prev')){
+        goStoryPrev(e);
+        return;
+      }
+      if(t.closest('#ttStoriesNext, #ttStoriesTapNext, .tt-stories-nav.next, .tt-stories-tap.next')){
+        goStoryNext(e);
+      }
+    });
+  }
+  prevBtn && prevBtn.addEventListener('click', goStoryPrev);
+  nextBtn && nextBtn.addEventListener('click', goStoryNext);
+  var tapPrevBtn = document.getElementById('ttStoriesTapPrev');
+  var tapNextBtn = document.getElementById('ttStoriesTapNext');
+  tapPrevBtn && tapPrevBtn.addEventListener('click', goStoryPrev);
+  tapNextBtn && tapNextBtn.addEventListener('click', goStoryNext);
 
   storyForm && storyForm.addEventListener('submit', function(e){
     e.preventDefault();

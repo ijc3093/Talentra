@@ -219,39 +219,80 @@ public function adminLogin(string $username, string $password): ?array
 
 
 
+    private function usersHasColumn(string $column): bool
+    {
+        static $cache = [];
+        $column = preg_replace('/[^a-z0-9_]/i', '', $column) ?? '';
+        if ($column === '') {
+            return false;
+        }
+        if (array_key_exists($column, $cache)) {
+            return $cache[$column];
+        }
+        try {
+            $st = $this->dbh->query('SHOW COLUMNS FROM users LIKE ' . $this->dbh->quote($column));
+            $cache[$column] = (bool)($st && $st->fetch(PDO::FETCH_ASSOC));
+        } catch (Throwable $e) {
+            $cache[$column] = false;
+        }
+        return $cache[$column];
+    }
+
     /* =========================
        USER LOGIN (supports username/email)
     ========================= */
     public function userLoginAttempt(string $username, string $password): array
     {
         $login = trim($username);
-        $lowerLogin = mb_strtolower($login);
+        $lowerLogin = function_exists('mb_strtolower') ? mb_strtolower($login) : strtolower($login);
         $upperLogin = strtoupper($login);
         $digitLogin = preg_replace('/\D+/', '', $login) ?? '';
 
-        $stmt = $this->dbh->prepare("
-            SELECT id, name, username, email, password, image, role, status, friend_code,
-                   COALESCE(account_kind, 'personal') AS account_kind
+        $accountKindSelect = $this->usersHasColumn('account_kind')
+            ? "COALESCE(account_kind, 'personal') AS account_kind"
+            : "'personal' AS account_kind";
+        $friendCodeSelect = $this->usersHasColumn('friend_code')
+            ? 'friend_code'
+            : "'' AS friend_code";
+        // Use explicit COLLATE to avoid Hostinger mix of utf8mb4_general_ci / utf8mb4_unicode_ci
+        $collate = 'utf8mb4_unicode_ci';
+        $friendCodeWhere = $this->usersHasColumn('friend_code')
+            ? "OR UPPER(friend_code) COLLATE {$collate} = :upper"
+            : '';
+        // Build mobile match in PHP — avoid SQL ":digits <> ''" (triggers collation error 1267)
+        $mobileWhere = ($this->usersHasColumn('mobile') && $digitLogin !== '')
+            ? "OR REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') COLLATE {$collate} = :digits_match"
+            : '';
+
+        $sql = "
+            SELECT id, name, username, email, password, image, role, status, {$friendCodeSelect},
+                   {$accountKindSelect}
             FROM users
-            WHERE username = :exact_user
-               OR email = :exact_email
-               OR LOWER(username) = :lower_user
-               OR LOWER(email) = :lower_email
-               OR UPPER(friend_code) = :upper
-               OR LOWER(name) = :lower_name
-               OR (:digits <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', ''), ')', '') = :digits_match)
+            WHERE username COLLATE {$collate} = :exact_user
+               OR email COLLATE {$collate} = :exact_email
+               OR LOWER(username) COLLATE {$collate} = :lower_user
+               OR LOWER(email) COLLATE {$collate} = :lower_email
+               {$friendCodeWhere}
+               OR LOWER(name) COLLATE {$collate} = :lower_name
+               {$mobileWhere}
             LIMIT 1
-        ");
-        $stmt->execute([
+        ";
+        $params = [
             ':exact_user' => $login,
             ':exact_email' => $login,
             ':lower_user' => $lowerLogin,
             ':lower_email' => $lowerLogin,
-            ':upper' => $upperLogin,
             ':lower_name' => $lowerLogin,
-            ':digits' => $digitLogin,
-            ':digits_match' => $digitLogin,
-        ]);
+        ];
+        if ($friendCodeWhere !== '') {
+            $params[':upper'] = $upperLogin;
+        }
+        if ($mobileWhere !== '') {
+            $params[':digits_match'] = $digitLogin;
+        }
+
+        $stmt = $this->dbh->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$row) {

@@ -67,7 +67,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
           <?php if ($stats['shop_visible']): ?>
             <span class="commerce-pill is-live"><i class="icon ion-checkmark-round"></i> Storefront live</span>
           <?php else: ?>
-            <span class="commerce-pill is-warn"><i class="icon ion-alert-circled"></i> Storefront hidden — check rent</span>
+            <span class="commerce-pill is-warn"><i class="icon ion-alert-circled"></i> Storefront hidden — <a href="shop_rent.php">fix rent</a></span>
           <?php endif; ?>
           <span class="commerce-pill"><?= (int)$productCount ?> / <?= (int)$maxProducts ?> products</span>
           <span class="commerce-pill"><?= org_ecommerce_h(ucfirst($sellerPlan)) ?> seller plan</span>
@@ -75,6 +75,7 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
       </div>
       <div class="commerce-quick">
         <a href="sales_management.php" class="ch-btn-primary"><i class="icon ion-speedometer"></i> Sales management</a>
+        <a href="shop_rent.php" class="ch-btn-primary"><i class="icon ion-card"></i> Shop rent</a>
         <a href="products.php" class="ch-btn-primary"><i class="icon ion-plus"></i> Add product</a>
         <div class="commerce-quick-col">
           <a href="orders.php" class="ch-btn-ghost"><i class="icon ion-ios-list"></i> Orders</a>

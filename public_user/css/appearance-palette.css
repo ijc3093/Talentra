@@ -20,6 +20,68 @@ html[data-msb-appearance] {
   --feed-accent-strong: var(--msb-palette-action-strong);
   --org-accent: var(--msb-palette-action);
   --accent: var(--msb-palette-action);
+  /* Keep structural borders contrasted against the selected Gear background */
+  --border: var(--msb-palette-border);
+  --border-color: var(--msb-palette-border);
+  --line: var(--msb-palette-border-strong);
+  --feed-border: var(--msb-palette-border);
+  --feed-border-strong: var(--msb-palette-border-strong);
+  --feed-post-divider: var(--msb-palette-border-strong);
+  --feed-post-column-border: var(--msb-palette-border-strong);
+  --feed-control-border: var(--msb-palette-border-strong);
+  --public-border: var(--msb-palette-border);
+  --public-border-strong: var(--msb-palette-border-strong);
+  --public-control-border: var(--msb-palette-border-strong);
+  --public-post-card-border: var(--msb-palette-border);
+}
+
+/* Structural chrome borders — always use contrast-safe strong token */
+html[data-msb-appearance] .sh-sideleft,
+html[data-msb-appearance] .sh-sideleft-menu,
+html[data-msb-appearance] .feed-left-rail,
+html[data-msb-appearance] .feed-left-nav,
+html[data-msb-appearance] .ig-feed-header,
+html[data-msb-appearance] .ig-stories-bar,
+html[data-msb-appearance] .ig-search-wrap,
+html[data-msb-appearance] .mf-search,
+html[data-msb-appearance] .yt-search,
+html[data-msb-appearance] .yt-search-shell,
+html[data-msb-appearance] .search-input,
+html[data-msb-appearance] .search-btn,
+html[data-msb-appearance] .feed-top-search,
+html[data-msb-appearance] .feed-desktop-center,
+html[data-msb-appearance] .post,
+html[data-msb-appearance] .mf-card,
+html[data-msb-appearance] .standard-text-card,
+html[data-msb-appearance] .gear-shell,
+html[data-msb-appearance] .gear-sidebar,
+html[data-msb-appearance] .gear-main,
+html[data-msb-appearance] .gear-detail-panel,
+html[data-msb-appearance] .gear-control,
+html[data-msb-appearance] .form-control,
+html[data-msb-appearance] select.form-control,
+html[data-msb-appearance] textarea.form-control {
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] .mf-feed .mf-card,
+html[data-msb-appearance] body.feed-insta-ui .ig-feed-header,
+html[data-msb-appearance] body.public-page.feed-insta-ui .ig-feed-header {
+  border-bottom-color: var(--feed-post-divider, var(--msb-palette-border-strong)) !important;
+}
+
+html[data-msb-appearance] body.feed-insta-ui .feed-desktop-center,
+html[data-msb-appearance] body.public-page.feed-insta-ui .feed-desktop-center {
+  border-left-color: var(--feed-post-column-border, var(--msb-palette-border-strong)) !important;
+  border-right-color: var(--feed-post-column-border, var(--msb-palette-border-strong)) !important;
+}
+
+html[data-msb-appearance] .search-input,
+html[data-msb-appearance] .search-btn {
+  border: 1px solid var(--msb-palette-border-strong) !important;
+}
+html[data-msb-appearance] .search-input {
+  border-right: 0 !important;
 }
 
 html[data-msb-appearance] .sh-mainpanel,
@@ -686,8 +748,16 @@ html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .card.mb-3 {
 }
 
 html[data-msb-appearance] .create-post-topbar {
-  background-color: var(--msb-palette-btn-bg) !important;
-  color: var(--msb-palette-btn-text) !important;
+  background-color: var(--msb-palette-btn-bg, var(--msb-palette-header, var(--msb-palette-bg))) !important;
+  color: var(--msb-palette-btn-text, var(--msb-palette-header-text, var(--msb-palette-text))) !important;
+}
+
+html[data-msb-appearance] .create-post-dialog,
+html[data-msb-appearance] .create-post-body,
+html[data-msb-appearance] .create-post-frame {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
 }
 
 html[data-msb-appearance] .create-post-title,
@@ -1553,6 +1623,7 @@ html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-foot,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-head,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-body,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-head,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-title,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-body,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-head,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-body,
@@ -1601,6 +1672,7 @@ html[data-msb-appearance] .msb-profile-door-host .tt-profile-head .title,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-name,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-text,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-title,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-author,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-rm-body,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-head .title {
   color: var(--msb-palette-text) !important;

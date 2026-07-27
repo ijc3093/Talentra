@@ -46,6 +46,13 @@ if (!$isEdit) {
     if (in_array($prefillKind, ['personal', 'publisher'], true)) {
         $form['account_kind'] = $prefillKind;
     }
+    $prefillCat = strtolower(trim((string)($_GET['publisher_category'] ?? '')));
+    if ($prefillCat !== '' && isset($pubCategories[$prefillCat])) {
+        $form['publisher_category'] = $prefillCat;
+        if ($prefillCat === 'commerce') {
+            $form['account_kind'] = 'publisher';
+        }
+    }
 }
 $form['password'] = '';
 
@@ -76,21 +83,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     }
 }
 
-$pageTitle = $isEdit ? 'Edit user' : 'Add user';
+$pageTitle = $isEdit ? '' : '';
 org_admin_render_head($pageTitle);
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open($pageTitle);
+?>
 
 <div class="sh-mainpanel">
   <div class="sh-pagetitle">
     <div class="sh-pagetitle-left">
-      <div class="sh-pagetitle-icon"><i class="icon ion-ios-person"></i></div>
-      <div>
+      <!-- <div class="sh-pagetitle-icon"><i class="icon ion-ios-person"></i></div> -->
+      <!-- <div>
         <h2><?= org_admin_h($pageTitle) ?></h2>
         <p class="mg-b-0"><?= $isEdit ? 'Update public_user account details' : 'Create a new public_user account' ?></p>
-      </div>
+      </div> -->
     </div>
     <div class="sh-pagetitle-right" style="display:flex;gap:8px;flex-wrap:wrap;">
       <a href="userlist.php" class="btn-mini">Back to list</a>
@@ -105,7 +113,7 @@ org_admin_render_head($pageTitle);
 
     <div class="card admin-card" style="max-width:920px;margin:0 auto;">
       <div class="card-header pro">
-        <?= $isEdit ? 'Edit User #' . (int)$userId : 'New Public User' ?>
+        <?= $isEdit ? 'Edit User #' . (int)$userId : 'New Personal User' ?>
         <?php if ($isEdit && !empty($user['friend_code'])): ?>
           <div class="sub">Friend code: <?= org_admin_h($user['friend_code']) ?></div>
         <?php endif; ?>

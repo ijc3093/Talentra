@@ -1,0 +1,326 @@
+/* Azia-style sales monitoring (organization/sales_management dashboard) */
+
+.sales-azia {
+  --sa-purple: #5b47fb;
+  --sa-teal: #00cccc;
+  --sa-pink: #f10075;
+  --sa-green: #3bb001;
+  --sa-red: #dc3545;
+  --sa-bg: #f8f9fc;
+  --sa-text: #1c273c;
+  --sa-muted: #8392a5;
+  --sa-card: #ffffff;
+  --sa-radius: 6px;
+  --sa-shadow: 0 0 10px rgba(28, 39, 60, 0.06);
+  color: var(--sa-text);
+}
+
+.sales-azia .sa-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sales-azia .sa-filter {
+  background: var(--sa-card);
+  border: 1px solid rgba(28, 39, 60, 0.08);
+  border-radius: var(--sa-radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--sa-shadow);
+  min-height: 64px;
+}
+
+.sales-azia .sa-filter > .fa:first-child {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(91, 71, 251, 0.1);
+  color: var(--sa-purple);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sales-azia .sa-filter .lbl {
+  display: block;
+  font-size: 11px;
+  color: var(--sa-muted);
+  margin-bottom: 2px;
+}
+
+.sales-azia .sa-filter strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sa-text);
+}
+
+.sales-azia .sa-filter .caret {
+  margin-left: auto;
+  color: var(--sa-muted);
+  font-size: 12px;
+}
+
+.sales-azia .sa-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  background: var(--sa-card);
+  border: 1px solid rgba(28, 39, 60, 0.06);
+  border-radius: var(--sa-radius);
+  box-shadow: var(--sa-shadow);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.sales-azia .sa-kpi {
+  padding: 18px 20px 12px;
+  border-right: 1px solid rgba(28, 39, 60, 0.06);
+  min-height: 140px;
+}
+
+.sales-azia .sa-kpi:last-child {
+  border-right: 0;
+}
+
+.sales-azia .sa-kpi-label {
+  display: block;
+  font-size: 12px;
+  color: var(--sa-muted);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.sales-azia .sa-kpi h3 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--sa-text);
+}
+
+.sales-azia .sa-kpi-delta {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sales-azia .sa-kpi-delta span {
+  font-weight: 400;
+  color: var(--sa-muted);
+}
+
+.sales-azia .sa-kpi-delta.up {
+  color: var(--sa-green);
+}
+
+.sales-azia .sa-kpi-delta.down {
+  color: var(--sa-red);
+}
+
+.sales-azia .sa-spark {
+  width: 100%;
+  height: 40px;
+  margin-top: 8px;
+}
+
+.sales-azia .sa-spark-svg {
+  width: 100%;
+  height: 40px;
+  display: block;
+}
+
+.sales-azia .sa-spark-line {
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sales-azia .sa-spark-fill {
+  opacity: 0.12;
+}
+
+.sales-azia .sa-chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 280px;
+}
+
+.sales-azia .sa-chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.sales-azia .sa-card {
+  background: var(--sa-card);
+  border: 1px solid rgba(28, 39, 60, 0.06);
+  border-radius: var(--sa-radius);
+  box-shadow: var(--sa-shadow);
+  padding: 18px 18px 12px;
+  height: 100%;
+}
+
+.sales-azia .sa-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.sales-azia .sa-card-head h4 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--sa-text);
+}
+
+.sales-azia .sa-card-head p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sa-muted);
+}
+
+.sales-azia .sa-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sales-azia .sa-legend li {
+  font-size: 12px;
+  color: var(--sa-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sales-azia .sa-legend .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.sales-azia .sa-legend .dot.online {
+  background: var(--sa-purple);
+}
+
+.sales-azia .sa-legend .dot.offline {
+  background: var(--sa-teal);
+}
+
+.sales-azia .sa-map {
+  width: 100%;
+  height: 280px;
+}
+
+.sales-azia .sa-table {
+  width: 100%;
+  margin: 0;
+  font-size: 13px;
+}
+
+.sales-azia .sa-table thead th {
+  border-top: 0;
+  border-bottom: 1px solid rgba(28, 39, 60, 0.08);
+  color: var(--sa-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  padding: 10px 8px;
+  white-space: nowrap;
+}
+
+.sales-azia .sa-table tbody td {
+  border-top: 1px solid rgba(28, 39, 60, 0.06);
+  padding: 12px 8px;
+  color: #4b5565;
+  vertical-align: middle;
+}
+
+.sales-azia .sa-countries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sales-azia .sa-countries li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(28, 39, 60, 0.06);
+}
+
+.sales-azia .sa-countries li:last-child {
+  border-bottom: 0;
+}
+
+.sales-azia .sa-countries .flag {
+  width: 36px;
+  height: 24px;
+  border-radius: 3px;
+  background: rgba(91, 71, 251, 0.12);
+  color: var(--sa-purple);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sales-azia .sa-countries .name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sa-text);
+}
+
+.sales-azia .sa-countries strong {
+  font-size: 13px;
+  color: var(--sa-text);
+}
+
+.sales-azia .sa-alerts {
+  margin-top: 20px;
+}
+
+@media (max-width: 1199px) {
+  .sales-azia .sa-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sales-azia .sa-kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sales-azia .sa-kpi:nth-child(2) {
+    border-right: 0;
+  }
+  .sales-azia .sa-kpi:nth-child(1),
+  .sales-azia .sa-kpi:nth-child(2) {
+    border-bottom: 1px solid rgba(28, 39, 60, 0.06);
+  }
+}
+
+@media (max-width: 767px) {
+  .sales-azia .sa-filters,
+  .sales-azia .sa-kpi-row {
+    grid-template-columns: 1fr;
+  }
+  .sales-azia .sa-kpi {
+    border-right: 0;
+    border-bottom: 1px solid rgba(28, 39, 60, 0.06);
+  }
+  .sales-azia .sa-kpi:last-child {
+    border-bottom: 0;
+  }
+}

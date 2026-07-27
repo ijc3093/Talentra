@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Suggested for you panel — Add friend, Follow publishers, Advertise brands.
- * Set $suggestedForYouMode = 'none' to omit (e.g. feed.php).
+ * Include on public.php / news.php right rail. Set $suggestedForYouMode = 'none' on feed.php.
  *
  * Optional before include:
  *   $suggestedForYouStaffReadonly, $suggestedForYouMaxFriends, $suggestedForYouMaxFollow,
@@ -56,6 +56,27 @@ if (!function_exists('sfy_avatar_url')) {
     }
 }
 
+if (!function_exists('sfy_profile_href')) {
+    /** Profile URL for suggested people/publishers (matches profile.php query params). */
+    function sfy_profile_href(array $row): string
+    {
+        $friendCode = strtoupper(trim((string)($row['friend_code'] ?? '')));
+        $username = trim((string)($row['username'] ?? ''));
+        $id = (int)($row['id'] ?? $row['user_id'] ?? 0);
+
+        if ($friendCode !== '') {
+            return 'profile.php?friend_code=' . rawurlencode($friendCode);
+        }
+        if ($username !== '') {
+            return 'profile.php?username=' . rawurlencode($username);
+        }
+        if ($id > 0) {
+            return 'profile.php?id=' . $id;
+        }
+        return 'profile.php';
+    }
+}
+
 if (!function_exists('sfy_user_row')) {
     /** @param array<string, mixed> $row */
     function sfy_user_row(array $row, string $kind, string $subtitle, string $actionLabel): array
@@ -78,7 +99,7 @@ if (!function_exists('sfy_user_row')) {
             'friend_code' => trim((string)($row['friend_code'] ?? '')),
             'image' => trim((string)($row['image'] ?? '')),
             'subtitle' => $subtitle,
-            'profile_href' => 'profile.php?u=' . rawurlencode(trim((string)($row['username'] ?? ''))),
+            'profile_href' => sfy_profile_href($row),
             'action_label' => $actionLabel,
         ];
     }
@@ -197,8 +218,10 @@ if (!function_exists('sfy_publisher_rows')) {
         }
 
         $query = trim($query);
+        // Never suggest the viewer to themselves (publisher must follow other publishers).
+        $excludeIds[] = $meId;
         if ($query !== '') {
-            $hits = publisher_search($dbh, $query, $limit, true);
+            $hits = publisher_search($dbh, $query, $limit + 5, true);
             if (!$hits) {
                 return [];
             }
@@ -217,7 +240,7 @@ if (!function_exists('sfy_publisher_rows')) {
             $out = [];
             foreach ($hits as $row) {
                 $id = (int)($row['id'] ?? 0);
-                if ($id <= 0 || isset($following[$id]) || in_array($id, $excludeIds, true)) {
+                if ($id <= 0 || $id === $meId || isset($following[$id]) || in_array($id, $excludeIds, true)) {
                     continue;
                 }
                 $catKey = (string)($row['publisher_category'] ?? '');
@@ -247,6 +270,7 @@ if (!function_exists('sfy_publisher_rows')) {
                 FROM users u
                 WHERE u.status = 1
                   AND COALESCE(u.account_kind, 'personal') = 'publisher'
+                  AND u.id <> :meSelf
                   AND {$discoverableSql}
                   AND NOT EXISTS (
                     SELECT 1 FROM public_follows pf
@@ -255,7 +279,7 @@ if (!function_exists('sfy_publisher_rows')) {
                 ORDER BY u.name ASC
                 LIMIT {$limit}
             ");
-            $st->execute([':me' => $meId]);
+            $st->execute([':me' => $meId, ':meSelf' => $meId]);
             $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable $e) {
             return [];
@@ -264,7 +288,8 @@ if (!function_exists('sfy_publisher_rows')) {
         $cats = publisher_categories();
         $out = [];
         foreach ($rows as $row) {
-            if ((int)($row['id'] ?? 0) <= 0) {
+            $id = (int)($row['id'] ?? 0);
+            if ($id <= 0 || $id === $meId) {
                 continue;
             }
             $catKey = (string)($row['publisher_category'] ?? '');
@@ -310,6 +335,7 @@ if (!function_exists('sfy_advertise_rows')) {
         }
 
         $limit = max(1, min($limit, 100));
+        $excludeIds[] = $meId;
         $excludeIds = array_values(array_unique(array_filter(array_map('intval', $excludeIds), static fn(int $id): bool => $id > 0)));
         $excludeSql = '';
         if ($excludeIds) {
@@ -330,7 +356,7 @@ if (!function_exists('sfy_advertise_rows')) {
         }
 
         $namePlaceholders = [];
-        $params = [':me' => $meId];
+        $params = [':me' => $meId, ':meSelf' => $meId];
         foreach ($advertiseNames as $i => $name) {
             $key = ':advName' . $i;
             $namePlaceholders[] = $key;
@@ -345,6 +371,7 @@ if (!function_exists('sfy_advertise_rows')) {
                 FROM users u
                 WHERE u.status = 1
                   AND COALESCE(u.account_kind, 'personal') = 'publisher'
+                  AND u.id <> :meSelf
                   AND {$discoverableSql}
                   AND LOWER(TRIM(COALESCE(u.name, ''))) IN ({$nameIn})
                   AND NOT EXISTS (
@@ -363,7 +390,8 @@ if (!function_exists('sfy_advertise_rows')) {
         $cats = publisher_categories();
         $out = [];
         foreach ($rows as $row) {
-            if ((int)($row['id'] ?? 0) <= 0) {
+            $id = (int)($row['id'] ?? 0);
+            if ($id <= 0 || $id === $meId) {
                 continue;
             }
             $catKey = (string)($row['publisher_category'] ?? '');
@@ -403,11 +431,11 @@ if (!function_exists('sfy_render_row')) {
         ])));
         ?>
         <li class="sfy-row" data-sfy-kind="<?= h($kind) ?>" data-sfy-id="<?= $rowId ?>" data-sfy-hay="<?= h($haystack) ?>">
-          <a class="sfy-avatar" href="<?= h($profileHref) ?>" aria-hidden="true" tabindex="-1">
+          <a class="sfy-avatar" href="<?= h($profileHref) ?>" title="<?= h('Open ' . (string)($row['name'] ?? 'profile')) ?>" aria-label="<?= h('Open ' . (string)($row['name'] ?? 'profile')) ?>">
             <img src="<?= h(sfy_avatar_url($avatarUser, 96)) ?>" alt="" loading="lazy" width="44" height="44">
           </a>
           <div class="sfy-meta">
-            <a class="sfy-name" href="<?= h($profileHref) ?>"><?= h((string)($row['name'] ?? '')) ?></a>
+            <a class="sfy-name" href="<?= h($profileHref) ?>" title="<?= h('Open ' . (string)($row['name'] ?? 'profile')) ?>"><?= h((string)($row['name'] ?? '')) ?></a>
             <div class="sfy-sub"><?= h((string)($row['subtitle'] ?? '')) ?></div>
           </div>
           <?php if ($kind === 'friend'): ?>
@@ -562,12 +590,21 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
     touch-action:pan-y;
+    padding-right:12px;
+    scrollbar-gutter:stable;
     scrollbar-width:thin;
     scrollbar-color:rgba(0,0,0,.18) transparent;
   }
-  body.feed-insta-ui .feed-right-rail .sfy-panel-body::-webkit-scrollbar{width:5px;}
+  body.feed-insta-ui .feed-right-rail .sfy-panel-body::-webkit-scrollbar{width:6px;}
+  body.feed-insta-ui .feed-right-rail .sfy-panel-body::-webkit-scrollbar-track{background:transparent;margin:2px 0;}
   body.feed-insta-ui .feed-right-rail .sfy-panel-body::-webkit-scrollbar-thumb{
     background:rgba(0,0,0,.18);border-radius:999px;
+  }
+  body.feed-insta-ui .feed-right-rail .sfy-panel-body .sfy-row{
+    padding-right:2px;
+  }
+  body.feed-insta-ui .feed-right-rail .sfy-panel-body .sfy-action{
+    margin-right:2px;
   }
   body.feed-insta-ui .feed-right-rail .sfy-scroll-rail{
     flex:0 0 auto;display:flex;justify-content:flex-end;gap:8px;padding-top:10px;
@@ -660,11 +697,12 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <?= $sfyScope ?> .sfy-see:hover,<?= $sfyScope ?> .sfy-see:focus{text-decoration:underline;outline:none;}
   <?= $sfyScope ?> .sfy-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
   <?= $sfyScope ?> .sfy-row{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 0;}
-  <?= $sfyScope ?> .sfy-avatar{flex:0 0 44px;width:44px;height:44px;border-radius:50%;overflow:hidden;background:#eef2f7;display:block;text-decoration:none;}
-  <?= $sfyScope ?> .sfy-avatar img{display:block;width:100%;height:100%;object-fit:cover;}
+  <?= $sfyScope ?> .sfy-avatar{flex:0 0 44px;width:44px;height:44px;border-radius:50%;overflow:hidden;background:#eef2f7;display:block;text-decoration:none;cursor:pointer;position:relative;z-index:1;}
+  <?= $sfyScope ?> .sfy-avatar img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;}
+  <?= $sfyScope ?> .sfy-avatar:hover,<?= $sfyScope ?> .sfy-avatar:focus{outline:none;box-shadow:0 0 0 2px rgba(0,149,246,.35);}
   <?= $sfyScope ?> .sfy-meta{flex:1 1 auto;min-width:0;}
-  <?= $sfyScope ?> .sfy-name{display:block;font-size:14px;font-weight:700;line-height:1.25;color:var(--msb-palette-text-on-nav,#0d0d0d);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  <?= $sfyScope ?> .sfy-name:hover,<?= $sfyScope ?> .sfy-name:focus{text-decoration:underline;outline:none;}
+  <?= $sfyScope ?> .sfy-name{display:block;font-size:14px;font-weight:700;line-height:1.25;color:var(--msb-palette-text-on-nav,#0d0d0d);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;position:relative;z-index:1;}
+  <?= $sfyScope ?> .sfy-name:hover,<?= $sfyScope ?> .sfy-name:focus{text-decoration:underline;outline:none;color:#0095f6;}
   <?= $sfyScope ?> .sfy-sub{margin-top:2px;font-size:12px;font-weight:400;line-height:1.3;color:#737373;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   <?= $sfyScope ?> .sfy-action{flex:0 0 auto;border:0;background:transparent;padding:0 4px;font-size:12px;font-weight:800;line-height:1.2;color:#0095f6;cursor:pointer;white-space:nowrap;}
   <?= $sfyScope ?> .sfy-action:hover,<?= $sfyScope ?> .sfy-action:focus{color:#1877f2;outline:none;}

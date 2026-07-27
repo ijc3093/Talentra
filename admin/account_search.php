@@ -13,9 +13,10 @@ $results = org_admin_search_accounts($dbh, $query);
 
 org_admin_render_head('Account Search');
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Account Search');
+?>
 
 <div class="sh-mainpanel">
   <!-- <div class="sh-pagetitle">

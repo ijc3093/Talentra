@@ -24,9 +24,6 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 
 $err = '';
-if (isset($_GET['expired']) && (string)$_GET['expired'] === '1') {
-    $err = app_session_expired_message();
-}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $u = trim((string)($_POST['username'] ?? ''));
     $p = (string)($_POST['password'] ?? '');

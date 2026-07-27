@@ -50,7 +50,10 @@ if (isset($_POST['suspend_rent'])) {
 }
 
 $plans = platform_rent_list_plans($dbh, false);
-$paidPlans = array_values(array_filter($plans, static fn(array $p): bool => (int)($p['price_cents'] ?? 0) > 0));
+$assignPlans = array_values(array_filter(
+    $plans,
+    static fn(array $p): bool => strtolower(trim((string)($p['code'] ?? ''))) !== 'shop_trial'
+));
 
 $where = ['(o.is_publisher_org = 1 OR o.org_kind = \'shop\')'];
 $params = [];
@@ -100,12 +103,13 @@ try {
 
 org_admin_render_head('Shop Rent');
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Shop Rent');
+?>
 
 <div class="sh-mainpanel">
-  <div class="sh-pagetitle">
+  <!-- <div class="sh-pagetitle">
     <div class="sh-pagetitle-left">
       <div class="sh-pagetitle-icon"><i class="icon ion-card"></i></div>
       <div>
@@ -116,7 +120,7 @@ org_admin_render_head('Shop Rent');
     <div class="sh-pagetitle-right">
       <a href="orglist.php" class="btn-mini">All organizations</a>
     </div>
-  </div>
+  </div> -->
 
   <div class="sh-pagebody">
     <?php if ($msg !== ''): ?><div class="alert-lite ok"><?= org_admin_h($msg) ?></div><?php endif; ?>
@@ -125,14 +129,14 @@ org_admin_render_head('Shop Rent');
     <div class="card admin-card" style="margin-bottom:16px;">
       <div class="card-header pro">
         Plans
-        <div class="sub">What sellers pay you each month to keep their shop live</div>
+        <div class="sub">What sellers pay you each month — Small Business starts at $1/mo so tiny shops stay affordable</div>
       </div>
       <div class="detail-grid" style="padding:16px;">
         <?php foreach ($plans as $plan): ?>
           <div class="detail-box">
             <div class="label"><?= org_admin_h($plan['name'] ?? '') ?></div>
             <div class="value"><?= org_admin_h(platform_rent_format_money((int)($plan['price_cents'] ?? 0), (string)($plan['currency'] ?? 'USD'))) ?><?php if ((string)($plan['billing_interval'] ?? '') === 'monthly'): ?>/mo<?php endif; ?></div>
-            <div class="muted" style="margin-top:6px;">Up to <?= (int)($plan['max_products'] ?? 0) ?> products<?php if ((int)($plan['trial_days'] ?? 0) > 0): ?> · <?= (int)$plan['trial_days'] ?>-day trial<?php endif; ?></div>
+            <div class="muted" style="margin-top:6px;">Up to <?= (int)($plan['max_products'] ?? 0) ?> products<?php if ((int)($plan['trial_days'] ?? 0) > 0): ?> · <?= (int)$plan['trial_days'] ?>-day trial<?php endif; ?><?php if ((string)($plan['billing_interval'] ?? '') === 'monthly'): ?> · monthly<?php endif; ?></div>
           </div>
         <?php endforeach; ?>
       </div>
@@ -146,7 +150,7 @@ org_admin_render_head('Shop Rent');
               'all' => 'All shops',
               'overdue' => 'Overdue',
               'trial' => 'Trial',
-              'active' => 'Paid',
+              'active' => 'Active',
               'suspended' => 'Suspended',
             ];
             foreach ($tabs as $key => $label):
@@ -212,7 +216,7 @@ org_admin_render_head('Shop Rent');
                   <input type="hidden" name="org_id" value="<?= $orgId ?>">
                   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
                     <select name="plan_id" class="form-control" style="min-width:120px;" required>
-                      <?php foreach ($paidPlans as $plan): ?>
+                      <?php foreach ($assignPlans as $plan): ?>
                         <option value="<?= (int)$plan['id'] ?>"><?= org_admin_h($plan['name'] ?? '') ?> (<?= org_admin_h(platform_rent_format_money((int)($plan['price_cents'] ?? 0), (string)($plan['currency'] ?? 'USD'))) ?>)</option>
                       <?php endforeach; ?>
                     </select>
@@ -229,7 +233,7 @@ org_admin_render_head('Shop Rent');
                   </div>
                   <input type="text" name="notes" class="form-control" placeholder="Notes (optional)" style="margin-bottom:6px;">
                   <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button type="submit" name="mark_rent_paid" class="btn-mini primary">Mark rent paid</button>
+                    <button type="submit" name="mark_rent_paid" class="btn-mini primary">Assign / mark paid</button>
                     <button type="submit" name="suspend_rent" class="btn-mini warn" onclick="return confirm('Suspend this shop? Public storefront will be hidden.');">Suspend</button>
                   </div>
                 </form>

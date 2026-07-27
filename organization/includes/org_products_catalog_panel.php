@@ -88,7 +88,7 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
       <div class="d-flex" style="gap:8px;">
         <a href="<?= h($pimHubHref) ?>" class="btn btn-sm btn-outline-secondary"><?= h($pimHubLabel) ?></a>
         <?php if (!$shopVisible): ?>
-          <span class="badge badge-warning align-self-center">Shop hidden — rent overdue or trial ended</span>
+          <span class="badge badge-warning align-self-center">Shop hidden — <a href="shop_rent.php" class="tx-white">pay rent (from $1/mo)</a></span>
         <?php else: ?>
           <span class="badge badge-success align-self-center">Shop live</span>
         <?php endif; ?>
@@ -128,14 +128,39 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
           <p class="pim-type-fields-head">Product details for <strong id="pimTypeFieldsLabel">this type</strong> <span class="pim-type-fields-hint" id="pimTypeFieldsHint"></span></p>
           <div class="row" id="pimTypeFields"></div>
         </div>
+        <?php
+          $editProductCode = '';
+          if (!empty($editProduct['id']) && function_exists('org_shop_ensure_product_code') && isset($dbh, $orgId)) {
+              $editProductCode = org_shop_ensure_product_code(
+                  $dbh,
+                  (int)$orgId,
+                  (int)$editProduct['id'],
+                  isset($editProduct['product_code']) ? (string)$editProduct['product_code'] : null
+              );
+          } elseif (!empty($editProduct['product_code'])) {
+              $editProductCode = trim((string)$editProduct['product_code']);
+          }
+        ?>
         <div class="row">
-          <div class="col-md-5">
+          <div class="col-md-4">
             <div class="form-group">
               <label for="pimTitle">Title <span class="pim-required-star">*</span></label>
               <input type="text" name="title" id="pimTitle" class="form-control" maxlength="200" required value="<?= h((string)($editProduct['title'] ?? '')) ?>">
             </div>
           </div>
           <div class="col-md-3">
+            <div class="form-group">
+              <label>Product ID</label>
+              <?php if ($editProductCode !== ''): ?>
+                <input type="text" class="form-control" value="<?= h($editProductCode) ?>" readonly>
+                <small class="text-muted">Catalog ID. A new ID is issued when a customer orders.</small>
+              <?php else: ?>
+                <input type="text" class="form-control" value="Assigned on save" readonly>
+                <small class="text-muted">Created on save. Each order gets its own Product ID.</small>
+              <?php endif; ?>
+            </div>
+          </div>
+          <div class="col-md-2">
             <div class="form-group">
               <label>SKU</label>
               <input type="text" name="sku" class="form-control" maxlength="64" value="<?= h((string)($editProduct['sku'] ?? '')) ?>">
@@ -147,7 +172,7 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
               <input type="number" name="price" id="pimPrice" class="form-control" min="0" step="0.01" required value="<?= h($editProduct ? number_format(((int)($editProduct['price_cents'] ?? 0)) / 100, 2, '.', '') : '') ?>" placeholder="0.00">
             </div>
           </div>
-          <div class="col-md-2">
+          <div class="col-md-1">
             <div class="form-group">
               <label for="pimStock">Stock <span class="pim-required-star">*</span></label>
               <input type="number" name="stock_qty" id="pimStock" class="form-control" min="0" required placeholder="0" value="<?= isset($editProduct['stock_qty']) && $editProduct['stock_qty'] !== null ? (int)$editProduct['stock_qty'] : '' ?>">

@@ -343,6 +343,10 @@ function redirectUserLoginDeleted(): void
 
 function requireUserLogin(): void
 {
+    if (!empty($GLOBALS['msb_user_login_verified'])) {
+        return;
+    }
+
     sendNoCacheHeadersUser();
 
     $needsLinkedSync = empty($_SESSION['user_login']) || empty($_SESSION['user_id']);
@@ -371,11 +375,6 @@ function requireUserLogin(): void
         exit;
     }
 
-    if (app_session_is_expired()) {
-        clearUserSession();
-        app_session_redirect_with_expired('index.php');
-    }
-
     try {
         require_once __DIR__ . '/../controller.php';
         $controller = new Controller();
@@ -385,23 +384,9 @@ function requireUserLogin(): void
         }
 
         require_once __DIR__ . '/publisher_accounts_load.php';
-        if (!publisher_session_validate($dbh)) {
-            $uid = (int)($_SESSION['user_id'] ?? 0);
-            if ($uid > 0 && user_is_account_removed($dbh, $uid)) {
-                redirectUserLoginDeleted();
-            }
-            if (user_session_login_was_deleted($dbh)) {
-                redirectUserLoginDeleted();
-            }
-            if ($uid > 0 && user_is_account_deactivated($dbh, $uid)) {
-                redirectUserLoginDeactivated();
-            }
-            clearUserSession();
-            header('Location: index.php?session=reset');
-            exit;
-        }
-
         $uid = (int)($_SESSION['user_id'] ?? 0);
+
+        // Account lifecycle checks first — only these should force sign-out.
         if ($uid > 0 && user_is_account_removed($dbh, $uid)) {
             redirectUserLoginDeleted();
         }
@@ -410,6 +395,30 @@ function requireUserLogin(): void
         }
         if ($uid > 0 && user_is_account_deactivated($dbh, $uid)) {
             redirectUserLoginDeactivated();
+        }
+
+        if (!publisher_session_validate($dbh)) {
+            // Last-chance repair: keep publishers logged in across page navigations.
+            if ($uid > 0 && trim((string)($_SESSION['user_login'] ?? '')) !== '') {
+                try {
+                    if (function_exists('publisher_session_bind_owner')) {
+                        $kind = strtolower(trim((string)($_SESSION['user_account_kind'] ?? '')));
+                        if ($kind === 'publisher' || !empty($_SESSION['publisher_session_owner'])) {
+                            publisher_session_bind_owner($dbh, $uid, false);
+                        } else {
+                            $_SESSION['session_user_id'] = $uid;
+                        }
+                    } else {
+                        $_SESSION['session_user_id'] = $uid;
+                    }
+                } catch (Throwable $e) {
+                    $_SESSION['session_user_id'] = $uid;
+                }
+            } else {
+                clearUserSession();
+                header('Location: index.php?session=reset');
+                exit;
+            }
         }
     } catch (Throwable $e) {
         // keep auth flow resilient if session validation fails unexpectedly
@@ -427,6 +436,8 @@ function requireUserLogin(): void
     } catch (Throwable $e) {
         // ignore staff page guard failures
     }
+
+    $GLOBALS['msb_user_login_verified'] = true;
 }
 
 function bumpUserLastSeenThrottled(int $minIntervalSeconds = 20): void

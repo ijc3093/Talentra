@@ -28,6 +28,7 @@ function appearance_bridge_theme_auto_enabled(PDO $dbh, int $userId): bool
     }
 
     appearance_palette_ensure_schema($dbh);
+    appearance_bridge_heal_auto_appearance_conflict($dbh, $userId);
 
     try {
         $st = $dbh->prepare('SELECT theme_auto_enabled, appearance_mode FROM user_profile_settings WHERE user_id = :uid LIMIT 1');
@@ -43,6 +44,41 @@ function appearance_bridge_theme_auto_enabled(PDO $dbh, int $userId): bool
         return $mode === 'system';
     } catch (Throwable $e) {
         return true;
+    }
+}
+
+/**
+ * Dark auto + fixed Appearance color cannot both be active (causes flash).
+ * If both are stored, keep the color and turn Dark auto off.
+ */
+function appearance_bridge_heal_auto_appearance_conflict(PDO $dbh, int $userId): void
+{
+    if ($userId <= 0) {
+        return;
+    }
+    static $healed = [];
+    if (isset($healed[$userId])) {
+        return;
+    }
+    $healed[$userId] = true;
+
+    try {
+        $st = $dbh->prepare('SELECT theme_auto_enabled, appearance_mode FROM user_profile_settings WHERE user_id = :uid LIMIT 1');
+        $st->execute([':uid' => $userId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return;
+        }
+        $auto = ((int)($row['theme_auto_enabled'] ?? 0)) === 1;
+        $mode = appearance_palette_normalize_mode((string)($row['appearance_mode'] ?? 'system'));
+        $fixed = $mode !== 'system';
+        if (!$auto || !$fixed) {
+            return;
+        }
+        $up = $dbh->prepare('UPDATE user_profile_settings SET theme_auto_enabled = 0 WHERE user_id = :uid LIMIT 1');
+        $up->execute([':uid' => $userId]);
+    } catch (Throwable $e) {
+        // ignore heal failures
     }
 }
 
@@ -230,20 +266,26 @@ function appearance_bridge_print_pub_palette_critical(string $mode): void
     $muted = $usesDarkChrome ? '#b1bcce' : appearance_palette_chromatic_muted_hex($mode);
     $icon = $text;
     $action = appearance_palette_chromatic_action_hex($mode);
+    $borderPair = appearance_palette_border_pair_on($pageBg, appearance_palette_hex_for_slug($mode));
     $pageBgAttr = htmlspecialchars($pageBg, ENT_QUOTES, 'UTF-8');
     $textAttr = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     $mutedAttr = htmlspecialchars($muted, ENT_QUOTES, 'UTF-8');
     $iconAttr = htmlspecialchars($icon, ENT_QUOTES, 'UTF-8');
     $actionAttr = htmlspecialchars($action, ENT_QUOTES, 'UTF-8');
+    $borderAttr = htmlspecialchars($borderPair['border'], ENT_QUOTES, 'UTF-8');
+    $borderStrongAttr = htmlspecialchars($borderPair['borderStrong'], ENT_QUOTES, 'UTF-8');
     $dash = appearance_bridge_shell_palette_dashboard_selectors();
 
     echo '<style id="pub-dashboard-palette-critical">'
         . 'html[data-msb-appearance],html.msb-palette-active{--msb-palette-bg:' . $pageBgAttr . ';--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';'
         . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
         . '--msb-palette-icon:' . $iconAttr . ';--msb-palette-action:' . $actionAttr . ';'
+        . '--msb-palette-border:' . $borderAttr . ';--msb-palette-border-strong:' . $borderStrongAttr . ';'
+        . '--public-border:' . $borderAttr . ';--public-border-strong:' . $borderStrongAttr . ';'
+        . '--feed-border:' . $borderAttr . ';--feed-border-strong:' . $borderStrongAttr . ';'
         . '--msb-palette-text-on-nav:' . $textAttr . ';--text-primary:' . $textAttr . ';--text-muted:' . $mutedAttr . ';}'
         . $dash . '{background-color:var(--msb-palette-bg,' . $pageBgAttr . ')!important;background-image:none!important;'
-        . 'color:var(--msb-palette-text,' . $textAttr . ')!important;border-color:var(--msb-palette-border,rgba(15,23,42,0.12))!important;}'
+        . 'color:var(--msb-palette-text,' . $textAttr . ')!important;border-color:var(--msb-palette-border,' . $borderAttr . ')!important;}'
         . 'html[data-msb-appearance] body.dashboard-page label,'
         . 'html[data-msb-appearance] body.dashboard-page .card-title,'
         . 'html[data-msb-appearance] body.dashboard-page h6,'
@@ -264,7 +306,7 @@ function appearance_bridge_print_pub_palette_critical(string $mode): void
         . 'html[data-msb-appearance] body.dashboard-page .msb-readonly-field{'
         . 'background-color:var(--msb-palette-input-bg,var(--msb-palette-surface,var(--msb-palette-bg,' . $pageBgAttr . ')))!important;'
         . 'color:var(--msb-palette-text,' . $textAttr . ')!important;'
-        . 'border-color:var(--msb-palette-border-strong,var(--msb-palette-border,rgba(15,23,42,0.18)))!important;}'
+        . 'border-color:var(--msb-palette-border-strong,var(--msb-palette-border,' . $borderStrongAttr . '))!important;}'
         . '</style>' . "\n";
 }
 
@@ -288,6 +330,7 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
     $btnText = appearance_palette_btn_text_hex($mode);
     $navActiveBg = appearance_palette_nav_active_bg_hex($mode);
     $navActiveText = appearance_palette_nav_active_text_hex($mode);
+    $borderPair = appearance_palette_border_pair_on($pageBg, appearance_palette_hex_for_slug($mode));
     $pageBgAttr = htmlspecialchars($pageBg, ENT_QUOTES, 'UTF-8');
     $textAttr = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     $mutedAttr = htmlspecialchars($muted, ENT_QUOTES, 'UTF-8');
@@ -297,6 +340,8 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
     $btnTextAttr = htmlspecialchars($btnText, ENT_QUOTES, 'UTF-8');
     $navActiveBgAttr = htmlspecialchars($navActiveBg, ENT_QUOTES, 'UTF-8');
     $navActiveTextAttr = htmlspecialchars($navActiveText, ENT_QUOTES, 'UTF-8');
+    $borderAttr = htmlspecialchars($borderPair['border'], ENT_QUOTES, 'UTF-8');
+    $borderStrongAttr = htmlspecialchars($borderPair['borderStrong'], ENT_QUOTES, 'UTF-8');
 
     $surfaces = 'html[data-msb-appearance] body.profile-page,'
         . 'html[data-msb-appearance] body.profile-page .sh-mainpanel,'
@@ -338,12 +383,15 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . 'html[data-msb-appearance],html.msb-palette-active{--msb-palette-bg:' . $pageBgAttr . ';--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';'
         . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
         . '--msb-palette-icon:' . $iconAttr . ';--msb-palette-action:' . $actionAttr . ';'
+        . '--msb-palette-border:' . $borderAttr . ';--msb-palette-border-strong:' . $borderStrongAttr . ';'
+        . '--public-border:' . $borderAttr . ';--public-border-strong:' . $borderStrongAttr . ';'
+        . '--feed-border:' . $borderAttr . ';--feed-border-strong:' . $borderStrongAttr . ';'
         . '--msb-palette-btn-bg:' . $btnBgAttr . ';--msb-palette-btn-text:' . $btnTextAttr . ';'
         . '--msb-palette-nav-active-bg:' . $navActiveBgAttr . ';--msb-palette-nav-active-text:' . $navActiveTextAttr . ';'
         . '--msb-palette-text-on-nav:' . $textAttr . ';}'
         . $surfaces . '{'
         . 'background-color:var(--msb-palette-bg,' . $pageBgAttr . ')!important;background-image:none!important;'
-        . 'color:var(--msb-palette-text,' . $textAttr . ')!important;}'
+        . 'color:var(--msb-palette-text,' . $textAttr . ')!important;border-color:var(--msb-palette-border,' . $borderAttr . ')!important;}'
         . 'html[data-msb-appearance] body.profile-page .profile-account-badge,'
         . 'html[data-msb-appearance] body.profile-page span.profile-account-badge,'
         . 'html.msb-palette-active body.profile-page .profile-account-badge{'
@@ -408,17 +456,23 @@ function appearance_bridge_print_shop_palette_critical(string $mode): void
     $action = appearance_palette_chromatic_action_hex($mode);
     $btnBg = appearance_palette_btn_bg_hex($mode);
     $btnText = appearance_palette_btn_text_hex($mode);
+    $borderPair = appearance_palette_border_pair_on($pageBg, appearance_palette_hex_for_slug($mode));
     $pageBgAttr = htmlspecialchars($pageBg, ENT_QUOTES, 'UTF-8');
     $textAttr = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     $mutedAttr = htmlspecialchars($muted, ENT_QUOTES, 'UTF-8');
     $actionAttr = htmlspecialchars($action, ENT_QUOTES, 'UTF-8');
     $btnBgAttr = htmlspecialchars($btnBg, ENT_QUOTES, 'UTF-8');
     $btnTextAttr = htmlspecialchars($btnText, ENT_QUOTES, 'UTF-8');
+    $borderAttr = htmlspecialchars($borderPair['border'], ENT_QUOTES, 'UTF-8');
+    $borderStrongAttr = htmlspecialchars($borderPair['borderStrong'], ENT_QUOTES, 'UTF-8');
     $surfaces = appearance_bridge_shell_palette_shop_selectors();
 
     echo '<style id="shop-palette-critical">'
+        . 'html[data-msb-appearance],html.msb-palette-active{--msb-palette-border:' . $borderAttr . ';--msb-palette-border-strong:' . $borderStrongAttr . ';'
+        . '--public-border:' . $borderAttr . ';--public-border-strong:' . $borderStrongAttr . ';'
+        . '--feed-border:' . $borderAttr . ';--feed-border-strong:' . $borderStrongAttr . ';}'
         . $surfaces . '{background-color:var(--msb-palette-bg,' . $pageBgAttr . ')!important;background-image:none!important;'
-        . 'color:var(--msb-palette-text,' . $textAttr . ')!important;border-color:var(--msb-palette-border,rgba(15,23,42,0.12))!important;}'
+        . 'color:var(--msb-palette-text,' . $textAttr . ')!important;border-color:var(--msb-palette-border,' . $borderAttr . ')!important;}'
         . 'html[data-msb-appearance] body.shop-page .shop-market-title,'
         . 'html[data-msb-appearance] body.shop-page .shop-market-title a,'
         . 'html[data-msb-appearance] body.shop-page .shop-market-price,'
@@ -467,7 +521,7 @@ function appearance_bridge_print_shop_palette_critical(string $mode): void
         . 'html[data-msb-appearance] body.shop-page .shop-market-add-cart,'
         . 'html[data-msb-appearance] body.shop-page .shop-buy-submit{'
         . 'background-color:var(--msb-palette-btn-bg,' . $btnBgAttr . ')!important;'
-        . 'border:1px solid var(--msb-palette-border,rgba(177,188,206,.55))!important;'
+        . 'border:1px solid var(--msb-palette-border,' . $borderAttr . ')!important;'
         . 'color:var(--msb-palette-btn-text,' . $btnTextAttr . ')!important;}'
         . 'html[data-msb-appearance] body.shop-page .shop-nav-filter-clear,'
         . 'html[data-msb-appearance] body.shop-page .shop-brand-nav-clear,'
@@ -483,7 +537,7 @@ function appearance_bridge_print_shop_palette_critical(string $mode): void
         . 'color:var(--msb-palette-text,' . $textAttr . ')!important;}'
         . 'html[data-msb-appearance] body.shop-page .cart-qty input{'
         . 'background-color:var(--msb-palette-input-bg,var(--msb-palette-bg,' . $pageBgAttr . '))!important;'
-        . 'border-color:var(--msb-palette-border,rgba(15,23,42,0.12))!important;'
+        . 'border-color:var(--msb-palette-border,' . $borderAttr . ')!important;'
         . 'color:var(--msb-palette-text,' . $textAttr . ')!important;}'
         . '</style>' . "\n";
 }
@@ -928,7 +982,7 @@ function appearance_bridge_print_profile_builtin_light_critical(string $mode, bo
         . 'html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-sidebar-head,'
         . 'html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-main{'
         . 'background-color:#f5f7fb!important;background-image:none!important;'
-        . 'color:#0f172a!important;border-color:rgba(15,23,42,.12)!important;}'
+        . 'color:#0f172a!important;border-color:#c0c2c4!important;}'
         . 'html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-sidebar-title,'
         . 'html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-detail-title,'
         . 'html[data-theme="light"]:not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle,'
@@ -992,16 +1046,16 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
     if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
         $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
-        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=106', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=115', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=88', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=98', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=33', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=34', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);

@@ -198,6 +198,77 @@ function post_format_card_text_html(string $text): string
     return $html;
 }
 
+/** Count sentences for card caption clamp (personal + publisher). */
+function post_caption_sentence_count(string $text): int
+{
+    $text = trim($text);
+    if ($text === '') {
+        return 0;
+    }
+    $parts = preg_split('/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    return count($parts);
+}
+
+function post_limit_sentences(string $text, int $maxSentences = 3): string
+{
+    $text = trim($text);
+    if ($text === '' || $maxSentences < 1) {
+        return $text;
+    }
+
+    $parts = preg_split('/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if (count($parts) <= $maxSentences) {
+        return $text;
+    }
+
+    return trim(implode(' ', array_slice($parts, 0, $maxSentences)));
+}
+
+/** True when card should show Read more (more than 3 sentences, or one very long block). */
+function post_caption_needs_readmore(string $caption, int $maxSentences = 3, int $maxChars = 170): bool
+{
+    $caption = post_normalize_card_plain_text(trim($caption));
+    if ($caption === '') {
+        return false;
+    }
+    if (post_caption_sentence_count($caption) > $maxSentences) {
+        return true;
+    }
+    return mb_strlen($caption) > $maxChars;
+}
+
+/**
+ * Formatted caption HTML for feed/public/profile cards.
+ * Long text is clamped to ~3 sentences for personal and publisher posts alike.
+ */
+function post_caption_card_html(string $caption, int $maxSentences = 3, int $maxChars = 170): string
+{
+    $caption = post_normalize_card_plain_text(trim($caption));
+    if ($caption === '') {
+        return '';
+    }
+
+    $needsClamp = post_caption_needs_readmore($caption, $maxSentences, $maxChars);
+    $display = $caption;
+    if ($needsClamp) {
+        $display = post_limit_sentences($caption, $maxSentences);
+        if ($display === $caption && mb_strlen($caption) > $maxChars) {
+            $cut = mb_substr($caption, 0, $maxChars);
+            $sp = mb_strrpos($cut, ' ');
+            if ($sp !== false && $sp > (int)($maxChars * 0.6)) {
+                $cut = mb_substr($cut, 0, $sp);
+            }
+            $display = rtrim($cut) . '…';
+        } elseif ($display !== $caption && !preg_match('/[.!?…]$/u', $display)) {
+            $display .= '…';
+        }
+    }
+
+    $formatted = post_format_card_text_html($display);
+    $class = 'post-card-caption-formatted' . ($needsClamp ? ' is-clamped' : '');
+    return '<div class="' . $class . '">' . $formatted . '</div>';
+}
+
 function post_allowed_layout_override(string $layout): string
 {
     $layout = strtolower(trim($layout));

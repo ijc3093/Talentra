@@ -68,9 +68,11 @@ function platform_rent_ensure_schema(PDO $dbh): void
             ");
             $dbh->exec("
                 INSERT INTO `platform_plans` (`id`, `code`, `name`, `price_cents`, `currency`, `billing_interval`, `trial_days`, `max_products`, `is_active`, `sort_order`, `created_at`) VALUES
-                (1, 'shop_trial', 'Shop Trial', 0, 'USD', 'none', 30, 10, 1, 0, NOW()),
-                (2, 'shop_basic', 'Shop Basic', 499, 'USD', 'monthly', 0, 50, 1, 10, NOW()),
-                (3, 'shop_pro', 'Shop Pro', 999, 'USD', 'monthly', 0, 500, 1, 20, NOW())
+                (1, 'shop_trial', 'Shop Trial', 0, 'USD', 'none', 30, 15, 1, 0, NOW()),
+                (2, 'shop_starter', 'Small Business', 100, 'USD', 'monthly', 0, 25, 1, 5, NOW()),
+                (3, 'shop_micro', 'Micro Shop', 199, 'USD', 'monthly', 0, 75, 1, 10, NOW()),
+                (4, 'shop_basic', 'Business Shop', 499, 'USD', 'monthly', 0, 200, 1, 20, NOW()),
+                (5, 'shop_pro', 'Premium Shop', 999, 'USD', 'monthly', 0, 1000, 1, 30, NOW())
             ");
         }
 
@@ -110,7 +112,152 @@ function platform_rent_ensure_schema(PDO $dbh): void
         // best-effort
     }
 
+    try {
+        platform_rent_seed_affordable_plans($dbh);
+    } catch (Throwable $e) {
+        // best-effort
+    }
+
     $done = true;
+}
+
+/**
+ * Affordable mall rent for small businesses:
+ * - Small Business ($1/mo minimum, limited catalog)
+ * - Micro / Business / Premium paid tiers for growing shops
+ */
+function platform_rent_seed_affordable_plans(PDO $dbh): void
+{
+    if (!platform_rent_table_exists($dbh, 'platform_plans')) {
+        return;
+    }
+
+    $catalog = [
+        [
+            'code' => 'shop_trial',
+            'name' => 'Shop Trial',
+            'price_cents' => 0,
+            'billing_interval' => 'none',
+            'trial_days' => 30,
+            'max_products' => 15,
+            'sort_order' => 0,
+            'is_active' => 1,
+        ],
+        [
+            'code' => 'shop_starter',
+            'name' => 'Small Business',
+            'price_cents' => 100,
+            'billing_interval' => 'monthly',
+            'trial_days' => 0,
+            'max_products' => 25,
+            'sort_order' => 5,
+            'is_active' => 1,
+        ],
+        [
+            'code' => 'shop_micro',
+            'name' => 'Micro Shop',
+            'price_cents' => 199,
+            'billing_interval' => 'monthly',
+            'trial_days' => 0,
+            'max_products' => 75,
+            'sort_order' => 10,
+            'is_active' => 1,
+        ],
+        [
+            'code' => 'shop_basic',
+            'name' => 'Business Shop',
+            'price_cents' => 499,
+            'billing_interval' => 'monthly',
+            'trial_days' => 0,
+            'max_products' => 200,
+            'sort_order' => 20,
+            'is_active' => 1,
+        ],
+        [
+            'code' => 'shop_pro',
+            'name' => 'Premium Shop',
+            'price_cents' => 999,
+            'billing_interval' => 'monthly',
+            'trial_days' => 0,
+            'max_products' => 1000,
+            'sort_order' => 30,
+            'is_active' => 1,
+        ],
+    ];
+
+    try {
+        $st = $dbh->prepare('
+            INSERT INTO platform_plans (
+                code, name, price_cents, currency, billing_interval, trial_days, max_products, is_active, sort_order, created_at
+            ) VALUES (
+                :code, :name, :price, \'USD\', :interval, :trial, :maxp, :active, :sort, NOW()
+            )
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name),
+                price_cents = VALUES(price_cents),
+                billing_interval = VALUES(billing_interval),
+                trial_days = VALUES(trial_days),
+                max_products = VALUES(max_products),
+                is_active = VALUES(is_active),
+                sort_order = VALUES(sort_order)
+        ');
+        foreach ($catalog as $plan) {
+            $st->execute([
+                ':code' => $plan['code'],
+                ':name' => $plan['name'],
+                ':price' => $plan['price_cents'],
+                ':interval' => $plan['billing_interval'],
+                ':trial' => $plan['trial_days'],
+                ':maxp' => $plan['max_products'],
+                ':active' => $plan['is_active'],
+                ':sort' => $plan['sort_order'],
+            ]);
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+}
+
+/** True when the plan has $0 rent forever (not a time-limited trial). */
+function platform_rent_plan_is_free_forever(?array $plan): bool
+{
+    if (!$plan) {
+        return false;
+    }
+    $code = strtolower(trim((string)($plan['code'] ?? '')));
+    if ($code === 'shop_trial') {
+        return false;
+    }
+    return (int)($plan['price_cents'] ?? 0) <= 0
+        && strtolower(trim((string)($plan['billing_interval'] ?? ''))) === 'none'
+        && (int)($plan['trial_days'] ?? 0) <= 0;
+}
+
+/** Plans sellers can choose themselves (excludes trial). */
+function platform_rent_list_seller_plans(PDO $dbh): array
+{
+    $plans = platform_rent_list_plans($dbh, true);
+    return array_values(array_filter(
+        $plans,
+        static fn(array $p): bool => strtolower(trim((string)($p['code'] ?? ''))) !== 'shop_trial'
+    ));
+}
+
+function platform_rent_plan_blurb(array $plan): string
+{
+    $code = strtolower(trim((string)($plan['code'] ?? '')));
+    switch ($code) {
+        case 'shop_starter':
+            return 'Lowest rent for small shops — $1/month minimum. Keep a small catalog live without expensive plans.';
+        case 'shop_micro':
+            return 'Very low monthly rent when you need a bit more catalog space.';
+        case 'shop_basic':
+            return 'Growing shops that need more listings each month.';
+        case 'shop_pro':
+            return 'High-volume sellers who want a large catalog.';
+        default:
+            return '';
+    }
 }
 
 function platform_rent_format_money(int $cents, string $currency = 'USD'): string
@@ -202,7 +349,7 @@ function platform_rent_sync_org_status(PDO $dbh, int $orgId): string
 
     try {
         $st = $dbh->prepare('
-            SELECT rent_status, rent_paid_until, rent_trial_ends_at, status
+            SELECT rent_status, rent_paid_until, rent_trial_ends_at, status, platform_plan_id
             FROM organizations WHERE id = :id LIMIT 1
         ');
         $st->execute([':id' => $orgId]);
@@ -218,6 +365,18 @@ function platform_rent_sync_org_status(PDO $dbh, int $orgId): string
         $current = strtolower(trim((string)($row['rent_status'] ?? 'trial')));
         if ($current === 'suspended') {
             return 'suspended';
+        }
+
+        $planId = (int)($row['platform_plan_id'] ?? 0);
+        $plan = $planId > 0 ? platform_rent_get_plan($dbh, $planId) : null;
+
+        // Small-business free plan: no monthly rent, shop stays live.
+        if (platform_rent_plan_is_free_forever($plan)) {
+            if ($current !== 'active') {
+                $dbh->prepare('UPDATE organizations SET rent_status = \'active\', updated_at = NOW() WHERE id = :id LIMIT 1')
+                    ->execute([':id' => $orgId]);
+            }
+            return 'active';
         }
 
         $now = time();
@@ -402,6 +561,19 @@ function platform_rent_mark_paid(
         return false;
     }
 
+    // Free forever plan — activate without a paid-until date.
+    if (platform_rent_plan_is_free_forever($plan)) {
+        return platform_rent_activate_free_plan(
+            $dbh,
+            $orgId,
+            $planId,
+            $adminId,
+            $paymentMethod !== '' ? $paymentMethod : 'free_plan',
+            $paymentReference,
+            $notes !== '' ? $notes : 'Free plan activated'
+        );
+    }
+
     $monthsPaid = max(1, min($monthsPaid, 36));
     $amountCents = (int)($plan['price_cents'] ?? 0) * $monthsPaid;
     $currency = (string)($plan['currency'] ?? 'USD');
@@ -469,6 +641,130 @@ function platform_rent_mark_paid(
         }
         return false;
     }
+}
+
+/** Activate a $0 rent-free forever plan (not used for Small Business — that plan is $1/mo). */
+function platform_rent_activate_free_plan(
+    PDO $dbh,
+    int $orgId,
+    int $planId = 0,
+    int $adminId = 0,
+    string $paymentMethod = 'free_plan',
+    string $paymentReference = '',
+    string $notes = ''
+): bool {
+    platform_rent_ensure_schema($dbh);
+    if ($orgId <= 0) {
+        return false;
+    }
+
+    $plan = null;
+    if ($planId > 0) {
+        $plan = platform_rent_get_plan($dbh, $planId);
+    }
+    if (!$plan || !platform_rent_plan_is_free_forever($plan)) {
+        return false;
+    }
+
+    $planId = (int)($plan['id'] ?? 0);
+    if ($planId <= 0) {
+        return false;
+    }
+
+    try {
+        $dbh->beginTransaction();
+
+        $stU = $dbh->prepare('
+            UPDATE organizations
+            SET platform_plan_id = :plan,
+                rent_status = \'active\',
+                rent_paid_until = NULL,
+                updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ');
+        $stU->execute([':plan' => $planId, ':id' => $orgId]);
+
+        $stP = $dbh->prepare('
+            INSERT INTO platform_payments (
+                org_id, plan_id, amount_cents, currency, months_paid,
+                payment_method, payment_reference, status, notes,
+                recorded_by_admin_id, paid_at, created_at
+            ) VALUES (
+                :org, :plan, 0, :cur, 1,
+                :method, :ref, \'confirmed\', :notes,
+                :admin, NOW(), NOW()
+            )
+        ');
+        $stP->execute([
+            ':org' => $orgId,
+            ':plan' => $planId,
+            ':cur' => (string)($plan['currency'] ?? 'USD'),
+            ':method' => $paymentMethod !== '' ? $paymentMethod : 'free_plan',
+            ':ref' => $paymentReference !== '' ? $paymentReference : null,
+            ':notes' => $notes !== '' ? $notes : 'Rent-free plan activated',
+            ':admin' => $adminId > 0 ? $adminId : null,
+        ]);
+
+        $dbh->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($dbh->inTransaction()) {
+            $dbh->rollBack();
+        }
+        return false;
+    }
+}
+
+/**
+ * Confirm a seller Stripe rent payment from Checkout session metadata.
+ * @param array<string, mixed> $session
+ */
+function platform_rent_fulfill_stripe_session(PDO $dbh, array $session): bool
+{
+    $meta = is_array($session['metadata'] ?? null) ? $session['metadata'] : [];
+    $kind = strtolower(trim((string)($meta['kind'] ?? '')));
+    if ($kind !== 'shop_rent') {
+        return false;
+    }
+
+    $paymentStatus = strtolower(trim((string)($session['payment_status'] ?? '')));
+    $status = strtolower(trim((string)($session['status'] ?? '')));
+    if ($paymentStatus !== 'paid' && $status !== 'complete') {
+        return false;
+    }
+
+    $orgId = (int)($meta['org_id'] ?? 0);
+    $planId = (int)($meta['plan_id'] ?? 0);
+    $months = max(1, min(36, (int)($meta['months'] ?? 1)));
+    $sessionId = trim((string)($session['id'] ?? ''));
+    if ($orgId <= 0 || $planId <= 0) {
+        return false;
+    }
+
+    // Idempotent: skip if this Stripe session was already recorded.
+    if ($sessionId !== '' && platform_rent_table_exists($dbh, 'platform_payments')) {
+        try {
+            $st = $dbh->prepare('SELECT 1 FROM platform_payments WHERE payment_reference = :ref LIMIT 1');
+            $st->execute([':ref' => $sessionId]);
+            if ($st->fetchColumn()) {
+                return true;
+            }
+        } catch (Throwable $e) {
+            // continue
+        }
+    }
+
+    return platform_rent_mark_paid(
+        $dbh,
+        $orgId,
+        $planId,
+        $months,
+        0,
+        'stripe',
+        $sessionId,
+        'Seller self-serve rent payment'
+    );
 }
 
 function platform_rent_suspend(PDO $dbh, int $orgId): bool

@@ -110,12 +110,13 @@ foreach ($rows as $row) {
 
 org_admin_render_head('Commerce Brand Migration');
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Commerce Brands');
+?>
 
 <div class="sh-mainpanel">
-  <div class="sh-pagetitle">
+  <!-- <div class="sh-pagetitle">
     <div class="sh-pagetitle-left">
       <div class="sh-pagetitle-icon"><i class="icon ion-ios-cart"></i></div>
       <div>
@@ -126,14 +127,14 @@ org_admin_render_head('Commerce Brand Migration');
     <div class="sh-pagetitle-right">
       <a href="orglist.php" class="btn-mini">Organizations</a>
     </div>
-  </div>
+  </div> -->
 
   <div class="sh-pagebody">
     <?php if ($msg !== ''): ?><div class="alert-lite ok"><?= org_admin_h($msg) ?></div><?php endif; ?>
     <?php if ($error !== ''): ?><div class="alert-lite bad"><?= org_admin_h($error) ?></div><?php endif; ?>
 
-    <div class="card admin-card mg-b-20">
-      <div class="card-header pro">
+    <div class="card admin-card sh-admin-table-card mg-b-20" style="flex:0 0 auto;">
+      <div class="card-header">
         How this works
         <div class="sub">One-time fix for orgs created before commerce brand signup existed (e.g. CNN/news instead of McDonald's).</div>
       </div>
@@ -144,7 +145,8 @@ org_admin_render_head('Commerce Brand Migration');
       </div>
     </div>
 
-    <div class="card admin-card">
+    <div class="card admin-card sh-admin-table-card">
+      <div class="card-header">Commerce Brand Assignment</div>
       <div class="pro-tools">
         <div class="filter-tabs">
           <?php
@@ -190,7 +192,7 @@ org_admin_render_head('Commerce Brand Migration');
 
       <div class="card-body-fixed">
         <div class="table-scroll">
-          <table class="table admin-table">
+          <table class="table table-bordered table-hover mg-b-0 admin-table">
             <thead>
               <tr>
                 <?php if ($filter !== 'assigned'): ?><th style="width:36px;"><input type="checkbox" id="orgMigrateCheckAll" aria-label="Select all"></th><?php endif; ?>

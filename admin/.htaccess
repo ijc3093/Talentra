@@ -1,8 +1,18 @@
-# Optional extra HTTP basic auth for production hosting.
-# Disabled on localhost so MAMP can load admin (PHP login in index.php still applies).
-<If "%{HTTP_HOST} !~ /^(localhost|127\.0\.0\.1)(:\d+)?$/i">
-  AuthType Basic
-  AuthName "Admin Area"
-  AuthUserFile /home/uXXXXXXXX/domains/talentra.pro/public_html/admin/.htpasswd
-  Require valid-user
-</If>
+# Admin PHP login lives in index.php (session + DB).
+# Do NOT enable Apache Basic Auth here unless you create a real .htpasswd
+# and set AuthUserFile to the absolute path on THIS host.
+#
+# Broken production gate (placeholder path) was blocking mystorybook.pro/admin
+# with a browser "sign in" dialog that never reached the PHP login form.
+#
+# To re-enable optional Basic Auth later (Hostinger example):
+#   1) Create admin/.htpasswd (htpasswd -c .htpasswd youruser)
+#   2) Uncomment below and set AuthUserFile to the real absolute path, e.g.
+#      /home/u123456789/domains/mystorybook.pro/public_html/admin/.htpasswd
+#
+# <If "%{HTTP_HOST} !~ /^(localhost|127\.0\.0\.1)(:\d+)?$/i">
+#   AuthType Basic
+#   AuthName "Admin Area"
+#   AuthUserFile /home/uXXXXXXXX/domains/mystorybook.pro/public_html/admin/.htpasswd
+#   Require valid-user
+# </If>

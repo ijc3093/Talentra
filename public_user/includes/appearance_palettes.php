@@ -9,6 +9,7 @@ declare(strict_types=1);
 function appearance_palette_basics(): array
 {
     return [
+        'system' => 'Off',
         'light' => 'Light',
         'dark' => 'Dark',
     ];
@@ -434,6 +435,47 @@ function appearance_palette_nav_active_bg_hex(string $slug): string
 function appearance_palette_nav_active_text_hex(string $slug): string
 {
     return appearance_palette_contrast_text_on(appearance_palette_nav_active_bg_hex($slug));
+}
+
+function appearance_palette_contrast_ratio(string $hex1, string $hex2): float
+{
+    $l1 = appearance_palette_relative_luminance($hex1);
+    $l2 = appearance_palette_relative_luminance($hex2);
+    $lighter = max($l1, $l2);
+    $darker = min($l1, $l2);
+    return ($lighter + 0.05) / ($darker + 0.05);
+}
+
+/**
+ * Solid border colors that stay ≥ ~3:1 against the page background (matches JS borderPairOnBackground).
+ *
+ * @return array{border:string,borderStrong:string}
+ */
+function appearance_palette_border_pair_on(string $bgHex, ?string $accentHex = null): array
+{
+    $lum = appearance_palette_relative_luminance($bgHex);
+    // Light → soft gray; dark → subtle slate matching preferred dark divider.
+    $preferred = $lum > 0.45 ? '#c0c2c4' : '#34383c';
+    return [
+        'border' => $preferred,
+        'borderStrong' => $preferred,
+    ];
+}
+
+function appearance_palette_border_hex(string $slug, bool $strong = false): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    $bg = appearance_palette_unified_bg_hex($slug);
+    $accent = null;
+    if (!in_array($slug, ['system', 'light', 'dark'], true)) {
+        $accent = appearance_palette_hex_for_slug($slug);
+    } elseif ($slug === 'dark') {
+        $bg = appearance_palette_dark_hex();
+    } elseif ($slug === 'light') {
+        $bg = appearance_palette_light_hex();
+    }
+    $pair = appearance_palette_border_pair_on($bg, $accent);
+    return $strong ? $pair['borderStrong'] : $pair['border'];
 }
 
 function appearance_palette_is_dark_slug(string $slug): bool

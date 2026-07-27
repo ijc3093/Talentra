@@ -131,6 +131,132 @@ function stripe_shop_create_checkout_session(
     return ['ok' => true, 'session_id' => $sessionId, 'checkout_url' => $checkoutUrl];
 }
 
+/**
+ * Seller monthly shop-rent Checkout (organization workspace pays the mall).
+ *
+ * @return array{ok:bool, session_id?:string, checkout_url?:string, error?:string}
+ */
+function stripe_shop_create_rent_checkout_session(
+    int $orgId,
+    int $planId,
+    string $planName,
+    int $unitAmountCents,
+    int $months,
+    string $currency,
+    string $successUrl,
+    string $cancelUrl
+): array {
+    if (!stripe_shop_is_configured() || $orgId <= 0 || $planId <= 0 || $unitAmountCents <= 0) {
+        return ['ok' => false, 'error' => 'Stripe is not configured for rent payments.'];
+    }
+
+    $months = max(1, min(12, $months));
+    $currency = strtolower(trim($currency) ?: 'usd');
+    $planName = mb_substr(trim($planName) !== '' ? $planName : 'Shop rent', 0, 100);
+
+    $params = [
+        'mode' => 'payment',
+        'success_url' => $successUrl,
+        'cancel_url' => $cancelUrl,
+        'client_reference_id' => 'rent-' . $orgId . '-' . $planId,
+        'metadata[kind]' => 'shop_rent',
+        'metadata[org_id]' => (string)$orgId,
+        'metadata[plan_id]' => (string)$planId,
+        'metadata[months]' => (string)$months,
+        'line_items[0][quantity]' => (string)$months,
+        'line_items[0][price_data][currency]' => $currency,
+        'line_items[0][price_data][unit_amount]' => (string)$unitAmountCents,
+        'line_items[0][price_data][product_data][name]' => $planName . ' — shop rent',
+        'line_items[0][price_data][product_data][description]' => $months . ' month' . ($months === 1 ? '' : 's') . ' platform shop rent',
+    ];
+
+    $session = stripe_shop_api_request('POST', 'checkout/sessions', $params);
+    if (!$session || !empty($session['error'])) {
+        return ['ok' => false, 'error' => (string)($session['error'] ?? 'Could not start rent checkout.')];
+    }
+
+    $sessionId = trim((string)($session['id'] ?? ''));
+    $checkoutUrl = trim((string)($session['url'] ?? ''));
+    if ($sessionId === '' || $checkoutUrl === '') {
+        return ['ok' => false, 'error' => 'Invalid Stripe session response.'];
+    }
+
+    return ['ok' => true, 'session_id' => $sessionId, 'checkout_url' => $checkoutUrl];
+}
+
+/**
+ * Customer Plus membership Checkout ($10/month).
+ *
+ * @return array{ok:bool, session_id?:string, checkout_url?:string, error?:string}
+ */
+function stripe_shop_create_membership_checkout_session(
+    int $userId,
+    int $months,
+    string $successUrl,
+    string $cancelUrl
+): array {
+    if (!stripe_shop_is_configured() || $userId <= 0) {
+        return ['ok' => false, 'error' => 'Stripe is not configured for membership.'];
+    }
+
+    $months = max(1, min(12, $months));
+    $unitAmount = 1000; // $10.00
+    if (function_exists('buyer_membership_price_cents')) {
+        $unitAmount = max(1, buyer_membership_price_cents());
+    }
+
+    $params = [
+        'mode' => 'payment',
+        'success_url' => $successUrl,
+        'cancel_url' => $cancelUrl,
+        'client_reference_id' => 'membership-' . $userId,
+        'metadata[kind]' => 'buyer_membership',
+        'metadata[user_id]' => (string)$userId,
+        'metadata[months]' => (string)$months,
+        'line_items[0][quantity]' => (string)$months,
+        'line_items[0][price_data][currency]' => 'usd',
+        'line_items[0][price_data][unit_amount]' => (string)$unitAmount,
+        'line_items[0][price_data][product_data][name]' => 'Customer Plus membership',
+        'line_items[0][price_data][product_data][description]' => $months . ' month' . ($months === 1 ? '' : 's') . ' — $0 service fee on shop orders',
+    ];
+
+    $session = stripe_shop_api_request('POST', 'checkout/sessions', $params);
+    if (!$session || !empty($session['error'])) {
+        return ['ok' => false, 'error' => (string)($session['error'] ?? 'Could not start membership checkout.')];
+    }
+
+    $sessionId = trim((string)($session['id'] ?? ''));
+    $checkoutUrl = trim((string)($session['url'] ?? ''));
+    if ($sessionId === '' || $checkoutUrl === '') {
+        return ['ok' => false, 'error' => 'Invalid Stripe session response.'];
+    }
+
+    return ['ok' => true, 'session_id' => $sessionId, 'checkout_url' => $checkoutUrl];
+}
+
+/** Absolute URL helper for public_user pages. */
+function stripe_shop_public_user_base_url(): string
+{
+    return stripe_shop_public_base_url();
+}
+
+/** Absolute URL for organization workspace pages (rent checkout return). */
+function stripe_shop_organization_base_url(): string
+{
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '/organization/shop_rent.php'));
+    $dir = dirname($script);
+    if (basename($dir) === 'ajax') {
+        $dir = dirname($dir);
+    }
+    // If called from public_user, point at sibling organization folder.
+    if (basename($dir) === 'public_user') {
+        $dir = dirname($dir) . '/organization';
+    }
+    return rtrim($scheme . '://' . $host . $dir, '/');
+}
+
 /** @return array<string, mixed>|null */
 function stripe_shop_retrieve_session(string $sessionId): ?array
 {

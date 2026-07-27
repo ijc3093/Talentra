@@ -62,7 +62,10 @@ platform_rent_ensure_schema($dbh);
 org_commerce_brands_ensure_schema($dbh);
 $adminId = (int)($_SESSION['admin_id'] ?? $_SESSION['idadmin'] ?? 0);
 $rentPlans = platform_rent_list_plans($dbh, false);
-$paidRentPlans = array_values(array_filter($rentPlans, static fn(array $p): bool => (int)($p['price_cents'] ?? 0) > 0));
+$paidRentPlans = array_values(array_filter(
+    $rentPlans,
+    static fn(array $p): bool => strtolower(trim((string)($p['code'] ?? ''))) !== 'shop_trial'
+));
 $rentSnapshot = platform_rent_org_snapshot($dbh, $orgId);
 $rentPayments = platform_rent_list_payments($dbh, $orgId, 10);
 $isShopOrg = $rentSnapshot ? platform_rent_org_is_shop($rentSnapshot) : false;
@@ -118,9 +121,10 @@ $managerStatus = (int)($org['manager_status'] ?? 0);
 
 org_admin_render_head('Organization · ' . (string)($org['name'] ?? ''));
 ?>
-<div class="sh-logopanel"><a href="" class="sh-logo-text">Talentra Admin</a></div>
-<div class="sh-headpanel"></div>
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Organization');
+?>
 
 <div class="sh-mainpanel">
   <div class="sh-pagetitle">
@@ -244,7 +248,6 @@ org_admin_render_head('Organization · ' . (string)($org['name'] ?? ''));
               <?php endforeach; ?>
             </select>
             <button type="submit" name="migrate_commerce_brand" class="btn-mini primary"><?= $orgCommerceBrand ? 'Change brand' : 'Assign brand' ?></button>
-            <a href="org_commerce_brands.php" class="btn-mini">All migrations</a>
           </form>
           <?php endif; ?>
         </div>

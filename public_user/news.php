@@ -2,8 +2,11 @@
 declare(strict_types=1);
 
 /**
- * Publisher discovery feed — public posts from news/brand accounts you have not followed yet.
- * Followed publisher posts appear in feed.php instead.
+ * news.php — publisher news / brand discovery only.
+ * Shows public posts from publisher accounts you have not followed yet (plus your own publisher posts).
+ * Personal Friends Feed posts belong on feed.php.
+ * Personal Public posts belong on public.php.
+ * This page is not a create-post destination.
  */
 define('MSB_PUBLIC_FEED_SURFACE', 'news');
 require __DIR__ . '/public.php';

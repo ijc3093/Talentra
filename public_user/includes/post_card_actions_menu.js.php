@@ -731,6 +731,15 @@
       if(e.stopPropagation) e.stopPropagation();
       closeMenus();
       var href = String(editLink.getAttribute('href') || '').trim();
+      if(!href || !/[?&]edit=\d+/i.test(href)){
+        var card = closest(editLink, '.public-post-card, .mf-card, [data-edit-url], [data-post-id]');
+        var fromCard = card ? String(card.getAttribute('data-edit-url') || '').trim() : '';
+        if(fromCard) href = fromCard;
+        if((!href || !/[?&]edit=\d+/i.test(href)) && card){
+          var pid = Number(card.getAttribute('data-post-id') || card.getAttribute('data-id') || 0);
+          if(pid > 0) href = 'dashboard.php?modal=1&edit=' + String(pid);
+        }
+      }
       if(!href) return true;
       if(window.MSBCreatePostModal && typeof window.MSBCreatePostModal.open === 'function'){
         window.MSBCreatePostModal.open(href);

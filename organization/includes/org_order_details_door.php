@@ -221,9 +221,9 @@ html.dark-auto .org-order-details-door-download:hover{
     setDownloadUrl('');
   }
 
-  function openDoor(url, label) {
+  function openDoor(url, label, title) {
     if (!url) return;
-    if (titleEl) titleEl.textContent = 'Order details';
+    if (titleEl) titleEl.textContent = title || 'Order details';
     if (subEl) subEl.textContent = label || 'Customer purchase';
     frame.src = url;
     setDownloadUrl(url);
@@ -259,10 +259,11 @@ html.dark-auto .org-order-details-door-download:hover{
     e.stopPropagation();
     var url = btn.getAttribute('data-door-url') || btn.getAttribute('href') || '';
     var label = btn.getAttribute('data-door-label') || 'Customer purchase';
+    var title = btn.getAttribute('data-door-title') || 'Order details';
     if (url.indexOf('embed=1') === -1) {
       url += (url.indexOf('?') === -1 ? '?' : '&') + 'embed=1';
     }
-    openDoor(url, label);
+    openDoor(url, label, title);
   });
 
   window.OrgOrderDetailsDoor = { open: openDoor, close: closeDoor };
