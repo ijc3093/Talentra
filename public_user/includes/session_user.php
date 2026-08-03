@@ -11,6 +11,30 @@ if (!function_exists('str_starts_with')) {
     }
 }
 
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+        return strpos($haystack, $needle) !== false;
+    }
+}
+
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+        $len = strlen($needle);
+        if ($len === 0) {
+            return true;
+        }
+        return substr($haystack, -$len) === $needle;
+    }
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     $bootstrapLoad = dirname(__DIR__, 2) . '/admin/includes/admin_linked_bootstrap_load.php';
     if (is_file($bootstrapLoad)) {

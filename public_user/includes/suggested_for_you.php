@@ -566,10 +566,6 @@ if ($sfyDbh instanceof PDO && $sfyMeId > 0) {
     }
 }
 
-if (!$sfyModeIsPage && !$sfyFriends && !$sfyFollow && !$sfyAdvertise) {
-    return;
-}
-
 $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
 ?>
 <style>
@@ -697,7 +693,7 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <?= $sfyScope ?> .sfy-see:hover,<?= $sfyScope ?> .sfy-see:focus{text-decoration:underline;outline:none;}
   <?= $sfyScope ?> .sfy-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
   <?= $sfyScope ?> .sfy-row{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 0;}
-  <?= $sfyScope ?> .sfy-avatar{flex:0 0 44px;width:44px;height:44px;border-radius:50%;overflow:hidden;background:#eef2f7;display:block;text-decoration:none;cursor:pointer;position:relative;z-index:1;}
+  <?= $sfyScope ?> .sfy-avatar{flex:0 0 30px;width:30px;height:30px;border-radius:50%;overflow:hidden;background:#eef2f7;display:block;text-decoration:none;cursor:pointer;position:relative;z-index:1;}
   <?= $sfyScope ?> .sfy-avatar img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;}
   <?= $sfyScope ?> .sfy-avatar:hover,<?= $sfyScope ?> .sfy-avatar:focus{outline:none;box-shadow:0 0 0 2px rgba(0,149,246,.35);}
   <?= $sfyScope ?> .sfy-meta{flex:1 1 auto;min-width:0;}
@@ -794,15 +790,13 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
 <?php else: ?>
 <aside class="feed-right-rail" aria-label="Suggested for you">
   <div class="sfy-panel">
-    <?php if ($sfyFriends || $sfyFollow || $sfyAdvertise): ?>
     <div class="sfy-panel-head">
       <header class="sfy-head">
         <h2 class="sfy-title">Suggested for you</h2>
         <a class="sfy-see" href="suggested_for_you.php?tab=<?= $sfyIsPublisherWorkspace ? 'publishers' : 'people' ?>">See all</a>
       </header>
     </div>
-  <div class="sfy-panel-body js-sfy-panel-scroll">
-    <?php endif; ?>
+    <div class="sfy-panel-body js-sfy-panel-scroll">
 <?php endif; ?>
     <?php if ($sfyModeIsPage): ?>
       <?php if ($sfyPageTab === 'people' && $sfyCanShowPersonal): ?>
@@ -863,6 +857,10 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
           <?php endforeach; ?>
         </ul>
       </section>
+    <?php else: ?>
+      <section class="sfy-block" aria-label="Suggested for you">
+        <p class="sfy-empty">No suggestions available right now.</p>
+      </section>
     <?php endif; ?>
 
     <?php if (!$sfyModeIsPage && ($sfyAdvertise) && !$sfySearchActive): ?>
@@ -890,7 +888,7 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
     </button>
   </div>
-  <?php elseif (!$sfyModeIsPage && ($sfyFriends || $sfyFollow || $sfyAdvertise)): ?>
+  <?php elseif (!$sfyModeIsPage): ?>
   </div>
   <?php endif; ?>
   </div>

@@ -246,6 +246,18 @@ function appearance_palette_all_slugs(): array
     return array_values(array_unique($slugs));
 }
 
+function appearance_palette_parse_custom_hex(string $value): ?string
+{
+    $value = strtolower(trim($value));
+    if (preg_match('/^#([0-9a-f]{6})$/', $value, $m)) {
+        return '#' . $m[1];
+    }
+    if (preg_match('/^([0-9a-f]{6})$/', $value, $m)) {
+        return '#' . $m[1];
+    }
+    return null;
+}
+
 function appearance_palette_is_valid_slug(string $slug): bool
 {
     $slug = strtolower(trim($slug));
@@ -253,6 +265,9 @@ function appearance_palette_is_valid_slug(string $slug): bool
         return true;
     }
     if (in_array($slug, ['light', 'dark'], true)) {
+        return true;
+    }
+    if (appearance_palette_parse_custom_hex($slug) !== null) {
         return true;
     }
     return array_key_exists($slug, appearance_palette_hex_values());
@@ -263,6 +278,10 @@ function appearance_palette_normalize_mode(string $mode): string
     $mode = strtolower(trim($mode));
     if ($mode === '' || $mode === 'system') {
         return 'system';
+    }
+    $custom = appearance_palette_parse_custom_hex($mode);
+    if ($custom !== null) {
+        return $custom;
     }
     if (appearance_palette_is_valid_slug($mode)) {
         return $mode;
@@ -288,8 +307,12 @@ function appearance_palette_light_hex(): string
 
 function appearance_palette_hex_for_slug(string $slug): string
 {
-    $slug = strtolower(trim($slug));
-    if ($slug === 'light') {
+    $slug = appearance_palette_normalize_mode($slug);
+    $custom = appearance_palette_parse_custom_hex($slug);
+    if ($custom !== null) {
+        return strtoupper($custom);
+    }
+    if ($slug === 'light' || $slug === 'system') {
         return appearance_palette_light_hex();
     }
     if ($slug === 'dark') {
@@ -329,6 +352,10 @@ function appearance_palette_unified_bg_hex(string $slug): string
 {
     $slug = appearance_palette_normalize_mode($slug);
     $hex = appearance_palette_hex_for_slug($slug);
+    // Custom Progress picker hex: exact page background.
+    if (appearance_palette_parse_custom_hex($slug) !== null) {
+        return $hex;
+    }
     if (appearance_palette_is_dark_slug($slug)) {
         return appearance_palette_mix_hex($hex, '#000000', 0.82);
     }

@@ -1,9 +1,9 @@
 :root{
-  --pcm-on-media-circle-size:36px;
+  --pcm-on-media-circle-size:30px;
   --pcm-menu-btn-size:28px;
-  --pcm-on-media-menu-top:18px;
-  --pcm-on-media-menu-right:10px;
-  --pcm-on-media-topbar-menu-top:2px;
+  --pcm-on-media-menu-top:5px;
+  --pcm-on-media-menu-right:1px;
+  --pcm-on-media-topbar-menu-top:-10px;
   --pcm-on-media-topbar-menu-right:4px;
 }
 .post-card-menu-wrap{
@@ -246,10 +246,26 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
 .post-card-head-actions .post-card-menu-btn{
   pointer-events:auto;
 }
+.post-card-head-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+}
+/* Follow left of fries: menu wrap defaults to order 0 and was jumping ahead of Follow (order:1) */
+.post-card-head-actions .publisher-follow-btn,
+.post-card-head-actions .friend-btn{
+  order:1;
+}
+.post-card-head-actions .post-card-menu-wrap{
+  order:2;
+  flex:0 0 auto;
+  pointer-events:auto !important;
+  z-index:60 !important;
+}
 .mf-media-shell > .mf-head--on-media .post-card-menu-wrap,
 .mf-media-shell > .mf-head--on-media .mf-menu-wrap.post-card-menu-wrap,
-.standard-media-topbar .post-card-menu-wrap,
-.post-card-head-actions .post-card-menu-wrap{
+.standard-media-topbar .post-card-menu-wrap{
   pointer-events:auto !important;
   z-index:60 !important;
 }
@@ -569,7 +585,6 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-da
 }
 .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-top-actions .publisher-follow-btn.primary,
 .post.public-post-card[data-is-publisher="1"] .media-stage > .standard-media-top-actions .friend-btn.primary{
-  margin-top:11px !important;
   margin-right:0 !important;
 }
 .mf-feed .mf-card[data-is-publisher="1"] .mf-media-shell > .mf-media-top-actions .publisher-follow-btn.primary,
@@ -636,7 +651,6 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-da
   .post.public-post-card:not(.is-reel-post) .media-stage > .standard-media-top-actions .friend-btn{
     padding:7px 12px !important;
     font-size:11px !important;
-    margin-top:11px !important;
     margin-right:0 !important;
   }
   .mf-feed .mf-card .mf-media-shell > .mf-media-top-actions .publisher-follow-btn:not(.mf-media-action-circle),

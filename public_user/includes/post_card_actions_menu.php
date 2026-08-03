@@ -353,6 +353,32 @@ function post_card_actions_menu_render_modals(): void
     </div>
   </div>
 </div>
+<dialog class="pcm-delete-dialog" id="pcmDeleteConfirmDialog" aria-labelledby="pcmDeleteConfirmTitle">
+  <button type="button" class="pcm-delete-dialog-close" data-pcm-delete-dismiss aria-label="Close">&times;</button>
+  <div class="pcm-delete-dialog-icon" aria-hidden="true"><i class="fa fa-trash"></i></div>
+  <h2 id="pcmDeleteConfirmTitle">Delete this post?</h2>
+  <p>This action cannot be undone. The post will be permanently removed.</p>
+  <div class="pcm-delete-dialog-actions">
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-delete-dismiss>Cancel</button>
+    <button type="button" class="pcm-delete-dialog-confirm" id="pcmGenericConfirmDeleteBtn">Delete</button>
+  </div>
+</dialog>
+<style id="pcm-confirm-modal-css">
+  html body dialog.pcm-delete-dialog{position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:min(430px,calc(100vw - 32px))!important;max-width:430px!important;height:max-content!important;min-height:0!important;max-height:calc(100dvh - 32px)!important;margin:auto!important;padding:30px!important;overflow:auto!important;transform:none!important;border:1px solid var(--msb-palette-border,rgba(148,163,184,.28))!important;border-radius:22px!important;background:var(--msb-palette-surface,#fff)!important;color:var(--msb-palette-text,#111827)!important;box-shadow:0 28px 80px rgba(0,0,0,.38)!important;text-align:center!important;box-sizing:border-box!important;z-index:2147483647!important}
+  .pcm-delete-dialog::backdrop{background:rgba(15,23,42,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+  html body dialog.pcm-delete-dialog:not([open]){display:none!important}
+  html body dialog.pcm-delete-dialog[open]{display:block!important}
+  html body .pcm-delete-dialog-close{position:absolute!important;top:12px!important;right:14px!important;width:34px!important;height:34px!important;margin:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;color:var(--msb-palette-muted,#64748b)!important;font-size:27px!important;line-height:32px!important;cursor:pointer!important}
+  .pcm-delete-dialog-close:hover{background:var(--msb-palette-surface-2,rgba(148,163,184,.14));color:var(--msb-palette-text,#111827)}
+  html body .pcm-delete-dialog-icon{position:static!important;display:grid!important;place-items:center!important;width:58px!important;height:58px!important;margin:0 auto 16px!important;border-radius:50%!important;background:rgba(239,68,68,.12)!important;color:#dc2626!important;font-size:23px!important}
+  html body .pcm-delete-dialog h2{position:static!important;display:block!important;margin:0 30px 9px!important;padding:0!important;color:inherit!important;font-size:21px!important;font-weight:800!important;line-height:1.25!important}
+  html body .pcm-delete-dialog p{position:static!important;display:block!important;margin:0!important;padding:0!important;color:var(--msb-palette-muted,#64748b)!important;font-size:14px!important;line-height:1.55!important}
+  html body .pcm-delete-dialog-actions{position:static!important;display:flex!important;gap:10px!important;width:100%!important;margin:24px 0 0!important;padding:0!important}
+  .pcm-delete-dialog-actions button{flex:1 1 0;height:44px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer}
+  .pcm-delete-dialog-cancel{border:1px solid var(--msb-palette-border,rgba(148,163,184,.38));background:var(--msb-palette-surface-2,transparent);color:var(--msb-palette-text,#111827)}
+  .pcm-delete-dialog-confirm{border:1px solid #dc2626;background:#dc2626;color:#fff}
+  @media(max-width:575.98px){html body dialog.pcm-delete-dialog{padding:28px 22px 22px!important}html body .pcm-delete-dialog h2{font-size:19px!important}}
+</style>
     <?php
 }
 

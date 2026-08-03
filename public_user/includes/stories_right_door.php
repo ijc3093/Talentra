@@ -43,8 +43,8 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   flex-direction:column;
   overflow:hidden;
   min-height:0;
-  background:var(--msb-palette-bg, #000);
-  color:var(--msb-palette-text, #fff);
+  background:#000;
+  color:#fff;
   box-shadow:-18px 0 48px rgba(0,0,0,.32);
   transform:translateX(105%);
   opacity:0;
@@ -199,7 +199,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   min-width:0;
   font-size:13px;
   line-height:1.2;
-  color:var(--msb-palette-text, #fff);
+  color:#fff;
   text-shadow:0 1px 3px rgba(0,0,0,.45);
 }
 .tt-stories-name{
@@ -208,6 +208,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   overflow:hidden;
   text-overflow:ellipsis;
   max-width:140px;
+  color:#fff;
 }
 .tt-stories-verified{
   flex:0 0 auto;
@@ -220,7 +221,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
 }
 .tt-stories-time{
   flex:0 0 auto;
-  color:var(--msb-palette-text-muted, rgba(255,255,255,.78));
+  color:rgba(255,255,255,.86);
   font-weight:400;
   white-space:nowrap;
 }
@@ -237,7 +238,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   padding:0;
   border:0;
   background:transparent;
-  color:var(--msb-palette-text, #fff);
+  color:#fff;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -379,9 +380,9 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   height:34px;
   border:0;
   border-radius:50%;
-  background:var(--msb-palette-hover-bg, rgba(0,0,0,.42));
-  color:var(--msb-palette-text, #fff);
-  box-shadow:inset 0 0 0 1px var(--msb-palette-border, rgba(255,255,255,.14));
+  background:rgba(0,0,0,.42);
+  color:#fff;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
   backdrop-filter:blur(14px);
   -webkit-backdrop-filter:blur(14px);
   display:inline-flex;
@@ -468,7 +469,7 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
 .tt-stories-empty{
   padding:24px 16px;
   text-align:center;
-  color:var(--msb-palette-text-muted, rgba(255,255,255,.72));
+  color:rgba(255,255,255,.88);
   font-size:14px;
 }
 .tt-stories-input-row{
@@ -1187,6 +1188,95 @@ body.tt-stories-open{ overflow:hidden; }
   }
   .tt-stories-name{ max-width:180px; }
 }
+
+/* Black stage chrome must stay bright — appearance/dark palette text is unreadable on #000. */
+html #tt-stories-wrap .tt-stories-meta,
+html #tt-stories-wrap .tt-stories-name,
+html #tt-stories-wrap .tt-stories-time,
+html #tt-stories-wrap .tt-stories-ctrl,
+html #tt-stories-wrap .tt-stories-ctrl i,
+html #tt-stories-wrap .tt-stories-ctrl .icon,
+html #tt-stories-wrap .tt-stories-ctrl [class*="ion-"],
+html #tt-stories-wrap .tt-stories-ctrl .fa,
+html #tt-stories-wrap .tt-stories-empty,
+html #tt-stories-wrap .tt-stories-caption,
+html #tt-stories-wrap .tt-stories-menu-wrap .post-card-menu-btn,
+html #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-icon,
+html #tt-stories-wrap .tt-stories-nav,
+html #tt-stories-wrap .tt-stories-nav i,
+html #tt-stories-wrap .tt-stories-nav .icon,
+html #tt-stories-wrap .tt-stories-nav [class*="ion-"],
+html #tt-stories-wrap .tt-stories-lovebtn,
+html #tt-stories-wrap .tt-stories-lovebtn i,
+html #tt-stories-wrap .tt-stories-lovebtn .fa,
+html #tt-stories-wrap .tt-stories-send,
+html #tt-stories-wrap .tt-stories-send i,
+html #tt-stories-wrap .tt-stories-send .fa,
+html #tt-stories-wrap .tt-stories-action.tt-stories-action-icon,
+html #tt-stories-wrap .tt-stories-action.tt-stories-action-icon i,
+html #tt-stories-wrap .tt-stories-action.tt-stories-action-icon .fa,
+html #tt-stories-wrap .tt-stories-action .tt-stories-action-count,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-meta,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-name,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl .icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl [class*="ion-"],
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl .fa,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-empty,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-caption,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .post-card-menu-btn,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav .icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav [class*="ion-"],
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn .fa,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-send,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-send i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-send .fa,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon .fa,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action .tt-stories-action-count,
+html.dark-auto #tt-stories-wrap .tt-stories-meta,
+html.dark-auto #tt-stories-wrap .tt-stories-name,
+html.dark-auto #tt-stories-wrap .tt-stories-time,
+html.dark-auto #tt-stories-wrap .tt-stories-ctrl,
+html.dark-auto #tt-stories-wrap .tt-stories-ctrl i,
+html.dark-auto #tt-stories-wrap .tt-stories-ctrl .icon,
+html.dark-auto #tt-stories-wrap .tt-stories-ctrl [class*="ion-"],
+html.dark-auto #tt-stories-wrap .tt-stories-ctrl .fa,
+html.dark-auto #tt-stories-wrap .tt-stories-empty,
+html.dark-auto #tt-stories-wrap .tt-stories-nav,
+html.dark-auto #tt-stories-wrap .tt-stories-nav i,
+html.dark-auto #tt-stories-wrap .tt-stories-nav .icon,
+html.dark-auto #tt-stories-wrap .tt-stories-nav [class*="ion-"]{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  fill:#fff !important;
+  stroke:#fff !important;
+  text-shadow:0 1px 3px rgba(0,0,0,.55) !important;
+}
+html #tt-stories-wrap .tt-stories-time,
+html #tt-stories-wrap .tt-stories-empty,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-empty,
+html.dark-auto #tt-stories-wrap .tt-stories-time,
+html.dark-auto #tt-stories-wrap .tt-stories-empty{
+  color:rgba(255,255,255,.88) !important;
+  -webkit-text-fill-color:rgba(255,255,255,.88) !important;
+}
+html #tt-stories-wrap .tt-stories-nav,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav,
+html.dark-auto #tt-stories-wrap .tt-stories-nav{
+  background-color:rgba(0,0,0,.42) !important;
+  border-color:rgba(255,255,255,.22) !important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18) !important;
+}
 </style>
 
 <div id="ttRightbarOverlays">
@@ -1241,7 +1331,7 @@ body.tt-stories-open{ overflow:hidden; }
         <input type="hidden" id="ttStoriesPostId" value="0">
         <div class="tt-stories-input-row">
           <textarea class="tt-stories-textarea" id="ttStoriesCommentText" rows="1" placeholder="Reply to story..."></textarea>
-          <button type="button" class="tt-stories-action tt-stories-action-pill tt-stories-lovebtn tt-reactbtn" id="ttStoriesLove" title="Love" aria-label="Love">
+          <button type="button" class="tt-stories-action tt-stories-action-pill tt-stories-lovebtn" id="ttStoriesLove" title="Love" aria-label="Love">
             <i class="fa fa-heart-o"></i>
             <span class="tt-stories-action-count" id="ttStoriesLoveCount">0</span>
           </button>
@@ -1255,7 +1345,7 @@ body.tt-stories-open{ overflow:hidden; }
           <i class="fa fa-comment-o"></i>
           <span class="tt-stories-action-count" id="ttStoriesPubCommentCount">0</span>
         </button>
-        <button type="button" class="tt-stories-action tt-stories-action-pill tt-stories-lovebtn tt-reactbtn" id="ttStoriesPubLove" title="Love" aria-label="Love">
+        <button type="button" class="tt-stories-action tt-stories-action-pill tt-stories-lovebtn" id="ttStoriesPubLove" title="Love" aria-label="Love">
           <i class="fa fa-heart-o"></i>
           <span class="tt-stories-action-count" id="ttStoriesPubLoveCount">0</span>
         </button>
@@ -1263,8 +1353,9 @@ body.tt-stories-open{ overflow:hidden; }
           <i class="fa fa-paper-plane-o"></i>
           <span class="tt-stories-action-count" id="ttStoriesPubShareCount">0</span>
         </button>
-        <button type="button" class="tt-stories-action tt-stories-action-icon" id="ttStoriesPubSave" title="Save" aria-label="Save">
+        <button type="button" class="tt-stories-action tt-stories-action-pill" id="ttStoriesPubSave" title="Save" aria-label="Save">
           <i class="fa fa-bookmark-o"></i>
+          <span class="tt-stories-action-count" id="ttStoriesPubSaveCount">0</span>
         </button>
       </div>
     </div>
@@ -1801,8 +1892,13 @@ body.tt-stories-open{ overflow:hidden; }
 
   function applyStoryActionCounts(slide){
     slide = slide || currentSlide();
+    var counts = slideActionCounts(slide);
+    // Both story footers represent the same post. Keep both reaction totals in
+    // sync so a delayed/missing publisher classification cannot leave the
+    // currently visible count stale after a picker selection.
+    setStoryActionCountEl(storyLoveCountEl, counts.loveCount);
+    setStoryActionCountEl(storyPubLoveCountEl, counts.loveCount);
     if(isPublisherStory()) applyPublisherActionCounts(slide);
-    else applyUserStoryActionCounts(slide);
   }
 
   function applyPublisherActionCounts(slide){
@@ -2970,12 +3066,20 @@ body.tt-stories-open{ overflow:hidden; }
   function reactToCurrentStory(reaction){
     var pid = currentPostId();
     reaction = String(reaction || 'love');
-    if(!pid || !reaction || reaction === currentStoryReaction) return;
+    if(!pid || !reaction) return;
 
     var slide = currentSlide();
     var story = currentStory();
     var loveBefore = slideActionCounts(slide).loveCount;
+    var reactionBefore = String(slide && slide.myReaction || currentStoryReaction || '');
+    var optimisticReactionCount = Math.max(0, loveBefore + (!reactionBefore && reaction !== 'none' ? 1 : 0) - (reactionBefore && reaction === 'none' ? 1 : 0));
     var ownerUserId = Number(story && story.userId || 0);
+
+    updateSlidePublisherState(pid, {
+      myReaction: reaction === 'none' ? '' : reaction,
+      loveCount: optimisticReactionCount
+    });
+    updateSlideReaction(pid, reaction === 'none' ? '' : reaction);
 
     var body = 'post_id=' + encodeURIComponent(String(pid)) + '&reaction=' + encodeURIComponent(reaction);
     fetch('feed_api.php?ajax=react', {
@@ -2987,21 +3091,31 @@ body.tt-stories-open{ overflow:hidden; }
     })
       .then(function(r){ return r.json(); })
       .then(function(data){
-        if(!data || !data.ok) return;
+        if(!data || !data.ok){
+          updateSlidePublisherState(pid, { myReaction: reactionBefore, loveCount: loveBefore });
+          updateSlideReaction(pid, reactionBefore);
+          return;
+        }
         var nextReaction = String((data.counts && data.counts.my_reaction) || reaction);
         var patch = { myReaction: nextReaction };
-        if(data.counts && data.counts.love_count != null) patch.loveCount = Number(data.counts.love_count || 0);
+        if(data.counts && data.counts.reaction_count != null) patch.loveCount = Number(data.counts.reaction_count || 0);
+        else if(data.counts && data.counts.love_count != null) patch.loveCount = Number(data.counts.love_count || 0);
         updateSlidePublisherState(pid, patch);
         updateSlideReaction(pid, nextReaction);
         if(typeof window.msbOnPostLoveCountChange === 'function'){
-          var loveAfter = Number((data.counts && data.counts.love_count != null) ? data.counts.love_count : loveBefore);
+          var loveAfter = Number((data.counts && data.counts.reaction_count != null)
+            ? data.counts.reaction_count
+            : ((data.counts && data.counts.love_count != null) ? data.counts.love_count : loveBefore));
           window.msbOnPostLoveCountChange({
             ownerUserId: ownerUserId,
             delta: loveAfter - loveBefore
           });
         }
       })
-      .catch(function(){});
+      .catch(function(){
+        updateSlidePublisherState(pid, { myReaction: reactionBefore, loveCount: loveBefore });
+        updateSlideReaction(pid, reactionBefore);
+      });
   }
 
   if(storyLoveBtn){
@@ -3044,8 +3158,20 @@ body.tt-stories-open{ overflow:hidden; }
       e.stopPropagation();
       var pid = currentPostId();
       if(!pid) return;
+      var beforeSlide = currentSlide();
+      var beforeCounts = slideActionCounts(beforeSlide);
+      var beforeShared = slideMyShared();
+      var beforeSaved = slideMySaved();
+      var nextShared = beforeShared ? 0 : 1;
+      updateSlidePublisherState(pid, {
+        myShared: nextShared,
+        shareCount: Math.max(0, beforeCounts.shareCount + (nextShared ? 1 : -1))
+      });
       storyFeedPost('share', pid, function(data){
-        if(!data || !data.ok) return;
+        if(!data || !data.ok){
+          updateSlidePublisherState(pid, { myShared: beforeShared, mySaved: beforeSaved, shareCount: beforeCounts.shareCount, saveCount: beforeCounts.saveCount });
+          return;
+        }
         var state = data.state || {};
         updateSlidePublisherState(pid, {
           myShared: Number(state.shared || 0) ? 1 : 0,
@@ -3063,8 +3189,20 @@ body.tt-stories-open{ overflow:hidden; }
       e.stopPropagation();
       var pid = currentPostId();
       if(!pid) return;
+      var beforeSlide = currentSlide();
+      var beforeCounts = slideActionCounts(beforeSlide);
+      var beforeSaved = slideMySaved();
+      var beforeShared = slideMyShared();
+      var nextSaved = beforeSaved ? 0 : 1;
+      updateSlidePublisherState(pid, {
+        mySaved: nextSaved,
+        saveCount: Math.max(0, beforeCounts.saveCount + (nextSaved ? 1 : -1))
+      });
       storyFeedPost('save', pid, function(data){
-        if(!data || !data.ok) return;
+        if(!data || !data.ok){
+          updateSlidePublisherState(pid, { mySaved: beforeSaved, myShared: beforeShared, saveCount: beforeCounts.saveCount, shareCount: beforeCounts.shareCount });
+          return;
+        }
         var state = data.state || {};
         updateSlidePublisherState(pid, {
           mySaved: Number(state.saved || 0) ? 1 : 0,

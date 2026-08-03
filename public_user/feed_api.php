@@ -10,6 +10,7 @@ require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
+require_once __DIR__ . '/includes/theme_prefs.php';
 
 requireUserLogin();
 sendNoCacheHeadersUser();
@@ -17,6 +18,7 @@ sendNoCacheHeadersUser();
 $controller = new Controller();
 $dbh = $controller->pdo();
 device_profile_ensure_post_columns($dbh);
+feedEnsurePostReactionsSchema($dbh);
 
 // DEBUG mode (only when you add ?debug=1)
 $DEBUG = (isset($_GET['debug']) && (string)$_GET['debug'] === '1');
@@ -44,18 +46,19 @@ function jexit(array $data): void {
   exit;
 }
 
-// Try to detect your session user id key (some of your files use different names)
+// Resolve the same active identity used by feed.php/profile.php/public.php/reel.php.
+// Publisher and linked-portal sessions can render as a different user than the
+// underlying session owner; writes must use that active publisher user id too.
 $meId = (int)($_SESSION['user_id'] ?? $_SESSION['id'] ?? $_SESSION['userid'] ?? 0);
-if (function_exists('theme_prefs_viewer_user_id')) {
-  try {
-    require_once __DIR__ . '/includes/theme_prefs.php';
+try {
+  if (function_exists('theme_prefs_viewer_user_id')) {
     $viewerId = theme_prefs_viewer_user_id();
     if ($viewerId > 0) {
       $meId = $viewerId;
     }
-  } catch (Throwable $e) {
-    // keep session id
   }
+} catch (Throwable $e) {
+  // Keep the direct session id if active-identity resolution is unavailable.
 }
 if ($meId <= 0) {
   jexit(['ok' => false, 'error' => 'Invalid session (missing user id in session)']);
@@ -252,7 +255,41 @@ function feedRouteForPostOwner(int $receiverId, int $postOwnerId, string $visibi
 }
 
 function feedAllowedPostReactions(): array {
-  return ['like', 'love', 'smile', 'laugh', 'wow', 'sad', 'angry'];
+  return ['like', 'love', 'dislike', 'smile', 'laugh', 'clap', 'wow', 'sad', 'angry'];
+}
+
+/**
+ * Legacy installs used ENUM('like','love') — smile/laugh/clap/dislike could not persist,
+ * so the UI snapped back to the love icon after picker selection.
+ */
+function feedEnsurePostReactionsSchema(PDO $dbh): void {
+  static $done = false;
+  if ($done) return;
+  $done = true;
+  try {
+    $st = $dbh->query("SHOW COLUMNS FROM public_post_reactions LIKE 'reaction'");
+    $col = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+    if (!$col) return;
+    $type = strtolower((string)($col['Type'] ?? ''));
+    if (strpos($type, 'varchar') !== false && preg_match('/varchar\((\d+)\)/', $type, $m) && (int)$m[1] >= 16) {
+      return;
+    }
+    $dbh->exec("ALTER TABLE public_post_reactions MODIFY reaction VARCHAR(32) NOT NULL");
+  } catch (Throwable $e) {
+    // Keep serving; react will still fail clearly if schema cannot be upgraded.
+  }
+  try {
+    $st = $dbh->query("SHOW COLUMNS FROM public_comment_likes LIKE 'reaction'");
+    $col = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+    if (!$col) return;
+    $type = strtolower((string)($col['Type'] ?? ''));
+    if (strpos($type, 'varchar') !== false && preg_match('/varchar\((\d+)\)/', $type, $m) && (int)$m[1] >= 16) {
+      return;
+    }
+    if (strpos($type, 'enum') !== false || (strpos($type, 'varchar') !== false && preg_match('/varchar\((\d+)\)/', $type, $m) && (int)$m[1] < 16)) {
+      $dbh->exec("ALTER TABLE public_comment_likes MODIFY reaction VARCHAR(32) NOT NULL DEFAULT 'like'");
+    }
+  } catch (Throwable $e) {}
 }
 
 function feedNormalizePostReaction(string $reaction): string {
@@ -263,9 +300,14 @@ function feedNormalizePostReaction(string $reaction): string {
 function feedReactionNotificationMessage(string $reaction): string {
   $reaction = feedNormalizePostReaction($reaction);
   if ($reaction === 'love') return 'loved your post';
+  if ($reaction === 'like') return 'liked your post';
+  if ($reaction === 'dislike') return 'disliked your post';
   if ($reaction === 'smile') return 'smiled at your post';
   if ($reaction === 'laugh') return 'laughed at your post';
-  if ($reaction === 'like') return 'liked your post';
+  if ($reaction === 'clap') return 'clapped for your post';
+  if ($reaction === 'wow') return 'was wowed by your post';
+  if ($reaction === 'sad') return 'reacted sadly to your post';
+  if ($reaction === 'angry') return 'reacted angrily to your post';
   return 'reacted to your post';
 }
 
@@ -275,17 +317,19 @@ function feedFetchPostReactionCounts(PDO $dbh, int $postId, int $meId): array {
       SELECT
         (SELECT COUNT(*) FROM public_post_reactions WHERE post_id = ? AND reaction <> 'love') AS like_count,
         (SELECT COUNT(*) FROM public_post_reactions WHERE post_id = ? AND reaction = 'love') AS love_count,
+        (SELECT COUNT(*) FROM public_post_reactions WHERE post_id = ?) AS reaction_count,
         (SELECT reaction FROM public_post_reactions WHERE post_id = ? AND user_id = ? LIMIT 1) AS my_reaction
-    ");
-    $st->execute([$postId, $postId, $postId, $meId]);
+      ");
+    $st->execute([$postId, $postId, $postId, $postId, $meId]);
     $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     return [
       'like_count' => (int)($row['like_count'] ?? 0),
       'love_count' => (int)($row['love_count'] ?? 0),
-      'my_reaction' => ($row['my_reaction'] ?? null) !== null ? trim((string)$row['my_reaction']) : null,
+      'reaction_count' => (int)($row['reaction_count'] ?? 0),
+      'my_reaction' => ($row['my_reaction'] ?? null) !== null ? trim((string)$row['my_reaction']) : '',
     ];
   } catch (Throwable $e) {
-    return ['like_count' => 0, 'love_count' => 0, 'my_reaction' => null];
+    return ['like_count' => 0, 'love_count' => 0, 'reaction_count' => 0, 'my_reaction' => ''];
   }
 }
 
@@ -304,9 +348,11 @@ function feedCommentReactionColumnExists(PDO $dbh): bool {
 function feedCommentReactionNotificationMessage(string $reaction): string {
   $reaction = feedNormalizePostReaction($reaction);
   if ($reaction === 'love') return 'loved your comment';
+  if ($reaction === 'like') return 'liked your comment';
+  if ($reaction === 'dislike') return 'disliked your comment';
   if ($reaction === 'smile') return 'smiled at your comment';
   if ($reaction === 'laugh') return 'laughed at your comment';
-  if ($reaction === 'like') return 'liked your comment';
+  if ($reaction === 'clap') return 'clapped for your comment';
   return 'reacted to your comment';
 }
 
@@ -415,9 +461,33 @@ try {
 
     // ✅ ordering — newest first (read/unread must not push fresh posts below older unread items)
     $orderBy = "COALESCE(p.updated_at, p.created_at) DESC, p.id DESC";
-    if ($order === 'views') {
+    if ($order === 'created') {
+      // True creation order (reels / “new posts first”)
+      $orderBy = "p.created_at DESC, p.id DESC";
+    } elseif ($order === 'views') {
       // top viewed
       $orderBy = "COALESCE(p.views_count,0) DESC, COALESCE(p.updated_at, p.created_at) DESC, p.id DESC";
+    }
+
+    $mediaFilter = strtolower(trim((string)($_GET['media'] ?? ''))); // ''|video|image
+    if ($mediaFilter === 'video') {
+      $where .= " AND EXISTS (
+        SELECT 1 FROM public_post_attachments av
+        WHERE av.post_id = p.id AND LOWER(COALESCE(av.type,'')) = 'video'
+      )";
+    } elseif ($mediaFilter === 'image') {
+      $where .= " AND EXISTS (
+        SELECT 1 FROM public_post_attachments ai
+        WHERE ai.post_id = p.id AND LOWER(COALESCE(ai.type,'')) IN ('image','gif')
+      )";
+    }
+
+    // Prefer matching media type for preview when filtering by media (reels need the video path).
+    $previewOrder = "a.id ASC";
+    if ($mediaFilter === 'video') {
+      $previewOrder = "CASE WHEN LOWER(COALESCE(a.type,'')) = 'video' THEN 0 ELSE 1 END, a.id ASC";
+    } elseif ($mediaFilter === 'image') {
+      $previewOrder = "CASE WHEN LOWER(COALESCE(a.type,'')) IN ('image','gif') THEN 0 ELSE 1 END, a.id ASC";
     }
 
     $layoutSelect = post_layout_select_sql($dbh);
@@ -450,14 +520,15 @@ try {
           WHEN COALESCE(p.updated_at, p.created_at) > r.last_seen_at THEN 1
           ELSE 0
         END AS is_unread,
-        (SELECT a.file_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY a.id ASC LIMIT 1) AS preview_path,
-        (SELECT a.thumb_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY a.id ASC LIMIT 1) AS preview_thumb_path,
-        (SELECT a.type FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY a.id ASC LIMIT 1) AS preview_type,
+        (SELECT a.file_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_path,
+        (SELECT a.thumb_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_thumb_path,
+        (SELECT a.type FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_type,
         (SELECT COUNT(*) FROM public_post_attachments a WHERE a.post_id = p.id) AS attachment_count,
         (SELECT COUNT(*) FROM public_post_attachments a WHERE a.post_id = p.id) AS media_count,
         (SELECT COUNT(*) FROM public_post_comments c WHERE c.post_id = p.id AND c.is_deleted = 0) AS comment_count,
         (SELECT COUNT(*) FROM public_post_reactions rx WHERE rx.post_id = p.id AND rx.reaction <> 'love') AS like_count,
         (SELECT COUNT(*) FROM public_post_reactions rx WHERE rx.post_id = p.id AND rx.reaction = 'love') AS love_count,
+        (SELECT COUNT(*) FROM public_post_reactions rx WHERE rx.post_id = p.id) AS reaction_count,
         (SELECT reaction FROM public_post_reactions rx WHERE rx.post_id = p.id AND rx.user_id = :meReaction LIMIT 1) AS my_reaction,
         (SELECT COUNT(*) FROM public_post_shares s WHERE s.post_id = p.id) AS share_count,
         (SELECT COUNT(*) FROM public_post_saves s WHERE s.post_id = p.id) AS save_count,
@@ -529,6 +600,7 @@ try {
       $r['comment_count'] = (int)($r['comment_count'] ?? 0);
       $r['like_count'] = (int)($r['like_count'] ?? 0);
       $r['love_count'] = (int)($r['love_count'] ?? 0);
+      $r['reaction_count'] = (int)($r['reaction_count'] ?? ((int)$r['love_count'] + (int)$r['like_count']));
       $r['share_count'] = (int)($r['share_count'] ?? 0);
       $r['save_count'] = (int)($r['save_count'] ?? 0);
       $r['my_reaction'] = ($r['my_reaction'] ?? null) !== null ? trim((string)$r['my_reaction']) : '';
@@ -887,7 +959,7 @@ try {
     } catch (Throwable $e) {}
 
     if ($postOwnerId > 0 && !publisher_post_interaction_allowed($dbh, $meId, ['user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
-      jexit(['ok'=>false,'error'=>'Follow this publisher to react and comment. Their posts appear in your Feed after you follow.','me_id'=>$meId]);
+      jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
     }
 
     if ($reaction === 'none') {
@@ -982,7 +1054,7 @@ try {
       $stAccess->execute([':pid' => $postId]);
       $accessRow = $stAccess->fetch(PDO::FETCH_ASSOC) ?: [];
       if (!$accessRow || !publisher_post_interaction_allowed($dbh, $meId, $accessRow)) {
-        jexit(['ok'=>false,'error'=>'Follow this publisher to interact. Their posts appear in your Feed after you follow.','me_id'=>$meId]);
+        jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
       }
 
       $st = $dbh->prepare("SELECT 1 FROM public_post_shares WHERE post_id = :pid AND user_id = :uid LIMIT 1");
@@ -1040,7 +1112,7 @@ try {
       $stAccess->execute([':pid' => $postId]);
       $accessRow = $stAccess->fetch(PDO::FETCH_ASSOC) ?: [];
       if (!$accessRow || !publisher_post_interaction_allowed($dbh, $meId, $accessRow)) {
-        jexit(['ok'=>false,'error'=>'Follow this publisher to interact. Their posts appear in your Feed after you follow.','me_id'=>$meId]);
+        jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
       }
 
       $st = $dbh->prepare("SELECT 1 FROM public_post_saves WHERE post_id = :pid AND user_id = :uid LIMIT 1");
@@ -1190,7 +1262,7 @@ try {
     } catch (Throwable $e) {}
 
     if ($postOwnerId <= 0 || !publisher_post_interaction_allowed($dbh, $meId, ['user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
-      jexit(['ok'=>false,'error'=>'Follow this publisher to react and comment. Their posts appear in your Feed after you follow.','me_id'=>$meId]);
+      jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
     }
 
     // Ensure comment belongs to post
@@ -1283,7 +1355,7 @@ try {
     } catch (Throwable $e) {}
 
     if ($postOwnerId <= 0 || !publisher_post_interaction_allowed($dbh, $meId, ['user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
-      jexit(['ok'=>false,'error'=>'Follow this publisher to react and comment. Their posts appear in your Feed after you follow.','me_id'=>$meId]);
+      jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
     }
 
     if ($parentId > 0) {

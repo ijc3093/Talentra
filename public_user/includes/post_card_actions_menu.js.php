@@ -40,7 +40,7 @@
     activePortalWrap = null;
   }
 
-  function positionPortal(btn, portal){
+  function positionPortal(btn, portal, wrap){
     if(!btn || !portal) return;
     var prevDisplay = portal.style.display;
     var prevVis = portal.style.visibility;
@@ -55,6 +55,46 @@
     var left = rect.right - mw;
     var vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
     var vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    var menuSurface = String((wrap && wrap.getAttribute('data-menu-surface')) || opts.menu_surface || '').toLowerCase();
+    var isPublicPage = !!(document.body && document.body.classList.contains('public-page'));
+
+    // Profile post menus live outside the card so they never cover its media.
+    if(menuSurface === 'profile' && !isPublicPage){
+      var profileCard = btn.closest('.mf-card, .post, article');
+      if(profileCard){
+        var profileCardRect = profileCard.getBoundingClientRect();
+        var profileMedia = profileCard.querySelector('.media-stage, .mf-media');
+        var profileAnchorRect = profileMedia ? profileMedia.getBoundingClientRect() : profileCardRect;
+        top = Math.max(10, rect.top);
+        left = profileAnchorRect.right + gap;
+        // Small screens have no right rail. Keep the menu visible and place it
+        // below the trigger instead of laying it over the media.
+        if(left + mw > vw - 10){
+          left = Math.max(10, Math.min(rect.right - mw, vw - mw - 10));
+          top = rect.bottom + gap;
+        }
+      }
+    // Feed and Public menus open outside their center column, including posts
+    // whose header/fries button is above (rather than over) the media.
+    } else if(menuSurface === 'feed' || menuSurface === 'public' || isPublicPage){
+      var centerCard = btn.closest('.mf-card, .post, article');
+      if(centerCard){
+        var centerCardRect = centerCard.getBoundingClientRect();
+        var centerColumn = centerCard.closest('.feed-desktop-center');
+        var centerAnchorRect = centerColumn ? centerColumn.getBoundingClientRect() : centerCardRect;
+        top = Math.max(10, rect.top);
+        left = centerAnchorRect.right + gap;
+        if(left + mw > vw - 10){
+          left = centerAnchorRect.left - mw - gap;
+        }
+        // On narrow viewports neither side has enough room. Keep the menu in
+        // the viewport and below the button instead of covering the media.
+        if(left < 10 || left + mw > vw - 10){
+          left = Math.max(10, Math.min(rect.right - mw, vw - mw - 10));
+          top = rect.bottom + gap;
+        }
+      }
+    }
 
     if(left < 10) left = 10;
     if(left + mw > vw - 10) left = Math.max(10, vw - mw - 10);
@@ -94,18 +134,8 @@
     clone.style.minWidth = '220px';
     clone.style.display = 'block';
 
-    var cloneItems = menuActionEls(clone);
-    cloneItems.forEach(function(ci){
-      ci.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        handleMenuItemAction(ci, ev);
-        closeMenus();
-      }, true);
-    });
-
     document.body.appendChild(clone);
-    positionPortal(btn, clone);
+    positionPortal(btn, clone, wrap);
     activePortal = clone;
     activePortalWrap = wrap;
   }
@@ -232,10 +262,10 @@
       card.setAttribute('data-my-saved', saved ? '1' : '0');
     });
 
-    document.querySelectorAll('.js-save-post[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"] .mf-save').forEach(function(btn){
+    document.querySelectorAll('.js-save-post[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"] .mf-act.mf-save').forEach(function(btn){
       btn.classList.toggle('is-save', saved);
     });
-    document.querySelectorAll('.js-share-post[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"] .mf-share').forEach(function(btn){
+    document.querySelectorAll('.js-share-post[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"] .mf-act.mf-share').forEach(function(btn){
       btn.classList.toggle('is-share', shared);
     });
     document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-act.mf-save .msb-pact-bookmark').forEach(function(icon){
@@ -246,7 +276,7 @@
       document.querySelectorAll('.public-post-card[data-post-id="'+String(postId)+'"] .js-share-count').forEach(function(el){
         el.textContent = String(res.share_count || 0);
       });
-      document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-share .mf-num').forEach(function(el){
+      document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-act.mf-share .mf-num').forEach(function(el){
         el.textContent = String(res.share_count || 0);
       });
     }
@@ -254,7 +284,7 @@
       document.querySelectorAll('.public-post-card[data-post-id="'+String(postId)+'"] .js-save-count').forEach(function(el){
         el.textContent = String(res.save_count || 0);
       });
-      document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-save .mf-num').forEach(function(el){
+      document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"] .mf-act.mf-save .mf-num').forEach(function(el){
         el.textContent = String(res.save_count || 0);
       });
     }
@@ -262,7 +292,24 @@
     syncBookmarkMenuState(postId, saved);
 
     if(typeof window.mfHydrateCard === 'function'){
-      try { window.mfHydrateCard(postId, res.post || {}, counts, res.attachments || []); } catch(e){}
+      try {
+        window.mfHydrateCard(postId, res.post || {}, {
+          save_count: res.save_count,
+          share_count: res.share_count,
+          is_saved: saved ? 1 : 0,
+          is_shared: shared ? 1 : 0
+        }, res.attachments || []);
+      } catch(e){}
+    }
+
+    if(window.MSBPostEngagement && typeof window.MSBPostEngagement.publishFromTrack === 'function'){
+      try {
+        window.MSBPostEngagement.publishFromTrack(postId, {
+          share_count: res.share_count,
+          save_count: res.save_count,
+          state: { shared: shared ? 1 : 0, saved: saved ? 1 : 0 }
+        }, { source: 'post-menu' });
+      } catch(e){}
     }
   }
 
@@ -577,21 +624,53 @@
   }
 
   function showModal(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    if(String(el.tagName || '').toLowerCase() === 'dialog'){
+      if(typeof el.showModal === 'function'){
+        if(!el.open) el.showModal();
+      }else{
+        el.setAttribute('open', '');
+      }
+      return;
+    }
     if($ && $.fn && $.fn.modal){
       $('#' + id).modal('show');
       return;
     }
-    var el = document.getElementById(id);
-    if(el) el.style.display = 'block';
+    el.style.display = 'block';
+    el.classList.add('show');
+    el.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    var backdrop = document.querySelector('.pcm-fallback-backdrop');
+    if(!backdrop){
+      backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop fade show pcm-fallback-backdrop';
+      backdrop.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(backdrop);
+    }
   }
 
   function hideModal(id){
+    var el = document.getElementById(id);
+    if(el && String(el.tagName || '').toLowerCase() === 'dialog'){
+      if(el.open && typeof el.close === 'function') el.close();
+      else el.removeAttribute('open');
+      return;
+    }
     if($ && $.fn && $.fn.modal){
       $('#' + id).modal('hide');
       return;
     }
-    var el = document.getElementById(id);
-    if(el) el.style.display = 'none';
+    if(el){
+      el.classList.remove('show');
+      el.setAttribute('aria-hidden', 'true');
+      el.style.display = 'none';
+    }
+    document.querySelectorAll('.pcm-fallback-backdrop').forEach(function(backdrop){
+      try { backdrop.remove(); } catch(e){}
+    });
+    document.body.classList.remove('modal-open');
   }
 
   function removePostFromSurfaces(postId){
@@ -658,6 +737,24 @@
     postId = Number(postId || 0);
     if(!postId) return;
     var mode = String(opts.delete_mode || 'confirm');
+    if(String(opts.confirm_handler || '') === 'reel'
+      && window.MSBReelDeleteConfirm
+      && typeof window.MSBReelDeleteConfirm.open === 'function'){
+      window.MSBReelDeleteConfirm.open(postId, done);
+      return;
+    }
+    if(String(opts.confirm_handler || '') === 'feed'
+      && window.MSBFeedDeleteConfirm
+      && typeof window.MSBFeedDeleteConfirm.open === 'function'){
+      window.MSBFeedDeleteConfirm.open(postId, done);
+      return;
+    }
+    if(document.getElementById('pcmDeleteConfirmDialog')){
+      window.__pcmPendingDeleteId = postId;
+      window.__pcmPendingDeleteDone = typeof done === 'function' ? done : null;
+      showModal('pcmDeleteConfirmDialog');
+      return;
+    }
     if(mode === 'public' && document.getElementById('deleteConfirmModal')){
       window.__pcmPendingDeleteId = postId;
       showModal('deleteConfirmModal');
@@ -682,6 +779,7 @@
       if($){
         $.post(opts.api_url, { ajax:'delete_post', post_id: postId }, function(res){
           if(res && res.ok !== false){
+            try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e){}
             removePostFromSurfaces(postId);
             try { if(typeof window.refreshList === 'function') window.refreshList(false); } catch(e){}
           }
@@ -694,6 +792,7 @@
         .then(function(r){ return r.json(); })
         .then(function(res){
           if(res && res.ok !== false){
+            try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e){}
             removePostFromSurfaces(postId);
             try { if(typeof window.refreshList === 'function') window.refreshList(false); } catch(e){}
           }
@@ -761,8 +860,13 @@
     if(delBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      var deletePostId = Number(
+        delBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
       closeMenus();
-      confirmDelete(delBtn.getAttribute('data-post-id'));
+      confirmDelete(deletePostId);
       return true;
     }
 
@@ -921,6 +1025,17 @@
     var target = e.target;
     if(!target) return;
 
+    // Feed has several delegated click handlers. Handle the native dialog's
+    // destructive action in this capture-phase dispatcher so a later handler
+    // cannot stop the confirmation click before the delete request is sent.
+    if(closest(target, '#pcmGenericConfirmDeleteBtn')){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      onGenericConfirmDeleteClick();
+      return;
+    }
+
     var menuBtn = closest(target, '.post-card-menu-btn');
     if(menuBtn){
       e.preventDefault();
@@ -958,6 +1073,18 @@
     runDelete(postId, function(){
       window.__pcmPendingDeleteId = 0;
       hideModal('profileDeleteConfirmModal');
+    });
+  }
+
+  function onGenericConfirmDeleteClick(){
+    var postId = Number(window.__pcmPendingDeleteId || 0);
+    if(!postId) return;
+    var done = window.__pcmPendingDeleteDone;
+    runDelete(postId, function(res){
+      window.__pcmPendingDeleteId = 0;
+      window.__pcmPendingDeleteDone = null;
+      hideModal('pcmDeleteConfirmDialog');
+      if(typeof done === 'function') done(res);
     });
   }
 
@@ -1215,8 +1342,10 @@
 
   window.MSBPostCardMenu = {
     buildItems: buildItems,
+    toggle: toggleMenuBtn,
     refreshFeedCardMenus: refreshFeedCardMenus,
     closeAll: closeMenus,
+    confirmDelete: confirmDelete,
     runDelete: runDelete,
     hydrate: hydrateEmptyMenus,
     syncOnMediaContrast: syncOnMediaMenuContrast,
@@ -1229,7 +1358,13 @@
 
   document.addEventListener('click', onDocumentClick, true);
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape') closeMenus();
+    if(e.key === 'Escape'){
+      closeMenus();
+      var genericDeleteModal = document.getElementById('pcmDeleteConfirmDialog');
+      if(genericDeleteModal && genericDeleteModal.open){
+        hideModal('pcmDeleteConfirmDialog');
+      }
+    }
   });
   window.addEventListener('resize', repositionPortals, {passive:true});
   window.addEventListener('scroll', repositionPortals, {passive:true});
@@ -1253,6 +1388,25 @@
     if(profileConfirmDeleteBtn && !profileConfirmDeleteBtn.__pcmBound){
       profileConfirmDeleteBtn.__pcmBound = true;
       profileConfirmDeleteBtn.addEventListener('click', onProfileConfirmDeleteClick);
+    }
+    var genericConfirmDeleteBtn = document.getElementById('pcmGenericConfirmDeleteBtn');
+    if(genericConfirmDeleteBtn && !genericConfirmDeleteBtn.__pcmBound){
+      genericConfirmDeleteBtn.__pcmBound = true;
+      genericConfirmDeleteBtn.addEventListener('click', onGenericConfirmDeleteClick);
+    }
+    var genericDeleteModal = document.getElementById('pcmDeleteConfirmDialog');
+    if(genericDeleteModal && !genericDeleteModal.__pcmDismissBound){
+      genericDeleteModal.__pcmDismissBound = true;
+      genericDeleteModal.querySelectorAll('[data-pcm-delete-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ hideModal('pcmDeleteConfirmDialog'); });
+      });
+      genericDeleteModal.addEventListener('click', function(e){
+        if(e.target !== genericDeleteModal) return;
+        var rect = genericDeleteModal.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          hideModal('pcmDeleteConfirmDialog');
+        }
+      });
     }
     var renameSaveBtn = document.getElementById('pcmRenameSaveBtn');
     if(renameSaveBtn && !renameSaveBtn.__pcmBound){

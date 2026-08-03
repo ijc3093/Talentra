@@ -228,6 +228,16 @@ function publisher_categories(): array
 {
     return [
         'commerce' => 'Commerce & restaurants',
+        'entertainment' => 'Entertainment',
+        'library' => 'Library',
+        'cook' => 'Cook',
+        'seek-around-the-world' => 'Seek around the World',
+        'geology' => 'Geology',
+        'animation' => 'Animation',
+        'make-a-new-friend' => 'Make a new Friend',
+        'deep-research' => 'Deep research',
+        'enterprise' => 'Enterprise',
+        'trending' => 'Trending',
         'news' => 'News',
         'sports' => 'Sports',
         'business' => 'Business',
@@ -237,7 +247,67 @@ function publisher_categories(): array
         'agriculture' => 'Agriculture',
         'auto' => 'Auto',
         'political' => 'Political',
+        'english' => 'English',
+        'mathematics' => 'Mathematics',
+        'social-studies' => 'Social Studies',
+        'special-classes' => 'Special Classes',
+        'information-technology' => 'Information Technology',
+        'design' => 'Design',
+        'health-wellness-sciences' => 'Health, Wellness & Sciences',
+        'environmental-sustainability' => 'Environmental Sustainability',
+        'psychology' => 'Psychology',
+        'engineering' => 'Engineering',
+        'lawyer' => 'Lawyer',
+        'astrobiology' => 'Astrobiology',
+        'biology' => 'Biology',
+        'economics' => 'Economics',
+        'criminal-justice' => 'Criminal Justice',
+        'marketing' => 'Marketing',
+        'museum' => 'Museum',
+        'philosophy' => 'Philosophy',
+        'physics' => 'Physics',
+        'vets' => 'Vets',
+        'sociology-and-anthropology' => 'Sociology and Anthropology',
     ];
+}
+
+function publisher_academic_categories(): array
+{
+    return array_intersect_key(publisher_categories(), array_flip([
+        'english', 'mathematics', 'social-studies', 'special-classes',
+        'information-technology', 'design', 'health-wellness-sciences',
+        'environmental-sustainability', 'psychology', 'engineering', 'lawyer',
+        'astrobiology', 'biology', 'economics', 'criminal-justice', 'marketing',
+        'museum', 'philosophy', 'physics', 'vets', 'sociology-and-anthropology',
+    ]));
+}
+
+function publisher_category_icon_path(string $slug): string
+{
+    $icons = [
+        'english' => '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/>',
+        'mathematics' => '<path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h2M14 12h2M8 16h2M14 16h2"/>',
+        'social-studies' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+        'special-classes' => '<path d="m12 3 2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/>',
+        'information-technology' => '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+        'design' => '<path d="m4 20 4-1 11-11-3-3L5 16z"/><path d="m14 7 3 3M4 4h6"/>',
+        'health-wellness-sciences' => '<path d="M12 21s-8-4.5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.5-8 11-8 11z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>',
+        'environmental-sustainability' => '<path d="M12 21V9"/><path d="M12 13C7 13 4 10 4 5c5 0 8 3 8 8zM12 17c5 0 8-3 8-8-5 0-8 3-8 8z"/>',
+        'psychology' => '<path d="M9 20H7a4 4 0 0 1-4-4v-2a3 3 0 0 1 2-2.8V9a7 7 0 0 1 14 0v11"/><path d="M9 8a3 3 0 1 1 3 3v3"/>',
+        'engineering' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/>',
+        'lawyer' => '<path d="M12 3v18M5 7h14M7 7l-4 7h8zM17 7l-4 7h8zM8 21h8"/>',
+        'astrobiology' => '<circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="9" ry="4"/><ellipse cx="12" cy="12" rx="4" ry="9" transform="rotate(45 12 12)"/>',
+        'biology' => '<path d="M7 3c8 4 2 14 10 18M17 3C9 7 15 17 7 21M8 7h8M7 12h10M8 17h8"/>',
+        'economics' => '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
+        'criminal-justice' => '<path d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-5"/>',
+        'marketing' => '<path d="M3 11v2l11 4V7zM14 9l5-3v12l-5-3M6 14l1 6h4l-2-5"/>',
+        'museum' => '<path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 18h18M12 3l9 5H3z"/>',
+        'philosophy' => '<path d="M8 21h8M10 21v-4a7 7 0 1 1 4 0v4"/><path d="M9 10h6"/>',
+        'physics' => '<circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="9" ry="4"/><ellipse cx="12" cy="12" rx="4" ry="9" transform="rotate(60 12 12)"/>',
+        'vets' => '<path d="M8 12c-3-2-5 0-4 3s4 2 4 0M16 12c3-2 5 0 4 3s-4 2-4 0"/><path d="M8 16c1-5 7-5 8 0 1 4-7 5-8 0z"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="7" r="2"/>',
+        'sociology-and-anthropology' => '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="9" r="2.5"/><path d="M2 21c0-4 2-7 6-7s6 3 6 7M14 15c4 0 7 2 7 6"/>',
+    ];
+    return $icons[$slug] ?? '<circle cx="12" cy="12" r="9"/><path d="M7 12h10M12 7v10"/>';
 }
 
 function publisher_make_friend_code(PDO $dbh): string
@@ -975,20 +1045,23 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
  *
  * Personal public-destination posts belong on public.php (not here).
  * Unfollowed publisher posts stay on public.php / news.php.
- * Publisher workspace feed.php is empty until the publisher follows another publisher
- * (or publishes their own friends/feed content).
+ * Publisher workspace feed.php uses the same social visibility rules: own posts,
+ * friends-only posts from contacts, and public posts from followed publishers.
  */
 function publisher_workspace_feed_scope_sql(): string
 {
     return "(
         p.user_id = :wsFeedMe
         OR (
-            p.visibility = 'public'
+            p.visibility = 'friends'
             AND EXISTS (
-                SELECT 1 FROM users wu
-                WHERE wu.id = p.user_id
-                  AND COALESCE(wu.account_kind, 'personal') = 'publisher'
+                SELECT 1 FROM user_contacts uc
+                WHERE uc.owner_user_id = :wsFeedFriendMe
+                  AND uc.friend_user_id = p.user_id
             )
+        )
+        OR (
+            p.visibility = 'public'
             AND EXISTS (
                 SELECT 1 FROM public_follows pf
                 WHERE pf.follower_id = :wsFeedMe2 AND pf.following_id = p.user_id
@@ -1038,6 +1111,7 @@ function publisher_feed_list_scope_params_for(PDO $dbh, int $meId): array
     if (publisher_workspace_viewer($dbh, $meId)) {
         return [
             ':wsFeedMe' => $meId,
+            ':wsFeedFriendMe' => $meId,
             ':wsFeedMe2' => $meId,
         ];
     }
@@ -1075,6 +1149,7 @@ function publisher_feed_unread_scope_params_for(PDO $dbh, int $meId): array
     if (publisher_workspace_viewer($dbh, $meId)) {
         return [
             ':wsFeedMe' => $meId,
+            ':wsFeedFriendMe' => $meId,
             ':wsFeedMe2' => $meId,
         ];
     }
@@ -1096,13 +1171,20 @@ function publisher_feed_can_view_post(PDO $dbh, int $meId, array $post): bool
     $authorIsPublisher = publisher_is_publisher_user($dbh, $authorId);
 
     if (publisher_workspace_viewer($dbh, $meId)) {
-        if (!$authorIsPublisher) {
-            return false;
-        }
         if ($authorId === $meId) {
             return true;
         }
-        return publisher_user_is_followed($dbh, $meId, $authorId);
+        $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
+        if ($authorIsPublisher) {
+            return $vis === 'public' && publisher_user_is_followed($dbh, $meId, $authorId);
+        }
+        if ($vis !== 'friends') {
+            return false;
+        }
+        if (!function_exists('fs_are_friends')) {
+            require_once __DIR__ . '/friend_system.php';
+        }
+        return fs_are_friends($dbh, $meId, $authorId);
     }
 
     if ($authorIsPublisher) {
@@ -1138,13 +1220,14 @@ function publisher_post_visible_on_public_surface(PDO $dbh, int $meId, array $po
     }
 
     if (publisher_workspace_viewer($dbh, $meId)) {
-        if (!publisher_is_publisher_user($dbh, $authorId)) {
+        $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
+        if ($vis !== 'public') {
             return false;
         }
-        if ($authorId === $meId) {
+        if (!publisher_is_publisher_user($dbh, $authorId)) {
             return true;
         }
-        return !publisher_user_is_followed($dbh, $meId, $authorId);
+        return $authorId === $meId || !publisher_user_is_followed($dbh, $meId, $authorId);
     }
 
     $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
@@ -1197,7 +1280,7 @@ function publisher_profile_can_view_publisher_post(PDO $dbh, int $meId, array $p
     return true;
 }
 
-/** Viewing on public.php is browse-only until the user follows the publisher. */
+/** Any signed-in writable account may interact with a post it is permitted to view. */
 function publisher_post_interaction_allowed(PDO $dbh, int $meId, array $post): bool
 {
     if (function_exists('staff_pub_is_readonly') && staff_pub_is_readonly()) {
@@ -1209,15 +1292,7 @@ function publisher_post_interaction_allowed(PDO $dbh, int $meId, array $post): b
         return false;
     }
 
-    if (publisher_workspace_viewer($dbh, $meId)) {
-        return publisher_is_publisher_user($dbh, $authorId);
-    }
-
-    if (publisher_is_publisher_user($dbh, $authorId)) {
-        return publisher_user_is_followed($dbh, $meId, $authorId);
-    }
-
-    return publisher_feed_can_view_post($dbh, $meId, $post);
+    return true;
 }
 
 /** Can the current viewer open this user's profile? */
@@ -1247,8 +1322,8 @@ function publisher_profile_can_view_user(PDO $dbh, int $meId, int $viewId): bool
  * public.php / news.php list scope.
  * - news.php: publisher-authored public posts only (your own + unfollowed publishers).
  *   Followed publisher posts appear in feed.php instead. Personal public posts never appear here.
- * - Workspace viewers on public.php: your own + unfollowed publisher posts.
- * - Personal users on public.php: public-destination posts (personal public + unfollowed publishers).
+ * - Personal viewers on public.php: personal public posts + all publisher posts.
+ * - Publisher workspace viewers on public.php: publisher-authored posts only.
  */
 function publisher_public_discover_exclude_followed_sql(string $meBind = ':pubDiscMe'): string
 {
@@ -1285,10 +1360,10 @@ function publisher_public_surface_scope_sql(PDO $dbh, int $meId, bool $newsSurfa
     }
 
     if (publisher_workspace_viewer($dbh, $meId)) {
-        return publisher_news_surface_scope_sql(':pubWsMe', ':pubWsDiscMe');
+        return publisher_author_is_publisher_sql('u');
     }
 
-    return publisher_public_discover_exclude_followed_sql(':pubDiscMe');
+    return '(1 = 1)';
 }
 
 function publisher_public_surface_scope_params(PDO $dbh, int $meId, bool $newsSurface): array
@@ -1298,13 +1373,10 @@ function publisher_public_surface_scope_params(PDO $dbh, int $meId, bool $newsSu
     }
 
     if (publisher_workspace_viewer($dbh, $meId)) {
-        return [
-            ':pubWsMe' => $meId,
-            ':pubWsDiscMe' => $meId,
-        ];
+        return [];
     }
 
-    return publisher_public_discover_exclude_followed_params($meId);
+    return [];
 }
 
 /** Publisher-only posts for news.php: your own + unfollowed publisher accounts. */
@@ -1323,7 +1395,8 @@ function publisher_news_list_scope_params(int $meId): array
 
 /**
  * profile.php Posts tab (feed_api filter=author): list by profile owner, not feed discover rules.
- * Staff and personal users may browse all public posts on a publisher profile without following.
+ * Personal and publisher users may browse public posts; friends-only personal posts
+ * require an accepted contact relationship.
  */
 function publisher_profile_author_posts_scope_sql(PDO $dbh, int $viewerId, int $authorId): string
 {
@@ -1337,10 +1410,6 @@ function publisher_profile_author_posts_scope_sql(PDO $dbh, int $viewerId, int $
 
     if (publisher_is_publisher_user($dbh, $authorId)) {
         return "p.visibility = 'public'";
-    }
-
-    if (publisher_workspace_viewer($dbh, $viewerId)) {
-        return '0=1';
     }
 
     return "(
@@ -1361,7 +1430,7 @@ function publisher_profile_author_posts_scope_params(PDO $dbh, int $viewerId, in
         return [];
     }
 
-    if (publisher_is_publisher_user($dbh, $authorId) || publisher_workspace_viewer($dbh, $viewerId)) {
+    if (publisher_is_publisher_user($dbh, $authorId)) {
         return [];
     }
 
@@ -1524,10 +1593,22 @@ function publisher_registry_catalog_names(): array
 {
     require_once __DIR__ . '/news_publishers.php';
 
+    // These curated read-only news sources must not be offered as names for
+    // new publisher accounts. Keep them in the news catalog so existing feed
+    // integrations continue to work.
+    $excludedRegistrationNames = array_fill_keys([
+        'ap news',
+        'bbc news',
+        'fox news',
+        'reuters',
+        'the met',
+        'top gear',
+    ], true);
+
     $rows = [];
     foreach (news_publishers_catalog() as $row) {
         $label = publisher_registry_normalize_name((string)($row['label'] ?? ''));
-        if ($label === '') {
+        if ($label === '' || isset($excludedRegistrationNames[mb_strtolower($label)])) {
             continue;
         }
         $category = strtolower(trim((string)($row['category'] ?? 'news')));

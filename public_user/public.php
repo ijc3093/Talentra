@@ -16,6 +16,11 @@ require_once __DIR__ . '/includes/post_action_thin_icons.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
+$discoverFragmentRequest = (string)($_GET['ajax_discover'] ?? '') === '1';
+$discoverFragmentBaseObLevel = ob_get_level();
+if ($discoverFragmentRequest) {
+    ob_start();
+}
 
 $controller = new Controller();
 $dbh = $controller->pdo();
@@ -33,6 +38,36 @@ $selfPage = $feedSurface === 'news' ? 'news.php' : 'public.php';
 $pageTitle = $feedSurface === 'news' ? 'News' : 'Public';
 $isNewsSurface = ($feedSurface === 'news');
 $q = trim((string)($_GET['q'] ?? ''));
+$discoverTab = strtolower(trim((string)($_GET['tab'] ?? ($isNewsSurface ? 'news' : 'public'))));
+$discoverTabs = [
+    'for-you' => 'For You',
+    'public' => 'Discover',
+    'enterprise' => 'Commerce',
+    'trending' => 'Trending',
+    'news' => 'News',
+    'sports' => 'Sports',
+    'business' => 'Business',
+    'science' => 'Science',
+    'music' => 'Music',
+    'arts' => 'Arts & Painting',
+    'agriculture' => 'Agriculture',
+    'auto' => 'Auto',
+    'political' => 'Political',
+];
+$publicNavTabs = [
+    'entertainment' => 'Entertainment',
+    'library' => 'Library',
+    'cook' => 'Cook',
+    'seek-around-the-world' => 'Seek around the World',
+    'geology' => 'Geology',
+    'animation' => 'Animation',
+    'make-a-new-friend' => 'Make a new Friend',
+    'agents' => 'Agents',
+    'deep-research' => 'Deep research',
+] + publisher_academic_categories();
+if (!isset($discoverTabs[$discoverTab]) && !isset($publicNavTabs[$discoverTab])) {
+    $discoverTab = 'for-you';
+}
 $publicAlertPostId = (int)($_GET['open_post'] ?? $_GET['post'] ?? 0);
 $publicAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 $publicStoryPostId = (int)($_GET['story_post'] ?? 0);
@@ -330,6 +365,40 @@ if ($q !== '') {
     $params[':qUser'] = $qLike;
 }
 
+$publisherCategoryTabs = [
+    'entertainment' => 'entertainment',
+    'library' => 'library',
+    'cook' => 'cook',
+    'seek-around-the-world' => 'seek-around-the-world',
+    'geology' => 'geology',
+    'animation' => 'animation',
+    'make-a-new-friend' => 'make-a-new-friend',
+    'deep-research' => 'deep-research',
+    'trending' => 'trending',
+    'news' => 'news',
+    'sports' => 'sports',
+    'business' => 'business',
+    'science' => 'science',
+    'music' => 'music',
+    'arts' => 'arts',
+    'agriculture' => 'agriculture',
+    'auto' => 'auto',
+    'political' => 'political',
+];
+foreach (publisher_academic_categories() as $categorySlug => $_categoryLabel) {
+    $publisherCategoryTabs[$categorySlug] = $categorySlug;
+}
+if ($discoverTab === 'enterprise') {
+    $where .= " AND LOWER(TRIM(COALESCE(u.publisher_category,''))) IN ('enterprise','commerce')";
+} elseif (isset($publisherCategoryTabs[$discoverTab])) {
+    $where .= " AND LOWER(TRIM(COALESCE(u.publisher_category,''))) = :discoverCategory";
+    $params[':discoverCategory'] = $publisherCategoryTabs[$discoverTab];
+}
+
+$publicOrderBy = $discoverTab === 'trending'
+    ? '(COALESCE(p.views_count,0) + (comment_count * 4) + (like_count * 3) + (love_count * 3) + (share_count * 5)) DESC, COALESCE(p.updated_at,p.created_at) DESC'
+    : 'COALESCE(p.updated_at,p.created_at) DESC';
+
 $layoutColumn = post_layout_column($dbh);
 $layoutSelect = post_layout_select_sql($dbh);
 
@@ -355,7 +424,7 @@ SELECT
 FROM public_posts p
 JOIN users u ON u.id = p.user_id
 WHERE {$where}
-ORDER BY COALESCE(p.updated_at,p.created_at) DESC
+ORDER BY {$publicOrderBy}
 LIMIT 100";
 $params[':me'] = $meId;
 $params[':me2'] = $meId;
@@ -512,6 +581,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title><?= h($pageTitle) ?></title>
+  <script>
+    try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
+  </script>
   <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
   <link rel="stylesheet" href="./css/dark-auto.css">
   <script src="./js/dark-auto.js?v=6" defer></script>
@@ -752,6 +824,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .post-card-head-actions .friend-btn{
       order:1;
     }
+    .post-card-head-actions .post-card-menu-wrap,
     .post-card-head-actions .more-btn,
     .post-card-head-actions .standard-text-more,
     .post-card-head-actions .standard-media-more,
@@ -950,16 +1023,34 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       line-height:1;
       cursor:pointer;
     }
-    .standard-text-btn i{color:var(--public-text) !important}
+    .standard-text-btn i{color:var(--msb-palette-text, var(--public-text)) !important;filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important}
+    .standard-text-btn .msb-reaction-glyph,
+    .standard-media-btn .msb-reaction-glyph,
+    .action-btn .msb-reaction-glyph,
+    .reel-inline-btn .msb-reaction-glyph,
+    .public-live-action-btn .msb-reaction-glyph{
+      display:inline-flex !important;
+      align-items:center;
+      justify-content:center;
+      width:22px;height:22px;min-width:22px;min-height:22px;flex:0 0 22px;
+      font-size:20px !important;
+      line-height:1 !important;
+      font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif !important;
+      background:transparent !important;
+      -webkit-mask:none !important;
+      mask:none !important;
+      filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
+    }
     .standard-text-btn.is-love i{color:var(--msb-love-color, #7c3aed) !important}
     .standard-text-btn.is-like i{color:#2563eb !important}
-    .standard-text-btn.is-share i{color:#9ca3af !important}
+    .standard-text-btn.is-share i{color:#374151 !important}
     .standard-text-btn.is-save i{color:#f59e0b !important}
     .standard-text-btn .action-count{
       color:var(--public-muted);
       font-size:14px;
       font-weight:800;
       line-height:1;
+      text-shadow:var(--msb-pact-contrast-text-shadow, 0 0 2px rgba(255,255,255,.95), 0 1px 2px rgba(0,0,0,.45));
     }
     .standard-text-comments,
     .standard-text-views{
@@ -1449,6 +1540,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       align-items:flex-start;
       justify-content:center;
       gap:0;
+      margin-left: -8px;
       overflow:hidden;
     }
     .standard-media-name-row{
@@ -1605,7 +1697,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       color:#fff;
       opacity:.92;
       font-weight:800;
-      margin-left:6px;
+      /* margin-left:6px; */
     }
     .standard-media-actions{
       display:flex;
@@ -1694,23 +1786,24 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     .standard-media-comments{opacity:.92;cursor:pointer}
     .standard-media-views{opacity:.92}
-    .media-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border:none;border-radius:999px;background:rgba(255,255,255,.82);color:#1f2937;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:3}
-    .media-nav:hover{background:#fff}
+    .media-nav{position:absolute;top:50%;transform:translateY(-50%);width:20px;height:20px;border:none;border-radius:999px;background:rgba(159, 153, 153, 0.9);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:3}
+    .media-nav:hover{background:rgba(180,180,180,.95)}
+    .media-nav i{color:#fff;font-size:10px;line-height:1}
     .media-nav.prev{left:12px}
     .media-nav.next{right:12px}
-    .media-dots{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(17,24,39,.34);z-index:3}
+    .media-dots{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:5px;padding:0;border-radius:0;background:transparent;z-index:3}
     .media-dot{
-      width:10px !important;
-      height:10px !important;
-      min-width:10px !important;
-      min-height:10px !important;
-      flex:0 0 10px !important;
+      width:5px !important;
+      height:5px !important;
+      min-width:5px !important;
+      min-height:5px !important;
+      flex:0 0 5px !important;
       display:block !important;
       border:none !important;
       border-radius:50% !important;
       padding:0 !important;
       margin:0 !important;
-      background:rgba(255,255,255,.45) !important;
+      background:rgba(255,255,255,.55) !important;
       cursor:pointer;
       appearance:none;
       -webkit-appearance:none;
@@ -1720,12 +1813,21 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       color:transparent !important;
       text-indent:-9999px !important;
       overflow:hidden !important;
+      transition:background-color .15s ease, width .15s ease, height .15s ease;
     }
-    .media-dot.is-active{background:#fff;transform:scale(1.08)}
+    .media-dot.is-active{
+      width:6px !important;
+      height:6px !important;
+      min-width:6px !important;
+      min-height:6px !important;
+      flex:0 0 6px !important;
+      background:#3897f0 !important;
+      transform:none;
+    }
     .post.public-post-card:not(.is-reel-post) .media-dots{
-      bottom:18px;
+      bottom:12px;
       z-index:5;
-      background:rgba(17,24,39,.5);
+      background:transparent;
     }
     .file-tile{display:flex;align-items:center;justify-content:center;min-height:420px;color:#fff;padding:24px;text-align:center;width:100%;height:100%}
 
@@ -1752,7 +1854,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .comments-line,.meta-line{color:var(--muted)}
     .meta-line{font-size:11px;text-transform:uppercase;letter-spacing:.06em}
     .caption-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-    .open-inline{color:var(--muted);font-weight:600;margin-left:6px;cursor:pointer;text-decoration:none}
+    .open-inline{color:var(--muted);font-weight:600;margin-left:0px;cursor:pointer;text-decoration:none}
     .open-inline:hover{text-decoration:underline}
     .post.public-post-card:not(.is-reel-post) .likes-line,
     .post.public-post-card:not(.is-reel-post) .caption-line,
@@ -2015,7 +2117,27 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .toggle-bubbles .on{width:22px;height:22px;background:linear-gradient(135deg,#7c3aed,#3b82f6);border:2px solid #fff;box-shadow:0 0 0 2px #d1d5db}
 
     .jump-rail{position:fixed;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:35}
-    .jump-rail button{width:44px;height:44px;border:none;border-radius:50%;background:#111;color:#fff;box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .jump-rail.is-hidden{display:none !important}
+    .jump-rail button{width:44px;height:44px;border:none;border-radius:50%;background:#111;color:#fff;box-shadow:0 10px 24px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+    .jump-rail .jump-rail-video{
+      position:fixed;
+      right:16px;
+      bottom:28px;
+      top:auto;
+      left:auto;
+      margin:0;
+      background:#e53935 !important;
+      color:#fff !important;
+      box-shadow:0 10px 24px rgba(229,57,53,.35) !important;
+      z-index:36;
+    }
+    .jump-rail .jump-rail-video i{
+      font-size:16px;
+      line-height:1;
+      margin-left:2px;
+      color:#fff !important;
+    }
+
     .mf-feed-empty{
       display:flex;
       flex-direction:column;
@@ -2032,6 +2154,18 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       line-height:1;
       margin:0 auto 16px;
       color:#98a2b3;
+    }
+    .mf-feed-empty .mf-feed-empty-nav-icon{
+      display:block;
+      width:56px;
+      height:56px;
+      margin:0 auto 16px;
+      color:#98a2b3;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:1.75;
+      stroke-linecap:round;
+      stroke-linejoin:round;
     }
     .mf-feed-empty .mf-feed-empty-title{
       font-size:17px;
@@ -2136,6 +2270,12 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       .actions{padding:12px}
       .jump-rail{right:10px;top:auto;bottom:94px;transform:none}
       .jump-rail button{width:40px;height:40px}
+      .jump-rail .jump-rail-video{
+        right:10px;
+        bottom:24px;
+        width:40px;
+        height:40px;
+      }
 
       .post.is-reel-post{
         margin-bottom:14px;
@@ -2222,7 +2362,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         max-height:min(82vh, 900px);
       }
       .post.public-post-card:not(.is-reel-post) .media-dots{
-        bottom:0px;
+        bottom:12px;
       }
       .standard-media-bottom{padding:120px 20px 18px;}
       .post.is-reel-post{
@@ -2283,6 +2423,18 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     html[data-msb-appearance] body,
     html[data-msb-appearance] body.public-page,
     html[data-msb-appearance] body.news-page{
+      /* A Gear "Progress color" is the page canvas. Keep Public's own
+         surface tokens from falling back to white/light grey on header,
+         search, tabs, rails, controls, and empty-feed regions. */
+      --public-surface:var(--msb-palette-bg);
+      --public-surface-alt:var(--msb-palette-bg);
+      --public-surface-strong:var(--msb-palette-bg);
+      --public-post-card-surface:var(--msb-palette-bg);
+      --public-topbar-bg:var(--msb-palette-bg);
+      --public-sidebar-bg:var(--msb-palette-bg);
+      --public-sidebar-hover:var(--msb-palette-action-soft);
+      --public-control-bg:var(--msb-palette-bg);
+      --public-control-soft:var(--msb-palette-bg);
       --public-accent:var(--msb-palette-action);
       --public-accent-soft:var(--msb-palette-action-soft);
       --public-accent-strong:var(--msb-palette-action-strong);
@@ -2467,12 +2619,12 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     .post.public-post-card:not(.is-reel-post) .action-btn i,
     .standard-text-btn i{
-      color:var(--public-text) !important;
-      text-shadow:none;
+      color:var(--msb-palette-text, var(--public-text)) !important;
+      filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
     }
     .post.public-post-card:not(.is-reel-post) .action-btn.is-love i,
     .standard-text-btn.is-love i{
-      color:#ef2b7b !important;
+      color:var(--msb-love-color, #7c3aed) !important;
     }
     .post.public-post-card:not(.is-reel-post) .action-btn.is-like i,
     .standard-text-btn.is-like i{
@@ -2480,7 +2632,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     .post.public-post-card:not(.is-reel-post) .action-btn.is-share i,
     .standard-text-btn.is-share i{
-      color:#6b7280 !important;
+      color:#374151 !important;
     }
     .post.public-post-card:not(.is-reel-post) .action-btn.is-save i,
     .standard-text-btn.is-save i{
@@ -2506,10 +2658,19 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       color:var(--public-text);
       box-shadow:0 10px 24px rgba(15,23,42,.18);
     }
+    .jump-rail .jump-rail-video{
+      background:#e53935 !important;
+      color:#fff !important;
+      box-shadow:0 10px 24px rgba(229,57,53,.35) !important;
+    }
+    .jump-rail .jump-rail-video i{
+      color:#fff !important;
+    }
     .mf-feed-empty{
       color:var(--public-muted);
     }
-    .mf-feed-empty i{
+    .mf-feed-empty i,
+    .mf-feed-empty .mf-feed-empty-nav-icon{
       color:var(--public-muted);
       opacity:.85;
     }
@@ -2610,7 +2771,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         gap:12px;
         position:relative;
         margin-bottom:0;
-        padding:0 0 14px;
+        padding:0 0 1px;
       }
 
       body .standard-media-topbar{
@@ -2639,7 +2800,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         left:auto;
         right:auto;
         width:calc(100% - 12px);
-        margin:15px 10px 0;
+        /* margin:15px 10px 0; */
         z-index:6;
       }
 
@@ -2721,7 +2882,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         padding-right:8px;
         pointer-events:auto;
         overflow:hidden;
-        margin-left: -10px;
+        /* margin-top: -15px; */
+        margin-left: -25px;
       }
 
       body .standard-media-topbar .standard-media-author:hover{
@@ -2770,7 +2932,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
 
       body .standard-text-time{
         color:var(--public-muted);
-        font-size:15px;
+        font-size:14px;
         line-height:1.2;
       }
 
@@ -2786,7 +2948,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
 
       body .standard-text-name{
         color:var(--public-text);
-        font-size:18px;
+        font-size:14px;
         font-weight:700;
         line-height:1.15;
         max-width:220px;
@@ -2901,9 +3063,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         align-items:center;
         justify-content:space-between;
         gap:16px;
-        margin-top:14px;
+        /* margin-top:14px; */
         width:100%;
-        padding:12px 0 2px;
+        padding:1px 0 2px;
       }
 
       body .standard-text-meta-bar,
@@ -2972,19 +3134,30 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         cursor:pointer;
       }
 
-      body .standard-text-btn i,
-      body .standard-media-btn i{
-        color:var(--public-text) !important;
+      body .standard-text-btn i{
+        color:var(--msb-palette-text, var(--public-text)) !important;
         font-size:20px;
-        text-shadow:none;
+        filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
+      }
+      body .standard-media-btn i{
+        color:#fff !important;
+        font-size:20px;
+        filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
       }
 
-      body .standard-text-btn .action-count,
-      body .standard-media-btn .action-count{
-        color:var(--public-text);
+      body .standard-text-btn .action-count{
+        color:var(--msb-palette-text, var(--public-text));
         font-size:13px;
         font-weight:600;
         line-height:1;
+        text-shadow:var(--msb-pact-contrast-text-shadow, 0 0 2px rgba(255,255,255,.95), 0 1px 2px rgba(0,0,0,.45));
+      }
+      body .standard-media-btn .action-count{
+        color:#fff;
+        font-size:13px;
+        font-weight:600;
+        line-height:1;
+        text-shadow:0 1px 3px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.5);
       }
 
       body .standard-text-comments,
@@ -3286,10 +3459,41 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   overflow:hidden;
   text-overflow:ellipsis;
 }
+.ig-story-create{
+  text-decoration:none;
+  color:inherit;
+}
+.ig-story-create .ig-story-ring-create{
+  background:#fafafa;
+  border:2px solid #dbdbdb;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+}
+.ig-story-create .ig-story-ring-create i{
+  font-size:26px;
+  color:#262626;
+  line-height:1;
+}
+.ig-story-create:hover .ig-story-ring-create,
+.ig-story-create:focus-visible .ig-story-ring-create{
+  background:#f0f0f0;
+  border-color:#c7c7c7;
+}
+.ig-story-create:focus-visible{
+  outline:2px solid #0095f6;
+  outline-offset:2px;
+  border-radius:8px;
+}
 .ig-stories-track.is-empty{
   justify-content:flex-start;
-  align-items:center;
-  min-height:0;
+  align-items:flex-start;
+  min-height:74px;
+}
+.ig-stories-track.has-create.is-empty{
+  justify-content:flex-start;
 }
 .ig-story-empty{
   width:auto;
@@ -3350,7 +3554,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
 .ig-stories-next:hover{background:#fafafa;}
 .feed-top-search{
   width:100%;
-  padding:12px 16px 8px;
+  padding:12px 24px 0;
   box-sizing:border-box;
   position:relative;
   top:auto;
@@ -3367,9 +3571,9 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search{
   margin:0;
 }
 .feed-top-search-form{
-  width:100%;
-  max-width:614px;
-  margin:0 auto;
+  flex:1 1 auto;
+  min-width:0;
+  margin:0;
 }
 body.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-search-form,
 body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-search-form{
@@ -3379,14 +3583,20 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
   position:relative;
   width:100%;
 }
+.feed-top-search-row{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
 .feed-top-search-input{
   width:100%;
   min-width:0;
   height:42px;
   border:1px solid var(--public-border, rgba(15,23,42,.14));
   border-radius:999px;
-  padding:0 44px 0 16px;
-  font-size:14px;
+  padding:0 18px 0 46px;
+  font-size:15px;
   background:var(--public-surface, #fff);
   color:var(--public-text, #0d0d0d);
   outline:none;
@@ -3401,7 +3611,7 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
 }
 .feed-top-search-icon{
   position:absolute;
-  right:6px;
+  left:6px;
   top:50%;
   transform:translateY(-50%);
   width:32px;
@@ -3413,7 +3623,7 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
   align-items:center;
   justify-content:center;
   background:transparent;
-  color:var(--msb-palette-action, var(--public-accent, #2563eb));
+  color:var(--public-muted, #667085);
   cursor:pointer;
   line-height:1;
 }
@@ -3426,6 +3636,113 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
   background:var(--msb-palette-action-soft, rgba(37,99,235,.12));
   outline:none;
 }
+.feed-top-search-settings{
+  width:42px;
+  height:42px;
+  flex:0 0 42px;
+  border-radius:50%;
+  color:var(--public-text, #0d0d0d);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+  font-size:19px;
+}
+.feed-top-search-settings:hover,
+.feed-top-search-settings:focus{
+  color:var(--public-text, #0d0d0d);
+  background:var(--msb-palette-action-soft, rgba(37,99,235,.12));
+  outline:none;
+}
+.feed-discover-tabs{
+  display:flex;
+  align-items:stretch;
+  width:100%;
+  margin-top:10px;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.feed-discover-tabs::-webkit-scrollbar{display:none;}
+.feed-discover-tab{
+  position:relative;
+  flex:1 0 auto;
+  min-width:max-content;
+  padding:12px 12px 14px;
+  color:var(--public-muted, #667085);
+  font-size:14px;
+  font-weight:400;
+  line-height:1.2;
+  text-align:center;
+  text-decoration:none;
+  white-space:nowrap;
+}
+.feed-discover-tab:hover,
+.feed-discover-tab:focus{
+  color:var(--public-text, #0d0d0d);
+  background:rgba(127,127,127,.07);
+  text-decoration:none;
+  outline:none;
+}
+.feed-discover-tab.is-active{
+  color:var(--public-text, #0d0d0d);
+  font-size:14px;
+  font-weight:400;
+}
+.feed-discover-tab.is-active::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom:0;
+  width:68px;
+  max-width:70%;
+  height:4px;
+  border-radius:999px;
+  background:#1d9bf0;
+  transform:translateX(-50%);
+}
+html{
+  scrollbar-gutter:stable;
+}
+@view-transition{
+  navigation:auto;
+}
+::view-transition-old(root),
+::view-transition-old(msb-feed-header),
+::view-transition-old(msb-feed-tabs){
+  animation:msb-page-hold .18s linear both !important;
+}
+::view-transition-new(root),
+::view-transition-new(msb-feed-header),
+::view-transition-new(msb-feed-tabs){
+  animation:msb-page-reveal .18s ease-out both !important;
+}
+.ig-feed-header{
+  view-transition-name:msb-feed-header;
+}
+.feed-top-search{
+  view-transition-name:msb-feed-tabs;
+}
+@keyframes msb-page-hold{
+  from{opacity:1;}
+  to{opacity:1;}
+}
+@keyframes msb-page-reveal{
+  from{opacity:0;}
+  to{opacity:1;}
+}
+@media (prefers-reduced-motion:reduce){
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(msb-feed-header),
+  ::view-transition-new(msb-feed-header),
+  ::view-transition-old(msb-feed-tabs),
+  ::view-transition-new(msb-feed-tabs){
+    animation:none !important;
+  }
+}
+.feed-discover-tabs.is-loading{
+  pointer-events:none;
+}
 .feed-desktop-layout{display:block;width:100%;}
 .feed-left-rail,
 .feed-right-rail{display:none;}
@@ -3435,9 +3752,9 @@ body.feed-insta-ui .standard-text-author .avatar,
 body.feed-insta-ui .standard-media-author .avatar,
 body.feed-insta-ui .reel-top-author .avatar,
 body.feed-insta-ui .post-author-link .avatar{
-  width:44px !important;
-  height:44px !important;
-  flex:0 0 44px !important;
+  width:35px !important;
+  height:35px !important;
+  flex:0 0 35px !important;
   padding:2px !important;
   border-radius:50% !important;
   background:linear-gradient(135deg, #0ea5e9 0%, #2563eb 58%, #f8fafc 100%) !important;
@@ -3517,8 +3834,8 @@ body.feed-insta-ui .avatar-thumb img{
     gap:2px;
     flex:1 1 auto;
     min-height:0;
-    height:100%;
-    max-height:100%;
+    height:auto;
+    max-height:none;
     overflow-y:auto;
     overflow-x:hidden;
     padding:0 2px 0 0;
@@ -3527,6 +3844,13 @@ body.feed-insta-ui .avatar-thumb img{
     touch-action:pan-y;
     scrollbar-width:thin;
     scrollbar-color:rgba(0,0,0,.18) transparent;
+  }
+  body.feed-insta-ui .feed-left-rail-footer{
+    display:flex;
+    flex:0 0 auto;
+    flex-direction:column;
+    gap:2px;
+    padding:6px 2px 0 0;
   }
   body.feed-insta-ui .feed-left-nav::-webkit-scrollbar{width:5px;}
   body.feed-insta-ui .feed-left-nav::-webkit-scrollbar-thumb{
@@ -3683,11 +4007,20 @@ body.feed-insta-ui .avatar-thumb img{
     padding:0;
     box-sizing:border-box;
   }
+  body.public-page.feed-insta-ui.public-suggestions-visible .feed-right-rail{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
   body.feed-insta-ui .jump-rail{
     top:auto;
     bottom:120px;
     right:24px;
     transform:none;
+  }
+  body.feed-insta-ui .jump-rail .jump-rail-video{
+    right:24px;
+    bottom:28px;
   }
   body.feed-insta-ui .feed-right-nav{
     display:flex;
@@ -3806,7 +4139,7 @@ body.feed-insta-ui .avatar-thumb img{
     top:auto !important;
     z-index:105 !important;
     background:var(--public-surface, #fff) !important;
-    padding:12px 16px 8px !important;
+    padding:12px 24px 0 !important;
     border-bottom:1px solid var(--public-border-strong, rgba(15,23,42,.16)) !important;
   }
   body.feed-insta-ui .feed-desktop-center > .feed-top-search,
@@ -4122,7 +4455,7 @@ html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-pos
 html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-post) .media-stage > .standard-media-top-actions .publisher-follow-btn,
 html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-post) .media-stage > .standard-media-top-actions .friend-btn.primary,
 html[data-msb-appearance] body.news-page .post.public-post-card:not(.is-reel-post) .media-stage > .standard-media-top-actions .publisher-follow-btn.primary{
-  margin-right:-20px !important;
+  margin-right:-25px !important;
 }
 @media (max-width:767.98px){
   .post.public-post-card:not(.is-reel-post) .media-stage:has(> .standard-media-topbar) > .standard-media-top-actions,
@@ -4284,9 +4617,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 }
 </style>
 </head>
-<body class="public-page feed-insta-ui<?= $isNewsSurface ? ' news-page' : '' ?>">
+<body class="public-page feed-insta-ui<?= $isNewsSurface ? ' news-page' : '' ?><?= $discoverTab === 'public' ? ' public-suggestions-visible' : '' ?>">
 <?php $GLOBALS['msb_skip_header_leftbar'] = true; $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
-<?php $feedLeftRailActive = $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__ . '/includes/feed_left_rail.php'; ?>
+<?php $feedLeftRailActive = isset($publicNavTabs[$discoverTab]) ? $discoverTab : $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__ . '/includes/feed_left_rail.php'; ?>
   <div class="sh-mainpanel">
   <?php include __DIR__ . '/includes/leftbar.php'; ?>
   <?php include __DIR__ . '/includes/stories_right_door.php'; ?>
@@ -4295,45 +4628,302 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       <?php include __DIR__ . '/includes/feed_top_user_lead.php'; ?>
       <div class="ig-stories-wrap">
         <div class="ig-stories-bar<?= empty($publicStoryCatalog) ? ' is-empty' : '' ?>" aria-label="Stories">
-          <div class="ig-stories-track<?= empty($publicStoryCatalog) ? ' is-empty' : '' ?>" id="igStoriesTrack"><?php if (empty($publicStoryCatalog)): ?><div class="ig-story-item ig-story-empty" role="status" aria-label="No stories available"><div class="ig-story-ring ig-story-ring-empty"><span class="ig-story-empty-icon" aria-hidden="true"><i class="icon ion-ios-book-outline"></i></span></div><span class="ig-story-name"></span></div><?php endif; ?></div>
+          <div class="ig-stories-track<?= empty($publicStoryCatalog) ? ' is-empty' : '' ?><?= $staffReadonly ? '' : ' has-create' ?>" id="igStoriesTrack">
+            <?php if (!$staffReadonly): ?>
+              <a class="ig-story-item ig-story-create" href="dashboard.php?modal=1&amp;story=1" data-create-post-modal="1" aria-label="Create a story">
+                <div class="ig-story-ring ig-story-ring-create"><i class="icon ion-plus" aria-hidden="true"></i></div>
+              </a>
+            <?php endif; ?>
+            <?php if (empty($publicStoryCatalog)): ?>
+              <div class="ig-story-item ig-story-empty" role="status" aria-label="No stories available"><div class="ig-story-ring ig-story-ring-empty"><span class="ig-story-empty-icon" aria-hidden="true"><i class="icon ion-ios-book-outline"></i></span></div><span class="ig-story-name"></span></div>
+            <?php endif; ?>
+          </div>
           <button type="button" class="ig-stories-next" aria-label="Next stories" onclick="var t=document.getElementById('igStoriesTrack');if(t){t.scrollBy({left:140,behavior:'smooth'});}"><i class="fa fa-chevron-right"></i></button>
         </div>
       </div>
-      <div class="ig-feed-top-actions" aria-label="Header actions">
-        <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
-      </div>
+      <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
     </div>
     <div class="feed-desktop-layout">
       <div class="feed-desktop-center">
-        <div class="feed-top-search" aria-label="Search posts">
-          <form class="feed-top-search-form" method="get" action="<?= h($selfPage) ?>">
-            <div class="feed-top-search-field">
-              <input
-                type="search"
-                name="q"
-                class="feed-top-search-input"
-                value="<?= h($q) ?>"
-                placeholder="<?= $isNewsSurface ? 'Search CNN, Fox News, ABC…' : 'Search posts and publishers…' ?>"
-                autocomplete="off"
-                enterkeyhint="search"
-              >
-              <button type="submit" class="feed-top-search-icon" aria-label="Search">
-                <i class="fa fa-search" aria-hidden="true"></i>
-              </button>
-            </div>
-          </form>
+        <div class="feed-top-search" aria-label="Explore posts">
+          <div class="feed-top-search-row">
+            <form class="feed-top-search-form" method="get" action="<?= h($selfPage) ?>">
+              <input type="hidden" name="tab" value="<?= h($discoverTab) ?>">
+              <div class="feed-top-search-field">
+                <button type="submit" class="feed-top-search-icon" aria-label="Search">
+                  <i class="fa fa-search" aria-hidden="true"></i>
+                </button>
+                <input
+                  type="search"
+                  name="q"
+                  class="feed-top-search-input"
+                  value="<?= h($q) ?>"
+                  placeholder="<?= $isNewsSurface ? 'Search news' : 'Search' ?>"
+                  autocomplete="off"
+                  enterkeyhint="search"
+                >
+              </div>
+            </form>
+            <a class="feed-top-search-settings" href="profile.php?tab=gear" aria-label="Explore settings" title="Settings">
+              <i class="fa fa-cog" aria-hidden="true"></i>
+            </a>
+          </div>
+          <nav class="feed-discover-tabs" aria-label="Explore categories">
+            <?php foreach ($discoverTabs as $tabKey => $tabLabel): ?>
+              <?php
+                $tabQuery = ['tab' => $tabKey];
+                if ($q !== '') {
+                    $tabQuery['q'] = $q;
+                }
+                $tabPage = $tabKey === 'for-you'
+                    ? 'feed.php'
+                    : ($tabKey === 'news' ? 'news.php' : 'public.php');
+              ?>
+              <a
+                class="feed-discover-tab<?= $discoverTab === $tabKey ? ' is-active' : '' ?>"
+                href="<?= h($tabPage . '?' . http_build_query($tabQuery)) ?>"
+                <?= $discoverTab === $tabKey ? 'aria-current="page"' : '' ?>
+              ><?= h($tabLabel) ?></a>
+            <?php endforeach; ?>
+          </nav>
         </div>
+        <script>
+        (function(){
+          var tabs = document.querySelector('.feed-discover-tabs');
+          if(!tabs) return;
+          var storageKey = 'msbDiscoverTabsScroll';
+          try{
+            var saved = Number(sessionStorage.getItem(storageKey) || 0);
+            if(saved > 0) tabs.scrollLeft = saved;
+          }catch(e){}
+          var requestController = null;
+          var tabHtmlCache = Object.create(null);
+          var tabHtmlRequests = Object.create(null);
+          function activateTab(link){
+            var selected = new URL(link.href, window.location.href).searchParams.get('tab') || 'for-you';
+            tabs.querySelectorAll('.feed-discover-tab').forEach(function(tab){
+              var active = (new URL(tab.href, window.location.href).searchParams.get('tab') || 'for-you') === selected;
+              tab.classList.toggle('is-active', active);
+              if(active) tab.setAttribute('aria-current', 'page');
+              else tab.removeAttribute('aria-current');
+            });
+          }
+          function prefetchTab(link){
+            if(!link || !window.fetch || tabHtmlCache[link.href] || tabHtmlRequests[link.href]) return;
+            if(new URL(link.href, window.location.href).pathname.endsWith('/feed.php')){
+              if(!document.querySelector('link[data-msb-feed-prefetch]')){
+                var feedPrefetch = document.createElement('link');
+                feedPrefetch.rel = 'prefetch';
+                feedPrefetch.href = link.href;
+                feedPrefetch.setAttribute('data-msb-feed-prefetch', '1');
+                document.head.appendChild(feedPrefetch);
+              }
+              if(!window.__msbForYouDataPrefetch){
+                window.__msbForYouDataPrefetch = true;
+                fetch('feed_api.php?ajax=list&filter=all&order=recent&limit=200', {
+                  credentials:'same-origin',
+                  headers:{'X-Requested-With':'XMLHttpRequest'}
+                }).then(function(response){
+                  if(!response.ok) throw new Error('For You preload failed');
+                  return response.json();
+                }).then(function(result){
+                  if(!result || !result.ok || !Array.isArray(result.items)) return;
+                  try{
+                    sessionStorage.setItem('msbForYouPrefetchedItems', JSON.stringify({
+                      savedAt:Date.now(),
+                      meId:Number(result.me_id || 0),
+                      items:result.items
+                    }));
+                  }catch(e){}
+                }).catch(function(){});
+              }
+              return;
+            }
+            var prefetchUrl = new URL(link.href, window.location.href);
+            prefetchUrl.searchParams.set('ajax_discover', '1');
+            tabHtmlRequests[link.href] = fetch(prefetchUrl.href, {
+              credentials:'same-origin',
+              headers:{'X-Requested-With':'XMLHttpRequest'}
+            }).then(function(response){
+              if(!response.ok) throw new Error('Prefetch failed');
+              return response.text();
+            }).then(function(html){
+              tabHtmlCache[link.href] = html;
+              return html;
+            }).catch(function(){
+              return '';
+            }).finally(function(){
+              delete tabHtmlRequests[link.href];
+            });
+          }
+          function prefetchNeighbors(){
+            var links = Array.prototype.slice.call(tabs.querySelectorAll('.feed-discover-tab'));
+            var activeIndex = links.findIndex(function(tab){ return tab.classList.contains('is-active'); });
+            if(activeIndex > 0) prefetchTab(links[activeIndex - 1]);
+            if(activeIndex >= 0 && activeIndex + 1 < links.length) prefetchTab(links[activeIndex + 1]);
+          }
+          function prefetchRemainingTabs(){
+            var links = Array.prototype.slice.call(tabs.querySelectorAll('.feed-discover-tab'));
+            links.forEach(function(link, index){
+              if(link.classList.contains('is-active')) return;
+              window.setTimeout(function(){ prefetchTab(link); }, 120 * index);
+            });
+          }
+          tabs.addEventListener('pointerover', function(e){
+            prefetchTab(e.target.closest('.feed-discover-tab'));
+          });
+          window.setTimeout(prefetchNeighbors, 100);
+          if('requestIdleCallback' in window){
+            window.requestIdleCallback(prefetchRemainingTabs, {timeout:900});
+          }else{
+            window.setTimeout(prefetchRemainingTabs, 350);
+          }
+          tabs.addEventListener('click', function(e){
+            var link = e.target.closest('.feed-discover-tab');
+            if(!link) return;
+            if(link.classList.contains('is-active')){
+              e.preventDefault();
+              return;
+            }
+            if(new URL(link.href, window.location.href).pathname.endsWith('/feed.php')){
+              try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
+              activateTab(link);
+              return;
+            }
+            if(!window.fetch || !window.DOMParser) return;
+            e.preventDefault();
+            try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
+            activateTab(link);
+            if(requestController) requestController.abort();
+            requestController = window.AbortController ? new AbortController() : null;
+            tabs.classList.add('is-loading');
+            var htmlRequest = tabHtmlCache[link.href]
+              ? Promise.resolve(tabHtmlCache[link.href])
+              : (tabHtmlRequests[link.href] || (function(){
+                  var fragmentUrl = new URL(link.href, window.location.href);
+                  fragmentUrl.searchParams.set('ajax_discover', '1');
+                  return fetch(fragmentUrl.href, {
+                  credentials:'same-origin',
+                  headers:{'X-Requested-With':'XMLHttpRequest'},
+                  signal:requestController ? requestController.signal : undefined
+                  });
+                })().then(function(response){
+                  if(!response.ok) throw new Error('Tab request failed');
+                  return response.text();
+                }).then(function(html){
+                  tabHtmlCache[link.href] = html;
+                  return html;
+                }));
+            htmlRequest.then(function(html){
+              var nextDoc = new DOMParser().parseFromString(html, 'text/html');
+              var currentFeed = document.querySelector('.feed-desktop-center > .ig-feed');
+              var nextFeed = nextDoc.querySelector('.ig-feed');
+              if(!currentFeed || !nextFeed) throw new Error('Tab content unavailable');
+              var previousScrollBehavior = currentFeed.style.scrollBehavior;
+              currentFeed.style.scrollBehavior = 'auto';
+              currentFeed.scrollTop = 0;
+              currentFeed.classList.add('public-media-hydrating');
+              currentFeed.innerHTML = nextFeed.innerHTML;
+              if(typeof window.msbBootPublicMediaCards === 'function'){
+                window.msbBootPublicMediaCards();
+              }
+              document.dispatchEvent(new CustomEvent('msb:public-tab-content-ready', {
+                detail:{tab:(new URL(link.href, window.location.href).searchParams.get('tab') || 'public')}
+              }));
+              var selectedTab = new URL(link.href, window.location.href).searchParams.get('tab') || 'for-you';
+              var jumpRail = document.querySelector('.jump-rail');
+              if(jumpRail) jumpRail.classList.toggle('is-hidden', selectedTab === 'for-you');
+              var searchForm = document.querySelector('.feed-top-search-form');
+              if(searchForm) searchForm.action = new URL(link.href, window.location.href).pathname;
+              document.body.classList.toggle('news-page', new URL(link.href, window.location.href).pathname.endsWith('/news.php'));
+              document.body.classList.toggle('public-suggestions-visible', selectedTab === 'public');
+              history.pushState({msbDiscover:true}, '', link.href);
+              document.title = nextDoc.title || document.title;
+              currentFeed.scrollTop = 0;
+              currentFeed.style.scrollBehavior = previousScrollBehavior;
+              prefetchNeighbors();
+            }).catch(function(error){
+              if(error && error.name === 'AbortError') return;
+              window.location.assign(link.href);
+            }).finally(function(){
+              tabs.classList.remove('is-loading');
+            });
+          });
+          window.addEventListener('popstate', function(){
+            window.location.reload();
+          });
+        })();
+        </script>
         <?php if ($canFollowPublishers && !$isNewsSurface): ?>
           <?php
             $publisherSearchQuery = $q;
             include __DIR__ . '/includes/publisher_search_panel.php';
           ?>
         <?php endif; ?>
-        <section class="ig-feed">
+        <?php ob_start(); ?>
+        <section class="ig-feed public-media-hydrating">
       <?php if (!$posts): ?>
+        <?php
+          $publicEmptyTitles = [
+              'public' => 'No Public Posts Available',
+              'enterprise' => 'No Commerce Posts Available',
+              'news' => 'No News Posts Available',
+              'sports' => 'No Sports Posts Available',
+              'business' => 'No Business Posts Available',
+              'science' => 'No Science Posts Available',
+              'music' => 'No Music Posts Available',
+              'arts' => 'No Arts & Painting Posts Available',
+              'agriculture' => 'No Agriculture Posts Available',
+              'auto' => 'No Auto Posts Available',
+              'political' => 'No Political Posts Available',
+              'entertainment' => 'No Entertainment Posts Available',
+              'library' => 'No Library Posts Available',
+              'cook' => 'No Cook Posts Available',
+              'seek-around-the-world' => 'No Seek around the World Posts Available',
+              'geology' => 'No Geology Posts Available',
+              'animation' => 'No Animation Posts Available',
+              'make-a-new-friend' => 'No Make a new Friend Posts Available',
+              'agents' => 'No Agents Posts Available',
+              'deep-research' => 'No Deep research Posts Available',
+              'trending' => 'No Trending Posts Available',
+              'for-you' => 'No Feed Available',
+          ];
+          $publicEmptyTitle = $publicEmptyTitles[$discoverTab]
+              ?? (isset($publicNavTabs[$discoverTab]) ? 'No ' . $publicNavTabs[$discoverTab] . ' Posts Available' : 'No Feed Available');
+          $publicEmptyNavIcons = [
+              'for-you' => '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
+              'public' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+              'enterprise' => '<rect x="4" y="8" width="16" height="12" rx="1"/><path d="M8 8V4h8v4"/><path d="M8 12h2M14 12h2M8 16h2M14 16h2"/>',
+              'trending' => '<path d="m3 17 6-6 4 4 8-9"/><path d="M15 6h6v6"/>',
+              'news' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h6M7 12h10M7 16h10M16 8h1"/>',
+              'sports' => '<circle cx="12" cy="12" r="9"/><path d="m8.5 4.8 1.7 3.4-2.7 2.6-3.7-.6M15.5 4.8l-1.7 3.4 2.7 2.6 3.7-.6M7.5 10.8l1.2 4h6.6l1.2-4M8.7 14.8 6.5 18M15.3 14.8l2.2 3.2"/>',
+              'business' => '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12h18M9 12v2h6v-2"/>',
+              'science' => '<path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7.5 15h9"/>',
+              'music' => '<path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/>',
+              'arts' => '<path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 0-4H12a1.5 1.5 0 0 1 0-3h3a6 6 0 0 0 6-6c0-3-4-5-9-5z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.5" r="1"/><circle cx="15" cy="7" r="1"/>',
+              'agriculture' => '<path d="M12 21V9"/><path d="M12 13C7 13 4 10 4 5c5 0 8 3 8 8z"/><path d="M12 17c5 0 8-3 8-8-5 0-8 3-8 8z"/>',
+              'auto' => '<path d="M5 17h14l1-5-3-5H7l-3 5z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M6 12h12"/>',
+              'political' => '<path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 18h18M12 3l9 5H3z"/>',
+              'entertainment' => '<path d="M8 3v18"/><path d="M16 3v18"/><path d="M3 8h18"/><path d="M3 16h18"/><rect x="3" y="3" width="18" height="18" rx="2"/>',
+              'library' => '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/>',
+              'cook' => '<path d="M6 3v7"/><path d="M3.5 3v4.5A2.5 2.5 0 0 0 6 10"/><path d="M8.5 3v4.5A2.5 2.5 0 0 1 6 10v11"/><path d="M15 3v18"/><path d="M15 3a5 5 0 0 1 5 5v4h-5"/>',
+              'seek-around-the-world' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+              'geology' => '<path d="m3 20 6.5-11 3 5 2.5-4 6 10z"/><path d="m7.8 12 1.7 1.5 1.5-2"/><path d="M3 20h18"/>',
+              'animation' => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/><path d="M7 5v14"/><path d="M17 5v14"/>',
+              'make-a-new-friend' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+              'agents' => '<rect x="5" y="8" width="14" height="10" rx="3"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="10" cy="13" r="1"/><circle cx="14" cy="13" r="1"/><path d="M10 16h4"/>',
+              'deep-research' => '<path d="M3 20l6-6"/><path d="M14 4l6 6"/><path d="M9 15l-2 5 5-2 8-8-3-3-8 8z"/><circle cx="18" cy="6" r="2"/>',
+          ];
+          $publicEmptyNavIcon = $publicEmptyNavIcons[$discoverTab]
+              ?? (isset(publisher_academic_categories()[$discoverTab]) ? publisher_category_icon_path($discoverTab) : '');
+        ?>
         <div class="mf-feed-empty" role="status">
-          <i class="icon ion-ios-paper-outline" aria-hidden="true"></i>
-          <div class="mf-feed-empty-title"><?= $isNewsSurface ? 'No publisher posts yet' : 'No Feed Available' ?></div>
+          <?php if ($publicEmptyNavIcon !== ''): ?>
+            <svg class="mf-feed-empty-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><?= $publicEmptyNavIcon ?></svg>
+          <?php else: ?>
+            <i class="icon ion-ios-paper-outline" aria-hidden="true"></i>
+          <?php endif; ?>
+          <div class="mf-feed-empty-title"><?= h($publicEmptyTitle) ?></div>
         </div>
       <?php endif; ?>
 
@@ -4466,7 +5056,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         ?>
 
         <article
-          class="post public-post-card<?= $isPublicLivePost ? ' is-live-post' : '' ?><?= $isReelOnly ? ' is-reel-post' : '' ?><?= $isSingleStandardVideo ? ' is-single-video-post' : '' ?><?= $isSingleStandardImage ? ' is-single-image-post' : '' ?><?= $isMultiStandardMedia ? ' is-multi-media-post' : '' ?>"
+          class="post public-post-card<?= $isStandardMediaPost ? ' public-media-head-outside' : '' ?><?= $isPublicLivePost ? ' is-live-post' : '' ?><?= $isReelOnly ? ' is-reel-post' : '' ?><?= $isSingleStandardVideo ? ' is-single-video-post' : '' ?><?= $isSingleStandardImage ? ' is-single-image-post' : '' ?><?= ($isSingleStandardVideo || $isSingleStandardImage) ? ' ' . h($shapeClass) : '' ?><?= $isMultiStandardMedia ? ' is-multi-media-post' : '' ?>"
           id="post-<?= (int)$post['id'] ?>"
           data-index="<?= (int)$index ?>"
           data-post-id="<?= (int)$post['id'] ?>"
@@ -4838,13 +5428,13 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               <?php if (!$hasMultiMedia): ?>
                 <?php $a = $attachments[0]; $src = h((string)$a['file_path']); ?>
                 <?php if ((string)$a['type'] === 'image'): ?>
-                  <img src="<?= $src ?>" alt="">
+                  <img src="<?= $src ?>" alt="" loading="eager" decoding="sync" fetchpriority="high">
                 <?php elseif ((string)$a['type'] === 'video'): ?>
                   <?php
                     $videoPosterPath = trim((string)($a['thumb_path'] ?? ''));
                     $videoPosterAttr = $videoPosterPath !== '' ? (' poster="' . h($videoPosterPath) . '"') : '';
                   ?>
-                  <video src="<?= $src ?>"<?= $videoPosterAttr ?> playsinline preload="metadata" muted loop></video>
+                  <video src="<?= $src ?>"<?= $videoPosterAttr ?> playsinline preload="auto" muted loop></video>
                 <?php else: ?>
                   <div class="file-tile">
                     <div>
@@ -5037,6 +5627,18 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         </article>
       <?php endforeach; ?>
         </section>
+        <?php
+          $discoverFeedFragment = (string)ob_get_clean();
+          if ($discoverFragmentRequest) {
+              while (ob_get_level() > $discoverFragmentBaseObLevel) {
+                  ob_end_clean();
+              }
+              header('Content-Type: text/html; charset=utf-8');
+              echo $discoverFeedFragment;
+              exit;
+          }
+          echo $discoverFeedFragment;
+        ?>
       </div>
     </div>
     <?php
@@ -5079,13 +5681,17 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     <span class="toggle-bubbles"><span>Theme</span><span></span><span class="on"></span></span>
   </a> -->
 
-  <div class="jump-rail">
+  <div class="jump-rail<?= $discoverTab === 'for-you' ? ' is-hidden' : '' ?>" aria-label="Post navigation">
     <button type="button" id="btnUp" aria-label="Previous post"><i class="icon ion-chevron-up"></i></button>
     <button type="button" id="btnDown" aria-label="Next post"><i class="icon ion-chevron-down"></i></button>
   </div>
 
 <script>
 (function(){
+  try{
+    if('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  }catch(e){}
+
   var publicAutoAdvanceTimer = null;
   var publicAutoAdvanceStartedAt = 0;
   var publicAutoAdvanceDelay = 0;
@@ -5123,8 +5729,19 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     if(idx < 0) idx = 0;
     idx = Math.max(0, Math.min(list.length - 1, idx + step));
     var card = list[idx];
+    scrollToCard(card);
+  }
+
+  function isVideoCard(card){
+    if(!card || !card.classList) return false;
+    if(card.classList.contains('is-single-video-post') || card.classList.contains('is-reel-post')) return true;
+    return !!(card.querySelector('video'));
+  }
+
+  function scrollToCard(card){
+    if(!card) return;
     var root = scrollRoot();
-    if (root && card && root.contains(card) && typeof root.scrollTo === 'function') {
+    if (root && root.contains(card) && typeof root.scrollTo === 'function') {
       var rootRect = root.getBoundingClientRect();
       var cardRect = card.getBoundingClientRect();
       var nextTop = root.scrollTop + (cardRect.top - rootRect.top);
@@ -5134,9 +5751,32 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     card.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
-  var up = document.getElementById('btnUp'), down = document.getElementById('btnDown');
+  function goNextVideo(){
+    var list = cards();
+    if(!list.length) return;
+    var idx = currentIndex();
+    if(idx < 0) idx = 0;
+    var i;
+    for(i = idx + 1; i < list.length; i += 1){
+      if(isVideoCard(list[i])){
+        scrollToCard(list[i]);
+        return;
+      }
+    }
+    for(i = 0; i <= idx; i += 1){
+      if(isVideoCard(list[i])){
+        scrollToCard(list[i]);
+        return;
+      }
+    }
+  }
+
+  var up = document.getElementById('btnUp'), down = document.getElementById('btnDown'), videoBtn = document.getElementById('btnVideo');
   if (up) up.addEventListener('click', function(){ go(-1); });
   if (down) down.addEventListener('click', function(){ go(1); });
+  if (videoBtn) videoBtn.addEventListener('click', function(){
+    window.location.href = 'reel.php';
+  });
 
   document.addEventListener('keydown', function(e){
     if (e.key === 'ArrowUp') go(-1);
@@ -5307,28 +5947,13 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   function schedulePublicAutoAdvance(card, delayMs){
-    if(!card) return;
-    if(document.body.classList.contains('public-leftbar-open')) return;
-    if(publicAutoAdvanceHovered) return;
-
-    var postId = Number(card.getAttribute('data-post-id') || 0);
+    /*
+     * Keep the selected/newest post anchored like feed.php.
+     * Videos may continue playing/looping, but a timer must never scroll the
+     * viewer to another post after refresh, navigation, or a tab switch.
+     */
     clearPublicAutoAdvance();
-    publicAutoAdvanceCardId = postId;
-    publicAutoAdvanceDelay = Math.max(1200, Number(delayMs || 0));
-    publicAutoAdvanceRemaining = publicAutoAdvanceDelay;
-    publicAutoAdvanceStartedAt = Date.now();
-    startPublicAutoAdvanceProgress(card);
-    publicAutoAdvanceTimer = window.setTimeout(function(){
-      var active = currentCard();
-      if(!active) return;
-      var activeId = Number(active.getAttribute('data-post-id') || 0);
-      if(activeId !== publicAutoAdvanceCardId) return;
-      if(document.body.classList.contains('public-leftbar-open')) return;
-      if(publicAutoAdvanceHovered) return;
-      stopPublicAutoAdvanceProgress(false);
-      go(1);
-      refreshPublicAutoAdvanceAfterScroll(activeId, 0);
-    }, publicAutoAdvanceDelay);
+    resetPublicAutoAdvanceProgress(card);
   }
 
   function bindPublicAutoAdvance(card){
@@ -5587,7 +6212,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       window.MSBReactions.applyLikeButton(btn, my === 'like' ? my : '');
     });
     card.querySelectorAll('.js-react-love').forEach(function(btn){
-      window.MSBReactions.applyReactionButton(btn, my !== 'like' ? my : '', 'love');
+      window.MSBReactions.applyReactionButton(btn, my, 'love');
     });
   }
 
@@ -5611,29 +6236,65 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     card.querySelectorAll('.js-comment-count-inline').forEach(function(el){ el.textContent = String(n); });
   }
 
+  function stampPublicEngagement(card){
+    if(card) card.setAttribute('data-engage-at', String(Date.now()));
+  }
+
+  function publicCardCounts(card){
+    if(!card) return { love_count:0, like_count:0, comment_count:0, save_count:0, share_count:0, my_reaction:'', is_saved:0, is_shared:0 };
+    return {
+      love_count: Number(card.getAttribute('data-love-count') || (card.querySelector('.js-love-count') || {}).textContent || 0),
+      like_count: Number(card.getAttribute('data-like-count') || (card.querySelector('.js-like-count') || {}).textContent || 0),
+      comment_count: Number(card.getAttribute('data-comment-count') || (card.querySelector('.js-comment-count') || {}).textContent || 0),
+      save_count: Number((card.querySelector('.js-save-count') || {}).textContent || 0),
+      share_count: Number((card.querySelector('.js-share-count') || {}).textContent || 0),
+      my_reaction: String(card.getAttribute('data-my-reaction') || ''),
+      is_saved: card.querySelector('.js-save-post.is-save') ? 1 : 0,
+      is_shared: card.querySelector('.js-share-post.is-share') ? 1 : 0
+    };
+  }
+
   function updatePublicReactionState(postId, counts){
     postId = Number(postId || 0);
     var card = document.querySelector('.public-post-card[data-post-id="' + String(postId) + '"]');
     if(!card || !counts) return;
 
-    var likeCount = Number(counts.like_count || 0);
-    var loveCount = Number(counts.love_count || 0);
-    var my = String(counts.my_reaction || '');
+    // Only update fields that are actually present (avoid wiping with empty {})
+    if(Object.prototype.hasOwnProperty.call(counts, 'like_count') && counts.like_count != null){
+      var likeCount = Number(counts.like_count || 0);
+      card.setAttribute('data-like-count', String(likeCount));
+      card.querySelectorAll('.js-like-count').forEach(function(el){ el.textContent = String(likeCount); });
+    }
+    if(Object.prototype.hasOwnProperty.call(counts, 'love_count') && counts.love_count != null){
+      var loveCount = Number(counts.love_count || 0);
+      card.setAttribute('data-love-count', String(loveCount));
+      card.querySelectorAll('.js-love-count').forEach(function(el){ el.textContent = String(loveCount); });
+    }
+    if(Object.prototype.hasOwnProperty.call(counts, 'reaction_count') && counts.reaction_count != null){
+      card.setAttribute('data-reaction-count', String(Number(counts.reaction_count || 0)));
+      card.querySelectorAll('.js-love-count, .js-reaction-count').forEach(function(el){
+        el.textContent = String(Number(counts.reaction_count || 0));
+      });
+    } else if(Object.prototype.hasOwnProperty.call(counts, 'love_count') && Object.prototype.hasOwnProperty.call(counts, 'like_count')){
+      card.querySelectorAll('.js-love-count, .js-reaction-count').forEach(function(el){
+        el.textContent = String(Number(counts.love_count || 0) + Number(counts.like_count || 0));
+      });
+    }
+    if(Object.prototype.hasOwnProperty.call(counts, 'my_reaction')){
+      var my = String(counts.my_reaction || '');
+      card.setAttribute('data-my-reaction', my);
+      card.querySelectorAll('.js-react-like').forEach(function(btn){
+        btn.classList.toggle('is-like', my === 'like');
+      });
+      card.querySelectorAll('.js-react-love').forEach(function(btn){
+        btn.classList.toggle('is-love', my === 'love');
+        btn.classList.toggle('is-reacted', my !== '' && my !== 'love');
+      });
+    }
 
-    card.setAttribute('data-like-count', String(likeCount));
-    card.setAttribute('data-love-count', String(loveCount));
-    card.setAttribute('data-my-reaction', my);
-
-    card.querySelectorAll('.js-like-count').forEach(function(el){ el.textContent = String(likeCount); });
-    card.querySelectorAll('.js-love-count').forEach(function(el){ el.textContent = String(loveCount); });
-    card.querySelectorAll('.js-like-total').forEach(function(el){ el.textContent = String(likeCount + loveCount); });
-
-    card.querySelectorAll('.js-react-like').forEach(function(btn){
-      btn.classList.toggle('is-like', my === 'like');
-    });
-    card.querySelectorAll('.js-react-love').forEach(function(btn){
-      btn.classList.toggle('is-love', my !== '' && my !== 'like');
-    });
+    var likeN = Number(card.getAttribute('data-like-count') || 0);
+    var loveN = Number(card.getAttribute('data-love-count') || 0);
+    card.querySelectorAll('.js-like-total').forEach(function(el){ el.textContent = String(likeN + loveN); });
 
     syncPublicCardIcons(card);
   }
@@ -5643,19 +6304,24 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var card = document.querySelector('.public-post-card[data-post-id="' + String(postId) + '"]');
     if(!card || !res) return;
 
-    var shareCount = Number(res.share_count || 0);
-    var saveCount = Number(res.save_count || 0);
+    if(typeof res.share_count !== 'undefined' && res.share_count != null){
+      card.querySelectorAll('.js-share-count').forEach(function(el){ el.textContent = String(Number(res.share_count || 0)); });
+    }
+    if(typeof res.save_count !== 'undefined' && res.save_count != null){
+      card.querySelectorAll('.js-save-count').forEach(function(el){ el.textContent = String(Number(res.save_count || 0)); });
+    }
+
     var state = res.state || {};
-
-    card.querySelectorAll('.js-share-count').forEach(function(el){ el.textContent = String(shareCount); });
-    card.querySelectorAll('.js-save-count').forEach(function(el){ el.textContent = String(saveCount); });
-
-    card.querySelectorAll('.js-share-post').forEach(function(btn){
-      btn.classList.toggle('is-share', Number(state.shared || 0) === 1);
-    });
-    card.querySelectorAll('.js-save-post').forEach(function(btn){
-      btn.classList.toggle('is-save', Number(state.saved || 0) === 1);
-    });
+    if(typeof state.shared !== 'undefined'){
+      card.querySelectorAll('.js-share-post').forEach(function(btn){
+        btn.classList.toggle('is-share', Number(state.shared || 0) === 1);
+      });
+    }
+    if(typeof state.saved !== 'undefined'){
+      card.querySelectorAll('.js-save-post').forEach(function(btn){
+        btn.classList.toggle('is-save', Number(state.saved || 0) === 1);
+      });
+    }
 
     syncPublicCardIcons(card);
   }
@@ -5684,6 +6350,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       var comments = Array.isArray(res.comments) ? res.comments : [];
       publicCommentsCache[postId] = comments;
       updatePublicCommentCount(postId, comments.length);
+      if(window.MSBPostEngagement){
+        window.MSBPostEngagement.publishCommentCount(postId, comments.length, { source: 'public-comments' });
+      }
       if(window.TTComments && typeof window.TTComments.setPost === 'function'){
         window.TTComments.setPost(postId, comments, forceOpen !== false);
       }
@@ -5816,7 +6485,12 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     dots.forEach(function(dot, dotIndex){
       var on = dotIndex === nextIndex;
       dot.classList.toggle('is-active', on);
-      dot.style.background = on ? '#fff' : 'rgba(255,255,255,.45)';
+      dot.style.background = on ? '#3897f0' : 'rgba(255,255,255,.55)';
+      dot.style.width = on ? '6px' : '5px';
+      dot.style.height = on ? '6px' : '5px';
+      dot.style.minWidth = on ? '6px' : '5px';
+      dot.style.minHeight = on ? '6px' : '5px';
+      dot.style.flex = on ? '0 0 6px' : '0 0 5px';
       dot.style.boxShadow = 'none';
     });
 
@@ -5885,13 +6559,35 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var postId = Number(btn.getAttribute('data-post-id') || 0);
     if(!postId || btn.disabled) return;
     var card = btn.closest('.public-post-card');
-    var currentReaction = String((card && card.getAttribute('data-my-reaction')) || '');
-    var nextReaction = currentReaction === 'love' ? 'none' : 'love';
+    var snap = publicCardCounts(card);
+    var nextReaction = snap.my_reaction === 'love' ? 'none' : 'love';
+    var optimistic = {
+      love_count: Math.max(0, Number(snap.love_count || 0) + (nextReaction === 'none' ? -1 : (snap.my_reaction === 'love' ? 0 : 1))),
+      like_count: snap.like_count,
+      my_reaction: nextReaction === 'none' ? '' : 'love'
+    };
+    stampPublicEngagement(card);
+    updatePublicReactionState(postId, optimistic);
+    if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, optimistic, { source: 'public-card' });
     btn.disabled = true;
     $.post(COMMENT_API_URL + '?ajax=react', { post_id: postId, reaction: nextReaction }, function(res){
-      if(res && res.ok) updatePublicReactionState(postId, res.counts || {});
+      if(res && res.ok){
+        var counts = Object.assign({}, optimistic, res.counts || {});
+        if(counts.my_reaction == null) counts.my_reaction = optimistic.my_reaction;
+        if(counts.love_count == null) counts.love_count = optimistic.love_count;
+        stampPublicEngagement(card);
+        updatePublicReactionState(postId, counts);
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromReact(postId, { counts: counts }, { source: 'public-card' });
+      } else {
+        stampPublicEngagement(card);
+        updatePublicReactionState(postId, snap);
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
+      }
       btn.disabled = false;
     }, 'json').fail(function(){
+      stampPublicEngagement(card);
+      updatePublicReactionState(postId, snap);
+      if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
       btn.disabled = false;
     });
   });
@@ -5903,13 +6599,33 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var postId = Number(btn.getAttribute('data-post-id') || 0);
     if(!postId || btn.disabled) return;
     var card = btn.closest('.public-post-card');
-    var currentReaction = String((card && card.getAttribute('data-my-reaction')) || '');
-    var nextReaction = currentReaction === 'like' ? 'none' : 'like';
+    var snap = publicCardCounts(card);
+    var nextReaction = snap.my_reaction === 'like' ? 'none' : 'like';
+    var optimistic = {
+      like_count: Math.max(0, Number(snap.like_count || 0) + (nextReaction === 'none' ? -1 : (snap.my_reaction === 'like' ? 0 : 1))),
+      love_count: snap.love_count,
+      my_reaction: nextReaction === 'none' ? '' : 'like'
+    };
+    stampPublicEngagement(card);
+    updatePublicReactionState(postId, optimistic);
+    if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, optimistic, { source: 'public-card' });
     btn.disabled = true;
     $.post(COMMENT_API_URL + '?ajax=react', { post_id: postId, reaction: nextReaction }, function(res){
-      if(res && res.ok) updatePublicReactionState(postId, res.counts || {});
+      if(res && res.ok){
+        var counts = Object.assign({}, optimistic, res.counts || {});
+        stampPublicEngagement(card);
+        updatePublicReactionState(postId, counts);
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromReact(postId, { counts: counts }, { source: 'public-card' });
+      } else {
+        stampPublicEngagement(card);
+        updatePublicReactionState(postId, snap);
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
+      }
       btn.disabled = false;
     }, 'json').fail(function(){
+      stampPublicEngagement(card);
+      updatePublicReactionState(postId, snap);
+      if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
       btn.disabled = false;
     });
   });
@@ -5917,14 +6633,45 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   if(window.MSBReactions){
     window.MSBReactions.bindLikePicker('.js-react-love', function(btn, reaction){
       var postId = Number(btn.getAttribute('data-post-id') || 0);
-      if(!postId || btn.disabled) return;
+      if(!postId || btn.disabled || !reaction) return;
+      var next = String(reaction || 'none');
       var card = btn.closest('.public-post-card');
-      if(String((card && card.getAttribute('data-my-reaction')) || '') === String(reaction || '')) return;
+      var snap = publicCardCounts(card);
+      var prev = String(snap.my_reaction || '');
+      if(next === 'none' && !prev) return;
+      if(next !== 'none' && prev === next) return;
+      var optimistic = Object.assign({}, snap, {
+        my_reaction: next === 'none' ? '' : next,
+        love_count: Math.max(0, Number(snap.love_count || 0)
+          + (prev === 'love' && next !== 'love' ? -1 : 0)
+          + (prev !== 'love' && next === 'love' ? 1 : 0))
+      });
+      stampPublicEngagement(card);
+      updatePublicReactionState(postId, optimistic);
+      try {
+        if(window.MSBReactions) window.MSBReactions.applyReactionButton(btn, next === 'none' ? '' : next, 'love');
+      } catch(err){}
+      if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, optimistic, { source: 'public-card' });
       btn.disabled = true;
-      $.post(COMMENT_API_URL + '?ajax=react', { post_id: postId, reaction: reaction }, function(res){
-        if(res && res.ok) updatePublicReactionState(postId, res.counts || {});
+      $.post(COMMENT_API_URL + '?ajax=react', { post_id: postId, reaction: next }, function(res){
+        if(res && res.ok){
+          var counts = Object.assign({}, optimistic, res.counts || {});
+          if(typeof counts.my_reaction === 'undefined' || counts.my_reaction === null){
+            counts.my_reaction = next === 'none' ? '' : next;
+          }
+          stampPublicEngagement(card);
+          updatePublicReactionState(postId, counts);
+          if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromReact(postId, { counts: counts }, { source: 'public-card' });
+        } else {
+          stampPublicEngagement(card);
+          updatePublicReactionState(postId, snap);
+          if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
+        }
         btn.disabled = false;
       }, 'json').fail(function(){
+        stampPublicEngagement(card);
+        updatePublicReactionState(postId, snap);
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
         btn.disabled = false;
       });
     });
@@ -5936,12 +6683,33 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var btn = this;
     var postId = Number(btn.getAttribute('data-post-id') || 0);
     if(!postId || btn.disabled) return;
+    var card = btn.closest('.public-post-card');
+    var snap = publicCardCounts(card);
+    var nextShared = snap.is_shared ? 0 : 1;
+    var optimisticRes = {
+      share_count: Math.max(0, Number(snap.share_count || 0) + (nextShared ? 1 : -1)),
+      save_count: snap.save_count,
+      state: { shared: nextShared, saved: snap.is_saved }
+    };
+    stampPublicEngagement(card);
+    updatePublicTrackState(postId, optimisticRes);
+    if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(postId, optimisticRes, { source: 'public-card' });
     btn.disabled = true;
     copyPublicShareLink(postId);
     $.post(COMMENT_API_URL + '?ajax=share', { post_id: postId }, function(res){
-      if(res && res.ok) updatePublicTrackState(postId, res);
+      if(res && res.ok){
+        stampPublicEngagement(card);
+        updatePublicTrackState(postId, res);
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(postId, res, { source: 'public-card' });
+      } else {
+        stampPublicEngagement(card);
+        updatePublicTrackState(postId, { share_count: snap.share_count, save_count: snap.save_count, state: { shared: snap.is_shared, saved: snap.is_saved } });
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
+      }
       btn.disabled = false;
     }, 'json').fail(function(){
+      stampPublicEngagement(card);
+      updatePublicTrackState(postId, { share_count: snap.share_count, save_count: snap.save_count, state: { shared: snap.is_shared, saved: snap.is_saved } });
       btn.disabled = false;
     });
   });
@@ -5952,11 +6720,32 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var btn = this;
     var postId = Number(btn.getAttribute('data-post-id') || 0);
     if(!postId || btn.disabled) return;
+    var card = btn.closest('.public-post-card');
+    var snap = publicCardCounts(card);
+    var nextSaved = snap.is_saved ? 0 : 1;
+    var optimisticRes = {
+      save_count: Math.max(0, Number(snap.save_count || 0) + (nextSaved ? 1 : -1)),
+      share_count: snap.share_count,
+      state: { saved: nextSaved, shared: snap.is_shared }
+    };
+    stampPublicEngagement(card);
+    updatePublicTrackState(postId, optimisticRes);
+    if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(postId, optimisticRes, { source: 'public-card' });
     btn.disabled = true;
     $.post(COMMENT_API_URL + '?ajax=save', { post_id: postId }, function(res){
-      if(res && res.ok) updatePublicTrackState(postId, res);
+      if(res && res.ok){
+        stampPublicEngagement(card);
+        updatePublicTrackState(postId, res);
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(postId, res, { source: 'public-card' });
+      } else {
+        stampPublicEngagement(card);
+        updatePublicTrackState(postId, { share_count: snap.share_count, save_count: snap.save_count, state: { shared: snap.is_shared, saved: snap.is_saved } });
+        if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, snap, { source: 'public-card' });
+      }
       btn.disabled = false;
     }, 'json').fail(function(){
+      stampPublicEngagement(card);
+      updatePublicTrackState(postId, { share_count: snap.share_count, save_count: snap.save_count, state: { shared: snap.is_shared, saved: snap.is_saved } });
       btn.disabled = false;
     });
   });
@@ -5973,6 +6762,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       var comments = Array.isArray(res.comments) ? res.comments : [];
       publicCommentsCache[postId] = comments;
       updatePublicCommentCount(postId, comments.length);
+      if(window.MSBPostEngagement){
+        window.MSBPostEngagement.publishCommentCount(postId, comments.length, { source: 'public-comments' });
+      }
       try{
         if(window.TTComments && typeof window.TTComments.setPost === 'function'){
           window.TTComments.setPost(postId, comments, false);
@@ -6197,14 +6989,13 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 
     var viewportH = Math.max(window.innerHeight || 0, 320);
     var maxVideoH = window.matchMedia('(max-width: 767.98px)').matches
-      ? Math.max(viewportH - 210, 300)
+      ? Math.max(viewportH - 220, 280)
       : Math.min(Math.round(viewportH * 0.78), 960);
 
     var aspect = aspectW / aspectH;
     var feed = card.closest('.ig-feed');
     var feedWidth = feed ? Math.floor(feed.clientWidth) : Math.round(aspect * maxVideoH);
-    var cardPadding = window.matchMedia('(max-width: 767.98px)').matches ? 0 : 0;
-    var availableWidth = Math.max(280, feedWidth - cardPadding);
+    var availableWidth = Math.max(280, feedWidth);
     var desiredWidth = Math.round(aspect * maxVideoH);
     var maxByShape = aspect < 0.8 ? 520 : (aspect > 1.15 ? 760 : 620);
     if(card.querySelector('.media-stage.phone-shot') && window.matchMedia('(max-width: 767.98px)').matches) maxByShape = 430;
@@ -6216,7 +7007,40 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     card.style.maxWidth = '100%';
     card.style.marginLeft = 'auto';
     card.style.marginRight = 'auto';
+    card.style.setProperty('box-sizing', 'border-box', 'important');
+    card.style.setProperty('padding', card.classList.contains('public-media-head-outside') ? '8px 25px' : '20px', 'important');
     card.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
+
+    var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
+    var video = card.querySelector('.media-stage.standard-video-stage > video');
+    var image = card.querySelector('.media-stage.standard-image-stage > img');
+    if(media){
+      media.style.width = '100%';
+      media.style.maxWidth = '100%';
+      media.style.height = 'auto';
+      media.style.aspectRatio = '';
+      media.style.background = 'transparent';
+      media.style.removeProperty('overflow');
+      media.style.marginLeft = '';
+      media.style.marginRight = '';
+    }
+    if(video){
+      video.style.width = '100%';
+      video.style.height = 'auto';
+      video.style.maxHeight = '';
+      video.style.objectFit = 'contain';
+      video.style.background = 'transparent';
+      video.style.removeProperty('padding');
+    }
+    if(image){
+      image.style.width = '100%';
+      image.style.height = 'auto';
+      image.style.objectFit = 'contain';
+      image.style.background = 'transparent';
+      image.style.removeProperty('padding');
+      image.style.removeProperty('box-sizing');
+      image.style.removeProperty('max-height');
+    }
   }
 
   function preflightSingleMediaCard(card){
@@ -6267,6 +7091,36 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var stage = video.closest('.media-stage.standard-video-stage');
     syncStandardMediaCard(video);
     markPublicMediaReady(card, stage);
+    waitForPublicPaintedFrame(video);
+  }
+
+  function markPublicPaintedFrame(video){
+    if(!video) return;
+    try{ video.classList.add('mf-frame-painted'); }catch(e){}
+    try{
+      var card = video.closest('.public-post-card.is-single-video-post');
+      if(card) card.classList.add('mf-frame-painted');
+    }catch(e){}
+  }
+
+  function waitForPublicPaintedFrame(video){
+    if(!video || (video.dataset && video.dataset.publicFramePaintPending === '1')) return;
+    try{ video.dataset.publicFramePaintPending = '1'; }catch(e){}
+    if(typeof video.requestVideoFrameCallback === 'function'){
+      try{
+        video.requestVideoFrameCallback(function(){
+          try{ video.dataset.publicFramePaintPending = '0'; }catch(e){}
+          markPublicPaintedFrame(video);
+        });
+        return;
+      }catch(e){}
+    }
+    window.requestAnimationFrame(function(){
+      window.requestAnimationFrame(function(){
+        try{ video.dataset.publicFramePaintPending = '0'; }catch(e){}
+        if(Number(video.readyState || 0) >= 2 && !video.paused) markPublicPaintedFrame(video);
+      });
+    });
   }
 
   function revealPublicImageCard(img){
@@ -6309,16 +7163,24 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         return;
       }
       try{
-        if(video.getAttribute('preload') !== 'metadata'){
-          video.setAttribute('preload', 'metadata');
+        if(video.getAttribute('preload') !== 'auto'){
+          video.setAttribute('preload', 'auto');
         }
         video.load();
       }catch(e){}
       video.addEventListener('loadeddata', reveal, { once:true });
       video.addEventListener('canplay', reveal, { once:true });
       video.addEventListener('error', function(){
-        markPublicMediaReady(card, stage);
-      }, { once:true });
+        var retries = Number(video.dataset.publicLoadRetries || 0);
+        if(retries >= 2){
+          if(card) card.classList.add('mf-video-error');
+          return;
+        }
+        video.dataset.publicLoadRetries = String(retries + 1);
+        window.setTimeout(function(){
+          try{ video.load(); }catch(e){}
+        }, 180 * (retries + 1));
+      });
     });
   }
 
@@ -6331,8 +7193,19 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       }
       img.addEventListener('load', function(){ revealPublicImageCard(img); });
       img.addEventListener('error', function(){
-        markPublicMediaReady(card, stage);
-      }, { once:true });
+        var retries = Number(img.dataset.publicLoadRetries || 0);
+        if(retries >= 2){
+          if(card) card.classList.add('mf-image-error');
+          return;
+        }
+        img.dataset.publicLoadRetries = String(retries + 1);
+        window.setTimeout(function(){
+          try{
+            var src = img.currentSrc || img.getAttribute('src') || '';
+            if(src) img.setAttribute('src', src);
+          }catch(e){}
+        }, 180 * (retries + 1));
+      });
     });
   }
 
@@ -6344,13 +7217,53 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     });
   }
 
+  function publicFirstCardIsReady(){
+    var feed = document.querySelector('.feed-desktop-center > .ig-feed') || document.querySelector('.ig-feed');
+    if(!feed) return true;
+    var card = feed.querySelector('.public-post-card');
+    if(!card) return true;
+    if(card.classList.contains('mf-video-error') || card.classList.contains('mf-image-error')) return true;
+    if(card.classList.contains('is-single-video-post')){
+      return card.classList.contains('mf-frame-painted');
+    }
+    if(card.classList.contains('is-single-image-post')){
+      return card.classList.contains('mf-image-ready');
+    }
+    return true;
+  }
+
+  function revealPublicFeedWhenReady(){
+    var feed = document.querySelector('.feed-desktop-center > .ig-feed') || document.querySelector('.ig-feed');
+    if(!feed) return;
+    var attempts = 0;
+    var loadingStartedAt = Date.now();
+    function tick(){
+      attempts += 1;
+      syncAllStandardMediaCards();
+      if(publicFirstCardIsReady() || (Date.now() - loadingStartedAt) >= 1500){
+        feed.classList.remove('public-media-hydrating');
+        feed.setAttribute('aria-busy','false');
+        return;
+      }
+      window.requestAnimationFrame(tick);
+    }
+    window.requestAnimationFrame(tick);
+  }
+
   function bootPublicMediaCards(){
+    var feed = document.querySelector('.feed-desktop-center > .ig-feed') || document.querySelector('.ig-feed');
+    if(feed){
+      feed.classList.add('public-media-hydrating');
+      feed.setAttribute('aria-busy','true');
+    }
     resetPublicMediaReadyState();
     preflightAllSingleMediaCards();
     primePublicStandardVideos();
     bindPublicStandardImages();
     syncAllStandardMediaCards();
+    revealPublicFeedWhenReady();
   }
+  window.msbBootPublicMediaCards = bootPublicMediaCards;
 
   document.querySelectorAll('.is-single-video-post .media-stage.standard-video-stage > video').forEach(function(video){
     video.addEventListener('loadedmetadata', function(){
@@ -6360,6 +7273,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     });
     video.addEventListener('loadeddata', function(){ revealPublicVideoCard(video); });
     video.addEventListener('canplay', function(){ revealPublicVideoCard(video); });
+    video.addEventListener('playing', function(){ waitForPublicPaintedFrame(video); });
   });
 
   function debouncePublic(fn, wait){
@@ -6458,12 +7372,21 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       + '</div>';
   }
 
+  function mfStoriesCreateHtml(){
+    if(<?= $staffReadonly ? 'true' : 'false' ?>) return '';
+    return ''
+      + '<a class="ig-story-item ig-story-create" href="dashboard.php?modal=1&story=1" data-create-post-modal="1" aria-label="Create a story">'
+      + '  <div class="ig-story-ring ig-story-ring-create"><i class="icon ion-plus" aria-hidden="true"></i></div>'
+      + '</a>';
+  }
+
   function setStoriesBarEmptyState(isEmpty){
     var track = document.getElementById('igStoriesTrack');
     if(!track) return;
     var bar = track.closest('.ig-stories-bar');
     if(bar) bar.classList.toggle('is-empty', !!isEmpty);
     track.classList.toggle('is-empty', !!isEmpty);
+    track.classList.toggle('has-create', <?= $staffReadonly ? 'false' : 'true' ?>);
   }
 
   function renderPublicStoriesBar(items){
@@ -6474,7 +7397,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var track = document.getElementById('igStoriesTrack');
     if(!track) return;
     if(!items.length){
-      track.innerHTML = mfStoriesEmptyHtml();
+      track.innerHTML = mfStoriesCreateHtml() + mfStoriesEmptyHtml();
       setStoriesBarEmptyState(true);
       return;
     }
@@ -6488,7 +7411,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       'linear-gradient(135deg,#a18cd1,#fbc2eb)',
       'linear-gradient(135deg,#ff9a9e,#fecfef)'
     ];
-    var html = '';
+    var html = mfStoriesCreateHtml();
     items.forEach(function(story, idx){
       var thumb = String(story.avatarUrl || '');
       var ringInner = thumb
@@ -6809,14 +7732,690 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
   -webkit-text-fill-color:#ffffff!important;
 }
 </style>
+<style id="public-match-feed-size-final">
+/*
+ * Visual sizing source of truth: feed.php.
+ * Public keeps its own post data, filters, suggestions and interaction logic.
+ */
+.feed-discover-tabs{
+  view-transition-name:none!important;
+  transition:none!important;
+  animation:none!important;
+  contain:layout!important;
+}
+.feed-discover-tab,
+.feed-discover-tab.is-active,
+.feed-discover-tab::after,
+.feed-discover-tab.is-active::after{
+  transition:none!important;
+  animation:none!important;
+  transform:none;
+}
+.feed-discover-tab.is-active::after{
+  transform:translateX(-50%)!important;
+}
+@media (min-width:1025px){
+  body.public-page.feed-insta-ui .ig-feed-header{
+    width:100%!important;
+    margin:0!important;
+    padding:16px 16px 14px!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .ig-stories-wrap{
+    width:100%!important;
+    max-width:614px!important;
+    margin:0 auto!important;
+  }
+  body.public-page.feed-insta-ui .ig-stories-track.is-empty{
+    justify-content:center!important;
+    min-height:74px!important;
+  }
+  body.public-page.feed-insta-ui .ig-stories-track.has-create.is-empty{
+    justify-content:flex-start!important;
+  }
+  body.public-page.feed-insta-ui .ig-stories-bar{
+    display:flex!important;
+    width:100%!important;
+    align-items:flex-start!important;
+  }
+  body.public-page.feed-insta-ui .ig-stories-track{
+    gap:18px!important;
+    padding:0 2px 2px!important;
+  }
+  body.public-page.feed-insta-ui .ig-story-item{
+    width:72px!important;
+    padding:0!important;
+  }
+  body.public-page.feed-insta-ui .ig-story-ring{
+    width:66px!important;
+    height:66px!important;
+    margin:0 auto 6px!important;
+    padding:2px!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .ig-feed-top-lead{left:16px!important}
+  body.public-page.feed-insta-ui .ig-feed-top-actions{
+    right:16px!important;
+    gap:10px!important;
+  }
+  body.public-page.feed-insta-ui .ig-top-mic,
+  body.public-page.feed-insta-ui .ig-top-shop{
+    width:44px!important;
+    height:44px!important;
+    font-size:18px!important;
+  }
+  body.public-page.feed-insta-ui .ig-top-live{
+    min-height:44px!important;
+    padding:0 18px!important;
+    gap:8px!important;
+    font-size:15px!important;
+  }
+  body.public-page.feed-insta-ui .feed-desktop-center{
+    width:614px!important;
+    max-width:614px!important;
+    min-width:0!important;
+    margin:0 auto!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .feed-top-search{
+    width:100%!important;
+    margin:0!important;
+    padding:12px 24px 0!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .feed-top-search-row{gap:16px!important}
+  body.public-page.feed-insta-ui .feed-top-search-input{
+    height:42px!important;
+    padding:0 18px 0 46px!important;
+    font-size:15px!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .feed-top-search-settings{
+    width:42px!important;
+    height:42px!important;
+    flex:0 0 42px!important;
+    font-size:19px!important;
+  }
+  body.public-page.feed-insta-ui .feed-discover-tabs{margin-top:10px!important}
+  body.public-page.feed-insta-ui .feed-discover-tab,
+  body.public-page.feed-insta-ui .feed-discover-tab.is-active{
+    min-width:max-content!important;
+    /* padding:12px 12px 14px!important; */
+    font-size:14px!important;
+    font-weight:400!important;
+    line-height:1.2!important;
+  }
+  body.public-page.feed-insta-ui .feed-desktop-layout .ig-feed{
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:0 0 96px!important;
+  }
+
+  body.public-page.feed-insta-ui .post.public-post-card.is-single-video-post:not(.is-reel-post),
+  body.public-page.feed-insta-ui .post.public-post-card.is-single-image-post:not(.is-reel-post){
+    width:min(100%,var(--post-media-card-width,100%))!important;
+    max-width:100%!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+    padding:20px 20px!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-video-stage,
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-image-stage{
+    display:grid!important;
+    grid-template-areas:"stack" "bottom"!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+    overflow:visible!important;
+  }
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage > :first-child{
+    grid-area:stack!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    border-radius:var(--post-media-radius,10px)!important;
+    overflow:hidden!important;
+  }
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standard-media-topbar{
+    padding:14px 16px 12px!important;
+    gap:10px!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-topbar .standard-media-author .avatar{
+    width:35px!important;
+    height:35px!important;
+    flex:0 0 35px!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-author{gap:12px!important}
+  body.public-page.feed-insta-ui .standard-media-name{
+    font-size:14px!important;
+    line-height:1.2!important;
+    font-weight:700!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-time{
+    font-size:13px!important;
+    line-height:1.2!important;
+  }
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standard-media-bottom{
+    grid-area:bottom!important;
+    position:static!important;
+    left:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:0px 0 0px!important;
+    box-sizing:border-box!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-actions{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-row{gap:20px!important}
+  body.public-page.feed-insta-ui .standard-media-btn{
+    gap:8px!important;
+    padding:0!important;
+    font-size:14px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-btn i{font-size:20px!important}
+  body.public-page.feed-insta-ui .standard-media-btn .action-count{
+    font-size:13px!important;
+    line-height:1!important;
+    font-weight:600!important;
+  }
+  body.public-page.feed-insta-ui .ig-feed-account-name,
+  body.public-page.feed-insta-ui .ig-stories-brand{
+    font-size:18px!important;
+    line-height:1!important;
+    font-weight:800!important;
+  }
+  body.public-page.feed-insta-ui .ig-top-live{
+    font-size:15px!important;
+    line-height:1!important;
+    font-weight:800!important;
+  }
+  body.public-page.feed-insta-ui .feed-left-nav-item,
+  body.public-page.feed-insta-ui .feed-left-nav-label,
+  body.public-page.feed-insta-ui .feed-right-nav-item,
+  body.public-page.feed-insta-ui .feed-right-nav-label{
+    font-size:14px!important;
+    line-height:1.2!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-title,
+  body.public-page.feed-insta-ui .standard-text-title{
+    margin-top: 15px!important;
+    font-size:20px!important;
+    line-height:1.28!important;
+    font-weight:800!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-caption,
+  body.public-page.feed-insta-ui .standard-text-caption,
+  body.public-page.feed-insta-ui .post-copy p{
+    font-size:15px!important;
+    line-height:1.7!important;
+    font-weight:400!important;
+  }
+  body.public-page.feed-insta-ui .open-inline,
+  body.public-page.feed-insta-ui .js-open-readmore{
+    font-size:13px!important;
+    line-height:1.2!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-comments,
+  body.public-page.feed-insta-ui .standard-media-views,
+  body.public-page.feed-insta-ui .standard-text-comments,
+  body.public-page.feed-insta-ui .standard-text-views{
+    font-size:14px!important;
+    line-height:1.3!important;
+  }
+  body.public-page.feed-insta-ui .ig-story-create .ig-story-ring-create i,
+  body.public-page.feed-insta-ui .ig-story-empty-icon{
+    font-size:26px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .ig-top-shop i,
+  body.public-page.feed-insta-ui .ig-top-cart i{
+    font-size:18px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .ig-top-mic i{
+    font-size:12px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .ig-top-live i{
+    font-size:16px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .feed-top-search-icon i{
+    font-size:15px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .feed-top-search-settings i{
+    font-size:13px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .feed-left-nav-ic,
+  body.public-page.feed-insta-ui .feed-right-nav-ic{
+    width:20px!important;
+    height:20px!important;
+    flex:0 0 20px!important;
+  }
+  body.public-page.feed-insta-ui .feed-left-nav-ic svg,
+  body.public-page.feed-insta-ui .feed-right-nav-ic svg{
+    width:18px!important;
+    height:18px!important;
+  }
+  body.public-page.feed-insta-ui .feed-left-nav-item i,
+  body.public-page.feed-insta-ui .feed-right-nav-item i{
+    font-size:18px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-topbar .post-card-menu-btn,
+  body.public-page.feed-insta-ui .standard-media-topbar .post-card-menu-btn .pcm-fries-icon{
+    font-size:18px!important;
+    line-height:1!important;
+  }
+  body.public-page.feed-insta-ui .standard-media-btn i,
+  body.public-page.feed-insta-ui .standard-media-btn .msb-pact,
+  body.public-page.feed-insta-ui .standard-text-btn i,
+  body.public-page.feed-insta-ui .standard-text-btn .msb-pact{
+    width:20px!important;
+    height:20px!important;
+    font-size:20px!important;
+    line-height:1!important;
+  }
+}
+</style>
+<style id="shared-feed-discover-tabs-css">
+<?php include __DIR__ . '/includes/feed_discover_tabs.css.php'; ?>
+</style>
+<style id="shared-feed-public-chrome-lock-css">
+<?php include __DIR__ . '/includes/feed_public_chrome_lock.css.php'; ?>
+</style>
+<style id="public-mobile-tablet-post-divider">
+/* Match feed.php: draw a column-width divider without resizing the card/media. */
+body.public-page.feed-insta-ui .feed-desktop-center .ig-feed{
+  container-type:inline-size !important;
+}
+body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card:not(.is-reel-post){
+  position:relative !important;
+  border-bottom:0 !important;
+  overflow:visible !important;
+}
+body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card:not(.is-reel-post)::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  bottom:0;
+  transform:translateX(-50%);
+  width:100cqw;
+  border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4));
+  pointer-events:none;
+  z-index:1;
+}
+body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card:not(.is-reel-post)::before{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:0;
+  transform:translateX(-50%);
+  width:100cqw;
+  border-top:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4));
+  pointer-events:none;
+  z-index:1;
+}
+</style>
+<style id="public-media-action-icon-size">
+body.public-page .post.public-post-card:not(.is-reel-post) .standard-media-actions{
+  margin-top:15px !important;
+}
+body.public-page .post.public-post-card .media-stage > .standard-media-top-actions .mf-media-action-circle i,
+body.public-page .post.public-post-card .media-stage > .standard-media-top-actions .mf-publisher-follow-circle i{
+  font-size:12px !important;
+}
+</style>
+<style id="public-light-media-actions-contrast">
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui
+  .post.public-post-card:not(.is-reel-post) .standard-media-bottom
+  .standard-media-btn:not(.is-love):not(.is-share):not(.is-save),
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui
+  .post.public-post-card:not(.is-reel-post) .standard-media-bottom
+  .standard-media-btn:not(.is-love):not(.is-share):not(.is-save) .msb-pact,
+html:not([data-theme="dark"]):not(.dark-auto) body.public-page.feed-insta-ui
+  .post.public-post-card:not(.is-reel-post) .standard-media-bottom
+  .standard-media-btn .action-count{
+  color:var(--msb-palette-text, var(--public-text, #0b1220)) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, var(--public-text, #0b1220)) !important;
+}
+</style>
+<style id="public-read-more-bold">
+body.public-page .open-inline,
+body.public-page .js-open-readmore{
+  font-weight:800 !important;
+}
+</style>
+<style id="public-media-head-outside-layout">
+/* Match feed.php's standard post structure without changing the media dimensions. */
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post){
+  width:100% !important;
+  max-width:100% !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-video-post:not(.is-reel-post),
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-image-post:not(.is-reel-post){
+  width:min(100%, var(--post-media-card-width, 100%)) !important;
+  max-width:100% !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+  padding:8px 25px !important;
+  box-sizing:border-box !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) !important;
+  grid-template-rows:auto auto auto auto !important;
+  grid-template-areas:none !important;
+  width:100% !important;
+  max-width:100% !important;
+  overflow:visible !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > :first-child{
+  grid-area:auto !important;
+  grid-column:1 !important;
+  grid-row:3 !important;
+  justify-self:center !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-video-post:not(.is-reel-post) .media-stage > :first-child,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-image-post:not(.is-reel-post) .media-stage > :first-child{
+  width:100% !important;
+  max-width:100% !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar{
+  position:relative !important;
+  inset:auto !important;
+  grid-area:auto !important;
+  grid-column:1 !important;
+  grid-row:1 !important;
+  width:min(560px, calc(100vw - 20px)) !important;
+  max-width:calc(100vw - 20px) !important;
+  min-height:48px !important;
+  left:50% !important;
+  margin:0 !important;
+  transform:translateX(-50%) !important;
+  padding:1px 0 12px 20px !important;
+  border-radius:0 !important;
+  background:none !important;
+  box-sizing:border-box !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-author,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-name,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-time,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .mf-music-row{
+  color:var(--msb-palette-text, var(--public-text)) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, var(--public-text)) !important;
+  text-shadow:none !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar > .post-card-menu-wrap{
+  position:relative !important;
+  inset:auto !important;
+  align-self:flex-start !important;
+  margin-left:auto !important;
+  margin-right:0 !important;
+  margin-top:0 !important;
+  transform:translateY(-10px) !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .post-card-menu-btn,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .post-card-menu-btn i,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .pcm-fries-icon{
+  color:var(--msb-palette-text, var(--public-text)) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, var(--public-text)) !important;
+  text-shadow:none !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > .standard-media-top-actions{
+  position:relative !important;
+  inset:auto !important;
+  grid-area:auto !important;
+  grid-column:1 !important;
+  grid-row:1 !important;
+  align-self:start !important;
+  justify-self:center !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+  width:min(560px, calc(100vw - 20px)) !important;
+  max-width:calc(100vw - 20px) !important;
+  left:50% !important;
+  margin:1px 0 0 !important;
+  transform:translateX(-50%) !important;
+  padding:0 42px 0 0 !important;
+  box-sizing:border-box !important;
+  z-index:7 !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > .standard-media-top-actions .publisher-follow-btn,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > .standard-media-top-actions .friend-btn{
+  margin-top:0 !important;
+  /* margin-right:0 !important; */
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-bottom{
+  display:contents !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-copy{
+  grid-area:auto !important;
+  grid-column:1 !important;
+  grid-row:2 !important;
+  width:min(560px, calc(100vw - 20px)) !important;
+  max-width:calc(100vw - 20px) !important;
+  position:relative !important;
+  left:50% !important;
+  margin:0 0 12px !important;
+  transform:translateX(-50%) !important;
+  color:var(--msb-palette-text, var(--public-text)) !important;
+  text-shadow:none !important;
+  box-sizing:border-box !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-title,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-caption,
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-copy .open-inline{
+  color:var(--msb-palette-text, var(--public-text)) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, var(--public-text)) !important;
+  text-shadow:none !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-actions{
+  grid-area:auto !important;
+  grid-column:1 !important;
+  grid-row:4 !important;
+  width:min(560px, calc(100vw - 20px)) !important;
+  max-width:calc(100vw - 20px) !important;
+  position:relative !important;
+  left:50% !important;
+  margin:15px 0 0 !important;
+  transform:translateX(-50%) !important;
+  box-sizing:border-box !important;
+}
+</style>
+<script id="public-post-visible-media-left-align">
+(function(){
+  'use strict';
+
+  var feed = document.querySelector('.ig-feed');
+  if (!feed) return;
+  var frame = 0;
+
+  function alignVisibleMedia(){
+    frame = 0;
+    feed.querySelectorAll('.post.public-post-card.public-media-head-outside:not(.is-reel-post)').forEach(function(card){
+      var avatar = card.querySelector('.standard-media-topbar .avatar');
+      var stage = card.querySelector('.media-stage');
+      if (!avatar || !stage) return;
+
+      var visibleMedia = stage.querySelector(':scope > video, :scope > img, :scope > .media-carousel');
+      if (!visibleMedia) return;
+
+      visibleMedia.style.removeProperty('transform');
+      visibleMedia.style.removeProperty('--public-media-left-shift');
+
+      var avatarRect = avatar.getBoundingClientRect();
+      var mediaRect = visibleMedia.getBoundingClientRect();
+      if (!avatarRect.width || !mediaRect.width) return;
+
+      var shift = Math.round((avatarRect.left - mediaRect.left) * 100) / 100;
+      if (Math.abs(shift) < 0.5) return;
+
+      visibleMedia.style.setProperty('--public-media-left-shift', shift + 'px');
+      visibleMedia.style.setProperty('transform', 'translateX(var(--public-media-left-shift))', 'important');
+    });
+  }
+
+  function scheduleAlign(){
+    if (frame) cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(function(){
+      requestAnimationFrame(alignVisibleMedia);
+    });
+  }
+
+  new MutationObserver(scheduleAlign).observe(feed, {childList:true, subtree:true});
+  window.addEventListener('resize', scheduleAlign, {passive:true});
+  window.addEventListener('load', scheduleAlign, {once:true});
+  feed.addEventListener('loadedmetadata', scheduleAlign, true);
+  feed.addEventListener('load', scheduleAlign, true);
+  scheduleAlign();
+})();
+</script>
 <?php post_card_actions_menu_render_modals(); ?>
 <?php post_card_actions_menu_render_js([
-  'delete_mode' => 'public',
+  // Use the same direct feed_api.php deletion path as reel.php. This keeps
+  // description-only cards out of the legacy hidden-form delete flow.
+  'delete_mode' => 'feed',
   'staff_readonly' => $staffReadonly,
   'menu_surface' => 'public',
   'api_url' => 'feed_api.php',
+  // Keep every Public dropdown in the body-level portal so the right rail
+  // (Suggested for you / Follow links) cannot paint above the menu.
+  'always_portal' => true,
   'can_follow_publishers' => $canFollowOnPublicMenu,
   'publisher_workspace_viewer' => $isPublisherWorkspaceViewer,
 ]); ?>
+<script id="public-post-menu-outside-column-fix">
+(function(){
+  'use strict';
+
+  /*
+   * Text-only cards can still use the original nested menu node while media
+   * cards use the shared body portal.  Catch Delete at the window boundary so
+   * both menu shapes always enter the same custom confirmation dialog.
+   */
+  var lastDeletePostId = 0;
+  var lastDeleteTime = 0;
+
+  function openPublicDeleteDialog(e){
+    var target = e.target;
+    var deleteButton = target && target.closest
+      ? target.closest('.pcm-delete')
+      : null;
+    if(!deleteButton) return;
+
+    var postId = Number(deleteButton.getAttribute('data-post-id') || 0);
+    if(!postId){
+      var card = deleteButton.closest('.public-post-card, [data-post-id]');
+      postId = Number(card ? (card.getAttribute('data-post-id') || card.getAttribute('data-id') || 0) : 0);
+    }
+    if(!postId) return;
+
+    var now = Date.now();
+    if(postId === lastDeletePostId && now - lastDeleteTime < 750) return;
+    lastDeletePostId = postId;
+    lastDeleteTime = now;
+
+    e.preventDefault();
+    e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+    if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.closeAll === 'function'){
+      window.MSBPostCardMenu.closeAll();
+    }
+
+    /*
+     * Open the shared dialog directly. This also covers description-only cards
+     * whose menu is moved out of its original card before the click completes.
+     */
+    window.__pcmPendingDeleteId = postId;
+    window.__pcmPendingDeleteDone = null;
+    var dialog = document.getElementById('pcmDeleteConfirmDialog');
+    if(dialog){
+      try{
+        if(typeof dialog.showModal === 'function' && !dialog.open){
+          dialog.showModal();
+        }else{
+          dialog.setAttribute('open', '');
+        }
+      }catch(ignore){
+        dialog.setAttribute('open', '');
+      }
+      return;
+    }
+
+    if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.confirmDelete === 'function'){
+      window.MSBPostCardMenu.confirmDelete(postId);
+    }
+  }
+
+  window.addEventListener('click', openPublicDeleteDialog, true);
+
+  function placePublicPostMenu(){
+    var menu = document.querySelector('body.public-page > .pcm-menu-portal.open')
+      || document.querySelector('body.public-page .post.public-post-card .post-card-menu.open');
+    var center = document.querySelector('body.public-page .feed-desktop-center');
+    if(!menu || !center) return;
+    var centerRect = center.getBoundingClientRect();
+    var menuWidth = menu.offsetWidth || 220;
+    var menuHeight = menu.offsetHeight || 275;
+    var viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    var viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    var outsideLeft = centerRect.right + 8;
+    var suggestions = document.querySelector('body.public-page .feed-right-rail .sfy-panel');
+    var suggestionsRect = suggestions ? suggestions.getBoundingClientRect() : null;
+    if(suggestionsRect && suggestionsRect.height > 0){
+      var baseOverlapsSuggestions = outsideLeft < suggestionsRect.right && outsideLeft + menuWidth > suggestionsRect.left;
+      var rightOfSuggestions = suggestionsRect.right + 12;
+      if(baseOverlapsSuggestions && rightOfSuggestions + menuWidth <= viewportWidth - 10){
+        outsideLeft = rightOfSuggestions;
+      }
+    }
+    if(outsideLeft + menuWidth <= viewportWidth - 10){
+      var menuButton = menu.closest('.post-card-menu-wrap');
+      menuButton = menuButton ? menuButton.querySelector('.post-card-menu-btn') : null;
+      if(!menuButton){
+        menuButton = document.querySelector('body.public-page .post-card-menu-btn[aria-expanded="true"]');
+      }
+      var currentTop = parseFloat(menu.style.top || '') || 10;
+      var desiredTop = menuButton ? Math.max(10, menuButton.getBoundingClientRect().top) : currentTop;
+      desiredTop = Math.max(10, Math.min(desiredTop, viewportHeight - menuHeight - 10));
+      menu.style.setProperty('top', desiredTop + 'px', 'important');
+      menu.style.setProperty('position', 'fixed', 'important');
+      menu.style.setProperty('left', outsideLeft + 'px', 'important');
+      menu.style.setProperty('right', 'auto', 'important');
+      menu.style.setProperty('z-index', '100000', 'important');
+    }
+  }
+  document.addEventListener('click', function(){
+    requestAnimationFrame(placePublicPostMenu);
+  }, true);
+  window.addEventListener('resize', placePublicPostMenu, {passive:true});
+  window.addEventListener('scroll', placePublicPostMenu, {passive:true, capture:true});
+  new MutationObserver(function(records){
+    for(var i=0;i<records.length;i++){
+      if((records[i].addedNodes && records[i].addedNodes.length) || records[i].type === 'attributes'){
+        requestAnimationFrame(placePublicPostMenu);
+        break;
+      }
+    }
+  }).observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['class']});
+})();
+</script>
 </body>
 </html>

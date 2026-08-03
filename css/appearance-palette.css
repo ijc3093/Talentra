@@ -1423,8 +1423,7 @@ html[data-msb-appearance] .vcall-local-tile.has-video .vcall-remote-card {
 /* Global accent — buttons, links, likes, avatars (replaces hardcoded blues on all pages) */
 html[data-msb-appearance] .friend-btn.primary,
 html[data-msb-appearance] .publisher-follow-btn.primary,
-html[data-msb-appearance] .mf-friend-btn.primary,
-html[data-msb-appearance] .pv-input button {
+html[data-msb-appearance] .mf-friend-btn.primary {
   background-color: var(--msb-palette-btn-bg) !important;
   background-image: none !important;
   border-color: var(--msb-palette-btn-bg) !important;
@@ -1433,8 +1432,7 @@ html[data-msb-appearance] .pv-input button {
 
 html[data-msb-appearance] .friend-btn.primary:hover,
 html[data-msb-appearance] .publisher-follow-btn.primary:hover,
-html[data-msb-appearance] .mf-friend-btn.primary:hover,
-html[data-msb-appearance] .pv-input button:hover {
+html[data-msb-appearance] .mf-friend-btn.primary:hover {
   background-color: var(--msb-palette-btn-hover-bg) !important;
   border-color: var(--msb-palette-btn-hover-bg) !important;
   color: var(--msb-palette-btn-text) !important;
@@ -1443,12 +1441,18 @@ html[data-msb-appearance] .pv-input button:hover {
 html[data-msb-appearance] .pv-readmore,
 html[data-msb-appearance] .mf-body .mf-readmore,
 html[data-msb-appearance] #profilePostsFeed .mf-body .mf-readmore,
-html[data-msb-appearance] .pv-com .m .link,
-html[data-msb-appearance] .pv-com .m .replies-toggle,
-html[data-msb-appearance] .c-list .c-replies-toggle,
 html[data-msb-appearance] .sheet-btn.primary,
 html[data-msb-appearance] .news-pub-panel-link,
 html[data-msb-appearance] .pub-discover-link {
+  color: var(--msb-palette-link) !important;
+}
+
+html[data-msb-appearance] .pv-com .m .link,
+html[data-msb-appearance] .pv-com .m .replies-toggle {
+  color: inherit !important;
+}
+
+html[data-msb-appearance] .c-list .c-replies-toggle {
   color: var(--msb-palette-link) !important;
 }
 

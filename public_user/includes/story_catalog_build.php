@@ -69,7 +69,7 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
             'mySaved' => !empty($post['my_saved']) ? 1 : 0,
             'isArchived' => !empty($post['is_archived']) ? 1 : 0,
             'commentCount' => (int)($post['comment_count'] ?? 0),
-            'loveCount' => (int)($post['love_count'] ?? 0),
+            'loveCount' => (int)($post['reaction_count'] ?? $post['love_count'] ?? 0),
             'shareCount' => (int)($post['share_count'] ?? 0),
             'saveCount' => (int)($post['save_count'] ?? 0),
             'friendCode' => $friendCode !== '' ? $friendCode : (string)($byUser[$key]['friendCode'] ?? ''),

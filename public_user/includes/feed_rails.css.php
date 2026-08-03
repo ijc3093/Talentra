@@ -50,8 +50,8 @@ body.feed-insta-ui .feed-right-nav-ic svg{
     gap:2px;
     flex:1 1 auto;
     min-height:0;
-    height:100%;
-    max-height:100%;
+    height:auto;
+    max-height:none;
     overflow-y:auto;
     overflow-x:hidden;
     padding:10px 2px 0 0;
@@ -60,6 +60,13 @@ body.feed-insta-ui .feed-right-nav-ic svg{
     touch-action:pan-y;
     scrollbar-width:thin;
     scrollbar-color:rgba(0,0,0,.18) transparent;
+  }
+  body.feed-insta-ui .feed-left-rail-footer{
+    display:flex;
+    flex:0 0 auto;
+    flex-direction:column;
+    gap:2px;
+    padding:6px 2px 0 0;
   }
   body.feed-insta-ui .feed-left-nav::-webkit-scrollbar{width:5px;}
   body.feed-insta-ui .feed-left-nav::-webkit-scrollbar-thumb{

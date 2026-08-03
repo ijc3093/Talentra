@@ -4,6 +4,9 @@ declare(strict_types=1);
 /* Thin post-action icons (X-style line icons) */
 :root{
   --msb-love-color:#7c3aed;
+  /* White halo + dark edge so icons/counts read on teal / dark / media backgrounds */
+  --msb-pact-contrast-filter:drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 0 .6px rgba(255,255,255,.95)) drop-shadow(0 1px 2px rgba(0,0,0,.55));
+  --msb-pact-contrast-text-shadow:0 0 2px rgba(255,255,255,.95), 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.5);
 }
 .msb-pact{
   display:inline-block;
@@ -19,26 +22,45 @@ declare(strict_types=1);
   line-height:1;
   -webkit-mask:var(--msb-pact-mask) center / contain no-repeat;
   mask:var(--msb-pact-mask) center / contain no-repeat;
+  filter:var(--msb-pact-contrast-filter);
 }
 .msb-pact-heart{
-  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.15' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
 }
 .msb-pact-heart.is-active,
 .is-love .msb-pact-heart{
   --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
 }
 .msb-pact-comment{
-  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.15' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'/%3E%3C/svg%3E");
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'/%3E%3C/svg%3E");
 }
 .msb-pact-share{
-  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.15' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8'/%3E%3Cpolyline points='16 6 12 2 8 6'/%3E%3Cline x1='12' y1='2' x2='12' y2='15'/%3E%3C/svg%3E");
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8'/%3E%3Cpolyline points='16 6 12 2 8 6'/%3E%3Cline x1='12' y1='2' x2='12' y2='15'/%3E%3C/svg%3E");
 }
 .msb-pact-bookmark{
-  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.15' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
 }
 .msb-pact-bookmark.is-active,
 .is-save .msb-pact-bookmark{
   --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
+}
+.msb-reaction-glyph{
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  height:22px;
+  min-width:22px;
+  min-height:22px;
+  flex:0 0 22px;
+  line-height:1 !important;
+  font-style:normal !important;
+  font-size:20px !important;
+  background:transparent !important;
+  -webkit-mask:none !important;
+  mask:none !important;
+  text-shadow:none;
+  filter:var(--msb-pact-contrast-filter);
 }
 .post.public-post-card .standard-media-btn .msb-pact,
 .post.public-post-card .standard-text-btn .msb-pact,
@@ -116,4 +138,40 @@ body.profile-page #profilePostsFeed .mf-act.is-love,
 body.profile-page #profilePostsFeed .mf-act.is-love i,
 body.profile-page #profilePostsFeed .mf-act.is-love .mf-num{
   color:var(--msb-love-color) !important;
+}
+
+/* Keep love/comment/share/save readable on Appearance page colors + media */
+.mf-feed .mf-act .msb-pact,
+body.profile-page #profilePostsFeed .mf-act .msb-pact,
+.post.public-post-card .standard-text-btn .msb-pact,
+.post.public-post-card .standard-media-btn .msb-pact,
+.post.public-post-card .action-btn .msb-pact,
+.post.public-post-card .reel-inline-btn .msb-pact,
+.post.public-post-card .public-live-action-btn .msb-pact,
+body.reel-page .reel-act .msb-pact{
+  filter:var(--msb-pact-contrast-filter) !important;
+}
+.mf-feed .mf-act .mf-num,
+body.profile-page #profilePostsFeed .mf-act .mf-num,
+.post.public-post-card .standard-text-btn .action-count,
+.post.public-post-card .standard-media-btn .action-count,
+.post.public-post-card .action-btn .action-count,
+.post.public-post-card .reel-inline-btn .action-count,
+.post.public-post-card .public-live-action-btn .action-count,
+body.reel-page .reel-act-count{
+  text-shadow:var(--msb-pact-contrast-text-shadow) !important;
+}
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-save):not(.is-share),
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-save):not(.is-share) .msb-pact,
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-save):not(.is-share) .mf-num,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-save):not(.is-share),
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-save):not(.is-share) .msb-pact,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-save):not(.is-share) .mf-num,
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-save):not(.is-share),
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-save):not(.is-share) .msb-pact,
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-save):not(.is-share) .action-count,
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-save):not(.is-share),
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-save):not(.is-share) .msb-pact{
+  color:var(--msb-palette-text, #0f172a) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, #0f172a) !important;
 }

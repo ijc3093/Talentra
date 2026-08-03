@@ -140,7 +140,6 @@ html[data-msb-appearance] #ttLeftbarOverlays .tt-comments-wrap,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-readmore-wrap,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-menu-wrap,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-live-wrap,
-html[data-msb-appearance] #ttRightbarOverlays .tt-stories-right-wrap,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-panel,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-profile-wrap,
 html[data-msb-appearance] .requests-panel,
@@ -580,19 +579,37 @@ html[data-msb-appearance] .ig-feed-header .ig-stories-next:hover {
 
 /* Feed chrome — icon rail, side nav, post actions use chromatic palette ink */
 html[data-msb-appearance] .feed-ig-rail .feed-ig-btn,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-link,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-link:not(.feed-ig-reels),
 html[data-msb-appearance] .feed-ig-rail .ig-stories-menu-btn,
 html[data-msb-appearance] .feed-ig-rail .ig-link {
   color: var(--msb-palette-text-on-nav) !important;
 }
 html[data-msb-appearance] .feed-ig-rail .feed-ig-btn .icon,
 html[data-msb-appearance] .feed-ig-rail .feed-ig-btn .fa,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-link .icon,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-link .fa,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-link:not(.feed-ig-reels) .icon,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-link:not(.feed-ig-reels) .fa,
 html[data-msb-appearance] .feed-ig-rail .ig-stories-menu-btn .fa,
 html[data-msb-appearance] .feed-ig-rail .ig-link .icon,
 html[data-msb-appearance] .feed-ig-rail .ig-link .fa {
   color: var(--msb-palette-icon) !important;
+}
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:hover,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:focus,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels.active {
+  background-color: #e53935 !important;
+  background-image: none !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:hover,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:focus,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels.active {
+  background-color: #d32f2f !important;
+}
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels .fa,
+html[data-msb-appearance] .feed-ig-rail .feed-ig-reels .icon {
+  color: #fff !important;
 }
 html[data-msb-appearance] .feed-left-rail .feed-left-nav-item:not(:hover):not(.is-active),
 html[data-msb-appearance] .feed-right-rail .feed-right-nav-item:not(:hover):not(.is-active) {
@@ -1787,7 +1804,6 @@ html[data-msb-appearance] #ttRightbarOverlays{
   background-color:transparent !important;
 }
 
-html[data-msb-appearance] #tt-stories-wrap.tt-stories-right-wrap,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-scroll-panel.is-full,
 html[data-msb-appearance] #tt-stories-wrap.has-story-text .tt-stories-media.is-text-backdrop,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-panel,
@@ -1796,6 +1812,14 @@ html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-foot {
   background-image: none !important;
   color: var(--msb-palette-text) !important;
   border-color: var(--msb-palette-border) !important;
+}
+
+/* Keep the story stage/door shell black — do not paint palette text onto on-media chrome. */
+html[data-msb-appearance] #tt-stories-wrap.tt-stories-right-wrap {
+  background-color: #000 !important;
+  background-image: none !important;
+  color: #fff !important;
+  border-color: rgba(255,255,255,.12) !important;
 }
 
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-stage,
@@ -1810,16 +1834,51 @@ html[data-msb-appearance] #tt-stories-wrap.has-story-text .tt-stories-media.is-t
   background-image: none !important;
 }
 
+/* On the black story stage, keep chrome bright — palette text is unreadable on #000. */
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-meta,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-name,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl,
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-scroll-inner,
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-textarea,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl .icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-empty,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-caption,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-scroll-panel.is-media-caption .tt-stories-scroll-inner,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .post-card-menu-btn,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-icon,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-send,
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-pill,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon,
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-action .tt-stories-action-count,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action .tt-stories-action-count {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  fill: #fff !important;
+  stroke: #fff !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,.55) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-empty {
+  color: rgba(255,255,255,.86) !important;
+  -webkit-text-fill-color: rgba(255,255,255,.86) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  background-color: rgba(0,0,0,.42) !important;
+  border-color: rgba(255,255,255,.22) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18) !important;
+}
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav .icon {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-scroll-inner,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-textarea,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-pill,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-head h3,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-name,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-text,
@@ -1844,15 +1903,6 @@ html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-close {
   background-color: transparent !important;
 }
 
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav {
-  color: var(--msb-palette-icon) !important;
-  background-color: var(--msb-palette-hover-bg) !important;
-  border-color: var(--msb-palette-border) !important;
-  box-shadow: inset 0 0 0 1px var(--msb-palette-border) !important;
-}
-
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-empty,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-time,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-empty,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-reply-btn,
@@ -1871,6 +1921,13 @@ html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-avatar,
 html[data-msb-appearance] #tt-stories-wrap .tt-story-cmt-me-avatar {
   background-color: var(--msb-palette-hover-bg) !important;
   border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-send {
+  background-color: rgba(0,0,0,.45) !important;
+  border-color: rgba(255,255,255,.28) !important;
 }
 
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-textarea::placeholder,
@@ -1907,8 +1964,10 @@ html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-action.tt-stories-action-icon i,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-lovebtn i,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-send i,
-html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl i {
-  color: var(--msb-palette-icon) !important;
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-ctrl i,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-nav i {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
 /* Story media overlay actions stay high-contrast on bright photos/videos */
@@ -2159,8 +2218,7 @@ html[data-msb-appearance] .vcall-local-tile.has-video .vcall-remote-card {
 /* Global accent — buttons, links, likes, avatars (replaces hardcoded blues on all pages) */
 html[data-msb-appearance] .friend-btn.primary,
 html[data-msb-appearance] .publisher-follow-btn.primary,
-html[data-msb-appearance] .mf-friend-btn.primary,
-html[data-msb-appearance] .pv-input button {
+html[data-msb-appearance] .mf-friend-btn.primary {
   background-color: var(--msb-palette-btn-bg) !important;
   background-image: none !important;
   border-color: var(--msb-palette-btn-bg) !important;
@@ -2169,26 +2227,162 @@ html[data-msb-appearance] .pv-input button {
 
 html[data-msb-appearance] .friend-btn.primary:hover,
 html[data-msb-appearance] .publisher-follow-btn.primary:hover,
-html[data-msb-appearance] .mf-friend-btn.primary:hover,
-html[data-msb-appearance] .pv-input button:hover {
+html[data-msb-appearance] .mf-friend-btn.primary:hover {
   background-color: var(--msb-palette-btn-hover-bg) !important;
   border-color: var(--msb-palette-btn-hover-bg) !important;
   color: var(--msb-palette-btn-text) !important;
 }
 
+/* Gallery / post viewer — white panels follow Appearance / Progress / Dark auto */
+html[data-msb-appearance] .pv-modal,
+html[data-msb-appearance] .pv-right,
+html[data-msb-appearance] .pv-head,
+html[data-msb-appearance] .pv-body,
+html[data-msb-appearance] .pv-caption,
+html[data-msb-appearance] .pv-comments,
+html[data-msb-appearance] .pv-actions,
+html[data-msb-appearance] .pv-input,
+html[data-msb-appearance] .pv-likebar,
+html[data-msb-appearance] .pv-metabar,
+html[data-msb-appearance] .pv-replybar {
+  background: var(--msb-palette-bg) !important;
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border) !important;
+}
+
+html[data-msb-appearance] .pv-input::before {
+  background: linear-gradient(to top, var(--msb-palette-bg), transparent) !important;
+}
+
+html[data-msb-appearance] .pv-input input {
+  background: var(--msb-palette-input-bg, #1f1f1f) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong) !important;
+}
+
+html[data-msb-appearance] .pv-input input::placeholder {
+  color: var(--msb-palette-placeholder, var(--msb-palette-text-muted)) !important;
+}
+
+html[data-msb-appearance] .pv-iconbtn {
+  background: var(--msb-palette-hover-bg, #f2f4f7) !important;
+  color: var(--msb-palette-text) !important;
+  border-color: transparent !important;
+}
+
+html[data-msb-appearance] #pvAtBtn {
+  background: linear-gradient(180deg, #ff2e89 0%, #c11353 100%) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+html[data-msb-appearance] .pv-send {
+  background: #7c1730 !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+html[data-msb-appearance] .pv-send:hover {
+  background: #991c3d !important;
+  color: #fff !important;
+}
+
+html[data-msb-appearance] .pv-name,
+html[data-msb-appearance] .pv-cap,
+html[data-msb-appearance] .pv-act,
+html[data-msb-appearance] .pv-act i,
+html[data-msb-appearance] .pv-likebar,
+html[data-msb-appearance] .pv-com .nm,
+html[data-msb-appearance] .pv-com .tx,
+html[data-msb-appearance] .pv-com .t {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] .pv-meta,
+html[data-msb-appearance] .pv-act .pv-n,
+html[data-msb-appearance] .pv-meta-link,
+html[data-msb-appearance] .pv-views,
+html[data-msb-appearance] .pv-com .m {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] .pv-com .bubble {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* Post modal + comments/readmore doors — force hairline vertical scrollbar */
+#pvOverlay .pv-body,
+.pv-body,
+.tt-comments-list,
+.tt-rm-body {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(15, 23, 42, 0.35) transparent !important;
+}
+#pvOverlay .pv-body::-webkit-scrollbar,
+.pv-body::-webkit-scrollbar,
+.tt-comments-list::-webkit-scrollbar,
+.tt-rm-body::-webkit-scrollbar {
+  width: 2px !important;
+  height: 2px !important;
+}
+#pvOverlay .pv-body::-webkit-scrollbar-thumb,
+.pv-body::-webkit-scrollbar-thumb,
+.tt-comments-list::-webkit-scrollbar-thumb,
+.tt-rm-body::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.35) !important;
+  border-radius: 999px;
+  border: 0 !important;
+}
+#pvOverlay .pv-body::-webkit-scrollbar-track,
+.pv-body::-webkit-scrollbar-track,
+.tt-comments-list::-webkit-scrollbar-track,
+.tt-rm-body::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+html.dark-auto #pvOverlay .pv-body,
+html.dark-auto .pv-body,
+html.dark-auto .tt-comments-list,
+html.dark-auto .tt-rm-body,
+html[data-theme="dark"] #pvOverlay .pv-body,
+html[data-theme="dark"] .pv-body,
+html[data-theme="dark"] .tt-comments-list,
+html[data-theme="dark"] .tt-rm-body {
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent !important;
+}
+html.dark-auto #pvOverlay .pv-body::-webkit-scrollbar-thumb,
+html.dark-auto .pv-body::-webkit-scrollbar-thumb,
+html.dark-auto .tt-comments-list::-webkit-scrollbar-thumb,
+html.dark-auto .tt-rm-body::-webkit-scrollbar-thumb,
+html[data-theme="dark"] #pvOverlay .pv-body::-webkit-scrollbar-thumb,
+html[data-theme="dark"] .pv-body::-webkit-scrollbar-thumb,
+html[data-theme="dark"] .tt-comments-list::-webkit-scrollbar-thumb,
+html[data-theme="dark"] .tt-rm-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
 html[data-msb-appearance] .pv-readmore,
 html[data-msb-appearance] .mf-body .mf-readmore,
 html[data-msb-appearance] #profilePostsFeed .mf-body .mf-readmore,
-html[data-msb-appearance] .pv-com .m .link,
-html[data-msb-appearance] .pv-com .m .replies-toggle,
-html[data-msb-appearance] .c-list .c-replies-toggle,
 html[data-msb-appearance] .sheet-btn.primary,
 html[data-msb-appearance] .news-pub-panel-link,
 html[data-msb-appearance] .pub-discover-link {
   color: var(--msb-palette-link) !important;
 }
 
+html[data-msb-appearance] .pv-com .m .link,
+html[data-msb-appearance] .pv-com .m .replies-toggle {
+  color: inherit !important;
+}
+
+html[data-msb-appearance] .c-list .c-replies-toggle {
+  color: var(--msb-palette-link) !important;
+}
+
 html[data-msb-appearance] .pv-act.is-like,
+html[data-msb-appearance] .pv-act.is-like .pv-ico,
 html[data-msb-appearance] .pv-act.is-like i,
 html[data-msb-appearance] .pv-com .m .likebtn.is-liked,
 html[data-msb-appearance] .c-list .clikebtn.liked,

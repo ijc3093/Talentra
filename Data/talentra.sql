@@ -1927,7 +1927,7 @@ CREATE TABLE `public_comment_likes` (
 CREATE TABLE `public_post_reactions` (
   `post_id` bigint(20) UNSIGNED NOT NULL,
   `user_id` int(11) NOT NULL,
-  `reaction` enum('like','love') NOT NULL,
+  `reaction` varchar(32) NOT NULL,
   `reacted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

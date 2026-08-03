@@ -97,6 +97,9 @@ html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary i{
 :is(html.dark-auto, body.dark-auto) .sh-pagetitle,
 :is(html.dark-auto, body.dark-auto) .ig-card,
 :is(html.dark-auto, body.dark-auto) .pv-right,
+:is(html.dark-auto, body.dark-auto) .pv-modal,
+:is(html.dark-auto, body.dark-auto) .pv-head,
+:is(html.dark-auto, body.dark-auto) .pv-body,
 :is(html.dark-auto, body.dark-auto) .bestprofile-nav,
 :is(html.dark-auto, body.dark-auto) .dropdown-menu,
 /* :is(html.dark-auto, body.dark-auto) .sh-logopanel,
@@ -105,6 +108,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary i{
 :is(html.dark-auto, body.dark-auto) .tt-comments-list,
 :is(html.dark-auto, body.dark-auto) .post,
 :is(html.dark-auto, body.dark-auto) .pv-actions,
+:is(html.dark-auto, body.dark-auto) .pv-input,
 :is(html.dark-auto, body.dark-auto) .tt-rm-head,
 :is(html.dark-auto, body.dark-auto) .ig-details,
 :is(html.dark-auto, body.dark-auto) .sh-sideleft-menu,
@@ -254,7 +258,6 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
 :is(html.dark-auto, body.dark-auto) .pv-likebar,
 :is(html.dark-auto, body.dark-auto) .caption-line,
 :is(html.dark-auto, body.dark-auto) .name,
-:is(html.dark-auto, body.dark-auto) .pv-com,
 :is(html.dark-auto, body.dark-auto) .mf-body,
 :is(html.dark-auto, body.dark-auto) .sh-sideleft-menu,
 :is(html.dark-auto, body.dark-auto) .nav-link
@@ -268,6 +271,35 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
   background:#171d24 !important;
   color:#e6edf3;
   border-color:var(--studio-border) !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-com{
+  background:transparent !important;
+  color:var(--msb-palette-text, #e6edf3);
+  border-color:transparent !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-com .nm,
+:is(html.dark-auto, body.dark-auto) .pv-com .tx,
+:is(html.dark-auto, body.dark-auto) .pv-com .t{
+  color:var(--msb-palette-text, #e6edf3) !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-com .m{
+  color:var(--msb-palette-text-muted, #b1bcce) !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-com .bubble{
+  background:transparent !important;
+  border-color:transparent !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-iconbtn{
+  background:var(--msb-palette-hover-bg, #1f2630) !important;
+  color:var(--msb-palette-text, #e6edf3) !important;
+}
+:is(html.dark-auto, body.dark-auto) #pvAtBtn{
+  background:linear-gradient(180deg, #ff2e89 0%, #c11353 100%) !important;
+  color:#fff !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-send{
+  background:#7c1730 !important;
+  color:#fff !important;
 }
 
 :is(html.dark-auto, body.dark-auto) .list-group-item.active{
@@ -294,7 +326,6 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
 
 /* Inputs */
 :is(html.dark-auto, body.dark-auto) input,
-:is(html.dark-auto, body.dark-auto) .pv-input,
 :is(html.dark-auto, body.dark-auto) .textarea,
 :is(html.dark-auto, body.dark-auto) .rm-title,
 :is(html.dark-auto, body.dark-auto) textarea,
@@ -304,6 +335,22 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
   background:var(--studio-input) !important;
   color:#f8fafc !important;
   border-color:var(--studio-border) !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-input,
+:is(html.dark-auto, body.dark-auto) .pv-actions,
+:is(html.dark-auto, body.dark-auto) .pv-modal,
+:is(html.dark-auto, body.dark-auto) .pv-right,
+:is(html.dark-auto, body.dark-auto) .pv-head,
+:is(html.dark-auto, body.dark-auto) .pv-body{
+  background:var(--msb-palette-bg, var(--studio-bg, #171d24)) !important;
+  background-color:var(--msb-palette-bg, var(--studio-bg, #171d24)) !important;
+  color:var(--msb-palette-text, #f8fafc) !important;
+  border-color:var(--msb-palette-border, var(--studio-border)) !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-input input{
+  background:var(--msb-palette-input-bg, var(--msb-palette-bg, var(--studio-input))) !important;
+  color:var(--msb-palette-text, #f8fafc) !important;
+  border-color:var(--msb-palette-border-strong, var(--studio-border)) !important;
 }
 
 :is(html.dark-auto, body.dark-auto) input::placeholder,
@@ -650,6 +697,34 @@ html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary {
 }
 :is(html.dark-auto, body.dark-auto) ::-webkit-scrollbar-track{
   background:#171d24;
+}
+:is(html.dark-auto, body.dark-auto) .pv-body,
+:is(html.dark-auto, body.dark-auto) #pvOverlay .pv-body,
+:is(html.dark-auto, body.dark-auto) .tt-rm-body,
+:is(html.dark-auto, body.dark-auto) .tt-comments-list{
+  scrollbar-width:thin !important;
+  scrollbar-color:rgba(255,255,255,.35) transparent !important;
+}
+:is(html.dark-auto, body.dark-auto) #pvOverlay .pv-body::-webkit-scrollbar,
+:is(html.dark-auto, body.dark-auto) .pv-body::-webkit-scrollbar,
+:is(html.dark-auto, body.dark-auto) .tt-rm-body::-webkit-scrollbar,
+:is(html.dark-auto, body.dark-auto) .tt-comments-list::-webkit-scrollbar{
+  width:2px !important;
+  height:2px !important;
+}
+:is(html.dark-auto, body.dark-auto) #pvOverlay .pv-body::-webkit-scrollbar-thumb,
+:is(html.dark-auto, body.dark-auto) .pv-body::-webkit-scrollbar-thumb,
+:is(html.dark-auto, body.dark-auto) .tt-rm-body::-webkit-scrollbar-thumb,
+:is(html.dark-auto, body.dark-auto) .tt-comments-list::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.35) !important;
+  border-radius:999px;
+  border:0 !important;
+}
+:is(html.dark-auto, body.dark-auto) #pvOverlay .pv-body::-webkit-scrollbar-track,
+:is(html.dark-auto, body.dark-auto) .pv-body::-webkit-scrollbar-track,
+:is(html.dark-auto, body.dark-auto) .tt-rm-body::-webkit-scrollbar-track,
+:is(html.dark-auto, body.dark-auto) .tt-comments-list::-webkit-scrollbar-track{
+  background:transparent !important;
 }
 
 :is(html.dark-auto, body.dark-auto) .stat-pill{ background:#0b1220; border-color:#334155; box-shadow:none; }
@@ -1029,6 +1104,18 @@ html.dark-auto .feed-ig-rail .feed-ig-logo-label,
 html[data-theme="dark"] .feed-ig-rail .feed-ig-logo-label,
 html.dark-auto .likes-line {
   color: var(--msb-palette-text-on-nav, var(--msb-palette-text, #f3f6fb)) !important;
+}
+html.dark-auto .feed-ig-logo,
+html.dark-auto .feed-ig-rail .feed-ig-logo,
+html[data-theme="dark"] .feed-ig-logo,
+html[data-theme="dark"] .feed-ig-rail .feed-ig-logo {
+  background: linear-gradient(
+    135deg,
+    var(--msb-palette-action, #60a5fa),
+    var(--msb-palette-accent, var(--msb-palette-action-strong, #38bdf8))
+  ) !important;
+  background-color: transparent !important;
+  color: #fff !important;
 }
 html.dark-auto .feed-ig-rail,
 html[data-theme="dark"] .feed-ig-rail {

@@ -229,7 +229,12 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   overscroll-behavior: contain;
   margin-bottom: 0px;
   background:var(--tt-panel-bg);
+  scrollbar-width:thin;
+  scrollbar-color:rgba(15,23,42,.35) transparent;
 }
+.tt-comments-list::-webkit-scrollbar{width:2px !important;height:2px !important;}
+.tt-comments-list::-webkit-scrollbar-thumb{background:rgba(15,23,42,.35) !important;border-radius:999px;border:0 !important;}
+.tt-comments-list::-webkit-scrollbar-track{background:transparent !important;}
 .tt-comments-list .text-muted{ color:var(--tt-muted) !important; }
 
 /* Footer sticky */
@@ -467,7 +472,12 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   color:var(--tt-text);
   background:var(--tt-panel-bg);
   text-align:left;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(15,23,42,.35) transparent;
 }
+.tt-rm-body::-webkit-scrollbar{width:2px !important;height:2px !important;}
+.tt-rm-body::-webkit-scrollbar-thumb{background:rgba(15,23,42,.35) !important;border-radius:999px;border:0 !important;}
+.tt-rm-body::-webkit-scrollbar-track{background:transparent !important;}
 .tt-rm-body .tt-richtext{display:block;color:inherit;font:inherit;line-height:inherit;text-align:left;}
 .tt-rm-body .tt-rich-p{margin:0 0 12px;white-space:normal;word-break:break-word;text-align:left;}
 .tt-rm-body .tt-rich-p:last-child{margin-bottom:0;}

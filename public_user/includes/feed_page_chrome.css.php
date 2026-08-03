@@ -15,6 +15,7 @@ declare(strict_types=1);
 body.feed-insta-ui .feed-ig-rail,
 body.feed-page.feed-insta-ui .feed-ig-rail,
 body.public-page.feed-insta-ui .feed-ig-rail,
+body.reel-page.feed-insta-ui .feed-ig-rail,
 body.compose-page .feed-ig-rail,
 body.contact-requests-page .feed-ig-rail,
 body.contacts-page .feed-ig-rail,
@@ -33,6 +34,31 @@ body.public-page.feed-insta-ui .feed-ig-rail{
   font-size:var(--msb-feed-chrome-font) !important;
   line-height:1 !important;
   box-shadow:none !important;
+  /* Follow Appearance / Dark auto from profile gear — not photo green */
+  background:linear-gradient(
+    135deg,
+    var(--msb-palette-action, #4f46e5),
+    var(--msb-palette-accent, var(--msb-palette-action-strong, #0ea5e9))
+  ) !important;
+  background-color:transparent !important;
+  color:#fff !important;
+}
+html.dark-auto .feed-ig-rail .feed-ig-logo,
+html[data-theme="dark"] .feed-ig-rail .feed-ig-logo{
+  background:linear-gradient(
+    135deg,
+    var(--msb-palette-action, #60a5fa),
+    var(--msb-palette-accent, var(--msb-palette-action-strong, #38bdf8))
+  ) !important;
+  color:#fff !important;
+}
+html[data-theme="light"] .feed-ig-rail .feed-ig-logo{
+  background:linear-gradient(
+    135deg,
+    var(--msb-palette-action, #4f46e5),
+    var(--msb-palette-accent, var(--msb-palette-action-strong, #0ea5e9))
+  ) !important;
+  color:#fff !important;
 }
 .feed-ig-rail .feed-ig-logo-label{
   display:block !important;

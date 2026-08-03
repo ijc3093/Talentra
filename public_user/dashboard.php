@@ -1020,7 +1020,7 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                 });
                 </script>
 
-                <form id="createPostForm" action="post_save.php" method="post" enctype="multipart/form-data" data-modal="<?= $isModalCreate ? '1' : '0' ?>">
+                <form id="createPostForm" action="post_save.php" method="post" enctype="multipart/form-data" data-modal="<?= $isModalCreate ? '1' : '0' ?>" onsubmit="return false;">
                   <?php echo csrfInput(); ?>
                   <input type="hidden" name="ajax" value="1">
                   <input type="hidden" name="post_id" id="createPostId" value="<?= (int)($editPost['id'] ?? 0) ?>">
@@ -1523,14 +1523,12 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 
   f.addEventListener('submit', function(ev){
-    if (!qaValidatePost(f)) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      return;
-    }
-    // Always use AJAX save so modal can return to feed without a slow full reload mid-upload.
     ev.preventDefault();
     ev.stopPropagation();
+    if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+    if (!qaValidatePost(f)) {
+      return;
+    }
 
     if (uploading) {
       setStatus('Please wait for media upload to finish…', true);
@@ -1543,6 +1541,7 @@ document.addEventListener('DOMContentLoaded', function(){
     syncReturnToFromVisibility();
 
     const fd = new FormData(f);
+    fd.set('ajax', '1');
     // Guarantee edit id is sent even if the hidden field was wiped by a partial DOM refresh.
     const postIdInput = document.getElementById('createPostId') || f.querySelector('input[name="post_id"]');
     const editPostId = postIdInput ? Number(postIdInput.value || 0) : 0;
@@ -1571,7 +1570,10 @@ document.addEventListener('DOMContentLoaded', function(){
       method: 'POST',
       body: fd,
       credentials: 'same-origin',
-      headers: { 'Accept': 'application/json' }
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     }).then(function(res){
       return res.json().catch(function(){ return null; }).then(function(data){
         return { res: res, data: data };

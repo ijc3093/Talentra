@@ -21,6 +21,9 @@
     mode = String(mode || '').toLowerCase().trim();
     if (!mode) return 'system';
     if (mode === 'system' || mode === 'light' || mode === 'dark') return mode;
+    if (/^#?[0-9a-f]{6}$/i.test(mode)) {
+      return mode.charAt(0) === '#' ? mode : ('#' + mode);
+    }
     if (window.__MSB_APPEARANCE_PALETTES && window.__MSB_APPEARANCE_PALETTES[mode]) {
       return mode;
     }
@@ -241,6 +244,14 @@
     slug = normalizeAppearanceMode(slug);
     if (slug === 'light') return { hex: '#f5f7fb', dark: false };
     if (slug === 'dark') return { hex: appearanceDarkBg(), dark: true };
+    if (/^#[0-9a-f]{6}$/i.test(slug)) {
+      var lum = relativeLuminance(slug);
+      var rgb = hexToRgb(slug) || { r:0, g:0, b:0 };
+      var max = Math.max(rgb.r, rgb.g, rgb.b);
+      var dark = lum < 0.45;
+      if (max > 180 && lum < 0.5) dark = false;
+      return { hex: slug.toUpperCase(), dark: dark, darkChrome: dark };
+    }
     return (window.__MSB_APPEARANCE_PALETTES && window.__MSB_APPEARANCE_PALETTES[slug]) || null;
   }
 
@@ -865,7 +876,9 @@
     'body.shop-page .shop-market-body', 'body.shop-page .shop-buy-card', 'body.shop-page .feed-left-rail',
     'body.shop-page .feed-left-nav', 'body.shop-page .shop-nav-filters', 'body.shop-page .shop-brand-nav',
     'body.shop-page .feed-left-rail-page-head', 'body.shop-page .shop-brand-banner', 'body.shop-page .ig-feed-header',
-    '.ig-card', '.ig-insta-card', '.ig-post-card', '.post', '.tl-card', '.pv-right',
+    '.ig-card', '.ig-insta-card', '.ig-post-card', '.post', '.tl-card',
+    '.pv-modal', '.pv-right', '.pv-head', '.pv-body', '.pv-caption', '.pv-comments',
+    '.pv-actions', '.pv-input', '.pv-likebar', '.pv-metabar', '.pv-replybar',
     '.row', '.row-sm', '.col-lg-4', '.col-lg-8', '.col-md-4', '.col-md-8', '.hd', '.bd', '.mt-2',
     '.c-footer', '.app-footer', '.feed-ig-btn', '.feed-ig-link', '.nav-link',
     'input:not([type=checkbox]):not([type=radio])', 'textarea', 'select', '.form-control',
@@ -1853,9 +1866,11 @@
 
     var hex = meta.hex;
     var isDark = !!meta.dark;
-    var bg = paletteUnifiedBackground(hex, isDark);
+    // Custom Progress #rrggbb uses the exact picked color as page background.
+    var isCustomHex = /^#[0-9a-f]{6}$/i.test(slug);
+    var bg = isCustomHex ? hex : paletteUnifiedBackground(hex, isDark);
     var surface = bg;
-    var surface2 = palettePanelSurface(bg, isDark);
+    var surface2 = isCustomHex ? bg : palettePanelSurface(bg, isDark);
     var sidebar = bg;
     var headerBg = bg;
     var fg = paletteChromaticForeground(hex, bg, isDark);
@@ -2090,6 +2105,7 @@
   function isNamedPaletteMode(mode){
     mode = normalizeAppearanceMode(mode);
     if (mode === 'system' || mode === 'light' || mode === 'dark') return false;
+    if (/^#[0-9a-f]{6}$/i.test(mode)) return true;
     return !!(window.__MSB_APPEARANCE_PALETTES && window.__MSB_APPEARANCE_PALETTES[mode]);
   }
 

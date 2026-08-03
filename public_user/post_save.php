@@ -13,10 +13,16 @@ require_once __DIR__ . '/includes/post_upload.php';
 
 sendNoCacheHeadersUser();
 
-$wantsJson = (
-    (string)($_POST['ajax'] ?? '') === '1'
-    || str_contains(strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json')
-);
+// JSON only for real XHR/fetch (Accept: application/json).
+// A plain form POST with hidden ajax=1 must redirect — otherwise the create-post
+// iframe shows Chrome's "Pretty-print" JSON page after publish.
+$acceptHeader = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+$wantsJson = str_contains($acceptHeader, 'application/json')
+    || (
+        (string)($_POST['ajax'] ?? '') === '1'
+        && !str_contains($acceptHeader, 'text/html')
+        && (string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== ''
+    );
 
 function post_save_respond(string $redirect, bool $wantsJson, bool $ok = true, string $error = '', int $postId = 0, bool $isStory = false, string $visibility = '', string $surface = ''): void
 {
@@ -330,7 +336,14 @@ try {
     // Edit Friends ↔ Public also moves the post to the matching page.
     $dest = publisher_post_redirect($dbh, $meId, $visibility);
     $queryKey = $isStoryPost ? 'story_post' : 'post';
-    $redirect = $dest . '?' . $queryKey . '=' . $postId . '&fresh=1';
+    $redirectParams = [
+        $queryKey => $postId,
+        'fresh' => 1,
+    ];
+    if (!$isPublisherPoster && $visibility === 'public' && $dest === 'public.php') {
+        $redirectParams = ['tab' => 'public'] + $redirectParams;
+    }
+    $redirect = $dest . '?' . http_build_query($redirectParams);
     if ($uploadAttempts > 0 && $uploadSaved === 0) {
         $redirect .= '&upload_warn=1';
     }

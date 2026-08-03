@@ -185,6 +185,7 @@ $showFeedRail = ($__currentPage !== 'live_studio.php');
 $railIsMessages = in_array($__currentPage, ['messages.php', 'chat.php'], true);
 $railIsAlerts = in_array($__currentPage, ['dashboard.php', 'timeline.php', 'notifications.php'], true);
 $railIsPublic = in_array($__currentPage, ['public.php', 'public_live.php'], true);
+$railIsReel = ($__currentPage === 'reel.php');
 $railIsStudio = ($__currentPage === 'live_studio.php');
 $railIsCompose = in_array($__currentPage, ['compose.php', 'post_view.php'], true);
 $railIsRequests = in_array($__currentPage, ['contact_requests.php', 'contacts.php', 'add_contact.php'], true);
@@ -564,14 +565,33 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <!-- ✅ AUTO DARK MODE (Public User) — per-account theme prefs -->
 <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
 <?php if (!defined('MSB_THEME_DARK_CSS')): ?>
-<link rel="stylesheet" href="./css/dark-auto.css">
+<link rel="stylesheet" href="./css/dark-auto.css?v=35">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=98">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=102">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
 <?php define('MSB_THEME_DARK_JS', true); endif; ?>
+<?php if (!defined('MSB_POST_ENGAGEMENT_JS')): ?>
+<script src="./js/post-engagement-sync.js?v=7"></script>
+<script src="./js/post-video-loop.js?v=1"></script>
+<style>
+video.msb-clean-loop-video::-webkit-media-controls,
+video.msb-clean-loop-video::-webkit-media-controls-enclosure,
+video.msb-clean-loop-video::-webkit-media-controls-panel,
+video.msb-clean-loop-video::-webkit-media-controls-play-button,
+video.msb-clean-loop-video::-webkit-media-controls-start-playback-button{
+  display:none !important;
+  -webkit-appearance:none !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+video.msb-clean-loop-video{
+  cursor:default !important;
+}
+</style>
+<?php define('MSB_POST_ENGAGEMENT_JS', true); endif; ?>
 <?php endif; ?>
 
 <!-- ✅ Brand Fonts (Logo + UI) -->
@@ -1028,7 +1048,13 @@ iframe{
     width:var(--msb-feed-chrome-size); height:var(--msb-feed-chrome-size);
     border-radius:var(--msb-feed-chrome-circle);
     display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(135deg,#4f46e5,#0ea5e9); color:#fff; font-weight:900;
+    /* Appearance / Dark auto palette — not a fixed photo green */
+    background:linear-gradient(
+      135deg,
+      var(--msb-palette-action, #4f46e5),
+      var(--msb-palette-accent, var(--msb-palette-action-strong, #0ea5e9))
+    );
+    color:#fff; font-weight:900;
     font-size:var(--msb-feed-chrome-font); line-height:1;
     box-shadow:none;
   }
@@ -1072,6 +1098,30 @@ iframe{
   .feed-ig-btn .fa, .feed-ig-link .fa, .feed-ig-rail .ig-link .fa{
     font-size:var(--msb-feed-chrome-icon); line-height:1;
     color:inherit;
+  }
+  .feed-ig-reels{
+    width:34px !important;
+    height:34px !important;
+    min-width:34px !important;
+    min-height:34px !important;
+    border-radius:50% !important;
+    background:#e53935 !important;
+    color:#fff !important;
+    box-shadow:0 6px 16px rgba(229,57,53,.32);
+  }
+  .feed-ig-reels:hover,
+  .feed-ig-reels:focus,
+  .feed-ig-reels.active{
+    background:#d32f2f !important;
+    color:#fff !important;
+    box-shadow:0 8px 18px rgba(211,47,47,.38);
+  }
+  .feed-ig-reels .fa,
+  .feed-ig-reels .icon{
+    font-size:14px !important;
+    line-height:1 !important;
+    margin-left:2px;
+    color:#fff !important;
   }
   .feed-ig-dot{position:absolute; right:11px; top:11px; width:8px; height:8px; border-radius:50%; background:#ff3040}
   .feed-ig-badge{
@@ -1276,6 +1326,9 @@ iframe{
         <span class="feed-ig-badge"><?php echo $pendingFriendRequestCount > 99 ? '99+' : (string)$pendingFriendRequestCount; ?></span>
       <?php endif; ?>
     </button>
+    <a class="feed-ig-link feed-ig-reels<?php echo !empty($railIsReel) ? ' active' : ''; ?>" href="reel.php" title="Reels" aria-label="Open Reels">
+      <i class="fa fa-play" aria-hidden="true"></i>
+    </a>
   </nav>
 
   <div class="feed-ig-spacer"></div>
@@ -3470,14 +3523,132 @@ iframe{
   color:var(--msb-dd-text);
 }
 .msb-reaction-glyph{
-  display:inline-flex;
+  display:inline-flex !important;
   align-items:center;
   justify-content:center;
-  min-width:1em;
-  min-height:1em;
+  width:22px;
+  height:22px;
+  min-width:22px;
+  min-height:22px;
+  flex:0 0 22px;
+  line-height:1 !important;
+  font-style:normal !important;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif !important;
+  font-size:20px !important;
+  background:transparent !important;
+  -webkit-mask:none !important;
+  mask:none !important;
+  text-shadow:none !important;
+  filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55)));
+  vertical-align:middle;
+}
+.mf-act .msb-reaction-glyph,
+.reel-act .msb-reaction-glyph,
+.pv-act .msb-reaction-glyph,
+.standard-text-btn .msb-reaction-glyph,
+.standard-media-btn .msb-reaction-glyph,
+.action-btn .msb-reaction-glyph,
+.reel-inline-btn .msb-reaction-glyph,
+.public-live-action-btn .msb-reaction-glyph,
+.js-react-love .msb-reaction-glyph{
+  display:inline-flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  color:inherit;
+}
+.has-rx-icon[data-selected-reaction]:not([data-selected-reaction=""]) .msb-reaction-glyph,
+.has-rx-icon[data-selected-reaction="love"] .msb-pact-heart{
+  width:24px !important;
+  height:24px !important;
+  min-width:24px !important;
+  min-height:24px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:50% !important;
+  color:#fff !important;
+  filter:none !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 3px 8px rgba(15,23,42,.22) !important;
+}
+.has-rx-icon[data-selected-reaction=""] .msb-pact-heart{
+  width:24px !important;
+  height:24px !important;
+  min-width:24px !important;
+  min-height:24px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border:0 !important;
+  border-radius:50% !important;
+  background:#242424 !important;
+  -webkit-mask:none !important;
+  mask:none !important;
+  color:#fff !important;
+  filter:none !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035), 0 2px 7px rgba(15,23,42,.24) !important;
+}
+.has-rx-icon[data-selected-reaction=""] .msb-pact-heart::before{
+  content:"";
+  display:block;
+  width:13px;
+  height:13px;
+  background:#fff !important;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.77-3.4 6.86-8.55 11.54z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.77-3.4 6.86-8.55 11.54z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.has-rx-icon[data-selected-reaction]:not([data-selected-reaction=""]) .msb-reaction-glyph{
+  font-size:16px !important;
+}
+.has-rx-icon[data-rx="like"] .msb-reaction-glyph{
+  background:linear-gradient(145deg,#38a5ff,#315be8) !important;
+}
+.has-rx-icon[data-selected-reaction="love"] .msb-pact-heart{
+  background:linear-gradient(145deg,#ff4968,#ed214c) !important;
+  -webkit-mask:none !important;
+  mask:none !important;
+}
+.has-rx-icon[data-selected-reaction="love"] .msb-pact-heart::before{
+  content:"\2665";
+  display:block;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  font-family:Arial,sans-serif;
+  font-size:16px;
+  font-weight:900;
   line-height:1;
-  font-style:normal;
-  font-size:1.05em;
+  text-shadow:0 1px 2px rgba(0,0,0,.22) !important;
+}
+.has-rx-icon[data-rx="dislike"] .msb-reaction-glyph{
+  background:linear-gradient(145deg,#77869a,#465367) !important;
+}
+.has-rx-icon[data-rx="smile"] .msb-reaction-glyph{
+  background:linear-gradient(145deg,#ffd66b,#f59e0b) !important;
+}
+.has-rx-icon[data-rx="laugh"] .msb-reaction-glyph{
+  background:linear-gradient(145deg,#ffca55,#f97316) !important;
+}
+.has-rx-icon[data-rx="clap"] .msb-reaction-glyph{
+  background:linear-gradient(145deg,#ffd85f,#e9a909) !important;
+}
+.mf-act .fa.fa-thumbs-up,
+.mf-act .fa.fa-thumbs-o-up,
+.mf-act .fa.fa-thumbs-down,
+.mf-act .fa.fa-thumbs-o-down,
+.reel-act .fa.fa-thumbs-up,
+.reel-act .fa.fa-thumbs-o-up,
+.reel-act .fa.fa-thumbs-down,
+.reel-act .fa.fa-thumbs-o-down,
+.standard-text-btn .fa.fa-thumbs-up,
+.standard-text-btn .fa.fa-thumbs-o-up,
+.standard-text-btn .fa.fa-thumbs-down,
+.standard-text-btn .fa.fa-thumbs-o-down,
+.standard-media-btn .fa.fa-thumbs-up,
+.standard-media-btn .fa.fa-thumbs-o-up,
+.standard-media-btn .fa.fa-thumbs-down,
+.standard-media-btn .fa.fa-thumbs-o-down{
+  font-size:20px;
+  line-height:1;
+  filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55)));
 }
 .msb-reaction-picker{
   position:fixed;
@@ -3486,16 +3657,16 @@ iframe{
   z-index:12050;
   display:flex;
   align-items:center;
-  gap:8px;
-  padding:10px 12px;
-  border:1px solid var(--msb-rx-border);
+  gap:6px;
+  padding:6px 8px;
+  border:2px solid rgba(255,255,255,.1);
   border-radius:999px;
-  background:var(--msb-rx-surface);
-  box-shadow:var(--msb-rx-shadow);
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
+  background:rgba(28,30,34,.98);
+  box-shadow:0 14px 38px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
   opacity:0;
-  transform:translateY(8px) scale(.96);
+  transform:translateY(10px) scale(.92);
   pointer-events:none;
   transition:opacity .16s ease, transform .16s ease;
 }
@@ -3508,66 +3679,99 @@ iframe{
   display:none;
 }
 .msb-reaction-picker-item{
-  width:42px;
-  height:42px;
+  width:38px;
+  height:38px;
   border:0;
   border-radius:999px;
   background:transparent;
-  color:var(--msb-rx-text);
+  color:#fff;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   padding:0;
   cursor:pointer;
   position:relative;
-  transition:transform .16s ease, background-color .16s ease, box-shadow .16s ease;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 3px 9px rgba(0,0,0,.24);
+  transition:transform .18s cubic-bezier(.2,.8,.2,1), background-color .18s ease, box-shadow .18s ease, filter .18s ease;
 }
+.msb-reaction-picker-item[data-reaction="like"]{background:linear-gradient(145deg,#38a5ff,#315be8) !important;}
+.msb-reaction-picker-item[data-reaction="love"]{background:linear-gradient(145deg,#ff4968,#ed214c) !important;}
+.msb-reaction-picker-item[data-reaction="dislike"]{background:linear-gradient(145deg,#77869a,#465367) !important;}
+.msb-reaction-picker-item[data-reaction="smile"]{background:linear-gradient(145deg,#ffd66b,#f59e0b) !important;}
+.msb-reaction-picker-item[data-reaction="laugh"]{background:linear-gradient(145deg,#ffca55,#f97316) !important;}
+.msb-reaction-picker-item[data-reaction="clap"]{background:linear-gradient(145deg,#ffd85f,#e9a909) !important;}
 .msb-reaction-picker-item:hover,
 .msb-reaction-picker-item:focus-visible{
-  transform:translateY(-6px) scale(1.08);
-  background:rgba(37,99,235,.08);
-  box-shadow:0 8px 16px rgba(15,23,42,.14);
+  transform:translateY(-7px) scale(1.14);
+  box-shadow:0 13px 24px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.24);
+  filter:saturate(1.08) brightness(1.06);
   outline:none;
 }
 html.dark-auto .msb-reaction-picker-item:hover,
 html.dark-auto .msb-reaction-picker-item:focus-visible,
 html[data-theme="dark"] .msb-reaction-picker-item:hover,
 html[data-theme="dark"] .msb-reaction-picker-item:focus-visible{
-  background:rgba(96,165,250,.16);
-  box-shadow:0 10px 22px rgba(2,6,23,.34);
+  box-shadow:0 13px 24px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.24);
 }
 .msb-reaction-picker-item.is-selected{
-  background:rgba(37,99,235,.12);
+  outline:3px solid #fff;
+  outline-offset:2px;
+}
+.msb-reaction-picker-item[data-reaction="love"].is-selected,
+.msb-reaction-picker-item[data-reaction="love"]:hover,
+.msb-reaction-picker-item[data-reaction="love"]:focus-visible{
+  background:linear-gradient(145deg,#ff4968,#ed214c) !important;
 }
 html.dark-auto .msb-reaction-picker-item.is-selected,
 html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
-  background:rgba(96,165,250,.2);
+  outline-color:#fff;
 }
 .msb-reaction-picker-emoji{
-  font-size:26px;
+  display:block;
+  font-size:23px;
   line-height:1;
+  transform:translateZ(0);
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.16));
+}
+.msb-reaction-picker-item[data-reaction="love"] .msb-reaction-picker-emoji{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  font-family:Arial,sans-serif;
+  font-size:27px;
+  font-weight:900;
+  text-shadow:0 1px 2px rgba(0,0,0,.22) !important;
 }
 .msb-reaction-picker-label{
   position:absolute;
   left:50%;
-  bottom:calc(100% + 8px);
-  transform:translate(-50%, 6px);
+  bottom:calc(100% + 9px);
+  transform:translate(-50%, 8px) scale(.92);
   white-space:nowrap;
-  padding:4px 8px;
+  padding:5px 9px;
   border-radius:999px;
-  background:rgba(15,23,42,.92);
-  color:#fff;
-  font-size:11px;
-  font-weight:700;
+  background:#050505;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  text-shadow:0 1px 2px rgba(0,0,0,.7) !important;
+  font-size:12px;
+  font-weight:800;
   letter-spacing:.01em;
   opacity:0;
   pointer-events:none;
+  box-shadow:0 6px 16px rgba(0,0,0,.3);
   transition:opacity .16s ease, transform .16s ease;
 }
 .msb-reaction-picker-item:hover .msb-reaction-picker-label,
-.msb-reaction-picker-item:focus-visible .msb-reaction-picker-label{
+.msb-reaction-picker-item:focus-visible .msb-reaction-picker-label,
+.msb-reaction-picker-item.is-selected .msb-reaction-picker-label{
   opacity:1;
-  transform:translate(-50%, 0);
+  transform:translate(-50%, 0) scale(1);
+}
+@media (max-width:575.98px){
+  .msb-reaction-picker{gap:4px;padding:5px 7px;}
+  .msb-reaction-picker-item{width:34px;height:34px;}
+  .msb-reaction-picker-emoji{font-size:21px;}
+  .msb-reaction-picker-item[data-reaction="love"] .msb-reaction-picker-emoji{font-size:25px;}
 }
 </style>
 
@@ -3576,15 +3780,18 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
   if (window.MSBReactions) return;
 
   const defs = {
-    like:  { key:'like',  label:'Like',  emoji:'👍', color:'#2563eb' },
-    love:  { key:'love',  label:'Love',  emoji:'❤️', color:'#7c3aed' },
-    smile: { key:'smile', label:'Smile', emoji:'😊', color:'#f59e0b' },
-    laugh: { key:'laugh', label:'Laugh', emoji:'😂', color:'#f97316' },
-    wow:   { key:'wow',   label:'Wow',   emoji:'😮', color:'#facc15' },
-    sad:   { key:'sad',   label:'Sad',   emoji:'😢', color:'#60a5fa' },
-    angry: { key:'angry', label:'Angry', emoji:'😡', color:'#ef4444' }
+    love:    { key:'love',    label:'Love',    emoji:'❤️', color:'#7c3aed' },
+    like:    { key:'like',    label:'Like',    emoji:'👍', color:'#2563eb' },
+    dislike: { key:'dislike', label:'Dislike', emoji:'👎', color:'#64748b' },
+    smile:   { key:'smile',   label:'Smile',   emoji:'😊', color:'#f59e0b' },
+    laugh:   { key:'laugh',   label:'Laugh',   emoji:'😂', color:'#f97316' },
+    clap:    { key:'clap',    label:'Clap',    emoji:'👏', color:'#eab308' },
+    // Kept for older saved reactions
+    wow:     { key:'wow',     label:'Wow',     emoji:'😮', color:'#facc15' },
+    sad:     { key:'sad',     label:'Sad',     emoji:'😢', color:'#60a5fa' },
+    angry:   { key:'angry',   label:'Angry',   emoji:'😡', color:'#ef4444' }
   };
-  const pickerOrder = ['like', 'love', 'smile', 'laugh', 'wow', 'sad', 'angry'];
+  const pickerOrder = ['like', 'love', 'dislike', 'smile', 'laugh', 'clap'];
   const delegates = [];
   const suppressClickUntil = new WeakMap();
   let picker = null;
@@ -3597,80 +3804,115 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
 
   function normalize(reaction){
     const key = String(reaction || '').trim().toLowerCase();
+    if (key === 'none' || key === 'unlike' || key === 'remove') return 'none';
     return Object.prototype.hasOwnProperty.call(defs, key) ? key : '';
   }
 
   function isLikeLane(reaction){
     const key = normalize(reaction);
-    return key !== '' && key !== 'love';
+    return key !== '' && key !== 'none' && key !== 'love';
   }
 
   function likeDisplayReaction(reaction){
     const key = normalize(reaction);
-    if (!key || key === 'love') return 'like';
+    if (!key || key === 'none' || key === 'love') return 'like';
     return key;
   }
 
   function label(reaction){
     const key = normalize(reaction);
-    return key ? defs[key].label : 'Like';
+    if (!key || key === 'none') return 'Love';
+    return defs[key].label;
   }
 
   function emoji(reaction){
     const key = normalize(reaction);
-    return key ? defs[key].emoji : defs.like.emoji;
+    if (!key || key === 'none') return defs.love.emoji;
+    return defs[key].emoji;
   }
 
   function ensureIcon(button){
     if (!button || !button.querySelector) return null;
-    let icon = button.querySelector('i');
+    let icon = button.querySelector('.msb-reaction-glyph, i.msb-pact, i.msb-reaction-host, .msb-pact, i.fa');
     if (icon) return icon;
-    icon = document.createElement('i');
-    const firstCount = button.querySelector('span');
+    const svg = button.querySelector('svg.pv-ico, svg');
+    if (svg && svg.parentNode === button) {
+      icon = document.createElement('span');
+      icon.className = 'msb-reaction-host';
+      icon.setAttribute('aria-hidden', 'true');
+      svg.parentNode.replaceChild(icon, svg);
+      return icon;
+    }
+    icon = button.querySelector('i');
+    if (icon) return icon;
+    icon = document.createElement('span');
+    icon.className = 'msb-reaction-host';
+    icon.setAttribute('aria-hidden', 'true');
+    const firstCount = button.querySelector('span.mf-num, span.reel-act-count, span.action-count, span.pv-n, [data-count]');
     if (firstCount && firstCount.parentNode === button) button.insertBefore(icon, firstCount);
     else button.insertBefore(icon, button.firstChild || null);
     return icon;
   }
 
-  function paintIcon(icon, reaction, active, outline){
-    if (!icon) return;
-    const key = normalize(reaction);
-    if (icon.classList && icon.classList.contains('msb-pact')) {
-      if (key === 'love') {
-        icon.classList.toggle('is-active', !!active);
-        icon.style.color = active ? defs.love.color : '';
+  function clearReactionHosts(button, keepNode){
+    if (!button) return;
+    Array.prototype.slice.call(button.children).forEach(function(node){
+      if (keepNode && node === keepNode) return;
+      if (!node || !node.matches) return;
+      if (node.matches('svg.pv-ico, svg, i, .msb-pact, .msb-reaction-glyph, .msb-reaction-host')) {
+        try { node.remove(); } catch (e) { if (node.parentNode) node.parentNode.removeChild(node); }
       }
-      return;
-    }
-    icon.className = '';
-    icon.textContent = '';
-    icon.removeAttribute('style');
+    });
+  }
 
-    if (key && key !== 'like' && key !== 'love') {
-      icon.className = 'msb-reaction-glyph';
-      icon.textContent = defs[key].emoji;
-      return;
+  function paintIcon(icon, reaction, active, outline){
+    // Back-compat no-op path; applyReactionVisual owns the DOM swap.
+    if (!icon) return;
+    const button = icon.closest ? icon.closest('button, a, .mf-act, .pv-act, .reel-act, .js-react-love, .standard-text-btn, .standard-media-btn, .action-btn, .reel-inline-btn, .public-live-action-btn') : null;
+    if (button) applyReactionVisual(button, reaction, active);
+  }
+
+  function applyReactionVisual(button, reaction, active){
+    if (!button) return null;
+    const key = normalize(reaction);
+    const show = (!key || key === 'none') ? 'love' : key;
+    const on = !!active && show !== '';
+    button.classList.add('has-rx-icon');
+    button.setAttribute('data-rx', on ? show : (show === 'love' ? 'love' : show));
+
+    const countEl = button.querySelector('span.mf-num, span.reel-act-count, span.action-count, span.pv-n, [data-count], .mf-num, .action-count, .pv-n');
+    clearReactionHosts(button, null);
+
+    let el;
+    if (show !== 'love') {
+      // Use <span>, not <i> — icon fonts often hide/replace text on <i>
+      el = document.createElement('span');
+      el.className = 'msb-reaction-glyph';
+      el.setAttribute('aria-hidden', 'true');
+      el.textContent = defs[show] ? defs[show].emoji : '👍';
+      if (on && defs[show]) el.style.color = defs[show].color;
+    } else {
+      el = document.createElement('i');
+      el.className = 'msb-pact msb-pact-heart' + (on ? ' is-active' : '');
+      el.setAttribute('aria-hidden', 'true');
+      if (on) el.style.color = defs.love.color;
     }
 
-    if (key === 'love') {
-      icon.className = 'fa ' + (active ? 'fa-heart' : 'fa-heart-o');
-      if (active) icon.style.color = defs.love.color;
-      return;
-    }
-
-    icon.className = 'fa ' + (outline ? 'fa-thumbs-o-up' : 'fa-thumbs-up');
-    if (!outline && active) icon.style.color = defs.like.color;
+    if (countEl && countEl.parentNode === button) button.insertBefore(el, countEl);
+    else button.insertBefore(el, button.firstChild || null);
+    return el;
   }
 
   function applyLikeButton(button, reaction){
     if (!button) return;
     const key = normalize(reaction);
-    const display = likeDisplayReaction(key);
+    const display = likeDisplayReaction(key === 'none' ? '' : key);
     const active = isLikeLane(key);
-    const icon = ensureIcon(button);
-    paintIcon(icon, display, active, !active);
+    applyReactionVisual(button, display, active);
     button.classList.toggle('is-like', active);
-    button.setAttribute('data-selected-reaction', key);
+    button.classList.toggle('is-love', false);
+    button.classList.toggle('is-reacted', active);
+    button.setAttribute('data-selected-reaction', key === 'none' ? '' : key);
     button.setAttribute('data-reaction-display', display);
     button.setAttribute('title', active ? defs[display].label : 'Like');
     button.setAttribute('aria-label', active ? defs[display].label : 'Like');
@@ -3680,31 +3922,22 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     if (!button) return;
     const fallback = normalize(fallbackReaction) || 'love';
     const key = normalize(reaction);
-    const display = key || fallback;
-    const active = !!key;
-    const icon = ensureIcon(button);
-    if (display === 'like') paintIcon(icon, 'like', active, !active);
-    else if (display === 'love') paintIcon(icon, 'love', active, !active);
-    else paintIcon(icon, display, true, false);
-    button.classList.toggle('is-reacted', active);
-    button.setAttribute('data-selected-reaction', key);
+    const active = !!key && key !== 'none';
+    const display = active ? key : (fallback === 'none' ? 'love' : fallback);
+    applyReactionVisual(button, display, active);
+    button.classList.toggle('is-love', key === 'love');
+    button.classList.toggle('is-reacted', active && key !== 'love');
+    button.classList.toggle('is-like', key === 'like');
+    button.setAttribute('data-selected-reaction', active ? key : '');
     button.setAttribute('data-reaction-display', display);
-    button.setAttribute('title', active ? defs[display].label : defs[fallback].label);
-    button.setAttribute('aria-label', active ? defs[display].label : defs[fallback].label);
+    button.setAttribute('title', active ? defs[display].label : defs[fallback === 'none' ? 'love' : fallback].label);
+    button.setAttribute('aria-label', active ? defs[display].label : defs[fallback === 'none' ? 'love' : fallback].label);
     const labelNode = button.querySelector('[data-reaction-label]');
-    if (labelNode) labelNode.textContent = active ? defs[display].label : defs[fallback].label;
+    if (labelNode) labelNode.textContent = active ? defs[display].label : defs[fallback === 'none' ? 'love' : fallback].label;
   }
 
   function applyLoveButton(button, reaction){
-    if (!button) return;
-    const key = normalize(reaction);
-    const active = key === 'love';
-    const icon = ensureIcon(button);
-    paintIcon(icon, 'love', active, !active);
-    button.classList.toggle('is-love', active);
-    button.setAttribute('data-selected-reaction', key);
-    button.setAttribute('title', 'Love');
-    button.setAttribute('aria-label', 'Love');
+    applyReactionButton(button, reaction, 'love');
   }
 
   function buildPicker(){
@@ -3714,19 +3947,41 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     picker.hidden = true;
     picker.setAttribute('role', 'dialog');
     picker.setAttribute('aria-label', 'Choose a reaction');
+    const pickerBackgrounds = {
+      like:'linear-gradient(145deg,#38a5ff,#315be8)',
+      love:'linear-gradient(145deg,#ff4968,#ed214c)',
+      dislike:'linear-gradient(145deg,#77869a,#465367)',
+      smile:'linear-gradient(145deg,#ffd66b,#f59e0b)',
+      laugh:'linear-gradient(145deg,#ffca55,#f97316)',
+      clap:'linear-gradient(145deg,#ffd85f,#e9a909)'
+    };
     picker.innerHTML = pickerOrder.map(function(key){
       return '' +
-        '<button type="button" class="msb-reaction-picker-item" data-reaction="' + key + '" aria-label="' + defs[key].label + '">' +
-          '<span class="msb-reaction-picker-emoji" aria-hidden="true">' + defs[key].emoji + '</span>' +
+        '<button type="button" class="msb-reaction-picker-item" data-reaction="' + key + '" aria-label="' + defs[key].label + '" style="background:' + pickerBackgrounds[key] + ' !important;">' +
+          '<span class="msb-reaction-picker-emoji" aria-hidden="true">' + (key === 'love' ? '&#9829;' : defs[key].emoji) + '</span>' +
           '<span class="msb-reaction-picker-label">' + defs[key].label + '</span>' +
         '</button>';
     }).join('');
+    picker.querySelectorAll('.msb-reaction-picker-item[data-reaction]').forEach(function(item){
+      const key = normalize(item.getAttribute('data-reaction') || '');
+      if (key && pickerBackgrounds[key]) {
+        item.style.setProperty('background', pickerBackgrounds[key], 'important');
+      }
+    });
     picker.addEventListener('click', function(e){
       const item = e.target.closest('.msb-reaction-picker-item[data-reaction]');
       if (!item || !pickerSelect || !pickerAnchor) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
       const reaction = normalize(item.getAttribute('data-reaction') || '');
-      if (!reaction) return;
-      pickerSelect(pickerAnchor, reaction);
+      if (!reaction || reaction === 'none') return;
+      const current = normalize(pickerAnchor.getAttribute('data-selected-reaction') || '');
+      const anchor = pickerAnchor;
+      // Block fall-through clicks on the love button after picking from the modal
+      suppressClickUntil.set(anchor, Date.now() + 900);
+      // Re-selecting the same reaction removes it
+      pickerSelect(anchor, reaction === current ? 'none' : reaction);
       closePicker();
     });
     document.body.appendChild(picker);
@@ -3789,8 +4044,14 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     if (!target || !target.closest) return null;
     for (let i = 0; i < delegates.length; i += 1) {
       const delegate = delegates[i];
-      const element = target.closest(delegate.selector);
-      if (element) return { delegate: delegate, element: element };
+      let element = target.closest(delegate.selector);
+      if (!element) continue;
+      // Count spans must never be the picker anchor
+      if (element.classList && element.classList.contains('mf-num')) {
+        const act = element.closest('.mf-act, [data-post-id], button, a');
+        if (act) element = act;
+      }
+      return { delegate: delegate, element: element };
     }
     return null;
   }
@@ -3848,6 +4109,13 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
         return;
       }
+      // Press love/react → open picker (select love / thumbs / smile / etc.)
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      clearHold();
+      openPicker(match.element, match.delegate.onSelect);
+      return;
     }
     if (picker && !picker.hidden && !e.target.closest('.msb-reaction-picker')) closePicker();
   }, true);
@@ -5645,16 +5913,16 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
       } catch (errRm) {}
     }
 
-    // Soft-insert only when staying on feed.php for a Friends destination.
+    // A newly created Friends post must be visible immediately. The former
+    // soft-insert path could miss the post while its media/list row was still
+    // settling, leaving For You stale until a manual refresh. Use the server's
+    // fresh/pinned destination so the parent refreshes automatically and the
+    // new card is guaranteed to be present at the top.
     if (onFeed && wantsFeed && !switchingSurface && !data.story && typeof window.MSBFeedOnPostCreated === 'function') {
-      try {
-        window.MSBFeedOnPostCreated(postId, {
-          story: !!(data.story),
-          redirect: redirect,
-          visibility: visibility || 'friends'
-        });
-        return;
-      } catch (err2) {}
+      var freshFeedTarget = redirect || ('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      try { window.location.replace(freshFeedTarget); }
+      catch (err2) { window.location.href = freshFeedTarget; }
+      return;
     }
 
     if (redirect) {

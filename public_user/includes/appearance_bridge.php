@@ -1046,20 +1046,24 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
     if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
         $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
-        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=115', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=119', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=98', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=105', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=34', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=39', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);
         echo '<script src="' . htmlspecialchars($prefix . 'js/dark-auto.js?v=8', ENT_QUOTES, 'UTF-8') . '" defer></script>' . "\n";
+    }
+    if (!defined('MSB_POST_ENGAGEMENT_JS')) {
+        define('MSB_POST_ENGAGEMENT_JS', true);
+        echo '<script src="' . htmlspecialchars($prefix . 'js/post-engagement-sync.js?v=7', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
 }
 
