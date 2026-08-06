@@ -1,14 +1,15 @@
 <?php
 declare(strict_types=1);
 
-function post_layout_column(PDO $dbh): ?string
+function post_layout_column(PDO $dbh, bool $refresh = false): ?string
 {
     static $cached = false;
     static $found = null;
-    if ($cached) {
+    if ($cached && !$refresh) {
         return $found;
     }
     $cached = true;
+    $found = null;
     try {
         $rows = $dbh->query('SHOW COLUMNS FROM public_posts')->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $fields = array_map(static fn(array $r): string => (string)($r['Field'] ?? ''), $rows);
@@ -22,6 +23,23 @@ function post_layout_column(PDO $dbh): ?string
         $found = null;
     }
     return $found;
+}
+
+/**
+ * Ensure public_posts has a layout column so story-circle creates stay distinct from feed cards.
+ */
+function post_layout_ensure_column(PDO $dbh): ?string
+{
+    $existing = post_layout_column($dbh);
+    if ($existing) {
+        return $existing;
+    }
+    try {
+        $dbh->exec("ALTER TABLE public_posts ADD COLUMN layout_type VARCHAR(32) NOT NULL DEFAULT '' AFTER visibility");
+    } catch (Throwable $e) {
+        return post_layout_column($dbh, true);
+    }
+    return post_layout_column($dbh, true);
 }
 
 function post_extract_layout_marker(string $description): string

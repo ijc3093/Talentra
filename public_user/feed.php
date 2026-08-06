@@ -49,10 +49,7 @@ $feedLeftRailPublicPublishers = staff_pub_menu_for_viewer($dbh, $meId);
 $feedAlertPostId = (int)($_GET['open_post'] ?? $_GET['post'] ?? 0);
 $feedAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 $feedStoryPostId = (int)($_GET['story_post'] ?? 0);
-// Story create also lands with an id — keep it pinned for handoff.
-if ($feedAlertPostId <= 0 && $feedStoryPostId > 0) {
-    $feedAlertPostId = $feedStoryPostId;
-}
+// story_post → open the top story circle only (do not pin/open a feed post card).
 $feedUploadWarn = (string)($_GET['upload_warn'] ?? '') === '1';
 $feedSearchQ = trim((string)($_GET['q'] ?? ''));
 $feedDiscoverTab = strtolower(trim((string)($_GET['tab'] ?? 'for-you')));
@@ -70,6 +67,20 @@ $feedDiscoverTabs = [
     'agriculture' => 'Agriculture',
     'auto' => 'Auto',
     'political' => 'Political',
+];
+// These stay in Add Program until the user adds them to the top tabs
+$optionalDiscoverTabs = [
+    'enterprise' => true,
+    'trending' => true,
+    'news' => true,
+    'sports' => true,
+    'business' => true,
+    'science' => true,
+    'music' => true,
+    'arts' => true,
+    'agriculture' => true,
+    'auto' => true,
+    'political' => true,
 ];
 if (!isset($feedDiscoverTabs[$feedDiscoverTab])) {
     $feedDiscoverTab = 'for-you';
@@ -220,15 +231,14 @@ if ($meDisplayName === '') $meDisplayName = (string)$loggedEmail; // fallback
     
     <!-- script -->
     <script defer src="assets/layout-fixed.js"></script>
-    <script src="./js/shamcey.js"></script>
-    <script src="./js/dashboard.js"></script>
-    <script src="./js/device_profile.js"></script>
     <script src="./lib/jquery/jquery.js"></script>
     <script src="./lib/popper.js/popper.js"></script>
     <script src="./lib/bootstrap/bootstrap.js"></script>
     <script src="./lib/jquery-ui/jquery-ui.js"></script>
     <script src="./lib/perfect-scrollbar/js/perfect-scrollbar.jquery.js"></script>
     <script src="./lib/moment/moment.js"></script>
+    <script src="./js/shamcey.js"></script>
+    <script src="./js/device_profile.js"></script>
     <script src="assets/ui_best.js" defer></script>
   <style>
   /* ✅ NEW circular action icons (ONLY for underbar actions; does NOT touch book layout) */
@@ -1773,8 +1783,8 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   }
 
   .mf-feed .mf-card{
-    margin-left: auto;
-    margin-right: auto;
+    margin-left: 0;
+    margin-right: 0;
     max-width: 100%;
     border:0 !important;
     border-bottom:1px solid var(--feed-post-divider, var(--feed-border-strong, rgba(177, 188, 206, 0.22))) !important;
@@ -1815,10 +1825,13 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     border-bottom:1px solid var(--feed-post-divider, rgba(15,23,42,.12));
     border-radius:0;
     overflow:hidden;
-    margin: 0 auto;
+    margin: 0;
+  }
+  .mf-card.is-alert-focus{
+    box-shadow:0 0 0 3px rgba(59,130,246,.28), 0 18px 40px rgba(37,99,235,.14);
   }
   body .mf-feed .mf-card:has(.mf-head--on-media){
-    padding:8px 25px!important;
+    padding:8px 12px!important;
     box-sizing:border-box!important;
     overflow:visible !important;
   }
@@ -1903,7 +1916,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     margin:0;
     color:#101828;
     min-width:0;
-    flex:1 1 auto;
+    flex:0 1 auto;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
@@ -2020,7 +2033,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     flex:0 0 auto;
   }
   .mf-media-slide > img,
-  .media-slide > img{ object-fit:cover; object-position:center center; }
+  .media-slide > img{ object-fit:contain; object-position:center center; }
   .mf-media-slide > video,
   .media-slide > video{ object-fit:contain; object-position:center center; }
   .mf-media-nav,
@@ -2829,14 +2842,14 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     border: 0;
     border-bottom: 1px solid var(--feed-post-divider, rgba(15,23,42,.12));
     box-shadow:none;
-    margin: 0 auto;
+    margin: 0;
     overflow: hidden;
     background: var(--feed-surface, #fff);
     max-width: 100%;
   }
 
   body .mf-feed .mf-card:has(.mf-head--on-media){
-    padding:8px 25px!important;
+    padding:8px 12px!important;
     box-sizing:border-box!important;
     overflow: visible !important;
   }
@@ -2870,7 +2883,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     margin: 0;
     color: #111827;
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2916,9 +2929,18 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
 
   .mf-card.is-single-video-post,
   .mf-card.is-single-image-post{
+    width:100%;
+    max-width:100%;
+    margin-inline:0;
+  }
+  .mf-card.is-single-video-post .media-stage.standard-video-stage,
+  .mf-card.is-single-image-post .media-stage.standard-image-stage,
+  .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage,
+  .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage{
     width:min(100%, var(--post-media-card-width, 100%));
     max-width:100%;
-    margin-inline:auto;
+    margin-left:0;
+    margin-right:auto;
   }
 
   .mf-card.is-single-video-post:not(.mf-video-ready),
@@ -2935,7 +2957,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   .mf-card.is-single-video-post .media-stage.standard-video-stage > video{
     width:100%;
     height:auto;
-    max-height:min(78vh, 960px);
+    max-height:var(--post-media-max-height, min(70vh, 580px));
     display:block;
     object-fit:contain;
     background:transparent;
@@ -2962,9 +2984,16 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     .mf-card.mf-card-phone-shot,
     .mf-card.is-single-video-post:has(.media-stage.phone-shot),
     .mf-card.is-single-image-post:has(.media-stage.phone-shot){
-      width:auto;
+      width:100%;
       max-width:100%;
-      margin-inline:auto;
+      margin-inline:0;
+    }
+    .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage:not(.phone-shot),
+    .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage:not(.phone-shot){
+      width:min(100%, var(--post-media-card-width, 300px));
+      max-width:min(100%, 320px);
+      margin-left:0;
+      margin-right:auto;
     }
   }
   @media (min-width:768px){
@@ -2996,9 +3025,9 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     .mf-card.mf-card-phone-shot.is-single-video-post,
     .mf-card.mf-card-phone-shot.is-single-image-post,
     .mf-card.mf-card-phone-shot:not(.is-multi-media-post){
-      width:min(100%,var(--post-media-card-width,680px));
+      width:100%;
       max-width:100%;
-      margin-inline:auto;
+      margin-inline:0;
     }
   }
 
@@ -4152,20 +4181,16 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     --feed-left-nav-w:236px;
     --feed-right-rail-w:248px;
     --feed-main-inset:0px;
+    /* sh-mainpanel already clears the icon rail; this is the in-panel offset only. */
+    --feed-center-left:calc(8px + var(--feed-left-nav-w) + var(--feed-side-gap) + var(--feed-main-inset));
+    /* Viewport X used by position:fixed rails */
+    --feed-mainpanel-left:var(--feedRailW, 84px);
   }
   body.feed-insta-ui .feed-left-rail{
     display:flex;
     flex-direction:column;
     position:fixed;
-    /* Same as public.php: sit beside the centered feed column */
-    left:max(
-      calc(var(--feedRailW, 84px) + 8px),
-      calc(
-        var(--feedRailW, 84px) + var(--feed-main-inset)
-        + (100vw - var(--feedRailW, 84px) - var(--feed-main-inset) - var(--feed-center-w)) / 2
-        - var(--feed-side-gap) - var(--feed-left-nav-w)
-      )
-    );
+    left:calc(var(--feed-mainpanel-left) + 8px);
     top:var(--feed-left-rail-top, 220px);
     width:var(--feed-left-nav-w);
     height:var(--feed-left-nav-box-h);
@@ -4319,7 +4344,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     /* Same vertical-line measure as public.php */
     width:614px !important;
     max-width:614px !important;
-    margin:0 auto;
+    margin-left:max(
+      var(--feed-center-left),
+      calc((100% - var(--feed-center-w)) / 2)
+    );
+    margin-right:auto;
     min-width:0;
   }
   body.feed-insta-ui .feed-desktop-layout .mf-feed{
@@ -4331,13 +4360,17 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
   body.feed-insta-ui .feed-right-rail{
     display:block;
     position:fixed;
-    /* Sit just right of the centered 614px column (fills top-right gap like public.php) */
+    /* Sit in the empty column to the right of the (centered) feed. */
     left:calc(
-      var(--feedRailW, 84px) + var(--feed-main-inset)
-      + (100vw - var(--feedRailW, 84px) - var(--feed-main-inset) - var(--feed-center-w)) / 2
-      + var(--feed-center-w) + var(--feed-side-gap)
-    );
-    right:auto;
+      var(--feed-mainpanel-left)
+      + max(
+          var(--feed-center-left),
+          (100vw - var(--feed-mainpanel-left) - var(--feed-center-w)) / 2
+        )
+      + var(--feed-center-w)
+      + var(--feed-side-gap)
+    ) !important;
+    right:auto !important;
     top:250px;
     width:var(--feed-right-rail-w);
     z-index:90;
@@ -4666,11 +4699,15 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                         $feedTabPage = $tabKey === 'for-you'
                             ? 'feed.php'
                             : ($tabKey === 'news' ? 'news.php' : 'public.php');
+                        $isOptionalDiscoverTab = isset($optionalDiscoverTabs[$tabKey]);
+                        $optionalTabActive = $isOptionalDiscoverTab && $feedDiscoverTab === $tabKey;
                       ?>
                       <a
-                        class="feed-discover-tab<?= $feedDiscoverTab === $tabKey ? ' is-active' : '' ?>"
+                        class="feed-discover-tab<?= $feedDiscoverTab === $tabKey ? ' is-active' : '' ?><?= $isOptionalDiscoverTab ? ' feed-program-tab-item' : '' ?>"
                         href="<?= htmlspecialchars($feedTabPage . '?' . http_build_query($feedTabQuery), ENT_QUOTES, 'UTF-8') ?>"
+                        <?= $isOptionalDiscoverTab ? 'data-program-slug="' . htmlspecialchars($tabKey, ENT_QUOTES, 'UTF-8') . '"' : '' ?>
                         <?= $feedDiscoverTab === $tabKey ? 'aria-current="page"' : '' ?>
+                        <?= ($isOptionalDiscoverTab && !$optionalTabActive) ? 'hidden' : '' ?>
                       ><?= htmlspecialchars($tabLabel, ENT_QUOTES, 'UTF-8') ?></a>
                     <?php endforeach; ?>
                   </nav>
@@ -6588,7 +6625,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
       const STAFF_READONLY = <?= $staffReadonly ? 'true' : 'false' ?>;
       const MSB_VIEWER_CAN_FOLLOW_PUBLISHERS = <?= $canFollowPublishers ? 'true' : 'false' ?>;
       const ME_NAME = <?= json_encode((string)$meDisplayName) ?>;
-      const FEED_PIN_POST_ID = <?= (int)$feedAlertPostId ?>;
+      // Mutable so a just-created pin can be cleared the moment the owner deletes it.
+      let FEED_PIN_POST_ID = <?= (int)$feedAlertPostId ?>;
+      // Legacy viewer chrome removed — keep a no-op so ready/loadPost paths don't throw.
+      function updateBackButton(){}
+      window.updateBackButton = updateBackButton;
       const FEED_FRESH_CREATE = <?= !empty($feedFreshCreate) ? 'true' : 'false' ?>;
       const FEED_BOOT_ITEMS = <?= json_encode($feedBootItems, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' ?>;
       const FEED_SEARCH_Q = <?= json_encode($feedSearchQ) ?>;
@@ -6602,6 +6643,15 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         var filteredFeedItems = [];
         var currentMediaIdx = 0;
         var feedListRequest = null;
+
+        window.MSBFeedAbortListRequest = function(){
+          try{
+            if(feedListRequest && Number(feedListRequest.readyState || 0) !== 4){
+              feedListRequest.abort();
+            }
+          }catch(e){}
+          feedListRequest = null;
+        };
 
         function resetFeedCardPosition(){
           [
@@ -7087,29 +7137,77 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
 
         function mfMaxVideoHeight(){
+          // Slightly larger media on mobile / tablet / desktop (feed.php).
           var viewportH = Math.max(window.innerHeight || 0, 320);
+          var reserved = 230;
+          var fitH = Math.max(300, viewportH - reserved);
           if(window.matchMedia('(max-width: 767.98px)').matches){
-            return Math.max(viewportH - 220, 280);
+            return Math.min(Math.round(viewportH * 0.58), fitH, 620);
           }
-          return Math.min(Math.round(viewportH * 0.78), 960);
+          if(window.matchMedia('(max-width: 1024.98px)').matches){
+            return Math.min(Math.round(viewportH * 0.60), fitH, 620);
+          }
+          return Math.min(Math.round(viewportH * 0.62), fitH, 640);
+        }
+
+        function mfMediaMaxHeightCss(){
+          // Never bake computed px (breaks DevTools Responsive).
+          if(window.matchMedia('(max-width: 767.98px)').matches){
+            return 'min(58vh, 620px)';
+          }
+          if(window.matchMedia('(max-width: 1024.98px)').matches){
+            return 'min(60vh, 620px)';
+          }
+          return 'min(74vh, 640px)';
+        }
+
+        function mfIsMobileMedia(){
+          return window.matchMedia('(max-width: 767.98px)').matches;
+        }
+
+        function mfIsTabletMedia(){
+          return window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
+        }
+
+        function mfComputeMediaCardWidth(aspectW, aspectH, opts){
+          opts = opts || {};
+          aspectW = Number(aspectW || 0);
+          aspectH = Number(aspectH || 0);
+          if(!aspectW || !aspectH) return 0;
+
+          var aspect = aspectW / aspectH;
+          var maxVideoH = mfMaxVideoHeight();
+          var feed = opts.feedEl || document.querySelector('.mf-feed');
+          var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), 680);
+          var cardPad = opts.cardPad != null ? Number(opts.cardPad) : 24;
+          var availableWidth = Math.max(240, (feedWidth || 680) - cardPad);
+          var isPhoneShot = !!opts.isPhoneShot;
+          var desiredWidth = Math.round(aspect * maxVideoH);
+          var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
+          var isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
+
+          if(isMobile){
+            if(isPhoneShot){
+              return Math.max(240, Math.min(availableWidth, Math.round(Math.min(window.innerWidth * 0.78, 340))));
+            }
+            var mobileMax = aspect < 0.8 ? 340 : (aspect > 1.15 ? Math.min(availableWidth, 400) : 360);
+            return Math.max(240, Math.min(desiredWidth, availableWidth, mobileMax));
+          }
+
+          if(isTablet){
+            var tabletMax = aspect < 0.8 ? 440 : (aspect > 1.15 ? Math.min(availableWidth, 600) : 480);
+            return Math.max(280, Math.min(desiredWidth, availableWidth, tabletMax));
+          }
+
+          var maxByShape = aspect < 0.8 ? 440 : (aspect > 1.15 ? 720 : 560);
+          return Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
         }
 
         function mfInitialMediaCardStyleFromDims(dims, isPhoneShot){
           if(!dims || !Number(dims.w || 0) || !Number(dims.h || 0)) return '';
-          var aspectW = Number(dims.w || 0);
-          var aspectH = Number(dims.h || 0);
-          var aspect = aspectW / aspectH;
-          var maxVideoH = mfMaxVideoHeight();
-          var feed = document.querySelector('.mf-feed');
-          var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), 680);
-          var availableWidth = Math.max(280, feedWidth || 680);
-          var desiredWidth = Math.round(aspect * maxVideoH);
-          var maxByShape = aspect < 0.8 ? 520 : (aspect > 1.15 ? 760 : 620);
-          if(isPhoneShot && window.matchMedia('(max-width: 767.98px)').matches) maxByShape = 430;
-          var safeWidth = Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
-          if(aspect >= 0.8 && aspect <= 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 420));
-          if(aspect > 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 560));
-          return '--post-media-card-width:'+String(safeWidth)+'px;width:min(100%,'+String(safeWidth)+'px);max-width:100%;margin-left:auto;margin-right:auto;padding:8px 25px;box-sizing:border-box;';
+          var safeWidth = mfComputeMediaCardWidth(dims.w, dims.h, { isPhoneShot: !!isPhoneShot, cardPad: 24 });
+          if(!safeWidth) return '';
+          return '--post-media-card-width:'+String(safeWidth)+'px;--post-media-max-height:'+mfMediaMaxHeightCss()+';width:100%;max-width:100%;margin-left:0;margin-right:0;padding:8px 12px;box-sizing:border-box;';
         }
 
         function mfClearDeviceCardWidth(card){
@@ -7121,9 +7219,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           card.style.padding = '';
           card.style.boxSizing = '';
           try{ card.style.removeProperty('--post-media-card-width'); }catch(e){}
+          try{ card.style.removeProperty('--post-media-max-height'); }catch(e){}
         }
 
-        // Match profile.php applyPublicMediaCardWidth for feed cards.
+        // Match public.php applyPublicVideoCardWidth (feed class names).
         function mfApplyPublicVideoCardWidth(card, aspectW, aspectH){
           if(!card) return;
           aspectW = Number(aspectW || 0);
@@ -7133,58 +7232,110 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
           var video = card.querySelector('.media-stage.standard-video-stage > video');
           var image = card.querySelector('.media-stage.standard-image-stage > img');
+          var isPhoneShot = card.classList.contains('mf-card-phone-shot') || !!(media && media.classList.contains('phone-shot'));
+          var isHeadOutside = card.classList.contains('mf-card-media-head-outside');
+          var safeWidth = mfComputeMediaCardWidth(aspectW, aspectH, {
+            isPhoneShot: isPhoneShot,
+            feedEl: card.closest('.mf-feed'),
+            cardPad: 24
+          });
+          if(!safeWidth) return;
 
-          var viewportH = Math.max(window.innerHeight || 0, 320);
-          var maxVideoH = window.matchMedia('(max-width: 767.98px)').matches
-            ? Math.max(viewportH - 220, 280)
-            : Math.min(Math.round(viewportH * 0.78), 960);
-
-          var aspect = aspectW / aspectH;
-          var feed = card.closest('.mf-feed');
-          var feedWidth = feed ? Math.floor(feed.clientWidth) : Math.round(aspect * maxVideoH);
-          var availableWidth = Math.max(280, feedWidth);
-          var desiredWidth = Math.round(aspect * maxVideoH);
-          var maxByShape = aspect < 0.8 ? 520 : (aspect > 1.15 ? 760 : 620);
-          if(card.classList.contains('mf-card-phone-shot') && window.matchMedia('(max-width: 767.98px)').matches) maxByShape = 430;
-          var safeWidth = Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
-          if(aspect >= 0.8 && aspect <= 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 420));
-          if(aspect > 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 560));
-
-          card.style.width = String(safeWidth) + 'px';
+          var maxH = mfMediaMaxHeightCss();
+          card.style.width = '100%';
           card.style.maxWidth = '100%';
-          card.style.marginLeft = 'auto';
-          card.style.marginRight = 'auto';
+          card.style.marginLeft = '0';
+          card.style.marginRight = '0';
           card.style.setProperty('box-sizing', 'border-box', 'important');
-          card.style.setProperty('padding', (card.querySelector('.mf-head--on-media') || card.classList.contains('mf-card-media-head-outside')) ? '8px 25px' : '20px', 'important');
+          card.style.setProperty('padding', (isHeadOutside || card.querySelector('.mf-head--on-media')) ? '8px 12px' : '20px', 'important');
           card.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
+          card.style.setProperty('--post-media-max-height', maxH);
 
           if(media){
-            media.style.width = '100%';
-            media.style.maxWidth = '100%';
+            if(isHeadOutside){
+              // Keep stage full-width so fries/save stay on the card right edge.
+              media.style.width = '100%';
+              media.style.maxWidth = '100%';
+              media.style.marginLeft = '0';
+              media.style.marginRight = '0';
+            }else{
+              media.style.width = 'min(100%, ' + String(safeWidth) + 'px)';
+              media.style.maxWidth = '100%';
+              media.style.marginLeft = '0';
+              media.style.marginRight = 'auto';
+            }
             media.style.height = 'auto';
-            media.style.aspectRatio = '';
+            media.style.aspectRatio = 'auto';
             media.style.background = 'transparent';
-            media.style.removeProperty('overflow');
-            media.style.marginLeft = '';
-            media.style.marginRight = '';
+            media.style.setProperty('overflow', isHeadOutside ? 'visible' : 'hidden', 'important');
+            if(!isHeadOutside){
+              media.style.setProperty('max-height', maxH, 'important');
+            }else{
+              media.style.removeProperty('max-height');
+            }
+            media.style.removeProperty('min-height');
+            try{
+              media.classList.remove('single-portrait', 'single-landscape', 'single-square');
+            }catch(e){}
           }
           if(video){
-            video.style.width = '100%';
-            video.style.height = 'auto';
-            video.style.maxHeight = '';
-            video.style.objectFit = 'contain';
+            video.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+            video.style.setProperty('max-width', '100%', 'important');
+            video.style.setProperty('height', 'auto', 'important');
+            video.style.setProperty('max-height', maxH, 'important');
+            video.style.setProperty('object-fit', 'contain', 'important');
+            video.style.setProperty('object-position', 'center center', 'important');
+            video.style.setProperty('margin-left', '0', 'important');
+            video.style.setProperty('margin-right', 'auto', 'important');
+            video.style.setProperty('justify-self', 'start', 'important');
             video.style.background = 'transparent';
             video.style.removeProperty('padding');
           }
           if(image){
-            image.style.width = '100%';
-            image.style.height = 'auto';
-            image.style.objectFit = 'contain';
+            image.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+            image.style.setProperty('max-width', '100%', 'important');
+            image.style.setProperty('height', 'auto', 'important');
+            image.style.setProperty('max-height', maxH, 'important');
+            image.style.setProperty('object-fit', 'contain', 'important');
+            image.style.setProperty('object-position', 'center center', 'important');
+            image.style.setProperty('margin-left', '0', 'important');
+            image.style.setProperty('margin-right', 'auto', 'important');
+            image.style.setProperty('justify-self', 'start', 'important');
             image.style.background = 'transparent';
             image.style.removeProperty('padding');
             image.style.removeProperty('box-sizing');
-            image.style.removeProperty('max-height');
           }
+        }
+
+        function mfResyncAllStandardMediaCardWidths(){
+          document.querySelectorAll('.mf-card.is-single-image-post, .mf-card.is-single-video-post').forEach(function(card){
+            try{
+              if(card.classList.contains('mf-card-reel')) return;
+              var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
+              if(!media) return;
+              var dims = null;
+              if(typeof mfGetDeviceDimensions === 'function'){
+                dims = mfGetDeviceDimensions(card);
+              }
+              if(!dims || !dims.w || !dims.h){
+                var style = String(media.getAttribute('style') || '');
+                var mw = style.match(/--device-ar-w:\s*(\d+)/);
+                var mh = style.match(/--device-ar-h:\s*(\d+)/);
+                if(mw && mh) dims = { w: Number(mw[1] || 0), h: Number(mh[1] || 0) };
+              }
+              if(!dims || !dims.w || !dims.h){
+                var el = media.querySelector(':scope > video, :scope > img');
+                if(el){
+                  if(String(el.tagName || '').toUpperCase() === 'VIDEO'){
+                    dims = { w: Number(el.videoWidth || 0), h: Number(el.videoHeight || 0) };
+                  }else{
+                    dims = { w: Number(el.naturalWidth || 0), h: Number(el.naturalHeight || 0) };
+                  }
+                }
+              }
+              if(dims && dims.w && dims.h) mfApplyPublicVideoCardWidth(card, dims.w, dims.h);
+            }catch(err){}
+          });
         }
 
         function mfInitialMediaAspect(it, deviceDims){
@@ -8462,6 +8613,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             });
             syncAllMfStandardVideoCards();
             syncAllFeedReelAspects();
+            mfResyncAllStandardMediaCardWidths();
             var viewerVideo = document.querySelector('.js-pv-reel-video');
             if(viewerVideo) syncViewerReelFit(viewerVideo);
           }catch(e){}
@@ -8804,7 +8956,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                   '<div class="mf-name-row">'+
                     '<div class="mf-name">'+esc(name||'')+'</div>'+
                     ((Number(it.is_verified||it.verified||0) === 1) ? '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>' : '')+
-                    (time ? '<span class="mf-dot"></span><div class="mf-time">'+esc(time||'')+'</div>' : '')+
+                    (time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time||'')+'</div>' : '')+
                   '</div>'+
                   mfMusicRowHtml(it)+
                 '</div>'+
@@ -9229,7 +9381,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(!isLiveCard && !isReelCard && !isMultiMedia && isSingleMedia && hasMedia){
             if(pkind === 'video'){
               // Pending video: full-width feed rectangle (matches neighbors while buffering).
-              initialCardStyle = 'width:100%;max-width:100%;margin-left:auto;margin-right:auto;--post-media-card-width:100%;';
+              initialCardStyle = 'width:100%;max-width:100%;margin-left:0;margin-right:0;--post-media-card-width:100%;';
             } else if(pkind === 'image' || pkind === 'gif'){
               initialCardStyle = mfInitialMediaCardStyleFromDims(deviceDims || mfInitialMediaAspect(it, null), isPhoneShot);
             }
@@ -9780,6 +9932,13 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             mfHydrateCard(pid, {}, counts, []);
             mfStampCardEngagement($card);
             if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(pid, res, { source: 'feed-card' });
+            try{
+              if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
+                window.MSBPostCardMenu.toast(Number(counts.is_saved || 0) === 1
+                  ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
+                  : 'Removed from Bookmarks.');
+              }
+            }catch(_eToast){}
           });
         });
 
@@ -9797,7 +9956,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var $btn = $(this).closest('.mf-act.mf-share');
           var $card = $btn.closest('.mf-card');
           var pid = Number($card.data('id')||0);
-          if(!pid || $btn.data('busy')) return;
+          if(!pid) return;
+          if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function'){
+            window.MSBPostCardMenu.openShare(pid, $card.get(0));
+            return;
+          }
           var snap = mfCardCountsFromDom($card);
           var nextShared = snap.is_shared ? 0 : 1;
           var optimistic = Object.assign({}, snap, {
@@ -9960,12 +10123,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           items = Array.isArray(items) ? items : [];
           var byUser = {};
           items.forEach(function(it){
-            /* Your newly published Dashboard post should immediately create
-             * or refresh your own circle. Other accounts still require the
-             * explicit Story layout, so ordinary friend posts do not flood
-             * the story rail. */
-            var isOwnPost = Number(it && (it.user_id || it.author_id) || 0) === Number(ME_ID || 0);
-            if(!isStoryPost(it) && !isOwnPost) return;
+            if(Number(it && it.is_archived || 0) === 1) return;
+            /* Only explicit Story-layout posts belong in the story rail.
+             * Left-nav "+" Friends posts stay as feed cards only. */
+            if(!isStoryPost(it)) return;
             var src = storyMediaSrcFromItem(it);
             var uid = Number(it.user_id || 0);
             if(!uid) return;
@@ -10079,6 +10240,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           });
           track.innerHTML = html;
         }
+
+        window.MSBFeedRebuildStories = function(){
+          try{ rebuildStoriesBar(allItems || []); }catch(e){}
+        };
 
         function applySearchFilter(){
           var q = ($('#searchBox').val() || '').trim().toLowerCase();
@@ -10222,17 +10387,33 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           incoming = Array.isArray(incoming) ? incoming.slice(0) : [];
           previous = Array.isArray(previous) ? previous : [];
           pinId = Number(pinId || 0);
+          var deletedMap = (window.__MSB_FEED_DELETED_IDS && typeof window.__MSB_FEED_DELETED_IDS === 'object')
+            ? window.__MSB_FEED_DELETED_IDS
+            : {};
+          try{
+            var storedDeleted = sessionStorage.getItem('msbFeedDeletedPostIds');
+            if(storedDeleted){
+              var parsedDeleted = JSON.parse(storedDeleted) || {};
+              Object.keys(parsedDeleted).forEach(function(k){
+                if(Number(k || 0) > 0) deletedMap[k] = 1;
+              });
+            }
+          }catch(eDel){}
           var seen = {};
-          incoming.forEach(function(it){
+          incoming = incoming.filter(function(it){
             var id = Number(it && it.id || 0);
+            if(id > 0 && deletedMap[String(id)]) return false;
             if(id > 0) seen[id] = true;
+            return true;
           });
           previous.forEach(function(prev){
             var id = Number(prev && prev.id || 0);
             if(id <= 0 || seen[id]) return;
-            var uid = Number(prev.user_id || prev.author_id || 0);
+            // Never reattach posts the user already deleted (refreshList / bfcache / prefetch).
+            if(deletedMap[String(id)]) return;
+            // Only preserve freshly created/pinned rows that may race the list API —
+            // do NOT keep every own post from the previous paint (that resurrected deletes).
             var keep = (pinId > 0 && id === pinId)
-              || (uid > 0 && uid === Number(ME_ID || 0))
               || (Array.isArray(FEED_BOOT_ITEMS) && FEED_BOOT_ITEMS.some(function(b){ return Number(b && b.id || 0) === id; }));
             if(keep){
               incoming.unshift(prev);
@@ -10242,12 +10423,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(Array.isArray(FEED_BOOT_ITEMS)){
             FEED_BOOT_ITEMS.forEach(function(boot){
               var bid = Number(boot && boot.id || 0);
-              if(bid <= 0 || seen[bid]) return;
+              if(bid <= 0 || seen[bid] || deletedMap[String(bid)]) return;
               incoming.unshift(boot);
               seen[bid] = true;
             });
           }
-          if(pinId > 0) incoming = pinFeedItemFirst(incoming, pinId);
+          if(pinId > 0 && !deletedMap[String(pinId)]) incoming = pinFeedItemFirst(incoming, pinId);
           return incoming;
         }
 
@@ -10387,7 +10568,13 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               }
               finishRefresh();
             }).fail(function(){ finishRefresh(); });
-          }).fail(function(){
+          }).fail(function(xhr){
+            // Aborted list requests after an immediate delete are expected.
+            if(xhr && xhr.statusText === 'abort'){
+              feedListRequest = null;
+              endRefreshUi();
+              return;
+            }
             if(!(allItems && allItems.length) && Array.isArray(FEED_BOOT_ITEMS) && FEED_BOOT_ITEMS.length){
               allItems = FEED_BOOT_ITEMS.slice(0);
               try{ applySearchFilter(); }catch(e){}
@@ -10435,6 +10622,31 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         window.MSBFeedRemoveDeletedPost = function(postId){
           postId = Number(postId || 0);
           if(postId <= 0) return;
+          try{ if(typeof window.MSBFeedAbortListRequest === 'function') window.MSBFeedAbortListRequest(); }catch(eAbort){}
+          window.__MSB_FEED_DELETED_IDS = window.__MSB_FEED_DELETED_IDS || {};
+          window.__MSB_FEED_DELETED_IDS[String(postId)] = 1;
+          try{
+            var map = {};
+            try{ map = JSON.parse(sessionStorage.getItem('msbFeedDeletedPostIds') || '{}') || {}; }catch(e0){ map = {}; }
+            map[String(postId)] = Date.now();
+            var pruned = {};
+            var cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            Object.keys(map).forEach(function(k){
+              var ts = Number(map[k] || 0);
+              if(Number(k || 0) > 0 && ts >= cutoff) pruned[k] = ts;
+            });
+            sessionStorage.setItem('msbFeedDeletedPostIds', JSON.stringify(pruned));
+          }catch(e1){}
+          try{
+            var prefRaw = sessionStorage.getItem('msbForYouPrefetchedItems') || '';
+            if(prefRaw){
+              var pref = JSON.parse(prefRaw);
+              if(pref && Array.isArray(pref.items)){
+                pref.items = pref.items.filter(function(it){ return Number(it && it.id || 0) !== postId; });
+                sessionStorage.setItem('msbForYouPrefetchedItems', JSON.stringify(pref));
+              }
+            }
+          }catch(e2){}
           allItems = (allItems || []).filter(function(item){
             return Number(item && item.id || 0) !== postId;
           });
@@ -10448,11 +10660,28 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               }
             }
           }
+          if(Number(FEED_PIN_POST_ID || 0) === postId){
+            FEED_PIN_POST_ID = 0;
+            try{
+              var u = new URL(window.location.href);
+              var changed = false;
+              ['post', 'post_id', 'fresh', 'story_post'].forEach(function(key){
+                if(u.searchParams.has(key)){
+                  u.searchParams.delete(key);
+                  changed = true;
+                }
+              });
+              if(changed){
+                window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
+              }
+            }catch(eUrl){}
+          }
           try{
             document.querySelectorAll('[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"]').forEach(function(node){
               node.remove();
             });
           }catch(e){}
+          try{ applySearchFilter(); }catch(ePaint){}
         };
 
         // Soft-insert newly created post after modal submit (avoids full feed.php reload).
@@ -11904,21 +12133,31 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
 // Share / Save (DB-backed toggle)
         function copyShareLink(pid){
-          var link = (window.location.origin || '') + (window.location.pathname || '') + '?post=' + encodeURIComponent(String(pid));
+          var link = '';
+          try{
+            var here = new URL(window.location.href);
+            var dir = here.pathname.replace(/[^/]+$/, '');
+            link = here.origin + dir + 'post.php?id=' + encodeURIComponent(String(pid));
+          }catch(_e){
+            link = (window.location.origin || '') + (window.location.pathname || '').replace(/[^/]+$/, '') + 'post.php?id=' + encodeURIComponent(String(pid));
+          }
           try{
             if(navigator.clipboard && navigator.clipboard.writeText){
               navigator.clipboard.writeText(link).catch(function(){});
             }
-          }catch(_e){}
+          }catch(_e2){}
         }
 
         $('#btnShare, #btnShareV').on('click', function(e){
           e.preventDefault();
           var pid = Number($('#curPostId').val() || 0);
           if(!pid) return;
-          // always copy link silently
+          if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function'){
+            window.MSBPostCardMenu.openShare(pid);
+            return;
+          }
           copyShareLink(pid);
-          $.post(API_URL, { ajax:'share', post_id:pid }, function(res){
+          $.post(API_URL, { ajax:'share', post_id:pid, share_action:'add' }, function(res){
             applyTrackCounts(res);
           }, 'json');
         });
@@ -11929,6 +12168,14 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(!pid) return;
           $.post(API_URL, { ajax:'save', post_id:pid }, function(res){
             applyTrackCounts(res);
+            try{
+              var savedNow = !!(res && res.state && Number(res.state.saved || 0) === 1);
+              if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
+                window.MSBPostCardMenu.toast(savedNow
+                  ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
+                  : 'Removed from Bookmarks.');
+              }
+            }catch(_eToast){}
           }, 'json');
         });
 
@@ -12009,15 +12256,31 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           }
           // Paint the just-created post immediately from SSR seed, then refresh from API.
           if(Array.isArray(FEED_BOOT_ITEMS) && FEED_BOOT_ITEMS.length){
-            allItems = FEED_BOOT_ITEMS.slice(0);
+            var deletedBoot = {};
+            try{
+              var storedDel = JSON.parse(sessionStorage.getItem('msbFeedDeletedPostIds') || '{}') || {};
+              Object.keys(storedDel).forEach(function(k){ if(Number(k || 0) > 0) deletedBoot[k] = 1; });
+            }catch(eBootDel){}
+            allItems = FEED_BOOT_ITEMS.filter(function(it){
+              var id = Number(it && it.id || 0);
+              return id > 0 && !deletedBoot[String(id)];
+            });
             try{ applySearchFilter(); }catch(e){}
           }else{
             try{
+              var deletedMapBoot = {};
+              try{
+                var storedDelBoot = JSON.parse(sessionStorage.getItem('msbFeedDeletedPostIds') || '{}') || {};
+                Object.keys(storedDelBoot).forEach(function(k){ if(Number(k || 0) > 0) deletedMapBoot[k] = 1; });
+              }catch(eDelBoot){}
               var prefetchedRaw = sessionStorage.getItem('msbForYouPrefetchedItems') || '';
               var prefetched = prefetchedRaw ? JSON.parse(prefetchedRaw) : null;
               var prefetchedAge = prefetched ? (Date.now() - Number(prefetched.savedAt || 0)) : Infinity;
               if(prefetched && prefetchedAge >= 0 && prefetchedAge < 30000 && Array.isArray(prefetched.items)){
-                allItems = prefetched.items.slice(0);
+                allItems = prefetched.items.filter(function(it){
+                  var id = Number(it && it.id || 0);
+                  return id > 0 && !deletedMapBoot[String(id)];
+                });
                 if(prefetched.meId) window.__MSB_FEED_ME_ID = Number(prefetched.meId || 0);
                 applySearchFilter();
               }
@@ -14056,10 +14319,32 @@ html[data-theme="dark"] .ig-post-progress{
 
   body .mf-feed .mf-card.is-single-video-post,
   body .mf-feed .mf-card.is-single-image-post{
-    width:min(100%, var(--post-media-card-width, 100%)) !important;
+    width:100% !important;
     max-width:100% !important;
-    margin-left:auto !important;
-    margin-right:auto !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+  @media (min-width:1025px){
+    body .mf-feed .mf-card.is-single-video-post .media-stage.standard-video-stage,
+    body .mf-feed .mf-card.is-single-image-post .media-stage.standard-image-stage,
+    body .mf-feed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage,
+    body .mf-feed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage{
+      width:min(100%, var(--post-media-card-width, 100%)) !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:auto !important;
+    }
+  }
+  @media (max-width:1024.98px){
+    body .mf-feed .mf-card.is-single-video-post .media-stage.standard-video-stage,
+    body .mf-feed .mf-card.is-single-image-post .media-stage.standard-image-stage,
+    body .mf-feed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage,
+    body .mf-feed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage{
+      width:min(100%, var(--post-media-card-width, 100%)) !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:auto !important;
+    }
   }
 
   body .mf-feed .mf-card.is-single-video-post .mf-media,
@@ -14070,40 +14355,57 @@ html[data-theme="dark"] .ig-post-progress{
   }
 
   body .mf-feed .mf-card.is-single-video-post .media-stage.standard-video-stage{
-    width:100% !important;
-    max-width:100% !important;
     overflow:visible !important;
     min-height:0 !important;
     background:transparent !important;
+  }
+  @media (min-width:1025px){
+    body .mf-feed .mf-card.is-single-video-post .media-stage.standard-video-stage{
+      width:min(100%, var(--post-media-card-width, 100%)) !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:auto !important;
+    }
+  }
+  @media (max-width:1024.98px){
+    body .mf-feed .mf-card.is-single-video-post .media-stage.standard-video-stage{
+      width:min(100%, var(--post-media-card-width, 100%)) !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:auto !important;
+    }
   }
 
   body .mf-feed .mf-card.is-single-video-post .media-stage.standard-video-stage > video{
     width:100% !important;
     height:auto !important;
     display:block !important;
-    max-height:min(78vh, 960px) !important;
+    max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
     object-fit:contain !important;
     background:transparent !important;
     padding: 5px;
   }
 
   body .mf-feed .mf-card.mf-card-phone-shot:not(.is-multi-media-post){
-    margin-inline:auto !important;
+    width:100% !important;
+    max-width:100% !important;
+    margin-inline:0 !important;
     box-sizing:border-box !important;
   }
 
   body .mf-feed .mf-card.mf-card-phone-shot.is-single-video-post,
   body .mf-feed .mf-card.mf-card-phone-shot.is-single-image-post{
-    width:min(100%, var(--post-media-card-width, 680px)) !important;
+    width:100% !important;
     max-width:100% !important;
   }
 
   body .mf-feed .mf-card.mf-card-phone-shot .media-stage.phone-shot,
   body .mf-feed .mf-card.mf-card-phone-shot .mf-media.media-stage.phone-shot.standard-video-stage,
   body .mf-feed .mf-card.mf-card-phone-shot .mf-media.media-stage.phone-shot.standard-image-stage{
-    width:100% !important;
+    width:min(100%, var(--post-media-card-width, 100%)) !important;
     max-width:100% !important;
-    margin-inline:auto !important;
+    margin-left:0 !important;
+    margin-right:auto !important;
     border-radius:18px !important;
     box-shadow:none !important;
     max-height:none !important;
@@ -14115,7 +14417,7 @@ html[data-theme="dark"] .ig-post-progress{
   body .mf-feed .mf-card.mf-card-phone-shot .media-stage.phone-shot.standard-image-stage > img{
     width:100% !important;
     height:auto !important;
-    max-height:min(78vh, 960px) !important;
+    max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
     object-fit:contain !important;
     background:transparent !important;
   }
@@ -14343,7 +14645,7 @@ html[data-theme="dark"] .ig-post-progress{
     color:var(--feed-text) !important;
     margin:0 !important;
     min-width:0 !important;
-    flex:1 1 auto !important;
+    flex:0 1 auto !important;
     white-space:nowrap !important;
     overflow:hidden !important;
     text-overflow:ellipsis !important;
@@ -14377,7 +14679,7 @@ html[data-theme="dark"] .ig-post-progress{
     color:#98a2b3 !important;
     font-size:12px !important;
     line-height:1 !important;
-    margin-left: -5px;
+    margin-left:0 !important;
     flex:0 0 auto !important;
   }
 
@@ -14391,7 +14693,7 @@ html[data-theme="dark"] .ig-post-progress{
     font-size:12px !important;
     line-height:1.2 !important;
     font-weight:500 !important;
-    margin-left: -5px;
+    margin-left:0 !important;
     flex:0 0 auto !important;
     white-space:nowrap !important;
   }
@@ -14679,11 +14981,11 @@ html[data-theme="dark"] .ig-post-progress{
   background-color:transparent!important;
 }
 .mf-feed .mf-card:has(.mf-head--on-media){
-  padding:8px 25px!important;
+  padding:8px 12px!important;
   box-sizing:border-box!important;
 }
 .mf-feed .mf-card.mf-card-media-head-outside{
-  padding:8px 25px!important;
+  padding:8px 12px!important;
   box-sizing:border-box!important;
   overflow:visible!important;
 }
@@ -14698,12 +15000,35 @@ html[data-theme="dark"] .ig-post-progress{
 .mf-feed .mf-card.mf-card-media-head-outside .media-stage.phone-shot{
   padding:0!important;
 }
+@media (min-width:1025px){
+  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-video-stage,
+  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-image-stage,
+  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage,
+  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage,
+  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.phone-shot{
+    width:min(100%, var(--post-media-card-width, 100%)) !important;
+    max-width:100% !important;
+    margin-left:0 !important;
+    margin-right:auto !important;
+  }
+}
+@media (max-width:1024.98px){
+  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-video-stage:not(.phone-shot),
+  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-image-stage:not(.phone-shot),
+  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage:not(.phone-shot),
+  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage:not(.phone-shot){
+    width:min(100%, var(--post-media-card-width, 100%)) !important;
+    max-width:100% !important;
+    margin-left:0 !important;
+    margin-right:auto !important;
+  }
+}
 .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-video-stage > video,
 .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-image-stage > img,
 .mf-feed .mf-card:has(.mf-head--on-media) video.ig-smart-feed-video{
   width:100%!important;
   height:auto!important;
-  max-height:min(78svh, 960px)!important;
+  max-height:var(--post-media-max-height, min(70vh, 580px))!important;
   object-fit:contain!important;
   object-position:center center!important;
   display:block!important;
@@ -14918,6 +15243,143 @@ html[data-msb-appearance] body .mf-feed .mf-card .mf-media-shell > .mf-head--on-
 
 <style id="feed-post-media-stage-css">
 <?= post_media_stage_css('body .mf-feed') ?>
+</style>
+
+<style id="feed-post-card-left-align-lock">
+/* Card full-width; media sized so header + media + actions stay visible together. */
+body .mf-feed{
+  --post-media-max-height: min(70vh, 580px);
+}
+body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel),
+body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel),
+body .mf-feed .mf-card.mf-card-phone-shot:not(.is-multi-media-post):not(.mf-card-reel){
+  width:100% !important;
+  max-width:100% !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  margin-inline:0 !important;
+}
+body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage,
+body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage{
+  width:min(100%, var(--post-media-card-width, var(--post-media-max, 680px))) !important;
+  max-width:100% !important;
+  max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  margin-inline:0 auto !important;
+}
+/* Match public.php: head-outside stage stays full-width; media el gets the width lock. */
+body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage,
+body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage{
+  width:100% !important;
+  max-width:100% !important;
+  max-height:none !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  margin-inline:0 !important;
+  overflow:visible !important;
+}
+body .mf-feed .mf-card.mf-card-media-head-outside.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
+body .mf-feed .mf-card.mf-card-media-head-outside.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage > img{
+  width:min(100%, var(--post-media-card-width, var(--post-media-max, 720px))) !important;
+  max-width:100% !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  justify-self:start !important;
+}
+body .mf-feed .media-stage.standard-video-stage > video,
+body .mf-feed .media-stage.standard-image-stage > img,
+body .mf-feed video.ig-smart-feed-video{
+  max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
+  width:100% !important;
+  height:auto !important;
+  object-fit:contain !important;
+  object-position:center center !important;
+}
+@media (max-width:767.98px){
+  body .mf-feed{
+    --post-media-max-height: min(58vh, 620px);
+    --post-phone-max:340px;
+    --post-portrait-max:340px;
+  }
+  body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage:not(.phone-shot),
+  body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage:not(.phone-shot){
+    width:min(100%, var(--post-media-card-width, 340px)) !important;
+    max-width:min(100%, 360px) !important;
+  }
+  body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage:not(.phone-shot),
+  body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage:not(.phone-shot){
+    width:100% !important;
+    max-width:100% !important;
+    max-height:none !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    overflow:visible !important;
+  }
+  body .mf-feed .mf-card.mf-card-media-head-outside.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage:not(.phone-shot) > video,
+  body .mf-feed .mf-card.mf-card-media-head-outside.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage:not(.phone-shot) > img{
+    width:min(100%, var(--post-media-card-width, 340px)) !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:var(--post-media-max-height, min(58vh, 620px)) !important;
+    object-fit:contain !important;
+    object-position:center center !important;
+    margin-left:0 !important;
+    margin-right:auto !important;
+    justify-self:start !important;
+    background:transparent !important;
+  }
+  body .mf-feed .media-stage.standard-video-stage,
+  body .mf-feed .media-stage.standard-image-stage,
+  body .mf-feed .media-stage{
+    padding:0 !important;
+  }
+}
+@media (min-width:768px) and (max-width:1024.98px){
+  body .mf-feed{
+    --post-media-max-height: min(60vh, 620px);
+  }
+  body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage:not(.phone-shot),
+  body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage:not(.phone-shot){
+    width:min(100%, var(--post-media-card-width, 440px)) !important;
+    max-width:min(100%, 480px) !important;
+  }
+}
+</style>
+
+<style id="feed-post-media-fit-contain">
+/* Full media visible (contain) + height capped so avatar/name and reacts stay on screen. */
+html body.feed-page .mf-feed .media-stage.standard-image-stage > img,
+html body.feed-page .mf-feed .media-stage.standard-video-stage > video,
+html body.feed-insta-ui .mf-feed .media-stage.standard-image-stage > img,
+html body.feed-insta-ui .mf-feed .media-stage.standard-video-stage > video,
+html[data-msb-appearance] body.feed-page .mf-feed .media-stage.standard-image-stage > img,
+html[data-msb-appearance] body.feed-page .mf-feed .media-stage.standard-video-stage > video,
+html body .mf-feed .media-stage > img,
+html body .mf-feed .media-stage > video,
+html body .mf-feed .media-slide > img,
+html body .mf-feed .media-slide > video,
+html body .mf-feed .mf-media-slide > img,
+html body .mf-feed .mf-media-slide > video{
+  width:100% !important;
+  height:auto !important;
+  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  object-fit:contain !important;
+  object-position:center center !important;
+}
+html body.feed-page .mf-feed .media-stage.single-portrait,
+html body.feed-page .mf-feed .media-stage.single-landscape,
+html body.feed-page .mf-feed .media-stage.single-square,
+html body.feed-insta-ui .mf-feed .media-stage.single-portrait,
+html body.feed-insta-ui .mf-feed .media-stage.single-landscape,
+html body.feed-insta-ui .mf-feed .media-stage.single-square,
+html body .mf-feed .media-stage.standard-image-stage,
+html body .mf-feed .media-stage.standard-video-stage{
+  aspect-ratio:auto !important;
+  overflow:hidden !important;
+  height:auto !important;
+  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+}
 </style>
 
 <style id="feed-post-media-radius-override">
@@ -15890,11 +16352,15 @@ if(window.MSBReactions){
 // Share / Save
 pv.share.addEventListener('click', async () => {
   if (!pvPostId) return;
+  if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function') {
+    window.MSBPostCardMenu.openShare(pvPostId);
+    return;
+  }
   try {
     const res = await pvJson('feed_api.php?ajax=share', {
       method:'POST',
       headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
-      body:`post_id=${encodeURIComponent(pvPostId)}`,
+      body:`post_id=${encodeURIComponent(pvPostId)}&share_action=add`,
       credentials:'same-origin'
     });
     pvApplyTrack(res);
@@ -16017,35 +16483,57 @@ pv.text.addEventListener('keydown', (e)=>{
     }catch(err){}
   }
 
+  function findAlertCard(){
+    return document.querySelector(
+      '#mfFeed .mf-card[data-id="' + String(alertPostId) + '"],' +
+      '#mfFeed .mf-card[data-post-id="' + String(alertPostId) + '"],' +
+      '.mf-card[data-id="' + String(alertPostId) + '"],' +
+      '.mf-card[data-post-id="' + String(alertPostId) + '"],' +
+      '#postList .pl-item[data-id="' + String(alertPostId) + '"]'
+    );
+  }
+
+  function highlightAlertCard(card){
+    if(!card) return;
+    document.querySelectorAll('.mf-card.is-alert-focus, #postList .pl-item.is-alert-focus').forEach(function(node){
+      node.classList.remove('is-alert-focus');
+    });
+    card.classList.add('is-alert-focus');
+    try{
+      card.scrollIntoView({ behavior:'smooth', block:'center' });
+    }catch(err){
+      try{ card.scrollIntoView(true); }catch(err2){}
+    }
+  }
+
   function runAlertOpen(){
     try{
       if(typeof window.loadFeedAlertPost === 'function'){
         window.loadFeedAlertPost(alertPostId);
       }
-      var row = document.querySelector('#postList .pl-item[data-id="' + String(alertPostId) + '"]');
-      if(row && row.scrollIntoView){
-        try{ row.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(err){}
-      }
 
-      if(alertCommentId > 0){
-        var tries = 0;
-        (function waitForPost(){
-          tries += 1;
-          var curInput = document.getElementById('curPostId');
-          var currentId = Number((window.__curPost && window.__curPost.id) || (curInput ? curInput.value : 0) || 0);
-          if(currentId === alertPostId){
+      var tries = 0;
+      (function waitForCard(){
+        tries += 1;
+        var card = findAlertCard();
+        if(card){
+          highlightAlertCard(card);
+          if(alertCommentId > 0){
             try{
               if(typeof window.openFeedAlertComments === 'function'){
                 window.openFeedAlertComments(alertCommentId);
               }
             }catch(err){}
-            return;
           }
-          if(tries < 20) setTimeout(waitForPost, 160);
-        })();
-      }
-
-      clearAlertParams();
+          clearAlertParams();
+          return;
+        }
+        if(tries < 40){
+          window.setTimeout(waitForCard, 160);
+          return;
+        }
+        clearAlertParams();
+      })();
     }catch(err){}
   }
 
@@ -16066,6 +16554,30 @@ pv.text.addEventListener('keydown', (e)=>{
     }catch(err){}
   }
 
+  function openStoryByPostId(postId){
+    postId = Number(postId || 0);
+    if(!postId || !window.TTStories) return false;
+    var items = (window.TTStories.getCatalog && typeof window.TTStories.getCatalog === 'function')
+      ? window.TTStories.getCatalog()
+      : [];
+    items = Array.isArray(items) ? items : [];
+    for(var i = 0; i < items.length; i += 1){
+      var story = items[i] || {};
+      var slides = Array.isArray(story.slides) ? story.slides : [];
+      for(var j = 0; j < slides.length; j += 1){
+        if(Number(slides[j].postId || 0) === postId){
+          if(typeof window.TTStories.openByIndex === 'function'){
+            window.TTStories.openByIndex(i);
+          } else if(typeof window.TTStories.openByKey === 'function'){
+            window.TTStories.openByKey(String(story.key || ''));
+          }
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function openTalentraCircle(){
     var key = 'u' + String(Number(window.ME_ID || <?php echo (int)$meId; ?> || 0));
     if(!key || key === 'u0') return;
@@ -16081,7 +16593,9 @@ pv.text.addEventListener('keydown', (e)=>{
     var hasStory = !!(track && track.querySelector('.ig-story-item[data-story-key]'));
     if(hasStory){
       clearStoryPostParam();
-      setTimeout(openTalentraCircle, 120);
+      if(!openStoryByPostId(storyPostId)){
+        setTimeout(openTalentraCircle, 120);
+      }
       return;
     }
     if(tries < 40) setTimeout(waitForStories, 200);
@@ -16439,16 +16953,58 @@ body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-title,
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body,
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-actions{
   position:relative !important;
-  left:50% !important;
-  width:min(560px, calc(100vw - 20px)) !important;
-  max-width:calc(100vw - 20px) !important;
+  left:auto !important;
+  width:100% !important;
+  max-width:100% !important;
   margin-left:0 !important;
   margin-right:0 !important;
-  transform:translateX(-50%) !important;
+  transform:none !important;
   box-sizing:border-box !important;
 }
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-head{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
   padding:1px 0 12px !important;
+  padding-right:0 !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-head .mf-peer-link{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  padding-right:40px !important;
+  box-sizing:border-box !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-head .post-card-menu-wrap,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-head .mf-menu-wrap,
+html[data-msb-appearance] body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-head .post-card-menu-wrap,
+html[data-msb-appearance] body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-head .mf-menu-wrap{
+  position:absolute !important;
+  top:50% !important;
+  right:0 !important;
+  left:auto !important;
+  bottom:auto !important;
+  margin:0 !important;
+  transform:translateY(-50%) !important;
+  flex:0 0 auto !important;
+  z-index:61 !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-actions{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  width:100% !important;
+  max-width:100% !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-actions .mf-left{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-actions .mf-right{
+  flex:0 0 auto !important;
+  margin-left:auto !important;
+  margin-right:0 !important;
 }
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-title{
   padding-left:0 !important;
@@ -16456,50 +17012,172 @@ body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-title{
 }
 </style>
 
+<style id="feed-post-right-icons-lock">
+/* Match public.php: fries + save flush to the right edge of the post card. */
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head{
+  position:relative !important;
+  display:flex !important;
+  width:100% !important;
+  max-width:100% !important;
+  padding-right:0 !important;
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head .post-card-menu-wrap,
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head .mf-menu-wrap,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head .post-card-menu-wrap,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head .mf-menu-wrap,
+html[data-msb-appearance] body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head .post-card-menu-wrap,
+html[data-msb-appearance] body.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-head .post-card-menu-wrap{
+  position:absolute !important;
+  top:50% !important;
+  right:0 !important;
+  left:auto !important;
+  margin:0 !important;
+  transform:translateY(-50%) !important;
+  z-index:61 !important;
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-actions,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-actions,
+body.feed-page.feed-insta-ui .mf-feed .mf-actions,
+body.feed-insta-ui .mf-feed .mf-actions{
+  display:flex !important;
+  width:100% !important;
+  max-width:100% !important;
+  justify-content:space-between !important;
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-actions .mf-right,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-media-head-outside > .mf-actions .mf-right,
+body.feed-page.feed-insta-ui .mf-feed .mf-actions .mf-right,
+body.feed-insta-ui .mf-feed .mf-actions .mf-right{
+  margin-left:auto !important;
+  margin-right:0 !important;
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-wrap,
+body.feed-page.feed-insta-ui .mf-feed .mf-head:not(.mf-head--on-media) .mf-menu-wrap,
+body.feed-insta-ui .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-wrap,
+body.feed-insta-ui .mf-feed .mf-head:not(.mf-head--on-media) .mf-menu-wrap{
+  margin-left:auto !important;
+  margin-right:0 !important;
+  flex:0 0 auto !important;
+}
+/* Left-align portrait/single media under the full-width header (match public.php). */
+body.feed-page.feed-insta-ui .mf-feed .mf-card.is-single-video-post,
+body.feed-page.feed-insta-ui .mf-feed .mf-card.is-single-image-post,
+body.feed-insta-ui .mf-feed .mf-card.is-single-video-post,
+body.feed-insta-ui .mf-feed .mf-card.is-single-image-post{
+  width:100% !important;
+  max-width:100% !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+@media (min-width:1025px){
+  body.feed-page.feed-insta-ui .mf-feed .mf-card.is-single-video-post .media-stage,
+  body.feed-page.feed-insta-ui .mf-feed .mf-card.is-single-image-post .media-stage,
+  body.feed-insta-ui .mf-feed .mf-card.is-single-video-post .media-stage,
+  body.feed-insta-ui .mf-feed .mf-card.is-single-image-post .media-stage{
+    width:min(100%, var(--post-media-card-width, 100%)) !important;
+    max-width:100% !important;
+    margin-left:0 !important;
+    margin-right:auto !important;
+  }
+}
+@media (max-width:1024.98px){
+  body.feed-page.feed-insta-ui .mf-feed .mf-card.is-single-video-post .media-stage:not(.phone-shot),
+  body.feed-page.feed-insta-ui .mf-feed .mf-card.is-single-image-post .media-stage:not(.phone-shot),
+  body.feed-insta-ui .mf-feed .mf-card.is-single-video-post .media-stage:not(.phone-shot),
+  body.feed-insta-ui .mf-feed .mf-card.is-single-image-post .media-stage:not(.phone-shot){
+    width:min(100%, var(--post-media-card-width, 100%)) !important;
+    max-width:100% !important;
+    margin-left:0 !important;
+    margin-right:auto !important;
+  }
+}
+</style>
+
 <script id="feed-post-visible-media-left-align">
 (function(){
   'use strict';
 
+  /* Full-width cards; media uses --post-media-card-width and stays left-aligned. */
   var feed = document.getElementById('mfFeed');
   if (!feed) return;
-  var frame = 0;
 
-  function alignVisibleMedia(){
-    frame = 0;
-    feed.querySelectorAll('.mf-card.mf-card-media-head-outside').forEach(function(card){
-      var avatar = card.querySelector(':scope > .mf-head .mf-avatar');
-      var stage = card.querySelector(':scope > .mf-media-shell > .media-stage, :scope > .media-stage');
-      if (!avatar || !stage) return;
+  function leftAlignCard(card){
+    if (!card || card.classList.contains('mf-card-reel')) return;
+    if (!card.classList.contains('is-single-video-post') && !card.classList.contains('is-single-image-post') && !card.classList.contains('mf-card-media-head-outside')) return;
+    card.style.setProperty('width', '100%', 'important');
+    card.style.setProperty('max-width', '100%', 'important');
+    card.style.setProperty('margin-left', '0', 'important');
+    card.style.setProperty('margin-right', '0', 'important');
+    var stage = card.querySelector(':scope > .mf-media-shell > .media-stage, :scope > .media-stage');
+    if (!stage) return;
+    stage.style.removeProperty('transform');
+    stage.style.removeProperty('--feed-media-left-shift');
+    stage.style.setProperty('aspect-ratio', 'auto', 'important');
+    stage.style.setProperty('height', 'auto', 'important');
+    try{ stage.classList.remove('single-portrait', 'single-landscape', 'single-square'); }catch(e){}
+    var w = card.style.getPropertyValue('--post-media-card-width') || getComputedStyle(card).getPropertyValue('--post-media-card-width');
+    w = String(w || '').trim();
+    var isHeadOutside = card.classList.contains('mf-card-media-head-outside');
+    var maxH = (card.style.getPropertyValue('--post-media-max-height') || getComputedStyle(feed).getPropertyValue('--post-media-max-height')).trim();
+    if(!maxH || /px$/i.test(maxH)){
+      // Prefer live CSS budget (public.php) — ignore leftover baked px from older applies.
+      if(window.matchMedia('(max-width: 767.98px)').matches) maxH = 'min(58vh, 620px)';
+      else if(window.matchMedia('(max-width: 1024.98px)').matches) maxH = 'min(60vh, 620px)';
+      else maxH = 'min(74vh, 640px)';
+    }
+    var mediaEl = stage.querySelector(':scope > img, :scope > video');
 
-      stage.style.removeProperty('transform');
-      stage.style.removeProperty('--feed-media-left-shift');
+    if (isHeadOutside) {
+      stage.style.setProperty('width', '100%', 'important');
+      stage.style.setProperty('max-width', '100%', 'important');
+      stage.style.setProperty('margin-left', '0', 'important');
+      stage.style.setProperty('margin-right', '0', 'important');
+      stage.style.setProperty('overflow', 'visible', 'important');
+      stage.style.removeProperty('max-height');
+      if (mediaEl) {
+        mediaEl.style.setProperty('width', w ? ('min(100%, ' + w + ')') : '100%', 'important');
+        mediaEl.style.setProperty('max-width', '100%', 'important');
+        mediaEl.style.setProperty('height', 'auto', 'important');
+        mediaEl.style.setProperty('max-height', maxH, 'important');
+        mediaEl.style.setProperty('object-fit', 'contain', 'important');
+        mediaEl.style.setProperty('object-position', 'center center', 'important');
+        mediaEl.style.setProperty('margin-left', '0', 'important');
+        mediaEl.style.setProperty('margin-right', 'auto', 'important');
+        mediaEl.style.setProperty('justify-self', 'start', 'important');
+        mediaEl.style.background = 'transparent';
+      }
+      return;
+    }
 
-      var visibleMedia = stage.querySelector('video, img') || stage;
-      var avatarRect = avatar.getBoundingClientRect();
-      var mediaRect = visibleMedia.getBoundingClientRect();
-      if (!avatarRect.width || !mediaRect.width) return;
-
-      var shift = Math.round((avatarRect.left - mediaRect.left) * 100) / 100;
-      if (Math.abs(shift) < 0.5) return;
-
-      stage.style.setProperty('--feed-media-left-shift', shift + 'px');
-      stage.style.setProperty('transform', 'translateX(var(--feed-media-left-shift))', 'important');
-    });
+    stage.style.setProperty('margin-left', '0', 'important');
+    stage.style.setProperty('margin-right', 'auto', 'important');
+    stage.style.setProperty('overflow', 'hidden', 'important');
+    if (w) {
+      stage.style.setProperty('width', 'min(100%, ' + w + ')', 'important');
+      stage.style.setProperty('max-width', '100%', 'important');
+    }
+    stage.style.setProperty('max-height', maxH, 'important');
+    if (mediaEl) {
+      mediaEl.style.setProperty('width', '100%', 'important');
+      mediaEl.style.setProperty('height', 'auto', 'important');
+      mediaEl.style.setProperty('object-fit', 'contain', 'important');
+      mediaEl.style.setProperty('object-position', 'center center', 'important');
+      mediaEl.style.setProperty('max-height', maxH, 'important');
+    }
   }
 
-  function scheduleAlign(){
-    if (frame) cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(function(){
-      requestAnimationFrame(alignVisibleMedia);
-    });
+  function clearMediaShifts(){
+    feed.querySelectorAll('.mf-card').forEach(leftAlignCard);
   }
 
-  new MutationObserver(scheduleAlign).observe(feed, {childList:true, subtree:true});
-  window.addEventListener('resize', scheduleAlign, {passive:true});
-  window.addEventListener('load', scheduleAlign, {once:true});
-  feed.addEventListener('loadedmetadata', scheduleAlign, true);
-  feed.addEventListener('load', scheduleAlign, true);
-  scheduleAlign();
+  clearMediaShifts();
+  window.addEventListener('load', clearMediaShifts, {once:true});
+  window.addEventListener('resize', clearMediaShifts);
+  if (typeof MutationObserver !== 'undefined') {
+    var mo = new MutationObserver(function(){ clearMediaShifts(); });
+    mo.observe(feed, { childList:true, subtree:false });
+  }
 })();
 </script>
 
@@ -16549,49 +17227,84 @@ body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-title{
   var confirmBtn = document.getElementById('feedDeleteDialogConfirm');
   var pendingPostId = 0;
   var pendingDone = null;
+  var deleting = false;
 
   function closeDialog(){
     if(dialog && dialog.open) dialog.close();
     pendingPostId = 0;
     pendingDone = null;
+    deleting = false;
+    if(confirmBtn) confirmBtn.disabled = false;
+  }
+
+  function confirmDeleteNow(){
+    var postId = pendingPostId;
+    var done = pendingDone;
+    if(!postId || deleting) return;
+    if(!window.MSBPostCardMenu || typeof window.MSBPostCardMenu.runDelete !== 'function') return;
+    deleting = true;
+
+    // Remove card + close popup immediately; API soft-delete runs in background.
+    try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e0){}
+    closeDialog();
+
+    window.MSBPostCardMenu.runDelete(postId, function(res){
+      if(res && res.ok !== false){
+        if(typeof done === 'function') done(res);
+        return;
+      }
+      var msg = (res && res.error) ? String(res.error) : 'Could not delete this post.';
+      try { window.alert(msg); } catch(e2){}
+      try { if(typeof window.refreshList === 'function') window.refreshList(false); } catch(e3){}
+      if(typeof done === 'function') done(res || {ok:false});
+    });
   }
 
   window.MSBFeedDeleteConfirm = {
     open:function(postId, done){
       pendingPostId = Number(postId || 0);
       pendingDone = typeof done === 'function' ? done : null;
+      deleting = false;
+      if(confirmBtn) confirmBtn.disabled = false;
       if(!dialog || !pendingPostId) return;
       if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
-      if(typeof dialog.showModal === 'function'){
-        if(!dialog.open) dialog.showModal();
-      }else{
-        dialog.setAttribute('open', '');
-      }
+      // Open on next tick so the fries "Delete" click cannot auto-dismiss this popup.
+      setTimeout(function(){
+        if(!dialog || !pendingPostId) return;
+        if(typeof dialog.showModal === 'function'){
+          if(!dialog.open) dialog.showModal();
+        }else{
+          dialog.setAttribute('open', '');
+        }
+        try{ if(confirmBtn) confirmBtn.focus(); }catch(eFocus){}
+      }, 0);
     },
+    confirm:confirmDeleteNow,
     close:closeDialog
   };
 
-  if(cancelBtn) cancelBtn.addEventListener('click', closeDialog);
-  if(closeBtn) closeBtn.addEventListener('click', closeDialog);
-  if(dialog) dialog.addEventListener('click', function(e){
-    if(e.target !== dialog) return;
-    var rect = dialog.getBoundingClientRect();
-    if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) closeDialog();
+  if(cancelBtn) cancelBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    closeDialog();
   });
+  if(closeBtn) closeBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    closeDialog();
+  });
+  // Do not close on backdrop click from the same gesture that opened the dialog.
+  // Cancel / X / Escape still dismiss; Confirm Delete removes the post immediately.
+  if(dialog){
+    dialog.addEventListener('cancel', function(e){
+      // Allow Escape to close.
+      closeDialog();
+    });
+  }
   if(confirmBtn) confirmBtn.addEventListener('click', function(e){
     e.preventDefault();
     e.stopPropagation();
-    var postId = pendingPostId;
-    var done = pendingDone;
-    if(!postId || !window.MSBPostCardMenu || typeof window.MSBPostCardMenu.runDelete !== 'function') return;
-    confirmBtn.disabled = true;
-    window.MSBPostCardMenu.runDelete(postId, function(res){
-      confirmBtn.disabled = false;
-      if(res && res.ok !== false){
-        closeDialog();
-        if(typeof done === 'function') done(res);
-      }
-    });
+    confirmDeleteNow();
   });
 })();
 </script>

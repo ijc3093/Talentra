@@ -41,7 +41,7 @@ ini_set('display_errors', '0');
 $sessionOwnerId = profile_session_owner_user_id();
 $meId = $sessionOwnerId > 0 ? $sessionOwnerId : (int)($_SESSION['user_id'] ?? 0);
 $viewId = $meId;
-$profileAlertPostId = (int)($_GET['open_post'] ?? 0);
+$profileAlertPostId = (int)($_GET['open_post'] ?? $_GET['post'] ?? 0);
 $profileAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 
 $reqId = (int)($_GET['id'] ?? 0);
@@ -67,10 +67,15 @@ $me = [
   'status' => '',
   'created_at' => '',
   'friend_code' => '',
+  'account_kind' => 'personal',
 ];
 
 if (!function_exists('profileNormalizeUserRow')) {
   function profileNormalizeUserRow(array $row): array {
+    $accountKind = strtolower(trim((string)($row['account_kind'] ?? 'personal')));
+    if ($accountKind !== 'publisher') {
+      $accountKind = 'personal';
+    }
     return [
       'id' => (string)($row['id'] ?? '0'),
       'name' => trim((string)($row['fullname'] ?? '')) !== '' ? trim((string)($row['fullname'] ?? '')) : trim((string)($row['name'] ?? '')),
@@ -83,6 +88,7 @@ if (!function_exists('profileNormalizeUserRow')) {
       'status' => trim((string)($row['status'] ?? '')),
       'created_at' => trim((string)($row['created_at'] ?? '')),
       'friend_code' => trim((string)($row['friend_code'] ?? '')),
+      'account_kind' => $accountKind,
     ];
   }
 }
@@ -589,6 +595,9 @@ $isViewedPublisher = ($viewId > 0 && $meId !== $viewId && publisher_is_publisher
 $isFollowingPublisher = $isViewedPublisher && publisher_user_is_followed($dbh, $meId, $viewId);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $profileIsPublisher = publisher_is_publisher_user($dbh, $viewId);
+if ($profileIsPublisher) {
+  $me['account_kind'] = 'publisher';
+}
 $statSocialCount = $profileIsPublisher ? publisher_follower_count($dbh, $viewId) : $statFriends;
 $statSocialLabel = $profileIsPublisher ? publisher_social_stat_label($statSocialCount) : 'friends';
 
@@ -1102,12 +1111,32 @@ $gearGroups = [
     'icon' => 'ion-ios-book',
     'desc' => 'Shape how memories appear, resurface, and stay meaningful on your life timeline.',
     'rows' => [
+      ['label' => 'Archived posts', 'meta' => 'Open the private list of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
+      ['label' => 'Bookmarks', 'meta' => 'Open posts and stories you saved from For You, Discover, Reels, or Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Auto-show posts in timeline', 'meta' => 'Yes / No control for moving Dashboard posts into the life timeline automatically.', 'icon' => 'ion-ios-albums', 'tag' => 'Live', 'field' => 'auto_show_timeline', 'options' => $yesNoOptions],
       ['label' => 'Allow old memories to resurface', 'meta' => 'Bring older moments back later as meaningful memories.', 'icon' => 'ion-refresh', 'tag' => 'Live', 'field' => 'resurface_old_memories', 'options' => $yesNoOptions],
       ['label' => 'Show reactions in timeline', 'meta' => 'Decide whether likes and love appear on your life timeline.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'show_timeline_reactions', 'options' => $yesNoOptions],
       ['label' => 'Show comments in timeline', 'meta' => 'Choose whether comments travel with the timeline story.', 'icon' => 'ion-chatbubble-working', 'tag' => 'Live', 'field' => 'show_timeline_comments', 'options' => $yesNoOptions],
       ['label' => 'Archive memory', 'meta' => 'Hide older moments without deleting them.', 'icon' => 'ion-filing', 'tag' => 'Live', 'field' => 'archive_memory_enabled', 'options' => $yesNoOptions],
       ['label' => 'Pin important memory', 'meta' => 'Keep your most meaningful story near the top.', 'icon' => 'ion-pin', 'tag' => 'Live', 'field' => 'pin_memory_enabled', 'options' => $yesNoOptions],
+    ],
+  ],
+  [
+    'title' => 'Archived posts',
+    'nav_label' => 'Archived posts',
+    'icon' => 'ion-ios-box',
+    'desc' => 'Posts you hid from feeds stay here. Only you can open this archive.',
+    'rows' => [
+      ['label' => 'Open archived posts', 'meta' => 'Review and unarchive posts that are hidden from everyone else.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
+    ],
+  ],
+  [
+    'title' => 'Bookmarks',
+    'nav_label' => 'Bookmarks',
+    'icon' => 'ion-ios-bookmarks',
+    'desc' => 'Posts and stories you saved from For You, Discover, Reels, or Profile. Only you can open this list.',
+    'rows' => [
+      ['label' => 'Open bookmarks', 'meta' => 'Review and remove saved posts and stories.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
     ],
   ],
   [
@@ -1161,6 +1190,8 @@ $gearGroups = [
     'icon' => 'ion-android-settings',
     'desc' => 'Big account actions should stay visible, but separate from your About details.',
     'rows' => [
+      ['label' => 'Archived posts', 'meta' => 'Open the private archive of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
+      ['label' => 'Bookmarks', 'meta' => 'Open posts and stories you saved across For You, Discover, Reels, and Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Allow download my data', 'meta' => 'Keep export tools available for your account.', 'icon' => 'ion-archive', 'tag' => 'Live', 'field' => 'allow_download_data', 'options' => $yesNoOptions],
       ['label' => 'Allow deactivate account', 'meta' => 'Control whether deactivation tools are available in your account center.', 'icon' => 'ion-pause', 'tag' => 'Live', 'field' => 'allow_deactivate_account', 'options' => $yesNoOptions],
       ['label' => 'Allow delete account', 'meta' => 'Show or hide the protected delete-account flow.', 'icon' => 'ion-trash-a', 'tag' => 'Live', 'field' => 'allow_delete_account', 'options' => $yesNoOptions],
@@ -1179,6 +1210,8 @@ $gearQuickLinks = [
   ['label' => 'Edit Profile', 'icon' => 'ion-edit', 'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear')],
   ['label' => 'Privacy', 'icon' => 'ion-locked', 'href' => '#gear-privacy-controls'],
   ['label' => 'Timeline Settings', 'icon' => 'ion-ios-book', 'href' => '#gear-timeline-memory-controls'],
+  ['label' => 'Archived posts', 'icon' => 'ion-ios-box', 'href' => 'archive.php'],
+  ['label' => 'Bookmarks', 'icon' => 'ion-ios-bookmarks', 'href' => 'bookmark.php'],
   ['label' => 'Notifications', 'icon' => 'ion-android-notifications', 'href' => '#gear-notifications'],
   ['label' => 'Security', 'icon' => 'ion-shield', 'href' => '#gear-security-and-safety'],
   ['label' => 'Blocked Users', 'icon' => 'ion-close-circled', 'href' => '#gear-security-and-safety'],
@@ -1248,6 +1281,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gear') {
   $mobileItems = [
     ['key' => 'privacy', 'label' => 'Privacy', 'icon' => 'ion-locked', 'group' => 'Privacy controls'],
     ['key' => 'timeline', 'label' => 'Timeline Settings', 'icon' => 'ion-ios-book', 'group' => 'Timeline / memory controls'],
+    ['key' => 'archived_posts', 'label' => 'Archived posts', 'icon' => 'ion-ios-box', 'group' => 'Archived posts'],
+    ['key' => 'bookmarks', 'label' => 'Bookmarks', 'icon' => 'ion-ios-bookmarks', 'group' => 'Bookmarks'],
     ['key' => 'security', 'label' => 'Security', 'icon' => 'ion-shield', 'group' => 'Security and safety'],
     ['key' => 'devices', 'label' => 'Manage Devices', 'icon' => 'ion-iphone', 'group' => 'Security and safety'],
     ['key' => 'account_settings', 'label' => 'Account Settings', 'icon' => 'ion-ios-person', 'group' => 'Profile settings'],
@@ -1298,6 +1333,7 @@ try {
   $gridWhere = "
       p.user_id = :me
       AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
+      AND COALESCE(p.is_archived,0) = 0
   ";
   $gridParams = [
     ':me' => $viewId,
@@ -1305,6 +1341,11 @@ try {
     ':viewer_share_id' => $meId,
     ':viewer_save_id' => $meId,
   ];
+  // Visitors (including personal → publisher) see the same posts as the Posts tab.
+  if ($meId > 0 && $viewId > 0 && $meId !== $viewId) {
+    $gridWhere .= ' AND ' . publisher_profile_author_posts_scope_sql($dbh, $meId, $viewId);
+    $gridParams = array_merge($gridParams, publisher_profile_author_posts_scope_params($dbh, $meId, $viewId));
+  }
   if ($selectedGalleryCategoryId > 0) {
     $gridWhere .= " AND p.category_id = :gallery_category_id";
     $gridParams[':gallery_category_id'] = $selectedGalleryCategoryId;
@@ -1433,6 +1474,75 @@ unset($gridRow);
 $gridStorySource = array_values(array_filter($grid, static fn(array $it): bool => post_is_story_only($it)));
 $gridFeedSource = array_values(array_filter($grid, static fn(array $it): bool => !post_is_story_only($it)));
 
+// Dedicated story rail query so stories are not crowded out of the LIMIT 30 feed grid.
+try {
+  $storyWhere = "
+      p.user_id = :me
+      AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
+      AND COALESCE(p.is_archived,0) = 0
+  ";
+  $layoutCol = post_layout_column($dbh);
+  if ($layoutCol) {
+    $safeCol = preg_replace('/[^a-z0-9_]/i', '', (string)$layoutCol);
+    if ($safeCol !== '') {
+      $storyWhere .= "
+        AND (
+          LOWER(TRIM(COALESCE(p.`{$safeCol}`,''))) = 'story'
+          OR COALESCE(p.description,'') LIKE '%[[layout:story]]%'
+          OR COALESCE(p.body,'') LIKE '%[[layout:story]]%'
+          OR COALESCE(p.title,'') LIKE '%[[layout:story]]%'
+        )
+      ";
+    }
+  } else {
+    $storyWhere .= "
+      AND (
+        COALESCE(p.description,'') LIKE '%[[layout:story]]%'
+        OR COALESCE(p.body,'') LIKE '%[[layout:story]]%'
+        OR COALESCE(p.title,'') LIKE '%[[layout:story]]%'
+      )
+    ";
+  }
+  $storyParams = [':me' => $viewId];
+  if ($meId > 0 && $viewId > 0 && $meId !== $viewId) {
+    $storyWhere .= ' AND ' . publisher_profile_author_posts_scope_sql($dbh, $meId, $viewId);
+    $storyParams = array_merge($storyParams, publisher_profile_author_posts_scope_params($dbh, $meId, $viewId));
+  }
+  $storyLayoutSelect = post_layout_select_sql($dbh);
+  $stStories = $dbh->prepare("
+    SELECT
+      p.id AS post_id,
+      COALESCE(NULLIF(p.title,''), '') AS title,
+      COALESCE(NULLIF(p.description,''), '') AS descr,
+      COALESCE(NULLIF(p.body,''), '') AS body,
+      {$storyLayoutSelect}
+      COALESCE(NULLIF(a.type,''), '') AS atype,
+      COALESCE(NULLIF(a.thumb_path,''), '') AS thumb,
+      COALESCE(NULLIF(a.file_path,''), '') AS file_path,
+      p.created_at,
+      COALESCE(p.updated_at, p.created_at) AS updated_at,
+      (SELECT reaction FROM public_post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer_id LIMIT 1) AS my_reaction
+    FROM public_posts p
+    LEFT JOIN public_post_attachments a
+      ON a.id = (
+        SELECT aa.id
+        FROM public_post_attachments aa
+        WHERE aa.post_id = p.id
+        ORDER BY aa.id DESC
+        LIMIT 1
+      )
+    WHERE {$storyWhere}
+    ORDER BY p.created_at DESC, p.id DESC
+    LIMIT 60
+  ");
+  $storyParams[':viewer_id'] = $meId;
+  $stStories->execute($storyParams);
+  $storyRows = $stStories->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  $gridStorySource = array_values(array_filter($storyRows, static fn(array $it): bool => post_is_story_only($it)));
+} catch (Throwable $e) {
+  // keep $gridStorySource from the feed grid filter
+}
+
 if (!function_exists('profile_story_time_ago')) {
   function profile_story_time_ago(string $dt): string {
     $dt = trim($dt);
@@ -1467,8 +1577,13 @@ if (!function_exists('profile_story_time_ago')) {
   }
 }
 
-$profileStorySlides = [];
+// One catalog row / circle per story (new create → next circle on the rail).
+$profileStoryCatalog = [];
 foreach ($gridStorySource as $it) {
+  $postId = (int)($it['post_id'] ?? 0);
+  if ($postId <= 0) {
+    continue;
+  }
   $atype = strtolower(trim((string)($it['atype'] ?? '')));
   $thumb = trim((string)($it['thumb'] ?? ''));
   $filePath = trim((string)($it['file_path'] ?? ''));
@@ -1486,35 +1601,38 @@ foreach ($gridStorySource as $it) {
   if ($src === '' && $caption === '') {
     continue;
   }
+  $srcNorm = $src !== '' ? ltrim(preg_replace('~^\./~', '', $src), '/') : '';
   $storyWhen = trim((string)($it['updated_at'] ?? $it['created_at'] ?? ''));
-  $profileStorySlides[] = [
-    'src' => $src !== '' ? ltrim(preg_replace('~^\./~', '', $src), '/') : '',
-    'type' => $src !== '' ? $type : 'text',
+  $whenLabel = profile_story_time_ago($storyWhen);
+  $slide = [
+    'src' => $srcNorm,
+    'type' => $srcNorm !== '' ? $type : 'text',
     'title' => trim((string)($it['title'] ?? '')),
     'caption' => $caption,
-    'timeLabel' => profile_story_time_ago($storyWhen),
-    'timeAgo' => profile_story_time_ago($storyWhen),
+    'timeLabel' => $whenLabel,
+    'timeAgo' => $whenLabel,
     'createdAt' => $storyWhen,
-    'postId' => (int)($it['post_id'] ?? 0),
+    'postId' => $postId,
     'myReaction' => trim((string)($it['my_reaction'] ?? '')),
     'friendCode' => $canViewProfilePrivateContact ? strtoupper(trim((string)($me['friend_code'] ?? ''))) : '',
   ];
-}
-$profileStoryCatalog = [];
-if ($profileStorySlides) {
+  $ringSrc = $srcNorm !== '' ? $srcNorm : $avatarUrl;
   $profileStoryCatalog[] = [
-    'key' => 'u' . $viewId,
+    'key' => 's' . $postId,
     'userId' => $viewId,
     'name' => $displayName,
     'username' => $username,
     'friendCode' => $canViewProfilePrivateContact ? strtoupper(trim((string)($me['friend_code'] ?? ''))) : '',
     'verified' => $profileIsPublisher,
     'isPublisher' => $profileIsPublisher,
-    'avatarUrl' => $avatarUrl,
-    'subtitle' => '',
-    'slides' => $profileStorySlides,
+    'avatarUrl' => $ringSrc,
+    'ringSrc' => $ringSrc,
+    'ringType' => $slide['type'],
+    'subtitle' => $whenLabel,
+    'slides' => [$slide],
   ];
 }
+$profileStoryPostId = (int)($_GET['story_post'] ?? 0);
 
 $gridIds = [];
 foreach ($gridFeedSource as $it) {
@@ -1544,7 +1662,7 @@ $galleryGrid = array_values(array_filter($gridFeedSource, static function (array
   return profile_item_has_media($it);
 }));
 $tagsGrid = array_values(array_filter($gridFeedSource, static function (array $it): bool {
-  return (int)($it['category_id'] ?? 0) > 0;
+  return (int)($it['category_id'] ?? 0) > 0 && profile_item_has_media($it);
 }));
 
 $galleryGridIds = [];
@@ -1703,7 +1821,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   header('Pragma: no-cache');
 
   $items = [];
-  foreach ($grid as $it) {
+  foreach ($gridFeedSource as $it) {
     $pid = (int)($it['post_id'] ?? 0);
     if ($pid <= 0) continue;
 
@@ -1733,7 +1851,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       'user_id' => $viewId,
       'display_name' => $displayName,
       'username' => $username,
-      'account_kind' => trim((string)($me['account_kind'] ?? 'personal')) ?: 'personal',
+      'account_kind' => $profileIsPublisher ? 'publisher' : (trim((string)($me['account_kind'] ?? 'personal')) ?: 'personal'),
+      'is_publisher' => $profileIsPublisher ? 1 : 0,
       'friend_code' => $canViewProfilePrivateContact ? trim((string)($me['friend_code'] ?? '')) : '',
       'email' => $canViewProfilePrivateContact ? trim((string)($me['email'] ?? '')) : '',
       'title' => $title,
@@ -1956,6 +2075,27 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       object-fit:cover;
       background:#efefef;
       box-sizing:border-box;
+    }
+    .ig-story-ring video.ig-story-thumb{
+      background:#000;
+    }
+    .ig-story-ring-text{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      height:100%;
+      border-radius:50%;
+      border:2px solid #fff;
+      box-sizing:border-box;
+      padding:6px;
+      text-align:center;
+      font-size:9px;
+      font-weight:800;
+      line-height:1.15;
+      color:#fff;
+      background:linear-gradient(135deg,#334155,#0f172a);
+      overflow:hidden;
     }
     .ig-story-name{
       display:block;
@@ -2445,11 +2585,16 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       border-radius:var(--post-media-radius) !important;
       background:transparent !important;
     }
+    #profilePostsFeed{
+      --post-media-max-height: min(74vh, 640px);
+      --post-phone-max:340px;
+      --post-portrait-max:340px;
+    }
     #profilePostsFeed .media-stage.standard-video-stage > video,
     #profilePostsFeed .media-stage.standard-image-stage > img,
     #profilePostsFeed video.ig-smart-feed-video{
       width:100% !important;height:auto !important;display:block;
-      max-height:min(78svh,960px) !important;
+      max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
       object-fit:contain !important;object-position:center center !important;
       border:0 !important;padding:0 !important;
       border-radius:var(--post-media-radius) !important;
@@ -2459,10 +2604,49 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     #profilePostsFeed video.ig-smart-feed-video::-webkit-media-controls-enclosure{
       background:transparent !important;background-image:none !important;
     }
+    /* Match feed.php: full-width card; constrain media (head-outside keeps stage full-width). */
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-card-reel),
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-card-reel){
+      width:100% !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:0 !important;
+    }
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-video-stage,
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-image-stage{
+      width:min(100%, var(--post-media-card-width, 440px)) !important;
+      max-width:100% !important;
+      max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
+      margin-left:0 !important;
+      margin-right:auto !important;
+    }
+    #profilePostsFeed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage,
+    #profilePostsFeed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage{
+      width:100% !important;
+      max-width:100% !important;
+      max-height:none !important;
+      margin-left:0 !important;
+      margin-right:0 !important;
+      overflow:visible !important;
+    }
+    #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage.standard-video-stage > video,
+    #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage.standard-image-stage > img{
+      width:min(100%, var(--post-media-card-width, 440px)) !important;
+      max-width:100% !important;
+      max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
+      margin-left:0 !important;
+      margin-right:auto !important;
+      justify-self:start !important;
+    }
     @media (max-width:767.98px){
+      #profilePostsFeed{
+        --post-media-max-height: min(58vh, 620px);
+        --post-phone-max:340px;
+        --post-portrait-max:340px;
+      }
       #profilePostsFeed .media-stage.phone-shot{
-        width:min(72vw,var(--post-phone-max,430px)) !important;
-        max-width:100% !important;max-height:min(78svh,900px) !important;
+        width:min(78vw,var(--post-phone-max,340px)) !important;
+        max-width:100% !important;max-height:var(--post-media-max-height, min(58vh, 620px)) !important;
         margin-inline:auto !important;padding:0 !important;
         aspect-ratio:var(--device-ar-w,375)/var(--device-ar-h,667) !important;
         border-radius:28px !important;overflow:hidden !important;
@@ -2480,6 +2664,31 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
         border-radius:0 !important;object-fit:contain !important;padding:0 !important;
         background:transparent !important;
       }
+      #profilePostsFeed .mf-card.is-single-video-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-video-stage:not(.phone-shot),
+      #profilePostsFeed .mf-card.is-single-image-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-image-stage:not(.phone-shot){
+        width:min(100%, var(--post-media-card-width, 340px)) !important;
+        max-width:min(100%, 360px) !important;
+      }
+      #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage.standard-video-stage:not(.phone-shot) > video,
+      #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage.standard-image-stage:not(.phone-shot) > img{
+        width:min(100%, var(--post-media-card-width, 340px)) !important;
+        max-height:var(--post-media-max-height, min(58vh, 620px)) !important;
+      }
+    }
+    @media (min-width:768px) and (max-width:1024.98px){
+      #profilePostsFeed{
+        --post-media-max-height: min(60vh, 620px);
+      }
+      #profilePostsFeed .mf-card.is-single-video-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-video-stage:not(.phone-shot),
+      #profilePostsFeed .mf-card.is-single-image-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-image-stage:not(.phone-shot){
+        width:min(100%, var(--post-media-card-width, 440px)) !important;
+        max-width:min(100%, 480px) !important;
+      }
+      #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage.standard-video-stage > video,
+      #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage.standard-image-stage > img{
+        width:min(100%, var(--post-media-card-width, 440px)) !important;
+        max-height:var(--post-media-max-height, min(60vh, 620px)) !important;
+      }
     }
     @media (min-width:768px){
       #profilePostsFeed .media-stage.phone-shot,
@@ -2494,7 +2703,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       #profilePostsFeed .media-stage.phone-shot.standard-video-stage > video,
       #profilePostsFeed .media-stage.phone-shot.standard-image-stage > img{
         width:100% !important;height:auto !important;
-        max-height:min(78svh,960px) !important;object-fit:contain !important;
+        max-height:var(--post-media-max-height, min(74vh, 640px)) !important;object-fit:contain !important;
         border-radius:var(--post-media-radius) !important;padding:0 !important;
         background:transparent !important;
       }
@@ -2619,7 +2828,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
         width:100% !important;max-width:100% !important;
       }
       #profilePostsFeed .mf-card.mf-card-phone-shot:not(.is-multi-media-post){
-        width:min(100%, var(--post-media-card-width, 430px)) !important;
+        width:min(100%, var(--post-media-card-width, 340px)) !important;
         max-width:100% !important;margin-inline:auto !important;
       }
       #profilePostsFeed .mf-head{padding:1px 1px 8px;gap:14px;}
@@ -2635,8 +2844,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
         margin-left:auto !important;margin-right:auto !important;
       }
       #profilePostsFeed .mf-card.mf-card-phone-shot:not(.is-multi-media-post){
-        width:min(100%, var(--post-media-card-width, min(72vw, 430px))) !important;
-        max-width:min(calc(100% - 20px), 430px) !important;
+        width:min(100%, var(--post-media-card-width, min(78vw, 340px))) !important;
+        max-width:min(calc(100% - 20px), 360px) !important;
         margin-left:auto !important;margin-right:auto !important;
       }
       #profilePostsFeed .mf-name{font-size:17px;color:#101828;}
@@ -2707,6 +2916,27 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-sidebar{width:min(320px, 38vw);flex:0 0 min(320px, 38vw);border-right:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
     .gear-sidebar-head{flex:0 0 auto;padding:22px 18px 14px;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);}
     .gear-sidebar-title{font-size:22px;font-weight:900;color:var(--msb-palette-text, #0b1220);line-height:1.15;margin:0;}
+    .gear-archive-shortcut{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-top:12px;
+      padding:11px 12px;
+      border-radius:12px;
+      border:1px solid var(--msb-palette-border-strong, rgba(79,70,229,.22));
+      background:var(--msb-palette-action-soft, #eef2ff);
+      color:var(--msb-palette-action, #4338ca);
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+    }
+    .gear-archive-shortcut:hover,
+    .gear-archive-shortcut:focus{
+      text-decoration:none;
+      color:var(--msb-palette-action-strong, #3730a3);
+      background:var(--msb-palette-nav-hover, #e0e7ff);
+    }
+    .gear-archive-shortcut i{font-size:18px;}
     .gear-search{width:100%;height:40px;border-radius:999px;border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.12));background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:700;padding:0 14px 0 38px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='16.65' y1='16.65' x2='21' y2='21'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:14px center;}
     .gear-search:focus{border-color:#4f46e5;box-shadow:0 0 0 4px rgba(79,70,229,.12);}
     .gear-search-wrap{display:none;margin-left:auto;flex:1 1 240px;max-width:min(360px, 42vw);min-width:180px;}
@@ -2725,7 +2955,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-nav-section-chevron{color:var(--msb-palette-text-muted, #98a2b3);font-size:14px;transition:transform .18s ease;}
     .gear-nav-section.is-open .gear-nav-section-chevron{transform:rotate(180deg);}
     .gear-nav-items{display:none;padding:2px 0 6px 44px;position:relative;z-index:1;}
-    .gear-nav-section.is-open .gear-nav-items{display:block;max-height:min(180px, 26vh);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(79,70,229,.35) transparent;}
+    .gear-nav-section.is-open .gear-nav-items{display:block;max-height:min(320px, 42vh);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(79,70,229,.35) transparent;}
     .gear-nav-items::-webkit-scrollbar{width:8px;}
     .gear-nav-items::-webkit-scrollbar-thumb{background:rgba(79,70,229,.28);border-radius:999px;}
     .gear-nav-items::-webkit-scrollbar-track{background:transparent;}
@@ -2961,7 +3191,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       .gear-shell{flex-direction:column;min-height:0;}
       .gear-sidebar{width:100%;flex:0 0 auto;min-height:0;max-height:none;border-right:0;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);}
       .gear-nav{max-height:min(340px, 42vh);}
-      .gear-nav-section.is-open .gear-nav-items{max-height:min(160px, 22vh);}
+      .gear-nav-section.is-open .gear-nav-items{max-height:min(280px, 36vh);}
       .gear-main{padding:18px 16px 24px;}
     }
 
@@ -3315,11 +3545,11 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   background:transparent!important;background-color:transparent!important;
 }
 #profilePostsFeed .mf-card:has(.mf-head--on-media){
-  padding:8px 40px!important;
+  padding:8px 12px!important;
   box-sizing:border-box!important;
 }
 #profilePostsFeed .mf-card.mf-card-media-head-outside{
-  padding:8px 40px!important;
+  padding:8px 12px!important;
   box-sizing:border-box!important;
 }
 #profilePostsFeed .mf-card:has(.mf-head--on-media) .media-stage.standard-video-stage,
@@ -3463,7 +3693,7 @@ include __DIR__ . '/includes/header.php';
 
           <a class="ig-btn back" href="#" onclick="if(window.history.length > 1){ history.back(); return false; } window.location.href='feed.php'; return false;"><i class="icon ion-arrow-left-c"></i>&nbsp;Back</a>
           <?php if ($isOwnProfile): ?>
-            <a class="ig-btn" href="dashboard.php"><i class="icon ion-edit"></i>&nbsp;Edit</a>
+            <a class="ig-btn" href="user_edit.php?return=<?php echo rawurlencode('profile.php'); ?>"><i class="icon ion-edit"></i>&nbsp;Edit</a>
             <a class="ig-btn icon" href="messages.php" title="Messages"><i class="icon ion-chatboxes"></i></a>
             <a class="ig-btn icon" href="contacts.php" title="Friends"><i class="icon ion-person-stalker"></i></a>
             <a class="ig-btn" href="contact_requests.php"><i class="icon ion-person-add"></i>&nbsp;Friend Requests</a>
@@ -3526,32 +3756,48 @@ include __DIR__ . '/includes/header.php';
 
     <div class="ig-highlights" aria-label="Profile stories">
       <div class="ig-stories-track" id="profileStoriesTrack">
-        <?php if ($profileStoryCatalog): ?>
-          <?php
-            $story = $profileStoryCatalog[0];
-            $storyLabel = $username !== '' ? $username : $displayName;
-            if (u_len($storyLabel) > 11) {
-              $storyLabel = u_sub($storyLabel, 0, 10) . '..';
-            }
-            $storyThumb = trim((string)($story['avatarUrl'] ?? $avatarUrl));
-          ?>
-          <button type="button" class="ig-story-item" data-story-key="<?php echo h((string)($story['key'] ?? '')); ?>" data-story-index="0" aria-label="Open story for <?php echo h($displayName); ?>">
-            <div class="ig-story-ring">
-              <?php if ($storyThumb !== ''): ?>
-                <img src="<?php echo h($storyThumb); ?>" alt="">
-              <?php else: ?>
-                <span class="ig-story-thumb" style="background:linear-gradient(135deg,#667eea,#764ba2);"></span>
-              <?php endif; ?>
-            </div>
-            <!-- <span class="ig-story-name"><?php echo h($storyLabel); ?></span> -->
-          </button>
-        <?php elseif ($isOwnProfile): ?>
-          <a class="ig-story-item ig-story-create" href="dashboard.php?modal=1&amp;story=1" data-create-post-modal="1" aria-label="Create a story">
+        <?php if ($isOwnProfile): ?>
+          <a class="ig-story-item ig-story-create" href="dashboard.php?modal=1&amp;story=1&amp;from=profile" data-create-post-modal="1" aria-label="Create a story">
             <div class="ig-story-ring"><i class="icon ion-plus"></i></div>
             <span class="ig-story-name">New</span>
           </a>
-          <div class="ig-story-empty">Create a post in Dashboard to add your story.</div>
-        <?php else: ?>
+        <?php endif; ?>
+        <?php if ($profileStoryCatalog): ?>
+          <?php foreach ($profileStoryCatalog as $storyIndex => $story): ?>
+            <?php
+              $storyKey = (string)($story['key'] ?? '');
+              $ringSrc = trim((string)($story['ringSrc'] ?? $story['avatarUrl'] ?? ''));
+              $ringType = strtolower(trim((string)($story['ringType'] ?? 'image')));
+              $storyLabel = trim((string)($story['subtitle'] ?? ''));
+              if ($storyLabel === '') {
+                $storyLabel = 'Story';
+              }
+              $slide0 = (isset($story['slides'][0]) && is_array($story['slides'][0])) ? $story['slides'][0] : [];
+              $capPreview = trim((string)($slide0['caption'] ?? ''));
+            ?>
+            <button
+              type="button"
+              class="ig-story-item"
+              data-story-key="<?php echo h($storyKey); ?>"
+              data-story-index="<?php echo (int)$storyIndex; ?>"
+              data-post-id="<?php echo (int)($slide0['postId'] ?? 0); ?>"
+              aria-label="Open story <?php echo h($storyLabel); ?>"
+            >
+              <div class="ig-story-ring">
+                <?php if ($ringType === 'video' && $ringSrc !== ''): ?>
+                  <video class="ig-story-thumb" src="<?php echo h($ringSrc); ?>" muted playsinline preload="metadata"></video>
+                <?php elseif ($ringSrc !== ''): ?>
+                  <img class="ig-story-thumb" src="<?php echo h($ringSrc); ?>" alt="">
+                <?php elseif ($capPreview !== ''): ?>
+                  <span class="ig-story-ring-text"><?php echo h(function_exists('mb_substr') ? (string)mb_substr($capPreview, 0, 18) : substr($capPreview, 0, 18)); ?></span>
+                <?php else: ?>
+                  <span class="ig-story-thumb" style="background:linear-gradient(135deg,#667eea,#764ba2);"></span>
+                <?php endif; ?>
+              </div>
+              <span class="ig-story-name"><?php echo h($storyLabel); ?></span>
+            </button>
+          <?php endforeach; ?>
+        <?php elseif (!$isOwnProfile): ?>
           <div class="ig-story-empty">No stories yet.</div>
         <?php endif; ?>
       </div>
@@ -3703,6 +3949,10 @@ include __DIR__ . '/includes/header.php';
             <aside class="gear-sidebar" aria-label="Settings navigation">
               <div class="gear-sidebar-head">
                 <h2 class="gear-sidebar-title">Settings</h2>
+                <a class="gear-archive-shortcut" href="archive.php">
+                  <i class="icon ion-ios-box" aria-hidden="true"></i>
+                  <span>Archived posts</span>
+                </a>
               </div>
 
               <nav class="gear-nav" id="gearNav">
@@ -3790,7 +4040,9 @@ include __DIR__ . '/includes/header.php';
                     <?php endif; ?>
 
                     <div class="gear-detail-body">
-                      <?php profile_gear_render_detail_action($row, $profileSettings, $themeAutoDefault); ?>
+                      <?php
+                        profile_gear_render_detail_action($row, $profileSettings, $themeAutoDefault);
+                      ?>
                     </div>
                   </section>
                 <?php endforeach; ?>
@@ -3898,22 +4150,26 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <style>
-  /* ✅ Modal (instagram-style) */
+  /* ✅ Modal (instagram-style)
+     Desktop/laptop: fixed frame so next/prev never shifts the comments card.
+     Mobile/tablet overrides below use their own stable dimensions. */
   .pv-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.72);z-index:9999;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
   .pv-overlay.show{display:flex;}
-  .pv-modal{width:min(1120px,96vw);height:min(720px,88vh);background:var(--msb-palette-bg, #fff);color:var(--msb-palette-text, #0f172a);overflow:hidden;display:flex;box-shadow:0 30px 90px rgba(0,0,0,.45);}
-  .pv-left{flex:1.15;min-width:0;background:#0b1220;display:flex;align-items:center;justify-content:center;}
-  .pv-media{width:100%;height:100%;display:flex;align-items:center;justify-content:center;--post-media-radius:10px;position:relative;}
-  .pv-media img,.pv-media video,.pv-media iframe{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:var(--post-media-radius);}
-  .pv-media video{width:100%;height:100%;object-fit:contain;border-radius:var(--post-media-radius);}
+  .pv-modal{width:fit-content;max-width:min(1120px,96vw);height:min(720px,88vh);background:transparent;color:var(--msb-palette-text, #0f172a);overflow:hidden;display:flex;align-items:stretch;gap:0;box-shadow:none;}
+  .pv-left{flex:0 0 min(720px,calc(96vw - min(380px,38vw) - 48px));width:min(720px,calc(96vw - min(380px,38vw) - 48px));max-width:min(720px,calc(96vw - min(380px,38vw) - 48px));height:100%;background:transparent;display:flex;align-items:stretch;justify-content:flex-end;}
+  .pv-media{width:auto;max-width:100%;height:100%;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;--post-media-radius:10px;position:relative;background:transparent;}
+  .pv-media img,.pv-media video,.pv-media iframe{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);background:transparent;display:block;}
+  .pv-media video{width:auto;height:auto;object-fit:contain;border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);background:transparent;}
   .pv-media .mf-media-carousel,
   .pv-media .media-carousel{
     position:relative;
     width:100%;
+    max-width:100%;
     height:100%;
+    margin-left:auto;
     overflow:hidden;
     background:transparent;
-    border-radius:var(--post-media-radius);
+    border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);
   }
   .pv-media .mf-media-slides,
   .pv-media .media-slides{
@@ -3931,7 +4187,7 @@ include __DIR__ . '/includes/header.php';
     max-width:100%;
     display:flex;
     align-items:center;
-    justify-content:center;
+    justify-content:flex-end;
     overflow:hidden;
     background:transparent;
   }
@@ -3942,18 +4198,21 @@ include __DIR__ . '/includes/header.php';
     width:auto;
     height:auto;
     object-fit:contain;
-    object-position:center center;
-    border-radius:var(--post-media-radius);
+    object-position:right center;
+    border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);
+    display:block;
   }
   .pv-media .mf-media-slide > video,
   .pv-media .media-slide > video{
     max-width:100%;
     max-height:100%;
-    width:100%;
-    height:100%;
+    width:auto;
+    height:auto;
     object-fit:contain;
-    object-position:center center;
-    border-radius:var(--post-media-radius);
+    object-position:right center;
+    border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);
+    background:transparent;
+    display:block;
   }
   .pv-media .mf-media-nav,
   .pv-media .media-nav{
@@ -4037,7 +4296,7 @@ include __DIR__ . '/includes/header.php';
     .pv-left.pv-left-scroll .pv-media > div{height:auto !important;min-height:100%;align-items:flex-start !important;justify-content:flex-start !important;padding:22px !important;}
   }
 
-  .pv-right{flex:.85;min-width:320px;display:flex;flex-direction:column;background:var(--msb-palette-bg, #fff);color:var(--msb-palette-text, #0f172a);min-height:0;}
+  .pv-right{flex:0 0 min(380px,38vw);width:min(380px,38vw);min-width:280px;display:flex;flex-direction:column;background:var(--msb-palette-bg, #fff);color:var(--msb-palette-text, #0f172a);min-height:0;border-radius:0 12px 12px 0;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.45);}
   .pv-head{padding:14px 14px;border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--msb-palette-bg, #fff);}
   .pv-user{display:flex;align-items:center;gap:10px;min-width:0;}
   .pv-ava{width:38px;height:38px;border-radius:999px;object-fit:cover;background:#eef2ff;}
@@ -4067,14 +4326,14 @@ include __DIR__ . '/includes/header.php';
   .pv-input{position:sticky;bottom:0;background:var(--msb-palette-bg, #fff);padding:10px 0 calc(10px + env(safe-area-inset-bottom));margin-top:10px;z-index:4;}
   .pv-input::before{content:"";position:absolute;left:0;right:0;top:-10px;height:10px;background:linear-gradient(to top, var(--msb-palette-bg, #fff), rgba(255,255,255,0));}
 
-  /* ✅ Mobile/tablet viewport fixes: avoid VH bugs + ensure comment input is visible */
+  /* ✅ Mobile/tablet: stable frame (comments card does not jump on next/prev) */
   @media (max-width: 980px){
-    .pv-overlay{padding:10px;align-items:stretch;}
-    .pv-modal{width:100%;height:calc(var(--vh, 1vh) * 100 - 20px);max-height:none;border-radius:18px;}
+    .pv-overlay{padding:10px;align-items:center;justify-content:center;}
+    .pv-modal{width:min(720px,96vw);max-width:min(720px,96vw);height:calc(var(--vh, 1vh) * 100 - 20px);max-height:calc(var(--vh, 1vh) * 100 - 20px);border-radius:18px;}
   }
   @media (max-width: 640px){
-    .pv-overlay{padding:0;}
-    .pv-modal{width:100vw;height:calc(var(--vh, 1vh) * 100);border-radius:0;}
+    .pv-overlay{padding:10px;}
+    .pv-modal{width:calc(100vw - 20px);max-width:calc(100vw - 20px);height:calc(var(--vh, 1vh) * 100 - 20px);max-height:calc(var(--vh, 1vh) * 100 - 20px);border-radius:18px;}
   }
 
 
@@ -4137,9 +4396,6 @@ include __DIR__ . '/includes/header.php';
   html[data-theme="dark"] .pv-com .bubble{background:transparent;border-color:transparent;}
   html.dark-auto .pv-com.is-alert-focus,
   html[data-theme="dark"] .pv-com.is-alert-focus{background:var(--msb-palette-hover-bg, rgba(96,165,250,.16));border-color:var(--msb-palette-border-strong, rgba(147,197,253,.34));box-shadow:none;}
-  html.dark-auto .pv-modal,
-  html[data-theme="dark"] .pv-modal,
-  html[data-msb-appearance] .pv-modal,
   html.dark-auto .pv-right,
   html[data-theme="dark"] .pv-right,
   html[data-msb-appearance] .pv-right,
@@ -4158,6 +4414,19 @@ include __DIR__ . '/includes/header.php';
     background:var(--msb-palette-bg, #171d24) !important;
     background-color:var(--msb-palette-bg, #171d24) !important;
     color:var(--msb-palette-text, #f3f6fb);
+  }
+  html.dark-auto .pv-modal,
+  html[data-theme="dark"] .pv-modal,
+  html[data-msb-appearance] .pv-modal,
+  html.dark-auto .pv-left,
+  html[data-theme="dark"] .pv-left,
+  html[data-msb-appearance] .pv-left,
+  html.dark-auto .pv-media,
+  html[data-theme="dark"] .pv-media,
+  html[data-msb-appearance] .pv-media{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
   }
   html.dark-auto .pv-head,
   html[data-theme="dark"] .pv-head,
@@ -4420,10 +4689,18 @@ include __DIR__ . '/includes/header.php';
   .pv-next{right:14px;}
 
   @media (max-width: 860px){
-    .pv-overlay{align-items:stretch;justify-content:flex-start;}
-    .pv-modal{flex-direction:column;width:min(720px,96vw);height:min(calc(var(--vh, 1vh) * 92),860px);margin:auto;position:relative;}
-    .pv-right{min-width:0;}
-    .pv-left{flex:1;min-height:42vh;}
+    .pv-overlay{align-items:center;justify-content:center;}
+    .pv-modal{flex-direction:column;width:min(720px,96vw);max-width:min(720px,96vw);height:min(calc(var(--vh, 1vh) * 92),860px);max-height:min(calc(var(--vh, 1vh) * 92),860px);margin:auto;position:relative;gap:0;}
+    .pv-right{min-width:0;width:100%;max-width:100%;flex:1 1 auto;max-height:none;border-radius:0 0 12px 12px;}
+    .pv-left{flex:0 0 min(52vh,520px);width:100%;max-width:100%;height:min(52vh,520px);min-height:0;background:transparent;margin-inline:0;justify-content:flex-end;align-items:stretch;}
+    .pv-media,.pv-media .mf-media-carousel,.pv-media .media-carousel{max-width:100%;width:100%;height:100%;max-height:100%;margin-left:0;border-radius:12px 12px 0 0;}
+    .pv-media img,.pv-media video,.pv-media iframe,
+    .pv-media .mf-media-slide > img,
+    .pv-media .media-slide > img,
+    .pv-media .mf-media-slide > video,
+    .pv-media .media-slide > video{max-width:100%;max-height:100%;margin-inline:auto;border-radius:12px 12px 0 0;object-position:center bottom;}
+    .pv-media .mf-media-slide,
+    .pv-media .media-slide{justify-content:center;}
 
     /* prevent nav from colliding with avatar/header on small screens */
     .pv-nav{position:absolute;top:calc(22vh);transform:translateY(-50%);}
@@ -4432,7 +4709,7 @@ include __DIR__ . '/includes/header.php';
   }
   @media (max-width: 520px){
     .pv-overlay{padding:10px;}
-    .pv-modal{height:calc(var(--vh, 1vh) * 100 - 20px);}
+    .pv-modal{width:calc(100vw - 20px);max-width:calc(100vw - 20px);height:calc(var(--vh, 1vh) * 100 - 20px);max-height:calc(var(--vh, 1vh) * 100 - 20px);}
     .pv-head{padding:12px;}
     .pv-comments{padding:10px 12px;padding-bottom:160px;}
 
@@ -4552,6 +4829,7 @@ const GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $gridId
 const GALLERY_GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $galleryGridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
 const TAGS_GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $tagsGridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
 let pvActiveGridIds = GRID_IDS;
+let pvActiveGridScope = 'all';
 let pvIndex = -1;
 let pvPostId = 0;
 let pvReplyTo = 0;
@@ -4782,9 +5060,13 @@ function pvSetReply(parentId, displayName, mode){
   }
 }
 
-function pvGridIdsForElement(el){
+function pvGridScopeForElement(el){
   const grid = el && el.closest ? el.closest('.ig-grid[data-grid-scope]') : null;
-  const scope = grid ? String(grid.getAttribute('data-grid-scope') || '') : '';
+  return grid ? String(grid.getAttribute('data-grid-scope') || 'all') : 'all';
+}
+
+function pvGridIdsForElement(el){
+  const scope = pvGridScopeForElement(el);
   if (scope === 'gallery') return GALLERY_GRID_IDS;
   if (scope === 'tags') return TAGS_GRID_IDS;
   return GRID_IDS;
@@ -4800,7 +5082,7 @@ function pvFindGridContext(postId){
   ];
   for (const row of lists) {
     const idx = Array.isArray(row.ids) ? row.ids.indexOf(postId) : -1;
-    if (idx >= 0) return { ids: row.ids, idx };
+    if (idx >= 0) return { ids: row.ids, idx, scope: row.scope };
   }
   return null;
 }
@@ -4841,11 +5123,12 @@ function pvOpenByIndex(idx){
   pvPreloadNeighbors();
 }
 
-function pvOpenInGrid(postId, gridIds){
+function pvOpenInGrid(postId, gridIds, scope){
   postId = Number(postId || 0);
   gridIds = Array.isArray(gridIds) ? gridIds : [];
   if (!postId || !gridIds.length) return;
   pvActiveGridIds = gridIds;
+  pvActiveGridScope = scope || 'all';
   const idx = gridIds.indexOf(postId);
   if (idx >= 0) {
     pvOpenByIndex(idx);
@@ -4871,10 +5154,12 @@ window.pvOpenById = function(postId){
   const ctx = pvFindGridContext(postId);
   if (ctx) {
     pvActiveGridIds = ctx.ids;
+    pvActiveGridScope = ctx.scope || 'all';
     pvOpenByIndex(ctx.idx);
     return;
   }
   pvActiveGridIds = GRID_IDS;
+  pvActiveGridScope = 'all';
   pvPostId = postId;
   pvIndex = -1;
   pvCollapsedReplyIds.clear();
@@ -5379,7 +5664,11 @@ function pvPreloadTileByPostId(postId){
   try {
     postId = Number(postId || 0);
     if (!postId) return;
-    const el = document.querySelector(`.ig-item[data-post-id="${postId}"]`);
+    let el = null;
+    if (pvActiveGridScope === 'gallery' || pvActiveGridScope === 'tags') {
+      el = document.querySelector(`.ig-grid[data-grid-scope="${pvActiveGridScope}"] .ig-item[data-post-id="${postId}"]`);
+    }
+    if (!el) el = document.querySelector(`.ig-item[data-post-id="${postId}"]`);
     if (!el) return;
     const ph = el.querySelector('.ph');
     if (ph) {
@@ -5412,7 +5701,7 @@ document.querySelectorAll('.ig-grid .ig-item').forEach(a => {
     e.preventDefault();
     const postId = Number(a.getAttribute('data-post-id') || 0);
     if (!postId) return;
-    pvOpenInGrid(postId, pvGridIdsForElement(a));
+    pvOpenInGrid(postId, pvGridIdsForElement(a), pvGridScopeForElement(a));
   });
 });
 
@@ -5603,11 +5892,15 @@ if(window.MSBReactions){
 // Share / Save
 pv.share.addEventListener('click', async () => {
   if (!pvPostId) return;
+  if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function') {
+    window.MSBPostCardMenu.openShare(pvPostId);
+    return;
+  }
   try {
     const res = await pvJson('feed_api.php?ajax=share', {
       method:'POST',
       headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
-      body:`post_id=${encodeURIComponent(pvPostId)}`,
+      body:`post_id=${encodeURIComponent(pvPostId)}&share_action=add`,
       credentials:'same-origin'
     });
     pvApplyTrack(res);
@@ -5626,6 +5919,14 @@ pv.save.addEventListener('click', async () => {
     });
     pvApplyTrack(res);
     if (window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(pvPostId, res, { source: 'profile-modal' });
+    try{
+      var savedNow = !!(res && res.state && Number(res.state.saved || 0) === 1);
+      if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
+        window.MSBPostCardMenu.toast(savedNow
+          ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
+          : 'Removed from Bookmarks.');
+      }
+    }catch(_eToast){}
   } catch (e) {}
 });
 
@@ -6901,6 +7202,7 @@ pv.text.addEventListener('keydown', (e)=>{
   var PROFILE_FRIEND_STATUS = <?php echo json_encode($isOwnProfile ? 'self' : $friendStatus); ?>;
   var PROFILE_CAN_FOLLOW_PUBLISHERS = <?php echo $canFollowPublishers ? 'true' : 'false'; ?>;
   var PROFILE_HIDE_PRIVATE_CONTACT = <?php echo $canViewProfilePrivateContact ? 'false' : 'true'; ?>;
+  var PROFILE_IS_PUBLISHER = <?php echo $profileIsPublisher ? 'true' : 'false'; ?>;
   var API_URL = 'feed_api.php';
   var loaded = false;
   var loading = false;
@@ -7330,26 +7632,71 @@ pv.text.addEventListener('keydown', (e)=>{
   }
   var PROFILE_FEED_MAX = 614;
   function maxVideoHeight(){
+    // Match feed.php mfMaxVideoHeight (slightly larger mobile/tablet/desktop).
     var viewportH = Math.max(window.innerHeight || 0, 320);
-    if(window.matchMedia('(max-width: 767.98px)').matches) return Math.max(viewportH - 220, 280);
-    return Math.min(Math.round(viewportH * 0.78), 960);
+    var reserved = 230;
+    var fitH = Math.max(300, viewportH - reserved);
+    if(window.matchMedia('(max-width: 767.98px)').matches){
+      return Math.min(Math.round(viewportH * 0.58), fitH, 620);
+    }
+    if(window.matchMedia('(max-width: 1024.98px)').matches){
+      return Math.min(Math.round(viewportH * 0.60), fitH, 620);
+    }
+    return Math.min(Math.round(viewportH * 0.62), fitH, 640);
+  }
+  function mediaMaxHeightCss(){
+    // Match feed.php — never bake computed px.
+    if(window.matchMedia('(max-width: 767.98px)').matches){
+      return 'min(58vh, 620px)';
+    }
+    if(window.matchMedia('(max-width: 1024.98px)').matches){
+      return 'min(60vh, 620px)';
+    }
+    return 'min(74vh, 640px)';
+  }
+  function computeMediaCardWidth(aspectW, aspectH, opts){
+    // Match feed.php mfComputeMediaCardWidth.
+    opts = opts || {};
+    aspectW = Number(aspectW || 0);
+    aspectH = Number(aspectH || 0);
+    if(!aspectW || !aspectH) return 0;
+
+    var aspect = aspectW / aspectH;
+    var maxVideoH = maxVideoHeight();
+    var feed = opts.feedEl || document.getElementById('profilePostsFeed');
+    var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), PROFILE_FEED_MAX);
+    var cardPad = opts.cardPad != null ? Number(opts.cardPad) : 24;
+    var availableWidth = Math.max(240, (feedWidth || PROFILE_FEED_MAX) - cardPad);
+    var isPhoneShot = !!opts.isPhoneShot;
+    var desiredWidth = Math.round(aspect * maxVideoH);
+    var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
+    var isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
+
+    if(isMobile){
+      if(isPhoneShot){
+        return Math.max(240, Math.min(availableWidth, Math.round(Math.min(window.innerWidth * 0.78, 340))));
+      }
+      var mobileMax = aspect < 0.8 ? 340 : (aspect > 1.15 ? Math.min(availableWidth, 400) : 360);
+      return Math.max(240, Math.min(desiredWidth, availableWidth, mobileMax));
+    }
+
+    if(isTablet){
+      var tabletMax = aspect < 0.8 ? 440 : (aspect > 1.15 ? Math.min(availableWidth, 600) : 480);
+      return Math.max(280, Math.min(desiredWidth, availableWidth, tabletMax));
+    }
+
+    var maxByShape = aspect < 0.8 ? 440 : (aspect > 1.15 ? 720 : 560);
+    return Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
   }
   function initialMediaCardStyleFromDims(dims, isPhoneShot){
     if(!dims || !Number(dims.w || 0) || !Number(dims.h || 0)) return '';
-    var aspectW = Number(dims.w || 0);
-    var aspectH = Number(dims.h || 0);
-    var aspect = aspectW / aspectH;
-    var maxVideoH = maxVideoHeight();
-    var feed = document.getElementById('profilePostsFeed');
-    var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), PROFILE_FEED_MAX);
-    var availableWidth = Math.max(280, feedWidth || PROFILE_FEED_MAX);
-    var desiredWidth = Math.round(aspect * maxVideoH);
-    var maxByShape = aspect < 0.8 ? 520 : (aspect > 1.15 ? 760 : 620);
-    if(isPhoneShot && window.matchMedia('(max-width: 767.98px)').matches) maxByShape = 430;
-    var safeWidth = Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
-    if(aspect >= 0.8 && aspect <= 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 420));
-    if(aspect > 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 560));
-    return '--post-media-card-width:'+String(safeWidth)+'px;width:min(100%,'+String(safeWidth)+'px);max-width:100%;margin-left:auto;margin-right:auto;padding:8px 40px;box-sizing:border-box;';
+    var safeWidth = computeMediaCardWidth(dims.w, dims.h, {
+      isPhoneShot: !!isPhoneShot,
+      feedEl: document.getElementById('profilePostsFeed'),
+      cardPad: 24
+    });
+    if(!safeWidth) return '';
+    return '--post-media-card-width:'+String(safeWidth)+'px;--post-media-max-height:'+mediaMaxHeightCss()+';width:100%;max-width:100%;margin-left:0;margin-right:0;padding:8px 12px;box-sizing:border-box;';
   }
   function initialMediaAspect(it, deviceDims){
     if(deviceDims && deviceDims.w > 0 && deviceDims.h > 0) return deviceDims;
@@ -7365,8 +7712,10 @@ pv.text.addEventListener('keydown', (e)=>{
     card.style.maxWidth = '';
     card.style.marginLeft = '';
     card.style.marginRight = '';
-    
+    card.style.padding = '';
+    card.style.boxSizing = '';
     try{ card.style.removeProperty('--post-media-card-width'); }catch(e){}
+    try{ card.style.removeProperty('--post-media-max-height'); }catch(e){}
   }
   function resetProfileNonMediaCardWidths(scope){
     try{
@@ -7376,6 +7725,7 @@ pv.text.addEventListener('keydown', (e)=>{
     }catch(e){}
   }
   function applyPublicMediaCardWidth(card, aspectW, aspectH){
+    // Match feed.php mfApplyPublicVideoCardWidth for profile Posts tab.
     if(!card) return;
     aspectW = Number(aspectW || 0);
     aspectH = Number(aspectH || 0);
@@ -7384,57 +7734,78 @@ pv.text.addEventListener('keydown', (e)=>{
     var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
     var video = card.querySelector('.media-stage.standard-video-stage > video');
     var image = card.querySelector('.media-stage.standard-image-stage > img');
+    var isPhoneShot = card.classList.contains('mf-card-phone-shot') || !!(media && media.classList.contains('phone-shot'));
+    var isHeadOutside = card.classList.contains('mf-card-media-head-outside') || !!card.querySelector('.mf-head--on-media');
+    var safeWidth = computeMediaCardWidth(aspectW, aspectH, {
+      isPhoneShot: isPhoneShot,
+      feedEl: card.closest('.mf-feed') || document.getElementById('profilePostsFeed'),
+      cardPad: 24
+    });
+    if(!safeWidth) return;
 
-    var viewportH = Math.max(window.innerHeight || 0, 320);
-    var maxVideoH = window.matchMedia('(max-width: 767.98px)').matches
-      ? Math.max(viewportH - 220, 280)
-      : Math.min(Math.round(viewportH * 0.78), 960);
-
-    var aspect = aspectW / aspectH;
-    var feed = card.closest('.mf-feed') || document.getElementById('profilePostsFeed');
-    var feedWidth = feed ? Math.floor(feed.clientWidth) : Math.round(aspect * maxVideoH);
-    var availableWidth = Math.max(280, feedWidth);
-    var desiredWidth = Math.round(aspect * maxVideoH);
-    var maxByShape = aspect < 0.8 ? 520 : (aspect > 1.15 ? 760 : 620);
-    if(card.classList.contains('mf-card-phone-shot') && window.matchMedia('(max-width: 767.98px)').matches) maxByShape = 430;
-    var safeWidth = Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
-    if(aspect >= 0.8 && aspect <= 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 420));
-    if(aspect > 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 560));
-
-    card.style.width = String(safeWidth) + 'px';
+    var maxH = mediaMaxHeightCss();
+    // Keep the card full-width; constrain/left-align media only (like feed.php).
+    card.style.width = '100%';
     card.style.maxWidth = '100%';
-    card.style.marginLeft = 'auto';
-    card.style.marginRight = 'auto';
+    card.style.marginLeft = '0';
+    card.style.marginRight = '0';
     card.style.setProperty('box-sizing', 'border-box', 'important');
-    card.style.setProperty('padding', (card.querySelector('.mf-head--on-media') || card.classList.contains('mf-card-media-head-outside')) ? '8px 40px' : '20px', 'important');
+    card.style.setProperty('padding', isHeadOutside ? '8px 12px' : '20px', 'important');
     card.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
+    card.style.setProperty('--post-media-max-height', maxH);
 
     if(media){
-      media.style.width = '100%';
-      media.style.maxWidth = '100%';
+      if(isHeadOutside){
+        media.style.width = '100%';
+        media.style.maxWidth = '100%';
+        media.style.marginLeft = '0';
+        media.style.marginRight = '0';
+      }else{
+        media.style.width = 'min(100%, ' + String(safeWidth) + 'px)';
+        media.style.maxWidth = '100%';
+        media.style.marginLeft = '0';
+        media.style.marginRight = 'auto';
+      }
       media.style.height = 'auto';
-      media.style.aspectRatio = '';
+      media.style.aspectRatio = 'auto';
       media.style.background = 'transparent';
-      media.style.removeProperty('overflow');
-      media.style.marginLeft = '';
-      media.style.marginRight = '';
+      media.style.setProperty('overflow', isHeadOutside ? 'visible' : 'hidden', 'important');
+      if(!isHeadOutside){
+        media.style.setProperty('max-height', maxH, 'important');
+      }else{
+        media.style.removeProperty('max-height');
+      }
+      media.style.removeProperty('min-height');
+      try{
+        media.classList.remove('single-portrait', 'single-landscape', 'single-square');
+      }catch(e){}
     }
     if(video){
-      video.style.width = '100%';
-      video.style.height = 'auto';
-      video.style.maxHeight = '';
-      video.style.objectFit = 'contain';
+      video.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+      video.style.setProperty('max-width', '100%', 'important');
+      video.style.setProperty('height', 'auto', 'important');
+      video.style.setProperty('max-height', maxH, 'important');
+      video.style.setProperty('object-fit', 'contain', 'important');
+      video.style.setProperty('object-position', 'center center', 'important');
+      video.style.setProperty('margin-left', '0', 'important');
+      video.style.setProperty('margin-right', 'auto', 'important');
+      video.style.setProperty('justify-self', 'start', 'important');
       video.style.background = 'transparent';
       video.style.removeProperty('padding');
     }
     if(image){
-      image.style.width = '100%';
-      image.style.height = 'auto';
-      image.style.objectFit = 'contain';
+      image.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+      image.style.setProperty('max-width', '100%', 'important');
+      image.style.setProperty('height', 'auto', 'important');
+      image.style.setProperty('max-height', maxH, 'important');
+      image.style.setProperty('object-fit', 'contain', 'important');
+      image.style.setProperty('object-position', 'center center', 'important');
+      image.style.setProperty('margin-left', '0', 'important');
+      image.style.setProperty('margin-right', 'auto', 'important');
+      image.style.setProperty('justify-self', 'start', 'important');
       image.style.background = 'transparent';
       image.style.removeProperty('padding');
       image.style.removeProperty('box-sizing');
-      image.style.removeProperty('max-height');
     }
   }
   function syncProfileMediaCard(el){
@@ -7711,6 +8082,7 @@ pv.text.addEventListener('keydown', (e)=>{
   }
   function profileIsPublisherItem(it){
     it = it || {};
+    if (PROFILE_IS_PUBLISHER) return true;
     if (Number(it.is_publisher || 0) === 1) return true;
     if (String(it.account_kind || '').toLowerCase() === 'publisher') return true;
     var code = String(it.friend_code || '').trim().toUpperCase();
@@ -8197,6 +8569,13 @@ pv.text.addEventListener('keydown', (e)=>{
       });
       commitEngagement($card, pid, merged);
       if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(pid, res, { source: 'profile-card' });
+      try{
+        if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
+          window.MSBPostCardMenu.toast(Number(merged.is_saved || 0) === 1
+            ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
+            : 'Removed from Bookmarks.');
+        }
+      }catch(_eToast){}
     });
   });
   $(document).on('click', '#profilePostsFeed .mf-act.mf-share', function(e){
@@ -8205,7 +8584,12 @@ pv.text.addEventListener('keydown', (e)=>{
     var $btn = $(this).closest('.mf-act.mf-share');
     var $card = $btn.closest('.mf-card');
     var pid = Number($card.data('id') || 0);
-    if(!pid || $btn.data('busy')) return;
+    if(!pid) return;
+    if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function'){
+      window.MSBPostCardMenu.openShare(pid, $card.get(0));
+      return;
+    }
+    if($btn.data('busy')) return;
     var snap = cardCountsFromDom($card);
     var nextShared = snap.is_shared ? 0 : 1;
     var optimistic = Object.assign({}, snap, {
@@ -8257,7 +8641,24 @@ pv.text.addEventListener('keydown', (e)=>{
     if(!document.body.classList.contains('profile-posts-mode')) return;
     if(ppResizeTimer) clearTimeout(ppResizeTimer);
     ppResizeTimer = setTimeout(function(){
-      document.querySelectorAll('#profilePostsFeed .mf-card.is-single-video-post .media-stage.standard-video-stage > video, #profilePostsFeed .mf-card.is-single-image-post .media-stage.standard-image-stage > img').forEach(syncProfileMediaCard);
+      document.querySelectorAll('#profilePostsFeed .mf-card.is-single-video-post, #profilePostsFeed .mf-card.is-single-image-post').forEach(function(card){
+        try{
+          var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
+          if(!media) return;
+          var dims = getDeviceDimensions(card);
+          if(!dims || !dims.w || !dims.h){
+            var el = media.querySelector(':scope > video, :scope > img');
+            if(el){
+              if(String(el.tagName || '').toUpperCase() === 'VIDEO'){
+                dims = { w: Number(el.videoWidth || 0), h: Number(el.videoHeight || 0) };
+              }else{
+                dims = { w: Number(el.naturalWidth || 0), h: Number(el.naturalHeight || 0) };
+              }
+            }
+          }
+          if(dims && dims.w && dims.h) applyPublicMediaCardWidth(card, dims.w, dims.h);
+        }catch(err){}
+      });
       document.querySelectorAll('#profilePostsFeed .mf-card.mf-card-phone-shot.mf-card-text-only').forEach(function(card){
         var dims = getDeviceDimensions(card);
         if(dims && dims.w && dims.h) applyPublicMediaCardWidth(card, dims.w, dims.h);
@@ -8290,9 +8691,33 @@ pv.text.addEventListener('keydown', (e)=>{
 <script>
 (function(){
   var catalog = <?php echo json_encode($profileStoryCatalog, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+  var openStoryPostId = <?php echo (int)$profileStoryPostId; ?>;
 
   if(window.TTStories && typeof window.TTStories.setCatalog === 'function'){
     window.TTStories.setCatalog(Array.isArray(catalog) ? catalog : []);
+  }
+
+  function openStoryByPostId(postId){
+    postId = Number(postId || 0);
+    if(!postId || !window.TTStories) return false;
+    if(typeof window.TTStories.openByKey === 'function'){
+      if(window.TTStories.openByKey('s' + postId)) return true;
+    }
+    if(!Array.isArray(catalog)) return false;
+    for(var i = 0; i < catalog.length; i += 1){
+      var slides = catalog[i] && Array.isArray(catalog[i].slides) ? catalog[i].slides : [];
+      for(var j = 0; j < slides.length; j += 1){
+        if(Number(slides[j].postId || 0) === postId){
+          var key = String(catalog[i].key || '');
+          if(key && window.TTStories.openByKey(key)) return true;
+          if(typeof window.TTStories.openByIndex === 'function'){
+            window.TTStories.openByIndex(i);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   document.addEventListener('click', function(e){
@@ -8300,6 +8725,7 @@ pv.text.addEventListener('keydown', (e)=>{
     if(!target || !target.closest) return;
     var item = target.closest('.ig-story-item[data-story-key]');
     if(!item) return;
+    if(item.classList.contains('ig-story-create')) return;
     e.preventDefault();
     var key = String(item.getAttribute('data-story-key') || '');
     if(!key || !window.TTStories) return;
@@ -8311,11 +8737,34 @@ pv.text.addEventListener('keydown', (e)=>{
     if(!target || !target.closest) return;
     var storiesWrap = document.getElementById('tt-stories-wrap');
     if(!storiesWrap || !storiesWrap.classList.contains('is-open')) return;
-    if(target.closest('#tt-stories-wrap, .ig-story-item[data-story-key]')) return;
+    // Keep story open while using fries menu / Archive·Delete confirm popups.
+    if(target.closest(
+      '#tt-stories-wrap, .ig-story-item[data-story-key],' +
+      '.pcm-menu-portal, #ttStoriesMenuWrap, #ttStoriesMenu, .tt-stories-menu-wrap,' +
+      '#pcmArchiveConfirmDialog, #pcmDeleteConfirmDialog, #pcmShareSheet, #profileDeleteConfirmModal,' +
+      'dialog.pcm-delete-dialog, dialog.pcm-archive-dialog, dialog.pcm-share-dialog'
+    )) return;
     if(window.TTStories && typeof window.TTStories.close === 'function'){
       window.TTStories.close();
     }
   });
+
+  if(openStoryPostId > 0){
+    var tries = 0;
+    (function tryOpen(){
+      tries += 1;
+      if(openStoryByPostId(openStoryPostId)){
+        try{
+          var url = new URL(window.location.href);
+          url.searchParams.delete('story_post');
+          url.searchParams.delete('fresh');
+          window.history.replaceState({}, '', url.toString());
+        }catch(_e){}
+        return;
+      }
+      if(tries < 20) setTimeout(tryOpen, 120);
+    })();
+  }
 })();
 </script>
 
@@ -8682,7 +9131,8 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-
 
 <?php post_card_actions_menu_render_modals(); ?>
 <?php post_card_actions_menu_render_js([
-  'delete_mode' => 'profile',
+  'delete_mode' => 'feed',
+  'api_url' => 'feed_api.php',
   'staff_readonly' => false,
   'menu_surface' => 'profile',
   'always_portal' => true,

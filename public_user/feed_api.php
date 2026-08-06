@@ -429,6 +429,10 @@ try {
       $where .= " AND p.visibility = 'public'";
       $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, false);
       $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, false));
+      // Reels / public list: publishers only see other publishers' posts.
+      if (publisher_workspace_viewer($dbh, $meId)) {
+        $where .= ' AND ' . publisher_author_is_publisher_sql('u');
+      }
     } elseif ($pageMode === 'news') {
       $where .= " AND p.visibility = 'public'";
       $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, true);
@@ -1061,7 +1065,13 @@ try {
       $st->execute([':pid'=>$postId, ':uid'=>$meId]);
       $exists = (bool)$st->fetchColumn();
 
-      if ($exists) {
+      $shareAction = strtolower(trim((string)($_POST['share_action'] ?? 'toggle')));
+      if ($shareAction === 'add' || $shareAction === 'once') {
+        if (!$exists) {
+          $st = $dbh->prepare("INSERT INTO public_post_shares (post_id, user_id, shared_at) VALUES (:pid,:uid,NOW())");
+          $st->execute([':pid'=>$postId, ':uid'=>$meId]);
+        }
+      } elseif ($exists) {
         $st = $dbh->prepare("DELETE FROM public_post_shares WHERE post_id = :pid AND user_id = :uid LIMIT 1");
         $st->execute([':pid'=>$postId, ':uid'=>$meId]);
       } else {
@@ -1106,8 +1116,16 @@ try {
     staff_pub_api_deny_write($meId);
     $postId = (int)($_POST['post_id'] ?? 0);
     if ($postId <= 0) jexit(['ok'=>false,'error'=>'Missing post id', 'me_id'=>$meId]);
+    $fromStory = ((int)($_POST['from_story'] ?? 0) === 1);
 
     try {
+      if (is_file(__DIR__ . '/includes/bookmark_posts.php')) {
+        require_once __DIR__ . '/includes/bookmark_posts.php';
+        if (function_exists('msb_bookmark_ensure_schema')) {
+          msb_bookmark_ensure_schema($dbh);
+        }
+      }
+
       $stAccess = $dbh->prepare("SELECT user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
       $stAccess->execute([':pid' => $postId]);
       $accessRow = $stAccess->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -1123,8 +1141,14 @@ try {
         $st = $dbh->prepare("DELETE FROM public_post_saves WHERE post_id = :pid AND user_id = :uid LIMIT 1");
         $st->execute([':pid'=>$postId, ':uid'=>$meId]);
       } else {
-        $st = $dbh->prepare("INSERT INTO public_post_saves (post_id, user_id, saved_at) VALUES (:pid,:uid,NOW())");
-        $st->execute([':pid'=>$postId, ':uid'=>$meId]);
+        $asStory = $fromStory ? 1 : 0;
+        try {
+          $st = $dbh->prepare("INSERT INTO public_post_saves (post_id, user_id, saved_at, saved_as_story) VALUES (:pid,:uid,NOW(),:story)");
+          $st->execute([':pid'=>$postId, ':uid'=>$meId, ':story'=>$asStory]);
+        } catch (Throwable $eInsert) {
+          $st = $dbh->prepare("INSERT INTO public_post_saves (post_id, user_id, saved_at) VALUES (:pid,:uid,NOW())");
+          $st->execute([':pid'=>$postId, ':uid'=>$meId]);
+        }
       }
     } catch (Throwable $e) {
       jexit(['ok'=>false,'error'=>'Missing table public_post_saves (run SQL)', 'me_id'=>$meId]);
@@ -1169,6 +1193,7 @@ try {
     if (array_key_exists('archived', $_POST)) {
       $archived = ((int)$_POST['archived'] === 1) ? 1 : 0;
     }
+    $fromStory = ((int)($_POST['from_story'] ?? 0) === 1);
 
     $stP = $dbh->prepare("SELECT id, user_id, COALESCE(is_archived,0) AS is_archived FROM public_posts WHERE id = :id AND is_deleted = 0 LIMIT 1");
     $stP->execute([':id' => $postId]);
@@ -1177,15 +1202,42 @@ try {
     if ((int)$p['user_id'] !== $meId) jexit(['ok' => false, 'error' => 'Not allowed', 'me_id' => $meId]);
 
     $nextArchived = $archived !== null ? $archived : (((int)($p['is_archived'] ?? 0) === 1) ? 0 : 1);
-    $stU = $dbh->prepare("UPDATE public_posts SET is_archived = :archived, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
-    $stU->execute([':archived' => $nextArchived, ':id' => $postId, ':uid' => $meId]);
+    // Story-door Archive → Archive Stories circle. Feed/public card fries → Archive Posts.
+    $asStory = ($nextArchived === 1 && $fromStory) ? 1 : 0;
+
+    try {
+      $stU = $dbh->prepare("UPDATE public_posts SET is_archived = :archived, archived_as_story = :as_story, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
+      $stU->execute([
+        ':archived' => $nextArchived,
+        ':as_story' => $asStory,
+        ':id' => $postId,
+        ':uid' => $meId,
+      ]);
+    } catch (Throwable $e) {
+      // Older DBs may not have archived_as_story yet.
+      device_profile_ensure_post_columns($dbh);
+      try {
+        $stU = $dbh->prepare("UPDATE public_posts SET is_archived = :archived, archived_as_story = :as_story, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
+        $stU->execute([
+          ':archived' => $nextArchived,
+          ':as_story' => $asStory,
+          ':id' => $postId,
+          ':uid' => $meId,
+        ]);
+      } catch (Throwable $e2) {
+        $stU = $dbh->prepare("UPDATE public_posts SET is_archived = :archived, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
+        $stU->execute([':archived' => $nextArchived, ':id' => $postId, ':uid' => $meId]);
+        $asStory = 0;
+      }
+    }
 
     jexit([
       'ok' => true,
       'me_id' => $meId,
       'post_id' => $postId,
       'archived' => $nextArchived,
-      'state' => ['archived' => $nextArchived],
+      'archived_as_story' => $asStory,
+      'state' => ['archived' => $nextArchived, 'archived_as_story' => $asStory],
     ]);
   }
 
@@ -1198,40 +1250,48 @@ try {
     if ($postId <= 0) jexit(["ok"=>false,"error"=>"Missing post id", "me_id"=>$meId]);
 
     // Only owner can delete in public_user
-    $stP = $dbh->prepare("SELECT id, user_id FROM public_posts WHERE id = :id AND is_deleted = 0 LIMIT 1");
-    $stP->execute([":id"=>$postId]);
-    $p = $stP->fetch(PDO::FETCH_ASSOC);
+    try {
+      $stP = $dbh->prepare("SELECT id, user_id FROM public_posts WHERE id = :id AND is_deleted = 0 LIMIT 1");
+      $stP->execute([":id"=>$postId]);
+      $p = $stP->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+      jexit(["ok"=>false,"error"=>"Unable to load post", "me_id"=>$meId]);
+    }
     if (!$p) jexit(["ok"=>false,"error"=>"Post not found", "me_id"=>$meId]);
     if ((int)$p["user_id"] !== $meId) jexit(["ok"=>false,"error"=>"Not allowed", "me_id"=>$meId]);
 
-    // Gather attachment paths for disk cleanup
-    $stA = $dbh->prepare("SELECT file_path, thumb_path FROM public_post_attachments WHERE post_id = :pid");
-    $stA->execute([":pid"=>$postId]);
-    $files = $stA->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-    $dbh->beginTransaction();
-
-    // Delete children first
-    $dbh->prepare("DELETE FROM public_post_comments WHERE post_id = :pid")->execute([":pid"=>$postId]);
-    $dbh->prepare("DELETE FROM public_post_reactions WHERE post_id = :pid")->execute([":pid"=>$postId]);
-    $dbh->prepare("DELETE FROM public_post_reads WHERE post_id = :pid")->execute([":pid"=>$postId]);
-    $dbh->prepare("DELETE FROM public_post_views WHERE post_id = :pid")->execute([":pid"=>$postId]);
-    $dbh->prepare("DELETE FROM public_post_view_daily WHERE post_id = :pid")->execute([":pid"=>$postId]);
-    $dbh->prepare("DELETE FROM public_post_attachments WHERE post_id = :pid")->execute([":pid"=>$postId]);
-
-    // Delete post permanently
-    $dbh->prepare("DELETE FROM public_posts WHERE id = :id")->execute([":id"=>$postId]);
-
-    $dbh->commit();
-
-    // Best-effort delete files from disk
-    foreach ($files as $f) {
-      foreach (["file_path","thumb_path"] as $k) {
-        $pp = (string)($f[$k] ?? "");
-        if ($pp === "") continue;
-        $pp = preg_replace("#^public_user/#", "", $pp);
-        $full = __DIR__ . "/" . ltrim($pp, "/");
-        if (is_file($full)) { @unlink($full); }
+    // Soft-delete (same as public.php) so feeds hide the card without fighting FKs/triggers.
+    try {
+      $stDel = $dbh->prepare("UPDATE public_posts SET is_deleted = 1, updated_at = NOW() WHERE id = :id AND user_id = :uid AND COALESCE(is_deleted, 0) = 0 LIMIT 1");
+      $stDel->execute([":id"=>$postId, ":uid"=>$meId]);
+      $deletedRows = (int)$stDel->rowCount();
+      if ($deletedRows <= 0) {
+        // Some PDO/MySQL setups report 0 even when the row matched; verify.
+        $stCheck = $dbh->prepare("SELECT is_deleted FROM public_posts WHERE id = :id AND user_id = :uid LIMIT 1");
+        $stCheck->execute([":id"=>$postId, ":uid"=>$meId]);
+        $flag = $stCheck->fetchColumn();
+        if ((int)$flag !== 1) {
+          // Retry without touching updated_at (older schemas / trigger edge cases).
+          $stDel2 = $dbh->prepare("UPDATE public_posts SET is_deleted = 1 WHERE id = :id AND user_id = :uid AND COALESCE(is_deleted, 0) = 0 LIMIT 1");
+          $stDel2->execute([":id"=>$postId, ":uid"=>$meId]);
+          $stCheck->execute([":id"=>$postId, ":uid"=>$meId]);
+          $flag = $stCheck->fetchColumn();
+          if ((int)$flag !== 1) {
+            jexit(["ok"=>false,"error"=>"Post could not be deleted", "me_id"=>$meId]);
+          }
+        }
+      }
+    } catch (Throwable $e) {
+      try {
+        $stDel2 = $dbh->prepare("UPDATE public_posts SET is_deleted = 1 WHERE id = :id AND user_id = :uid AND COALESCE(is_deleted, 0) = 0 LIMIT 1");
+        $stDel2->execute([":id"=>$postId, ":uid"=>$meId]);
+        $stCheck = $dbh->prepare("SELECT is_deleted FROM public_posts WHERE id = :id AND user_id = :uid LIMIT 1");
+        $stCheck->execute([":id"=>$postId, ":uid"=>$meId]);
+        if ((int)$stCheck->fetchColumn() !== 1) {
+          jexit(["ok"=>false,"error"=>"Delete failed", "me_id"=>$meId]);
+        }
+      } catch (Throwable $e2) {
+        jexit(["ok"=>false,"error"=>"Delete failed", "me_id"=>$meId]);
       }
     }
 

@@ -565,10 +565,10 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <!-- ✅ AUTO DARK MODE (Public User) — per-account theme prefs -->
 <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
 <?php if (!defined('MSB_THEME_DARK_CSS')): ?>
-<link rel="stylesheet" href="./css/dark-auto.css?v=35">
+<link rel="stylesheet" href="./css/dark-auto.css?v=40">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=102">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=106">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
@@ -5872,7 +5872,8 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     close: closeCreatePostModal
   };
 
-  // After create/edit: close modal, then land on the surface that matches Friends/Public.
+  // After create/edit: close modal, then land by entry + Friends/Public:
+  // story circle "+" → story circle; left-nav "+" → post card.
   window.addEventListener('message', function(ev){
     var data = ev && ev.data;
     if (!data || data.type !== 'msb-create-post-done') return;
@@ -5880,6 +5881,7 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     var postId = Number(data.postId || 0);
     var redirect = String(data.redirect || '');
     var visibility = String(data.visibility || '').toLowerCase();
+    var isStory = !!data.story;
     var redirectPath = '';
     try {
       redirectPath = String((new URL(redirect, window.location.href)).pathname || '').split('/').pop() || '';
@@ -5889,12 +5891,35 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
     if (!redirectPath && data.surface) {
       redirectPath = String(data.surface);
     }
-    if (visibility === 'public' && !/public\.php$/i.test(redirectPath) && !/news\.php$/i.test(redirectPath)) {
+    // Rebuild destination if parent/server redirect is missing or on the wrong surface.
+    var pathNowEarly = String(window.location.pathname || '');
+    var onProfile = /profile\.php$/i.test(pathNowEarly);
+    if (isStory && onProfile) {
+      try {
+        var profileUrl = new URL(window.location.href);
+        profileUrl.searchParams.set('story_post', String(postId || ''));
+        profileUrl.searchParams.set('fresh', '1');
+        if (!profileUrl.searchParams.get('tab')) profileUrl.searchParams.set('tab', 'gallery');
+        redirect = profileUrl.pathname.split('/').pop() + '?' + profileUrl.searchParams.toString();
+        redirectPath = 'profile.php';
+      } catch (errProfile) {
+        redirectPath = 'profile.php';
+        redirect = 'profile.php?tab=gallery&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      }
+    } else if (isStory) {
+      if (visibility === 'public') {
+        redirectPath = 'public.php';
+        redirect = 'public.php?tab=public&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      } else {
+        redirectPath = 'feed.php';
+        redirect = 'feed.php?tab=for-you&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      }
+    } else if (visibility === 'public' && !/public\.php$/i.test(redirectPath) && !/news\.php$/i.test(redirectPath)) {
       redirectPath = 'public.php';
-      redirect = 'public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      redirect = 'public.php?tab=public&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     } else if (visibility === 'friends' && !/feed\.php$/i.test(redirectPath)) {
       redirectPath = 'feed.php';
-      redirect = 'feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      redirect = 'feed.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     }
 
     var pathNow = String(window.location.pathname || '');
@@ -5930,11 +5955,11 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
       return;
     }
     if (wantsPublic) {
-      window.location.replace('public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('public.php?tab=public&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else if (wantsNews) {
       window.location.replace('news.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else {
-      window.location.replace('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('feed.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     }
   });
 

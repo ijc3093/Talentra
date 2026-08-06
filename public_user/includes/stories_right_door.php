@@ -1734,7 +1734,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     if(isOwner && !STORY_DOOR_STAFF_READONLY){
       html += '<a class="pcm-item pcm-edit" href="dashboard.php?modal=1&edit='+esc(String(postId))+'" data-create-post-modal="1" role="menuitem">'
         + '<i class="fa fa-edit" aria-hidden="true"></i><span>Edit</span></a>';
-      html += '<button type="button" class="pcm-item pcm-archive" role="menuitem" data-post-id="'+esc(String(postId))+'" data-archived="'+(isArchived ? '1' : '0')+'">'
+      html += '<button type="button" class="pcm-item pcm-archive" role="menuitem" data-post-id="'+esc(String(postId))+'" data-archived="'+(isArchived ? '1' : '0')+'" data-story-hide="1">'
         + '<i class="fa fa-archive" aria-hidden="true"></i><span>'+(isArchived ? 'Unarchive' : 'Archive')+'</span></button>';
       html += '<button type="button" class="pcm-item pcm-delete" role="menuitem" data-post-id="'+esc(String(postId))+'">'
         + '<i class="fa fa-trash" aria-hidden="true"></i><span>Delete</span></button>';
@@ -2751,15 +2751,22 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     postId = Number(postId || 0);
     if(!postId) return;
     var removedCurrent = false;
+    var removedKeys = {};
     catalog = catalog.map(function(story){
       if(!story || !Array.isArray(story.slides)) return story;
+      var before = story.slides.length;
       var nextSlides = story.slides.filter(function(slide){
         return Number(slide.postId || 0) !== postId;
       });
-      if(nextSlides.length !== story.slides.length && storyIndex >= 0){
-        var curStory = catalog[storyIndex];
-        if(curStory && String(curStory.key || '') === String(story.key || '') && Number(currentPostId()) === postId){
-          removedCurrent = true;
+      if(nextSlides.length !== before){
+        if(storyIndex >= 0){
+          var curStory = catalog[storyIndex];
+          if(curStory && String(curStory.key || '') === String(story.key || '') && Number(currentPostId()) === postId){
+            removedCurrent = true;
+          }
+        }
+        if(!nextSlides.length && story.key){
+          removedKeys[String(story.key)] = 1;
         }
       }
       story.slides = nextSlides;
@@ -2767,6 +2774,43 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     }).filter(function(story){
       return story && Array.isArray(story.slides) && story.slides.length;
     });
+
+    // Drop empty story circles from feed/public/profile rails immediately.
+    try{
+      Object.keys(removedKeys).forEach(function(key){
+        document.querySelectorAll('.ig-story-item[data-story-key="'+String(key).replace(/"/g, '')+'"]').forEach(function(el){
+          try{ el.remove(); }catch(e){}
+        });
+      });
+      // Also drop circles keyed by the archived post id (profile uses one circle per story).
+      document.querySelectorAll(
+        '#profileStoriesTrack .ig-story-item[data-post-id="'+String(postId)+'"],' +
+        '.ig-story-item[data-story-key="s'+String(postId)+'"]'
+      ).forEach(function(el){
+        try{ el.remove(); }catch(e){}
+      });
+      ['igStoriesTrack', 'profileStoriesTrack'].forEach(function(trackId){
+        var track = document.getElementById(trackId);
+        if(!track) return;
+        var hasStory = !!track.querySelector('.ig-story-item[data-story-key]');
+        track.classList.toggle('is-empty', !hasStory);
+        var bar = track.closest('.ig-stories-bar, .ig-highlights');
+        if(bar) bar.classList.toggle('is-empty', !hasStory);
+        if(trackId === 'igStoriesTrack' && !hasStory && !track.querySelector('.ig-story-empty')){
+          var empty = document.createElement('div');
+          empty.className = 'ig-story-item ig-story-empty';
+          empty.setAttribute('role', 'status');
+          empty.setAttribute('aria-label', 'No stories available');
+          empty.innerHTML = '<div class="ig-story-ring ig-story-ring-empty"><span class="ig-story-empty-icon" aria-hidden="true"><i class="icon ion-ios-book-outline"></i></span></div>';
+          track.appendChild(empty);
+        }
+      });
+    }catch(eRail){}
+
+    if(typeof window.MSBFeedRebuildStories === 'function'){
+      try{ window.MSBFeedRebuildStories(); }catch(eRebuild){}
+    }
+
     if(removedCurrent){
       if(catalog.length){
         if(storyIndex >= catalog.length) storyIndex = catalog.length - 1;
@@ -2795,6 +2839,8 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
       return this.openByKey(keyOrIndex);
     },
     close: closePanel,
+    pause: function(){ setPaused(true); },
+    resume: function(){ setPaused(false); },
     closeComments: closeStoryCommentsSheet,
     openComments: openStoryComments,
     nextSlide: function(){

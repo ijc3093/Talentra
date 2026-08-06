@@ -140,24 +140,101 @@ function post_upload_pending_bag(): array
     return $_SESSION['post_pending_uploads'];
 }
 
+function post_upload_pending_meta_dir(int $userId): string
+{
+    $dir = __DIR__ . '/../uploads/posts/pending_meta/' . max(0, $userId);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    return $dir;
+}
+
+function post_upload_pending_meta_path(int $userId, string $token): string
+{
+    return post_upload_pending_meta_dir($userId) . '/' . $token . '.json';
+}
+
+/**
+ * @param array{user_id:int,abs:string,web:string,type:string,name:string,size:int,created:int} $row
+ */
+function post_upload_write_pending_meta(string $token, array $row): void
+{
+    $userId = (int)($row['user_id'] ?? 0);
+    $token = preg_replace('/[^a-f0-9]/i', '', $token) ?? '';
+    if ($userId <= 0 || $token === '') {
+        return;
+    }
+    $path = post_upload_pending_meta_path($userId, $token);
+    @file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+
+function post_upload_read_pending_meta(int $userId, string $token): ?array
+{
+    $token = preg_replace('/[^a-f0-9]/i', '', $token) ?? '';
+    if ($userId <= 0 || $token === '') {
+        return null;
+    }
+    $path = post_upload_pending_meta_path($userId, $token);
+    if (!is_file($path)) {
+        return null;
+    }
+    $data = json_decode((string)@file_get_contents($path), true);
+    return is_array($data) ? $data : null;
+}
+
+function post_upload_delete_pending_meta(int $userId, string $token): void
+{
+    $token = preg_replace('/[^a-f0-9]/i', '', $token) ?? '';
+    if ($userId <= 0 || $token === '') {
+        return;
+    }
+    $path = post_upload_pending_meta_path($userId, $token);
+    if (is_file($path)) {
+        @unlink($path);
+    }
+}
+
 function post_upload_purge_stale(int $maxAgeSeconds = 7200): void
 {
-    $bag = post_upload_pending_bag();
     $now = time();
-    $changed = false;
-    foreach ($bag as $token => $row) {
-        $created = (int)($row['created'] ?? 0);
-        if ($created > 0 && ($now - $created) > $maxAgeSeconds) {
-            $abs = (string)($row['abs'] ?? '');
-            if ($abs !== '' && is_file($abs)) {
-                @unlink($abs);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $bag = post_upload_pending_bag();
+        $changed = false;
+        foreach ($bag as $token => $row) {
+            $created = (int)($row['created'] ?? 0);
+            if ($created > 0 && ($now - $created) > $maxAgeSeconds) {
+                $abs = (string)($row['abs'] ?? '');
+                if ($abs !== '' && is_file($abs)) {
+                    @unlink($abs);
+                }
+                post_upload_delete_pending_meta((int)($row['user_id'] ?? 0), (string)$token);
+                unset($bag[$token]);
+                $changed = true;
             }
-            unset($bag[$token]);
-            $changed = true;
+        }
+        if ($changed) {
+            $_SESSION['post_pending_uploads'] = $bag;
         }
     }
-    if ($changed) {
-        $_SESSION['post_pending_uploads'] = $bag;
+
+    $root = __DIR__ . '/../uploads/posts/pending_meta';
+    if (!is_dir($root)) {
+        return;
+    }
+    foreach (glob($root . '/*', GLOB_ONLYDIR) ?: [] as $userDir) {
+        foreach (glob($userDir . '/*.json') ?: [] as $metaFile) {
+            $mtime = (int)@filemtime($metaFile);
+            if ($mtime > 0 && ($now - $mtime) > $maxAgeSeconds) {
+                $data = json_decode((string)@file_get_contents($metaFile), true);
+                if (is_array($data)) {
+                    $abs = (string)($data['abs'] ?? '');
+                    if ($abs !== '' && is_file($abs)) {
+                        @unlink($abs);
+                    }
+                }
+                @unlink($metaFile);
+            }
+        }
     }
 }
 
@@ -200,7 +277,7 @@ function post_upload_store_pending(int $userId, array $file): array
     $fastExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov', 'm4v'];
     $detectedMime = '';
     if (in_array($ext, $fastExts, true) && (
-        str_starts_with($clientMime, 'image/') || str_starts_with($clientMime, 'video/') || $clientMime === ''
+        strncmp($clientMime, 'image/', 6) === 0 || strncmp($clientMime, 'video/', 6) === 0 || $clientMime === ''
     )) {
         $detectedMime = $clientMime;
     } else {
@@ -233,8 +310,7 @@ function post_upload_store_pending(int $userId, array $file): array
     if (random_int(0, 9) === 0) {
         post_upload_purge_stale();
     }
-    $bag = post_upload_pending_bag();
-    $bag[$token] = [
+    $row = [
         'user_id' => $userId,
         'abs' => $destAbs,
         'web' => $webPath,
@@ -243,7 +319,14 @@ function post_upload_store_pending(int $userId, array $file): array
         'size' => $size,
         'created' => time(),
     ];
-    $_SESSION['post_pending_uploads'] = $bag;
+    // Disk meta is the source of truth so ajax uploads can release the PHP
+    // session lock immediately and multiple files can upload in parallel.
+    post_upload_write_pending_meta($token, $row);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $bag = post_upload_pending_bag();
+        $bag[$token] = $row;
+        $_SESSION['post_pending_uploads'] = $bag;
+    }
 
     return [
         'ok' => true,
@@ -268,7 +351,7 @@ function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $to
         return ['saved' => 0, 'types' => []];
     }
 
-    $bag = post_upload_pending_bag();
+    $bag = session_status() === PHP_SESSION_ACTIVE ? post_upload_pending_bag() : [];
     $stA = $dbh->prepare(
         'INSERT INTO public_post_attachments (post_id, type, file_path, thumb_path, created_at)
          VALUES (:pid, :t, :fp, NULL, NOW())'
@@ -276,10 +359,16 @@ function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $to
 
     foreach ($tokens as $token) {
         $token = preg_replace('/[^a-f0-9]/i', '', (string)$token) ?? '';
-        if ($token === '' || !isset($bag[$token]) || !is_array($bag[$token])) {
+        if ($token === '') {
             continue;
         }
-        $row = $bag[$token];
+        $row = (isset($bag[$token]) && is_array($bag[$token])) ? $bag[$token] : null;
+        if ($row === null) {
+            $row = post_upload_read_pending_meta($userId, $token);
+        }
+        if (!is_array($row)) {
+            continue;
+        }
         if ((int)($row['user_id'] ?? 0) !== $userId) {
             continue;
         }
@@ -288,6 +377,7 @@ function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $to
         $type = (string)($row['type'] ?? 'file');
         if ($abs === '' || $web === '' || !is_file($abs)) {
             unset($bag[$token]);
+            post_upload_delete_pending_meta($userId, $token);
             continue;
         }
 
@@ -312,8 +402,11 @@ function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $to
             continue;
         }
         unset($bag[$token]);
+        post_upload_delete_pending_meta($userId, $token);
     }
 
-    $_SESSION['post_pending_uploads'] = $bag;
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['post_pending_uploads'] = $bag;
+    }
     return ['saved' => $saved, 'types' => $types];
 }

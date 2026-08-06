@@ -10,6 +10,7 @@ require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
+require_once __DIR__ . '/includes/publisher_accounts.php';
 requireUserLogin();
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -18,6 +19,7 @@ header('Pragma: no-cache');
 $controller = new Controller();
 $dbh = $controller->pdo();
 $meId = (int)($_SESSION['user_id'] ?? 0);
+$reelViewerIsPublisher = $meId > 0 && publisher_workspace_viewer($dbh, $meId);
 $iconHeart = post_action_thin_icon('heart');
 $iconComment = post_action_thin_icon('comment');
 $iconShare = post_action_thin_icon('share');
@@ -654,44 +656,85 @@ $iconFries = post_card_menu_fries_icon_html();
     var confirmBtn = document.getElementById('reelDeleteDialogConfirm');
     var pendingPostId = 0;
     var pendingDone = null;
+    var deleting = false;
 
     function closeDialog(){
       if(dialog && dialog.open) dialog.close();
       pendingPostId = 0;
       pendingDone = null;
+      deleting = false;
+      if(confirmBtn) confirmBtn.disabled = false;
     }
+
+    function confirmDeleteNow(){
+      var postId = pendingPostId;
+      var done = pendingDone;
+      if(!postId || deleting) return;
+      if(!window.MSBPostCardMenu || typeof window.MSBPostCardMenu.runDelete !== 'function') return;
+      deleting = true;
+
+      // Remove reel + close popup immediately; API soft-delete runs in background.
+      try{
+        if(typeof window.MSBReelAfterPostDeleted === 'function'){
+          window.MSBReelAfterPostDeleted(postId);
+        }
+      }catch(e0){}
+      closeDialog();
+
+      window.MSBPostCardMenu.runDelete(postId, function(res){
+        if(res && res.ok !== false){
+          if(typeof done === 'function') done(res);
+          return;
+        }
+        var msg = (res && res.error) ? String(res.error) : 'Could not delete this post.';
+        try { window.alert(msg); } catch(e2){}
+        try { window.location.reload(); } catch(e3){}
+        if(typeof done === 'function') done(res || {ok:false});
+      });
+    }
+
     window.MSBReelDeleteConfirm = {
       open:function(postId, done){
         pendingPostId = Number(postId || 0);
         pendingDone = typeof done === 'function' ? done : null;
+        deleting = false;
+        if(confirmBtn) confirmBtn.disabled = false;
         if(!dialog || !pendingPostId) return;
-        if(typeof dialog.showModal === 'function'){
-          if(!dialog.open) dialog.showModal();
-        }else{
-          dialog.setAttribute('open', '');
-        }
+        if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
+        // Open on next tick so the fries "Delete" click cannot auto-dismiss this popup.
+        setTimeout(function(){
+          if(!dialog || !pendingPostId) return;
+          if(typeof dialog.showModal === 'function'){
+            if(!dialog.open) dialog.showModal();
+          }else{
+            dialog.setAttribute('open', '');
+          }
+          try{ if(confirmBtn) confirmBtn.focus(); }catch(eFocus){}
+        }, 0);
       },
+      confirm:confirmDeleteNow,
       close:closeDialog
     };
-    if(cancelBtn) cancelBtn.addEventListener('click', closeDialog);
-    if(closeBtn) closeBtn.addEventListener('click', closeDialog);
-    if(dialog) dialog.addEventListener('click', function(e){
-      if(e.target === dialog){
-        var rect = dialog.getBoundingClientRect();
-        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) closeDialog();
-      }
+    if(cancelBtn) cancelBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      closeDialog();
     });
-    if(confirmBtn) confirmBtn.addEventListener('click', function(){
-      var postId = pendingPostId;
-      var done = pendingDone;
-      if(!postId || !window.MSBPostCardMenu || typeof window.MSBPostCardMenu.runDelete !== 'function') return;
-      confirmBtn.disabled = true;
-      window.MSBPostCardMenu.runDelete(postId, function(res){
-        confirmBtn.disabled = false;
+    if(closeBtn) closeBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      closeDialog();
+    });
+    // Do not close on backdrop click from the same gesture that opened the dialog.
+    if(dialog){
+      dialog.addEventListener('cancel', function(){
         closeDialog();
-        if(typeof done === 'function') done(res);
-        if(res && res.ok !== false) window.location.reload();
       });
+    }
+    if(confirmBtn) confirmBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      confirmDeleteNow();
     });
   })();
   </script>
@@ -796,6 +839,7 @@ $iconFries = post_card_menu_fries_icon_html();
     var API = 'feed_api.php';
     var ME = <?= (int)$meId ?>;
     window.ME_ID = ME;
+    var viewerIsPublisher = <?= !empty($reelViewerIsPublisher) ? 'true' : 'false' ?>;
     var ICON = {
       heart: <?= json_encode($iconHeart, JSON_UNESCAPED_SLASHES) ?>,
       comment: <?= json_encode($iconComment, JSON_UNESCAPED_SLASHES) ?>,
@@ -1357,6 +1401,22 @@ $iconFries = post_card_menu_fries_icon_html();
       goTo(next, true);
     }
 
+    window.MSBReelAfterPostDeleted = function(postId){
+      postId = Number(postId || 0);
+      if(!postId) return;
+      var at = -1;
+      for(var i = 0; i < items.length; i++){
+        if(Number(items[i] && items[i].id || 0) === postId){
+          at = i;
+          break;
+        }
+      }
+      if(at < 0) return;
+      items.splice(at, 1);
+      var nextAt = items.length ? Math.min(at, items.length - 1) : 0;
+      rebuildSlides(nextAt);
+    };
+
     function rebuildSlides(startAt){
       if(!track) return;
       track.classList.remove('is-animating');
@@ -1443,6 +1503,10 @@ $iconFries = post_card_menu_fries_icon_html();
           return;
         }
         if(act === 'share'){
+          if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function'){
+            window.MSBPostCardMenu.openShare(pid);
+            return;
+          }
           var prevShare = Number(it.share_count || 0);
           var prevShared = Number(it.my_shared || 0);
           var nextShared = prevShared ? 0 : 1;
@@ -1460,6 +1524,7 @@ $iconFries = post_card_menu_fries_icon_html();
           var fdS = new FormData();
           fdS.append('ajax', 'share');
           fdS.append('post_id', String(pid));
+          fdS.append('share_action', 'add');
           fetch(API, { method:'POST', body: fdS, credentials:'same-origin' })
             .then(function(r){ return r.json(); })
             .then(function(res){
@@ -1521,6 +1586,14 @@ $iconFries = post_card_menu_fries_icon_html();
               syncSlideActions(slide, it);
               syncSlideMenu(slide, it);
               if(window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(pid, res, { source: 'reel' });
+              try{
+                var savedNow = Number(it.my_saved || 0) === 1;
+                if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
+                  window.MSBPostCardMenu.toast(savedNow
+                    ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
+                    : 'Removed from Bookmarks.');
+                }
+              }catch(_toastErr){}
             }).catch(function(){
               it.save_count = prevSave;
               it.my_saved = prevSaved;
@@ -1691,12 +1764,26 @@ $iconFries = post_card_menu_fries_icon_html();
         loadingEl.hidden = true;
         var list = (res && res.ok && Array.isArray(res.items)) ? res.items : [];
         items = sortNewestVideosFirst(list.filter(isVideoItem));
+        if (viewerIsPublisher) {
+          // Publishers only watch other publishers' reels — never personal-user videos.
+          items = items.filter(function(it){
+            return Number(it.is_publisher || 0) === 1
+              || String(it.account_kind || '').toLowerCase() === 'publisher';
+          });
+        }
         if(!items.length){
           loadingEl.hidden = false;
           loadingEl.textContent = 'No videos yet';
           return;
         }
         rebuildSlides(resolveStartIndex());
+        try{
+          var nextUrl = new URL(window.location.href);
+          if(nextUrl.searchParams.has('post')){
+            nextUrl.searchParams.delete('post');
+            history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
+          }
+        }catch(eClear){}
       })
       .catch(function(){
         loadingEl.hidden = false;

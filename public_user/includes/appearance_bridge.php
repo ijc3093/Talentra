@@ -1050,12 +1050,12 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=105', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=106', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=39', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=40', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);

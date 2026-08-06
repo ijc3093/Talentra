@@ -79,6 +79,7 @@ $modalAppearanceAttr = $modalAppearanceIsNamed
 
 ensurePostCategorySchema($dbh);
 device_profile_ensure_post_columns($dbh);
+post_layout_ensure_column($dbh);
 publisher_ensure_schema($dbh);
 $isPublisherAccount = publisher_account_is($dbh, $meId);
 
@@ -1050,17 +1051,17 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                     </div>
                   <div class="form-group col-md-6">
                       <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
-                      <?php if ($isPublisherAccount): ?>
-                        <input type="hidden" name="visibility" value="public">
-                        <div class="form-control msb-readonly-field" style="font-weight:700">Public — publisher posts</div>
-                        <small class="text-muted"><strong>feed.php</strong> = your publisher feed &amp; followers. <strong>public.php</strong> = discovery for people who have not followed you. <strong>news.php</strong> = publisher news browse (not a personal post destination). After submit you return to feed.php.</small>
-                      <?php else: ?>
-                      <?php $vis = (string)($editPost['visibility'] ?? 'friends'); ?>
+                      <?php $vis = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends')); ?>
                       <select name="visibility" id="createPostVisibility" class="form-control">
-                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>>Friends</option>
-                        <option value="public" <?= $vis==='public'?'selected':'' ?>>Public</option>
+                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends (For You)' : 'Friends' ?></option>
+                        <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public (Discover)' : 'Public' ?></option>
                       </select>
-                      <small class="text-muted"><strong>feed.php</strong> = friends posts. <strong>public.php</strong> = public posts for everyone. <strong>news.php</strong> = publisher news browse only (not a create destination).</small>
+                      <?php if ($isStoryCreate): ?>
+                        <small class="text-muted"><strong>Friends</strong> → opens your <strong>story circle</strong> on feed.php. <strong>Public</strong> → opens your story circle on public.php.</small>
+                      <?php elseif ($isPublisherAccount): ?>
+                        <small class="text-muted"><strong>Friends</strong> → opens the <strong>post card</strong> on For You (feed.php). <strong>Public</strong> → opens the post card on Discover (public.php).</small>
+                      <?php else: ?>
+                      <small class="text-muted"><strong>Friends</strong> → post card on feed.php. <strong>Public</strong> → post card on public.php.</small>
                       <?php endif; ?>
                     </div>
                   </div>
@@ -1116,9 +1117,9 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                       }
                     ?></div>
                     <div id="createPostUploadProgress" class="progress mt-2" style="height:6px;display:none;overflow:hidden;border-radius:999px;background:rgba(15,23,42,.08);">
-                      <div id="createPostUploadBar" class="progress-bar" role="progressbar" style="width:0%;height:100%;transition:width .18s linear;background:#2563eb;"></div>
+                      <div id="createPostUploadBar" class="progress-bar" role="progressbar" style="width:0%;height:100%;transition:width .08s linear;background:#2563eb;"></div>
                     </div>
-                    <small class="text-muted">Images are optimized and upload as soon as you pick them so Submit is fast.</small>
+                    <small class="text-muted">Media starts uploading as soon as you pick it so Submit stays fast.</small>
                   </div>
 
                   <div class="d-flex align-items-center">
@@ -1272,20 +1273,22 @@ document.addEventListener('DOMContentLoaded', function(){
   let pendingCount = 0;
   let uploading = false;
   let activeUploads = 0;
-  let progressDisplay = 0;
-  let progressTarget = 0;
-  let progressRaf = 0;
 
+  const isStoryCreateForm = !!(f.querySelector('input[name="layout_override"][value="story"]'));
+  const fromProfileCreate = /(?:\?|&)from=profile(?:&|$)/i.test(String(window.location.search || ''));
   function syncReturnToFromVisibility(){
     if (!returnToInput) return;
-    // Publisher accounts keep feed.php. Personal: public → public.php, friends → feed.php.
-    const hasPublisherFlag = !!(f.querySelector('input[name="publisher_account"]'));
-    if (hasPublisherFlag) {
-      returnToInput.value = 'feed.php';
+    const vis = visibilitySel ? String(visibilitySel.value || 'friends') : 'friends';
+    // Profile story "+" stays on profile. Other story "+" → feed/public. Left-nav "+" → post card surface.
+    if (isStoryCreateForm && fromProfileCreate) {
+      returnToInput.value = 'profile.php?story=1';
       return;
     }
-    const vis = visibilitySel ? String(visibilitySel.value || 'friends') : 'friends';
-    returnToInput.value = (vis === 'public') ? 'public.php' : 'feed.php';
+    if (vis === 'public') {
+      returnToInput.value = isStoryCreateForm ? 'public.php?story=1' : 'public.php';
+    } else {
+      returnToInput.value = isStoryCreateForm ? 'feed.php?story=1' : 'feed.php';
+    }
   }
   syncReturnToFromVisibility();
   if (visibilitySel) {
@@ -1298,31 +1301,16 @@ document.addEventListener('DOMContentLoaded', function(){
     statusEl.style.color = isError ? '#b91c1c' : '';
   }
 
-  function paintProgress(){
-    progressRaf = 0;
-    const diff = progressTarget - progressDisplay;
-    if (Math.abs(diff) < 0.4) {
-      progressDisplay = progressTarget;
-    } else {
-      progressDisplay += diff * 0.35;
-      progressRaf = requestAnimationFrame(paintProgress);
-    }
-    if (!progressWrap || !progressBar) return;
-    const show = progressTarget > 0 || uploading;
-    progressWrap.style.display = show ? 'block' : 'none';
-    progressBar.style.width = Math.max(0, Math.min(100, progressDisplay)) + '%';
-  }
-
   function setProgress(pct, show){
+    if (!progressWrap || !progressBar) return;
     if (!show) {
-      progressTarget = 0;
-      progressDisplay = 0;
-      if (progressWrap) progressWrap.style.display = 'none';
-      if (progressBar) progressBar.style.width = '0%';
+      progressWrap.style.display = 'none';
+      progressBar.style.width = '0%';
       return;
     }
-    progressTarget = Math.max(0, Math.min(100, pct || 0));
-    if (!progressRaf) progressRaf = requestAnimationFrame(paintProgress);
+    progressWrap.style.display = 'block';
+    // Snap the bar to real byte progress — no slow easing lag.
+    progressBar.style.width = Math.max(0, Math.min(100, Number(pct) || 0)) + '%';
   }
 
   function syncSubmitEnabled(){
@@ -1349,7 +1337,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return (n / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
-  // Compress large photos before upload so the progress bar finishes in seconds.
+  // Compress large photos before upload. Videos/PDFs pass through instantly.
   function compressImageFile(file){
     return new Promise(function(resolve){
       try {
@@ -1357,42 +1345,65 @@ document.addEventListener('DOMContentLoaded', function(){
           resolve(file);
           return;
         }
-        // Skip tiny files and animated gif.
-        if (file.size < 450 * 1024) {
+        // Keep already-small photos as-is (faster than canvas encode).
+        if (file.size < 1024 * 1024) {
           resolve(file);
           return;
         }
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = function(){
-          URL.revokeObjectURL(url);
-          const maxEdge = 1600;
-          let w = img.naturalWidth || img.width || 0;
-          let h = img.naturalHeight || img.height || 0;
-          if (!w || !h) {
-            resolve(file);
-            return;
-          }
-          const scale = Math.min(1, maxEdge / Math.max(w, h));
-          w = Math.max(1, Math.round(w * scale));
-          h = Math.max(1, Math.round(h * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d', { alpha: false });
-          if (!ctx) {
-            resolve(file);
-            return;
-          }
-          ctx.drawImage(img, 0, 0, w, h);
-          canvas.toBlob(function(blob){
-            if (!blob || blob.size >= file.size * 0.95) {
+
+        function finishFromBitmap(bitmap, revoke){
+          try {
+            const maxEdge = 1600;
+            let w = bitmap.width || 0;
+            let h = bitmap.height || 0;
+            if (!w || !h) {
+              if (revoke) revoke();
               resolve(file);
               return;
             }
-            const base = String(file.name || 'photo').replace(/\.[^.]+$/, '');
-            resolve(new File([blob], base + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
-          }, 'image/jpeg', 0.78);
+            const scale = Math.min(1, maxEdge / Math.max(w, h));
+            w = Math.max(1, Math.round(w * scale));
+            h = Math.max(1, Math.round(h * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d', { alpha: false });
+            if (!ctx) {
+              if (revoke) revoke();
+              resolve(file);
+              return;
+            }
+            ctx.drawImage(bitmap, 0, 0, w, h);
+            if (revoke) revoke();
+            canvas.toBlob(function(blob){
+              if (!blob || blob.size >= file.size * 0.92) {
+                resolve(file);
+                return;
+              }
+              const base = String(file.name || 'photo').replace(/\.[^.]+$/, '');
+              resolve(new File([blob], base + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
+            }, 'image/jpeg', 0.8);
+          } catch (_e) {
+            if (revoke) revoke();
+            resolve(file);
+          }
+        }
+
+        if (typeof createImageBitmap === 'function') {
+          createImageBitmap(file).then(function(bitmap){
+            finishFromBitmap(bitmap, function(){
+              try { bitmap.close(); } catch (_c) {}
+            });
+          }).catch(function(){
+            resolve(file);
+          });
+          return;
+        }
+
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = function(){
+          finishFromBitmap(img, function(){ URL.revokeObjectURL(url); });
         };
         img.onerror = function(){
           URL.revokeObjectURL(url);
@@ -1417,7 +1428,14 @@ document.addEventListener('DOMContentLoaded', function(){
       xhr.responseType = 'json';
       xhr.upload.onprogress = function(ev){
         if (!ev.lengthComputable) return;
-        if (typeof onByteProgress === 'function') onByteProgress(ev.loaded, ev.total);
+        if (typeof onByteProgress === 'function') onByteProgress(ev.loaded, ev.total, false);
+      };
+      xhr.upload.onload = function(){
+        // Bytes left the browser — server is still saving. Keep bar near done.
+        if (typeof onByteProgress === 'function') {
+          const total = Math.max(1, Number(file && file.size) || 1);
+          onByteProgress(total, total, true);
+        }
       };
       xhr.onload = function(){
         let data = xhr.response;
@@ -1425,7 +1443,8 @@ document.addEventListener('DOMContentLoaded', function(){
           try { data = JSON.parse(xhr.responseText || '{}'); } catch (_e) { data = null; }
         }
         if (!data || !data.ok || !Array.isArray(data.files) || !data.files.length) {
-          resolve({ ok: false });
+          const err = data && data.error ? String(data.error) : ('http_' + String(xhr.status || 0));
+          resolve({ ok: false, error: err });
           return;
         }
         resolve({ ok: true, files: data.files });
@@ -1441,67 +1460,111 @@ document.addEventListener('DOMContentLoaded', function(){
     uploading = true;
     activeUploads = files.length;
     syncSubmitEnabled();
-    progressDisplay = 0;
-    progressTarget = 2;
-    setProgress(2, true);
-    setStatus('Preparing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…', false);
+    setProgress(3, true);
+    setStatus('Uploading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…', false);
 
     // Clear input immediately so picking the same file again still works,
     // and submit never re-sends original bytes.
     if (fileInput) fileInput.value = '';
 
-    const sizes = files.map(function(){ return 1; });
     const loaded = files.map(function(){ return 0; });
-    const totals = files.map(function(){ return 1; });
+    const totals = files.map(function(f){ return Math.max(1, Number(f && f.size) || 1); });
+    const saving = files.map(function(){ return false; });
+    const done = files.map(function(){ return false; });
 
-    // Sequential uploads avoid PHP session-lock stalls; images are pre-compressed so each is quick.
-    let chain = Promise.resolve({ okFiles: 0 });
-    files.forEach(function(file, idx){
-      chain = chain.then(function(acc){
-        setStatus('Optimizing ' + (idx + 1) + '/' + files.length + '…', false);
-        setProgress(Math.max(8, 8 + (idx / files.length) * 10), true);
-        return compressImageFile(file).then(function(out){
-          sizes[idx] = out.size || file.size || 1;
-          totals[idx] = sizes[idx];
-          loaded[idx] = 0;
-          setStatus('Uploading ' + (idx + 1) + '/' + files.length + ' (' + formatBytes(out.size) + ')…', false);
-          return uploadOneFile(out, function(byteLoaded, byteTotal){
-            totals[idx] = Math.max(1, byteTotal || sizes[idx]);
-            loaded[idx] = Math.min(totals[idx], byteLoaded || 0);
-            // Weight each file equally in the bar so multi-file progress feels even.
-            let fileFrac = 0;
-            for (let i = 0; i < files.length; i++) {
-              const t = Math.max(1, totals[i]);
-              const l = (i < idx) ? t : (i === idx ? loaded[i] : 0);
-              fileFrac += (l / t) / files.length;
-            }
-            setProgress(12 + Math.round(fileFrac * 80), true);
-          }).then(function(res){
-            loaded[idx] = totals[idx];
-            if (res && res.ok && res.files) {
-              res.files.forEach(function(item){
-                if (item && item.token) {
-                  addToken(String(item.token));
-                  acc.okFiles++;
-                }
-              });
-            }
-            return acc;
-          });
+    function refreshProgress(){
+      let bytesLoaded = 0;
+      let bytesTotal = 0;
+      let savingCount = 0;
+      for (let i = 0; i < files.length; i++) {
+        bytesTotal += totals[i];
+        bytesLoaded += Math.min(totals[i], loaded[i]);
+        if (saving[i] && !done[i]) savingCount++;
+      }
+      const frac = bytesTotal > 0 ? (bytesLoaded / bytesTotal) : 0;
+      // Reserve the last 8% for server save so the bar never freezes at ~90%.
+      let pct = Math.round(frac * 92);
+      if (savingCount > 0) pct = Math.max(pct, 94);
+      setProgress(Math.min(99, Math.max(3, pct)), true);
+      const activeIdx = saving.findIndex(function(v, i){ return !done[i]; });
+      const labelIdx = activeIdx >= 0 ? activeIdx : 0;
+      if (savingCount > 0) {
+        setStatus('Saving ' + (labelIdx + 1) + '/' + files.length + '…', false);
+      } else {
+        setStatus('Uploading ' + Math.min(files.length, labelIdx + 1) + '/' + files.length + ' (' + formatBytes(totals[labelIdx] || 0) + ')…', false);
+      }
+    }
+
+    function runOne(idx){
+      const file = files[idx];
+      const isImage = /^image\/(jpeg|jpg|png|webp)$/i.test(String(file.type || ''));
+      const prep = isImage && file.size >= 1024 * 1024
+        ? (setStatus('Optimizing ' + (idx + 1) + '/' + files.length + '…', false), compressImageFile(file))
+        : Promise.resolve(file);
+
+      return prep.then(function(out){
+        totals[idx] = Math.max(1, Number(out && out.size) || Number(file.size) || 1);
+        loaded[idx] = 0;
+        refreshProgress();
+        return uploadOneFile(out, function(byteLoaded, byteTotal, isSaving){
+          totals[idx] = Math.max(1, byteTotal || totals[idx]);
+          loaded[idx] = Math.min(totals[idx], byteLoaded || 0);
+          saving[idx] = !!isSaving;
+          refreshProgress();
+        }).then(function(res){
+          loaded[idx] = totals[idx];
+          saving[idx] = false;
+          done[idx] = true;
+          refreshProgress();
+          const tokens = [];
+          if (res && res.ok && res.files) {
+            res.files.forEach(function(item){
+              if (item && item.token) {
+                addToken(String(item.token));
+                tokens.push(String(item.token));
+              }
+            });
+          }
+          return {
+            ok: tokens.length > 0,
+            error: (res && !res.ok && res.error) ? String(res.error) : ''
+          };
         });
       });
-    });
+    }
 
-    chain.then(function(acc){
+    // Parallel uploads (session lock released on server). Cap concurrency to 3.
+    const concurrency = Math.min(3, files.length);
+    let nextIdx = 0;
+    let okFiles = 0;
+    let lastError = '';
+
+    function worker(){
+      if (nextIdx >= files.length) return Promise.resolve();
+      const idx = nextIdx++;
+      return runOne(idx).then(function(result){
+        if (result && result.ok) {
+          okFiles++;
+        } else if (result && result.error) {
+          lastError = String(result.error);
+        }
+        return worker();
+      });
+    }
+
+    const workers = [];
+    for (let w = 0; w < concurrency; w++) workers.push(worker());
+
+    Promise.all(workers).then(function(){
       uploading = false;
       activeUploads = 0;
       syncSubmitEnabled();
-      if (!acc || acc.okFiles <= 0) {
-        setStatus('Upload failed. You can still submit and files will upload then.', true);
+      if (okFiles <= 0) {
+        const hint = lastError ? (' (' + lastError + ')') : '';
+        setStatus('Upload failed' + hint + '. You can still submit and files will upload then.', true);
         setTimeout(function(){ setProgress(0, false); }, 700);
         return;
       }
-      progressTarget = 100;
       setProgress(100, true);
       setStatus(pendingCount + ' file' + (pendingCount > 1 ? 's' : '') + ' ready — click submit.', false);
       setTimeout(function(){ setProgress(0, false); }, 450);

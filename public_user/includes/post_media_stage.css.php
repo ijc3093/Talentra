@@ -33,26 +33,26 @@ function post_media_stage_css(string $scope = ''): string
     $lines[] = $s('.media-stage.standard-video-stage.single-portrait,') . $s('.media-stage.standard-video-stage.single-landscape,') . $s('.media-stage.standard-video-stage.single-square{aspect-ratio:auto;max-height:none;overflow:visible}');
     $lines[] = $s('.media-stage.standard-image-stage > img{width:100%;height:auto;max-height:min(78svh,960px);background:transparent;border-radius:var(--post-media-radius);object-fit:contain;object-position:center center}');
     $lines[] = $s('.media-stage video{object-fit:contain;object-position:center center}');
-    $lines[] = $s('.media-stage img{object-fit:cover;object-position:center center}');
+    $lines[] = $s('.media-stage img{object-fit:contain;object-position:center center}');
 
-    $lines[] = $s('.single-portrait{aspect-ratio:9/13;max-height:850px;overflow:hidden}');
-    $lines[] = $s('.single-portrait img,') . $s('.single-portrait video{height:100%;width:100%}');
-    $lines[] = $s('.single-portrait img{object-fit:cover;object-position:center center}');
+    $lines[] = $s('.single-portrait{aspect-ratio:auto;max-height:none;overflow:visible}');
+    $lines[] = $s('.single-portrait img,') . $s('.single-portrait video{height:auto;width:100%}');
+    $lines[] = $s('.single-portrait img{object-fit:contain;object-position:center center}');
     $lines[] = $s('.single-portrait video{object-fit:contain;object-position:center center}');
 
-    $lines[] = $s('.single-landscape{overflow:hidden}');
-    $lines[] = $s('.single-landscape img,') . $s('.single-landscape video{height:100%;width:100%}');
-    $lines[] = $s('.single-landscape img{object-fit:cover;object-position:center center}');
+    $lines[] = $s('.single-landscape{overflow:visible}');
+    $lines[] = $s('.single-landscape img,') . $s('.single-landscape video{height:auto;width:100%}');
+    $lines[] = $s('.single-landscape img{object-fit:contain;object-position:center center}');
     $lines[] = $s('.single-landscape video{object-fit:contain;object-position:center center}');
 
-    $lines[] = $s('.single-square{overflow:hidden}');
-    $lines[] = $s('.single-square img,') . $s('.single-square video{height:100%;width:100%}');
-    $lines[] = $s('.single-square img{object-fit:cover;object-position:center center}');
+    $lines[] = $s('.single-square{overflow:visible}');
+    $lines[] = $s('.single-square img,') . $s('.single-square video{height:auto;width:100%}');
+    $lines[] = $s('.single-square img{object-fit:contain;object-position:center center}');
     $lines[] = $s('.single-square video{object-fit:contain;object-position:center center}');
 
     $lines[] = $s('.media-stage.phone-shot{width:min(72vw,var(--post-phone-max));max-width:100%;margin-inline:auto;overflow:hidden;max-height:min(78svh,900px);background:transparent;border-radius:28px;box-shadow:0 20px 44px rgba(0,0,0,.22);aspect-ratio:var(--device-ar-w,375)/var(--device-ar-h,667)}');
     $lines[] = $s('.media-stage.phone-shot img,') . $s('.media-stage.phone-shot video{width:100%;height:100%;max-height:none}');
-    $lines[] = $s('.media-stage.phone-shot img{object-fit:cover}');
+    $lines[] = $s('.media-stage.phone-shot img{object-fit:contain}');
     $lines[] = $s('.media-stage.phone-shot video{object-fit:contain}');
     $lines[] = $s('.media-stage.phone-shot.standard-video-stage{overflow:hidden;background:transparent;border-radius:28px;box-shadow:0 20px 44px rgba(0,0,0,.18);aspect-ratio:var(--device-ar-w,375)/var(--device-ar-h,667);max-height:min(78svh,900px)}');
     $lines[] = $s('.media-stage.phone-shot.standard-video-stage > video{width:100%;height:100%;max-height:none;object-fit:contain;border-radius:0;background:transparent}');
@@ -63,10 +63,10 @@ function post_media_stage_css(string $scope = ''): string
     $lines[] = $s('.media-carousel{position:relative;width:100%;height:100%}');
     $lines[] = $s('.media-slides{display:flex;width:100%;height:100%;transition:transform .28s ease}');
     $lines[] = $s('.media-slide{flex:0 0 100%;width:100%;height:100%;background:transparent;display:flex;align-items:center;justify-content:center}');
-    $lines[] = $s('.media-slide > img,') . $s('.media-slide > video{width:100%;height:100%;background:transparent}');
-    $lines[] = $s('.media-slide > img{object-fit:cover;object-position:center center}');
+    $lines[] = $s('.media-slide > img,') . $s('.media-slide > video{width:100%;height:auto;background:transparent}');
+    $lines[] = $s('.media-slide > img{object-fit:contain;object-position:center center}');
     $lines[] = $s('.media-slide > video{object-fit:contain;object-position:center center}');
-    $lines[] = $s('.media-stage.single-landscape .media-slide > img,') . $s('.media-stage.single-landscape .media-slide > video,') . $s('.media-stage.single-square .media-slide > img,') . $s('.media-stage.single-square .media-slide > video,') . $s('.media-stage.single-portrait .media-slide > img,') . $s('.media-stage.single-portrait .media-slide > video{height:100%}');
+    $lines[] = $s('.media-stage.single-landscape .media-slide > img,') . $s('.media-stage.single-landscape .media-slide > video,') . $s('.media-stage.single-square .media-slide > img,') . $s('.media-stage.single-square .media-slide > video,') . $s('.media-stage.single-portrait .media-slide > img,') . $s('.media-stage.single-portrait .media-slide > video{height:auto}');
 
     $lines[] = '@media (max-width:767.98px){';
     $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot),' . $card . '.is-single-image-post:not(.mf-card-phone-shot),' . $card . '.is-multi-media-post{width:100%}';
@@ -89,8 +89,26 @@ function post_media_stage_css(string $scope = ''): string
     $lines[] = '}';
 
     if (strpos($scope, 'mf-feed') !== false) {
+        // Feed: full-width cards; constrain + left-align media only (match public.php).
+        $lines[] = $card . '.is-single-video-post:not(.mf-card-reel),' . $card . '.is-single-image-post:not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}';
+        $lines[] = $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,var(--post-media-max)))!important;max-width:100%!important;max-height:var(--post-media-max-height,min(70vh,580px))!important;margin-left:0!important;margin-right:auto!important}';
+        $lines[] = $s('.media-stage.standard-video-stage > video,') . $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,min(70vh,580px))!important}');
+        $lines[] = '@media (max-width:767.98px){';
+        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,310px))!important;max-width:min(100%,330px)!important;margin-left:0!important;margin-right:auto!important}';
+        $lines[] = '  ' . $s('.media-stage.standard-video-stage > video,'). $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,min(52vh,500px))!important}');
+        $lines[] = '}';
+        $lines[] = '@media (min-width:768px) and (max-width:1024.98px){';
+        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,400px))!important;max-width:min(100%,440px)!important;margin-left:0!important;margin-right:auto!important}';
+        $lines[] = '  ' . $s('.media-stage.standard-video-stage > video,'). $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,min(54vh,540px))!important}');
+        $lines[] = '}';
+        $lines[] = '@media (min-width:768px) and (max-width:1199.98px){';
+        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot):not(.mf-card-reel),' . $card . '.is-single-image-post:not(.mf-card-phone-shot):not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}';
+        $lines[] = '}';
+        $lines[] = '@media (min-width:1200px){';
+        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot):not(.mf-card-reel),' . $card . '.is-single-image-post:not(.mf-card-phone-shot):not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}';
+        $lines[] = '}';
         $lines[] = $s('.media-stage{background:transparent}');
-        $lines[] = $s('.media-stage.standard-video-stage{background:transparent;aspect-ratio:auto;max-height:none;overflow:visible;border:0;border-radius:var(--post-media-radius)}');
+        $lines[] = $s('.media-stage.standard-video-stage{background:transparent;aspect-ratio:auto;max-height:var(--post-media-max-height,min(70vh,580px));overflow:hidden;border:0;border-radius:var(--post-media-radius)}');
         $lines[] = $s('.media-stage video,') . $s('.media-stage.standard-video-stage > video{background:transparent}');
         $lines[] = $s('.mf-media-shell{position:relative;width:100%}');
         $lines[] = $s('.mf-media-shell > .mf-media-top-actions{position:absolute;top:12px;right:12px;z-index:25;display:flex;align-items:center;gap:8px;pointer-events:none}');
@@ -141,14 +159,21 @@ function post_media_stage_css(string $scope = ''): string
         $lines[] = '  ' . $card . '.mf-card-phone-shot:not(.is-multi-media-post):not(.mf-card-reel){width:auto;max-width:100%;margin-inline:auto}';
         $lines[] = '}';
 
-        // Desktop/tablet: device label stays in the header; media uses feed width + file aspect ratio.
+        // Desktop/tablet: full-width card; media constrained + left-aligned.
         $lines[] = '@media (min-width:768px){';
-        $lines[] = '  ' . $card . '.mf-card-phone-shot.is-single-video-post,' . $card . '.mf-card-phone-shot.is-single-image-post{width:min(100%,var(--post-media-card-width,var(--post-media-max)));max-width:100%;margin-inline:auto}';
-        $lines[] = '  ' . $card . '.mf-card-phone-shot:not(.is-multi-media-post):not(.mf-card-reel){width:min(100%,var(--post-media-card-width,var(--post-media-max)));max-width:100%;margin-inline:auto}';
-        $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot{width:100%;max-width:100%;margin-inline:0;border-radius:var(--post-media-radius);box-shadow:none;aspect-ratio:auto;max-height:none;overflow:visible;background:transparent}');
+        $lines[] = '  ' . $card . '.mf-card-phone-shot.is-single-video-post,' . $card . '.mf-card-phone-shot.is-single-image-post{width:100%!important;max-width:100%!important;margin-inline:0!important}';
+        $lines[] = '  ' . $card . '.mf-card-phone-shot:not(.is-multi-media-post):not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-inline:0!important}';
+        $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot{width:min(100%,var(--post-media-card-width,var(--post-media-max)))!important;max-width:100%!important;margin-left:0!important;margin-right:auto!important;border-radius:var(--post-media-radius);box-shadow:none;aspect-ratio:auto;max-height:none;overflow:visible;background:transparent}');
         $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot.standard-video-stage,'). $s('.mf-card-phone-shot .media-stage.phone-shot.standard-image-stage{aspect-ratio:auto;overflow:visible;border-radius:var(--post-media-radius);max-height:none;background:transparent;border:0;box-shadow:none}');
         $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot.standard-video-stage > video,'). $s('.mf-card-phone-shot .media-stage.phone-shot.standard-image-stage > img{width:100%;height:auto;max-height:min(78svh,960px);object-fit:contain;background:transparent;border-radius:var(--post-media-radius)}');
         $lines[] = '}';
+
+        // Full media visible in card (no cover-crop zoom). Width caps stay on the page.
+        $lines[] = $s('.media-stage img,') . $s('.media-stage.standard-image-stage > img{object-fit:contain!important;object-position:center center!important}');
+        $lines[] = $s('.media-stage.single-portrait,') . $s('.media-stage.single-landscape,') . $s('.media-stage.single-square{aspect-ratio:auto!important;max-height:none!important;overflow:visible!important}');
+        $lines[] = $s('.media-stage.single-portrait > img,') . $s('.media-stage.single-portrait > video,') . $s('.media-stage.single-landscape > img,') . $s('.media-stage.single-landscape > video,') . $s('.media-stage.single-square > img,') . $s('.media-stage.single-square > video{width:100%!important;height:auto!important;object-fit:contain!important}');
+        $lines[] = $s('.media-slide > img{object-fit:contain!important;object-position:center center!important;height:auto!important}');
+        $lines[] = $s('.media-stage.single-portrait .media-slide > img,') . $s('.media-stage.single-portrait .media-slide > video,') . $s('.media-stage.single-landscape .media-slide > img,') . $s('.media-stage.single-landscape .media-slide > video,') . $s('.media-stage.single-square .media-slide > img,') . $s('.media-stage.single-square .media-slide > video{height:auto!important;object-fit:contain!important}');
     }
 
     return implode("\n", $lines);

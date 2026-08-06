@@ -2233,8 +2233,7 @@ html[data-msb-appearance] .mf-friend-btn.primary:hover {
   color: var(--msb-palette-btn-text) !important;
 }
 
-/* Gallery / post viewer — white panels follow Appearance / Progress / Dark auto */
-html[data-msb-appearance] .pv-modal,
+/* Gallery / post viewer — comments panel follows Appearance; media side stays transparent */
 html[data-msb-appearance] .pv-right,
 html[data-msb-appearance] .pv-head,
 html[data-msb-appearance] .pv-body,
@@ -2250,6 +2249,13 @@ html[data-msb-appearance] .pv-replybar {
   background-image: none !important;
   color: var(--msb-palette-text) !important;
   border-color: var(--msb-palette-border) !important;
+}
+html[data-msb-appearance] .pv-modal,
+html[data-msb-appearance] .pv-left,
+html[data-msb-appearance] .pv-media {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
 }
 
 html[data-msb-appearance] .pv-input::before {

@@ -39,7 +39,11 @@ body.public-page.feed-insta-ui .feed-desktop-center{
   width:614px !important;
   min-width:614px !important;
   max-width:614px !important;
-  margin-left:auto !important;
+  /* Center in the main panel (like stories); never slide under the left nav. */
+  margin-left:max(
+    var(--feed-center-left, calc(8px + var(--feed-left-nav-w, 236px) + var(--feed-side-gap, 28px))),
+    calc((100% - 614px) / 2)
+  ) !important;
   margin-right:auto !important;
   padding:0 !important;
   box-sizing:border-box !important;
@@ -293,21 +297,30 @@ body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-im
   pointer-events:auto !important;
 }
 body.feed-page.feed-insta-ui .mf-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized),
-body.feed-page.feed-insta-ui .mf-card.is-single-image-post .media-stage.standard-image-stage:not(.mf-media-sized),
+body.feed-page.feed-insta-ui .mf-card.is-single-image-post .media-stage.standard-image-stage:not(.mf-media-sized){
+  display:block !important;
+  width:min(100%,var(--post-media-card-width,620px)) !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  aspect-ratio:auto !important;
+  height:auto !important;
+  min-height:180px !important;
+}
 body.public-page.feed-insta-ui .public-post-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized),
 body.public-page.feed-insta-ui .public-post-card.is-single-image-post .media-stage.standard-image-stage:not(.mf-media-sized){
   display:block !important;
   width:min(100%,var(--post-media-card-width,620px)) !important;
-  margin-inline:auto !important;
-  aspect-ratio:1 / 1 !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  aspect-ratio:auto !important;
+  height:auto !important;
+  min-height:180px !important;
 }
 body.feed-page.feed-insta-ui .mf-card.single-landscape .media-stage:not(.mf-media-sized),
-body.public-page.feed-insta-ui .public-post-card.single-landscape .media-stage:not(.mf-media-sized){
-  aspect-ratio:16 / 9 !important;
-}
+body.public-page.feed-insta-ui .public-post-card.single-landscape .media-stage:not(.mf-media-sized),
 body.feed-page.feed-insta-ui .mf-card.single-portrait .media-stage:not(.mf-media-sized),
 body.public-page.feed-insta-ui .public-post-card.single-portrait .media-stage:not(.mf-media-sized){
-  aspect-ratio:9 / 16 !important;
+  aspect-ratio:auto !important;
 }
 body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-video-ready) .media-stage > video,
 body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready) .media-stage > img,
@@ -363,11 +376,20 @@ body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):
   display:none !important;
 }
 
+/* Discover / public.php: same rule — never leave empty dark media shells after
+   create-post redirect while the first frame is still loading. */
+body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-video-ready):not(.mf-video-error),
+body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error){
+  display:none !important;
+}
+
 @media (max-width:1024px){
   body.feed-page.feed-insta-ui .feed-desktop-center,
   body.public-page.feed-insta-ui .feed-desktop-center{
     width:100% !important;
     min-width:0 !important;
     max-width:100% !important;
+    margin-left:auto !important;
+    margin-right:auto !important;
   }
 }

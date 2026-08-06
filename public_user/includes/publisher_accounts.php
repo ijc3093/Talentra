@@ -224,7 +224,7 @@ function publisher_can_message(PDO $dbh, int $peerId): bool
     return !publisher_is_publisher_user($dbh, $peerId);
 }
 
-function publisher_categories(): array
+function publisher_categories_builtin(): array
 {
     return [
         'commerce' => 'Commerce & restaurants',
@@ -268,6 +268,211 @@ function publisher_categories(): array
         'physics' => 'Physics',
         'vets' => 'Vets',
         'sociology-and-anthropology' => 'Sociology and Anthropology',
+    ];
+}
+
+function publisher_category_reserved_slugs(): array
+{
+    return [
+        'for-you' => true,
+        'public' => true,
+        'feed' => true,
+        'agents' => true,
+        'news-surface' => true,
+    ];
+}
+
+function publisher_category_slugify(string $label): string
+{
+    $slug = strtolower(trim($label));
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+    $slug = trim($slug, '-');
+    if (function_exists('mb_substr')) {
+        return mb_substr($slug, 0, 40);
+    }
+    return substr($slug, 0, 40);
+}
+
+function publisher_custom_categories_ensure_schema(PDO $dbh): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $dbh->exec("
+            CREATE TABLE IF NOT EXISTS publisher_category_options (
+                slug VARCHAR(40) NOT NULL,
+                label VARCHAR(80) NOT NULL,
+                created_by_user_id INT UNSIGNED NULL DEFAULT NULL,
+                created_at DATETIME NOT NULL,
+                PRIMARY KEY (slug),
+                KEY idx_publisher_category_label (label)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $e) {
+        // Non-fatal — custom categories stay unavailable until schema succeeds.
+    }
+}
+
+/**
+ * @return array<string,string> slug => label
+ */
+function publisher_custom_categories(PDO $dbh): array
+{
+    publisher_custom_categories_ensure_schema($dbh);
+    try {
+        $rows = $dbh->query('SELECT slug, label FROM publisher_category_options ORDER BY label ASC')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+    $out = [];
+    foreach ($rows as $row) {
+        $slug = strtolower(trim((string)($row['slug'] ?? '')));
+        $label = trim((string)($row['label'] ?? ''));
+        if ($slug === '' || $label === '' || isset(publisher_category_reserved_slugs()[$slug])) {
+            continue;
+        }
+        $out[$slug] = $label;
+    }
+    return $out;
+}
+
+function publisher_categories_reset_cache(): void
+{
+    $store = &publisher_categories_cache_store();
+    $store['map'] = null;
+    $store['loaded'] = false;
+}
+
+/**
+ * @return array{map:?array<string,string>,loaded:bool}
+ */
+function &publisher_categories_cache_store(): array
+{
+    static $store = ['map' => null, 'loaded' => false];
+    return $store;
+}
+
+/**
+ * Built-in + publisher-added custom categories.
+ *
+ * @return array<string,string>
+ */
+function publisher_categories(?PDO $dbh = null): array
+{
+    $store = &publisher_categories_cache_store();
+    if ($store['loaded'] && is_array($store['map'])) {
+        return $store['map'];
+    }
+
+    $cats = publisher_categories_builtin();
+
+    if (!($dbh instanceof PDO)) {
+        try {
+            if (!class_exists('Controller', false)) {
+                $controllerPath = dirname(__DIR__) . '/controller.php';
+                if (is_file($controllerPath)) {
+                    require_once $controllerPath;
+                }
+            }
+            if (class_exists('Controller', false)) {
+                $dbh = (new Controller())->pdo();
+            }
+        } catch (Throwable $e) {
+            $dbh = null;
+        }
+    }
+
+    if ($dbh instanceof PDO) {
+        foreach (publisher_custom_categories($dbh) as $slug => $label) {
+            if (!isset($cats[$slug])) {
+                $cats[$slug] = $label;
+            }
+        }
+        $store['map'] = $cats;
+        $store['loaded'] = true;
+    }
+
+    return $cats;
+}
+
+/**
+ * @return array{ok:bool,slug?:string,label?:string,existing?:bool,error?:string,message?:string}
+ */
+function publisher_category_add(PDO $dbh, string $label, ?int $createdByUserId = null): array
+{
+    $label = preg_replace('/\s+/u', ' ', trim($label)) ?? trim($label);
+    if (function_exists('mb_substr')) {
+        $label = mb_substr($label, 0, 80);
+    } else {
+        $label = substr($label, 0, 80);
+    }
+    $labelLen = function_exists('mb_strlen') ? mb_strlen($label) : strlen($label);
+    if ($labelLen < 2) {
+        return ['ok' => false, 'error' => 'too_short', 'message' => 'Enter a category name (at least 2 characters).'];
+    }
+
+    $slug = publisher_category_slugify($label);
+    if ($slug === '' || isset(publisher_category_reserved_slugs()[$slug])) {
+        return ['ok' => false, 'error' => 'invalid', 'message' => 'That category name is not allowed. Try a different one.'];
+    }
+
+    $all = publisher_categories($dbh);
+    if (isset($all[$slug])) {
+        return [
+            'ok' => true,
+            'slug' => $slug,
+            'label' => (string)$all[$slug],
+            'existing' => true,
+        ];
+    }
+
+    // Match by label case-insensitively against builtins + customs
+    foreach ($all as $existingSlug => $existingLabel) {
+        if (strcasecmp((string)$existingLabel, $label) === 0) {
+            return [
+                'ok' => true,
+                'slug' => (string)$existingSlug,
+                'label' => (string)$existingLabel,
+                'existing' => true,
+            ];
+        }
+    }
+
+    publisher_custom_categories_ensure_schema($dbh);
+    try {
+        $st = $dbh->prepare('
+            INSERT INTO publisher_category_options (slug, label, created_by_user_id, created_at)
+            VALUES (:slug, :label, :uid, NOW())
+        ');
+        $st->execute([
+            ':slug' => $slug,
+            ':label' => $label,
+            ':uid' => ($createdByUserId !== null && $createdByUserId > 0) ? $createdByUserId : null,
+        ]);
+    } catch (Throwable $e) {
+        // Race: another request may have inserted the same slug
+        $customs = publisher_custom_categories($dbh);
+        if (isset($customs[$slug])) {
+            publisher_categories_reset_cache();
+            return [
+                'ok' => true,
+                'slug' => $slug,
+                'label' => (string)$customs[$slug],
+                'existing' => true,
+            ];
+        }
+        return ['ok' => false, 'error' => 'save_failed', 'message' => 'Unable to add that category right now.'];
+    }
+
+    publisher_categories_reset_cache();
+    return [
+        'ok' => true,
+        'slug' => $slug,
+        'label' => $label,
+        'existing' => false,
     ];
 }
 
@@ -1012,9 +1217,6 @@ function publisher_session_establish_for_manager(PDO $dbh, int $managerId): void
 
 function publisher_post_visibility(PDO $dbh, int $userId, string $requested): string
 {
-    if (publisher_account_is($dbh, $userId)) {
-        return 'public';
-    }
     $requested = strtolower(trim($requested));
     return in_array($requested, ['public', 'friends'], true) ? $requested : 'public';
 }
@@ -1024,12 +1226,7 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
 {
     $visibility = strtolower(trim($visibility));
 
-    // Publisher workspace posts are always public; keep them on the publisher feed.
-    if (publisher_account_is($dbh, $userId) || publisher_workspace_viewer($dbh, $userId)) {
-        return 'feed.php';
-    }
-
-    // Personal users: Friends → feed.php, Public → public.php (news.php is publisher-only browse).
+    // Friends → For You (feed.php). Public → Discover (public.php).
     if ($visibility === 'public') {
         return 'public.php';
     }
@@ -1307,14 +1504,13 @@ function publisher_profile_can_view_user(PDO $dbh, int $meId, int $viewId): bool
 
     $viewIsPublisher = publisher_is_publisher_user($dbh, $viewId);
 
+    // Publisher workspace may only open other publisher profiles (not personal).
     if (publisher_workspace_viewer($dbh, $meId)) {
         return $viewIsPublisher;
     }
 
-    if ($viewIsPublisher) {
-        return true;
-    }
-
+    // Personal users may open publisher profiles (Posts / Gallery / Tags)
+    // and other personal profiles.
     return true;
 }
 
@@ -1322,8 +1518,9 @@ function publisher_profile_can_view_user(PDO $dbh, int $meId, int $viewId): bool
  * public.php / news.php list scope.
  * - news.php: publisher-authored public posts only (your own + unfollowed publishers).
  *   Followed publisher posts appear in feed.php instead. Personal public posts never appear here.
- * - Personal viewers on public.php: personal public posts + all publisher posts.
- * - Publisher workspace viewers on public.php: publisher-authored posts only.
+ * - Discover (public.php?tab=public): personal viewers see people (add friend);
+ *   publisher viewers see publisher posts only (never personal-user posts).
+ * - Publisher workspace viewers on public.php / reel: publisher-authored posts only.
  */
 function publisher_public_discover_exclude_followed_sql(string $meBind = ':pubDiscMe'): string
 {
@@ -1394,9 +1591,11 @@ function publisher_news_list_scope_params(int $meId): array
 }
 
 /**
- * profile.php Posts tab (feed_api filter=author): list by profile owner, not feed discover rules.
- * Personal and publisher users may browse public posts; friends-only personal posts
- * require an accepted contact relationship.
+ * profile.php Posts / Gallery / Tags: list by profile owner, not feed discover rules.
+ * - Own profile: all posts.
+ * - Publisher profile: any signed-in viewer (personal or publisher) may browse that
+ *   publisher's public posts without following (brand page).
+ * - Personal profile: public posts, or friends-only when an accepted contact.
  */
 function publisher_profile_author_posts_scope_sql(PDO $dbh, int $viewerId, int $authorId): string
 {
@@ -1409,13 +1608,14 @@ function publisher_profile_author_posts_scope_sql(PDO $dbh, int $viewerId, int $
     }
 
     if (publisher_is_publisher_user($dbh, $authorId)) {
-        return "p.visibility = 'public'";
+        // Public destination posts are the publisher portfolio for visitors.
+        return "LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'";
     }
 
     return "(
-        p.visibility = 'public'
+        LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'
         OR (
-            p.visibility = 'friends'
+            LOWER(COALESCE(p.visibility, '')) = 'friends'
             AND EXISTS (
                 SELECT 1 FROM user_contacts uc
                 WHERE uc.owner_user_id = :profFriendMe AND uc.friend_user_id = :profFriendAuthor

@@ -17,6 +17,9 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
         if (!is_array($post) || !post_is_story_only($post)) {
             continue;
         }
+        if (!empty($post['is_archived'])) {
+            continue;
+        }
 
         $attachments = is_array($post['attachments'] ?? null) ? $post['attachments'] : [];
         $first = $attachments[0] ?? null;

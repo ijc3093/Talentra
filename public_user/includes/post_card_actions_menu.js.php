@@ -133,6 +133,18 @@
     clone.style.zIndex = '100000';
     clone.style.minWidth = '220px';
     clone.style.display = 'block';
+    // Story-door fries: mark the portaled menu so Archive lands in Archive → Stories.
+    var fromStoryDoor = !!(wrap && (
+      wrap.id === 'ttStoriesMenuWrap' ||
+      (wrap.classList && wrap.classList.contains('tt-stories-menu-wrap')) ||
+      String(wrap.getAttribute('data-menu-surface') || '').indexOf('story') !== -1
+    ));
+    if(fromStoryDoor){
+      clone.setAttribute('data-story-hide', '1');
+      clone.querySelectorAll('.pcm-archive').forEach(function(btn){
+        btn.setAttribute('data-story-hide', '1');
+      });
+    }
 
     document.body.appendChild(clone);
     positionPortal(btn, clone, wrap);
@@ -178,19 +190,293 @@
     return String(opts.api_url || 'feed_api.php');
   }
 
+  function absoluteShareUrl(postId){
+    postId = Number(postId || 0);
+    if(!postId) return '';
+    try{
+      var here = new URL(window.location.href);
+      var dir = here.pathname.replace(/[^/]+$/, '');
+      return here.origin + dir + 'share_post.php?id=' + encodeURIComponent(String(postId));
+    }catch(e){
+      return (window.location.origin || '') + '/share_post.php?id=' + encodeURIComponent(String(postId));
+    }
+  }
+
+  // Canonical copy-link target: one post page (no feed scrolling to find the card).
   function absolutePostUrl(postId, wrap){
     postId = Number(postId || 0);
     if(!postId) return '';
-    var surface = '';
-    if(wrap && wrap.getAttribute){
-      surface = String(wrap.getAttribute('data-menu-surface') || '').trim();
+    try{
+      var here = new URL(window.location.href);
+      var dir = here.pathname.replace(/[^/]+$/, '');
+      return here.origin + dir + 'post.php?id=' + encodeURIComponent(String(postId));
+    }catch(e){
+      return (window.location.origin || '') + '/post.php?id=' + encodeURIComponent(String(postId));
     }
-    if(!surface) surface = String(opts.menu_surface || 'public');
-    if(surface === 'feed'){
-      return (window.location.origin || '') + (window.location.pathname || '') + '?post=' + encodeURIComponent(String(postId));
+  }
+
+  function shareTitleForPost(postId){
+    postId = Number(postId || 0);
+    var card = document.querySelector(
+      '.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"], [data-post-id="'+String(postId)+'"]'
+    );
+    var title = '';
+    if(card){
+      title = String(card.getAttribute('data-title') || card.getAttribute('data-full-desc') || '').trim();
     }
-    var page = surface === 'profile' ? 'profile.php' : 'public.php';
-    return (window.location.origin || '') + '/' + page.replace(/^\//, '') + '?post=' + encodeURIComponent(String(postId));
+    if(!title) title = 'Check out this post on Talentra';
+    if(title.length > 120) title = title.slice(0, 117) + '…';
+    return title;
+  }
+
+  function shareMediaSrcForPost(postId){
+    postId = Number(postId || 0);
+    var card = document.querySelector(
+      '.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"]'
+    );
+    if(!card) return '';
+    var media = card.querySelector('img.mf-media, img.public-media, .mf-media img, .media-stage img, video[src], video source');
+    if(!media) return '';
+    var src = String(media.currentSrc || media.src || media.getAttribute('src') || '').trim();
+    if(!src) return '';
+    try{ return new URL(src, window.location.href).toString(); }catch(e){ return src; }
+  }
+
+  function recordShareOnce(postId){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    var url = trackApiUrl();
+    var payload = { ajax: 'share', post_id: postId, share_action: 'add' };
+    if($){
+      $.post(url, payload, function(res){
+        if(res && res.ok !== false) syncPostTrackState(postId, res);
+      }, 'json');
+      return;
+    }
+    var body = new URLSearchParams(payload);
+    fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body, credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(res && res.ok !== false) syncPostTrackState(postId, res);
+      })
+      .catch(function(){});
+  }
+
+  function closePcmShareSheet(){
+    window.__pcmSharePostId = 0;
+    window.__pcmShareUrl = '';
+    window.__pcmShareTitle = '';
+    hideModal('pcmShareSheet');
+  }
+
+  function openPcmShareSheet(postId, wrap){
+    postId = Number(postId || 0);
+    if(!postId) return false;
+    var dialog = document.getElementById('pcmShareSheet');
+    if(!dialog) return false;
+    var url = absoluteShareUrl(postId);
+    var title = shareTitleForPost(postId);
+    var text = title + '\n' + url;
+    window.__pcmSharePostId = postId;
+    window.__pcmShareUrl = url;
+    window.__pcmShareTitle = title;
+
+    // Prefill real hrefs so the browser opens apps even if JS is delayed.
+    var map = {
+      facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url),
+      whatsapp: 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text),
+      x: 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title),
+      twitter: 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title),
+      telegram: 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title),
+      email: 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text),
+      messages: 'sms:?&body=' + encodeURIComponent(text),
+      instagram: 'https://www.instagram.com/',
+      tiktok: 'https://www.tiktok.com/'
+    };
+    dialog.querySelectorAll('[data-pcm-share]').forEach(function(btn){
+      var key = String(btn.getAttribute('data-pcm-share') || '').toLowerCase();
+      if(map[key]){
+        btn.setAttribute('href', map[key]);
+        btn.setAttribute('target', '_blank');
+        btn.setAttribute('rel', 'noopener noreferrer');
+      } else {
+        btn.removeAttribute('href');
+        btn.removeAttribute('target');
+      }
+    });
+
+    var nativeBtn = document.getElementById('pcmShareNativeBtn');
+    if(nativeBtn){
+      var canNative = !!(navigator.share && typeof navigator.share === 'function');
+      if(canNative) nativeBtn.removeAttribute('hidden');
+      else nativeBtn.setAttribute('hidden', '');
+    }
+    setTimeout(function(){
+      if(Number(window.__pcmSharePostId || 0) !== postId) return;
+      try{
+        if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
+        if(typeof dialog.showModal === 'function'){
+          if(!dialog.open) dialog.showModal();
+        }else{
+          dialog.setAttribute('open', '');
+        }
+      }catch(eOpen){
+        try{ dialog.setAttribute('open', ''); }catch(e2){}
+      }
+    }, 0);
+    return true;
+  }
+
+  function openExternalShare(href){
+    href = String(href || '');
+    if(!href) return false;
+    // Anchor click is more reliable than window.open from inside <dialog>.
+    try{
+      var a = document.createElement('a');
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ try{ a.remove(); }catch(e){} }, 0);
+      return true;
+    }catch(e){}
+    try{
+      var win = window.open(href, '_blank');
+      if(win) return true;
+    }catch(e2){}
+    try{
+      window.location.href = href;
+      return true;
+    }catch(e3){}
+    return false;
+  }
+
+  function runShareTarget(target, evt){
+    var postId = Number(window.__pcmSharePostId || 0);
+    var url = String(window.__pcmShareUrl || '');
+    if(!postId || !url) return;
+    target = String(target || '').toLowerCase();
+    var title = String(window.__pcmShareTitle || shareTitleForPost(postId));
+    var text = title + '\n' + url;
+    var href = '';
+
+    function finish(msg){
+      recordShareOnce(postId);
+      // Close after navigation starts so popup blockers do not cancel the open.
+      setTimeout(function(){
+        closePcmShareSheet();
+        if(msg) pcmToast(msg);
+      }, 120);
+    }
+
+    if(target === 'native'){
+      if(evt && evt.preventDefault) evt.preventDefault();
+      if(!(navigator.share && typeof navigator.share === 'function')){
+        pcmToast('Sharing is not available on this device.');
+        return;
+      }
+      var payload = { title: title, text: title, url: url };
+      var mediaSrc = shareMediaSrcForPost(postId);
+      var sharePromise = Promise.resolve();
+      if(mediaSrc && navigator.canShare){
+        sharePromise = fetch(mediaSrc, { credentials: 'same-origin' })
+          .then(function(r){ return r.ok ? r.blob() : null; })
+          .then(function(blob){
+            if(!blob) return;
+            var name = 'talentra-post-' + postId + (blob.type.indexOf('video') === 0 ? '.mp4' : '.jpg');
+            var file = new File([blob], name, { type: blob.type || 'image/jpeg' });
+            var withFile = { title: title, text: title, url: url, files: [file] };
+            if(navigator.canShare(withFile)) payload = withFile;
+          })
+          .catch(function(){});
+      }
+      sharePromise.then(function(){
+        return navigator.share(payload);
+      }).then(function(){
+        finish('Shared.');
+      }).catch(function(err){
+        if(err && String(err.name || '') === 'AbortError') return;
+        // Fallback to URL-only share.
+        navigator.share({ title: title, text: title, url: url }).then(function(){
+          finish('Shared.');
+        }).catch(function(){
+          pcmToast('Could not open share sheet.');
+        });
+      });
+      return;
+    }
+
+    if(target === 'copy'){
+      if(evt && evt.preventDefault) evt.preventDefault();
+      copyText(url).then(function(){
+        finish('Link copied to clipboard.');
+      }).catch(function(){
+        pcmToast('Could not copy link.');
+      });
+      return;
+    }
+
+    if(target === 'instagram' || target === 'tiktok'){
+      // Those apps have no reliable web composer — copy the post link, then open the app/site.
+      if(evt && evt.preventDefault) evt.preventDefault();
+      href = target === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/';
+      copyText(url).then(function(){
+        openExternalShare(href);
+        finish(target === 'instagram'
+          ? 'Link copied. Paste it in an Instagram post, Reel, or Story.'
+          : 'Link copied. Paste it in a TikTok post or message.');
+      }).catch(function(){
+        openExternalShare(href);
+        finish('Opened ' + (target === 'instagram' ? 'Instagram' : 'TikTok') + '. Copy the post link to share.');
+      });
+      return;
+    }
+
+    if(target === 'facebook'){
+      href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
+    } else if(target === 'whatsapp'){
+      href = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
+    } else if(target === 'x' || target === 'twitter'){
+      href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
+    } else if(target === 'telegram'){
+      href = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
+    } else if(target === 'email'){
+      href = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text);
+    } else if(target === 'messages' || target === 'sms' || target === 'imessage'){
+      href = 'sms:?&body=' + encodeURIComponent(text);
+    }
+
+    if(!href) return;
+
+    // If the button is already an <a href>, let the browser follow it (most reliable).
+    var isAnchorNav = !!(evt && evt.currentTarget && evt.currentTarget.tagName === 'A' && evt.currentTarget.getAttribute('href'));
+    if(isAnchorNav){
+      // Still force open for mailto/sms in case dialog swallows navigation.
+      if(target === 'email' || target === 'messages' || target === 'sms' || target === 'imessage'){
+        if(evt && evt.preventDefault) evt.preventDefault();
+        try{ window.location.href = href; }catch(eLoc){}
+      }
+      finish(target === 'facebook' ? 'Opening Facebook…'
+        : (target === 'whatsapp' ? 'Opening WhatsApp…'
+        : (target === 'x' || target === 'twitter' ? 'Opening X…'
+        : (target === 'telegram' ? 'Opening Telegram…'
+        : (target === 'email' ? 'Opening Mail…' : 'Opening Messages…')))));
+      return;
+    }
+
+    if(evt && evt.preventDefault) evt.preventDefault();
+    if(target === 'email' || target === 'messages' || target === 'sms' || target === 'imessage'){
+      try{ window.location.href = href; }catch(eSms){}
+    } else {
+      openExternalShare(href);
+    }
+    finish(target === 'facebook' ? 'Opening Facebook…'
+      : (target === 'whatsapp' ? 'Opening WhatsApp…'
+      : (target === 'x' || target === 'twitter' ? 'Opening X…'
+      : (target === 'telegram' ? 'Opening Telegram…'
+      : (target === 'email' ? 'Opening Mail…' : 'Opening Messages…')))));
   }
 
   function copyText(text){
@@ -313,18 +599,21 @@
     }
   }
 
-  function postTrack(action, postId, done){
+  function postTrack(action, postId, done, extra){
     postId = Number(postId || 0);
     if(!postId) return;
+    extra = extra || {};
     var url = trackApiUrl();
+    var payload = { ajax: action, post_id: postId };
+    if(action === 'save' && extra.fromStory) payload.from_story = 1;
     if($){
-      $.post(url, { ajax: action, post_id: postId }, function(res){
+      $.post(url, payload, function(res){
         if(res && res.ok !== false) syncPostTrackState(postId, res);
         if(typeof done === 'function') done(res);
       }, 'json');
       return;
     }
-    var body = new URLSearchParams({ ajax: action, post_id: String(postId) });
+    var body = new URLSearchParams(payload);
     fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
       .then(function(r){ return r.json(); })
       .then(function(res){
@@ -463,9 +752,12 @@
     var messageUrl = friendCode ? ('messages.php?peer=' + encodeURIComponent(friendCode)) : (peerId ? ('messages.php?peer_id=' + peerId) : 'messages.php');
     var html = '';
     var feedSurface = isFeedSurface();
-    var showPublisherView = isPublisher && isFollowing && profileUrl;
+    var canFollowPublishers = opts.can_follow_publishers !== false;
+    var publisherWorkspaceViewer = !!opts.publisher_workspace_viewer;
+    // Personal users may always open a publisher profile (Posts / Gallery / Tags).
+    var showPublisherView = isPublisher && (isFollowing || canFollowPublishers) && profileUrl;
 
-    if((!feedSurface || showPublisherView) && profileUrl){
+    if((!feedSurface || !isPublisher || showPublisherView) && profileUrl){
       html += linkItem('pcm-view', profileUrl, 'fa fa-user', 'View');
     }
     if(!feedSurface && !isPublisher && friendStatus === 'friends'){
@@ -478,8 +770,6 @@
       html += '<button type="button" class="pcm-item pcm-add-friend" data-peer-id="' + esc(String(peerId)) + '" role="menuitem">' +
         '<i class="fa fa-user-plus" aria-hidden="true"></i><span>Add Friend</span></button>';
     }
-    var canFollowPublishers = opts.can_follow_publishers !== false;
-    var publisherWorkspaceViewer = !!opts.publisher_workspace_viewer;
     if(!feedSurface && isPublisher && !isFollowing && peerId && canFollowPublishers){
       html += '<button type="button" class="pcm-item pcm-follow" data-publisher-id="' + esc(String(peerId)) + '" role="menuitem">' +
         '<i class="fa fa-user-plus" aria-hidden="true"></i><span>Follow</span></button>';
@@ -676,12 +966,102 @@
   function removePostFromSurfaces(postId){
     postId = Number(postId || 0);
     if(!postId) return;
-    document.querySelectorAll('.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"]').forEach(function(el){
+    try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e0){}
+    if(typeof window.MSBReelAfterPostDeleted === 'function'){
+      try { window.MSBReelAfterPostDeleted(postId); } catch(eReel){}
+    }
+    document.querySelectorAll(
+      '.mf-card[data-id="'+String(postId)+'"],' +
+      '.mf-card[data-post-id="'+String(postId)+'"],' +
+      '.public-post-card[data-post-id="'+String(postId)+'"],' +
+      '.public-post-card[data-id="'+String(postId)+'"],' +
+      '.ig-item[data-post-id="'+String(postId)+'"]'
+    ).forEach(function(el){
       try { el.remove(); } catch(e){}
     });
     if(window.TTStories && typeof window.TTStories.removePost === 'function'){
-      try { window.TTStories.removePost(postId); } catch(e){}
+      try { window.TTStories.removePost(postId); } catch(e2){}
     }
+  }
+
+  function openPcmDeleteConfirm(postId, done){
+    postId = Number(postId || 0);
+    if(!postId) return false;
+    var dialog = document.getElementById('pcmDeleteConfirmDialog');
+    if(!dialog) return false;
+    window.__pcmPendingDeleteId = postId;
+    window.__pcmPendingDeleteDone = typeof done === 'function' ? done : null;
+    pauseStoryDoorForConfirm();
+    // Defer so the fries-menu click cannot light-dismiss the confirm popup.
+    setTimeout(function(){
+      if(Number(window.__pcmPendingDeleteId || 0) !== postId) return;
+      try{
+        if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
+        if(typeof dialog.showModal === 'function'){
+          if(!dialog.open) dialog.showModal();
+        }else{
+          dialog.setAttribute('open', '');
+        }
+        var confirmBtn = document.getElementById('pcmGenericConfirmDeleteBtn');
+        try{ if(confirmBtn) confirmBtn.focus(); }catch(eFocus){}
+      }catch(eOpen){
+        try{ dialog.setAttribute('open', ''); }catch(e2){}
+      }
+    }, 0);
+    return true;
+  }
+
+  function pauseStoryDoorForConfirm(){
+    try{
+      var wrap = document.getElementById('tt-stories-wrap');
+      if(wrap && wrap.classList && wrap.classList.contains('is-open')
+        && window.TTStories && typeof window.TTStories.pause === 'function'){
+        window.TTStories.pause();
+      }
+    }catch(ePause){}
+  }
+
+  function openPcmArchiveConfirm(postId, storyHide, onConfirm){
+    postId = Number(postId || 0);
+    if(!postId) return false;
+    var dialog = document.getElementById('pcmArchiveConfirmDialog');
+    if(!dialog) return false;
+    var titleEl = document.getElementById('pcmArchiveConfirmTitle');
+    var bodyEl = document.getElementById('pcmArchiveConfirmBody');
+    if(storyHide){
+      if(titleEl) titleEl.textContent = 'Archive this story?';
+      if(bodyEl) bodyEl.textContent = 'It will leave your story circle and appear at the top of Archive under Stories.';
+      pauseStoryDoorForConfirm();
+    } else {
+      if(titleEl) titleEl.textContent = 'Archive this post?';
+      if(bodyEl) bodyEl.textContent = 'It will be hidden from feeds. You can find it later under Posts in Settings → Archived posts.';
+    }
+    window.__pcmPendingArchiveId = postId;
+    window.__pcmPendingArchiveStory = !!storyHide;
+    window.__pcmPendingArchiveConfirm = typeof onConfirm === 'function' ? onConfirm : null;
+    setTimeout(function(){
+      if(Number(window.__pcmPendingArchiveId || 0) !== postId) return;
+      try{
+        if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
+        if(typeof dialog.showModal === 'function'){
+          if(!dialog.open) dialog.showModal();
+        }else{
+          dialog.setAttribute('open', '');
+        }
+        var confirmBtn = document.getElementById('pcmGenericConfirmArchiveBtn');
+        try{ if(confirmBtn) confirmBtn.focus(); }catch(eFocus){}
+      }catch(eOpen){
+        try{ dialog.setAttribute('open', ''); }catch(e2){}
+      }
+    }, 0);
+    return true;
+  }
+
+  function closePcmArchiveConfirm(){
+    window.__pcmPendingArchiveId = 0;
+    window.__pcmPendingArchiveStory = false;
+    window.__pcmPendingArchiveConfirm = null;
+    hideModal('pcmArchiveConfirmDialog');
   }
 
   function syncArchiveMenuState(postId, archived){
@@ -697,12 +1077,39 @@
     });
   }
 
-  function runArchive(postId, archived, done){
+  function isStoryHideContext(btn){
+    if(btn && String(btn.getAttribute('data-story-hide') || '') === '1') return true;
+    if(btn && btn.closest){
+      if(btn.closest('#ttStoriesMenuWrap, #ttStoriesMenu, .tt-stories-menu-wrap')) return true;
+      var portal = btn.closest('.pcm-menu-portal');
+      if(portal && String(portal.getAttribute('data-story-hide') || '') === '1') return true;
+    }
+    if(activePortalWrap){
+      if(activePortalWrap.id === 'ttStoriesMenuWrap') return true;
+      if(activePortalWrap.classList && activePortalWrap.classList.contains('tt-stories-menu-wrap')) return true;
+    }
+    return false;
+  }
+
+  function runArchive(postId, archived, done, opts){
     postId = Number(postId || 0);
     if(!postId) return;
+    opts = opts || {};
+    // Only story-door Archive uses from_story. Feed/public card fries → Posts list.
+    var storyHide = !!opts.fromStory;
     var url = trackApiUrl();
-    var body = new URLSearchParams({ ajax: 'archive', post_id: String(postId), archived: archived ? '1' : '0' });
-    fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
+    var body = new URLSearchParams({
+      ajax: 'archive',
+      post_id: String(postId),
+      archived: archived ? '1' : '0',
+      from_story: (storyHide && archived) ? '1' : '0'
+    });
+    fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      credentials:'same-origin',
+      body: body
+    })
       .then(function(r){ return r.json(); })
       .then(function(res){
         if(res && res.ok !== false){
@@ -713,24 +1120,51 @@
           syncArchiveMenuState(postId, nextArchived);
           if(nextArchived){
             removePostFromSurfaces(postId);
-            pcmToast('Post archived.');
+            if(typeof window.MSBFeedRebuildStories === 'function'){
+              try{ window.MSBFeedRebuildStories(); }catch(eRebuild){}
+            }
+            if(storyHide && window.TTStories){
+              try{
+                if(typeof window.TTStories.close === 'function') window.TTStories.close();
+                else if(typeof window.TTStories.closeAll === 'function') window.TTStories.closeAll();
+              }catch(eClose){}
+            }
+            pcmToast(storyHide
+              ? 'Story archived. Open Archive to see it in your story circle.'
+              : 'Post archived. Find it under Posts in Settings → Archived posts.');
           } else {
-            pcmToast('Post unarchived.');
+            pcmToast(storyHide ? 'Story restored to your feed.' : 'Post unarchived.');
           }
+        } else {
+          pcmToast((res && res.error) ? String(res.error) : 'Could not archive this post.');
         }
         if(typeof done === 'function') done(res);
       })
-      .catch(function(){ if(typeof done === 'function') done(null); });
+      .catch(function(){
+        pcmToast('Network error while archiving.');
+        if(typeof done === 'function') done(null);
+      });
   }
 
-  function confirmArchive(btn){
+  function confirmArchive(btn, fromStoryOverride){
     if(!btn) return;
     var postId = Number(btn.getAttribute('data-post-id') || 0);
     if(!postId) return;
     var isArchived = String(btn.getAttribute('data-archived') || '0') === '1';
     var nextArchived = !isArchived;
-    if(nextArchived && !window.confirm('Archive this post? It will be hidden from feeds.')) return;
-    runArchive(postId, nextArchived);
+    var storyHide = (typeof fromStoryOverride === 'boolean')
+      ? fromStoryOverride
+      : isStoryHideContext(btn);
+    if(nextArchived){
+      if(openPcmArchiveConfirm(postId, storyHide, function(){
+        runArchive(postId, true, null, { fromStory: storyHide });
+      })) return;
+      var msg = storyHide
+        ? 'Archive this story? It will leave your story circle and appear at the top of Archive under Stories.'
+        : 'Archive this post? It will be hidden from feeds. You can find it later under Posts in Settings → Archived posts.';
+      if(!window.confirm(msg)) return;
+    }
+    runArchive(postId, nextArchived, null, { fromStory: storyHide });
   }
 
   function confirmDelete(postId, done){
@@ -740,21 +1174,31 @@
     if(String(opts.confirm_handler || '') === 'reel'
       && window.MSBReelDeleteConfirm
       && typeof window.MSBReelDeleteConfirm.open === 'function'){
-      window.MSBReelDeleteConfirm.open(postId, done);
+      // Defer so the fries-menu click cannot light-dismiss the confirm popup.
+      var reelDeleteId = postId;
+      var reelDeleteDone = done;
+      setTimeout(function(){
+        if(window.MSBReelDeleteConfirm && typeof window.MSBReelDeleteConfirm.open === 'function'){
+          window.MSBReelDeleteConfirm.open(reelDeleteId, reelDeleteDone);
+        }
+      }, 0);
       return;
     }
     if(String(opts.confirm_handler || '') === 'feed'
       && window.MSBFeedDeleteConfirm
       && typeof window.MSBFeedDeleteConfirm.open === 'function'){
-      window.MSBFeedDeleteConfirm.open(postId, done);
+      // Defer open so the fries-menu click cannot light-dismiss the confirm popup.
+      var feedDeleteId = postId;
+      var feedDeleteDone = done;
+      setTimeout(function(){
+        if(window.MSBFeedDeleteConfirm && typeof window.MSBFeedDeleteConfirm.open === 'function'){
+          window.MSBFeedDeleteConfirm.open(feedDeleteId, feedDeleteDone);
+        }
+      }, 0);
       return;
     }
-    if(document.getElementById('pcmDeleteConfirmDialog')){
-      window.__pcmPendingDeleteId = postId;
-      window.__pcmPendingDeleteDone = typeof done === 'function' ? done : null;
-      showModal('pcmDeleteConfirmDialog');
-      return;
-    }
+    // Shared popup for profile / public (and fallback).
+    if(openPcmDeleteConfirm(postId, done)) return;
     if(mode === 'public' && document.getElementById('deleteConfirmModal')){
       window.__pcmPendingDeleteId = postId;
       showModal('deleteConfirmModal');
@@ -773,39 +1217,43 @@
 
   function runDelete(postId, done){
     postId = Number(postId || 0);
-    if(!postId) return;
+    if(!postId){
+      if(typeof done === 'function') done({ok:false, error:'Missing post id'});
+      return;
+    }
     var mode = String(opts.delete_mode || 'feed');
+    function onOk(res){
+      // Confirm UI usually removes the card first; keep this as a safe fallback.
+      if(res && res.ok !== false){
+        removePostFromSurfaces(postId);
+      }
+      if(typeof done === 'function') done(res || {ok:false});
+    }
+    function onFail(){
+      if(typeof done === 'function') done({ok:false, error:'network'});
+    }
     if(mode === 'feed' && opts.api_url){
+      // Card already removed by confirm UI; persist soft-delete in the background.
       if($){
         $.post(opts.api_url, { ajax:'delete_post', post_id: postId }, function(res){
-          if(res && res.ok !== false){
-            try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e){}
-            removePostFromSurfaces(postId);
-            try { if(typeof window.refreshList === 'function') window.refreshList(false); } catch(e){}
-          }
-          if(typeof done === 'function') done(res);
-        }, 'json');
+          onOk(res);
+        }, 'json').fail(onFail);
         return;
       }
       var body = new URLSearchParams({ ajax:'delete_post', post_id: String(postId) });
-      fetch(opts.api_url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
+      fetch(opts.api_url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body, credentials:'same-origin' })
         .then(function(r){ return r.json(); })
-        .then(function(res){
-          if(res && res.ok !== false){
-            try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e){}
-            removePostFromSurfaces(postId);
-            try { if(typeof window.refreshList === 'function') window.refreshList(false); } catch(e){}
-          }
-          if(typeof done === 'function') done(res);
-        });
+        .then(onOk)
+        .catch(onFail);
       return;
     }
     if(mode === 'profile' && typeof window.mfPost === 'function'){
       window.mfPost('delete_post', { post_id: postId }, function(res){
         if(res && res.ok){
           document.querySelectorAll('#profilePostsFeed .mf-card[data-id="'+String(postId)+'"]').forEach(function(el){ el.remove(); });
+          removePostFromSurfaces(postId);
         }
-        if(typeof done === 'function') done(res);
+        if(typeof done === 'function') done(res || {ok:false});
       });
       return;
     }
@@ -860,13 +1308,16 @@
     if(delBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      var card = closest(delBtn, '.mf-card, .public-post-card, [data-post-id], [data-id]');
       var deletePostId = Number(
         delBtn.getAttribute('data-post-id') ||
         (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        (card && (card.getAttribute('data-post-id') || card.getAttribute('data-id'))) ||
         0
       );
       closeMenus();
-      confirmDelete(deletePostId);
+      if(deletePostId > 0) confirmDelete(deletePostId);
       return true;
     }
 
@@ -874,8 +1325,10 @@
     if(archiveBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      // Capture story-door context before the portal is torn down.
+      var fromStoryDoor = isStoryHideContext(archiveBtn);
       closeMenus();
-      confirmArchive(archiveBtn);
+      confirmArchive(archiveBtn, fromStoryDoor);
       return true;
     }
 
@@ -984,10 +1437,24 @@
     if(bookmarkBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      var fromStory = isStoryHideContext(bookmarkBtn);
+      var bookmarkPid = Number(
+        bookmarkBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
       closeMenus();
-      var bookmarkPid = Number(bookmarkBtn.getAttribute('data-post-id') || 0);
       if(!bookmarkPid) return true;
-      postTrack('save', bookmarkPid);
+      postTrack('save', bookmarkPid, function(res){
+        if(!res || res.ok === false){
+          pcmToast((res && res.error) ? String(res.error) : 'Could not update bookmark.');
+          return;
+        }
+        var saved = Number(res.state && res.state.saved != null ? res.state.saved : 0) === 1;
+        pcmToast(saved
+          ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
+          : 'Removed from Bookmarks.');
+      }, { fromStory: fromStory });
       return true;
     }
 
@@ -995,12 +1462,20 @@
     if(shareBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      var sharePid = Number(
+        shareBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
+      var shareWrap = closest(shareBtn, '.post-card-menu-wrap, .mf-menu-wrap') || activePortalWrap;
       closeMenus();
-      var sharePid = Number(shareBtn.getAttribute('data-post-id') || 0);
       if(!sharePid) return true;
-      var shareWrap = closest(shareBtn, '.post-card-menu-wrap, .mf-menu-wrap');
-      copyText(absolutePostUrl(sharePid, shareWrap));
-      postTrack('share', sharePid);
+      if(!openPcmShareSheet(sharePid, shareWrap)){
+        copyText(absolutePostUrl(sharePid, shareWrap)).then(function(){
+          pcmToast('Link copied to clipboard.');
+        });
+        recordShareOnce(sharePid);
+      }
       return true;
     }
 
@@ -1008,12 +1483,18 @@
     if(copyBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      var copyPid = Number(
+        copyBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
+      var copyWrap = closest(copyBtn, '.post-card-menu-wrap, .mf-menu-wrap') || activePortalWrap;
       closeMenus();
-      var copyPid = Number(copyBtn.getAttribute('data-post-id') || 0);
       if(!copyPid) return true;
-      var copyWrap = closest(copyBtn, '.post-card-menu-wrap, .mf-menu-wrap');
       copyText(absolutePostUrl(copyPid, copyWrap)).then(function(){
-        pcmToast('Link copied to clipboard.');
+        pcmToast('Post link copied. Paste it anywhere to open this post.');
+      }).catch(function(){
+        pcmToast('Could not copy link.');
       });
       return true;
     }
@@ -1033,6 +1514,35 @@
       e.stopPropagation();
       if(e.stopImmediatePropagation) e.stopImmediatePropagation();
       onGenericConfirmDeleteClick();
+      return;
+    }
+    if(closest(target, '#pcmGenericConfirmArchiveBtn')){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      onGenericConfirmArchiveClick();
+      return;
+    }
+    if(closest(target, '#feedDeleteDialogConfirm')){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if(window.MSBFeedDeleteConfirm && typeof window.MSBFeedDeleteConfirm.confirm === 'function'){
+        window.MSBFeedDeleteConfirm.confirm();
+      }
+      return;
+    }
+    if(closest(target, '#reelDeleteDialogConfirm')){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if(window.MSBReelDeleteConfirm && typeof window.MSBReelDeleteConfirm.confirm === 'function'){
+        window.MSBReelDeleteConfirm.confirm();
+      }
+      return;
+    }
+    // Keep the confirm popup open — do not treat dialog clicks as outside-menu dismiss.
+    if(closest(target, '#feedDeleteDialog, #pcmDeleteConfirmDialog, #pcmArchiveConfirmDialog, #pcmShareSheet, #reelDeleteDialog')){
       return;
     }
 
@@ -1070,9 +1580,15 @@
   function onProfileConfirmDeleteClick(){
     var postId = Number(window.__pcmPendingDeleteId || 0);
     if(!postId) return;
-    runDelete(postId, function(){
-      window.__pcmPendingDeleteId = 0;
-      hideModal('profileDeleteConfirmModal');
+    window.__pcmPendingDeleteId = 0;
+    // Remove card + close popup immediately; API soft-delete runs in background.
+    removePostFromSurfaces(postId);
+    hideModal('profileDeleteConfirmModal');
+    runDelete(postId, function(res){
+      if(res && res.ok !== false) return;
+      var msg = (res && res.error) ? String(res.error) : 'Could not delete this post.';
+      try { window.alert(msg); } catch(eAlert){}
+      try { window.location.reload(); } catch(eReload){}
     });
   }
 
@@ -1080,12 +1596,34 @@
     var postId = Number(window.__pcmPendingDeleteId || 0);
     if(!postId) return;
     var done = window.__pcmPendingDeleteDone;
+    window.__pcmPendingDeleteId = 0;
+    window.__pcmPendingDeleteDone = null;
+    // Remove card + close popup immediately; API soft-delete runs in background.
+    removePostFromSurfaces(postId);
+    hideModal('pcmDeleteConfirmDialog');
     runDelete(postId, function(res){
-      window.__pcmPendingDeleteId = 0;
-      window.__pcmPendingDeleteDone = null;
-      hideModal('pcmDeleteConfirmDialog');
-      if(typeof done === 'function') done(res);
+      if(res && res.ok !== false){
+        if(typeof done === 'function') done(res);
+        return;
+      }
+      var msg = (res && res.error) ? String(res.error) : 'Could not delete this post.';
+      try { window.alert(msg); } catch(eAlert){}
+      try { window.location.reload(); } catch(eReload){}
+      if(typeof done === 'function') done(res || {ok:false});
     });
+  }
+
+  function onGenericConfirmArchiveClick(){
+    var postId = Number(window.__pcmPendingArchiveId || 0);
+    if(!postId) return;
+    var storyHide = !!window.__pcmPendingArchiveStory;
+    var onConfirm = window.__pcmPendingArchiveConfirm;
+    closePcmArchiveConfirm();
+    if(typeof onConfirm === 'function'){
+      onConfirm();
+      return;
+    }
+    runArchive(postId, true, null, { fromStory: storyHide });
   }
 
   function onRenameSaveClick(){
@@ -1353,7 +1891,10 @@
     syncPublisherCards: syncPublisherCards,
     syncBookmarkMenuState: syncBookmarkMenuState,
     syncArchiveMenuState: syncArchiveMenuState,
-    syncPostTrackState: syncPostTrackState
+    syncPostTrackState: syncPostTrackState,
+    toast: pcmToast,
+    openShare: openPcmShareSheet,
+    closeShare: closePcmShareSheet
   };
 
   document.addEventListener('click', onDocumentClick, true);
@@ -1363,6 +1904,14 @@
       var genericDeleteModal = document.getElementById('pcmDeleteConfirmDialog');
       if(genericDeleteModal && genericDeleteModal.open){
         hideModal('pcmDeleteConfirmDialog');
+      }
+      var genericArchiveModal = document.getElementById('pcmArchiveConfirmDialog');
+      if(genericArchiveModal && genericArchiveModal.open){
+        closePcmArchiveConfirm();
+      }
+      var shareSheet = document.getElementById('pcmShareSheet');
+      if(shareSheet && shareSheet.open){
+        closePcmShareSheet();
       }
     }
   });
@@ -1394,6 +1943,11 @@
       genericConfirmDeleteBtn.__pcmBound = true;
       genericConfirmDeleteBtn.addEventListener('click', onGenericConfirmDeleteClick);
     }
+    var genericConfirmArchiveBtn = document.getElementById('pcmGenericConfirmArchiveBtn');
+    if(genericConfirmArchiveBtn && !genericConfirmArchiveBtn.__pcmBound){
+      genericConfirmArchiveBtn.__pcmBound = true;
+      genericConfirmArchiveBtn.addEventListener('click', onGenericConfirmArchiveClick);
+    }
     var genericDeleteModal = document.getElementById('pcmDeleteConfirmDialog');
     if(genericDeleteModal && !genericDeleteModal.__pcmDismissBound){
       genericDeleteModal.__pcmDismissBound = true;
@@ -1406,6 +1960,56 @@
         if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
           hideModal('pcmDeleteConfirmDialog');
         }
+      });
+    }
+    var genericArchiveModal = document.getElementById('pcmArchiveConfirmDialog');
+    if(genericArchiveModal && !genericArchiveModal.__pcmDismissBound){
+      genericArchiveModal.__pcmDismissBound = true;
+      genericArchiveModal.querySelectorAll('[data-pcm-archive-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ closePcmArchiveConfirm(); });
+      });
+      genericArchiveModal.addEventListener('click', function(e){
+        if(e.target !== genericArchiveModal) return;
+        var rect = genericArchiveModal.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          closePcmArchiveConfirm();
+        }
+      });
+      genericArchiveModal.addEventListener('cancel', function(e){
+        e.preventDefault();
+        closePcmArchiveConfirm();
+      });
+    }
+    var shareSheet = document.getElementById('pcmShareSheet');
+    if(shareSheet && !shareSheet.__pcmDismissBound){
+      shareSheet.__pcmDismissBound = true;
+      shareSheet.querySelectorAll('[data-pcm-share-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ closePcmShareSheet(); });
+      });
+      shareSheet.querySelectorAll('[data-pcm-share]').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          runShareTarget(btn.getAttribute('data-pcm-share'), e);
+        });
+      });
+      var nativeBtn = document.getElementById('pcmShareNativeBtn');
+      if(nativeBtn){
+        nativeBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          runShareTarget('native', e);
+        });
+      }
+      shareSheet.addEventListener('click', function(e){
+        if(e.target !== shareSheet) return;
+        var rect = shareSheet.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          closePcmShareSheet();
+        }
+      });
+      shareSheet.addEventListener('cancel', function(e){
+        e.preventDefault();
+        closePcmShareSheet();
       });
     }
     var renameSaveBtn = document.getElementById('pcmRenameSaveBtn');

@@ -17,10 +17,10 @@ sendNoCacheHeadersUser();
 // A plain form POST with hidden ajax=1 must redirect — otherwise the create-post
 // iframe shows Chrome's "Pretty-print" JSON page after publish.
 $acceptHeader = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
-$wantsJson = str_contains($acceptHeader, 'application/json')
+$wantsJson = (strpos($acceptHeader, 'application/json') !== false)
     || (
         (string)($_POST['ajax'] ?? '') === '1'
-        && !str_contains($acceptHeader, 'text/html')
+        && strpos($acceptHeader, 'text/html') === false
         && (string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== ''
     );
 
@@ -155,11 +155,7 @@ $isPublisherPoster = ((string)($_POST['publisher_account'] ?? '') === '1')
 if (!$isPublisherPoster && !$fastPath) {
     $isPublisherPoster = publisher_account_is($dbh, $meId);
 }
-if ($isPublisherPoster) {
-    $visibility = 'public';
-} else {
-    $visibility = publisher_post_visibility($dbh, $meId, $visibility);
-}
+$visibility = publisher_post_visibility($dbh, $meId, $visibility);
 $description = stripLayoutOverrideMarker($description);
 $description = post_strip_music_marker($description);
 
@@ -206,14 +202,16 @@ $deviceLabel = (string)($deviceProfile['label'] ?? '');
 $deviceViewport = (string)($deviceProfile['viewport'] ?? '');
 
 try {
-    // Prefer session-cached layout column; default to layout_type on fast path without SHOW COLUMNS.
+    // Prefer a real layout column so story-circle creates stay tagged.
     $layoutColumn = null;
-    if (isset($_SESSION['post_layout_col_cache'])) {
+    if (function_exists('post_layout_ensure_column')) {
+        $layoutColumn = post_layout_ensure_column($dbh);
+    }
+    if (!$layoutColumn) {
         $layoutColumn = firstExistingPostLayoutColumn($dbh);
-    } elseif ($fastPath) {
-        $layoutColumn = 'layout_type'; // most installs; INSERT falls back if missing
-    } else {
-        $layoutColumn = firstExistingPostLayoutColumn($dbh);
+    }
+    if ($layoutColumn) {
+        $_SESSION['post_layout_col_cache'] = $layoutColumn;
     }
 
     $hasTextContent = ($title !== '' || $description !== '' || $body !== '');
@@ -237,6 +235,7 @@ try {
         $resolvedCategoryId = resolveUserPostCategoryId($dbh, $meId, 0, $detectedCategoryType) ?: null;
     }
 
+    // Marker fallback when DB has no layout column (keeps story vs feed-card distinct).
     if (!$layoutColumn && $layoutOverride !== '') {
         $description = trim(layoutOverrideMarker($layoutOverride) . ' ' . $description);
     }
@@ -251,6 +250,9 @@ try {
         }
         if ($preserveExistingDescription) {
             $description = (string)($existingEditRow['description'] ?? '');
+            if (!$layoutColumn && $layoutOverride !== '' && stripos($description, '[[layout:') === false) {
+                $description = trim(layoutOverrideMarker($layoutOverride) . ' ' . $description);
+            }
         }
         try {
             if ($layoutColumn) {
@@ -260,6 +262,9 @@ try {
                 throw new RuntimeException('no-layout-col');
             }
         } catch (Throwable $e) {
+            if ($layoutOverride !== '' && stripos($description, '[[layout:') === false) {
+                $description = trim(layoutOverrideMarker($layoutOverride) . ' ' . $description);
+            }
             $stU = $dbh->prepare("UPDATE public_posts SET title=:t, description=:d, body=:b, visibility=:v, music_title=:mt, music_artist=:ma, category_id=:cid, updated_at=NOW() WHERE id=:id LIMIT 1");
             $stU->execute([':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':mt'=>$musicTitle, ':ma'=>$musicArtist, ':cid'=>$resolvedCategoryId, ':id'=>$postId]);
             $_SESSION['post_layout_col_cache'] = '';
@@ -274,6 +279,9 @@ try {
                 throw new RuntimeException('no-layout-col');
             }
         } catch (Throwable $e) {
+            if ($layoutOverride !== '' && stripos($description, '[[layout:') === false) {
+                $description = trim(layoutOverrideMarker($layoutOverride) . ' ' . $description);
+            }
             $stI = $dbh->prepare("INSERT INTO public_posts (user_id, title, description, body, visibility, device_label, device_viewport, music_title, music_artist, category_id, created_at, updated_at, is_deleted)
                                   VALUES (:uid, :t, :d, :b, :v, :dl, :dv, :mt, :ma, :cid, NOW(), NOW(), 0)");
             $stI->execute([':uid'=>$meId, ':t'=>$title ?: null, ':d'=>$description ?: null, ':b'=>$body ?: null, ':v'=>$visibility, ':dl'=>$deviceLabel, ':dv'=>$deviceViewport, ':mt'=>$musicTitle, ':ma'=>$musicArtist, ':cid'=>$resolvedCategoryId]);
@@ -329,21 +337,37 @@ try {
         }
     }
 
-    // Surfaces are distinct:
-    // - friends → feed.php
-    // - public (personal) → public.php
-    // - publisher workspace → feed.php (news.php is browse-only for publisher discovery)
-    // Edit Friends ↔ Public also moves the post to the matching page.
-    $dest = publisher_post_redirect($dbh, $meId, $visibility);
-    $queryKey = $isStoryPost ? 'story_post' : 'post';
-    $redirectParams = [
-        $queryKey => $postId,
-        'fresh' => 1,
-    ];
-    if (!$isPublisherPoster && $visibility === 'public' && $dest === 'public.php') {
-        $redirectParams = ['tab' => 'public'] + $redirectParams;
+    // Create entry → destination after submit:
+    // - Profile story "+" → profile.php story circle (?story_post=)
+    // - Story circle "+" + Friends → feed.php story circle (?story_post=)
+    // - Story circle "+" + Public  → public.php story circle (?story_post=)
+    // - Left-nav "+" + Friends     → feed.php post card (?post=)
+    // - Left-nav "+" + Public      → public.php post card (?post=)
+    $returnToRaw = trim((string)($_POST['return_to'] ?? ''));
+    $returnToBase = strtolower((string)preg_replace('/[?#].*$/', '', $returnToRaw));
+    $fromProfileStory = ($isStoryPost && (substr($returnToBase, -11) === 'profile.php' || $returnToBase === 'profile.php'));
+    if ($fromProfileStory) {
+        $dest = 'profile.php';
+        $redirectParams = [
+            'tab' => 'gallery',
+            'story_post' => $postId,
+            'fresh' => 1,
+        ];
+        $redirect = $dest . '?' . http_build_query($redirectParams);
+    } else {
+        $dest = publisher_post_redirect($dbh, $meId, $visibility);
+        $queryKey = $isStoryPost ? 'story_post' : 'post';
+        $redirectParams = [
+            $queryKey => $postId,
+            'fresh' => 1,
+        ];
+        if ($visibility === 'public' && $dest === 'public.php') {
+            $redirectParams = ['tab' => 'public'] + $redirectParams;
+        } elseif ($visibility === 'friends' && $dest === 'feed.php') {
+            $redirectParams = ['tab' => 'for-you'] + $redirectParams;
+        }
+        $redirect = $dest . '?' . http_build_query($redirectParams);
     }
-    $redirect = $dest . '?' . http_build_query($redirectParams);
     if ($uploadAttempts > 0 && $uploadSaved === 0) {
         $redirect .= '&upload_warn=1';
     }

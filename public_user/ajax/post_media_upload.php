@@ -50,6 +50,12 @@ if ($csrf === '' || !hash_equals(csrfToken(), $csrf)) {
     post_media_json(['ok' => false, 'error' => 'csrf'], 403);
 }
 
+// Release the session lock before moving large media. Pending tokens are
+// stored on disk so parallel uploads no longer wait on each other.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 $files = [];
 if (isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])) {
     $n = count($_FILES['attachments']['name']);

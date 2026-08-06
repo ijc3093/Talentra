@@ -56,7 +56,7 @@ $dbh = $controller->pdo();
 publisher_ensure_schema($dbh);
 publisher_authority_ensure_schema($dbh);
 org_commerce_brands_ensure_schema($dbh);
-$categories = publisher_categories();
+$categories = publisher_categories($dbh);
 $commerceBrands = org_commerce_brands_list_active($dbh);
 $publisherNameOptions = publisher_registry_list_options($dbh);
 $selectedPublisherName = publisher_registry_normalize_name((string)($_POST['name'] ?? ''));
@@ -695,7 +695,7 @@ if (isset($_POST['submit'])) {
         } else {
             $error = 'Submit a publisher name request and wait for admin approval before signing up.';
         }
-    } elseif ($isPublisher && !isset($categories[$publisherCategory])) {
+    } elseif ($isPublisher && !isset(publisher_categories($dbh)[$publisherCategory])) {
         $error = 'Please choose a publisher category.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Invalid email address.';
@@ -1178,6 +1178,23 @@ if ($isPublisherReg) {
         font-weight:800;
         border-radius:999px;
       }
+      body.is-publisher-reg .publisher-category-actions{
+        display:flex;
+        gap:8px;
+        align-items:stretch;
+      }
+      body.is-publisher-reg .publisher-category-actions select{
+        flex:1 1 auto;
+        min-width:0;
+      }
+      body.is-publisher-reg .publisher-add-category-btn{
+        flex:0 0 auto;
+        white-space:nowrap;
+        padding:0 12px;
+        font-size:12px;
+        font-weight:800;
+        border-radius:999px;
+      }
       body.is-publisher-commerce .commerce-brand-actions{
         display:flex;
         gap:8px;
@@ -1388,12 +1405,17 @@ if ($isPublisherReg) {
               </div>
               <div class="form-group publisher-only publisher-media-only">
                 <label class="form-control-label">Category</label>
-                <select name="publisher_category" class="form-control" id="publisherCategorySelect">
-                  <?php foreach ($categories as $key => $label): ?>
-                    <?php if ($key === 'commerce') { continue; } ?>
-                    <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
-                  <?php endforeach; ?>
-                </select>
+                <div class="publisher-category-actions">
+                  <select name="publisher_category" class="form-control" id="publisherCategorySelect">
+                    <?php foreach ($categories as $key => $label): ?>
+                      <?php if ($key === 'commerce') { continue; } ?>
+                      <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                  <button type="button" class="btn btn-primary btn-sm publisher-add-category-btn" id="publisherAddCategoryBtn">Add category</button>
+                </div>
+                <div class="tx-12 mg-t-5">Pick the category that matches your publisher (e.g. Father → Family, Tom Cruise → actor). If it is missing, add it — viewers will find your posts under that tab on <strong>public.php</strong>.</div>
+                <div class="publisher-add-error" id="publisherCategoryAddError" role="alert"></div>
               </div>
               <input type="hidden" name="publisher_category" value="commerce" class="publisher-commerce-category-hidden" disabled>
               <div class="form-group publisher-only publisher-media-only">
@@ -1480,7 +1502,7 @@ if ($isPublisherReg) {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="publisherAddSaveBtn">Submit request</button>
+            <button type="button" class="btn btn-primary" id="publisherAddSaveBtn" disabled aria-disabled="true">Submit request</button>
           </div>
         </div>
       </div>
@@ -1617,6 +1639,29 @@ if ($isPublisherReg) {
       </div>
     </div>
 
+    <div class="modal fade publisher-add-modal" id="publisherCategoryAddModal" tabindex="-1" role="dialog" aria-labelledby="publisherCategoryAddModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="publisherCategoryAddModalLabel">Add category</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <label class="form-control-label" for="publisherCategoryAddInput">Category name</label>
+            <input type="text" id="publisherCategoryAddInput" class="form-control" placeholder="e.g. Family, actor" maxlength="80" autocomplete="off">
+            <div class="tx-12 mg-t-8">Use the category that matches your publisher. Example: Father → Family, Tom Cruise → actor. Your posts will show on public.php when people open that tab.</div>
+            <div class="publisher-add-error" id="publisherCategoryModalError" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="publisherCategoryAddSaveBtn">Add category</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
     (function(){
       var signupTrack = document.body.getAttribute('data-signup-track') || 'personal';
@@ -1624,6 +1669,12 @@ if ($isPublisherReg) {
       var publisherHidden = document.getElementById('publisherNameHidden');
       var personalNameInput = document.querySelector('.personal-name');
       var categorySelect = document.querySelector('select[name="publisher_category"]');
+      var categoryAddBtn = document.getElementById('publisherAddCategoryBtn');
+      var categoryAddModal = window.jQuery ? window.jQuery('#publisherCategoryAddModal') : null;
+      var categoryAddInput = document.getElementById('publisherCategoryAddInput');
+      var categoryAddSaveBtn = document.getElementById('publisherCategoryAddSaveBtn');
+      var categoryAddError = document.getElementById('publisherCategoryAddError');
+      var categoryModalError = document.getElementById('publisherCategoryModalError');
       var addModal = window.jQuery ? window.jQuery('#publisherAddModal') : null;
       var addInput = document.getElementById('publisherAddNameInput');
       var addError = document.getElementById('publisherAddError');
@@ -2570,6 +2621,19 @@ if ($isPublisherReg) {
         if (authorityContactEmail) authorityContactEmail.value = '';
         if (authorityRequestNote) authorityRequestNote.value = '';
         if (authorityConfirm) authorityConfirm.checked = false;
+        syncPublisherSubmitEnabled();
+      }
+
+      function syncPublisherSubmitEnabled(){
+        if (!addSaveBtn) return;
+        var ok = !!(authorityConfirm && authorityConfirm.checked);
+        addSaveBtn.disabled = !ok;
+        addSaveBtn.setAttribute('aria-disabled', ok ? 'false' : 'true');
+      }
+
+      if (authorityConfirm) {
+        authorityConfirm.addEventListener('change', syncPublisherSubmitEnabled);
+        syncPublisherSubmitEnabled();
       }
 
       function validateAuthorityForm(){
@@ -2625,6 +2689,88 @@ if ($isPublisherReg) {
         });
       }
 
+      function showCategoryAddError(message, inModal) {
+        if (inModal) {
+          if (categoryModalError) categoryModalError.textContent = message || '';
+        } else if (categoryAddError) {
+          categoryAddError.textContent = message || '';
+        }
+      }
+
+      function selectPublisherCategoryOption(slug, label) {
+        if (!categorySelect || !slug) return;
+        var existing = null;
+        Array.prototype.slice.call(categorySelect.options).forEach(function(opt){
+          if (opt.value === slug) existing = opt;
+        });
+        if (!existing) {
+          existing = document.createElement('option');
+          existing.value = slug;
+          categorySelect.appendChild(existing);
+        }
+        existing.textContent = label || slug;
+        categorySelect.value = slug;
+      }
+
+      function openCategoryAddModal() {
+        showCategoryAddError('', true);
+        showCategoryAddError('', false);
+        if (categoryAddInput) {
+          categoryAddInput.value = '';
+          window.setTimeout(function(){ categoryAddInput.focus(); }, 50);
+        }
+        if (categoryAddModal) categoryAddModal.modal('show');
+      }
+
+      if (categoryAddBtn) {
+        categoryAddBtn.addEventListener('click', function(){
+          openCategoryAddModal();
+        });
+      }
+
+      if (categoryAddSaveBtn) {
+        categoryAddSaveBtn.addEventListener('click', function(){
+          var label = categoryAddInput ? categoryAddInput.value.replace(/\s+/g, ' ').trim() : '';
+          if (label.length < 2) {
+            showCategoryAddError('Enter a category name (at least 2 characters).', true);
+            return;
+          }
+          showCategoryAddError('', true);
+          categoryAddSaveBtn.disabled = true;
+          var body = new FormData();
+          body.append('label', label);
+          fetch('publisher_category_save.php', {
+            method: 'POST',
+            body: body,
+            credentials: 'same-origin'
+          })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+              categoryAddSaveBtn.disabled = false;
+              if (!data || !data.ok) {
+                showCategoryAddError((data && data.message) ? data.message : 'Unable to add that category.', true);
+                return;
+              }
+              selectPublisherCategoryOption(data.slug, data.label);
+              if (categoryAddModal) categoryAddModal.modal('hide');
+              showCategoryAddError(data.message || 'Category added.', false);
+            })
+            .catch(function(){
+              categoryAddSaveBtn.disabled = false;
+              showCategoryAddError('Unable to add that category right now.', true);
+            });
+        });
+      }
+
+      if (categoryAddInput) {
+        categoryAddInput.addEventListener('keydown', function(event){
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            if (categoryAddSaveBtn) categoryAddSaveBtn.click();
+          }
+        });
+      }
+
       if (addModal) {
         addModal.on('hidden.bs.modal', function(){
           pendingPublisherSelection = '';
@@ -2672,7 +2818,7 @@ if ($isPublisherReg) {
           })
             .then(function(res){ return res.json(); })
             .then(function(data){
-              addSaveBtn.disabled = false;
+              syncPublisherSubmitEnabled();
               if (!data || !data.ok) {
                 showAddError((data && data.message) ? data.message : 'Unable to submit publisher name request.');
                 return;
@@ -2681,7 +2827,7 @@ if ($isPublisherReg) {
               if (addModal) addModal.modal('hide');
             })
             .catch(function(){
-              addSaveBtn.disabled = false;
+              syncPublisherSubmitEnabled();
               showAddError('Unable to submit publisher name request right now.');
             });
         });

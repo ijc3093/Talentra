@@ -97,7 +97,6 @@ html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary i{
 :is(html.dark-auto, body.dark-auto) .sh-pagetitle,
 :is(html.dark-auto, body.dark-auto) .ig-card,
 :is(html.dark-auto, body.dark-auto) .pv-right,
-:is(html.dark-auto, body.dark-auto) .pv-modal,
 :is(html.dark-auto, body.dark-auto) .pv-head,
 :is(html.dark-auto, body.dark-auto) .pv-body,
 :is(html.dark-auto, body.dark-auto) .bestprofile-nav,
@@ -338,7 +337,6 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
 }
 :is(html.dark-auto, body.dark-auto) .pv-input,
 :is(html.dark-auto, body.dark-auto) .pv-actions,
-:is(html.dark-auto, body.dark-auto) .pv-modal,
 :is(html.dark-auto, body.dark-auto) .pv-right,
 :is(html.dark-auto, body.dark-auto) .pv-head,
 :is(html.dark-auto, body.dark-auto) .pv-body{
@@ -346,6 +344,13 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
   background-color:var(--msb-palette-bg, var(--studio-bg, #171d24)) !important;
   color:var(--msb-palette-text, #f8fafc) !important;
   border-color:var(--msb-palette-border, var(--studio-border)) !important;
+}
+:is(html.dark-auto, body.dark-auto) .pv-modal,
+:is(html.dark-auto, body.dark-auto) .pv-left,
+:is(html.dark-auto, body.dark-auto) .pv-media{
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
 }
 :is(html.dark-auto, body.dark-auto) .pv-input input{
   background:var(--msb-palette-input-bg, var(--msb-palette-bg, var(--studio-input))) !important;

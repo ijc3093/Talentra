@@ -40,6 +40,15 @@ function device_profile_ensure_post_columns(PDO $dbh): void
         if (!device_profile_table_has_column($dbh, 'public_posts', 'is_archived')) {
             $dbh->exec("ALTER TABLE public_posts ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0 AFTER is_deleted");
         }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'archived_as_story')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN archived_as_story TINYINT(1) NOT NULL DEFAULT 0 AFTER is_archived");
+            // Existing archives created from the story door should appear in the Archive story circle.
+            try {
+                $dbh->exec("UPDATE public_posts SET archived_as_story = 1 WHERE COALESCE(is_archived,0) = 1");
+            } catch (Throwable $eMig) {
+                // ignore
+            }
+        }
     } catch (Throwable $e) {
         // keep callers resilient
     }
