@@ -97,6 +97,12 @@ $meId = (int)($_SESSION['user_id'] ?? 0);
 $liveId = (int)($_GET['live'] ?? $_POST['live_id'] ?? 0);
 $guestUserId = (int)($_GET['guest_user_id'] ?? $_POST['guest_user_id'] ?? 0);
 
+// Release session lock immediately so rapid host uploads + friend pulls
+// do not serialize behind PHP's session file lock (was starving frame writes).
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 if ($meId <= 0 || $liveId <= 0) {
     snapshot_json(['ok' => false, 'error' => 'Invalid request']);
 }
@@ -147,22 +153,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $blob = $_FILES['frame'] ?? null;
-    if (!$blob || (int)($blob['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        snapshot_json(['ok' => false, 'error' => 'Missing frame upload']);
-    }
-
-    $tmpPath = (string)($blob['tmp_name'] ?? '');
-    if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
-        snapshot_json(['ok' => false, 'error' => 'Invalid frame upload']);
-    }
+    $hasFile = $blob && (int)($blob['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+    $frameBase64 = trim((string)($_POST['frame_base64'] ?? ''));
 
     $target = $isGuestUpload ? snapshot_guest_storage_path($liveId, $guestUserId) : snapshot_storage_path($liveId);
     $tmpTarget = $target . '.tmp';
     @unlink($tmpTarget);
-    if (!@move_uploaded_file($tmpPath, $tmpTarget)) {
-        if (!@copy($tmpPath, $tmpTarget)) {
+
+    if ($hasFile) {
+        $tmpPath = (string)($blob['tmp_name'] ?? '');
+        if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+            snapshot_json(['ok' => false, 'error' => 'Invalid frame upload']);
+        }
+        if (!@move_uploaded_file($tmpPath, $tmpTarget)) {
+            if (!@copy($tmpPath, $tmpTarget)) {
+                snapshot_json(['ok' => false, 'error' => 'Unable to save frame']);
+            }
+        }
+    } elseif ($frameBase64 !== '') {
+        if (preg_match('#^data:image/(?:jpeg|jpg|png|webp);base64,#i', $frameBase64)) {
+            $frameBase64 = (string)preg_replace('#^data:image/(?:jpeg|jpg|png|webp);base64,#i', '', $frameBase64);
+        }
+        $binary = base64_decode($frameBase64, true);
+        if ($binary === false || strlen($binary) < 64) {
+            snapshot_json(['ok' => false, 'error' => 'Invalid frame data']);
+        }
+        if (@file_put_contents($tmpTarget, $binary) === false) {
             snapshot_json(['ok' => false, 'error' => 'Unable to save frame']);
         }
+    } else {
+        snapshot_json(['ok' => false, 'error' => 'Missing frame upload']);
     }
 
     if (!@rename($tmpTarget, $target)) {
@@ -171,9 +191,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     @chmod($target, 0664);
+
+    // Host is publishing frames — clear stale "camera off" so friends are not
+    // stuck behind the solid black camera-off cover.
+    if (!$isGuestUpload) {
+        $cameraStatePath = snapshot_storage_dir() . '/' . $liveId . '.camera.json';
+        @file_put_contents($cameraStatePath, json_encode([
+            'enabled' => true,
+            'updated_at' => gmdate('c'),
+        ]), LOCK_EX);
+    }
+
     snapshot_json([
         'ok' => true,
-        'snapshot_version' => (string)(@md5_file($target) ?: (string)time()),
+        // filemtime+size is enough for cache-busting and much cheaper than md5 every frame.
+        'snapshot_version' => (string)((int)(@filemtime($target) ?: time()) . '-' . (int)(@filesize($target) ?: 0)),
     ]);
 }
 
@@ -197,6 +229,16 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 header('Content-Type: image/jpeg');
-header('Content-Length: ' . (string)filesize($path));
+$mtime = (int)(@filemtime($path) ?: time());
+$size = (int)(@filesize($path) ?: 0);
+$etag = '"' . $mtime . '-' . $size . '"';
+header('ETag: ' . $etag);
+header('X-Snapshot-Version: ' . $mtime . '-' . $size);
+$clientEtag = trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''));
+if ($clientEtag !== '' && $clientEtag === $etag) {
+    http_response_code(304);
+    exit;
+}
+header('Content-Length: ' . (string)$size);
 readfile($path);
 exit;

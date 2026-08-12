@@ -409,9 +409,7 @@ if (!function_exists('live_browse_hub_payload')) {
         }
 
         foreach ($door['friend_rows'] as $row) {
-            if ($hubDoor !== '' && live_resolve_owner_door($row) !== $hubDoor) {
-                continue;
-            }
+            // Friend tab lists every friends-only live. Routing still opens left/right door correctly.
             $item = live_browse_normalize_hub_item($row, $meId);
             if ((int)($item['id'] ?? 0) <= 0) {
                 continue;
@@ -420,9 +418,7 @@ if (!function_exists('live_browse_hub_payload')) {
         }
 
         foreach ($door['public_rows'] as $row) {
-            if ($hubDoor !== '' && live_resolve_owner_door($row) !== $hubDoor) {
-                continue;
-            }
+            // Public browse lists every public live; door routing happens on open.
             $item = live_browse_normalize_hub_item($row, $meId);
             if ((int)($item['id'] ?? 0) <= 0) {
                 continue;
@@ -431,6 +427,22 @@ if (!function_exists('live_browse_hub_payload')) {
         }
 
         $browseLives = $hubSurface === 'feed' ? $friendLives : $publicLives;
+        // Strict separation: Friend tab = friends rooms only; Public tab = public rooms only.
+        if ($hubSurface === 'feed') {
+            $browseLives = array_values(array_filter($friendLives, static function (array $item) use ($meId): bool {
+                if (!empty($item['is_owner']) || (int)($item['user_id'] ?? 0) === $meId) {
+                    return false;
+                }
+                return strtolower(trim((string)($item['visibility'] ?? 'friends'))) === 'friends';
+            }));
+        } else {
+            $browseLives = array_values(array_filter($publicLives, static function (array $item) use ($meId): bool {
+                if (!empty($item['is_owner']) || (int)($item['user_id'] ?? 0) === $meId) {
+                    return false;
+                }
+                return strtolower(trim((string)($item['visibility'] ?? 'public'))) === 'public';
+            }));
+        }
         $ownLiveId = 0;
         foreach ($chatLives as $item) {
             if (!empty($item['is_owner'])) {

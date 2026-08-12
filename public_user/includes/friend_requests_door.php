@@ -287,7 +287,7 @@ body.msb-friend-requests-door-open .msb-friend-requests-door-backdrop{
     </div>
     <div class="tt-friend-requests-divider"></div>
     <ul class="tt-friend-requests-footer">
-      <li><a href="contact_requests.php"><i class="icon ion-person-add"></i> View All Requests</a></li>
+      <li><a href="contacts.php?tab=requests"><i class="icon ion-person-add"></i> View All Requests</a></li>
     </ul>
   </div>
 </div>

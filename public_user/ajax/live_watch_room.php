@@ -636,6 +636,12 @@ $dbh = $controller->pdo();
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $liveId = (int)($_GET['live'] ?? $_POST['live_id'] ?? 0);
 
+// Release session lock so Friend comment/send and room polls are not blocked
+// behind snapshot/signal traffic (Safari surfaces that as "Load failed").
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 if ($meId <= 0) {
     watch_json(['ok' => false, 'error' => 'Invalid session']);
 }

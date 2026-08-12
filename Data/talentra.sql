@@ -1749,7 +1749,7 @@ CREATE TABLE `public_posts` (
   `title` varchar(120) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
   `body` mediumtext,
-  `visibility` enum('public','friends') NOT NULL DEFAULT 'public',
+  `visibility` enum('public','friends','private') NOT NULL DEFAULT 'public',
   `device_label` varchar(120) NOT NULL DEFAULT '',
   `device_viewport` varchar(32) NOT NULL DEFAULT '',
   `music_title` varchar(120) NOT NULL DEFAULT '',

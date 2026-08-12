@@ -10,6 +10,7 @@ require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/post_upload.php';
+require_once __DIR__ . '/includes/post_tags.php';
 
 sendNoCacheHeadersUser();
 
@@ -90,6 +91,38 @@ if (isset($_POST['pending_tokens']) && is_array($_POST['pending_tokens'])) {
     }
 }
 $pendingTokens = array_values(array_unique($pendingTokens));
+$slideBodiesByToken = [];
+if (isset($_POST['slide_body']) && is_array($_POST['slide_body'])) {
+    foreach ($_POST['slide_body'] as $tok => $text) {
+        $tok = preg_replace('/[^a-f0-9]/i', '', (string)$tok) ?? '';
+        if ($tok === '') continue;
+        $slideBodiesByToken[$tok] = trim((string)$text);
+    }
+}
+$slideTitlesByToken = [];
+if (isset($_POST['slide_title']) && is_array($_POST['slide_title'])) {
+    foreach ($_POST['slide_title'] as $tok => $text) {
+        $tok = preg_replace('/[^a-f0-9]/i', '', (string)$tok) ?? '';
+        if ($tok === '') continue;
+        $slideTitlesByToken[$tok] = trim((string)$text);
+    }
+}
+$existingSlideBodies = [];
+if (isset($_POST['existing_slide_body']) && is_array($_POST['existing_slide_body'])) {
+    foreach ($_POST['existing_slide_body'] as $aid => $text) {
+        $aid = (int)$aid;
+        if ($aid <= 0) continue;
+        $existingSlideBodies[$aid] = trim((string)$text);
+    }
+}
+$existingSlideTitles = [];
+if (isset($_POST['existing_slide_title']) && is_array($_POST['existing_slide_title'])) {
+    foreach ($_POST['existing_slide_title'] as $aid => $text) {
+        $aid = (int)$aid;
+        if ($aid <= 0) continue;
+        $existingSlideTitles[$aid] = trim((string)$text);
+    }
+}
 $hasFreshFiles = isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])
     && count(array_filter((array)$_FILES['attachments']['error'], static fn($e) => (int)$e === UPLOAD_ERR_OK)) > 0;
 
@@ -105,9 +138,12 @@ if (!$fastPath) {
         ensurePostCategorySchema($dbh);
         device_profile_ensure_post_columns($dbh);
         publisher_ensure_schema($dbh);
+        post_attachments_ensure_slide_columns($dbh);
     } catch (Throwable $e) {
         // non-fatal
     }
+} else {
+    try { post_attachments_ensure_slide_columns($dbh); } catch (Throwable $e) {}
 }
 
 function firstExistingPostLayoutColumn(PDO $dbh): ?string {
@@ -158,6 +194,23 @@ if (!$isPublisherPoster && !$fastPath) {
 $visibility = publisher_post_visibility($dbh, $meId, $visibility);
 $description = stripLayoutOverrideMarker($description);
 $description = post_strip_music_marker($description);
+
+// Keep originals for people-tag sync, then hide mention-only captions from stored body/title
+// (header already shows "John is sharing with Akin").
+$bodyForTags = $body;
+$titleForTags = $title;
+$descriptionForTags = $description;
+if (function_exists('msb_text_is_people_tag_only')) {
+    if (msb_text_is_people_tag_only($body)) {
+        $body = '';
+    }
+    if (msb_text_is_people_tag_only($title)) {
+        $title = '';
+    }
+    if (msb_text_is_people_tag_only($description)) {
+        $description = '';
+    }
+}
 
 $musicTitle = mb_substr(trim((string)($_POST['music_title'] ?? '')), 0, 120);
 $musicArtist = mb_substr(trim((string)($_POST['music_artist'] ?? '')), 0, 120);
@@ -295,9 +348,42 @@ try {
     $uploadSaved = 0;
 
     if ($pendingTokens !== []) {
-        $claimed = post_upload_claim_pending($dbh, $meId, $postId, $pendingTokens, false);
+        $claimed = post_upload_claim_pending($dbh, $meId, $postId, $pendingTokens, false, $slideBodiesByToken, $slideTitlesByToken);
         $uploadSaved += (int)($claimed['saved'] ?? 0);
         $uploadAttempts += count($pendingTokens);
+    }
+
+    // Update per-slide captions on existing attachments (edit / presentation).
+    if ($postId > 0 && ($existingSlideBodies !== [] || $existingSlideTitles !== [])) {
+        try {
+            post_attachments_ensure_slide_columns($dbh);
+            $ids = array_values(array_unique(array_merge(array_keys($existingSlideBodies), array_keys($existingSlideTitles))));
+            $stUp = $dbh->prepare(
+                'UPDATE public_post_attachments
+                 SET slide_title = :st, slide_body = :sb
+                 WHERE id = :aid AND post_id = :pid
+                 LIMIT 1'
+            );
+            foreach ($ids as $aid) {
+                $aid = (int)$aid;
+                if ($aid <= 0) continue;
+                $stTitle = trim((string)($existingSlideTitles[$aid] ?? ''));
+                $stBody = trim((string)($existingSlideBodies[$aid] ?? ''));
+                if (function_exists('mb_substr')) {
+                    $stTitle = mb_substr($stTitle, 0, 120);
+                } else {
+                    $stTitle = substr($stTitle, 0, 120);
+                }
+                $stUp->execute([
+                    ':st' => $stTitle,
+                    ':sb' => $stBody !== '' ? $stBody : null,
+                    ':aid' => $aid,
+                    ':pid' => $postId,
+                ]);
+            }
+        } catch (Throwable $eSlide) {
+            // non-fatal
+        }
     }
 
     // Only process multipart files when not already pre-uploaded.
@@ -343,10 +429,21 @@ try {
     // - Story circle "+" + Public  → public.php story circle (?story_post=)
     // - Left-nav "+" + Friends     → feed.php post card (?post=)
     // - Left-nav "+" + Public      → public.php post card (?post=)
+    // - Any "+" + Private          → profile.php Gallery → Private tab
     $returnToRaw = trim((string)($_POST['return_to'] ?? ''));
     $returnToBase = strtolower((string)preg_replace('/[?#].*$/', '', $returnToRaw));
     $fromProfileStory = ($isStoryPost && (substr($returnToBase, -11) === 'profile.php' || $returnToBase === 'profile.php'));
-    if ($fromProfileStory) {
+    if ($visibility === 'private') {
+        $dest = 'profile.php';
+        $queryKey = $isStoryPost ? 'story_post' : 'post';
+        $redirectParams = [
+            'tab' => 'gallery',
+            'gallery_vis' => 'private',
+            $queryKey => $postId,
+            'fresh' => 1,
+        ];
+        $redirect = $dest . '?' . http_build_query($redirectParams);
+    } elseif ($fromProfileStory) {
         $dest = 'profile.php';
         $redirectParams = [
             'tab' => 'gallery',
@@ -370,6 +467,39 @@ try {
     }
     if ($uploadAttempts > 0 && $uploadSaved === 0) {
         $redirect .= '&upload_warn=1';
+    }
+
+    // Sync @mentions / people tags and notify newly tagged users.
+    if ($postId > 0) {
+        try {
+            $explicitTagIds = [];
+            $rawTagged = trim((string)($_POST['tagged_user_ids'] ?? ''));
+            if ($rawTagged !== '') {
+                foreach (preg_split('/[\s,]+/', $rawTagged) ?: [] as $piece) {
+                    $tid = (int)$piece;
+                    if ($tid > 0) {
+                        $explicitTagIds[] = $tid;
+                    }
+                }
+            }
+            $mentionTexts = [$titleForTags, $bodyForTags, $descriptionForTags];
+            foreach ($slideBodiesByToken as $sb) {
+                $mentionTexts[] = (string)$sb;
+            }
+            foreach ($slideTitlesByToken as $stt) {
+                $mentionTexts[] = (string)$stt;
+            }
+            foreach ($existingSlideBodies as $sb) {
+                $mentionTexts[] = (string)$sb;
+            }
+            foreach ($existingSlideTitles as $stt) {
+                $mentionTexts[] = (string)$stt;
+            }
+            $tagIds = msb_mention_ids_from_texts($dbh, $mentionTexts, $explicitTagIds);
+            msb_post_tags_sync($dbh, $postId, $meId, $tagIds, $visibility, true);
+        } catch (Throwable $eTag) {
+            // Tagging failure must not block publish.
+        }
     }
 
     post_save_respond($redirect, $wantsJson, true, '', $postId, $isStoryPost, $visibility, $dest);

@@ -168,6 +168,12 @@ $__msgStandalone = !empty($msbMessagesDoorStandalone);
   padding:0;
   flex:0 0 auto;
 }
+.tt-messages-footer-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
 .tt-messages-footer a{
   display:flex;
   align-items:center;
@@ -190,6 +196,29 @@ $__msgStandalone = !empty($msbMessagesDoorStandalone);
   text-align:center;
   font-size:18px;
   color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
+}
+.tt-messages-footer .tt-messages-plus{
+  flex:0 0 auto;
+  width:42px;
+  height:42px;
+  min-height:42px;
+  padding:0;
+  gap:0;
+  border-radius:50%;
+  justify-content:center;
+  background:var(--msb-palette-nav-hover, #6d66ff);
+  color:var(--msb-palette-action, #ffffff);
+  border:1px solid var(--msb-palette-border-strong, transparent);
+}
+.tt-messages-footer .tt-messages-plus i{
+  font-size:18px;
+  line-height:1;
+  color:var(--msb-palette-action, #ffffff);
+}
+.tt-messages-footer .tt-messages-plus:hover{
+  background:var(--msb-palette-action-soft, var(--msb-palette-nav-hover, #6d66ff));
+  color:var(--msb-palette-action, #ffffff);
+  transform:translateY(-1px);
 }
 body.msb-messages-door-open{ overflow:hidden !important; }
 body.msb-messages-door-open .msb-messages-door-host{ pointer-events:auto; }

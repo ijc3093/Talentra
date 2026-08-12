@@ -12,6 +12,33 @@ function post_upload_safe_filename(string $name): string
     return $name !== '' ? $name : 'file';
 }
 
+/** Ensure per-slide title/body columns exist for presentation carousels. */
+function post_attachments_ensure_slide_columns(PDO $dbh): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $cols = [];
+        foreach ($dbh->query('SHOW COLUMNS FROM public_post_attachments')->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $field = (string)($row['Field'] ?? '');
+            if ($field !== '') {
+                $cols[$field] = true;
+            }
+        }
+        if (empty($cols['slide_title'])) {
+            $dbh->exec("ALTER TABLE public_post_attachments ADD COLUMN slide_title VARCHAR(120) NOT NULL DEFAULT '' AFTER thumb_path");
+        }
+        if (empty($cols['slide_body'])) {
+            $dbh->exec('ALTER TABLE public_post_attachments ADD COLUMN slide_body MEDIUMTEXT NULL AFTER slide_title');
+        }
+    } catch (Throwable $e) {
+        // keep callers resilient
+    }
+}
+
 function post_upload_allowed_ext(): array
 {
     return [
@@ -341,9 +368,11 @@ function post_upload_store_pending(int $userId, array $file): array
 /**
  * Claim pending tokens into public_post_attachments for a post.
  * @param list<string> $tokens
+ * @param array<string,string> $slideBodiesByToken token => slide description
+ * @param array<string,string> $slideTitlesByToken token => slide title
  * @return array{saved:int, types:list<string>}
  */
-function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $tokens, bool $rename = false): array
+function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $tokens, bool $rename = false, array $slideBodiesByToken = [], array $slideTitlesByToken = []): array
 {
     $saved = 0;
     $types = [];
@@ -351,11 +380,22 @@ function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $to
         return ['saved' => 0, 'types' => []];
     }
 
+    post_attachments_ensure_slide_columns($dbh);
+
     $bag = session_status() === PHP_SESSION_ACTIVE ? post_upload_pending_bag() : [];
-    $stA = $dbh->prepare(
-        'INSERT INTO public_post_attachments (post_id, type, file_path, thumb_path, created_at)
-         VALUES (:pid, :t, :fp, NULL, NOW())'
-    );
+    $hasSlideCols = true;
+    try {
+        $stA = $dbh->prepare(
+            'INSERT INTO public_post_attachments (post_id, type, file_path, thumb_path, slide_title, slide_body, created_at)
+             VALUES (:pid, :t, :fp, NULL, :st, :sb, NOW())'
+        );
+    } catch (Throwable $e) {
+        $hasSlideCols = false;
+        $stA = $dbh->prepare(
+            'INSERT INTO public_post_attachments (post_id, type, file_path, thumb_path, created_at)
+             VALUES (:pid, :t, :fp, NULL, NOW())'
+        );
+    }
 
     foreach ($tokens as $token) {
         $token = preg_replace('/[^a-f0-9]/i', '', (string)$token) ?? '';
@@ -394,12 +434,40 @@ function post_upload_claim_pending(PDO $dbh, int $userId, int $postId, array $to
             }
         }
 
+        $slideTitle = trim((string)($slideTitlesByToken[$token] ?? ''));
+        $slideBody = trim((string)($slideBodiesByToken[$token] ?? ''));
+        if (function_exists('mb_substr')) {
+            $slideTitle = mb_substr($slideTitle, 0, 120);
+        } else {
+            $slideTitle = substr($slideTitle, 0, 120);
+        }
+
         try {
-            $stA->execute([':pid' => $postId, ':t' => $type, ':fp' => $web]);
+            if ($hasSlideCols) {
+                $stA->execute([
+                    ':pid' => $postId,
+                    ':t' => $type,
+                    ':fp' => $web,
+                    ':st' => $slideTitle,
+                    ':sb' => $slideBody !== '' ? $slideBody : null,
+                ]);
+            } else {
+                $stA->execute([':pid' => $postId, ':t' => $type, ':fp' => $web]);
+            }
             $saved++;
             $types[] = $type;
         } catch (Throwable $e) {
-            continue;
+            try {
+                $stFallback = $dbh->prepare(
+                    'INSERT INTO public_post_attachments (post_id, type, file_path, thumb_path, created_at)
+                     VALUES (:pid, :t, :fp, NULL, NOW())'
+                );
+                $stFallback->execute([':pid' => $postId, ':t' => $type, ':fp' => $web]);
+                $saved++;
+                $types[] = $type;
+            } catch (Throwable $e2) {
+                continue;
+            }
         }
         unset($bag[$token]);
         post_upload_delete_pending_meta($userId, $token);

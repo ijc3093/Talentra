@@ -572,6 +572,9 @@ function room_fetch_payload(PDO $dbh, int $meId): array
 $controller = new Controller();
 $dbh = $controller->pdo();
 $meId = (int)($_SESSION['user_id'] ?? 0);
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 if ($meId <= 0) {
     room_json(['ok' => false, 'error' => 'Invalid session']);
 }

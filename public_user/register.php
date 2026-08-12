@@ -817,8 +817,12 @@ if (isset($_POST['submit'])) {
                     exit;
                 }
 
-                echo "<script>alert('Registration Successful! Your Friend Code is: " . addslashes($friendCode) . "');</script>";
-                echo "<script>window.location.href='index.php';</script>";
+                $_SESSION['register_welcome'] = [
+                    'friend_code' => $friendCode,
+                    'name' => $name,
+                    'username' => $username,
+                ];
+                header('Location: index.php?registered=1');
                 exit;
             }
         } catch (Throwable $e) {

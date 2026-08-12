@@ -12,6 +12,9 @@ header('Pragma: no-cache');
 
 $dbh = (new Controller())->pdo();
 $meId = (int)($_SESSION['user_id'] ?? 0);
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 $hubSurface = live_browse_hub_surface($_GET['hub_surface'] ?? null);
 $hubDoor = strtolower(trim((string)($_GET['hub_door'] ?? '')));
 if (!in_array($hubDoor, ['left', 'right'], true)) {

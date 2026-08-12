@@ -352,7 +352,136 @@ body.msb-live-door-open .msb-live-door-backdrop{
   function liveDoorDefaultSrc(){
     var wrap = getLiveDoorWrap();
     if(!wrap) return 'live_door_hub.php';
-    return String(wrap.getAttribute('data-default-src') || 'live_door_hub.php').trim() || 'live_door_hub.php';
+    var raw = String(wrap.getAttribute('data-default-src') || 'live_door_hub.php').trim() || 'live_door_hub.php';
+    try {
+      return new URL(raw, window.location.href).href;
+    } catch (error) {
+      return raw;
+    }
+  }
+
+  function liveDoorHostTabSrc(surface){
+    surface = String(surface || detectLiveDoorPageSurface()) === 'feed' ? 'feed' : 'public';
+    try {
+      var url = new URL(liveDoorDefaultSrc(), window.location.href);
+      url.searchParams.set('hub_door', 'left');
+      url.searchParams.set('hub_tab', 'chat');
+      url.searchParams.set('hub_surface', surface);
+      var wrap = getLiveDoorWrap();
+      var doorBg = wrap ? String(wrap.getAttribute('data-door-bg') || '').trim() : '';
+      if (doorBg) url.searchParams.set('hub_bg', doorBg);
+      if (wrap && String(wrap.getAttribute('data-can-studio') || '') === '1') {
+        url.searchParams.set('can_studio', '1');
+      }
+      return url.href;
+    } catch (error) {
+      var base = liveDoorDefaultSrc();
+      var join = base.indexOf('?') >= 0 ? '&' : '?';
+      return base + join + 'hub_door=left&hub_tab=chat&hub_surface=' + encodeURIComponent(surface) + '&can_studio=1';
+    }
+  }
+
+  function detectLiveDoorPageSurface(){
+    var path = String(window.location.pathname || '').toLowerCase();
+    if (path.endsWith('/feed.php') || path.indexOf('/feed.php') !== -1) return 'feed';
+    if (document.body && document.body.classList.contains('feed-page')) return 'feed';
+    return 'public';
+  }
+
+  function openLiveHostTabPanel(surface){
+    surface = String(surface || detectLiveDoorPageSurface()) === 'feed' ? 'feed' : 'public';
+    setLeftLiveDoorOpen(liveDoorHostTabSrc(surface));
+    window.setTimeout(function(){
+      var frame = getLiveDoorFrame();
+      try {
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage({ type: 'msb-hub-tab-switch', tab: 'chat' }, '*');
+        }
+      } catch (e) {}
+    }, 500);
+  }
+
+  function routePublicHostLive(data){
+    data = data || {};
+    if (detectLiveDoorPageSurface() === 'public') {
+      openLiveHostTabPanel('public');
+      return;
+    }
+    try {
+      sessionStorage.setItem('msb_public_host_live_route', JSON.stringify({
+        liveId: parseInt(data.liveId || '0', 10) || 0,
+        title: String(data.title || ''),
+        visibility: 'public',
+        studioSource: String(data.studioSource || ''),
+        at: Date.now()
+      }));
+    } catch (e) {}
+    try {
+      var next = new URL('public.php', window.location.href);
+      next.searchParams.set('open_host_live', '1');
+      var liveId = parseInt(data.liveId || '0', 10) || 0;
+      if (liveId > 0) next.searchParams.set('live_id', String(liveId));
+      window.location.href = next.href;
+    } catch (navErr) {
+      openLiveHostTabPanel('public');
+    }
+  }
+
+  function routeFriendsHostLive(data){
+    data = data || {};
+    if (detectLiveDoorPageSurface() === 'feed') {
+      openLiveHostTabPanel('feed');
+      return;
+    }
+    try {
+      sessionStorage.setItem('msb_friends_host_live_route', JSON.stringify({
+        liveId: parseInt(data.liveId || '0', 10) || 0,
+        title: String(data.title || ''),
+        visibility: 'friends',
+        studioSource: String(data.studioSource || ''),
+        at: Date.now()
+      }));
+    } catch (e) {}
+    try {
+      var next = new URL('feed.php', window.location.href);
+      next.searchParams.set('open_host_live', '1');
+      var liveId = parseInt(data.liveId || '0', 10) || 0;
+      if (liveId > 0) next.searchParams.set('live_id', String(liveId));
+      window.location.href = next.href;
+    } catch (navErr) {
+      openLiveHostTabPanel('feed');
+    }
+  }
+
+  function consumeHostLiveRouteOnLoad(){
+    var surface = detectLiveDoorPageSurface();
+    var params;
+    try { params = new URLSearchParams(window.location.search || ''); } catch (e) { params = null; }
+    var fromQuery = !!(params && params.get('open_host_live') === '1');
+    var storedKey = surface === 'feed' ? 'msb_friends_host_live_route' : 'msb_public_host_live_route';
+    var otherKey = surface === 'feed' ? 'msb_public_host_live_route' : 'msb_friends_host_live_route';
+    var stored = null;
+    try {
+      stored = JSON.parse(sessionStorage.getItem(storedKey) || 'null');
+    } catch (e2) {
+      stored = null;
+    }
+    if (stored && stored.at && (Date.now() - Number(stored.at || 0)) > 120000) {
+      stored = null;
+    }
+    // Drop stale opposite-surface route markers.
+    try { sessionStorage.removeItem(otherKey); } catch (eDrop) {}
+    if (!fromQuery && !stored) return;
+    try { sessionStorage.removeItem(storedKey); } catch (e3) {}
+    if (fromQuery && params) {
+      params.delete('open_host_live');
+      params.delete('live_id');
+      var clean = window.location.pathname + (params.toString() ? ('?' + params.toString()) : '');
+      try { history.replaceState({}, '', clean); } catch (e4) {}
+    }
+    window.setTimeout(function(){
+      openLiveHostTabPanel(surface);
+    }, 220);
   }
 
   function liveDoorFriendBrowseSrc(){
@@ -369,6 +498,51 @@ body.msb-live-door-open .msb-live-door-backdrop{
       var join = base.indexOf('?') >= 0 ? '&' : '?';
       return base + join + 'hub_door=left&hub_tab=public';
     }
+  }
+
+  var liveDoorLoadRetryAt = 0;
+  var liveDoorLoadRetries = 0;
+
+  function liveDoorFrameLooksBroken(frame){
+    if (!frame) return true;
+    try {
+      var doc = frame.contentDocument;
+      if (!doc) return false;
+      var bodyText = String((doc.body && (doc.body.innerText || doc.body.textContent)) || '');
+      if (/This page isn.?t working|HTTP ERROR|temporarily down|ERR_/i.test(bodyText)) {
+        return true;
+      }
+      // Successful hub always has the shell.
+      if (doc.querySelector && !doc.querySelector('.hub-shell') && !isLiveDoorBlankSrc(frame.getAttribute('src'))) {
+        // Allow brief loading documents without body content yet.
+        if (bodyText && bodyText.length > 40) return true;
+      }
+    } catch (error) {
+      // Cross-origin / opaque: treat as not broken.
+    }
+    return false;
+  }
+
+  function retryLiveDoorFrameLoad(forceSrc){
+    var frame = getLiveDoorFrame();
+    if (!frame || !isLeftLiveDoorOpen()) return;
+    var now = Date.now();
+    if (now - liveDoorLoadRetryAt < 1200) return;
+    if (liveDoorLoadRetries >= 2) return;
+    liveDoorLoadRetryAt = now;
+    liveDoorLoadRetries += 1;
+    var nextSrc = String(forceSrc || liveDoorFriendBrowseSrc());
+    try {
+      var url = new URL(nextSrc, window.location.href);
+      url.searchParams.set('_door_retry', String(liveDoorLoadRetries));
+      nextSrc = url.href;
+    } catch (error) {}
+    showLiveDoorShade();
+    frame.setAttribute('src', 'about:blank');
+    window.setTimeout(function(){
+      if (!isLeftLiveDoorOpen()) return;
+      frame.setAttribute('src', nextSrc);
+    }, 120);
   }
 
   function isLeftLiveDoorOpen(){
@@ -455,6 +629,11 @@ body.msb-live-door-open .msb-live-door-backdrop{
       return;
     }
     if (!isLeftLiveDoorOpen()) return;
+    if (liveDoorFrameLooksBroken(frame)) {
+      retryLiveDoorFrameLoad(src);
+      return;
+    }
+    liveDoorLoadRetries = 0;
     requestLiveDoorHubPaint();
   }
 
@@ -528,7 +707,10 @@ body.msb-live-door-open .msb-live-door-backdrop{
         normalizedNext = resolvedNext.split('#')[0];
       }
       if (!currentSrc || isLiveDoorBlankSrc(currentSrc) || normalizedCurrent !== normalizedNext) {
+        liveDoorLoadRetries = 0;
         frame.setAttribute('src', resolvedNext);
+      } else if (liveDoorFrameLooksBroken(frame)) {
+        retryLiveDoorFrameLoad(resolvedNext);
       } else {
         notifyHubFriendBrowse();
         requestLiveDoorHubPaint();
@@ -584,17 +766,50 @@ body.msb-live-door-open .msb-live-door-backdrop{
     else openLiveDoorForUser();
   }
 
+  function liveDoorStudioSrc(){
+    try {
+      var url = new URL(liveDoorDefaultSrc(), window.location.href);
+      url.searchParams.set('hub_door', 'left');
+      url.searchParams.set('hub_tab', 'studio');
+      var wrap = getLiveDoorWrap();
+      var doorBg = wrap ? String(wrap.getAttribute('data-door-bg') || '').trim() : '';
+      if (doorBg) url.searchParams.set('hub_bg', doorBg);
+      if (wrap && String(wrap.getAttribute('data-can-studio') || '') === '1') {
+        url.searchParams.set('can_studio', '1');
+      }
+      return url.href;
+    } catch (error) {
+      var base = liveDoorDefaultSrc();
+      var join = base.indexOf('?') >= 0 ? '&' : '?';
+      return base + join + 'hub_door=left&hub_tab=studio&can_studio=1';
+    }
+  }
+
   function openLiveStudioBrowsePanel(){
+    var frame = getLiveDoorFrame();
     if (isLeftLiveDoorOpen()) {
       try {
-        var frame = getLiveDoorFrame();
-        var src = frame ? new URL(String(frame.getAttribute('src') || ''), window.location.href) : null;
-        if (src && String(src.searchParams.get('hub_tab') || '').toLowerCase() === 'public') {
-          closeLivePanel();
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage({ type: 'msb-hub-tab-switch', tab: 'studio' }, '*');
           return;
         }
       } catch (e) {}
-      notifyHubFriendBrowse();
+      setLeftLiveDoorOpen(liveDoorStudioSrc());
+      return;
+    }
+    setLeftLiveDoorOpen(liveDoorStudioSrc());
+  }
+
+  function openLiveFriendBrowsePanel(){
+    var frame = getLiveDoorFrame();
+    if (isLeftLiveDoorOpen()) {
+      try {
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage({ type: 'msb-hub-open-friend-browse', door: 'left' }, '*');
+          return;
+        }
+      } catch (e) {}
+      setLeftLiveDoorOpen(liveDoorFriendBrowseSrc());
       return;
     }
     setLeftLiveDoorOpen(liveDoorFriendBrowseSrc());
@@ -611,7 +826,8 @@ body.msb-live-door-open .msb-live-door-backdrop{
     if (studioBrowseBtn) {
       e.preventDefault();
       e.stopPropagation();
-      openLiveStudioBrowsePanel();
+      // Nav camera opens the left door on the Friend tab (Create Live opens studio).
+      openLiveFriendBrowsePanel();
       return;
     }
     var btn = e.target && e.target.closest ? e.target.closest('.js-open-live-door') : null;
@@ -664,6 +880,72 @@ body.msb-live-door-open .msb-live-door-backdrop{
     }
     if(e.data.type === 'msb-live-door-open' && e.data.url){
       openLivePanel(String(e.data.url));
+      return;
+    }
+    if(e.data.type === 'msb-hub-public-host-route'){
+      routePublicHostLive(e.data);
+      return;
+    }
+    if(e.data.type === 'msb-hub-friends-host-route'){
+      routeFriendsHostLive(e.data);
+      return;
+    }
+    if(e.data.type === 'msb-hub-end-live-request'){
+      var endLiveId = parseInt(e.data.liveId || '0', 10) || 0;
+      var requestId = String(e.data.requestId || '');
+      var sourceWin = e.source || null;
+      function replyEnd(payload){
+        var message = Object.assign({
+          type: 'msb-hub-end-live-result',
+          requestId: requestId,
+          liveId: endLiveId
+        }, payload || {});
+        function postReply(target){
+          if (!target || typeof target.postMessage !== 'function') return;
+          try { target.postMessage(message, '*'); } catch (errPost) {}
+        }
+        postReply(sourceWin);
+        var frame = getLiveDoorFrame();
+        try {
+          if (frame && frame.contentWindow) postReply(frame.contentWindow);
+        } catch (errFrame) {}
+        var rightFrame = document.getElementById('ttLiveRightDoorFrame');
+        try {
+          if (rightFrame && rightFrame.contentWindow) postReply(rightFrame.contentWindow);
+        } catch (errRight) {}
+      }
+      function endUrl(path){
+        try { return new URL(path, window.location.href).href; } catch (errUrl) { return path; }
+      }
+      function postEnd(url){
+        var formData = new FormData();
+        formData.append('action', 'end_live');
+        if (endLiveId > 0) formData.append('live_id', String(endLiveId));
+        return fetch(url, {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin',
+          cache: 'no-store',
+          keepalive: true
+        }).then(function(response){
+          return response.text().then(function(raw){
+            var data = null;
+            try { data = raw ? JSON.parse(raw) : null; } catch (errParse) { data = null; }
+            if (!response.ok || !data || !data.ok) {
+              throw new Error((data && data.error) ? data.error : 'Unable to end live');
+            }
+            return data;
+          });
+        });
+      }
+      postEnd(endUrl('ajax/live_end.php')).catch(function(){
+        return postEnd(endUrl('ajax/live_studio_host_action.php'));
+      }).then(function(data){
+        replyEnd({ ok: true, data: data || {} });
+      }).catch(function(err){
+        replyEnd({ ok: false, error: String((err && err.message) || 'Unable to end live') });
+      });
+      return;
     }
   });
 
@@ -678,6 +960,9 @@ body.msb-live-door-open .msb-live-door-backdrop{
   window.TTLive.close = closeLivePanel;
   window.TTLive.toggle = toggleLivePanel;
   window.MSBOpenLiveStudioBrowse = openLiveStudioBrowsePanel;
+  window.MSBOpenLiveFriendBrowse = openLiveFriendBrowsePanel;
+  window.MSBOpenLivePublicHostTab = function(){ openLiveHostTabPanel('public'); };
+  window.MSBOpenLiveFriendsHostTab = function(){ openLiveHostTabPanel('feed'); };
 
   function preloadLiveDoorHub(){
     var wrap = getLiveDoorWrap();
@@ -691,7 +976,7 @@ body.msb-live-door-open .msb-live-door-backdrop{
     } catch (e) {}
   }
 
-  document.querySelectorAll('.js-open-live-studio-browse').forEach(function(btn){
+  document.querySelectorAll('.js-open-live-studio-browse, .js-open-live-door').forEach(function(btn){
     btn.addEventListener('mouseenter', preloadLiveDoorHub, { passive: true });
     btn.addEventListener('focus', preloadLiveDoorHub, { passive: true });
   });
@@ -717,8 +1002,10 @@ body.msb-live-door-open .msb-live-door-backdrop{
       }
       return false;
     }
-    openLiveStudioBrowsePanel();
+    openLiveFriendBrowsePanel();
     return true;
   };
+
+  consumeHostLiveRouteOnLoad();
 })();
 </script>

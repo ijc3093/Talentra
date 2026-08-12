@@ -11,6 +11,8 @@ require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
+require_once __DIR__ . '/includes/post_upload.php';
+require_once __DIR__ . '/includes/post_tags.php';
 
 requireUserLogin();
 sendNoCacheHeadersUser();
@@ -408,6 +410,9 @@ try {
   // - q=search text
   // - limit=60 (max 200)
   if ($ajax === 'list') {
+  if (function_exists('post_attachments_ensure_slide_columns')) {
+    try { post_attachments_ensure_slide_columns($dbh); } catch (Throwable $eSlideCol) {}
+  }
     $filter   = (string)($_GET['filter'] ?? 'all'); // all|unread|mine|author
     $q        = trim((string)($_GET['q'] ?? ''));
     $authorId = (int)($_GET['author_id'] ?? 0);
@@ -440,6 +445,12 @@ try {
     } else {
       $where .= ' AND ' . publisher_feed_list_scope_sql_for($dbh, $meId);
       $params = array_merge($params, publisher_feed_list_scope_params_for($dbh, $meId));
+    }
+
+    if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
+      $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
+      $params[':fsBlockMe'] = $meId;
+      $params[':fsBlockMe2'] = $meId;
     }
 
     // ✅ mine = always by meId (ID-based, not name-based)
@@ -510,6 +521,7 @@ try {
         COALESCE(p.music_title,'') AS music_title,
         COALESCE(p.music_artist,'') AS music_artist,
         COALESCE(p.is_archived,0) AS is_archived,
+        LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) AS visibility,
         LENGTH(TRIM(COALESCE(p.body,''))) AS body_len,
         p.created_at,
         COALESCE(p.updated_at, p.created_at) AS updated_at,
@@ -527,6 +539,9 @@ try {
         (SELECT a.file_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_path,
         (SELECT a.thumb_path FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_thumb_path,
         (SELECT a.type FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_type,
+        (SELECT a.slide_title FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_slide_title,
+        (SELECT a.slide_body FROM public_post_attachments a WHERE a.post_id = p.id ORDER BY {$previewOrder} LIMIT 1) AS preview_slide_body,
+        (SELECT COUNT(*) FROM public_post_attachments a WHERE a.post_id = p.id AND (TRIM(COALESCE(a.slide_title,'')) <> '' OR TRIM(COALESCE(a.slide_body,'')) <> '')) AS slide_caption_count,
         (SELECT COUNT(*) FROM public_post_attachments a WHERE a.post_id = p.id) AS attachment_count,
         (SELECT COUNT(*) FROM public_post_attachments a WHERE a.post_id = p.id) AS media_count,
         (SELECT COUNT(*) FROM public_post_comments c WHERE c.post_id = p.id AND c.is_deleted = 0) AS comment_count,
@@ -567,6 +582,9 @@ try {
       if (!empty($r['preview_path'])) {
         $r['preview_path'] = preg_replace('#^public_user/#', '', (string)$r['preview_path']);
       }
+      $r['preview_slide_title'] = (string)($r['preview_slide_title'] ?? '');
+      $r['preview_slide_body'] = (string)($r['preview_slide_body'] ?? '');
+      $r['has_slide_captions'] = ((int)($r['slide_caption_count'] ?? 0) > 0 || trim($r['preview_slide_title']) !== '' || trim($r['preview_slide_body']) !== '') ? 1 : 0;
       if (!empty($r['preview_thumb_path'])) {
         $r['preview_thumb_path'] = preg_replace('#^public_user/#', '', (string)$r['preview_thumb_path']);
       }
@@ -610,6 +628,7 @@ try {
       $r['my_reaction'] = ($r['my_reaction'] ?? null) !== null ? trim((string)$r['my_reaction']) : '';
       $r['my_shared'] = !empty($r['my_shared']) ? 1 : 0;
       $r['my_saved'] = !empty($r['my_saved']) ? 1 : 0;
+      $r['visibility'] = post_visibility_normalize((string)($r['visibility'] ?? 'public'));
       if (trim((string)($r['declared_layout'] ?? '')) === '') {
         $r['declared_layout'] = post_declared_layout($r);
       }
@@ -634,6 +653,34 @@ try {
       $filteredRows[] = $r;
     }
     $rows = array_values($filteredRows);
+
+    if (function_exists('msb_post_tags_people_for_posts')) {
+      $tagMap = msb_post_tags_people_for_posts($dbh, array_map(static function ($row) {
+        return (int)($row['id'] ?? 0);
+      }, $rows));
+      foreach ($rows as &$rTag) {
+        $pidTag = (int)($rTag['id'] ?? 0);
+        $people = ($pidTag > 0 && isset($tagMap[$pidTag])) ? $tagMap[$pidTag] : [];
+        $rTag['tagged_people'] = $people;
+        $meTagged = 0;
+        if ($meId > 0) {
+          foreach ($people as $tp) {
+            if ((int)($tp['id'] ?? 0) === $meId) {
+              $meTagged = 1;
+              break;
+            }
+          }
+        }
+        $rTag['me_tagged'] = $meTagged;
+      }
+      unset($rTag);
+    } else {
+      foreach ($rows as &$rTag) {
+        $rTag['tagged_people'] = [];
+        $rTag['me_tagged'] = 0;
+      }
+      unset($rTag);
+    }
 
     // ✅ unread_count for badge (overall)
     $unreadWhere = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND (r.last_seen_at IS NULL OR COALESCE(p.updated_at, p.created_at) > r.last_seen_at)";
@@ -697,6 +744,12 @@ try {
       $post['account_kind'] = 'publisher';
     }
     $post['is_following'] = !empty($post['is_following']) ? 1 : 0;
+    $post['friend_status'] = ($authorId > 0 && $authorId !== $meId)
+      ? fs_friend_status($dbh, $meId, $authorId)
+      : 'self';
+    $contactRow = post_card_contact_for_peer($dbh, $meId, $authorId);
+    $post['contact_id'] = (int)($contactRow['contact_id'] ?? 0);
+    $post['contact_name'] = (string)($contactRow['display_name'] ?? '');
 
     $post['author_id'] = (int)($post['user_id'] ?? 0);
     $liveId = feedExtractLiveId((string)($post['body'] ?? ''), (string)($post['description'] ?? ''), (string)($post['title'] ?? ''));
@@ -712,18 +765,27 @@ try {
 
     $vis = (string)($post['visibility'] ?? 'public');
     $authorId = (int)($post['user_id'] ?? 0);
-    if ($vis === 'friends' && $authorId !== $meId && !fs_are_friends($dbh, $meId, $authorId)) {
-      jexit(['ok' => false, 'error' => 'You do not have access to this post.', 'me_id' => $meId]);
-    }
-    if (!publisher_can_view_post($dbh, $meId, $post)) {
-      $denyMsg = publisher_workspace_viewer($dbh, $meId)
-        ? 'Personal account posts are not available in the publisher workspace.'
-        : 'This post is not available.';
-      jexit([
-        'ok' => false,
-        'error' => $denyMsg,
-        'me_id' => $meId,
-      ]);
+    $isTaggedViewer = ($meId > 0 && function_exists('msb_user_is_tagged_on_post') && msb_user_is_tagged_on_post($dbh, $postId, $meId));
+    $isMentionedViewer = ($meId > 0 && function_exists('msb_user_is_mentioned_on_post') && msb_user_is_mentioned_on_post($dbh, $postId, $meId));
+    // Tagged / mentioned people can always open the post (notification → View the post),
+    // even when visibility is friends or private. Mentions do NOT appear on Tags tab.
+    if (!$isTaggedViewer && !$isMentionedViewer) {
+      if ($vis === 'private' && $authorId !== $meId) {
+        jexit(['ok' => false, 'error' => 'This post is not available.', 'me_id' => $meId]);
+      }
+      if ($vis === 'friends' && $authorId !== $meId && !fs_are_friends($dbh, $meId, $authorId)) {
+        jexit(['ok' => false, 'error' => 'You do not have access to this post.', 'me_id' => $meId]);
+      }
+      if (!publisher_can_view_post($dbh, $meId, $post)) {
+        $denyMsg = publisher_workspace_viewer($dbh, $meId)
+          ? 'Personal account posts are not available in the publisher workspace.'
+          : 'This post is not available.';
+        jexit([
+          'ok' => false,
+          'error' => $denyMsg,
+          'me_id' => $meId,
+        ]);
+      }
     }
 
     $countView = (string)($_GET['count_view'] ?? $_POST['count_view'] ?? '');
@@ -777,23 +839,40 @@ try {
     }
 
 
-    $stA = $dbh->prepare("
-      SELECT id, type, file_path, thumb_path, created_at
-      FROM public_post_attachments
-      WHERE post_id = :pid
-      ORDER BY id ASC
-    ");
-    $stA->execute([':pid' => $postId]);
-    $atts = $stA->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (function_exists('post_attachments_ensure_slide_columns')) {
+      post_attachments_ensure_slide_columns($dbh);
+    }
+    $atts = [];
+    try {
+      $stA = $dbh->prepare("
+        SELECT id, type, file_path, thumb_path, slide_title, slide_body, created_at
+        FROM public_post_attachments
+        WHERE post_id = :pid
+        ORDER BY id ASC
+      ");
+      $stA->execute([':pid' => $postId]);
+      $atts = $stA->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $eAtt) {
+      $stA = $dbh->prepare("
+        SELECT id, type, file_path, thumb_path, created_at
+        FROM public_post_attachments
+        WHERE post_id = :pid
+        ORDER BY id ASC
+      ");
+      $stA->execute([':pid' => $postId]);
+      $atts = $stA->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 
     foreach ($atts as &$a) {
-      $fp = preg_replace('#^public_user/#', '', (string)($a['file_path'] ?? ''));
-      $tp = preg_replace('#^public_user/#', '', (string)($a['thumb_path'] ?? ''));
+      $fp = preg_replace('#^public_user#', '', (string)($a['file_path'] ?? ''));
+      $tp = preg_replace('#^public_user#', '', (string)($a['thumb_path'] ?? ''));
 
       $a['file_path']  = $fp;
       $a['thumb_path'] = $tp;
       $a['url']        = $fp;
       $a['thumb_url']  = $tp;
+      $a['slide_title'] = (string)($a['slide_title'] ?? '');
+      $a['slide_body'] = (string)($a['slide_body'] ?? '');
     }
     unset($a);
 
@@ -907,6 +986,12 @@ try {
     $musicMeta = post_music_from_row($post);
     $post['music_title'] = (string)($musicMeta['title'] ?? '');
     $post['music_artist'] = (string)($musicMeta['artist'] ?? '');
+    if (function_exists('msb_post_tags_people_for_post')) {
+      $post['tagged_people'] = msb_post_tags_people_for_post($dbh, (int)($post['id'] ?? 0));
+    } else {
+      $post['tagged_people'] = [];
+    }
+    $post['me_tagged'] = ($meId > 0 && function_exists('msb_user_is_tagged_on_post') && msb_user_is_tagged_on_post($dbh, $postId, $meId)) ? 1 : 0;
 
     jexit([
       'ok'=>true,
@@ -951,7 +1036,7 @@ try {
     $postVisibility = 'friends';
     $previousReaction = '';
     try {
-      $stPost = $dbh->prepare("SELECT user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
       $stPost->execute([':pid' => $postId]);
       $postRow = $stPost->fetch(PDO::FETCH_ASSOC) ?: [];
       $postOwnerId = (int)($postRow['user_id'] ?? 0);
@@ -962,7 +1047,7 @@ try {
       $previousReaction = trim((string)($stPrev->fetchColumn() ?: ''));
     } catch (Throwable $e) {}
 
-    if ($postOwnerId > 0 && !publisher_post_interaction_allowed($dbh, $meId, ['user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
+    if ($postOwnerId > 0 && !publisher_post_interaction_allowed($dbh, $meId, ['id' => $postId, 'user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
       jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
     }
 
@@ -1054,7 +1139,7 @@ try {
     if ($postId <= 0) jexit(['ok'=>false,'error'=>'Missing post id', 'me_id'=>$meId]);
 
     try {
-      $stAccess = $dbh->prepare("SELECT user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stAccess = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
       $stAccess->execute([':pid' => $postId]);
       $accessRow = $stAccess->fetch(PDO::FETCH_ASSOC) ?: [];
       if (!$accessRow || !publisher_post_interaction_allowed($dbh, $meId, $accessRow)) {
@@ -1126,7 +1211,7 @@ try {
         }
       }
 
-      $stAccess = $dbh->prepare("SELECT user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stAccess = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
       $stAccess->execute([':pid' => $postId]);
       $accessRow = $stAccess->fetch(PDO::FETCH_ASSOC) ?: [];
       if (!$accessRow || !publisher_post_interaction_allowed($dbh, $meId, $accessRow)) {
@@ -1178,6 +1263,60 @@ try {
       'share_count' => $shareCount,
       'save_count' => $saveCount,
       'state' => [ 'shared' => $myShared, 'saved' => $mySaved ]
+    ]);
+  }
+
+  // ---------------------------
+  // SET VISIBILITY (owner: friends / public / private)
+  // ---------------------------
+  if ($ajax === 'set_visibility' || $ajax === 'visibility') {
+    staff_pub_api_deny_write($meId);
+    $postId = (int)($_POST['post_id'] ?? $_POST['id'] ?? 0);
+    $visibility = strtolower(trim((string)($_POST['visibility'] ?? 'private')));
+    if ($postId <= 0) jexit(['ok' => false, 'error' => 'Missing post id', 'me_id' => $meId]);
+
+    publisher_ensure_post_visibility_supports_private($dbh);
+    $visibility = publisher_post_visibility($dbh, $meId, $visibility);
+    if (!in_array($visibility, ['public', 'friends', 'private'], true)) {
+      $visibility = 'private';
+    }
+
+    $stP = $dbh->prepare("SELECT id, user_id, LOWER(COALESCE(NULLIF(TRIM(visibility), ''), 'friends')) AS visibility FROM public_posts WHERE id = :id AND COALESCE(is_deleted,0) = 0 LIMIT 1");
+    $stP->execute([':id' => $postId]);
+    $p = $stP->fetch(PDO::FETCH_ASSOC);
+    if (!$p) jexit(['ok' => false, 'error' => 'Post not found', 'me_id' => $meId]);
+    if ((int)$p['user_id'] !== $meId) jexit(['ok' => false, 'error' => 'Not allowed', 'me_id' => $meId]);
+
+    try {
+      $stU = $dbh->prepare("UPDATE public_posts SET visibility = :v, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
+      $stU->execute([':v' => $visibility, ':id' => $postId, ':uid' => $meId]);
+    } catch (Throwable $e) {
+      jexit(['ok' => false, 'error' => 'Could not update visibility.', 'me_id' => $meId]);
+    }
+
+    $redirect = '';
+    if ($visibility === 'private') {
+      $redirect = 'profile.php?' . http_build_query([
+        'tab' => 'gallery',
+        'gallery_vis' => 'private',
+        'post' => $postId,
+        'fresh' => 1,
+      ]);
+    } elseif ($visibility === 'public') {
+      $redirect = 'public.php?tab=public&post=' . $postId;
+    } else {
+      $redirect = 'feed.php?post=' . $postId;
+    }
+
+    jexit([
+      'ok' => true,
+      'me_id' => $meId,
+      'post_id' => $postId,
+      'visibility' => $visibility,
+      'redirect' => $redirect,
+      'message' => $visibility === 'private'
+        ? 'Moved to Private. Find it in Gallery → Private.'
+        : ($visibility === 'public' ? 'Moved to Public.' : 'Moved to Friends.'),
     ]);
   }
 
@@ -1314,14 +1453,14 @@ try {
     $postOwnerId = 0;
     $postVisibility = 'friends';
     try {
-      $stPost = $dbh->prepare("SELECT user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
       $stPost->execute([':pid' => $postId]);
       $postRow = $stPost->fetch(PDO::FETCH_ASSOC) ?: [];
       $postOwnerId = (int)($postRow['user_id'] ?? 0);
       $postVisibility = trim((string)($postRow['visibility'] ?? 'friends')) ?: 'friends';
     } catch (Throwable $e) {}
 
-    if ($postOwnerId <= 0 || !publisher_post_interaction_allowed($dbh, $meId, ['user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
+    if ($postOwnerId <= 0 || !publisher_post_interaction_allowed($dbh, $meId, ['id' => $postId, 'user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
       jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
     }
 
@@ -1407,14 +1546,14 @@ try {
     $postVisibility = 'friends';
     $parentOwnerId = 0;
     try {
-      $stPost = $dbh->prepare("SELECT user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
       $stPost->execute([':pid' => $postId]);
       $postRow = $stPost->fetch(PDO::FETCH_ASSOC) ?: [];
       $postOwnerId = (int)($postRow['user_id'] ?? 0);
       $postVisibility = trim((string)($postRow['visibility'] ?? 'friends')) ?: 'friends';
     } catch (Throwable $e) {}
 
-    if ($postOwnerId <= 0 || !publisher_post_interaction_allowed($dbh, $meId, ['user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
+    if ($postOwnerId <= 0 || !publisher_post_interaction_allowed($dbh, $meId, ['id' => $postId, 'user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
       jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
     }
 
@@ -1464,6 +1603,10 @@ try {
         'comment_id' => $newCommentId,
       ]);
     }
+
+    try {
+      msb_comment_mentions_notify($dbh, $meId, $postId, $newCommentId, $text, $postOwnerId, $postVisibility);
+    } catch (Throwable $eMention) {}
 
     jexit(['ok'=>true, 'me_id'=>$meId]);
   }

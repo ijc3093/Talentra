@@ -28,6 +28,7 @@ require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/user_phone.php';
 require_once __DIR__ . '/includes/publisher_authority.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
+require_once __DIR__ . '/includes/post_tags.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 $controller = new Controller();
@@ -651,6 +652,13 @@ $liveVisitorMode = (!$isOwnProfile && $fromLivePublic && $restrictedLiveView && 
 $selectedTab = strtolower(trim((string)($_GET['tab'] ?? 'posts')));
 if ($selectedTab === 'tagged') {
   $selectedTab = 'tags';
+}
+$galleryVisParam = strtolower(trim((string)($_GET['gallery_vis'] ?? '')));
+if (!in_array($galleryVisParam, ['private', 'friends', 'public'], true)) {
+  $galleryVisParam = '';
+}
+if ($galleryVisParam !== '' && $selectedTab !== 'gallery') {
+  $selectedTab = 'gallery';
 }
 $profileContentTabs = ['gallery', 'posts', 'tags', 'about', 'preserve', 'gear'];
 if (!in_array($selectedTab, $profileContentTabs, true)) {
@@ -1379,6 +1387,7 @@ try {
       COALESCE(p.category_id, 0) AS category_id,
       COALESCE(NULLIF(pc.name,''), '') AS category_name,
       COALESCE(NULLIF(pc.category_type,''), '') AS category_type,
+      LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) AS visibility,
       COALESCE(NULLIF(a.type,''), '') AS atype,
       COALESCE(NULLIF(a.thumb_path,''), '') AS thumb,
       COALESCE(NULLIF(a.file_path,''), '') AS file_path,
@@ -1424,6 +1433,7 @@ try {
         COALESCE(p.category_id, 0) AS category_id,
         COALESCE(NULLIF(pc.name,''), '') AS category_name,
         COALESCE(NULLIF(pc.category_type,''), '') AS category_type,
+        LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) AS visibility,
         COALESCE(NULLIF(a.type,''), '') AS atype,
         COALESCE(NULLIF(a.thumb_path,''), '') AS thumb,
         COALESCE(NULLIF(a.file_path,''), '') AS file_path,
@@ -1657,13 +1667,128 @@ if (!function_exists('profile_item_has_media')) {
   }
 }
 
+if (!function_exists('profile_item_has_gallery_content')) {
+  /** Gallery tiles: media posts, or title/description-only text posts. */
+  function profile_item_has_gallery_content(array $it): bool {
+    if (profile_item_has_media($it)) {
+      return true;
+    }
+    $title = trim((string)($it['title'] ?? ''));
+    $descr = trim((string)($it['descr'] ?? ''));
+    $body = trim((string)($it['body'] ?? ''));
+    return ($title !== '' || $descr !== '' || $body !== '');
+  }
+}
+
 $postsGrid = $gridFeedSource;
 $galleryGrid = array_values(array_filter($gridFeedSource, static function (array $it): bool {
-  return profile_item_has_media($it);
+  return profile_item_has_gallery_content($it);
 }));
-$tagsGrid = array_values(array_filter($gridFeedSource, static function (array $it): bool {
-  return (int)($it['category_id'] ?? 0) > 0 && profile_item_has_media($it);
-}));
+
+// Tags tab = posts where this profile user was @tagged / people-tagged (Instagram-style).
+$tagsGrid = [];
+try {
+  msb_post_tags_ensure_schema($dbh);
+  $tagWhere = "
+      t.tagged_user_id = :tagged_me
+      AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
+      AND COALESCE(p.is_archived,0) = 0
+  ";
+  $tagParams = [
+    ':tagged_me' => $viewId,
+    ':viewer_id' => $meId,
+    ':viewer_share_id' => $meId,
+    ':viewer_save_id' => $meId,
+  ];
+  if ($meId !== $viewId) {
+    // Visitors only see tagged posts they are allowed to open.
+    $tagWhere .= " AND (
+      LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'
+      OR (
+        LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'friends'
+        AND (
+          p.user_id = :tag_viewer_own
+          OR EXISTS (
+            SELECT 1 FROM user_contacts uc
+            WHERE uc.owner_user_id = :tag_viewer_a AND uc.friend_user_id = p.user_id
+          )
+          OR EXISTS (
+            SELECT 1 FROM user_contacts uc2
+            WHERE uc2.owner_user_id = p.user_id AND uc2.friend_user_id = :tag_viewer_b
+          )
+        )
+      )
+      OR p.user_id = :tag_viewer_author
+    )";
+    $tagParams[':tag_viewer_own'] = $meId;
+    $tagParams[':tag_viewer_a'] = $meId;
+    $tagParams[':tag_viewer_b'] = $meId;
+    $tagParams[':tag_viewer_author'] = $meId;
+  }
+  if ($selectedGalleryCategoryId > 0) {
+    $tagWhere .= " AND p.category_id = :gallery_category_id";
+    $tagParams[':gallery_category_id'] = $selectedGalleryCategoryId;
+  }
+  if ($gallerySearch !== '') {
+    $tagWhere .= "
+      AND (
+        COALESCE(p.title,'') LIKE :gallery_search
+        OR COALESCE(p.description,'') LIKE :gallery_search
+        OR COALESCE(p.body,'') LIKE :gallery_search
+      )
+    ";
+    $tagParams[':gallery_search'] = '%' . $gallerySearch . '%';
+  }
+  $stTags = $dbh->prepare("
+    SELECT
+      p.id AS post_id,
+      COALESCE(NULLIF(p.title,''), '') AS title,
+      COALESCE(NULLIF(p.description,''), '') AS descr,
+      COALESCE(NULLIF(p.body,''), '') AS body,
+      {$gridLayoutSelect}
+      COALESCE(p.category_id, 0) AS category_id,
+      COALESCE(NULLIF(pc.name,''), '') AS category_name,
+      COALESCE(NULLIF(pc.category_type,''), '') AS category_type,
+      LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) AS visibility,
+      COALESCE(NULLIF(a.type,''), '') AS atype,
+      COALESCE(NULLIF(a.thumb_path,''), '') AS thumb,
+      COALESCE(NULLIF(a.file_path,''), '') AS file_path,
+      p.created_at,
+      COALESCE(p.updated_at, p.created_at) AS updated_at,
+      (SELECT reaction FROM public_post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer_id LIMIT 1) AS my_reaction,
+      COALESCE(p.views_count, 0) AS views_count,
+      (SELECT COUNT(*) FROM public_post_comments c WHERE c.post_id = p.id AND c.is_deleted = 0) AS comment_count,
+      (SELECT COUNT(*) FROM public_post_reactions r WHERE r.post_id = p.id AND r.reaction = 'love') AS love_count,
+      (SELECT COUNT(*) FROM public_post_reactions r WHERE r.post_id = p.id AND r.reaction <> 'love') AS like_count,
+      (SELECT COUNT(*) FROM public_post_shares s WHERE s.post_id = p.id) AS share_count,
+      (SELECT COUNT(*) FROM public_post_saves sv WHERE sv.post_id = p.id) AS save_count,
+      EXISTS(SELECT 1 FROM public_post_shares s WHERE s.post_id = p.id AND s.user_id = :viewer_share_id) AS my_shared,
+      EXISTS(SELECT 1 FROM public_post_saves sv WHERE sv.post_id = p.id AND sv.user_id = :viewer_save_id) AS my_saved,
+      (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count,
+      p.user_id AS author_id
+    FROM public_post_tags t
+    INNER JOIN public_posts p ON p.id = t.post_id
+    LEFT JOIN public_post_attachments a
+      ON a.id = (
+        SELECT aa.id
+        FROM public_post_attachments aa
+        WHERE aa.post_id = p.id
+        ORDER BY aa.id DESC
+        LIMIT 1
+      )
+    LEFT JOIN user_post_categories pc
+      ON pc.id = p.category_id
+    WHERE {$tagWhere}
+    ORDER BY t.created_at DESC, p.id DESC
+    LIMIT 60
+  ");
+  $stTags->execute($tagParams);
+  $tagsGrid = array_values(array_filter($stTags->fetchAll(PDO::FETCH_ASSOC) ?: [], static function (array $it): bool {
+    return !post_is_story_only($it);
+  }));
+} catch (Throwable $e) {
+  $tagsGrid = [];
+}
 
 $galleryGridIds = [];
 foreach ($galleryGrid as $it) {
@@ -1727,87 +1852,106 @@ if (!function_exists('profile_tab_empty_html')) {
   }
 }
 
+if (!function_exists('profile_render_post_grid_items')) {
+  function profile_render_post_grid_items(array $items, bool $isMobile, bool $showTagPill = false): void {
+    $gridIndex = 0;
+    foreach ($items as $it) {
+      $pid = (int)($it['post_id'] ?? 0);
+      if ($pid <= 0) {
+        continue;
+      }
+
+      $atype = trim((string)($it['atype'] ?? ''));
+      $thumb = trim((string)($it['thumb'] ?? ''));
+      $filePath = trim((string)($it['file_path'] ?? ''));
+
+      $ttl = trim((string)($it['title'] ?? ''));
+      $dsc = trim((string)($it['descr'] ?? ''));
+      $bdy = trim((string)($it['body'] ?? ''));
+
+      $snippetSource = $dsc !== '' ? $dsc : $bdy;
+      $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 3, $isMobile ? 110 : 170);
+
+      $showVideo = ($atype === 'video' && $filePath !== '' && is_video_path($filePath));
+      $imgSrc = $thumb !== '' ? $thumb : $filePath;
+      $showThumb = (!$showVideo && $imgSrc !== '');
+
+      $capTitle = $ttl;
+      $capDesc = $snippet;
+      if ($capTitle === '' && $capDesc !== '') {
+        $capTitle = $capDesc;
+        $capDesc = '';
+      }
+
+      $viewsC = (int)($it['views_count'] ?? 0);
+      $comC = (int)($it['comment_count'] ?? 0);
+      $loveC = (int)($it['love_count'] ?? 0);
+      $categoryName = trim((string)($it['category_name'] ?? ''));
+      $vis = strtolower(trim((string)($it['visibility'] ?? 'public')));
+      if ($vis !== 'private' && $vis !== 'public' && $vis !== 'friends') {
+        $vis = 'public';
+      }
+      $noMedia = (!$showVideo && !$showThumb);
+      ?>
+      <a class="ig-item<?php echo $noMedia ? ' no-media' : ''; ?>"
+         data-post-id="<?php echo $pid; ?>"
+         data-index="<?php echo $gridIndex; ?>"
+         data-visibility="<?php echo h($vis); ?>"
+         data-mobile="<?php echo $isMobile ? '1' : '0'; ?>"
+         href="#"
+         title="Open post">
+        <?php if ($showVideo): ?>
+          <video class="ig-vid" src="<?php echo h($filePath); ?>" muted playsinline preload="metadata"></video>
+          <?php if ($capTitle !== ''): ?>
+            <div class="cap">
+              <div class="cap-title"><?php echo h($capTitle); ?></div>
+              <?php if ($capDesc !== ''): ?><div class="cap-desc"><?php echo h($capDesc); ?></div><?php endif; ?>
+            </div>
+          <?php endif; ?>
+        <?php elseif ($showThumb): ?>
+          <div class="ph" style="background-image:url('<?php echo h($imgSrc); ?>');"></div>
+          <?php if ($capTitle !== ''): ?>
+            <div class="cap">
+              <div class="cap-title"><?php echo h($capTitle); ?></div>
+              <?php if ($capDesc !== ''): ?><div class="cap-desc"><?php echo h($capDesc); ?></div><?php endif; ?>
+            </div>
+          <?php endif; ?>
+        <?php else: ?>
+          <?php
+            $textTitle = $ttl;
+            $textBody = $snippet !== '' ? $snippet : ($dsc !== '' ? $dsc : $bdy);
+            if ($textTitle === '' && $textBody !== '') {
+              $textTitle = $textBody;
+              $textBody = '';
+            }
+          ?>
+          <div class="txtdesc">
+            <div class="txtcap">
+              <div class="t"><?php echo ($textTitle !== '' ? h($textTitle) : ''); ?></div>
+              <?php if ($textBody !== ''): ?><div class="d"><?php echo h($textBody); ?></div><?php endif; ?>
+            </div>
+          </div>
+        <?php endif; ?>
+        <?php if ($showTagPill && $categoryName !== ''): ?>
+          <div class="ig-tag-pill" title="Category"><?php echo h($categoryName); ?></div>
+        <?php endif; ?>
+        <div class="react-overlay" aria-label="Reacts">
+          <div class="react-btn" title="Love"><i class="icon ion-heart"></i> <span class="n"><?php echo $loveC; ?></span></div>
+          <div class="react-btn" title="Comment"><i class="icon ion-chatbubble"></i> <span class="n"><?php echo $comC; ?></span></div>
+          <div class="react-btn" title="Views"><i class="icon ion-eye"></i> <span class="vnum"><?php echo $viewsC; ?></span></div>
+        </div>
+      </a>
+      <?php
+      $gridIndex++;
+    }
+  }
+}
+
 if (!function_exists('profile_render_post_grid')) {
   function profile_render_post_grid(array $items, bool $showPeerNotFound, bool $isMobile, string $emptyTitle, string $emptyIcon = 'ion-ios-paper-outline', bool $showTagPill = false, string $gridScope = 'all'): void {
     if (!empty($items) && !$showPeerNotFound) {
       echo '<div class="ig-grid" data-grid-scope="' . h($gridScope) . '">';
-      $gridIndex = 0;
-      foreach ($items as $it) {
-        $pid = (int)($it['post_id'] ?? 0);
-        if ($pid <= 0) {
-          continue;
-        }
-
-        $atype = trim((string)($it['atype'] ?? ''));
-        $thumb = trim((string)($it['thumb'] ?? ''));
-        $filePath = trim((string)($it['file_path'] ?? ''));
-
-        $ttl = trim((string)($it['title'] ?? ''));
-        $dsc = trim((string)($it['descr'] ?? ''));
-        $bdy = trim((string)($it['body'] ?? ''));
-
-        $snippetSource = $dsc !== '' ? $dsc : $bdy;
-        $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 3, $isMobile ? 110 : 170);
-
-        $showVideo = ($atype === 'video' && $filePath !== '' && is_video_path($filePath));
-        $imgSrc = $thumb !== '' ? $thumb : $filePath;
-        $showThumb = (!$showVideo && $imgSrc !== '');
-
-        $capTitle = $ttl;
-        $capDesc = $snippet;
-        if ($capTitle === '' && $capDesc !== '') {
-          $capTitle = $capDesc;
-          $capDesc = '';
-        }
-
-        $viewsC = (int)($it['views_count'] ?? 0);
-        $comC = (int)($it['comment_count'] ?? 0);
-        $loveC = (int)($it['love_count'] ?? 0);
-        $categoryName = trim((string)($it['category_name'] ?? ''));
-        $noMedia = (!$showVideo && !$showThumb);
-        ?>
-        <a class="ig-item<?php echo $noMedia ? ' no-media' : ''; ?>"
-           data-post-id="<?php echo $pid; ?>"
-           data-index="<?php echo $gridIndex; ?>"
-           data-mobile="<?php echo $isMobile ? '1' : '0'; ?>"
-           href="#"
-           title="Open post">
-          <?php if ($showVideo): ?>
-            <video class="ig-vid" src="<?php echo h($filePath); ?>" muted playsinline preload="metadata"></video>
-            <?php if ($capTitle !== ''): ?>
-              <div class="cap">
-                <div class="cap-title"><?php echo h($capTitle); ?></div>
-                <?php if ($capDesc !== ''): ?><div class="cap-desc"><?php echo h($capDesc); ?></div><?php endif; ?>
-              </div>
-            <?php endif; ?>
-          <?php elseif ($showThumb): ?>
-            <div class="ph" style="background-image:url('<?php echo h($imgSrc); ?>');"></div>
-            <?php if ($capTitle !== ''): ?>
-              <div class="cap">
-                <div class="cap-title"><?php echo h($capTitle); ?></div>
-                <?php if ($capDesc !== ''): ?><div class="cap-desc"><?php echo h($capDesc); ?></div><?php endif; ?>
-              </div>
-            <?php endif; ?>
-          <?php else: ?>
-            <div class="txtdesc">
-              <div class="txtcap">
-                <div class="t"><?php echo ($ttl !== '' ? h($ttl) : ''); ?></div>
-                <div class="d"><?php echo h($snippet !== '' ? $snippet : ($dsc !== '' ? $dsc : '')); ?></div>
-              </div>
-            </div>
-          <?php endif; ?>
-          <?php if ($showTagPill && $categoryName !== ''): ?>
-            <div class="ig-tag-pill" title="Category"><?php echo h($categoryName); ?></div>
-          <?php endif; ?>
-          <div class="react-overlay" aria-label="Reacts">
-            <div class="react-btn" title="Love"><i class="icon ion-heart"></i> <span class="n"><?php echo $loveC; ?></span></div>
-            <div class="react-btn" title="Comment"><i class="icon ion-chatbubble"></i> <span class="n"><?php echo $comC; ?></span></div>
-            <div class="react-btn" title="Views"><i class="icon ion-eye"></i> <span class="vnum"><?php echo $viewsC; ?></span></div>
-          </div>
-        </a>
-        <?php
-        $gridIndex++;
-      }
+      profile_render_post_grid_items($items, $isMobile, $showTagPill);
       echo '</div>';
       return;
     }
@@ -1927,6 +2071,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   <script src="./lib/perfect-scrollbar/js/perfect-scrollbar.jquery.js"></script>
   <script src="./js/shamcey.js"></script>
   <?php theme_prefs_print_head_bootstrap($dbh, theme_prefs_viewer_user_id()); ?>
+  <style id="modal-fouc-lock-css"><?php include __DIR__ . '/includes/modal_fouc_lock.css.php'; ?></style>
 
   <script defer src="assets/layout-fixed.js"></script>
   <script defer src="assets/ui_best.js"></script>
@@ -2007,9 +2152,47 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .ig-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
     .ig-main{flex:1 1 auto;min-width:0;}
     .ig-row1{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .ig-name-line{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      max-width:100%;
+      margin:0;
+      flex:0 1 auto;
+    }
+    .ig-fullname-name{
+      margin:0;
+      font-size:22px;
+      font-weight:700;
+      line-height:1.2;
+      color:var(--msb-palette-text, #0b1220);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .ig-name-sep{
+      flex:0 0 auto;
+      width:1px;
+      height:1.05em;
+      background:var(--msb-palette-border-strong, rgba(15,23,42,.22));
+      border-radius:1px;
+    }
+    .ig-handle{
+      margin:0;
+      font-size:18px;
+      font-weight:400;
+      line-height:1.2;
+      color:var(--msb-palette-text-muted, #667085);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
     .ig-username{font-size:22px;font-weight:500;color:var(--msb-palette-text, #0b1220);margin:0;line-height:1.2;}
     .ig-btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.12));background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-weight:700;font-size:13px;}
     .ig-btn.back{margin-right:8px;}
+    .ig-profile-head .ig-btn.back,
+    .ig-profile-head .ig-btn.edit{display:none!important;}
     .ig-btn.icon{width:34px;padding:0;}
     .ig-btn i{font-size:16px}
     .ig-btn.publisher-follow-btn{cursor:pointer;border-radius:999px}
@@ -2123,10 +2306,103 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color:#667085;
     }
 
-    .ig-tabs{border-top:1px solid var(--msb-palette-border, #c0c2c4);display:flex;justify-content:center;gap:18px;padding:12px 10px 0;flex-wrap:wrap;background:var(--msb-palette-bg, #f5f7fb);}
-    .ig-tab{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:.08em;color:var(--msb-palette-text-muted, #667085);padding:10px 2px;border-top:2px solid transparent;text-transform:uppercase;cursor:pointer;user-select:none;border-radius:15px;padding: 8px;}
-    .ig-tab.active{background:var(--msb-palette-nav-active-bg,var(--msb-palette-action-soft,rgba(79,70,229,.12)));color:var(--msb-palette-nav-active-text,var(--msb-palette-text,#0b1220));border-top-color:var(--msb-palette-nav-active-text,var(--msb-palette-text,#0b1220));}
-    .ig-tab i{font-size:14px}
+    .ig-tabs{border-top:1px solid var(--msb-palette-border, #c0c2c4);display:flex;justify-content:center;align-items:stretch;gap:8px;padding:4px 10px 0;flex-wrap:wrap;background:var(--msb-palette-bg, #f5f7fb);}
+    .ig-tab{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      min-width:max-content;
+      padding:12px 12px 14px;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      color:var(--msb-palette-text-muted, #667085);
+      font-size:12px;
+      font-weight:400;
+      letter-spacing:.08em;
+      line-height:1.2;
+      text-transform:uppercase;
+      text-align:center;
+      white-space:nowrap;
+      cursor:pointer;
+      user-select:none;
+    }
+    .ig-tab:hover,
+    .ig-tab:focus{
+      color:var(--msb-palette-text, #0b1220);
+      background:rgba(127,127,127,.07);
+      outline:none;
+    }
+    .ig-tab.active{
+      background:transparent;
+      color:var(--msb-palette-text, #0b1220);
+      font-weight:400;
+    }
+    .ig-tab.active::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      bottom:0;
+      width:68px;
+      max-width:78%;
+      height:4px;
+      border-radius:999px;
+      background:var(--msb-palette-text, #0b1220);
+      transform:translateX(-50%);
+      pointer-events:none;
+    }
+    .ig-tab i{font-size:14px;line-height:1;}
+    html.dark-auto .ig-tab:hover,
+    html[data-theme="dark"] .ig-tab:hover,
+    html.dark-auto .ig-tab:focus,
+    html[data-theme="dark"] .ig-tab:focus,
+    html.dark-auto .ig-tab.active,
+    html[data-theme="dark"] .ig-tab.active{
+      color:#fff;
+      background:transparent;
+    }
+    html.dark-auto .ig-tab:hover,
+    html[data-theme="dark"] .ig-tab:hover,
+    html.dark-auto .ig-tab:focus,
+    html[data-theme="dark"] .ig-tab:focus{
+      background:rgba(127,127,127,.07);
+    }
+    html.dark-auto .ig-tab.active::after,
+    html[data-theme="dark"] .ig-tab.active::after{
+      background:var(--msb-palette-text, #f3f6fb);
+    }
+    /* Match feed "For You" active underline (pill bar), beat appearance !important. */
+    html body.profile-page .ig-tab.active,
+    html[data-msb-appearance] body.profile-page .ig-tab.active,
+    html.msb-palette-active body.profile-page .ig-tab.active,
+    html.dark-auto body.profile-page .ig-tab.active,
+    html[data-theme="dark"] body.profile-page .ig-tab.active{
+      background:transparent!important;
+      background-color:transparent!important;
+      border-top-color:transparent!important;
+      border-bottom-color:transparent!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+    }
+    html body.profile-page .ig-tab.active::after{
+      content:""!important;
+      position:absolute!important;
+      left:50%!important;
+      right:auto!important;
+      bottom:0!important;
+      top:auto!important;
+      width:68px!important;
+      max-width:78%!important;
+      height:4px!important;
+      border:0!important;
+      border-radius:999px!important;
+      background:var(--msb-palette-text, #0b1220)!important;
+      transform:translateX(-50%)!important;
+      pointer-events:none!important;
+      display:block!important;
+    }
     .ig-gallery-filter{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 26px 12px;flex-wrap:wrap;}
     .ig-gallery-search{display:flex;align-items:center;gap:10px;flex:1 1 320px;min-width:260px;}
     .ig-gallery-search input{width:100%;height:40px;border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.14));background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);padding:0 12px;font-weight:700;}
@@ -2154,6 +2430,54 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     /* Desktop: 3 cols | Mobile/Tablet: 2 cols */
     .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 26px 26px;--post-media-radius:10px;}
     @media (max-width: 992px){ .ig-grid{grid-template-columns:repeat(2,1fr);} }
+
+    /* Gallery visibility tabs — compact group near center. */
+    .ig-grid-heads{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:10px;
+      padding:8px 26px 0;
+      box-sizing:border-box;
+    }
+    .ig-grid-heads .ig-vis-tab{
+      appearance:none;
+      -webkit-appearance:none;
+      border:1px solid transparent;
+      background:transparent;
+      margin:0;
+      padding:6px 12px;
+      border-radius:999px;
+      text-align:center;
+      font-size:12px;
+      font-weight:700;
+      line-height:1.2;
+      color:var(--msb-palette-text-muted,#667085);
+      flex:0 0 auto;
+      cursor:pointer;
+    }
+    .ig-grid-heads .ig-vis-tab:hover{
+      color:var(--msb-palette-text,#0b1220);
+    }
+    .ig-grid-heads .ig-vis-tab.is-active{
+      color:var(--msb-palette-nav-active-text,var(--msb-palette-text,#0b1220));
+      background:var(--msb-palette-nav-active-bg,var(--msb-palette-action-soft,rgba(79,70,229,.12)));
+      border-color:var(--msb-palette-border-strong,rgba(15,23,42,.12));
+    }
+    #panel-gallery .ig-grid{padding-top:8px;}
+    #panel-gallery .ig-item.is-vis-hidden{display:none !important;}
+    #panel-gallery .ig-gallery-empty-filter{
+      display:none;
+      padding:28px 16px;
+      text-align:center;
+      font-size:13px;
+      font-weight:700;
+      color:var(--msb-palette-text-muted,#667085);
+    }
+    #panel-gallery .ig-gallery-empty-filter.is-visible{display:block;}
+    @media (max-width:992px){
+      .ig-grid-heads{padding:8px 18px 0;gap:8px;}
+    }
 
     .ig-item{position:relative;width:100%;aspect-ratio:1/1;background:#eef2f7;overflow:hidden;border:1px solid rgba(15,23,42,.06);text-decoration:none;}
     .ig-item .ph{position:absolute;inset:0;background-size:cover;background-position:center;}
@@ -2719,6 +3043,16 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     #profilePostsFeed .mf-meta{min-width:0;flex:1 1 auto;}
     #profilePostsFeed .mf-name-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}
     #profilePostsFeed .mf-name{font-size:16px;font-weight:800;line-height:1.2;margin:0;color:#111827;}
+    #profilePostsFeed .mf-name.mf-name--sharing,
+    #profilePostsFeed .mf-name.is-sharing-with{white-space:normal;overflow:visible;text-overflow:unset;line-height:1.25;}
+    #profilePostsFeed .msb-sharing-with{font-weight:400;color:#667085;}
+    #profilePostsFeed a.msb-sharing-who{color:inherit;font-weight:700;text-decoration:none;}
+    #profilePostsFeed a.msb-sharing-who:hover{text-decoration:underline;}
+    #profilePostsFeed .mf-avatar-link{display:block;flex:0 0 auto;color:inherit;text-decoration:none;}
+    #pvOverlay .pv-name.is-sharing-with{white-space:normal;overflow:visible;text-overflow:unset;line-height:1.25;}
+    #pvOverlay .pv-name .msb-sharing-with{font-weight:400;color:#667085;}
+    #pvOverlay .pv-name a.msb-sharing-who{color:inherit;font-weight:700;text-decoration:none;}
+    #pvOverlay .pv-name a.msb-sharing-who:hover{text-decoration:underline;}
     #profilePostsFeed .mf-dot,#profilePostsFeed .mf-time{font-size:14px;color:#667085;margin:0;}
     #profilePostsFeed .mf-menu-wrap{position:relative;flex:0 0 auto;margin-left:auto;}
     #profilePostsFeed .mf-menu-btn:not(.post-card-menu-btn){
@@ -2770,12 +3104,18 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     #profilePostsFeed .mf-menu .mf-del{color:#b42318;}
     #profilePostsFeed .mf-title{padding:5px 5px 14px;font-size:22px;line-height:1.25;font-weight:900;color:var(--msb-palette-text, #101828);background:var(--msb-palette-bg, transparent);}
+    #profilePostsFeed .mf-slide-copy{width:100%;max-width:100%;box-sizing:border-box;}
+    #profilePostsFeed .mf-slide-title{padding:0 5px 6px;font-size:15px;font-weight:700;line-height:1.3;color:var(--msb-palette-text, #1f2937);}
+    #profilePostsFeed .mf-slide-summary{padding:0 5px 12px;font-size:13px;line-height:1.45;color:var(--msb-palette-text-muted, #4b5563);}
+    #profilePostsFeed .mf-slide-summary .post-slide-summary-p{margin:0;}
+    #profilePostsFeed .mf-slide-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
+    #profilePostsFeed .mf-slide-summary .post-slide-summary-list li{margin:0 0 .35em}
     #profilePostsFeed .mf-body{font-size:15px;color:var(--msb-palette-text-muted, #344054);word-break:break-word;text-align:left;background:var(--msb-palette-bg, transparent);}
     #profilePostsFeed .mf-body .mf-body-formatted{text-align:left;}
     #profilePostsFeed .mf-body .post-card-paragraph{margin:0 0 12px;text-align:left;white-space:normal;word-break:break-word;display:block;}
     #profilePostsFeed .mf-body .post-card-paragraph:last-child{margin-bottom:0;}
     #profilePostsFeed .mf-body .mf-body-formatted.is-clamped{max-height:6.6em;overflow:hidden;}
-    #profilePostsFeed .mf-body .mf-readmore{text-decoration:none;color:var(--msb-palette-action, #2563eb);white-space:nowrap;}
+    #profilePostsFeed .mf-body .mf-readmore{text-decoration:none;color:var(--msb-palette-text, #0b1220);white-space:nowrap;font-weight:800;}
     #profilePostsFeed .mf-actions{padding:15px 5px 8px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
     #profilePostsFeed .mf-card:has(.mf-head--on-media) > .mf-actions{padding:10px 0 8px!important;}
     #profilePostsFeed .mf-actions .mf-left{display:flex;gap:20px;align-items:center;}
@@ -3306,7 +3646,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color: var(--msb-palette-text-muted, #a9b6c8) !important;
     }
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body .mf-readmore {
-      color: var(--msb-palette-action, #93c5fd) !important;
+      color: var(--msb-palette-text, #f3f6fb) !important;
     }
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act,
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act .mf-num,
@@ -3399,6 +3739,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 
     html.dark-auto .ig-username,
     html[data-theme="dark"] .ig-username,
+    html.dark-auto .ig-fullname-name,
+    html[data-theme="dark"] .ig-fullname-name,
     html.dark-auto .ig-stat,
     html[data-theme="dark"] .ig-stat,
     html.dark-auto .ig-bio,
@@ -3426,6 +3768,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 
     html.dark-auto .ig-bio .muted,
     html[data-theme="dark"] .ig-bio .muted,
+    html.dark-auto .ig-handle,
+    html[data-theme="dark"] .ig-handle,
     html.dark-auto .ig-tab,
     html[data-theme="dark"] .ig-tab,
     html.dark-auto .about-head .sub,
@@ -3447,6 +3791,11 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html.dark-auto .mf-feed-empty i,
     html[data-theme="dark"] .mf-feed-empty i {
       color: #a9b6c8 !important;
+    }
+
+    html.dark-auto .ig-name-sep,
+    html[data-theme="dark"] .ig-name-sep {
+      background: rgba(255,255,255,.28);
     }
 
     html.dark-auto .mf-feed-empty .mf-feed-empty-title,
@@ -3689,11 +4038,17 @@ include __DIR__ . '/includes/header.php';
 
       <div class="ig-main">
         <div class="ig-row1">
-          <!-- <h2 class="ig-username"><?php echo h($username !== '' ? $username : $displayName); ?></h2> -->
+          <div class="ig-name-line">
+            <h2 class="ig-fullname-name"><?php echo h($profileDisplayName); ?></h2>
+            <?php if ($username !== ''): ?>
+              <span class="ig-name-sep" aria-hidden="true"></span>
+              <span class="ig-handle"><?php echo h($username); ?></span>
+            <?php endif; ?>
+          </div>
 
           <a class="ig-btn back" href="#" onclick="if(window.history.length > 1){ history.back(); return false; } window.location.href='feed.php'; return false;"><i class="icon ion-arrow-left-c"></i>&nbsp;Back</a>
           <?php if ($isOwnProfile): ?>
-            <a class="ig-btn" href="user_edit.php?return=<?php echo rawurlencode('profile.php'); ?>"><i class="icon ion-edit"></i>&nbsp;Edit</a>
+            <a class="ig-btn edit" href="user_edit.php?return=<?php echo rawurlencode('profile.php'); ?>"><i class="icon ion-edit"></i>&nbsp;Edit</a>
             <a class="ig-btn icon" href="messages.php" title="Messages"><i class="icon ion-chatboxes"></i></a>
             <a class="ig-btn icon" href="contacts.php" title="Friends"><i class="icon ion-person-stalker"></i></a>
             <a class="ig-btn" href="contact_requests.php"><i class="icon ion-person-add"></i>&nbsp;Friend Requests</a>
@@ -3736,13 +4091,12 @@ include __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <div class="ig-stats">
-          <div class="ig-stat"><b><?php echo (int)$statPosts; ?></b> posts</div>
+          <div class="ig-stat" data-profile-stat="posts"><b><?php echo (int)$statPosts; ?></b> posts</div>
           <div class="ig-stat"><b><?php echo (int)$statSocialCount; ?></b> <?php echo h($statSocialLabel); ?></div>
           <div class="ig-stat"><b><?php echo (int)$statFollowing; ?></b> following</div>
         </div>
 
         <div class="ig-bio">
-          <b class="ig-stat"><?php echo h($profileDisplayName); ?></b><br>
           <?php if ($profileAccountBadge !== ''): ?><span class="profile-account-badge"><?php echo h($profileAccountBadge); ?></span><br><?php endif; ?>
           <?php if (trim($me['designation']) !== ''): ?><span class="muted"><?php echo h($me['designation']); ?></span><br><?php endif; ?>
           <!-- <?php if (trim($me['role']) !== ''): ?><span class="muted"><?php echo h($me['role']); ?></span><br><?php endif; ?>
@@ -3842,6 +4196,59 @@ include __DIR__ . '/includes/header.php';
 
     <div id="panel-gallery" class="profile-panel<?php echo $selectedTab === 'gallery' ? ' active' : ''; ?>">
       <?php
+        $isProfileFriend = ($friendStatus === 'friends');
+        $galleryVisDefault = $isOwnProfile ? 'private' : 'public';
+        if ($isOwnProfile) {
+          $galleryVisDefault = 'private';
+        } elseif ($isProfileFriend) {
+          $galleryVisDefault = 'friends';
+        } else {
+          $galleryVisDefault = 'public';
+        }
+        if ($galleryVisParam !== '') {
+          if ($galleryVisParam === 'private' && !$isOwnProfile) {
+            $galleryVisDefault = $isProfileFriend ? 'friends' : 'public';
+          } elseif ($galleryVisParam === 'friends' && !$isOwnProfile && !$isProfileFriend) {
+            $galleryVisDefault = 'public';
+          } else {
+            $galleryVisDefault = $galleryVisParam;
+          }
+        }
+        if ($isOwnProfile) {
+          $galleryVisTabs = [
+            ['key' => 'private', 'label' => 'Private'],
+            ['key' => 'friends', 'label' => 'Friend'],
+            ['key' => 'public', 'label' => 'Public'],
+          ];
+        } elseif (!empty($profileIsPublisher)) {
+          // Publisher visitors: public-only content — no visibility tab chrome.
+          $galleryVisTabs = [];
+          $galleryVisDefault = 'public';
+        } elseif ($isProfileFriend) {
+          $galleryVisTabs = [
+            ['key' => 'friends', 'label' => 'Friend'],
+            ['key' => 'public', 'label' => 'Public'],
+          ];
+        } else {
+          // Strangers: public-only content — no visibility tab chrome.
+          $galleryVisTabs = [];
+          $galleryVisDefault = 'public';
+        }
+      ?>
+      <?php if (!$showPeerNotFound && !empty($galleryVisTabs)): ?>
+        <div class="ig-grid-heads" role="tablist" aria-label="Gallery visibility">
+          <?php foreach ($galleryVisTabs as $tabMeta): ?>
+            <button
+              type="button"
+              class="ig-vis-tab<?= $tabMeta['key'] === $galleryVisDefault ? ' is-active' : '' ?>"
+              role="tab"
+              data-vis="<?= h($tabMeta['key']) ?>"
+              aria-selected="<?= $tabMeta['key'] === $galleryVisDefault ? 'true' : 'false' ?>"
+            ><?= h($tabMeta['label']) ?></button>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+      <?php
         profile_render_post_grid(
           $galleryGrid,
           $showPeerNotFound,
@@ -3852,6 +4259,9 @@ include __DIR__ . '/includes/header.php';
           'gallery'
         );
       ?>
+      <?php if (!$showPeerNotFound && !empty($galleryGrid)): ?>
+        <div class="ig-gallery-empty-filter" id="galleryVisEmpty" role="status">No posts in this tab.</div>
+      <?php endif; ?>
     </div>
 
     <div id="panel-posts" class="profile-panel<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>">
@@ -3864,7 +4274,7 @@ include __DIR__ . '/includes/header.php';
           $tagsGrid,
           $showPeerNotFound,
           $isMobile,
-          'No Tags Available',
+          'No tagged posts yet',
           'ion-ios-pricetag',
           true,
           'tags'
@@ -4064,14 +4474,18 @@ include __DIR__ . '/includes/header.php';
 
 
 <!-- ✅ Post Viewer Modal (Instagram-style) -->
-<div id="pvOverlay" class="pv-overlay" aria-hidden="true">
+<div id="pvOverlay" class="pv-overlay" aria-hidden="true" hidden style="display:none">
   <button type="button" class="pv-x" id="pvClose" aria-label="Close"><i class="icon ion-close"></i></button>
   <button type="button" class="pv-nav pv-prev" id="pvPrev" aria-label="Previous"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
   <button type="button" class="pv-nav pv-next" id="pvNext" aria-label="Next"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>
 
   <div class="pv-modal" role="dialog" aria-modal="true" aria-label="Post viewer">
-    <div class="pv-left">
+    <div class="pv-left" aria-label="Media">
       <div class="pv-media" id="pvMedia"></div>
+    </div>
+    <div class="pv-mid is-empty" id="pvMid">
+      <!-- Title (top) + description — center column; left is media (photo or video) -->
+      <div class="pv-caption" id="pvCaption" style="display:none;"></div>
     </div>
     <div class="pv-right">
       <div class="pv-head">
@@ -4082,14 +4496,17 @@ include __DIR__ . '/includes/header.php';
             <div id="pvMeta" class="pv-meta">—</div>
           </div>
         </div>
-        <button type="button" class="pv-dots" id="pvDots" aria-label="More"><i class="icon ion-android-more-horizontal"></i></button>
+        <div class="pv-head-actions">
+          <button type="button" class="pv-friend-btn friend-btn mf-media-action-circle mf-media-follow-btn primary" id="pvFriendBtn" hidden aria-label="Add Friend" title="Add Friend"><i class="fa fa-plus" aria-hidden="true"></i></button>
+          <div class="post-card-menu-wrap mf-menu-wrap pv-menu-wrap" id="pvMenuWrap" data-post-id="0" data-peer-id="0" data-is-owner="0" data-menu-surface="profile">
+            <button type="button" class="pv-dots post-card-menu-btn" id="pvDots" aria-label="More" title="Menu" aria-haspopup="true" aria-expanded="false"><?= post_card_menu_fries_icon_html() ?></button>
+            <div class="post-card-menu mf-menu" id="pvMenu" role="menu"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- ✅ Scrollable middle (caption + comments) so footer/input never hides on mobile/tablet -->
+      <!-- ✅ Scrollable comments only — caption lives in .pv-mid -->
       <div class="pv-body" id="pvBody">
-        <!-- ✅ Post caption (with Read more) -->
-        <div class="pv-caption" id="pvCaption" style="display:none;"></div>
-
         <div class="pv-comments" id="pvComments" aria-label="Comments"></div>
       </div>
 
@@ -4153,23 +4570,179 @@ include __DIR__ . '/includes/header.php';
   /* ✅ Modal (instagram-style)
      Desktop/laptop: fixed frame so next/prev never shifts the comments card.
      Mobile/tablet overrides below use their own stable dimensions. */
-  .pv-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.72);z-index:9999;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  .pv-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000;z-index:9999;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;isolation:isolate;}
   .pv-overlay.show{display:flex;}
-  .pv-modal{width:fit-content;max-width:min(1120px,96vw);height:min(720px,88vh);background:transparent;color:var(--msb-palette-text, #0f172a);overflow:hidden;display:flex;align-items:stretch;gap:0;box-shadow:none;}
-  .pv-left{flex:0 0 min(720px,calc(96vw - min(380px,38vw) - 48px));width:min(720px,calc(96vw - min(380px,38vw) - 48px));max-width:min(720px,calc(96vw - min(380px,38vw) - 48px));height:100%;background:transparent;display:flex;align-items:stretch;justify-content:flex-end;}
-  .pv-media{width:auto;max-width:100%;height:100%;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;--post-media-radius:10px;position:relative;background:transparent;}
-  .pv-media img,.pv-media video,.pv-media iframe{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);background:transparent;display:block;}
-  .pv-media video{width:auto;height:auto;object-fit:contain;border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);background:transparent;}
+  .pv-overlay.show .pv-modal{position:relative;z-index:1;}
+  /* Soft hold while next/prev loads — never wipe to a bright empty panel */
+  .pv-overlay.pv-is-switching .pv-mid,
+  .pv-overlay.pv-is-switching .pv-right{
+    pointer-events:none;
+  }
+  .pv-media .pv-loading-only{
+    display:flex;align-items:center;justify-content:center;
+    width:100%;height:100%;
+    background:#0b1220;color:rgba(255,255,255,.7);
+    font-size:13px;font-weight:600;
+  }
+  /* GPU video layers from the gallery grid punch through the modal — hide them while open */
+  body.pv-body-lock .ig-item video.ig-vid,
+  body.pv-body-lock .ig-story-ring video.ig-story-thumb,
+  body.pv-body-lock video.ig-story-thumb{
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+  .pv-modal{width:fit-content;max-width:min(1320px,96vw);height:min(720px,88vh);background:transparent;color:var(--msb-palette-text, #0f172a);overflow:hidden;display:flex;align-items:stretch;gap:0;box-shadow:none;}
+  /* Media (photo or video) | title+desc | comments — right column width unchanged */
+  .pv-left{flex:0 1 auto;width:auto;max-width:min(720px,calc(96vw - min(380px,38vw) - min(380px,32vw) - 48px));height:100%;background:#000;display:flex;align-items:stretch;justify-content:flex-start;overflow:hidden;position:relative;}
+  .pv-media{width:auto;max-width:100%;height:100%;margin-left:0;margin-right:0;display:flex;align-items:center;justify-content:flex-start;--post-media-radius:0;position:relative;background:#000;overflow:hidden;isolation:isolate;z-index:1;transition:opacity .18s ease;}
+  .pv-media.pv-media-fade{opacity:0;}
+  /* Desktop: locked frame so next/prev never reflows width twice */
+  @media (min-width: 901px){
+    .pv-overlay.show .pv-modal{
+      width:min(1320px,96vw) !important;
+      max-width:min(1320px,96vw) !important;
+    }
+    .pv-overlay.show .pv-left{
+      flex:1 1 0 !important;
+      width:auto !important;
+      min-width:0 !important;
+      max-width:none !important;
+      background:#000 !important;
+      background-color:#000 !important;
+      justify-content:center !important;
+      position:relative !important;
+    }
+    .pv-overlay.show .pv-media{
+      width:100% !important;
+      max-width:100% !important;
+      height:100% !important;
+      justify-content:center !important;
+      align-items:center !important;
+      background:#000 !important;
+      background-color:#000 !important;
+    }
+    .pv-overlay.show .pv-media > img,
+    .pv-overlay.show .pv-media > video,
+    .pv-overlay.show .pv-media .mf-media-slide > img,
+    .pv-overlay.show .pv-media .media-slide > img,
+    .pv-overlay.show .pv-media .mf-media-slide > video,
+    .pv-overlay.show .pv-media .media-slide > video{
+      object-position:center center !important;
+    }
+    /* Tall media: hug image width so no empty black gutter beside the photo */
+    .pv-overlay.show.pv-is-portrait .pv-modal{
+      width:fit-content !important;
+      max-width:min(1320px,96vw) !important;
+    }
+    .pv-overlay.show.pv-is-portrait .pv-left{
+      flex:0 1 auto !important;
+      width:auto !important;
+      max-width:min(56vh, 520px) !important;
+      justify-content:center !important;
+    }
+    .pv-overlay.show.pv-is-portrait .pv-media{
+      width:auto !important;
+      max-width:100% !important;
+      justify-content:center !important;
+    }
+    .pv-overlay.show.pv-is-portrait .pv-media > img,
+    .pv-overlay.show.pv-is-portrait .pv-media > video,
+    .pv-overlay.show.pv-is-portrait .pv-media .mf-media-slide > img,
+    .pv-overlay.show.pv-is-portrait .pv-media .media-slide > img,
+    .pv-overlay.show.pv-is-portrait .pv-media .mf-media-slide > video,
+    .pv-overlay.show.pv-is-portrait .pv-media .media-slide > video{
+      width:auto !important;
+      max-width:100% !important;
+      height:100% !important;
+      max-height:100% !important;
+      object-fit:contain !important;
+    }
+    /* Landscape keeps full media column with or without center caption */
+    .pv-overlay.show.pv-is-landscape .pv-modal{
+      width:min(1320px,96vw) !important;
+      max-width:min(1320px,96vw) !important;
+    }
+    .pv-overlay.show.pv-is-landscape .pv-left{
+      flex:1 1 0 !important;
+      max-width:none !important;
+    }
+    .pv-overlay.show.pv-is-landscape .pv-media{
+      width:100% !important;
+      max-width:100% !important;
+    }
+  }
+  .pv-media:has(> video),
+  .pv-left:has(.pv-media > video),
+  html[data-msb-appearance] .pv-media:has(> video),
+  html[data-msb-appearance] .pv-left:has(.pv-media > video),
+  html.dark-auto .pv-media:has(> video),
+  html.dark-auto .pv-left:has(.pv-media > video),
+  html[data-theme="dark"] .pv-media:has(> video),
+  html[data-theme="dark"] .pv-left:has(.pv-media > video){
+    background:#000 !important;
+    background-color:#000 !important;
+    background-image:none !important;
+  }
+  .pv-media > video,
+  .pv-media > img{position:relative;z-index:2;transform:translateZ(0);}
+  /* Never stack a second copy of media inside the viewer */
+  .pv-media > img ~ img,
+  .pv-media > video ~ video,
+  .pv-media > img ~ video,
+  .pv-media > video ~ img{display:none !important;}
+  .pv-mid{
+    flex:0 0 min(380px,32vw);
+    width:min(380px,32vw);
+    min-width:280px;
+    max-width:min(380px,32vw);
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    background:var(--msb-palette-bg, #f2f1e8);
+    color:var(--msb-palette-text, #0f172a);
+    border-left:1px solid var(--msb-palette-border, rgba(15,23,42,.18));
+    border-right:1px solid var(--msb-palette-border, rgba(15,23,42,.18));
+    overflow:hidden;
+    box-sizing:border-box;
+    transition:opacity .18s ease;
+  }
+  .pv-mid.is-empty{display:none;}
+  .pv-right{transition:opacity .18s ease;}
+  .pv-overlay.pv-is-switching .pv-mid,
+  .pv-overlay.pv-is-switching .pv-right{opacity:.92;}
+  .pv-mid .pv-caption{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:none !important;
+    overflow-x:hidden;
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    border-bottom:0;
+    padding:18px 16px;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(15,23,42,.3) transparent;
+  }
+  .pv-mid .pv-caption::-webkit-scrollbar{width:6px}
+  .pv-mid .pv-caption::-webkit-scrollbar-thumb{
+    background:rgba(15,23,42,.28);
+    border-radius:999px;
+  }
+  .pv-mid .pv-caption::-webkit-scrollbar-track{background:transparent}
+  .pv-media img,.pv-media video,.pv-media iframe{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:0;background:transparent;display:block;object-fit:contain;object-position:left center;}
+  .pv-media video{width:auto;height:auto;object-fit:contain;object-position:left center;border-radius:0;background:transparent;}
   .pv-media .mf-media-carousel,
   .pv-media .media-carousel{
     position:relative;
     width:100%;
     max-width:100%;
     height:100%;
-    margin-left:auto;
+    margin-left:0;
     overflow:hidden;
     background:transparent;
-    border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);
+    border-radius:0;
   }
   .pv-media .mf-media-slides,
   .pv-media .media-slides{
@@ -4183,13 +4756,15 @@ include __DIR__ . '/includes/header.php';
   .pv-media .media-slide{
     flex:0 0 100%;
     width:100%;
-    height:100%;
+    min-width:100%;
     max-width:100%;
+    height:100%;
     display:flex;
     align-items:center;
-    justify-content:flex-end;
+    justify-content:flex-start;
     overflow:hidden;
     background:transparent;
+    box-sizing:border-box;
   }
   .pv-media .mf-media-slide > img,
   .pv-media .media-slide > img{
@@ -4198,8 +4773,8 @@ include __DIR__ . '/includes/header.php';
     width:auto;
     height:auto;
     object-fit:contain;
-    object-position:right center;
-    border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);
+    object-position:left center;
+    border-radius:0;
     display:block;
   }
   .pv-media .mf-media-slide > video,
@@ -4209,8 +4784,8 @@ include __DIR__ . '/includes/header.php';
     width:auto;
     height:auto;
     object-fit:contain;
-    object-position:right center;
-    border-radius:var(--post-media-radius) 0 0 var(--post-media-radius);
+    object-position:left center;
+    border-radius:0;
     background:transparent;
     display:block;
   }
@@ -4289,22 +4864,148 @@ include __DIR__ . '/includes/header.php';
     flex:0 0 6px !important;
     background:#3897f0 !important;
   }
-  /* ✅ Mobile/Tablet: allow long LEFT description (no media) to scroll */
-  @media (max-width: 900px){
-    .pv-left.pv-left-scroll{align-items:stretch !important;justify-content:stretch !important;}
-    .pv-left.pv-left-scroll .pv-media{overflow:auto;-webkit-overflow-scrolling:touch;align-items:flex-start !important;justify-content:flex-start !important;}
-    .pv-left.pv-left-scroll .pv-media > div{height:auto !important;min-height:100%;align-items:flex-start !important;justify-content:flex-start !important;padding:22px !important;}
+  /* Text-only gallery modal: scroll long title/description on every viewport */
+  .pv-left.pv-left-scroll{
+    align-items:stretch !important;
+    justify-content:stretch !important;
+  }
+  .pv-left.pv-left-scroll .pv-media{
+    overflow:auto !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    align-items:flex-start !important;
+    justify-content:flex-start !important;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(255,255,255,.35) transparent;
+  }
+  .pv-left.pv-left-scroll .pv-media::-webkit-scrollbar{width:6px;height:6px}
+  .pv-left.pv-left-scroll .pv-media::-webkit-scrollbar-thumb{background:rgba(255,255,255,.35);border-radius:999px}
+  .pv-left.pv-left-scroll .pv-media::-webkit-scrollbar-track{background:transparent}
+  .pv-text-card{
+    width:100%;
+    min-height:100%;
+    box-sizing:border-box;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:28px 26px 40px;
+    color:var(--msb-palette-text, #0f172a);
+    background:var(--msb-palette-bg, #f2f1e8);
+  }
+  .pv-text-card-inner{
+    width:100%;
+    max-width:640px;
+    text-align:left;
+  }
+  .pv-text-card-title{
+    font-weight:800;
+    font-size:clamp(22px,2.4vw,28px);
+    line-height:1.25;
+    white-space:normal;
+    word-break:break-word;
+    margin:0 0 12px;
+    color:var(--msb-palette-text, #0f172a);
+  }
+  .pv-text-card-body{
+    margin:0;
+    font-size:15px;
+    line-height:1.55;
+    font-weight:500;
+    white-space:normal;
+    word-break:break-word;
+    color:var(--msb-palette-text, #0f172a);
+  }
+  .pv-text-card-body .pv-richtext,
+  .pv-text-card-body .pv-rich-p{color:inherit;font:inherit;line-height:inherit}
+  .pv-text-card-body .pv-rich-p{margin:0 0 .85em}
+  .pv-text-card-body .pv-rich-p:last-child{margin-bottom:0}
+  /* Mid caption: intro + slide description scroll when long */
+  .pv-mid .pv-cap{
+    min-height:0;
+  }
+  .pv-mid .pv-cap-intro,
+  .pv-mid .pv-cap-summary{
+    white-space:normal;
+    word-break:break-word;
   }
 
-  .pv-right{flex:0 0 min(380px,38vw);width:min(380px,38vw);min-width:280px;display:flex;flex-direction:column;background:var(--msb-palette-bg, #fff);color:var(--msb-palette-text, #0f172a);min-height:0;border-radius:0 12px 12px 0;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.45);}
+  @media (max-width: 900px){
+    .pv-left.pv-left-scroll .pv-text-card{padding:22px 18px 28px;}
+  }
+
+  .pv-right{flex:0 0 min(380px,38vw);width:min(380px,38vw);min-width:280px;display:flex;flex-direction:column;background:var(--msb-palette-bg, #fff);color:var(--msb-palette-text, #0f172a);min-height:0;border-radius:0 12px 12px 0;overflow:hidden;box-shadow:none;border-left:1px solid var(--msb-palette-border, rgba(15,23,42,.14));}
   .pv-head{padding:14px 14px;border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--msb-palette-bg, #fff);}
   .pv-user{display:flex;align-items:center;gap:10px;min-width:0;}
   .pv-ava{width:38px;height:38px;border-radius:999px;object-fit:cover;background:#eef2ff;}
   .pv-namewrap{min-width:0;}
   .pv-name{font-weight:700;font-size:14px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--msb-palette-text, inherit);}
   .pv-meta{font-size:12px;color:var(--msb-palette-text-muted, rgba(15,23,42,.55));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pv-head-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    flex:0 0 auto;
+    margin-left:auto;
+    position:relative;
+    z-index:5;
+  }
+  .pv-friend-btn{
+    width:36px;
+    height:36px;
+    min-width:36px;
+    min-height:36px;
+    border-radius:999px;
+    border:0;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    padding:0;
+  }
+  .pv-friend-btn[hidden]{display:none !important;}
+  .pv-menu-wrap{
+    position:relative;
+    flex:0 0 auto;
+    margin-left:0;
+  }
   .pv-dots{border:0;background:transparent;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--msb-palette-icon, inherit);}
   .pv-dots:hover{background:var(--msb-palette-hover-bg, rgba(15,23,42,.06));}
+  .pv-dots .pcm-fries-icon{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:center;
+    gap:2.5px;
+    width:14px;
+    line-height:0;
+  }
+  .pv-dots .pcm-fries-bar{
+    display:block;
+    height:2px;
+    width:14px;
+    border-radius:999px;
+    background:currentColor;
+  }
+  .pv-dots .pcm-fries-bar--short{width:8px;}
+  .pv-dots.post-card-menu-btn{
+    min-width:36px;
+    min-height:36px;
+    padding:0;
+    box-shadow:none;
+  }
+  /* Keep in-place menu usable if portal is unavailable. */
+  #pvOverlay .pv-menu-wrap .post-card-menu:not(.pcm-menu-portal){
+    display:none;
+    position:absolute;
+    top:calc(100% + 6px);
+    right:0;
+    min-width:220px;
+    z-index:10050;
+  }
+  #pvOverlay .pv-menu-wrap .post-card-menu.open:not(.pcm-menu-portal){
+    display:block;
+  }
 
   /* ✅ Middle scroll area: prevents input/actions from being pushed off-screen on mobile/tablet */
   .pv-body{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--msb-palette-bg, #fff);scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.35) transparent;}
@@ -4337,16 +5038,32 @@ include __DIR__ . '/includes/header.php';
   }
 
 
-  /* ✅ Caption (post text) inside modal right panel */
+  /* ✅ Caption (post text) — center column: title top, description under */
   .pv-caption{border-bottom:1px solid rgba(15,23,42,.08);padding:10px 14px;max-height:140px;overflow:auto;}
+  .pv-mid .pv-caption{border-bottom:0;max-height:none !important;overflow-y:auto !important;}
   .pv-cap{font-size:13px;line-height:1.35;color:#0f172a;word-break:break-word;}
-  .pv-cap-title{font-size:15px;font-weight:800;line-height:1.25;margin-bottom:6px;}
-  .pv-cap-desc{font-size:13px;line-height:1.45;}
+  .pv-cap-title{font-size:15px;font-weight:800;line-height:1.25;margin:0 0 10px;color:var(--msb-palette-text, #0f172a);}
+  .pv-cap-desc{font-size:13px;line-height:1.45;color:var(--msb-palette-text, #0f172a);}
+  .pv-cap-subtitle{font-size:14px;font-weight:700;line-height:1.3;margin:12px 0 6px;color:var(--msb-palette-text, #1f2937);}
+  .pv-cap-summary{font-size:13px;line-height:1.45;color:var(--msb-palette-text-muted, #4b5563);}
+  .pv-cap-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
+  .pv-cap-summary .post-slide-summary-list li{margin:0 0 .35em}
   .pv-cap-short,.pv-cap-full{white-space:normal;word-break:break-word;}
 
   .pv-cap b{font-weight:800;}
-  .pv-readmore{margin-left:6px;font-weight:800;color:#2563eb;cursor:pointer;white-space:nowrap;}
+  .pv-readmore{margin-left:6px;font-weight:800;color:var(--msb-palette-text, #0b1220);cursor:pointer;white-space:nowrap;}
   .pv-readmore:hover{text-decoration:underline;}
+  a.msb-mention{
+    color:var(--msb-palette-text, #0b1220);
+    font-weight:800;
+    text-decoration:none;
+  }
+  a.msb-mention:hover{text-decoration:underline;opacity:.85;}
+  html.dark-auto a.msb-mention,
+  html[data-theme="dark"] a.msb-mention,
+  html[data-msb-appearance] a.msb-mention{
+    color:var(--msb-palette-text, #f3f6fb);
+  }
   .pv-richtext{display:block;}
   .pv-richtext .pv-rich-p{margin:0 0 12px;white-space:normal;word-break:break-word;}
   .pv-richtext .pv-rich-p:last-child{margin-bottom:0;}
@@ -4399,6 +5116,9 @@ include __DIR__ . '/includes/header.php';
   html.dark-auto .pv-right,
   html[data-theme="dark"] .pv-right,
   html[data-msb-appearance] .pv-right,
+  html.dark-auto .pv-mid,
+  html[data-theme="dark"] .pv-mid,
+  html[data-msb-appearance] .pv-mid,
   html.dark-auto .pv-head,
   html[data-theme="dark"] .pv-head,
   html[data-msb-appearance] .pv-head,
@@ -4417,15 +5137,19 @@ include __DIR__ . '/includes/header.php';
   }
   html.dark-auto .pv-modal,
   html[data-theme="dark"] .pv-modal,
-  html[data-msb-appearance] .pv-modal,
+  html[data-msb-appearance] .pv-modal{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+  }
   html.dark-auto .pv-left,
   html[data-theme="dark"] .pv-left,
   html[data-msb-appearance] .pv-left,
   html.dark-auto .pv-media,
   html[data-theme="dark"] .pv-media,
   html[data-msb-appearance] .pv-media{
-    background:transparent !important;
-    background-color:transparent !important;
+    background:var(--msb-palette-bg, #0b1220) !important;
+    background-color:var(--msb-palette-bg, #0b1220) !important;
     background-image:none !important;
   }
   html.dark-auto .pv-head,
@@ -4687,18 +5411,39 @@ include __DIR__ . '/includes/header.php';
   .pv-nav i{font-size:12px;line-height:1;color:#fff;}
   .pv-prev{left:14px;}
   .pv-next{right:14px;}
+  #pvOverlay.pv-hide-post-nav .pv-nav{display:none !important;}
 
   @media (max-width: 860px){
     .pv-overlay{align-items:center;justify-content:center;}
     .pv-modal{flex-direction:column;width:min(720px,96vw);max-width:min(720px,96vw);height:min(calc(var(--vh, 1vh) * 92),860px);max-height:min(calc(var(--vh, 1vh) * 92),860px);margin:auto;position:relative;gap:0;}
     .pv-right{min-width:0;width:100%;max-width:100%;flex:1 1 auto;max-height:none;border-radius:0 0 12px 12px;}
-    .pv-left{flex:0 0 min(52vh,520px);width:100%;max-width:100%;height:min(52vh,520px);min-height:0;background:transparent;margin-inline:0;justify-content:flex-end;align-items:stretch;}
-    .pv-media,.pv-media .mf-media-carousel,.pv-media .media-carousel{max-width:100%;width:100%;height:100%;max-height:100%;margin-left:0;border-radius:12px 12px 0 0;}
+    .pv-left{flex:0 0 min(52vh,520px);width:100%;max-width:100%;height:min(52vh,520px);min-height:0;background:transparent;margin-inline:0;justify-content:center;align-items:stretch;}
+    .pv-mid{
+      flex:0 1 28%;
+      width:100%;
+      max-width:100%;
+      min-width:0;
+      min-height:0;
+      height:auto;
+      max-height:28%;
+      overflow:hidden;
+      border-left:0;
+      border-right:0;
+      border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08));
+    }
+    .pv-mid .pv-caption{
+      padding:12px 14px;
+      flex:1 1 auto;
+      min-height:0;
+      max-height:100% !important;
+      overflow-y:auto !important;
+    }
+    .pv-media,.pv-media .mf-media-carousel,.pv-media .media-carousel{max-width:100%;width:100%;height:100%;max-height:100%;margin-left:0;border-radius:0;}
     .pv-media img,.pv-media video,.pv-media iframe,
     .pv-media .mf-media-slide > img,
     .pv-media .media-slide > img,
     .pv-media .mf-media-slide > video,
-    .pv-media .media-slide > video{max-width:100%;max-height:100%;margin-inline:auto;border-radius:12px 12px 0 0;object-position:center bottom;}
+    .pv-media .media-slide > video{max-width:100%;max-height:100%;margin-inline:auto;border-radius:0;object-position:center bottom;}
     .pv-media .mf-media-slide,
     .pv-media .media-slide{justify-content:center;}
 
@@ -4718,6 +5463,89 @@ include __DIR__ . '/includes/header.php';
   }
 
   body.pv-body-lock{touch-action:none;}
+
+  /* Gallery grid modal: keep black letterbox (beats appearance palette) */
+  html body.profile-page #pvOverlay.pv-overlay,
+  html[data-msb-appearance] body.profile-page #pvOverlay.pv-overlay,
+  html[data-theme="dark"] body.profile-page #pvOverlay.pv-overlay,
+  html.dark-auto body.profile-page #pvOverlay.pv-overlay{
+    background:#000 !important;
+    background-color:#000 !important;
+  }
+  html body.profile-page #pvOverlay.pv-overlay::before,
+  html body.profile-page #pvOverlay .pv-left::after{
+    content:none !important;
+    display:none !important;
+    background:none !important;
+  }
+  html body.profile-page #pvOverlay .pv-left,
+  html body.profile-page #pvOverlay .pv-media,
+  html[data-msb-appearance] body.profile-page #pvOverlay .pv-left,
+  html[data-msb-appearance] body.profile-page #pvOverlay .pv-media,
+  html[data-theme="dark"] body.profile-page #pvOverlay .pv-left,
+  html[data-theme="dark"] body.profile-page #pvOverlay .pv-media,
+  html.dark-auto body.profile-page #pvOverlay .pv-left,
+  html.dark-auto body.profile-page #pvOverlay .pv-media{
+    background:#000 !important;
+    background-color:#000 !important;
+    background-image:none !important;
+  }
+  /* Title/description panels only — Gear Appearance / Progress color / Dark auto */
+  html body.profile-page #pvOverlay .pv-mid,
+  html body.profile-page #pvOverlay .pv-mid .pv-caption,
+  html[data-msb-appearance] body.profile-page #pvOverlay .pv-mid,
+  html[data-msb-appearance] body.profile-page #pvOverlay .pv-mid .pv-caption,
+  html[data-theme="dark"] body.profile-page #pvOverlay .pv-mid,
+  html[data-theme="dark"] body.profile-page #pvOverlay .pv-mid .pv-caption,
+  html.dark-auto body.profile-page #pvOverlay .pv-mid,
+  html.dark-auto body.profile-page #pvOverlay .pv-mid .pv-caption{
+    background:var(--msb-palette-bg, #f2f1e8) !important;
+    background-color:var(--msb-palette-bg, #f2f1e8) !important;
+    color:var(--msb-palette-text, #0f172a) !important;
+  }
+  html body.profile-page #pvOverlay.pv-text-only .pv-left,
+  html body.profile-page #pvOverlay.pv-text-only .pv-media,
+  html[data-msb-appearance] body.profile-page #pvOverlay.pv-text-only .pv-left,
+  html[data-msb-appearance] body.profile-page #pvOverlay.pv-text-only .pv-media,
+  html[data-theme="dark"] body.profile-page #pvOverlay.pv-text-only .pv-left,
+  html[data-theme="dark"] body.profile-page #pvOverlay.pv-text-only .pv-media,
+  html.dark-auto body.profile-page #pvOverlay.pv-text-only .pv-left,
+  html.dark-auto body.profile-page #pvOverlay.pv-text-only .pv-media{
+    background:var(--msb-palette-bg, #f2f1e8) !important;
+    background-color:var(--msb-palette-bg, #f2f1e8) !important;
+    background-image:none !important;
+  }
+  /* Description-only (no media): separate title/body panel with border */
+  html body.profile-page #pvOverlay.pv-text-only .pv-left,
+  html[data-msb-appearance] body.profile-page #pvOverlay.pv-text-only .pv-left,
+  html[data-theme="dark"] body.profile-page #pvOverlay.pv-text-only .pv-left,
+  html.dark-auto body.profile-page #pvOverlay.pv-text-only .pv-left{
+    border-radius:12px 0 0 12px !important;
+    overflow:hidden !important;
+    z-index:2 !important;
+    box-shadow:none !important;
+    border-right:1px solid var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  }
+  html body.profile-page #pvOverlay .pv-text-card,
+  html[data-msb-appearance] body.profile-page #pvOverlay .pv-text-card,
+  html[data-theme="dark"] body.profile-page #pvOverlay .pv-text-card,
+  html.dark-auto body.profile-page #pvOverlay .pv-text-card{
+    background:var(--msb-palette-bg, #f2f1e8) !important;
+    background-color:var(--msb-palette-bg, #f2f1e8) !important;
+    color:var(--msb-palette-text, #0f172a) !important;
+  }
+  /* Keep true black letterbox only behind video */
+  html body.profile-page #pvOverlay .pv-media:has(> video),
+  html body.profile-page #pvOverlay .pv-left:has(.pv-media > video),
+  html[data-msb-appearance] body.profile-page #pvOverlay .pv-media:has(> video),
+  html[data-msb-appearance] body.profile-page #pvOverlay .pv-left:has(.pv-media > video),
+  html[data-theme="dark"] body.profile-page #pvOverlay .pv-media:has(> video),
+  html[data-theme="dark"] body.profile-page #pvOverlay .pv-left:has(.pv-media > video),
+  html.dark-auto body.profile-page #pvOverlay .pv-media:has(> video),
+  html.dark-auto body.profile-page #pvOverlay .pv-left:has(.pv-media > video){
+    background:#000 !important;
+    background-color:#000 !important;
+  }
 </style>
 
 <script>
@@ -4829,7 +5657,82 @@ const GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $gridId
 const GALLERY_GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $galleryGridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
 const TAGS_GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $tagsGridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
 let pvActiveGridIds = GRID_IDS;
+try {
+  window.GRID_IDS = GRID_IDS;
+  window.GALLERY_GRID_IDS = GALLERY_GRID_IDS;
+  window.TAGS_GRID_IDS = TAGS_GRID_IDS;
+  Object.defineProperty(window, 'pvActiveGridIds', {
+    configurable: true,
+    get: function(){ return pvActiveGridIds; },
+    set: function(v){ pvActiveGridIds = v; }
+  });
+} catch (eGridWin) {}
 let pvActiveGridScope = 'all';
+let galleryVisFilter = <?php
+  $jsGalleryVis = 'public';
+  if ($isOwnProfile) {
+    $jsGalleryVis = ($galleryVisParam !== '' && in_array($galleryVisParam, ['private', 'friends', 'public'], true))
+      ? $galleryVisParam
+      : 'private';
+  } elseif (!empty($profileIsPublisher)) {
+    $jsGalleryVis = 'public';
+  } elseif ($friendStatus === 'friends') {
+    $jsGalleryVis = ($galleryVisParam === 'public') ? 'public' : 'friends';
+  } else {
+    $jsGalleryVis = 'public';
+  }
+  echo json_encode($jsGalleryVis, JSON_UNESCAPED_SLASHES);
+?>;
+
+(function initGalleryVisTabs(){
+  const panel = document.getElementById('panel-gallery');
+  if (!panel) return;
+  const heads = panel.querySelector('.ig-grid-heads');
+  const emptyEl = document.getElementById('galleryVisEmpty');
+  if (!heads) return;
+
+  function visibleGalleryIds(){
+    const ids = [];
+    panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item:not(.is-vis-hidden)').forEach(function(item){
+      const id = parseInt(item.getAttribute('data-post-id') || '0', 10) || 0;
+      if (id > 0) ids.push(id);
+    });
+    return ids;
+  }
+
+  function applyGalleryVis(vis){
+    galleryVisFilter = String(vis || 'public').toLowerCase();
+    if (galleryVisFilter !== 'private' && galleryVisFilter !== 'public' && galleryVisFilter !== 'friends') {
+      galleryVisFilter = 'public';
+    }
+    let shown = 0;
+    panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item').forEach(function(item){
+      const itemVis = String(item.getAttribute('data-visibility') || 'public').toLowerCase();
+      const match = itemVis === galleryVisFilter;
+      item.classList.toggle('is-vis-hidden', !match);
+      if (match) shown += 1;
+    });
+    heads.querySelectorAll('.ig-vis-tab').forEach(function(btn){
+      const active = String(btn.getAttribute('data-vis') || '') === galleryVisFilter;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    if (emptyEl) emptyEl.classList.toggle('is-visible', shown === 0 && panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item').length > 0);
+    window.__MSB_GALLERY_VISIBLE_IDS = visibleGalleryIds();
+  }
+
+  heads.addEventListener('click', function(e){
+    const btn = e.target.closest('.ig-vis-tab');
+    if (!btn || !heads.contains(btn)) return;
+    e.preventDefault();
+    applyGalleryVis(btn.getAttribute('data-vis'));
+  });
+
+  applyGalleryVis(galleryVisFilter);
+  window.msbApplyGalleryVisFilter = applyGalleryVis;
+  window.msbGalleryVisibleIds = visibleGalleryIds;
+})();
+
 let pvIndex = -1;
 let pvPostId = 0;
 let pvReplyTo = 0;
@@ -4840,6 +5743,12 @@ const pvCollapsedReplyIds = new Set();
 const pvMaxReplyCurveDepth = 4;
 let pvReplyToMode = 'Reply';
 let pvCurrentReaction = '';
+const PV_ME_ID = <?php echo (int)$meId; ?>;
+let PV_FRIEND_STATUS = <?php echo json_encode($isOwnProfile ? 'self' : $friendStatus, JSON_UNESCAPED_SLASHES); ?>;
+const PV_IS_PUBLISHER = <?php echo !empty($profileIsPublisher) ? 'true' : 'false'; ?>;
+const PV_CAN_FOLLOW_PUBLISHERS = <?php echo !empty($canFollowPublishers) ? 'true' : 'false'; ?>;
+let pvCurrentPost = null;
+let pvCurrentAttachments = [];
 function pvReplyToggleLabel(count, isOpen){
   const noun = count === 1 ? 'reply' : 'replies';
   return isOpen ? 'Close replies' : ('Open ' + count + ' ' + noun);
@@ -4871,6 +5780,10 @@ function pvLockBodyScroll(){
     document.body.style.left = '0';
     document.body.style.right = '0';
     document.body.style.width = '100%';
+    // Pause grid/story videos so they cannot paint over the modal (GPU layer punch-through).
+    document.querySelectorAll('.ig-item video.ig-vid, .ig-story-ring video.ig-story-thumb, video.ig-story-thumb').forEach((v) => {
+      try { v.pause(); } catch (ePause) {}
+    });
   }catch(e){}
 }
 function pvUnlockBodyScroll(){
@@ -4954,7 +5867,20 @@ function pvFormatRichText(text){
   let para = [];
   let listStack = [];
 
-  function escLine(s){ return pvEsc(s).replace(/  /g, ' &nbsp;'); }
+  function escLine(s){
+    var html = pvEsc(s).replace(/  /g, ' &nbsp;');
+    if (window.MSBMentionAC && typeof window.MSBMentionAC.linkify === 'function') {
+      // Already escaped; linkify only @tokens
+      html = html.replace(/(^|[^A-Za-z0-9_])@([A-Za-z0-9_]{2,50})\b/g, function(_, pre, user){
+        return pre + '<a class="msb-mention" href="profile.php?username=' + encodeURIComponent(user) + '">@' + user + '</a>';
+      });
+    } else {
+      html = html.replace(/(^|[^A-Za-z0-9_])@([A-Za-z0-9_]{2,50})\b/g, function(_, pre, user){
+        return pre + '<a class="msb-mention" href="profile.php?username=' + encodeURIComponent(user) + '">@' + user + '</a>';
+      });
+    }
+    return html;
+  }
   function lineIndent(line){ const m = String(line || '').match(/^(\s*)/); return m ? m[1].replace(/\t/g, '    ').length : 0; }
   function listInfo(line){
     const raw = String(line || '');
@@ -5067,7 +5993,13 @@ function pvGridScopeForElement(el){
 
 function pvGridIdsForElement(el){
   const scope = pvGridScopeForElement(el);
-  if (scope === 'gallery') return GALLERY_GRID_IDS;
+  if (scope === 'gallery') {
+    if (typeof window.msbGalleryVisibleIds === 'function') {
+      const visible = window.msbGalleryVisibleIds();
+      if (Array.isArray(visible) && visible.length) return visible;
+    }
+    return GALLERY_GRID_IDS;
+  }
   if (scope === 'tags') return TAGS_GRID_IDS;
   return GRID_IDS;
 }
@@ -5089,6 +6021,13 @@ function pvFindGridContext(postId){
 
 function pvUpdateNavBtns(){
   const ids = Array.isArray(pvActiveGridIds) ? pvActiveGridIds : [];
+  if (window.__pvHidePostNav) {
+    if (pv.prev) pv.prev.style.display = 'none';
+    if (pv.next) pv.next.style.display = 'none';
+    if (pv.ov) pv.ov.classList.add('pv-hide-post-nav');
+    return;
+  }
+  if (pv.ov) pv.ov.classList.remove('pv-hide-post-nav');
   pv.prev.style.display = (pvIndex > 0) ? '' : 'none';
   pv.next.style.display = (pvIndex >= 0 && pvIndex < ids.length - 1) ? '' : 'none';
 }
@@ -5104,6 +6043,7 @@ async function pvJson(url, opts){
 }
 
 function pvOpenByIndex(idx){
+  try { window.__pvHidePostNav = false; } catch (eFlag) {}
   const ids = Array.isArray(pvActiveGridIds) ? pvActiveGridIds : [];
   if (!ids.length) return;
   if (idx < 0) idx = 0;
@@ -5115,6 +6055,9 @@ function pvOpenByIndex(idx){
   pvCommentsCache = [];
   pvSetReply(0, '');
   pvSetVh();
+  pv.ov.removeAttribute('hidden');
+  pv.ov.style.display = '';
+  pv.ov.setAttribute('aria-hidden', 'false');
   pv.ov.classList.add('show');
   pv.ov.setAttribute('aria-hidden', 'false');
   pvLockBodyScroll();
@@ -5140,6 +6083,9 @@ function pvOpenInGrid(postId, gridIds, scope){
   pvCommentsCache = [];
   pvSetReply(0, '');
   pvSetVh();
+  pv.ov.removeAttribute('hidden');
+  pv.ov.style.display = '';
+  pv.ov.setAttribute('aria-hidden', 'false');
   pv.ov.classList.add('show');
   pv.ov.setAttribute('aria-hidden', 'false');
   pvLockBodyScroll();
@@ -5148,15 +6094,39 @@ function pvOpenInGrid(postId, gridIds, scope){
   if (pv.next) pv.next.style.display = 'none';
 }
 
-window.pvOpenById = function(postId){
+window.pvOpenById = function(postId, opts){
   postId = Number(postId || 0);
-  if (!postId) return;
+  if (!postId) return false;
+  opts = (opts && typeof opts === 'object') ? opts : {};
+  var hideNav = !!(opts.hideNav || opts.standalone || opts.fromMention || opts.fromTag);
+  try { window.__pvHidePostNav = hideNav; } catch (eFlag) {}
+  if (hideNav) {
+    pvActiveGridIds = [];
+    pvActiveGridScope = 'alert';
+    pvPostId = postId;
+    pvIndex = -1;
+    pvCollapsedReplyIds.clear();
+    pvCommentsCache = [];
+    pvSetReply(0, '');
+    pvSetVh();
+    pv.ov.removeAttribute('hidden');
+  pv.ov.style.display = '';
+  pv.ov.setAttribute('aria-hidden', 'false');
+  pv.ov.classList.add('show');
+    pv.ov.setAttribute('aria-hidden', 'false');
+    pvLockBodyScroll();
+    pvLoad(pvPostId);
+    if (pv.prev) pv.prev.style.display = 'none';
+    if (pv.next) pv.next.style.display = 'none';
+    if (pv.ov) pv.ov.classList.add('pv-hide-post-nav');
+    return true;
+  }
   const ctx = pvFindGridContext(postId);
   if (ctx) {
     pvActiveGridIds = ctx.ids;
     pvActiveGridScope = ctx.scope || 'all';
     pvOpenByIndex(ctx.idx);
-    return;
+    return true;
   }
   pvActiveGridIds = GRID_IDS;
   pvActiveGridScope = 'all';
@@ -5166,16 +6136,25 @@ window.pvOpenById = function(postId){
   pvCommentsCache = [];
   pvSetReply(0, '');
   pvSetVh();
+  pv.ov.removeAttribute('hidden');
+  pv.ov.style.display = '';
+  pv.ov.setAttribute('aria-hidden', 'false');
   pv.ov.classList.add('show');
   pv.ov.setAttribute('aria-hidden', 'false');
   pvLockBodyScroll();
   pvLoad(pvPostId);
   if (pv.prev) pv.prev.style.display = 'none';
   if (pv.next) pv.next.style.display = 'none';
+  return true;
 };
+try { window.pv = pv; } catch (ePv) {}
 
 function pvClose(){
   pv.ov.classList.remove('show');
+  pv.ov.setAttribute('hidden', '');
+  pv.ov.setAttribute('aria-hidden', 'true');
+  pv.ov.style.display = 'none';
+  pv.ov.classList.remove('pv-hide-post-nav');
   pv.ov.setAttribute('aria-hidden', 'true');
   pvUnlockBodyScroll();
   pvSetVh();
@@ -5187,56 +6166,156 @@ function pvClose(){
   pvCollapsedReplyIds.clear();
   pvPostId = 0;
   pvIndex = -1;
+  try { window.__pvHidePostNav = false; } catch (eHide) {}
   pvSetReply(0, '');
 }
-function pvRenderCaption(post, atts){
-  const title = (post?.title || '').toString().trim();
-  const desc  = (post?.description || post?.body || '').toString().trim();
-  const hasMedia = Array.isArray(atts) && atts.length > 0;
+try { window.pvClose = pvClose; } catch (ePvClose) {}
+window.MSBClosePostViewer = function(postId){
+  postId = Number(postId || 0);
+  function prune(list){
+    if (!Array.isArray(list)) return;
+    for (var i = list.length - 1; i >= 0; i--) {
+      if (Number(list[i] || 0) === postId) list.splice(i, 1);
+    }
+  }
+  if (postId > 0) {
+    prune(GRID_IDS);
+    prune(GALLERY_GRID_IDS);
+    prune(TAGS_GRID_IDS);
+    prune(pvActiveGridIds);
+  }
+  try {
+    var emptyEl = document.getElementById('galleryVisEmpty');
+    var panel = document.getElementById('panel-gallery');
+    if (emptyEl && panel) {
+      var visible = panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item:not(.is-vis-hidden)').length;
+      var total = panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item').length;
+      emptyEl.classList.toggle('is-visible', visible === 0 && total > 0);
+    }
+  } catch (eEmpty) {}
+  var showing = Number(pvPostId || 0);
+  if (postId > 0 && showing > 0 && showing !== postId) return;
+  if (typeof pvClose === 'function') pvClose();
+  try {
+    var u = new URL(window.location.href);
+    var changed = false;
+    ['post', 'post_id', 'open_post', 'fresh'].forEach(function(key){
+      if (u.searchParams.has(key)) {
+        u.searchParams.delete(key);
+        changed = true;
+      }
+    });
+    if (changed) window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
+  } catch (eUrl) {}
+};
+function pvSyncMidCaptionState(hasCaption){
+  const ov = pv && pv.ov ? pv.ov : document.getElementById('pvOverlay');
+  const mid = document.getElementById('pvMid');
+  if (mid) mid.classList.toggle('is-empty', !hasCaption);
+  if (!ov) return;
+  ov.classList.toggle('pv-has-mid-caption', !!hasCaption);
+  ov.classList.toggle('pv-no-mid-caption', !hasCaption);
+}
+
+function pvSyncMediaOrientation(){
+  const ov = pv && pv.ov ? pv.ov : document.getElementById('pvOverlay');
+  if (!ov || !pv || !pv.media) return;
+  let el = null;
+  const carousel = pv.media.querySelector('.mf-media-carousel, .media-carousel');
+  if (carousel) {
+    const idx = Math.max(0, Number(carousel.getAttribute('data-index') || 0));
+    const slides = carousel.querySelectorAll('.mf-media-slide, .media-slide');
+    const slide = slides[idx] || slides[0];
+    el = slide ? slide.querySelector('img, video') : null;
+  }
+  if (!el) el = pv.media.querySelector('img, video');
+  let w = 0, h = 0;
+  if (el) {
+    if (String(el.tagName || '').toUpperCase() === 'VIDEO') {
+      w = Number(el.videoWidth || 0);
+      h = Number(el.videoHeight || 0);
+    } else {
+      w = Number(el.naturalWidth || 0);
+      h = Number(el.naturalHeight || 0);
+    }
+    if ((!w || !h) && el.getBoundingClientRect) {
+      const r = el.getBoundingClientRect();
+      w = Number(r.width || 0);
+      h = Number(r.height || 0);
+    }
+  }
+  const isPortrait = (w > 0 && h > 0) ? (h > w * 1.05) : false;
+  const isLandscape = (w > 0 && h > 0) ? (w >= h * 0.95) : !isPortrait;
+  ov.classList.toggle('pv-is-portrait', !!isPortrait);
+  ov.classList.toggle('pv-is-landscape', !!isLandscape && !isPortrait);
+}
+
+function pvRenderCaption(post, atts, slideIndex){
+  const mid = document.getElementById('pvMid');
+  const list = Array.isArray(atts) ? atts : (Array.isArray(pvCurrentAttachments) ? pvCurrentAttachments : []);
+  const idx = Math.max(0, Number(slideIndex || 0));
+  const anySlideText = list.some(function(a){
+    return String(a && (a.slide_title || a.slide_body) || '').trim() !== '';
+  });
+  const titleRaw = (post?.title || '').toString().trim();
+  const descRaw = (post?.body || post?.description || '').toString().trim();
+  const taggedForCap = Array.isArray(post?.tagged_people) ? post.tagged_people : [];
+  const title = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function')
+    ? window.MSBPostCardMenu.displayTextWithoutTagHandles(titleRaw, taggedForCap)
+    : titleRaw;
+  const desc = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function')
+    ? window.MSBPostCardMenu.displayTextWithoutTagHandles(descRaw, taggedForCap)
+    : descRaw;
+  let slideTitle = '';
+  let slideDesc = '';
+  if (anySlideText) {
+    const att = list[idx] || {};
+    slideTitle = String(att.slide_title || '').trim();
+    slideDesc = String(att.slide_body || '').trim();
+  }
+  const hasMedia = list.length > 0 || (Array.isArray(atts) && atts.length > 0);
+  const hasCaption = !!(title || desc || slideTitle || slideDesc);
+
+  function slideSummaryHtml(text){
+    const raw = String(text || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+    if (!raw) return '';
+    const lines = raw.split('\n').map(function(line){
+      return String(line || '').trim().replace(/^(?:[•\-\*]|\d+[\.\)])\s+/, '');
+    }).filter(Boolean);
+    if (!lines.length) return '';
+    if (lines.length === 1) {
+      return `<div class="post-slide-summary"><p class="post-slide-summary-p">${pvEsc(lines[0])}</p></div>`;
+    }
+    return `<div class="post-slide-summary"><ul class="post-slide-summary-list">${
+      lines.map(function(line){ return `<li>${pvEsc(line)}</li>`; }).join('')
+    }</ul></div>`;
+  }
 
   // ✅ If there is NO media on the left, we show text on the left only.
-  // So the right caption should be hidden to avoid duplicate text.
-  if (!hasMedia) {
+  // So the center caption should be hidden to avoid duplicate text.
+  if (!hasMedia && !anySlideText) {
     pv.caption.style.display = 'none';
     pv.caption.innerHTML = '';
+    pvSyncMidCaptionState(false);
     return;
   }
 
-  // Nothing to show
-  if (!title && !desc) {
+  // Nothing to show in the center column
+  if (!hasCaption) {
     pv.caption.style.display = 'none';
     pv.caption.innerHTML = '';
+    pvSyncMidCaptionState(false);
     return;
   }
 
   pv.caption.style.display = '';
+  pvSyncMidCaptionState(true);
 
-  // ✅ Title always stays at the top (no name beside title)
-  const titleHtml = title ? `<div class="pv-cap-title">${pvEsc(title)}</div>` : '';
-
-  // ✅ Description goes under the title (Read more / Show less when long)
-  if (!desc) {
-    pv.caption.innerHTML = `<div class="pv-cap">${titleHtml}</div>`;
-    return;
-  }
-
-  const t = pvTruncateText(desc, 3);
-
-  if (!t.truncated) {
-    pv.caption.innerHTML = `<div class="pv-cap">${titleHtml}<div class="pv-cap-desc">${pvFormatRichText(t.full)}</div></div>`;
-    return;
-  }
-
-  pv.caption.innerHTML = `
-    <div class="pv-cap" data-expanded="0">
-      ${titleHtml}
-      <div class="pv-cap-desc">
-        <span class="pv-cap-short">${pvFormatRichText(t.short)}<span class="pv-rich-ellipsis">&hellip;</span></span>
-        <span class="pv-cap-full" style="display:none;">${pvFormatRichText(t.full)}</span>
-        <a href="#" class="pv-readmore">Read more</a>
-      </div>
-    </div>
-  `;
+  const titleHtml = title ? `<div class="pv-cap-title">${(window.MSBMentionAC && window.MSBMentionAC.linkify) ? window.MSBMentionAC.linkify(title) : pvEsc(title)}</div>` : '';
+  const descHtml = desc ? `<div class="pv-cap-desc pv-cap-intro">${pvFormatRichText(desc)}</div>` : '';
+  const subHtml = (anySlideText && slideTitle) ? `<div class="pv-cap-subtitle">${(window.MSBMentionAC && window.MSBMentionAC.linkify) ? window.MSBMentionAC.linkify(slideTitle) : pvEsc(slideTitle)}</div>` : '';
+  const sumHtml = (anySlideText && slideDesc) ? `<div class="pv-cap-summary">${slideSummaryHtml(slideDesc)}</div>` : '';
+  pv.caption.innerHTML = `<div class="pv-cap">${titleHtml}${descHtml}${subHtml}${sumHtml}</div>`;
 }
 
 function pvRenderMedia(post, atts){
@@ -5245,16 +6324,37 @@ function pvRenderMedia(post, atts){
   const desc  = (post?.description || '').trim();
   const body  = (post?.body || '').trim();
 
-  // ✅ Mobile/tablet: enable LEFT scroll only for "no media + has long text"
+  // ✅ Text-only posts: allow the left panel to scroll on every viewport
   try{
     const hasMedia = Array.isArray(atts) && atts.length > 0;
-    const textOnly = !hasMedia && ((desc || body || '').trim() !== '');
-    const isSmall  = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
-    if (pv.left) pv.left.classList.toggle('pv-left-scroll', !!(isSmall && textOnly));
+    const textOnly = !hasMedia && ((title || desc || body || '').trim() !== '');
+    if (pv.left) pv.left.classList.toggle('pv-left-scroll', !!textOnly);
+    if (pv.ov) pv.ov.classList.toggle('pv-text-only', !!textOnly);
   }catch(e){}
 
   function pvAttSrc(a){
+    // Prefer full media file over thumb so we never render a second smaller copy.
     return String((a?.url || a?.file_path || a?.thumb_url || a?.thumb_path || '') || '').trim();
+  }
+  function pvAttKey(a){
+    let p = pvAttSrc(a).split('?')[0].toLowerCase();
+    if (!p) return '';
+    p = p.replace(/\/thumbs\//g, '/');
+    p = p.replace(/([_-])thumb(\.[a-z0-9]+)$/i, '$2');
+    p = p.replace(/\/thumb_/g, '/');
+    return p;
+  }
+  function pvNormalizeAtts(list){
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    const seen = new Set();
+    list.forEach((a) => {
+      const key = pvAttKey(a);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(a);
+    });
+    return out;
   }
   function pvAttKind(a, url){
     const type = String(a?.type || '').toLowerCase();
@@ -5264,7 +6364,6 @@ function pvRenderMedia(post, atts){
   }
   function pvSlideInner(a){
     const url = pvAttSrc(a);
-    const thumb = String((a?.thumb_url || a?.thumb_path || '') || '').trim();
     const kind = pvAttKind(a, url);
     if (kind === 'video') {
       return `<video class="msb-clean-loop-video" src="${pvEsc(url)}" autoplay loop muted playsinline webkit-playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"></video>`;
@@ -5272,8 +6371,8 @@ function pvRenderMedia(post, atts){
     if (kind === 'pdf') {
       return `<iframe src="${pvEsc(url)}" style="width:100%;height:100%;border:0;"></iframe>`;
     }
-    const img = thumb || url;
-    return `<img src="${pvEsc(img)}" alt="" />`;
+    // Full file only — do not also paint thumb (avoids “media on media”).
+    return `<img src="${pvEsc(url)}" alt="" />`;
   }
   function pvMediaDots(count){
     if (count <= 1) return '';
@@ -5288,6 +6387,8 @@ function pvRenderMedia(post, atts){
       '<button type="button" class="media-nav mf-media-nav prev js-pv-media-prev" aria-label="Previous media"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>' +
       '<button type="button" class="media-nav mf-media-nav next js-pv-media-next" aria-label="Next media"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>';
   }
+
+  atts = pvNormalizeAtts(atts);
 
   if (Array.isArray(atts) && atts.length > 1) {
     let slides = '';
@@ -5311,36 +6412,26 @@ function pvRenderMedia(post, atts){
     return;
   }
 
-  // no attachments
+  // no attachments — full description with vertical scroll (no Read more clamp)
   const t = (title || '').trim();
   const text = (desc || body || '').trim();
 
-  // ✅ Title only (no description/body) => center title in the left panel
   if (t && !text) {
     pv.media.innerHTML = `
-      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:26px;">
-        <div style="max-width:640px;color:#fff;text-align:center;">
-          <div style="font-weight:800;font-size:24px;line-height:1.25;white-space:normal;word-break:break-word;">${pvEsc(t)}</div>
+      <div class="pv-text-card">
+        <div class="pv-text-card-inner">
+          <div class="pv-text-card-title">${pvEsc(t)}</div>
         </div>
       </div>
     `;
     return;
   }
 
-  const cut = pvTruncateText(text, 3);
   pv.media.innerHTML = `
-    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:26px;">
-      <div style="max-width:640px;color:#fff;text-align:left;">
-        ${t ? `<div style="font-weight:800;font-size:22px;line-height:1.2;">${pvEsc(t)}</div>` : ``}
-        ${text ? `
-          <div class="pv-media-text" data-expanded="0" style="margin-top:${t ? '10px' : '0'};white-space:normal;word-break:break-word;">
-            ${cut.truncated ? `
-              <span class="pv-media-short">${pvFormatRichText(cut.short)}<span class="pv-rich-ellipsis">&hellip;</span></span>
-              <span class="pv-media-full" style="display:none;">${pvFormatRichText(cut.full)}</span>
-              <a href="#" class="pv-readmore">Read more</a>
-            ` : `<span>${pvFormatRichText(cut.full)}</span>`}
-          </div>
-        ` : ''}
+    <div class="pv-text-card">
+      <div class="pv-text-card-inner">
+        ${t ? `<div class="pv-text-card-title">${pvEsc(t)}</div>` : ``}
+        ${text ? `<div class="pv-media-text pv-text-card-body">${pvFormatRichText(text)}</div>` : ''}
       </div>
     </div>
   `;
@@ -5368,6 +6459,15 @@ function pvSetMediaCarouselIndex(carousel, nextIndex){
   const nextBtn = carousel.querySelector('.js-pv-media-next, .mf-media-nav.next');
   if (prevBtn) prevBtn.style.display = idx > 0 ? '' : 'none';
   if (nextBtn) nextBtn.style.display = idx < slideCount - 1 ? '' : 'none';
+  // Presentation mode: mid description follows the active slide.
+  try {
+    if (typeof pvRenderCaption === 'function') {
+      pvRenderCaption(pvCurrentPost, pvCurrentAttachments, idx);
+    }
+    if (typeof pvSyncMediaOrientation === 'function') {
+      pvSyncMediaOrientation();
+    }
+  } catch (eCap) {}
 }
 
 function pvRenderComments(post, comments){
@@ -5420,7 +6520,7 @@ function pvRenderComments(post, comments){
           <div class="b">
             <div class="bubble">
               <div class="nm">${pvEsc(nm)}</div>
-              <div class="tx">${pvEsc(txt)}</div>
+              <div class="tx">${(window.MSBMentionAC && window.MSBMentionAC.linkify) ? window.MSBMentionAC.linkify(txt) : pvEsc(txt)}</div>
             </div>
             <div class="m">
               <span>${pvEsc(t)}</span>
@@ -5475,7 +6575,53 @@ function pvApplyLoveReaction(my){
   });
 
   let el;
-  if (my && my !== 'love') {
+  if (my === 'like') {
+    el = document.createElement('i');
+    el.className = 'msb-pact msb-pact-thumb is-active';
+    el.id = 'pvLoveIcon';
+    el.setAttribute('aria-hidden', 'true');
+    el.style.color = '#2563eb';
+    btn.classList.remove('is-love');
+    btn.classList.add('is-reacted', 'is-like', 'has-rx-icon');
+    btn.setAttribute('data-rx', 'like');
+    btn.setAttribute('data-selected-reaction', 'like');
+    btn.setAttribute('title', (window.MSBReactions && window.MSBReactions.label) ? window.MSBReactions.label('like') : 'Like');
+    btn.setAttribute('aria-label', btn.getAttribute('title') || 'Like');
+  } else if (my === 'dislike') {
+    el = document.createElement('i');
+    el.className = 'msb-pact msb-pact-thumb-down is-active';
+    el.id = 'pvLoveIcon';
+    el.setAttribute('aria-hidden', 'true');
+    el.style.color = '#475569';
+    btn.classList.remove('is-love', 'is-like');
+    btn.classList.add('is-reacted', 'has-rx-icon');
+    btn.setAttribute('data-rx', 'dislike');
+    btn.setAttribute('data-selected-reaction', 'dislike');
+    btn.setAttribute('title', (window.MSBReactions && window.MSBReactions.label) ? window.MSBReactions.label('dislike') : 'Dislike');
+    btn.setAttribute('aria-label', btn.getAttribute('title') || 'Dislike');
+  } else if (my === 'smile') {
+    el = document.createElement('i');
+    el.className = 'msb-rx-smile is-active';
+    el.id = 'pvLoveIcon';
+    el.setAttribute('aria-hidden', 'true');
+    btn.classList.remove('is-love', 'is-like');
+    btn.classList.add('is-reacted', 'has-rx-icon');
+    btn.setAttribute('data-rx', 'smile');
+    btn.setAttribute('data-selected-reaction', 'smile');
+    btn.setAttribute('title', (window.MSBReactions && window.MSBReactions.label) ? window.MSBReactions.label('smile') : 'Smile');
+    btn.setAttribute('aria-label', btn.getAttribute('title') || 'Smile');
+  } else if (my === 'laugh' || my === 'wow' || my === 'sad' || my === 'angry') {
+    el = document.createElement('i');
+    el.className = 'msb-rx-' + my + ' is-active';
+    el.id = 'pvLoveIcon';
+    el.setAttribute('aria-hidden', 'true');
+    btn.classList.remove('is-love', 'is-like');
+    btn.classList.add('is-reacted', 'has-rx-icon');
+    btn.setAttribute('data-rx', my);
+    btn.setAttribute('data-selected-reaction', my);
+    btn.setAttribute('title', (window.MSBReactions && window.MSBReactions.label) ? window.MSBReactions.label(my) : my);
+    btn.setAttribute('aria-label', btn.getAttribute('title') || my);
+  } else if (my && my !== 'love') {
     el = document.createElement('span');
     el.className = 'msb-reaction-glyph';
     el.id = 'pvLoveIcon';
@@ -5487,7 +6633,7 @@ function pvApplyLoveReaction(my){
     el.textContent = emojiMap[my] || ((window.MSBReactions && window.MSBReactions.emoji)
       ? window.MSBReactions.emoji(my)
       : '👍');
-    btn.classList.remove('is-love');
+    btn.classList.remove('is-love', 'is-like');
     btn.classList.add('is-reacted', 'has-rx-icon');
     btn.setAttribute('data-rx', my);
     btn.setAttribute('data-selected-reaction', my);
@@ -5498,11 +6644,12 @@ function pvApplyLoveReaction(my){
     el.className = 'msb-pact msb-pact-heart' + (my === 'love' ? ' is-active' : '');
     el.id = 'pvLoveIcon';
     el.setAttribute('aria-hidden', 'true');
-    if (my === 'love') el.style.color = 'var(--msb-love-color, #7c3aed)';
+    if (my === 'love') el.style.color = 'var(--msb-love-color, #ff4d6d)';
+    btn.classList.remove('is-like');
     btn.classList.toggle('is-love', my === 'love');
     btn.classList.toggle('is-reacted', false);
     btn.classList.add('has-rx-icon');
-    btn.setAttribute('data-rx', my === 'love' ? 'love' : 'love');
+    btn.setAttribute('data-rx', 'love');
     btn.setAttribute('data-selected-reaction', my === 'love' ? 'love' : '');
     btn.setAttribute('title', 'Love');
     btn.setAttribute('aria-label', 'Love');
@@ -5523,11 +6670,23 @@ function pvApplyCounts(data){
   // avatar/name
   const dn = (post.display_name || post.username || '').toString();
   if (dn) {
-    pv.name.textContent = dn;
+    var taggedPeople = Array.isArray(post.tagged_people) ? post.tagged_people : [];
+    var nameHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.authorSharingWithHtml === 'function')
+      ? window.MSBPostCardMenu.authorSharingWithHtml({
+          display_name: dn,
+          username: post.username || '',
+          id: post.user_id || post.author_id || 0
+        }, taggedPeople, { linkAuthor: true })
+      : dn;
+    pv.name.innerHTML = nameHtml;
+    pv.name.classList.toggle('is-sharing-with', taggedPeople.length > 0);
     pv.avatar.src = `avatar.php?name=${encodeURIComponent(dn)}`;
   }
   if (post.created_at) {
     pv.meta.textContent = 'Posted ' + pvTimeAgo(post.created_at);
+    if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
+      pv.meta.insertAdjacentHTML('beforeend', ' ' + window.MSBPostCardMenu.visibilityBadgeHtml(post.visibility || 'friends'));
+    }
   }
 
   // counts
@@ -5586,32 +6745,299 @@ function pvCountMeta(){
   };
 }
 
-async function pvLoad(postId){
-  pv.media.innerHTML = `<div style="color:#fff;opacity:.8;">Loading…</div>`;
-  pv.caption.style.display = 'none';
-  pv.caption.innerHTML = '';
-  pv.comments.innerHTML = `<div class="t" style="color:rgba(15,23,42,.55);font-size:13px;padding:14px 4px;">Loading…</div>`;
-  try {
-    // ✅ count_view=1 so analytics/unique views update when user opens in modal
-    const view = await pvJson(`feed_api.php?ajax=view&id=${encodeURIComponent(postId)}&count_view=1`, { credentials:'same-origin' });
-    pvRenderMedia(view.post, view.attachments);
-    pvRenderCaption(view.post, view.attachments);
-    pvRenderComments(view.post, view.comments);
-    pvApplyCounts(view);
-    pv.comN.textContent = String((Array.isArray(view.comments) ? view.comments.length : 0));
-    if (pv.commentsLink) pv.commentsLink.textContent = `View all ${pv.comN.textContent} ${Number(pv.comN.textContent) === 1 ? 'comment' : 'comments'}`;
+function pvSyncMenu(post){
+  const wrap = document.getElementById('pvMenuWrap');
+  const menu = document.getElementById('pvMenu');
+  const friendBtn = document.getElementById('pvFriendBtn');
+  if (!wrap || !menu) return;
+  post = post || pvCurrentPost || {};
+  const pid = Number(post.id || post.post_id || pvPostId || 0);
+  const peerId = Number(post.user_id || post.author_id || 0);
+  const isOwner = peerId > 0 && peerId === PV_ME_ID;
+  let friendStatus = String(post.friend_status || '').trim();
+  if (!friendStatus) {
+    friendStatus = isOwner ? 'self' : String(PV_FRIEND_STATUS || 'none');
+  }
+  const isPublisher = PV_IS_PUBLISHER
+    || Number(post.is_publisher || 0) === 1
+    || String(post.account_kind || '').toLowerCase() === 'publisher';
+  const isFollowing = Number(post.is_following || 0) === 1;
+  const friendCode = String(post.friend_code || '').trim();
+  const username = String(post.username || '').trim();
+  let profileUrl = '';
+  if (friendCode) profileUrl = 'profile.php?friend_code=' + encodeURIComponent(friendCode.toUpperCase());
+  else if (username) profileUrl = 'profile.php?username=' + encodeURIComponent(username);
+  else if (peerId > 0) profileUrl = 'profile.php?id=' + String(peerId);
 
-    // share/save counts + my flags
-    const tc = await pvJson(`feed_api.php?ajax=track_counts&post_id=${encodeURIComponent(postId)}`, { credentials:'same-origin' });
-    pvApplyTrack(tc);
+  wrap.setAttribute('data-post-id', String(pid));
+  wrap.setAttribute('data-peer-id', String(peerId));
+  wrap.setAttribute('data-is-owner', isOwner ? '1' : '0');
+  wrap.setAttribute('data-menu-surface', 'profile');
+  wrap.setAttribute('data-friend-status', friendStatus || 'none');
+  wrap.setAttribute('data-account-kind', isPublisher ? 'publisher' : String(post.account_kind || 'personal'));
+  wrap.setAttribute('data-is-publisher', isPublisher ? '1' : '0');
+  wrap.setAttribute('data-is-following', isFollowing ? '1' : '0');
+  wrap.setAttribute('data-my-saved', String(Number(post.my_saved || post.is_saved || 0) === 1 ? 1 : 0));
+  if (friendCode) wrap.setAttribute('data-peer-code', friendCode);
+  else wrap.removeAttribute('data-peer-code');
+  if (profileUrl) wrap.setAttribute('data-profile-url', profileUrl);
+  else wrap.removeAttribute('data-profile-url');
+
+  const it = {
+    id: pid,
+    post_id: pid,
+    user_id: peerId,
+    author_id: peerId,
+    friend_code: friendCode,
+    username: username,
+    account_kind: isPublisher ? 'publisher' : String(post.account_kind || 'personal'),
+    is_publisher: isPublisher ? 1 : 0,
+    is_following: isFollowing ? 1 : 0,
+    friend_status: friendStatus,
+    profile_url: profileUrl,
+    my_saved: Number(post.my_saved || post.is_saved || 0),
+    is_saved: Number(post.my_saved || post.is_saved || 0),
+    is_archived: Number(post.is_archived || 0),
+    contact_id: Number(post.contact_id || 0),
+    contact_name: String(post.contact_name || '')
+  };
+
+  let html = '';
+  if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.buildItems === 'function') {
+    html = window.MSBPostCardMenu.buildItems(it, isOwner, pid, window.MSBProfileMenuHelpers || {}) || '';
+  }
+  menu.innerHTML = html;
+  wrap.style.display = '';
+  const dots = document.getElementById('pvDots');
+  if (dots) dots.style.display = '';
+
+  if (friendBtn) {
+    const showPlus = !isOwner && !isPublisher && friendStatus !== 'friends' && friendStatus !== 'self' && peerId > 0;
+    friendBtn.hidden = !showPlus;
+    if (showPlus) {
+      friendBtn.setAttribute('data-peer-id', String(peerId));
+      friendBtn.setAttribute('data-status', friendStatus || 'none');
+      friendBtn.classList.remove('is-friends', 'is-pending', 'is-accept');
+      friendBtn.disabled = friendStatus === 'outgoing_pending';
+      if (friendStatus === 'incoming_pending') {
+        friendBtn.classList.add('is-accept');
+        friendBtn.innerHTML = '<span class="mf-media-action-label">Accept</span>';
+      } else if (friendStatus === 'outgoing_pending') {
+        friendBtn.classList.add('is-pending');
+        friendBtn.innerHTML = '<span class="mf-media-action-label">Sent</span>';
+      } else {
+        friendBtn.classList.add('primary');
+        friendBtn.innerHTML = '<i class="fa fa-plus" aria-hidden="true"></i>';
+      }
+    }
+  }
+}
+try { window.pvSyncMenu = pvSyncMenu; } catch (eWin) {}
+
+let pvLoadSeq = 0;
+const pvViewCache = new Map(); // postId -> Promise|payload
+
+function pvFindGridItem(postId){
+  postId = Number(postId || 0);
+  if (!postId) return null;
+  let el = null;
+  if (pvActiveGridScope === 'gallery' || pvActiveGridScope === 'tags') {
+    el = document.querySelector(`.ig-grid[data-grid-scope="${pvActiveGridScope}"] .ig-item[data-post-id="${postId}"]`);
+  }
+  if (!el) el = document.querySelector(`.ig-item[data-post-id="${postId}"]`);
+  return el;
+}
+
+function pvCachePut(postId, payload){
+  postId = Number(postId || 0);
+  if (postId > 0 && payload) pvViewCache.set(postId, payload);
+}
+
+function pvFetchView(postId){
+  postId = Number(postId || 0);
+  if (postId <= 0) return Promise.reject(new Error('Missing post'));
+  const hit = pvViewCache.get(postId);
+  if (hit && typeof hit.then === 'function') return hit;
+  if (hit && hit.post) return Promise.resolve(hit);
+  const req = pvJson(`feed_api.php?ajax=view&id=${encodeURIComponent(postId)}&count_view=1`, { credentials:'same-origin' })
+    .then(function(view){
+      pvCachePut(postId, view);
+      return view;
+    })
+    .catch(function(err){
+      pvViewCache.delete(postId);
+      throw err;
+    });
+  pvViewCache.set(postId, req);
+  return req;
+}
+
+function pvPrefetchView(postId){
+  postId = Number(postId || 0);
+  if (postId <= 0) return;
+  if (pvViewCache.has(postId)) return;
+  pvFetchView(postId).catch(function(){});
+}
+
+function pvWaitMediaReady(root){
+  return new Promise(function(resolve){
+    if (!root) { resolve(); return; }
+    const mediaEls = Array.prototype.slice.call(root.querySelectorAll('img, video'));
+    if (!mediaEls.length) { resolve(); return; }
+    let left = mediaEls.length;
+    let settled = false;
+    const done = function(){
+      if (settled) return;
+      left -= 1;
+      if (left <= 0) {
+        settled = true;
+        resolve();
+      }
+    };
+    mediaEls.forEach(function(el){
+      if (el.tagName === 'IMG') {
+        if (el.complete && el.naturalWidth > 0) { done(); return; }
+        el.addEventListener('load', done, { once:true });
+        el.addEventListener('error', done, { once:true });
+        return;
+      }
+      if (el.tagName === 'VIDEO') {
+        if (el.readyState >= 2 && (el.videoWidth > 0 || el.currentSrc)) { done(); return; }
+        const onReady = function(){ done(); };
+        el.addEventListener('loadeddata', onReady, { once:true });
+        el.addEventListener('error', onReady, { once:true });
+        try { el.load(); } catch (eLoad) {}
+        return;
+      }
+      done();
+    });
+    setTimeout(function(){ if (!settled) { settled = true; resolve(); } }, 700);
+  });
+}
+
+function pvFadeMedia(out){
+  return new Promise(function(resolve){
+    if (!pv.media) { resolve(); return; }
+    if (!out) {
+      pv.media.classList.remove('pv-media-fade');
+      resolve();
+      return;
+    }
+    pv.media.classList.add('pv-media-fade');
+    setTimeout(resolve, 160);
+  });
+}
+
+async function pvApplyView(view, { animate } = {}){
+  if (animate) await pvFadeMedia(true);
+  pvCurrentPost = view.post || null;
+  pvCurrentAttachments = Array.isArray(view.attachments) ? view.attachments.slice() : [];
+  if (pvCurrentPost && !pvCurrentPost.friend_status) {
+    pvCurrentPost.friend_status = (Number(pvCurrentPost.user_id || 0) === PV_ME_ID)
+      ? 'self'
+      : String(PV_FRIEND_STATUS || 'none');
+  }
+  pvRenderMedia(view.post, view.attachments);
+  pvRenderCaption(view.post, view.attachments, 0);
+  pvRenderComments(view.post, view.comments);
+  pvApplyCounts(view);
+  pvSyncMenu(pvCurrentPost);
+  pv.comN.textContent = String((Array.isArray(view.comments) ? view.comments.length : 0));
+  if (pv.commentsLink) pv.commentsLink.textContent = `View all ${pv.comN.textContent} ${Number(pv.comN.textContent) === 1 ? 'comment' : 'comments'}`;
+  await pvWaitMediaReady(pv.media);
+  try { pvSyncMediaOrientation(); } catch (eOrient) {}
+  if (animate) await pvFadeMedia(false);
+  else if (pv.media) pv.media.classList.remove('pv-media-fade');
+}
+
+async function pvLoad(postId){
+  postId = Number(postId || 0);
+  const seq = ++pvLoadSeq;
+  const alreadyOpen = !!(pv.ov && pv.ov.classList.contains('show'));
+  const hadContent = !!(pv.media && pv.media.childElementCount && !pv.media.querySelector('.pv-loading-only'));
+  const switching = alreadyOpen && hadContent;
+  if (pv.ov) pv.ov.classList.toggle('pv-is-switching', switching);
+
+  // First open only: dark placeholder. Never paint a square grid preview during
+  // next/prev — that was the "width twice" / flash glitch.
+  if (!switching && !(pv.media && pv.media.childElementCount)) {
+    pv.media.innerHTML = `<div class="pv-loading-only">Loading…</div>`;
+  }
+
+  try {
+    const view = await pvFetchView(postId);
+    if (seq !== pvLoadSeq) return;
+    await pvApplyView(view, { animate: switching });
+    if (seq !== pvLoadSeq) return;
+
+    // Counts can update in the background without touching media layout.
+    pvJson(`feed_api.php?ajax=track_counts&post_id=${encodeURIComponent(postId)}`, { credentials:'same-origin' })
+      .then(function(tc){
+        if (seq !== pvLoadSeq) return;
+        pvApplyTrack(tc);
+        if (pvCurrentPost && tc) {
+          if (typeof tc.my_saved !== 'undefined') pvCurrentPost.my_saved = Number(tc.my_saved || 0);
+          if (typeof tc.is_saved !== 'undefined') pvCurrentPost.is_saved = Number(tc.is_saved || 0);
+          pvSyncMenu(pvCurrentPost);
+        }
+      })
+      .catch(function(){});
 
   } catch (e) {
+    if (seq !== pvLoadSeq) return;
+    if (pv.media) pv.media.classList.remove('pv-media-fade');
     pv.media.innerHTML = `<div style="color:#fff;opacity:.85;padding:24px;">Failed to load post.</div>`;
     pv.caption.style.display = 'none';
     pv.caption.innerHTML = '';
+    try { pvSyncMidCaptionState(false); } catch (eMid) {}
     pv.comments.innerHTML = `<div style="color:#b91c1c;font-size:13px;padding:14px 4px;">${pvEsc(e?.message || 'Failed')}</div>`;
+    pvSyncMenu(null);
+  } finally {
+    if (seq === pvLoadSeq && pv.ov) pv.ov.classList.remove('pv-is-switching');
   }
 }
+
+// Ensure fries menu is populated before shared toggle runs.
+document.addEventListener('click', function(e){
+  const btn = e.target && e.target.closest ? e.target.closest('#pvDots, #pvMenuWrap .post-card-menu-btn') : null;
+  if (!btn || !btn.closest('#pvOverlay')) return;
+  const menu = document.getElementById('pvMenu');
+  if (menu && !String(menu.innerHTML || '').trim()) {
+    pvSyncMenu(pvCurrentPost);
+  }
+}, true);
+
+document.addEventListener('click', function(e){
+  const btn = e.target && e.target.closest ? e.target.closest('#pvFriendBtn') : null;
+  if (!btn || btn.hidden) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const peerId = Number(btn.getAttribute('data-peer-id') || 0);
+  const status = String(btn.getAttribute('data-status') || 'none');
+  if (!peerId) return;
+  if (status === 'incoming_pending' || status === 'outgoing_pending') {
+    window.location.href = 'contact_requests.php';
+    return;
+  }
+  if (status === 'friends') return;
+  btn.disabled = true;
+  fetch('ajax/friend_action.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+    body: new URLSearchParams({ action: 'send', peer_id: String(peerId) })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    btn.disabled = false;
+    if (!res || !res.status) return;
+    const next = String(res.status || 'outgoing_pending');
+    PV_FRIEND_STATUS = next;
+    if (pvCurrentPost) pvCurrentPost.friend_status = next;
+    if (typeof window.mfSyncFriendUiForPeer === 'function') {
+      window.mfSyncFriendUiForPeer(peerId, next);
+    } else {
+      pvSyncMenu(pvCurrentPost);
+    }
+  }).catch(function(){ btn.disabled = false; });
+});
 
 // ✅ "Read more" toggles inside the modal (caption + no-attachment card)
 document.addEventListener('click', (e) => {
@@ -5691,8 +7117,15 @@ function pvPreloadTileByPostId(postId){
 function pvPreloadNeighbors(){
   if (pvIndex < 0) return;
   const ids = Array.isArray(pvActiveGridIds) ? pvActiveGridIds : [];
-  pvPreloadTileByPostId(ids[pvIndex + 1]);
-  pvPreloadTileByPostId(ids[pvIndex - 1]);
+  const nextId = Number(ids[pvIndex + 1] || 0);
+  const prevId = Number(ids[pvIndex - 1] || 0);
+  pvPreloadTileByPostId(nextId);
+  pvPreloadTileByPostId(prevId);
+  // Prefetch full view payloads so next/prev can crossfade immediately.
+  if (typeof pvPrefetchView === 'function') {
+    if (nextId > 0) pvPrefetchView(nextId);
+    if (prevId > 0) pvPrefetchView(prevId);
+  }
 }
 
 // Grid click
@@ -5712,8 +7145,9 @@ pv.ov.addEventListener('mousedown', (e) => {
 pv.close.addEventListener('click', pvClose);
 
 // Prev/Next
-pv.prev.addEventListener('click', () => { if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); });
+pv.prev.addEventListener('click', () => { if (window.__pvHidePostNav) return; if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); });
 pv.next.addEventListener('click', () => {
+  if (window.__pvHidePostNav) return;
   const ids = Array.isArray(pvActiveGridIds) ? pvActiveGridIds : [];
   if (pvIndex < ids.length - 1) pvOpenByIndex(pvIndex + 1);
 });
@@ -5723,6 +7157,7 @@ document.addEventListener('keydown', (e) => {
   if (!pv.ov.classList.contains('show')) return;
   const ids = Array.isArray(pvActiveGridIds) ? pvActiveGridIds : [];
   if (e.key === 'Escape') { e.preventDefault(); pvClose(); }
+  if (window.__pvHidePostNav) return;
   if (e.key === 'ArrowLeft') { e.preventDefault(); if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); }
   if (e.key === 'ArrowRight') { e.preventDefault(); if (pvIndex < ids.length - 1) pvOpenByIndex(pvIndex + 1); }
 });
@@ -5751,6 +7186,7 @@ pv.ov.addEventListener('touchend', (e) => {
   const dy = p.screenY - pvTouchY;
   // require mostly horizontal gesture
   if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+  if (window.__pvHidePostNav) return;
   const ids = Array.isArray(pvActiveGridIds) ? pvActiveGridIds : [];
   if (dx > 0) { if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); }
   else { if (pvIndex < ids.length - 1) pvOpenByIndex(pvIndex + 1); }
@@ -5977,13 +7413,18 @@ pv.text.addEventListener('keydown', (e)=>{
   }
   const atBtn = document.getElementById('pvAtBtn');
   const emojiBtn = document.getElementById('pvEmojiBtn');
-  if (atBtn) atBtn.addEventListener('click', () => insertAtCursor(pv.text, '@'));
+  if (atBtn) atBtn.addEventListener('click', () => {
+    insertAtCursor(pv.text, '@');
+    try { pv.text.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    pv.text.focus();
+  });
   if (emojiBtn) emojiBtn.addEventListener('click', () => insertAtCursor(pv.text, '😊'));
 })();
 
 (function(){
   const alertPostId = <?php echo (int)$profileAlertPostId; ?>;
   const alertCommentId = <?php echo (int)$profileAlertCommentId; ?>;
+  const alertHideNav = <?php echo ((int)($_GET['hide_nav'] ?? 0) === 1) ? 'true' : 'false'; ?>;
   if (!alertPostId) return;
 
   function clearAlertParams(){
@@ -5992,6 +7433,7 @@ pv.text.addEventListener('keydown', (e)=>{
       nextUrl.searchParams.delete('open_post');
       nextUrl.searchParams.delete('post_id');
       nextUrl.searchParams.delete('open_comment');
+      nextUrl.searchParams.delete('hide_nav');
       history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
     }catch(e){}
   }
@@ -5999,7 +7441,7 @@ pv.text.addEventListener('keydown', (e)=>{
   function openAlertTarget(){
     if (typeof window.pvOpenById !== 'function') return;
     pvAlertFocusCommentId = alertCommentId;
-    window.pvOpenById(alertPostId);
+    window.pvOpenById(alertPostId, alertHideNav ? { hideNav: true } : {});
     if (alertCommentId > 0) {
       let tries = 0;
       (function waitForComment(){
@@ -7199,6 +8641,8 @@ pv.text.addEventListener('keydown', (e)=>{
   'use strict';
   var AUTHOR_ID = <?php echo (int)$viewId; ?>;
   var ME_ID = <?php echo (int)$meId; ?>;
+  window.ME_ID = ME_ID;
+  window.__MSB_FEED_ME_ID = ME_ID;
   var PROFILE_FRIEND_STATUS = <?php echo json_encode($isOwnProfile ? 'self' : $friendStatus); ?>;
   var PROFILE_CAN_FOLLOW_PUBLISHERS = <?php echo $canFollowPublishers ? 'true' : 'false'; ?>;
   var PROFILE_HIDE_PRIVATE_CONTACT = <?php echo $canViewProfilePrivateContact ? 'false' : 'true'; ?>;
@@ -7927,7 +9371,7 @@ pv.text.addEventListener('keydown', (e)=>{
       } else {
         inner = mfFileTileHtml(src, kind);
       }
-      slides += '<div class="media-slide mf-media-slide" data-slide-index="'+i+'">'+inner+'</div>';
+      slides += '<div class="media-slide mf-media-slide" data-slide-index="'+i+'" data-slide-title="'+esc(String(a.slide_title||''))+'" data-slide-body="'+esc(String(a.slide_body||''))+'">'+inner+'</div>';
     }
     return ''+
       '<div class="media-carousel mf-media-carousel" data-index="0">'+
@@ -7935,6 +9379,20 @@ pv.text.addEventListener('keydown', (e)=>{
         mfCarouselNavButtonsHtml()+
         mfMediaDots(atts.length)+
       '</div>';
+  }
+  function mfSlideSummaryHtml(text){
+    var raw = String(text || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+    if(!raw) return '';
+    var lines = raw.split('\n').map(function(line){
+      return String(line || '').trim().replace(/^(?:[•\-\*]|\d+[\.\)])\s+/, '');
+    }).filter(Boolean);
+    if(!lines.length) return '';
+    if(lines.length === 1){
+      return '<div class="post-slide-summary"><p class="post-slide-summary-p">'+esc(lines[0])+'</p></div>';
+    }
+    return '<div class="post-slide-summary"><ul class="post-slide-summary-list">'
+      + lines.map(function(line){ return '<li>'+esc(line)+'</li>'; }).join('')
+      + '</ul></div>';
   }
   function mfSetCarouselIndex($carousel, nextIndex){
     $carousel = $carousel && $carousel.jquery ? $carousel : $($carousel);
@@ -7981,6 +9439,34 @@ pv.text.addEventListener('keydown', (e)=>{
         }catch(err){}
       }
     });
+
+    try {
+      var $card = $carousel.closest('.mf-card');
+      var active = $items.get(nextIndex);
+      if ($card.length && active) {
+        var anySlideText = false;
+        $items.each(function(){
+          if (String(this.getAttribute('data-slide-title') || '').trim() || String(this.getAttribute('data-slide-body') || '').trim()) {
+            anySlideText = true;
+            return false;
+          }
+        });
+        if (anySlideText) {
+          var slideTitle = String(active.getAttribute('data-slide-title') || '').trim();
+          var slideBody = String(active.getAttribute('data-slide-body') || '').trim();
+          var $sub = $card.find('.mf-slide-title').first();
+          var $sum = $card.find('.mf-slide-summary').first();
+          if ($sub.length) {
+            if (!slideTitle) $sub.hide().text('');
+            else $sub.show().text(slideTitle);
+          }
+          if ($sum.length) {
+            if (!slideBody) $sum.hide().empty();
+            else $sum.show().html(mfSlideSummaryHtml(slideBody));
+          }
+        }
+      }
+    } catch (eProfileSlideCap) {}
   }
   function mfHydrateCard(postId, post, counts, atts){
     var $card = $('#profilePostsFeed .mf-card[data-id="'+Number(postId)+'"]');
@@ -8075,9 +9561,9 @@ pv.text.addEventListener('keydown', (e)=>{
       return '<button type="button" class="'+cls+' mf-publisher-follow publisher-follow-btn mf-publisher-follow-circle mf-media-action-circle'+(fol ? ' is-following' : ' primary')+'" data-publisher-id="'+esc(uid)+'" aria-label="'+(fol ? 'Following' : 'Follow')+'" title="'+(fol ? 'Following' : 'Follow')+'">'+(fol ? '<span class="mf-media-action-label">Sent</span>' : '<i class="fa fa-plus" aria-hidden="true"></i>')+'</button>';
     }
     var st = String(it.friend_status || PROFILE_FRIEND_STATUS || 'none');
-    if(st === 'self') return '';
-    var extraCls = st === 'friends' ? ' is-friends' : (st === 'incoming_pending' ? ' is-accept' : (st === 'outgoing_pending' ? ' is-pending' : ' primary'));
-    var inner = st === 'outgoing_pending' ? '<span class="mf-media-action-label">Sent</span>' : (st === 'incoming_pending' ? '<span class="mf-media-action-label">Accept</span>' : (st === 'friends' ? 'Friends' : '<i class="fa fa-plus" aria-hidden="true"></i>'));
+    if(st === 'self' || st === 'friends') return '';
+    var extraCls = st === 'incoming_pending' ? ' is-accept' : (st === 'outgoing_pending' ? ' is-pending' : ' primary');
+    var inner = st === 'outgoing_pending' ? '<span class="mf-media-action-label">Sent</span>' : (st === 'incoming_pending' ? '<span class="mf-media-action-label">Accept</span>' : '<i class="fa fa-plus" aria-hidden="true"></i>');
     return '<button type="button" class="'+cls+' mf-media-action-circle'+extraCls+'" data-peer-id="'+esc(uid)+'" data-peer-code="'+esc(PROFILE_HIDE_PRIVATE_CONTACT ? '' : String(it.friend_code || ''))+'" data-status="'+esc(st)+'" aria-label="Add Friend" title="Add Friend">'+inner+'</button>';
   }
   function profileIsPublisherItem(it){
@@ -8112,14 +9598,39 @@ pv.text.addEventListener('keydown', (e)=>{
     var time = mfDeviceTimeLabel(it, postDate(it));
     var headClass = 'mf-head' + (onMedia ? ' mf-head--on-media' : '');
     var menuIcon = '<span class="post-card-fries-icon" aria-hidden="true"><span></span><span></span><span></span><span></span></span>';
+    var taggedPeople = Array.isArray(it.tagged_people) ? it.tagged_people : [];
+    var hasSharing = taggedPeople.length > 0;
+    var metaAfterAuthor = '';
+    if (hasSharing) {
+      if (time) {
+        metaAfterAuthor += '<span class="mf-dot">&bull;</span><span class="mf-time">'+esc(time)+'</span>';
+      }
+      if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
+        metaAfterAuthor += window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends');
+      }
+    }
+    var nameHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.authorSharingWithHtml === 'function')
+      ? window.MSBPostCardMenu.authorSharingWithHtml({
+          display_name: name,
+          username: it.username || '',
+          id: it.user_id || it.author_id || 0,
+          href: peerProfileHref(it)
+        }, taggedPeople, { linkAuthor: true, afterAuthorHtml: metaAfterAuthor })
+      : esc(name);
+    var nameClass = 'mf-name' + (hasSharing ? ' mf-name--sharing is-sharing-with' : '');
     return '<div class="'+headClass+'">'+
-      '<a class="mf-peer-link" href="'+esc(peerProfileHref(it))+'">'+
-        '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name)+'"></div>'+
-        '<div class="mf-meta"><div class="mf-name-row">'+
-          '<div class="mf-name">'+esc(name)+'</div>'+
-          (time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time)+'</div>' : '')+
-        '</div></div></a>'+
-      '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'">'+
+      '<div class="mf-peer-link'+(hasSharing ? ' is-sharing-with' : '')+'">'+
+        '<a class="mf-avatar-link" href="'+esc(peerProfileHref(it))+'" aria-label="Open '+esc(name)+' profile">'+
+          '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name)+'"></div>'+
+        '</a>'+
+        '<div class="mf-meta"><div class="mf-name-row'+(hasSharing ? ' mf-name-row--sharing' : '')+'">'+
+          '<div class="'+nameClass+'">'+nameHtml+'</div>'+
+          (!hasSharing && time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time)+'</div>' : '')+
+          (!hasSharing && window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function'
+            ? window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends')
+            : '')+
+        '</div></div></div>'+
+      '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'" data-menu-surface="profile">'+
         '<button type="button" class="mf-menu-btn post-card-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false">'+menuIcon+'</button>'+
         '<div class="mf-menu post-card-menu" role="menu">'+profileBuildMenuItems(it, isOwner, pid)+'</div>'+
       '</div></div>';
@@ -8144,8 +9655,17 @@ pv.text.addEventListener('keydown', (e)=>{
     var psrc = String(it.preview_path || '').trim();
     var pthumb = String(it.preview_thumb_path || '').trim().replace(/^public_user\//, '');
     var pkind = detectKind(psrc, it.preview_type);
-    var body = formatReadMoreTextPreserve(String(it.body || it.description || '').trim());
+    var bodySrc = String(it.body || it.description || '').trim();
+    if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function') {
+      var taggedForHide = Array.isArray(it.tagged_people) ? it.tagged_people : [];
+      bodySrc = window.MSBPostCardMenu.displayTextWithoutTagHandles(bodySrc, taggedForHide);
+      title = window.MSBPostCardMenu.displayTextWithoutTagHandles(title, taggedForHide);
+    }
+    var body = formatReadMoreTextPreserve(bodySrc);
     var hasBody = body.length > 0;
+    var hasSlideCap = !!(String(it.preview_slide_title||'').trim() || String(it.preview_slide_body||'').trim() || Number(it.has_slide_captions||0));
+    var slideTitle0 = hasSlideCap ? String(it.preview_slide_title||'').trim() : '';
+    var slideBody0 = hasSlideCap ? String(it.preview_slide_body||'').trim() : '';
     var hasMedia = !!psrc;
     if(!hasMedia && !title && !hasBody) return '';
     var isTextOnly = !hasMedia;
@@ -8222,10 +9742,17 @@ pv.text.addEventListener('keydown', (e)=>{
       );
     }
 
-    return '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-peer-code="'+esc(PROFILE_HIDE_PRIVATE_CONTACT ? '' : String(it.friend_code || ''))+'" data-account-kind="'+esc(String(it.account_kind || 'personal'))+'" data-is-publisher="'+(profileIsPublisherItem(it) ? '1' : '0')+'" data-is-following="'+(profilePublisherFollowingFromItem(it) ? '1' : '0')+'" data-friend-status="'+esc(profileFriendStatusFromItem(it))+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
+    return '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-visibility="'+esc(String((window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility) ? window.MSBPostCardMenu.normalizeVisibility(it.visibility || 'friends') : (it.visibility || 'friends')))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-peer-code="'+esc(PROFILE_HIDE_PRIVATE_CONTACT ? '' : String(it.friend_code || ''))+'" data-account-kind="'+esc(String(it.account_kind || 'personal'))+'" data-is-publisher="'+(profileIsPublisherItem(it) ? '1' : '0')+'" data-is-following="'+(profilePublisherFollowingFromItem(it) ? '1' : '0')+'" data-friend-status="'+esc(profileFriendStatusFromItem(it))+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
       profileBuildHeadHtml(it, isOwner, pid, false)+
       (title ? '<div class="mf-title">'+esc(title)+'</div>' : '')+
-      (hasBody ? mfBuildBodyHtml(body) : '') + mediaHtml + normalActions()+
+      (hasBody ? mfBuildBodyHtml(body) : '') +
+      (hasSlideCap
+        ? ('<div class="mf-slide-copy">' +
+             '<div class="mf-slide-title"'+(slideTitle0 ? '' : ' style="display:none"')+'>'+esc(slideTitle0)+'</div>'+
+             '<div class="mf-slide-summary"'+(slideBody0 ? '' : ' style="display:none"')+'>'+mfSlideSummaryHtml(slideBody0)+'</div>'+
+           '</div>')
+        : '') +
+      mediaHtml + normalActions()+
       '</div>';
   }
   function profileTabEmptyHtml(title, iconClass){
@@ -8254,6 +9781,17 @@ pv.text.addEventListener('keydown', (e)=>{
     });
     bindProfilePostsFeedSizing($wrap);
     resetProfileNonMediaCardWidths($wrap);
+    if(window.MSBPostCardMenu){
+      if(typeof window.MSBPostCardMenu.refreshFeedCardMenus === 'function'){
+        window.MSBPostCardMenu.refreshFeedCardMenus($wrap[0] || document.getElementById('profilePostsFeed'));
+      }
+      if(typeof window.MSBPostCardMenu.hydrate === 'function'){
+        window.MSBPostCardMenu.hydrate($wrap[0] || document.getElementById('profilePostsFeed'));
+      }
+      if(typeof window.MSBPostCardMenu.syncFriendCards === 'function' && PROFILE_FRIEND_STATUS === 'friends' && AUTHOR_ID > 0){
+        window.MSBPostCardMenu.syncFriendCards(AUTHOR_ID, 'friends');
+      }
+    }
     setTimeout(function(){
       var multiMediaItems = items.filter(function(it){
         return Number(it.attachment_count || 0) > 1;
@@ -8324,6 +9862,80 @@ pv.text.addEventListener('keydown', (e)=>{
       window.MSBPostCardMenu.syncPublisherCards(publisherId, on);
     }
   }
+
+  window.mfSyncFriendUiForPeer = function(peerId, status){
+    peerId = Number(peerId || 0);
+    if(peerId <= 0) return;
+    status = String(status || 'none');
+    if(peerId === Number(AUTHOR_ID || 0)){
+      PROFILE_FRIEND_STATUS = status;
+    }
+    try {
+      if (typeof PV_FRIEND_STATUS !== 'undefined' && peerId === Number(AUTHOR_ID || 0)) {
+        PV_FRIEND_STATUS = status;
+      }
+      if (typeof pvCurrentPost !== 'undefined' && pvCurrentPost && Number(pvCurrentPost.user_id || 0) === peerId) {
+        pvCurrentPost.friend_status = status;
+      }
+      if (typeof pvSyncMenu === 'function') pvSyncMenu(typeof pvCurrentPost !== 'undefined' ? pvCurrentPost : null);
+    } catch (ePv) {}
+    $('#profilePostsFeed .mf-card[data-peer-id="'+peerId+'"]').each(function(){
+      var $card = $(this);
+      if(String($card.attr('data-is-publisher') || '') === '1') return;
+      $card.attr('data-friend-status', status);
+      if(status === 'friends'){
+        $card.find('.mf-friend-btn:not(.mf-publisher-follow)').remove();
+        $card.find('.mf-media-top-actions').each(function(){
+          if(!this.querySelector('.mf-friend-btn, .publisher-follow-btn')) this.remove();
+        });
+      } else if(!$card.find('.mf-friend-btn:not(.mf-publisher-follow)').length){
+        // Restore + before fries after Unfriend.
+        var stub = {
+          user_id: peerId,
+          friend_code: String($card.attr('data-peer-code') || ''),
+          account_kind: String($card.attr('data-account-kind') || 'personal'),
+          is_publisher: 0,
+          is_following: 0,
+          friend_status: status || 'none'
+        };
+        var followHtml = profileFriendBtnHtml(stub, false);
+        if(followHtml){
+          var $shell = $card.find('.mf-media-shell').first();
+          var $menu = $card.find('.post-card-menu-wrap, .mf-menu-wrap').first();
+          if($shell.length){
+            $shell.append($('<div class="mf-media-top-actions"></div>').html(followHtml));
+          } else if($menu.length){
+            $(followHtml.replace(' mf-media-follow-btn', '')).insertBefore($menu);
+          }
+        }
+      } else {
+        $card.find('.mf-friend-btn:not(.mf-publisher-follow)').each(function(){
+          this.disabled = false;
+          this.setAttribute('data-status', status || 'none');
+          this.classList.remove('is-friends', 'is-pending', 'is-accept');
+          this.classList.add('primary');
+          if(this.classList.contains('mf-media-action-circle')){
+            this.innerHTML = '<i class="fa fa-plus" aria-hidden="true"></i>';
+          } else {
+            this.textContent = '+';
+          }
+        });
+      }
+    });
+    if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.syncFriendCards === 'function'){
+      window.MSBPostCardMenu.syncFriendCards(peerId, status);
+    }
+  };
+  window.applyStatusForPeer = window.mfSyncFriendUiForPeer;
+
+  window.MSBProfileMenuHelpers = {
+    esc: esc,
+    profileHref: peerProfileHref,
+    isPublisher: profileIsPublisherItem,
+    isFollowing: profilePublisherFollowingFromItem,
+    friendStatus: profileFriendStatusFromItem
+  };
+  window.MSBFeedMenuHelpers = window.MSBFeedMenuHelpers || window.MSBProfileMenuHelpers;
 
   $(document).on('click', '#profilePostsFeed .js-mf-media-prev, #profilePostsFeed .js-mf-media-next, #profilePostsFeed .mf-media-dot', function(e){
     e.preventDefault();
@@ -8742,7 +10354,7 @@ pv.text.addEventListener('keydown', (e)=>{
       '#tt-stories-wrap, .ig-story-item[data-story-key],' +
       '.pcm-menu-portal, #ttStoriesMenuWrap, #ttStoriesMenu, .tt-stories-menu-wrap,' +
       '#pcmArchiveConfirmDialog, #pcmDeleteConfirmDialog, #pcmShareSheet, #profileDeleteConfirmModal,' +
-      'dialog.pcm-delete-dialog, dialog.pcm-archive-dialog, dialog.pcm-share-dialog'
+      'dialog.pcm-delete-dialog, dialog.pcm-archive-dialog, dialog.pcm-share-dialog, dialog.pcm-tag-dialog'
     )) return;
     if(window.TTStories && typeof window.TTStories.close === 'function'){
       window.TTStories.close();
@@ -9045,89 +10657,226 @@ html.dark-auto body.profile-page #profilePostsFeed .mf-head:not(.mf-head--on-med
 </style>
 
 <style id="profile-posts-mobile-tablet-actions-width">
+/* Match feed.php media-head-outside: full-width stacked caption + media (no side-by-side). */
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+}
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-head,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-title,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-body,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-slide-copy,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-slide-title,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-slide-summary,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-media-shell,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-media,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .media-stage,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-actions{
   position:relative !important;
-  left:50% !important;
-  width:min(560px, calc(100vw - 20px)) !important;
-  max-width:calc(100vw - 20px) !important;
+  left:auto !important;
+  right:auto !important;
+  top:auto !important;
+  float:none !important;
+  clear:both !important;
+  display:block !important;
+  width:100% !important;
+  max-width:100% !important;
   margin-left:0 !important;
   margin-right:0 !important;
-  transform:translateX(-50%) !important;
+  transform:none !important;
   box-sizing:border-box !important;
 }
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-head{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
   padding:1px 0 12px !important;
 }
-body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-title{
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-title,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-body,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-slide-copy,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-slide-title,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-slide-summary{
   padding-left:0 !important;
   padding-right:0 !important;
+}
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-actions{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+}
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-media-shell{
+  width:100% !important;
+  max-width:100% !important;
+}
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .mf-media,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-stage{
+  width:100% !important;
+  max-width:100% !important;
+}
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .mf-media-carousel,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-carousel,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .mf-media-slides,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-slides{
+  width:100% !important;
+  max-width:100% !important;
+}
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .mf-media-slide > img,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-slide > img,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .mf-media-slide > video,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-slide > video{
+  width:100% !important;
+  max-width:100% !important;
+  height:auto !important;
+  object-fit:contain !important;
+  object-position:center center !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
 }
 </style>
 
 <style id="profile-post-visible-media-left-edge">
-/* The portrait media stage has its own margin-inline:auto rule. Override that
-   inner rule so the visible media begins on the same left edge as the avatar.
-   Width, height, max-width and aspect-ratio are intentionally untouched. */
+/* Keep Posts-tab media full-width under captions (match feed.php). */
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .media-stage,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-media,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-media-shell,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-media-shell > .media-stage,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-media-shell > .mf-media{
   margin-left:0 !important;
-  margin-right:auto !important;
-  margin-inline-start:0 !important;
-  margin-inline-end:auto !important;
+  margin-right:0 !important;
+  margin-inline:0 !important;
+  transform:none !important;
 }
 </style>
 
 <script id="profile-post-visible-media-left-align">
 (function(){
   'use strict';
-
-  var feed = document.getElementById('profilePostsFeed');
-  if (!feed) return;
-  var frame = 0;
-
-  function alignVisibleMedia(){
-    frame = 0;
-    feed.querySelectorAll('.mf-card.mf-card-media-head-outside').forEach(function(card){
-      var avatar = card.querySelector(':scope > .mf-head .mf-avatar');
-      var stage = card.querySelector(':scope > .mf-media-shell > .media-stage, :scope > .media-stage');
-      if (!avatar || !stage) return;
-
-      /* Measure from the visible image/video, not its full-width wrapper. */
-      stage.style.removeProperty('transform');
-      stage.style.removeProperty('--profile-media-left-shift');
-      var visibleMedia = stage.querySelector('video, img') || stage;
-      var avatarRect = avatar.getBoundingClientRect();
-      var mediaRect = visibleMedia.getBoundingClientRect();
-      if (!avatarRect.width || !mediaRect.width) return;
-
-      var shift = Math.round((avatarRect.left - mediaRect.left) * 100) / 100;
-      if (Math.abs(shift) < 0.5) return;
-      stage.style.setProperty('--profile-media-left-shift', shift + 'px');
-      stage.style.setProperty('transform', 'translateX(var(--profile-media-left-shift))', 'important');
-    });
-  }
-
-  function scheduleAlign(){
-    if (frame) cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(function(){
-      requestAnimationFrame(alignVisibleMedia);
-    });
-  }
-
-  new MutationObserver(scheduleAlign).observe(feed, {childList:true, subtree:true});
-  window.addEventListener('resize', scheduleAlign, {passive:true});
-  window.addEventListener('load', scheduleAlign, {once:true});
-  feed.addEventListener('loadedmetadata', scheduleAlign, true);
-  feed.addEventListener('load', scheduleAlign, true);
-  scheduleAlign();
+  /* Disabled: translating the media stage sideways broke slide caption stacking
+     on the Posts tab (text left / media right). Feed/public already look correct. */
 })();
 </script>
+
+<style id="profile-tabs-for-you-underline">
+/* Exact feed "For You" active indicator on profile section tabs */
+html body.profile-page .ig-tabs{
+  align-items:stretch;
+  gap:8px;
+  padding:4px 10px 0;
+}
+html body.profile-page .ig-tab{
+  position:relative!important;
+  background:transparent!important;
+  background-color:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  padding:12px 12px 14px!important;
+  font-weight:400!important;
+}
+html body.profile-page .ig-tab.active,
+html[data-msb-appearance] body.profile-page .ig-tab.active,
+html.msb-palette-active body.profile-page .ig-tab.active,
+html.dark-auto body.profile-page .ig-tab.active,
+html[data-theme="dark"] body.profile-page .ig-tab.active,
+html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .ig-tab.active{
+  background:transparent!important;
+  background-color:transparent!important;
+  border:0!important;
+  border-top-color:transparent!important;
+  border-bottom-color:transparent!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+html.dark-auto body.profile-page .ig-tab.active,
+html[data-theme="dark"] body.profile-page .ig-tab.active,
+html.dark-auto body.profile-page .ig-tab.active i,
+html[data-theme="dark"] body.profile-page .ig-tab.active i{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html body.profile-page .ig-tab.active::after{
+  content:""!important;
+  position:absolute!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:0!important;
+  top:auto!important;
+  width:68px!important;
+  max-width:78%!important;
+  height:4px!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:var(--msb-palette-text, #0b1220)!important;
+  box-shadow:none!important;
+  transform:translateX(-50%)!important;
+  pointer-events:none!important;
+  display:block!important;
+}
+html.dark-auto body.profile-page .ig-tab.active::after,
+html[data-theme="dark"] body.profile-page .ig-tab.active::after,
+html[data-msb-appearance] body.profile-page .ig-tab.active::after{
+  background:var(--msb-palette-text, #f3f6fb)!important;
+}
+/* Tags tab + Read more: solid palette text (no washed light blue) */
+html body.profile-page .ig-tab[data-panel="tags"],
+html body.profile-page .ig-tab[data-panel="tags"] i,
+html[data-msb-appearance] body.profile-page .ig-tab[data-panel="tags"],
+html[data-msb-appearance] body.profile-page .ig-tab[data-panel="tags"] i,
+html.dark-auto body.profile-page .ig-tab[data-panel="tags"],
+html.dark-auto body.profile-page .ig-tab[data-panel="tags"] i,
+html[data-theme="dark"] body.profile-page .ig-tab[data-panel="tags"],
+html[data-theme="dark"] body.profile-page .ig-tab[data-panel="tags"] i{
+  color:var(--msb-palette-text-muted, #667085)!important;
+  -webkit-text-fill-color:var(--msb-palette-text-muted, #667085)!important;
+}
+html body.profile-page .ig-tab[data-panel="tags"].active,
+html body.profile-page .ig-tab[data-panel="tags"].active i,
+html[data-msb-appearance] body.profile-page .ig-tab[data-panel="tags"].active,
+html[data-msb-appearance] body.profile-page .ig-tab[data-panel="tags"].active i,
+html.dark-auto body.profile-page .ig-tab[data-panel="tags"].active,
+html.dark-auto body.profile-page .ig-tab[data-panel="tags"].active i,
+html[data-theme="dark"] body.profile-page .ig-tab[data-panel="tags"].active,
+html[data-theme="dark"] body.profile-page .ig-tab[data-panel="tags"].active i{
+  color:var(--msb-palette-text, #0b1220)!important;
+  -webkit-text-fill-color:var(--msb-palette-text, #0b1220)!important;
+}
+html.dark-auto body.profile-page .ig-tab[data-panel="tags"].active,
+html.dark-auto body.profile-page .ig-tab[data-panel="tags"].active i,
+html[data-theme="dark"] body.profile-page .ig-tab[data-panel="tags"].active,
+html[data-theme="dark"] body.profile-page .ig-tab[data-panel="tags"].active i{
+  color:var(--msb-palette-text, #ffffff)!important;
+  -webkit-text-fill-color:var(--msb-palette-text, #ffffff)!important;
+}
+html body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+html body.profile-page #profilePostsFeed .js-open-readmore,
+html body.profile-page .pv-readmore,
+html body.profile-page a.msb-mention,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .js-open-readmore,
+html[data-msb-appearance] body.profile-page .pv-readmore,
+html[data-msb-appearance] body.profile-page a.msb-mention,
+html.dark-auto body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+html.dark-auto body.profile-page .pv-readmore,
+html[data-theme="dark"] body.profile-page .pv-readmore,
+html.dark-auto body.profile-page a.msb-mention,
+html[data-theme="dark"] body.profile-page a.msb-mention{
+  color:var(--msb-palette-text, #0b1220)!important;
+  -webkit-text-fill-color:var(--msb-palette-text, #0b1220)!important;
+}
+html.dark-auto body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+html.dark-auto body.profile-page .pv-readmore,
+html[data-theme="dark"] body.profile-page .pv-readmore,
+html.dark-auto body.profile-page a.msb-mention,
+html[data-theme="dark"] body.profile-page a.msb-mention{
+  color:var(--msb-palette-text, #f3f6fb)!important;
+  -webkit-text-fill-color:var(--msb-palette-text, #f3f6fb)!important;
+}
+</style>
 
 <?php post_card_actions_menu_render_modals(); ?>
 <?php post_card_actions_menu_render_js([
@@ -9141,28 +10890,29 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-
 (function(){
   'use strict';
 
-  function placeProfilePostMenuOutside(){
+  // Keep the Posts-tab fries menu next to the button (same as feed).
+  // Previously this forced the portal to feedRect.right + 12, which put
+  // Edit/Delete far into the side gutter so delete felt broken.
+  function placeProfilePostMenuNearButton(){
     var menu = document.querySelector('body.profile-page > .pcm-menu-portal.open');
-    var feed = document.getElementById('profilePostsFeed');
     var button = document.querySelector('body.profile-page #profilePostsFeed .post-card-menu-wrap.pcm-wrap-open .post-card-menu-btn');
-    if(!menu || !feed || !button) return;
+    if(!menu || !button) return;
 
-    var feedRect = feed.getBoundingClientRect();
     var buttonRect = button.getBoundingClientRect();
     var menuWidth = menu.offsetWidth || 220;
     var menuHeight = menu.offsetHeight || 275;
     var viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
     var viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-    var left = feedRect.right + 12;
 
-    if(left + menuWidth > viewportWidth - 12){
-      left = feedRect.left - menuWidth - 12;
+    var left = buttonRect.right - menuWidth;
+    if(left < 12) left = 12;
+    if(left + menuWidth > viewportWidth - 12) left = Math.max(12, viewportWidth - menuWidth - 12);
+
+    var top = buttonRect.bottom + 8;
+    if(top + menuHeight > viewportHeight - 12){
+      top = Math.max(12, buttonRect.top - menuHeight - 8);
     }
-    /* On narrow screens there is no outside column; retain the shared safe
-       viewport placement instead of forcing the menu off-screen. */
-    if(left < 12 || left + menuWidth > viewportWidth - 12) return;
 
-    var top = Math.max(12, Math.min(buttonRect.top, viewportHeight - menuHeight - 12));
     menu.style.setProperty('position', 'fixed', 'important');
     menu.style.setProperty('left', Math.round(left) + 'px', 'important');
     menu.style.setProperty('right', 'auto', 'important');
@@ -9170,11 +10920,42 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-
     menu.style.setProperty('z-index', '100000', 'important');
   }
 
+  function bumpProfilePostsCount(delta){
+    delta = Number(delta || 0);
+    if(!delta) return;
+    var stat = document.querySelector('[data-profile-stat="posts"] b');
+    if(!stat) return;
+    var n = parseInt(String(stat.textContent || '0').replace(/[^\d-]/g, ''), 10);
+    if(!isFinite(n)) n = 0;
+    n = Math.max(0, n + delta);
+    stat.textContent = String(n);
+  }
+
+  window.MSBProfileAfterPostDeleted = function(postId){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    window.__msbProfileDeletedIds = window.__msbProfileDeletedIds || {};
+    if(window.__msbProfileDeletedIds[postId]) return;
+    window.__msbProfileDeletedIds[postId] = 1;
+    bumpProfilePostsCount(-1);
+    var feed = document.getElementById('profilePostsFeed');
+    if(feed && !feed.querySelector('.mf-card')){
+      feed.innerHTML = '<div class="mf-feed-empty">No posts yet.</div>';
+    }
+    // Keep gallery/tag grids in sync when deleting from Posts tab.
+    try{
+      document.querySelectorAll(
+        '.ig-item[data-post-id="'+String(postId)+'"],' +
+        '.ig-item[data-id="'+String(postId)+'"]'
+      ).forEach(function(el){ el.remove(); });
+    }catch(eGrid){}
+  };
+
   document.addEventListener('click', function(){
-    window.requestAnimationFrame(placeProfilePostMenuOutside);
+    window.requestAnimationFrame(placeProfilePostMenuNearButton);
   }, true);
-  window.addEventListener('resize', placeProfilePostMenuOutside, {passive:true});
-  window.addEventListener('scroll', placeProfilePostMenuOutside, {passive:true});
+  window.addEventListener('resize', placeProfilePostMenuNearButton, {passive:true});
+  window.addEventListener('scroll', placeProfilePostMenuNearButton, {passive:true});
 
   if(window.MutationObserver){
     new MutationObserver(function(records){
@@ -9183,7 +10964,7 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-
           return node && node.nodeType === 1 && node.classList && node.classList.contains('pcm-menu-portal');
         });
       });
-      if(addedPortal) window.requestAnimationFrame(placeProfilePostMenuOutside);
+      if(addedPortal) window.requestAnimationFrame(placeProfilePostMenuNearButton);
     }).observe(document.body, {childList:true});
   }
 })();

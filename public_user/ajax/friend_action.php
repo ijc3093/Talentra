@@ -43,6 +43,17 @@ if ($action === 'send') {
         echo json_encode(['ok'=>false,'message'=>'You cannot add yourself.','status'=>'self','request_id'=>0,'from_user_id'=>$meId,'to_user_id'=>$peerId]);
         exit;
     }
+    if (fs_block_either_way($dbh, $meId, $peerId)) {
+        echo json_encode([
+            'ok'=>false,
+            'message'=>'You cannot send a friend request to this user.',
+            'status'=>'blocked',
+            'request_id'=>0,
+            'from_user_id'=>$meId,
+            'to_user_id'=>$peerId
+        ]);
+        exit;
+    }
     if (publisher_is_publisher_user($dbh, $peerId)) {
         echo json_encode([
             'ok'=>false,
@@ -117,6 +128,36 @@ if ($action === 'unfriend') {
         'ok' => (bool)($res['ok'] ?? false),
         'message' => (string)($res['message'] ?? ''),
         'status' => $status,
+        'from_user_id' => $meId,
+        'to_user_id' => $peerId
+    ]);
+    exit;
+}
+if ($action === 'block') {
+    if ($meId <= 0 || $peerId <= 0) {
+        echo json_encode(['ok'=>false,'message'=>'Invalid user.','status'=>'none','from_user_id'=>$meId,'to_user_id'=>$peerId]);
+        exit;
+    }
+    $res = fs_block_user($dbh, $meId, $peerId);
+    echo json_encode([
+        'ok' => (bool)($res['ok'] ?? false),
+        'message' => (string)($res['message'] ?? ''),
+        'status' => 'blocked',
+        'from_user_id' => $meId,
+        'to_user_id' => $peerId
+    ]);
+    exit;
+}
+if ($action === 'unblock') {
+    if ($meId <= 0 || $peerId <= 0) {
+        echo json_encode(['ok'=>false,'message'=>'Invalid user.','status'=>'none','from_user_id'=>$meId,'to_user_id'=>$peerId]);
+        exit;
+    }
+    $res = fs_unblock_user($dbh, $meId, $peerId);
+    echo json_encode([
+        'ok' => (bool)($res['ok'] ?? false),
+        'message' => (string)($res['message'] ?? ''),
+        'status' => fs_friend_status($dbh, $meId, $peerId),
         'from_user_id' => $meId,
         'to_user_id' => $peerId
     ]);

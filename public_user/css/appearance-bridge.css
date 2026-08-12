@@ -1734,7 +1734,8 @@ html[data-msb-appearance] .mf-act.is-love .mf-num,
 html[data-msb-appearance] .is-love .msb-pact-heart,
 html[data-msb-appearance] .ig-profile-love-btn.is-loved,
 html[data-msb-appearance] .ig-profile-love-btn.is-loved i {
-  color: var(--msb-palette-action) !important;
+  color: var(--msb-rx-love, var(--msb-love-color, #ff4d6d)) !important;
+  -webkit-text-fill-color: var(--msb-rx-love, var(--msb-love-color, #ff4d6d)) !important;
 }
 
 html[data-msb-appearance] .gear-control:focus,

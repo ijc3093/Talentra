@@ -150,8 +150,8 @@ $hasStories = count($storyCircles) > 0;
       --ig-tile:#1a1a1a;
       --ig-sheet:var(--msb-palette-bg, #fff);
       --ig-danger:#ed4956;
-      --msb-top-story-item:72px;
-      --msb-top-story-ring:66px;
+      --msb-top-story-item:50px;
+      --msb-top-story-ring:44px;
     }
     html[data-theme="dark"],
     html.dark-auto,

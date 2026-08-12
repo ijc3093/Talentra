@@ -198,6 +198,8 @@ if ($meDisplayName === '') $meDisplayName = (string)$loggedEmail; // fallback
       try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
     </script>
     <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
+    <style id="modal-fouc-lock-css"><?php include __DIR__ . '/includes/modal_fouc_lock.css.php'; ?></style>
+    <?php post_card_actions_menu_render_css(); ?>
     <link rel="stylesheet" href="./css/dark-auto.css?v=34">
     <script src="./js/dark-auto.js?v=6" defer></script>
     <style>
@@ -645,13 +647,13 @@ if ($meDisplayName === '') $meDisplayName = (string)$loggedEmail; // fallback
 /* ❤️ HEART */
 .ig-act.is-love i,
 .vrail-btn.is-love i{
-  color:var(--msb-love-color, #7c3aed) !important;
+  color:var(--msb-rx-love, var(--msb-love-color, #ff4d6d)) !important;
 }
 
 /* 👍 LIKE */
 .ig-act.is-like i,
 .vrail-btn.is-like i{
-  color:#1877F2 !important;
+  color:var(--msb-rx-like, #2563eb) !important;
 }
 
 /* 🔖 SAVE */
@@ -1921,8 +1923,80 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     overflow:hidden;
     text-overflow:ellipsis;
   }
+  .mf-name.mf-name--sharing,
+  .mf-name.is-sharing-with{
+    white-space:normal;
+    overflow:visible;
+    text-overflow:unset;
+    flex:1 1 auto;
+    line-height:1.25;
+  }
+  .mf-name-row--sharing{
+    flex-wrap:wrap;
+    align-items:flex-start;
+    overflow:visible;
+  }
+  .mf-peer-link.is-sharing-with,
+  .mf-meta:has(.msb-sharing-others-wrap){
+    overflow:visible;
+  }
+  .mf-avatar-link{
+    display:block;
+    flex:0 0 auto;
+    color:inherit;
+    text-decoration:none;
+  }
+  .mf-avatar-link:hover{opacity:.92;text-decoration:none;color:inherit;}
+  a.msb-sharing-who{
+    color:inherit;
+    font-weight:700;
+    text-decoration:none;
+  }
+  a.msb-sharing-who:hover{text-decoration:underline;}
+  .msb-sharing-with{
+    font-weight:400;
+    color:#667085;
+  }
+  .mf-name .mf-dot,
+  .mf-name .mf-time,
+  .mf-name .post-vis-badge,
+  .mf-name .mf-verified{
+    display:inline;
+    margin-left:5px;
+    vertical-align:middle;
+  }
+  .mf-name .mf-time{
+    font-size:12px;
+    font-weight:400;
+    color:#667085;
+  }
+  .mf-name .mf-dot{
+    color:#98a2b3;
+    font-size:12px;
+  }
+  .mf-head--on-media .msb-sharing-with,
+  .mf-media-shell > .mf-head--on-media .msb-sharing-with{
+    color:rgba(255,255,255,.72);
+  }
+  .mf-head--on-media .mf-name .mf-time,
+  .mf-media-shell > .mf-head--on-media .mf-name .mf-time{
+    color:rgba(255,255,255,.78);
+  }
+  .mf-head--on-media .mf-name .mf-dot,
+  .mf-media-shell > .mf-head--on-media .mf-name .mf-dot{
+    color:rgba(255,255,255,.55);
+  }
   .mf-peer-link,.pv-peer-link{display:inline-flex;align-items:flex-start;gap:8px;color:inherit;text-decoration:none;min-width:0;flex:1 1 auto;}
   .mf-peer-link:hover,.pv-peer-link:hover{color:inherit;text-decoration:none;opacity:.92;}
+  #pvOverlay .pv-name.is-sharing-with{
+    white-space:normal;
+    overflow:visible;
+    text-overflow:unset;
+    line-height:1.25;
+  }
+  #pvOverlay .pv-name .msb-sharing-with{font-weight:400;color:#667085;}
+  #pvOverlay .pv-name a.msb-sharing-who{color:inherit;font-weight:700;text-decoration:none;}
+  #pvOverlay .pv-name a.msb-sharing-who:hover{text-decoration:underline;}
   .mf-dot{
     color:#98a2b3;
     font-size:12px;
@@ -1981,18 +2055,38 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   }
 
   .mf-title{
-    padding:0 22px 12px;
+    padding:0 0 12px;
     font-size:18px;
     font-weight:900;
     line-height:1.3;
     word-break:break-word;
     color:#101828;
   }
+  .mf-slide-title{
+    padding:0 0 6px;
+    font-size:15px;
+    font-weight:700;
+    line-height:1.3;
+    word-break:break-word;
+    color:#1f2937;
+  }
+  .mf-slide-summary{
+    padding:0 0 12px;
+    font-size:13px;
+    font-weight:500;
+    line-height:1.45;
+    color:#4b5563;
+    word-break:break-word;
+  }
+  .mf-slide-summary .post-slide-summary-p{margin:0}
+  .mf-slide-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
+  .mf-slide-summary .post-slide-summary-list li{margin:0 0 .35em}
+  .mf-slide-summary .post-slide-summary-list li:last-child{margin-bottom:0}
 
   .mf-media:not(.media-stage){
     position:relative;
     background:transparent;
-    padding:0 22px;
+    padding:0;
     overflow:hidden;
   }
   .mf-media-carousel,
@@ -2755,7 +2849,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   .mf-file .mf-file-sub{ font-size:12px; color:rgba(0,0,0,.55); margin-top:2px; }
 
   .mf-body{
-    padding: 12px 12px 6px;
+    padding: 12px 0 6px;
     font-size:14px;
     line-height:1.7;
     word-break:break-word;
@@ -2819,8 +2913,8 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   .mf-act.mf-share .mf-num{ display:inline; }
 
   /* Use the same exact active colors you already approved */
-  .mf-act.is-love i{ color:var(--msb-love-color, #7c3aed) !important; }
-  .mf-act.is-like i{ color:#1877F2 !important; }
+  .mf-act.is-love i{ color:var(--msb-rx-love, var(--msb-love-color, #ff4d6d)) !important; }
+  .mf-act.is-like i{ color:var(--msb-rx-like, #2563eb) !important; }
   .mf-act.is-save i{ color:#f5c518 !important; }
   .mf-act.is-share i{ color:#374151 !important; }
 
@@ -2898,7 +2992,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   }
 
   .mf-title{
-    padding: 2px 22px 14px;
+    padding: 2px 0 14px;
     font-size: 24px;
     line-height: 1.25;
     font-weight: 900;
@@ -2907,7 +3001,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
 
   .mf-body,
   .mf-video-body{
-    padding: 16px 22px 20px;
+    padding: 16px 0 20px;
     font-size: 15px;
     line-height: 1.75;
     color: #344054;
@@ -3339,8 +3433,10 @@ html[data-theme="dark"] .pl-item.active{
 .ig-cap-readmore,
 .mf-body .mf-readmore,
 .mf-file a,
-.pv-readmore{
-  color:var(--feed-accent);
+.pv-readmore,
+a.msb-mention{
+  color:var(--msb-palette-text, var(--feed-text, #0b1220));
+  font-weight:800;
 }
 .pv-com .m .link{
   color:inherit;
@@ -3454,9 +3550,11 @@ html[data-theme="dark"] .ig-post-progress{
 .rm-modal,
 .c-modal,
 .vw-modal,
-.pv-modal,
-.pv-right{
+.pv-modal{
   background:var(--feed-surface);
+}
+#pvOverlay .pv-right{
+  background:var(--msb-palette-bg, #f2f1e8) !important;
 }
 .rm-section,
 .vw-stat,
@@ -3744,7 +3842,7 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
 .ig-stories-track::-webkit-scrollbar{display:none;}
 .ig-story-item{
   flex:0 0 auto;
-  width:72px;
+  width:50px;
   text-align:center;
   cursor:pointer;
   user-select:none;
@@ -3755,9 +3853,9 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
   color:inherit;
 }
 .ig-story-ring{
-  width:66px;
-  height:66px;
-  margin:0 auto 6px;
+  width:44px;
+  height:44px;
+  margin:0 auto 4px;
   padding:2px;
   border-radius:50%;
   background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af,#515bd4);
@@ -3776,8 +3874,8 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
 }
 .ig-story-name{
   display:block;
-  max-width:72px;
-  font-size:12px;
+  max-width:50px;
+  font-size:11px;
   line-height:1.2;
   color:#262626;
   white-space:nowrap;
@@ -3798,7 +3896,7 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
   box-sizing:border-box;
 }
 .ig-story-create .ig-story-ring-create i{
-  font-size:26px;
+  font-size:18px;
   color:#262626;
   line-height:1;
 }
@@ -3815,14 +3913,14 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
 .ig-stories-track.is-empty{
   justify-content:center;
   align-items:flex-start;
-  min-height:74px;
+  min-height:44px;
 }
 .ig-stories-track.has-create.is-empty{
   justify-content:flex-start;
 }
 .ig-story-empty{
   width:auto;
-  min-width:72px;
+  min-width:50px;
   max-width:118px;
   cursor:default;
   pointer-events:none;
@@ -3841,7 +3939,7 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
   background:var(--feed-control-soft, #f2f4f7);
   box-sizing:border-box;
   color:var(--feed-muted, #98a2b3);
-  font-size:26px;
+  font-size:18px;
   line-height:1;
 }
 .ig-story-empty .ig-story-name{
@@ -3888,6 +3986,19 @@ html[data-theme="dark"]:not([data-msb-appearance]) .ig-stories-next:hover{
 }
 .ig-feed-center .ig-post-shell{
   margin-top:0;
+}
+.feed-top-search--tabs-only .feed-top-tabs-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+}
+.feed-top-search--tabs-only .feed-discover-tabs{
+  flex:1 1 auto;
+  min-width:0;
+}
+.feed-side-search{
+  display:none;
 }
 .feed-top-search{
   width:100%;
@@ -4044,15 +4155,14 @@ html{
 @view-transition{
   navigation:auto;
 }
+/* Keep chrome fully opaque during navigation — no header/tab fade flash */
 ::view-transition-old(root),
-::view-transition-old(msb-feed-header),
-::view-transition-old(msb-feed-tabs){
-  animation:msb-page-hold .18s linear both !important;
-}
 ::view-transition-new(root),
+::view-transition-old(msb-feed-header),
 ::view-transition-new(msb-feed-header),
+::view-transition-old(msb-feed-tabs),
 ::view-transition-new(msb-feed-tabs){
-  animation:msb-page-reveal .18s ease-out both !important;
+  animation:msb-page-hold .01s linear both !important;
 }
 .ig-feed-header{
   view-transition-name:msb-feed-header;
@@ -4062,10 +4172,6 @@ html{
 }
 @keyframes msb-page-hold{
   from{opacity:1;}
-  to{opacity:1;}
-}
-@keyframes msb-page-reveal{
-  from{opacity:0;}
   to{opacity:1;}
 }
 @media (prefers-reduced-motion:reduce){
@@ -4094,7 +4200,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card{
   position:relative !important;
   border-bottom:0 !important;
   overflow:visible !important;
-  /* padding: 15px !important; */
+  padding: 12px !important;
 }
 
 body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
@@ -4608,6 +4714,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 }
 </style>
 <style><?php include __DIR__ . '/includes/feed_page_chrome.css.php'; ?></style>
+<style id="shared-feed-public-chrome-lock-css"><?php include __DIR__ . '/includes/feed_public_chrome_lock.css.php'; ?></style>
 
 </head>
   <body class="feed-page feed-insta-ui">
@@ -4664,53 +4771,55 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
             </div>
             <div class="feed-desktop-layout">
+              <div class="feed-side-search" aria-label="Search feed">
+                <form id="feedTopSearchForm" class="feed-top-search-form feed-side-search-form" method="get" action="feed.php">
+                  <input type="hidden" name="tab" value="<?= htmlspecialchars($feedDiscoverTab, ENT_QUOTES, 'UTF-8') ?>">
+                  <div class="feed-top-search-field">
+                    <button type="submit" class="feed-top-search-icon" aria-label="Search">
+                      <i class="fa fa-search" aria-hidden="true"></i>
+                    </button>
+                    <input
+                      type="search"
+                      id="feedTopSearchInput"
+                      name="q"
+                      class="feed-top-search-input"
+                      value="<?= htmlspecialchars($feedSearchQ, ENT_QUOTES, 'UTF-8') ?>"
+                      placeholder="Search"
+                      autocomplete="off"
+                      enterkeyhint="search"
+                    >
+                  </div>
+                </form>
+              </div>
               <div class="feed-desktop-center">
-                <div class="feed-top-search" aria-label="Explore feed">
-                  <div class="feed-top-search-row">
-                    <form id="feedTopSearchForm" class="feed-top-search-form" method="get" action="feed.php">
-                      <input type="hidden" name="tab" value="<?= htmlspecialchars($feedDiscoverTab, ENT_QUOTES, 'UTF-8') ?>">
-                      <div class="feed-top-search-field">
-                        <button type="submit" class="feed-top-search-icon" aria-label="Search">
-                          <i class="fa fa-search" aria-hidden="true"></i>
-                        </button>
-                        <input
-                          type="search"
-                          id="feedTopSearchInput"
-                          name="q"
-                          class="feed-top-search-input"
-                          value="<?= htmlspecialchars($feedSearchQ, ENT_QUOTES, 'UTF-8') ?>"
-                          placeholder="Search"
-                          autocomplete="off"
-                          enterkeyhint="search"
-                        >
-                      </div>
-                    </form>
+                <div class="feed-top-search feed-top-search--tabs-only" aria-label="Explore feed">
+                  <div class="feed-top-search-row feed-top-tabs-row">
+                    <nav class="feed-discover-tabs" aria-label="Feed categories">
+                      <?php foreach ($feedDiscoverTabs as $tabKey => $tabLabel): ?>
+                        <?php
+                          $feedTabQuery = ['tab' => $tabKey];
+                          if ($feedSearchQ !== '') {
+                              $feedTabQuery['q'] = $feedSearchQ;
+                          }
+                          $feedTabPage = $tabKey === 'for-you'
+                              ? 'feed.php'
+                              : ($tabKey === 'news' ? 'news.php' : 'public.php');
+                          $isOptionalDiscoverTab = isset($optionalDiscoverTabs[$tabKey]);
+                          $optionalTabActive = $isOptionalDiscoverTab && $feedDiscoverTab === $tabKey;
+                        ?>
+                        <a
+                          class="feed-discover-tab<?= $feedDiscoverTab === $tabKey ? ' is-active' : '' ?><?= $isOptionalDiscoverTab ? ' feed-program-tab-item' : '' ?>"
+                          href="<?= htmlspecialchars($feedTabPage . '?' . http_build_query($feedTabQuery), ENT_QUOTES, 'UTF-8') ?>"
+                          <?= $isOptionalDiscoverTab ? 'data-program-slug="' . htmlspecialchars($tabKey, ENT_QUOTES, 'UTF-8') . '"' : '' ?>
+                          <?= $feedDiscoverTab === $tabKey ? 'aria-current="page"' : '' ?>
+                          <?= ($isOptionalDiscoverTab && !$optionalTabActive) ? 'hidden' : '' ?>
+                        ><?= htmlspecialchars($tabLabel, ENT_QUOTES, 'UTF-8') ?></a>
+                      <?php endforeach; ?>
+                    </nav>
                     <a class="feed-top-search-settings" href="profile.php?tab=gear" aria-label="Feed settings" title="Settings">
                       <i class="fa fa-cog" aria-hidden="true"></i>
                     </a>
                   </div>
-                  <nav class="feed-discover-tabs" aria-label="Feed categories">
-                    <?php foreach ($feedDiscoverTabs as $tabKey => $tabLabel): ?>
-                      <?php
-                        $feedTabQuery = ['tab' => $tabKey];
-                        if ($feedSearchQ !== '') {
-                            $feedTabQuery['q'] = $feedSearchQ;
-                        }
-                        $feedTabPage = $tabKey === 'for-you'
-                            ? 'feed.php'
-                            : ($tabKey === 'news' ? 'news.php' : 'public.php');
-                        $isOptionalDiscoverTab = isset($optionalDiscoverTabs[$tabKey]);
-                        $optionalTabActive = $isOptionalDiscoverTab && $feedDiscoverTab === $tabKey;
-                      ?>
-                      <a
-                        class="feed-discover-tab<?= $feedDiscoverTab === $tabKey ? ' is-active' : '' ?><?= $isOptionalDiscoverTab ? ' feed-program-tab-item' : '' ?>"
-                        href="<?= htmlspecialchars($feedTabPage . '?' . http_build_query($feedTabQuery), ENT_QUOTES, 'UTF-8') ?>"
-                        <?= $isOptionalDiscoverTab ? 'data-program-slug="' . htmlspecialchars($tabKey, ENT_QUOTES, 'UTF-8') . '"' : '' ?>
-                        <?= $feedDiscoverTab === $tabKey ? 'aria-current="page"' : '' ?>
-                        <?= ($isOptionalDiscoverTab && !$optionalTabActive) ? 'hidden' : '' ?>
-                      ><?= htmlspecialchars($tabLabel, ENT_QUOTES, 'UTF-8') ?></a>
-                    <?php endforeach; ?>
-                  </nav>
                 </div>
                 <script>
                 (function(){
@@ -7622,6 +7731,13 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
             $('#pvTimeAgo').text(timeAgoShort(dt));
             $('#pvTimeAgoPill').text(ago);
+            try{
+              var $time = $('#pvTimeAgo');
+              $time.siblings('.post-vis-badge').remove();
+              if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function' && window.currentPostVisibility){
+                $time.after(' ' + window.MSBPostCardMenu.visibilityBadgeHtml(window.currentPostVisibility));
+              }
+            }catch(eVis){}
             $('#pvMetaPills').hide();
           }catch(e){
             $('#pvMetaPills').hide();
@@ -7848,7 +7964,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               + '      <div class="c-main">'
               + '        <div class="c-bubble">'
               + '          <div class="c-name">'+esc(who)+'</div>'
-              + '          <div class="txt">'+esc(x.comment_text||'')+'</div>'
+              + '          <div class="txt">'+(window.MSBMentionAC && window.MSBMentionAC.linkify ? window.MSBMentionAC.linkify(x.comment_text||'') : esc(x.comment_text||''))+'</div>'
               + '        </div>'
               + '        <div class="c-rowmeta">'
               + '          <span>'+esc(when)+'</span>'
@@ -8285,6 +8401,20 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             }).filter(Boolean).join('<br>');
             return '<p class="post-card-paragraph">'+lines+'</p>';
           }).filter(Boolean).join('');
+        }
+        function mfSlideSummaryHtml(text){
+          var raw = String(text || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+          if(!raw) return '';
+          var lines = raw.split('\n').map(function(line){
+            return String(line || '').trim().replace(/^(?:[•\-\*]|\d+[\.\)])\s+/, '');
+          }).filter(Boolean);
+          if(!lines.length) return '';
+          if(lines.length === 1){
+            return '<div class="post-slide-summary"><p class="post-slide-summary-p">'+esc(lines[0])+'</p></div>';
+          }
+          return '<div class="post-slide-summary"><ul class="post-slide-summary-list">'
+            + lines.map(function(line){ return '<li>'+esc(line)+'</li>'; }).join('')
+            + '</ul></div>';
         }
         function mfBuildBodyHtml(className, text, maxSent){
           className = String(className || 'mf-body');
@@ -8948,19 +9078,47 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var time = mfDeviceTimeLabel(it, postDate(it));
           headerFollowHtml = onMedia ? '' : String(headerFollowHtml || '');
           var headClass = 'mf-head' + (onMedia ? ' mf-head--on-media' : '');
+          var taggedPeople = Array.isArray(it.tagged_people) ? it.tagged_people : [];
+          var hasSharing = taggedPeople.length > 0;
+          var metaAfterAuthor = '';
+          if (hasSharing) {
+            if (Number(it.is_verified||it.verified||0) === 1) {
+              metaAfterAuthor += '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>';
+            }
+            if (time) {
+              metaAfterAuthor += '<span class="mf-dot">&bull;</span><span class="mf-time">'+esc(time||'')+'</span>';
+            }
+            if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
+              metaAfterAuthor += window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends');
+            }
+          }
+          var nameHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.authorSharingWithHtml === 'function')
+            ? window.MSBPostCardMenu.authorSharingWithHtml({
+                display_name: name,
+                username: it.username || '',
+                id: it.user_id || it.author_id || 0,
+                href: peerProfileHref(it)
+              }, taggedPeople, { linkAuthor: true, afterAuthorHtml: metaAfterAuthor })
+            : esc(name || '');
+          var nameClass = 'mf-name' + (hasSharing ? ' mf-name--sharing is-sharing-with' : '');
           return ''+
             '<div class="'+headClass+'">'+
-              '<a class="mf-peer-link" href="'+esc(peerProfileHref(it))+'">'+
-                '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name||'User')+'"></div>'+
+              '<div class="mf-peer-link'+(hasSharing ? ' is-sharing-with' : '')+'">'+
+                '<a class="mf-avatar-link" href="'+esc(peerProfileHref(it))+'" aria-label="Open '+esc(name||'User')+' profile">'+
+                  '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name||'User')+'"></div>'+
+                '</a>'+
                 '<div class="mf-meta">'+
-                  '<div class="mf-name-row">'+
-                    '<div class="mf-name">'+esc(name||'')+'</div>'+
-                    ((Number(it.is_verified||it.verified||0) === 1) ? '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>' : '')+
-                    (time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time||'')+'</div>' : '')+
+                  '<div class="mf-name-row'+(hasSharing ? ' mf-name-row--sharing' : '')+'">'+
+                    '<div class="'+nameClass+'">'+nameHtml+'</div>'+
+                    (!hasSharing && (Number(it.is_verified||it.verified||0) === 1) ? '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>' : '')+
+                    (!hasSharing && time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time||'')+'</div>' : '')+
+                    (!hasSharing && window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function'
+                      ? window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends')
+                      : '')+
                   '</div>'+
                   mfMusicRowHtml(it)+
                 '</div>'+
-              '</a>'+
+              '</div>'+
               headerFollowHtml+
               mfBuildMenuWrapHtml(it, isOwner, pid, onMedia)+
             '</div>';
@@ -9031,15 +9189,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           var $media = $card.find('.mf-media, .media-stage.mf-media').first();
           if(!$media.length){
-            var $menu = $card.find('.mf-head .mf-menu-wrap').first();
+            var $menu = $card.find('.mf-head .mf-menu-wrap, .mf-head .post-card-menu-wrap').first();
             if($menu.length){
               $(followHtml.replace(' mf-media-follow-btn', '')).insertBefore($menu);
-              if(!isPub){
-                var knownStatusHead = String($card.attr('data-friend-status') || '');
-                if(knownStatusHead){
-                  mfApplyFriendState($card.find('.mf-friend-btn'), knownStatusHead);
-                }
-              }
             }
             return;
           }
@@ -9052,9 +9204,6 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           $shell.css({ position: 'relative', width: '100%' });
           var $overlay = $('<div class="mf-media-top-actions"></div>').html(followHtml);
           $shell.append($overlay);
-          if(!isPub && knownStatus){
-            mfApplyFriendState($card.find('.mf-friend-btn'), knownStatus);
-          }
         }
 
         function mfRelocateFollowButtons($root){
@@ -9094,7 +9243,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             }else{
               inner = mfFileTileHtml(src, kind);
             }
-            slides += '<div class="media-slide mf-media-slide" data-slide-index="'+i+'" style="flex:0 0 100%;width:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;border-radius:8px;">'+inner+'</div>';
+            slides += '<div class="media-slide mf-media-slide" data-slide-index="'+i+'" data-slide-title="'+esc(String(a.slide_title||''))+'" data-slide-body="'+esc(String(a.slide_body||''))+'" style="flex:0 0 100%;width:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;border-radius:8px;">'+inner+'</div>';
           }
           return ''+
             '<div class="media-carousel mf-media-carousel" data-index="0" style="position:relative;width:100%;overflow:hidden;border-radius:8px;background:transparent;">'+
@@ -9149,6 +9298,35 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               }catch(err){}
             }
           });
+
+          // Presentation: keep super title + intro fixed; sync subtitle/summary only.
+          try {
+            var $card = $carousel.closest('.mf-card');
+            var active = $items.get(nextIndex);
+            if ($card.length && active) {
+              var anySlideText = false;
+              $items.each(function(){
+                if (String(this.getAttribute('data-slide-title') || '').trim() || String(this.getAttribute('data-slide-body') || '').trim()) {
+                  anySlideText = true;
+                  return false;
+                }
+              });
+              if (anySlideText) {
+                var slideTitle = String(active.getAttribute('data-slide-title') || '').trim();
+                var slideBody = String(active.getAttribute('data-slide-body') || '').trim();
+                var $sub = $card.find('.mf-slide-title').first();
+                var $sum = $card.find('.mf-slide-summary').first();
+                if ($sub.length) {
+                  if (!slideTitle) $sub.hide().text('');
+                  else $sub.show().text(slideTitle);
+                }
+                if ($sum.length) {
+                  if (!slideBody) $sum.hide().empty();
+                  else $sum.show().html(mfSlideSummaryHtml(slideBody));
+                }
+              }
+            }
+          } catch (eFeedSlideCap) {}
         }
 
         function mfRenderCardShell(it){
@@ -9157,6 +9335,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var avatarUrl = avatarUrlFor(it, 96);
           var avatarText = mfAvatarInit(name);
           var time = mfDeviceTimeLabel(it, postDate(it));
+          var hasSlideCap = !!(String(it.preview_slide_title||'').trim() || String(it.preview_slide_body||'').trim() || Number(it.has_slide_captions||0));
           var title = String(it.title||'').trim();
           var isOwner = mfIsOwnFeedItem(it);
           var liveMeta = (it && typeof it.live_meta === 'object' && it.live_meta) ? it.live_meta : null;
@@ -9166,11 +9345,19 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var pkind = detectKind(psrc, it.preview_type);
           var declaredLayout = mfDeclaredLayout(it);
 
-          var body = formatReadMoreTextPreserve(String(it.body || it.description || '').trim())
+          var bodySrc = String(it.body || it.description || '').trim();
+          if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function') {
+            var taggedForHide = Array.isArray(it.tagged_people) ? it.tagged_people : [];
+            bodySrc = window.MSBPostCardMenu.displayTextWithoutTagHandles(bodySrc, taggedForHide);
+            title = window.MSBPostCardMenu.displayTextWithoutTagHandles(title, taggedForHide);
+          }
+          var body = formatReadMoreTextPreserve(bodySrc)
             .replace(/\[\[live_post:\d+\]\]/ig, '')
             .replace(/\b(?:live_watch|watch_live)\.php\?live=\d+\b/ig, '')
             .trim();
           var hasBody = body.length > 0;
+          var slideTitle0 = hasSlideCap ? String(it.preview_slide_title||'').trim() : '';
+          var slideBody0 = hasSlideCap ? String(it.preview_slide_body||'').trim() : '';
           var hasMedia = !!psrc;
           var deviceMeta = mfDeviceCardMeta(it);
           var isPhoneShot = !!deviceMeta.phone_shot;
@@ -9197,6 +9384,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           var titleHtml = title ? '<div class="mf-title">'+esc(title)+'</div>' : '';
           var bodyHtml = '';
+          var slideHtml = '';
           var mediaHtml = '';
           var actionsHtml = '';
           var cardClass = 'mf-card';
@@ -9213,6 +9401,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           if(hasBody){
             bodyHtml = mfBuildBodyHtml('mf-body', body, 3);
+          }
+          if(hasSlideCap){
+            slideHtml =
+              '<div class="mf-slide-title"'+(slideTitle0 ? '' : ' style="display:none"')+'>'+esc(slideTitle0)+'</div>'+
+              '<div class="mf-slide-summary"'+(slideBody0 ? '' : ' style="display:none"')+'>'+mfSlideSummaryHtml(slideBody0)+'</div>';
           }
 
           function normalActions(){
@@ -9244,6 +9437,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             var liveAvatarUrl = avatarUrlFor(it, 96);
             titleHtml = '';
             bodyHtml = '';
+            slideHtml = '';
             actionsHtml = '';
             mediaHtml = ''
               + '<div class="mf-media">'
@@ -9392,10 +9586,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var cardContactName = String(it.contact_name || '');
 
           return ''+
-            '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-peer-id="'+esc(String(cardPeerId))+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-account-kind="'+esc(cardAccountKind)+'" data-is-publisher="'+esc(cardIsPublisher)+'" data-is-following="'+cardIsFollowing+'" data-my-saved="'+esc(String(Number(it.my_saved || 0)))+'" data-is-archived="'+esc(String(Number(it.is_archived || 0)))+'" data-peer-code="'+esc(cardPeerCode)+'" data-peer-username="'+esc(cardPeerUsername)+'" data-profile-url="'+esc(cardProfileUrl)+'" data-friend-status="'+esc(cardFriendStatus)+'" data-contact-id="'+esc(String(cardContactId))+'" data-contact-name="'+esc(cardContactName)+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
+            '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-peer-id="'+esc(String(cardPeerId))+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-visibility="'+esc(String((window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility) ? window.MSBPostCardMenu.normalizeVisibility(it.visibility || 'friends') : (it.visibility || 'friends')))+'" data-account-kind="'+esc(cardAccountKind)+'" data-is-publisher="'+esc(cardIsPublisher)+'" data-is-following="'+cardIsFollowing+'" data-my-saved="'+esc(String(Number(it.my_saved || 0)))+'" data-me-tagged="'+esc(String(Number(it.me_tagged || 0)))+'" data-is-archived="'+esc(String(Number(it.is_archived || 0)))+'" data-peer-code="'+esc(cardPeerCode)+'" data-peer-username="'+esc(cardPeerUsername)+'" data-profile-url="'+esc(cardProfileUrl)+'" data-friend-status="'+esc(cardFriendStatus)+'" data-contact-id="'+esc(String(cardContactId))+'" data-contact-name="'+esc(cardContactName)+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
               (useHeadOnMedia ? '' : mfBuildHeadHtml(it, isOwner, pid, headerFollowHtml, false))+
               titleHtml+
-              (useMediaHeadOutside ? (bodyHtml+mediaHtml) : (mediaHtml+bodyHtml))+
+              (useMediaHeadOutside ? (bodyHtml+slideHtml+mediaHtml) : (mediaHtml+bodyHtml+slideHtml))+
               actionsHtml+
             '</div>';
         }
@@ -9415,9 +9609,13 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           status = String(status || 'none');
           $card.attr('data-friend-status', status);
           var isFriend = status === 'friends';
-          $card.find('.mf-menu .mf-unfriend').each(function(){
-            this.hidden = !isFriend;
-          });
+          if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.syncCardFriend === 'function'){
+            window.MSBPostCardMenu.syncCardFriend($card, status);
+          } else {
+            $card.find('.mf-menu .mf-unfriend, .post-card-menu .pcm-unfriend').each(function(){
+              this.hidden = !isFriend;
+            });
+          }
           if(isFriend){
             $card.find('.mf-friend-btn').addClass('is-friends').remove();
             $card.find('.mf-media-top-actions').addClass('is-friend-only-hidden').remove();
@@ -9484,19 +9682,43 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             var $card = $(this);
             if(mfIsPublisherCard($card)) return;
             mfSyncCardFriendMenu($card, status);
-            if(status !== 'friends' && !$card.find('.mf-friend-btn').length){
+            if(status === 'friends'){
+              $card.find('.mf-friend-btn:not(.mf-publisher-follow)').remove();
+              $card.find('.mf-media-top-actions').each(function(){
+                if(!this.querySelector('.mf-friend-btn, .publisher-follow-btn, .mf-publisher-follow')){
+                  this.remove();
+                }
+              });
+              return;
+            }
+            // After Unfriend (or pending→none), restore the + button before fries.
+            if(!$card.find('.mf-friend-btn:not(.mf-publisher-follow)').length){
               mfRemountFollowOnCard($card, {
                 user_id: peerId,
                 account_kind: String($card.attr('data-account-kind') || 'personal'),
                 is_following: Number($card.attr('data-is-following') || 0),
-                friend_code: String($card.attr('data-peer-code') || '')
+                friend_code: String($card.attr('data-peer-code') || ''),
+                friend_status: status || 'none'
+              });
+            } else {
+              $card.find('.mf-friend-btn:not(.mf-publisher-follow)').each(function(){
+                var btn = this;
+                btn.disabled = false;
+                btn.setAttribute('data-status', status || 'none');
+                btn.classList.remove('is-friends', 'is-pending', 'is-accept');
+                btn.classList.add('primary');
+                if(btn.classList.contains('mf-media-action-circle')){
+                  btn.innerHTML = '<i class="fa fa-plus" aria-hidden="true"></i>';
+                  btn.setAttribute('aria-label', 'Add Friend');
+                  btn.setAttribute('title', 'Add Friend');
+                } else {
+                  btn.textContent = '+';
+                }
               });
             }
           });
-          $('.mf-friend-btn[data-peer-id="'+peerId+'"]').each(function(){
-            mfApplyFriendState($(this), status, true);
-          });
         }
+        window.mfSyncFriendUiForPeer = mfSyncFriendUiForPeer;
 
         function mfApplyFriendState($btn, status, skipMenuSync){
           if(!$btn || !$btn.length) return;
@@ -11267,11 +11489,17 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         function setViewerHeader(authorText, dt, post){
           currentAuthor = String(authorText||'').trim();
           currentDate   = fmtDateShort(dt);
+          window.currentPostVisibility = (window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility)
+            ? window.MSBPostCardMenu.normalizeVisibility((post && post.visibility) || 'friends')
+            : String((post && post.visibility) || 'friends').toLowerCase();
 
           var profileHref = peerProfileHref(post || {});
           $('#pvAuthor').html('<a class="pv-peer-link" href="' + esc(profileHref) + '">' + esc(currentAuthor || 'Post') + '</a>');
           $('#pvMeta').text(currentDate ? ('Posted: ' + currentDate) : ' ');
-          $('#pvTimeAgo').text(timeAgoShort(dt) || ' ');
+          $('#pvTimeAgo').text(timeAgoShort(dt) || ' ').siblings('.post-vis-badge').remove();
+          if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function'){
+            $('#pvTimeAgo').after(' ' + window.MSBPostCardMenu.visibilityBadgeHtml(window.currentPostVisibility));
+          }
           $('#pvTimeAgoPill').text(timeAgo(dt) || ' ');
           $('#pvMetaPills').hide();
 
@@ -13633,7 +13861,7 @@ function feedGoToPost(){
 
 
 <!-- ✅ Post Viewer Modal (Instagram-style) -->
-<div id="pvOverlay" class="pv-overlay" aria-hidden="true">
+<div id="pvOverlay" class="pv-overlay" aria-hidden="true" hidden style="display:none">
   <button type="button" class="pv-x" id="pvClose" aria-label="Close"><i class="icon ion-close"></i></button>
   <button type="button" class="pv-nav pv-prev" id="pvPrev" aria-label="Previous"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
   <button type="button" class="pv-nav pv-next" id="pvNext" aria-label="Next"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>
@@ -13698,9 +13926,10 @@ function feedGoToPost(){
 <style>
   /* ✅ Modal (instagram-style) */
   .pv-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.72);z-index:9999;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  .pv-overlay.pv-is-switching .pv-body{opacity:.84;transition:opacity .14s ease;pointer-events:none;}
   .pv-overlay.show{display:flex;}
   .pv-modal{width:min(1120px,96vw);height:min(720px,88vh);background:#fff;overflow:hidden;display:flex;box-shadow:0 30px 90px rgba(0,0,0,.45);}
-  .pv-left{flex:1.15;min-width:0;background:#0b1220;display:flex;align-items:center;justify-content:center;}
+  .pv-left{flex:1.15;min-width:0;background:var(--msb-palette-bg, #0b1220);display:flex;align-items:center;justify-content:center;}
   .pv-media{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative;}
   .pv-media img,.pv-media video,.pv-media iframe{max-width:100%;max-height:100%;width:auto;height:auto;}
   .pv-media video{width:100%;height:100%;object-fit:contain;}
@@ -13754,7 +13983,7 @@ function feedGoToPost(){
     .pv-left.pv-left-scroll .pv-media > div{height:auto !important;min-height:100%;align-items:flex-start !important;justify-content:flex-start !important;padding:22px !important;}
   }
 
-  .pv-right{flex:.85;min-width:320px;display:flex;flex-direction:column;background:#fff;min-height:0;}
+  .pv-right{flex:.85;min-width:320px;display:flex;flex-direction:column;background:#fff;min-height:0;border-left:1px solid var(--msb-palette-border, rgba(15,23,42,.18));}
   .pv-head{padding:14px 14px;border-bottom:1px solid rgba(15,23,42,.08);display:flex;align-items:center;justify-content:space-between;gap:10px;}
   .pv-user{display:flex;align-items:center;gap:10px;min-width:0;}
   .pv-ava{width:38px;height:38px;border-radius:999px;object-fit:cover;background:#eef2ff;}
@@ -13794,12 +14023,20 @@ function feedGoToPost(){
     .pv-modal{width:100vw;height:calc(var(--vh, 1vh) * 100);border-radius:0;}
   }
 
+</style>
+<?php include __DIR__ . '/includes/post_viewer_gallery_chrome.css.php'; ?>
+<style>
 
   /* ✅ Caption (post text) inside modal right panel */
   .pv-caption{border-bottom:1px solid rgba(15,23,42,.08);padding:10px 14px;max-height:140px;overflow:auto;}
   .pv-cap{font-size:13px;line-height:1.35;color:#0f172a;word-break:break-word;}
   .pv-cap-title{font-size:15px;font-weight:800;line-height:1.25;margin-bottom:6px;}
   .pv-cap-desc{font-size:13px;line-height:1.45;}
+  .pv-cap-subtitle{font-size:14px;font-weight:700;line-height:1.3;margin:10px 0 6px;color:inherit;}
+  .pv-cap-summary{font-size:13px;line-height:1.45;opacity:.95;}
+  .pv-cap-summary .post-slide-summary-p{margin:0}
+  .pv-cap-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
+  .pv-cap-summary .post-slide-summary-list li{margin:0 0 .35em}
   .pv-cap-short,.pv-cap-full{white-space:normal;word-break:break-word;}
   .pv-cap[data-expanded="1"] .pv-cap-desc{max-height:220px;overflow:auto;padding-right:6px;}
 
@@ -13935,6 +14172,7 @@ function feedGoToPost(){
   .pv-nav i{font-size:12px;line-height:1;color:#fff;}
   .pv-prev{left:14px;}
   .pv-next{right:14px;}
+  #pvOverlay.pv-hide-post-nav .pv-nav{display:none !important;}
 
   @media (max-width: 860px){
     .pv-overlay{align-items:stretch;justify-content:flex-start;}
@@ -14099,8 +14337,10 @@ html[data-theme="dark"] .pl-item.active{
 .ig-cap-readmore,
 .mf-body .mf-readmore,
 .mf-file a,
-.pv-readmore{
-  color:var(--feed-accent);
+.pv-readmore,
+a.msb-mention{
+  color:var(--msb-palette-text, var(--feed-text, #0b1220));
+  font-weight:800;
 }
 .pv-com .m .link{
   color:inherit;
@@ -14214,9 +14454,11 @@ html[data-theme="dark"] .ig-post-progress{
 .rm-modal,
 .c-modal,
 .vw-modal,
-.pv-modal,
-.pv-right{
+.pv-modal{
   background:var(--feed-surface);
+}
+#pvOverlay .pv-right{
+  background:var(--msb-palette-bg, #f2f1e8) !important;
 }
 .rm-section,
 .vw-stat,
@@ -14679,7 +14921,7 @@ html[data-theme="dark"] .ig-post-progress{
     color:#98a2b3 !important;
     font-size:12px !important;
     line-height:1 !important;
-    margin-left:0 !important;
+    margin-left:3px !important;
     flex:0 0 auto !important;
   }
 
@@ -14693,7 +14935,7 @@ html[data-theme="dark"] .ig-post-progress{
     font-size:12px !important;
     line-height:1.2 !important;
     font-weight:500 !important;
-    margin-left:0 !important;
+    margin-left:3px !important;
     flex:0 0 auto !important;
     white-space:nowrap !important;
   }
@@ -14846,7 +15088,7 @@ html[data-theme="dark"] .ig-post-progress{
   }
 
   body .mf-feed .mf-title{
-    padding:15px 6px 12px !important;
+    padding:15px 0 12px !important;
     font-size:14px !important;
     line-height:1.28 !important;
     font-weight:800 !important;
@@ -14855,14 +15097,21 @@ html[data-theme="dark"] .ig-post-progress{
 
   body .mf-feed .mf-body,
   body .mf-feed .mf-video-body{
-    padding:2px 6px 0 !important;
+    padding:2px 0 0 !important;
     font-size:15px !important;
     line-height:1.7 !important;
     color:var(--feed-text) !important;
     text-align:left !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
   }
   body .mf-feed .mf-body .mf-body-formatted,
   body .mf-feed .mf-body .post-card-paragraph{
+    margin-left:0 !important;
+    margin-right:0 !important;
+    padding-left:0 !important;
+    padding-right:0 !important;
+    text-indent:0 !important;
     text-align:left !important;
   }
   body .mf-feed .mf-body .post-card-paragraph{
@@ -15429,6 +15678,8 @@ function pvIds(){
 
 let pvIndex = -1;
 let pvPostId = 0;
+let pvCurrentAttachments = [];
+let pvCurrentPost = null;
 let pvReplyTo = 0;
 let pvReplyToName = '';
 let pvCommentFocusId = 0;
@@ -15573,7 +15824,13 @@ function pvFormatRichText(text){
   let para = [];
   let listStack = [];
 
-  function escLine(s){ return pvEsc(s).replace(/  /g, ' &nbsp;'); }
+  function escLine(s){
+    var html = pvEsc(s).replace(/  /g, ' &nbsp;');
+    html = html.replace(/(^|[^A-Za-z0-9_])@([A-Za-z0-9_]{2,50})\b/g, function(_, pre, user){
+      return pre + '<a class="msb-mention" href="profile.php?username=' + encodeURIComponent(user) + '">@' + user + '</a>';
+    });
+    return html;
+  }
   function lineIndent(line){ const m = String(line || '').match(/^(\s*)/); return m ? m[1].replace(/\t/g, '    ').length : 0; }
   function listInfo(line){
     const raw = String(line || '');
@@ -15680,6 +15937,13 @@ function pvSetReply(parentId, displayName, mode){
 }
 
 function pvUpdateNavBtns(){
+  if (window.__pvHidePostNav) {
+    if (pv.prev) pv.prev.style.display = 'none';
+    if (pv.next) pv.next.style.display = 'none';
+    if (pv.ov) pv.ov.classList.add('pv-hide-post-nav');
+    return;
+  }
+  if (pv.ov) pv.ov.classList.remove('pv-hide-post-nav');
   pv.prev.style.display = (pvIndex > 0) ? '' : 'none';
   pv.next.style.display = (pvIndex >= 0 && pvIndex < pvIds().length - 1) ? '' : 'none';
 }
@@ -15695,6 +15959,7 @@ async function pvJson(url, opts){
 }
 
 function pvOpenByIndex(idx){
+  try { window.__pvHidePostNav = false; } catch (eFlag) {}
   if (!true || pvIds().length === 0) return;
   if (idx < 0) idx = 0;
   if (idx >= pvIds().length) idx = pvIds().length - 1;
@@ -15706,6 +15971,9 @@ function pvOpenByIndex(idx){
   pvCommentFocusId = 0;
   pvSetReply(0, '');
   pvSetVh();
+  pv.ov.removeAttribute('hidden');
+  pv.ov.style.display = '';
+  pv.ov.setAttribute('aria-hidden', 'false');
   pv.ov.classList.add('show');
   pv.ov.setAttribute('aria-hidden', 'false');
   pvLockBodyScroll();
@@ -15716,6 +15984,10 @@ function pvOpenByIndex(idx){
 
 function pvClose(){
   pv.ov.classList.remove('show');
+  pv.ov.setAttribute('hidden', '');
+  pv.ov.setAttribute('aria-hidden', 'true');
+  pv.ov.style.display = 'none';
+  pv.ov.classList.remove('pv-hide-post-nav');
   pv.ov.setAttribute('aria-hidden', 'true');
   pvUnlockBodyScroll();
   pvSetVh();
@@ -15728,23 +16000,131 @@ function pvClose(){
   pvPostId = 0;
   pvIndex = -1;
   pvCommentFocusId = 0;
+  try { window.__pvHidePostNav = false; } catch (eHide) {}
   pvSetReply(0, '');
 }
-function pvRenderCaption(post, atts){
-  const title = (post?.title || '').toString().trim();
-  const desc  = (post?.description || post?.body || '').toString().trim();
-  const hasMedia = Array.isArray(atts) && atts.length > 0;
+try { window.pvClose = pvClose; } catch (ePvClose) {}
+try { window.pv = pv; } catch (ePv) {}
+
+// Prefer this opener (same scope as #pvOverlay) so mention/tag hideNav works.
+window.pvOpenById = function(postId, opts){
+  postId = Number(postId || 0);
+  if (!postId) return false;
+  opts = (opts && typeof opts === 'object') ? opts : {};
+  var hideNav = !!(opts.hideNav || opts.standalone || opts.fromMention || opts.fromTag);
+  try { window.__pvHidePostNav = hideNav; } catch (eFlag) {}
+
+  if (hideNav) {
+    if (typeof pvSetReply === 'function') pvSetReply(0, '');
+    pvCollapsedReplyIds.clear();
+    pvCommentsCache = [];
+    pvCommentFocusId = 0;
+    if (typeof pvSetVh === 'function') pvSetVh();
+    pvIndex = -1;
+    pvPostId = postId;
+    if (pv && pv.ov) {
+      pv.ov.removeAttribute('hidden');
+  pv.ov.style.display = '';
+  pv.ov.setAttribute('aria-hidden', 'false');
+  pv.ov.classList.add('show');
+      pv.ov.setAttribute('aria-hidden', 'false');
+      if (typeof pvLockBodyScroll === 'function') pvLockBodyScroll();
+      if (typeof pvLoad === 'function') pvLoad(postId);
+      if (typeof pvUpdateNavBtns === 'function') pvUpdateNavBtns();
+      return true;
+    }
+    return false;
+  }
+
+  var ids = (typeof pvIds === 'function') ? pvIds() : [];
+  var idx = Array.isArray(ids) ? ids.indexOf(postId) : -1;
+  if (typeof pvOpenByIndex === 'function' && idx >= 0) {
+    pvOpenByIndex(idx);
+    return true;
+  }
+  if (typeof pvSetReply === 'function') pvSetReply(0, '');
+  pvCollapsedReplyIds.clear();
+  pvCommentsCache = [];
+  pvCommentFocusId = 0;
+  if (typeof pvSetVh === 'function') pvSetVh();
+  pvIndex = idx;
+  pvPostId = postId;
+  if (pv && pv.ov) {
+    pv.ov.removeAttribute('hidden');
+  pv.ov.style.display = '';
+  pv.ov.setAttribute('aria-hidden', 'false');
+  pv.ov.classList.add('show');
+    pv.ov.setAttribute('aria-hidden', 'false');
+    if (typeof pvLockBodyScroll === 'function') pvLockBodyScroll();
+    if (typeof pvLoad === 'function') pvLoad(postId);
+    if (typeof pvUpdateNavBtns === 'function') pvUpdateNavBtns();
+    return true;
+  }
+  return false;
+};
+
+window.MSBClosePostViewer = function(postId){
+  postId = Number(postId || 0);
+  var showing = Number(pvPostId || 0);
+  if (postId > 0 && showing > 0 && showing !== postId) return;
+  if (typeof pvClose === 'function') pvClose();
+  try {
+    if (typeof window.MSBFeedRemoveDeletedPost === 'function' && postId > 0) {
+      window.MSBFeedRemoveDeletedPost(postId);
+    }
+  } catch (eRm) {}
+};
+function pvRenderCaption(post, atts, slideIndex){
+  const list = Array.isArray(atts) ? atts : (Array.isArray(pvCurrentAttachments) ? pvCurrentAttachments : []);
+  const idx = Math.max(0, Number(slideIndex || 0));
+  const anySlideText = list.some(function(a){
+    return String(a && (a.slide_title || a.slide_body) || '').trim() !== '';
+  });
+  const superTitleRaw = (post?.title || '').toString().trim();
+  const introRaw = (post?.body || post?.description || '').toString().trim();
+  const taggedForCap = Array.isArray(post?.tagged_people) ? post.tagged_people : [];
+  const superTitle = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function')
+    ? window.MSBPostCardMenu.displayTextWithoutTagHandles(superTitleRaw, taggedForCap)
+    : superTitleRaw;
+  const intro = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function')
+    ? window.MSBPostCardMenu.displayTextWithoutTagHandles(introRaw, taggedForCap)
+    : introRaw;
+  let slideTitle = '';
+  let slideDesc = '';
+  if (anySlideText) {
+    const att = list[idx] || {};
+    slideTitle = String(att.slide_title || '').trim();
+    slideDesc = String(att.slide_body || '').trim();
+  }
+  const title = superTitle;
+  const desc = intro;
+  const hasMedia = list.length > 0;
+
+  function slideSummaryHtml(text){
+    const raw = String(text || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+    if (!raw) return '';
+    const lines = raw.split('\n').map(function(line){
+      return String(line || '').trim().replace(/^(?:[•\-\*]|\d+[\.\)])\s+/, '');
+    }).filter(Boolean);
+    if (!lines.length) return '';
+    if (lines.length === 1) {
+      return `<div class="post-slide-summary"><p class="post-slide-summary-p">${pvEsc(lines[0])}</p></div>`;
+    }
+    return `<div class="post-slide-summary"><ul class="post-slide-summary-list">${
+      lines.map(function(line){ return `<li>${pvEsc(line)}</li>`; }).join('')
+    }</ul></div>`;
+  }
 
   // ✅ If there is NO media on the left, we show text on the left only.
   // So the right caption should be hidden to avoid duplicate text.
-  if (!hasMedia) {
+  if (!hasMedia && !anySlideText) {
     pv.caption.style.display = 'none';
     pv.caption.innerHTML = '';
     return;
   }
 
   // Nothing to show
-  if (!title && !desc) {
+  if (!title && !desc && !slideTitle && !slideDesc) {
     pv.caption.style.display = 'none';
     pv.caption.innerHTML = '';
     return;
@@ -15752,32 +16132,77 @@ function pvRenderCaption(post, atts){
 
   pv.caption.style.display = '';
 
-  // ✅ Title always stays at the top (no name beside title)
   const titleHtml = title ? `<div class="pv-cap-title">${pvEsc(title)}</div>` : '';
-
-  // ✅ Description goes under the title (Read more / Show less when long)
-  if (!desc) {
-    pv.caption.innerHTML = `<div class="pv-cap">${titleHtml}</div>`;
-    return;
+  let introHtml = '';
+  if (desc) {
+    const t = pvTruncateText(desc, 3);
+    if (!t.truncated) {
+      introHtml = `<div class="pv-cap-desc pv-cap-intro">${pvFormatRichText(t.full)}</div>`;
+    } else {
+      introHtml = `
+        <div class="pv-cap-desc pv-cap-intro">
+          <span class="pv-cap-short">${pvFormatRichText(t.short)}<span class="pv-rich-ellipsis">&hellip;</span></span>
+          <span class="pv-cap-full" style="display:none;">${pvFormatRichText(t.full)}</span>
+          <a href="#" class="pv-readmore">Read more</a>
+        </div>`;
+    }
   }
+  const subHtml = (anySlideText && slideTitle) ? `<div class="pv-cap-subtitle">${pvEsc(slideTitle)}</div>` : '';
+  const sumHtml = (anySlideText && slideDesc) ? `<div class="pv-cap-summary">${slideSummaryHtml(slideDesc)}</div>` : '';
 
-  const t = pvTruncateText(desc, 3);
+  pv.caption.innerHTML = `<div class="pv-cap" data-expanded="0">${titleHtml}${introHtml}${subHtml}${sumHtml}</div>`;
+}
 
-  if (!t.truncated) {
-    pv.caption.innerHTML = `<div class="pv-cap">${titleHtml}<div class="pv-cap-desc">${pvFormatRichText(t.full)}</div></div>`;
-    return;
+function pvSyncMediaOrientation(){
+  const ov = (window.pv && pv.ov) ? pv.ov : document.getElementById('pvOverlay');
+  if (!ov || !window.pv || !pv.media) return;
+  let el = null;
+  const carousel = pv.media.querySelector('.mf-media-carousel, .media-carousel');
+  if (carousel) {
+    const idx = Math.max(0, Number(carousel.getAttribute('data-index') || 0));
+    const slides = carousel.querySelectorAll('.mf-media-slide, .media-slide');
+    const slide = slides[idx] || slides[0];
+    el = slide ? slide.querySelector('img, video') : null;
   }
+  if (!el) el = pv.media.querySelector('img, video');
+  let w = 0, h = 0;
+  if (el) {
+    if (String(el.tagName || '').toUpperCase() === 'VIDEO') {
+      w = Number(el.videoWidth || 0);
+      h = Number(el.videoHeight || 0);
+    } else {
+      w = Number(el.naturalWidth || 0);
+      h = Number(el.naturalHeight || 0);
+    }
+    if ((!w || !h) && el.getBoundingClientRect) {
+      const r = el.getBoundingClientRect();
+      w = Number(r.width || 0);
+      h = Number(r.height || 0);
+    }
+  }
+  const isPortrait = (w > 0 && h > 0) ? (h > w * 1.05) : false;
+  const isLandscape = (w > 0 && h > 0) ? (w >= h * 0.95) : !isPortrait;
+  ov.classList.toggle('pv-is-portrait', !!isPortrait);
+  ov.classList.toggle('pv-is-landscape', !!isLandscape && !isPortrait);
+}
 
-  pv.caption.innerHTML = `
-    <div class="pv-cap" data-expanded="0">
-      ${titleHtml}
-      <div class="pv-cap-desc">
-        <span class="pv-cap-short">${pvFormatRichText(t.short)}<span class="pv-rich-ellipsis">&hellip;</span></span>
-        <span class="pv-cap-full" style="display:none;">${pvFormatRichText(t.full)}</span>
-        <a href="#" class="pv-readmore">Read more</a>
-      </div>
-    </div>
-  `;
+function pvBindMediaOrientation(){
+  try{
+    const nodes = pv.media ? pv.media.querySelectorAll('img, video') : [];
+    nodes.forEach(function(el){
+      if (!el || el.__pvOrientBound) return;
+      el.__pvOrientBound = true;
+      const sync = function(){ pvSyncMediaOrientation(); };
+      el.addEventListener('load', sync);
+      el.addEventListener('loadedmetadata', sync);
+      if (String(el.tagName || '').toUpperCase() === 'IMG') {
+        if (el.complete && el.naturalWidth) sync();
+      } else if (String(el.tagName || '').toUpperCase() === 'VIDEO') {
+        if (el.readyState >= 1) sync();
+      }
+    });
+    pvSyncMediaOrientation();
+  }catch(e){}
 }
 
 function pvRenderMedia(post, atts){
@@ -15844,11 +16269,13 @@ function pvRenderMedia(post, atts){
     `;
     const carousel = pv.media.querySelector('.mf-media-carousel');
     if (carousel) pvSetMediaCarouselIndex(carousel, 0);
+    pvBindMediaOrientation();
     return;
   }
 
   if (Array.isArray(atts) && atts.length === 1) {
     pv.media.innerHTML = pvSlideInner(atts[0]);
+    pvBindMediaOrientation();
     return;
   }
 
@@ -15909,6 +16336,12 @@ function pvSetMediaCarouselIndex(carousel, nextIndex){
   const nextBtn = carousel.querySelector('.js-pv-media-next, .mf-media-nav.next');
   if (prevBtn) prevBtn.style.display = idx > 0 ? '' : 'none';
   if (nextBtn) nextBtn.style.display = idx < slideCount - 1 ? '' : 'none';
+  try {
+    if (typeof pvRenderCaption === 'function') {
+      pvRenderCaption(pvCurrentPost || {}, pvCurrentAttachments, idx);
+    }
+  } catch (eCap) {}
+  try { pvSyncMediaOrientation(); } catch (eOrient) {}
 }
 
 function pvRenderComments(post, comments){
@@ -15961,7 +16394,7 @@ function pvRenderComments(post, comments){
           <div class="b">
             <div class="bubble">
               <div class="nm">${pvEsc(nm)}</div>
-              <div class="tx">${pvEsc(txt)}</div>
+              <div class="tx">${(window.MSBMentionAC && window.MSBMentionAC.linkify) ? window.MSBMentionAC.linkify(txt) : pvEsc(txt)}</div>
             </div>
             <div class="m">
               <span>${pvEsc(t)}</span>
@@ -15999,6 +16432,7 @@ function pvFocusCommentById(commentId){
   try { row.scrollIntoView({ block:'center', behavior:'smooth' }); } catch (e) {}
   return true;
 }
+try { window.pvFocusCommentById = pvFocusCommentById; } catch (ePvFocus) {}
 
 function pvApplyCounts(data){
   const post = data?.post || {};
@@ -16007,11 +16441,23 @@ function pvApplyCounts(data){
   // avatar/name
   const dn = (post.display_name || post.username || '').toString();
   if (dn) {
-    pv.name.textContent = dn;
+    var taggedPeople = Array.isArray(post.tagged_people) ? post.tagged_people : [];
+    var nameHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.authorSharingWithHtml === 'function')
+      ? window.MSBPostCardMenu.authorSharingWithHtml({
+          display_name: dn,
+          username: post.username || '',
+          id: post.user_id || post.author_id || 0
+        }, taggedPeople, { linkAuthor: true })
+      : dn;
+    pv.name.innerHTML = nameHtml;
+    pv.name.classList.toggle('is-sharing-with', taggedPeople.length > 0);
     pv.avatar.src = pvAvatarUrlFor(post || {}, 96);
   }
   if (post.created_at) {
     pv.meta.textContent = 'Posted ' + pvTimeAgo(post.created_at);
+    if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
+      pv.meta.insertAdjacentHTML('beforeend', ' ' + window.MSBPostCardMenu.visibilityBadgeHtml(post.visibility || 'friends'));
+    }
   }
 
   // like/love
@@ -16066,28 +16512,41 @@ function pvCountMeta(){
 }
 
 async function pvLoad(postId){
-  pv.media.innerHTML = `<div style="color:#fff;opacity:.8;">Loading…</div>`;
-  pv.caption.style.display = 'none';
-  pv.caption.innerHTML = '';
-  pv.comments.innerHTML = `<div class="t" style="color:rgba(15,23,42,.55);font-size:13px;padding:14px 4px;">Loading…</div>`;
+  postId = Number(postId || 0);
+  if (typeof window.__pvLoadSeq !== 'number') window.__pvLoadSeq = 0;
+  const seq = ++window.__pvLoadSeq;
+  const alreadyOpen = !!(pv.ov && pv.ov.classList.contains('show'));
+  const hadContent = !!(pv.media && pv.media.childElementCount && !pv.media.querySelector('.pv-loading-only'));
+  if (pv.ov) pv.ov.classList.toggle('pv-is-switching', alreadyOpen && hadContent);
+  // Keep current media/caption/comments while fetching — avoids bright Loading flash on next/prev.
+  if (!(pv.media && pv.media.childElementCount)) {
+    pv.media.innerHTML = `<div class="pv-loading-only" style="display:flex;align-items:center;justify-content:center;min-width:min(360px,42vw);height:100%;background:var(--msb-palette-bg, #0b1220);color:var(--msb-palette-text-muted, rgba(255,255,255,.7));">Loading…</div>`;
+  }
   try {
     // ✅ count_view=1 so analytics/unique views update when user opens in modal
     const view = await pvJson(`feed_api.php?ajax=view&id=${encodeURIComponent(postId)}&count_view=1`, { credentials:'same-origin' });
+    if (seq !== window.__pvLoadSeq) return;
+    pvCurrentPost = view.post || null;
+    pvCurrentAttachments = Array.isArray(view.attachments) ? view.attachments.slice() : [];
     pvRenderMedia(view.post, view.attachments);
-    pvRenderCaption(view.post, view.attachments);
+    pvRenderCaption(view.post, view.attachments, 0);
     pvRenderComments(view.post, view.comments);
     pvApplyCounts(view);
     pv.comN.textContent = String((Array.isArray(view.comments) ? view.comments.length : 0));
 
     // share/save counts + my flags
     const tc = await pvJson(`feed_api.php?ajax=track_counts&post_id=${encodeURIComponent(postId)}`, { credentials:'same-origin' });
+    if (seq !== window.__pvLoadSeq) return;
     pvApplyTrack(tc);
 
   } catch (e) {
+    if (seq !== window.__pvLoadSeq) return;
     pv.media.innerHTML = `<div style="color:#fff;opacity:.85;padding:24px;">Failed to load post.</div>`;
     pv.caption.style.display = 'none';
     pv.caption.innerHTML = '';
     pv.comments.innerHTML = `<div style="color:#b91c1c;font-size:13px;padding:14px 4px;">${pvEsc(e?.message || 'Failed')}</div>`;
+  } finally {
+    if (seq === window.__pvLoadSeq && pv.ov) pv.ov.classList.remove('pv-is-switching');
   }
 }
 
@@ -16186,13 +16645,14 @@ pv.ov.addEventListener('mousedown', (e) => {
 pv.close.addEventListener('click', pvClose);
 
 // Prev/Next
-pv.prev.addEventListener('click', () => { if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); });
-pv.next.addEventListener('click', () => { if (pvIndex < pvIds().length - 1) pvOpenByIndex(pvIndex + 1); });
+pv.prev.addEventListener('click', () => { if (window.__pvHidePostNav) return; if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); });
+pv.next.addEventListener('click', () => { if (window.__pvHidePostNav) return; if (pvIndex < pvIds().length - 1) pvOpenByIndex(pvIndex + 1); });
 
 // Keyboard
 document.addEventListener('keydown', (e) => {
   if (!pv.ov.classList.contains('show')) return;
   if (e.key === 'Escape') { e.preventDefault(); pvClose(); }
+  if (window.__pvHidePostNav) return;
   if (e.key === 'ArrowLeft') { e.preventDefault(); if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); }
   if (e.key === 'ArrowRight') { e.preventDefault(); if (pvIndex < pvIds().length - 1) pvOpenByIndex(pvIndex + 1); }
 });
@@ -16221,6 +16681,7 @@ pv.ov.addEventListener('touchend', (e) => {
   const dy = p.screenY - pvTouchY;
   // require mostly horizontal gesture
   if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+  if (window.__pvHidePostNav) return;
   if (dx > 0) { if (pvIndex > 0) pvOpenByIndex(pvIndex - 1); }
   else { if (pvIndex < pvIds().length - 1) pvOpenByIndex(pvIndex + 1); }
 }, { passive: true });
@@ -16430,40 +16891,12 @@ pv.text.addEventListener('keydown', (e)=>{
   }
   const atBtn = document.getElementById('pvAtBtn');
   const emojiBtn = document.getElementById('pvEmojiBtn');
-  if (atBtn) atBtn.addEventListener('click', () => insertAtCursor(pv.text, '@'));
+  if (atBtn) atBtn.addEventListener('click', () => {
+    insertAtCursor(pv.text, '@');
+    try { pv.text.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    pv.text.focus();
+  });
   if (emojiBtn) emojiBtn.addEventListener('click', () => insertAtCursor(pv.text, '😊'));
-})();
-</script>
-
-<script>
-// Post viewer modal opener (pvOpenById) — card click-to-open removed; use explicit actions only.
-(function(){
-  window.pvOpenById = function(postId){
-    postId = Number(postId||0);
-    if(!postId) return;
-    try{
-      var ids = (typeof pvIds==='function') ? pvIds() : [];
-      var idx = Array.isArray(ids) ? ids.indexOf(postId) : -1;
-      if (typeof pvOpenByIndex === 'function' && idx >= 0){
-        pvOpenByIndex(idx);
-        return;
-      }
-      if (typeof pvSetReply==='function') pvSetReply(0,'');
-      pvCollapsedReplyIds.clear();
-      pvCommentsCache = [];
-      pvCommentFocusId = 0;
-      if (typeof pvSetVh==='function') pvSetVh();
-      if (window.pv && pv.ov){
-        pvIndex = idx;
-        pvPostId = postId;
-        pv.ov.classList.add('show');
-        pv.ov.setAttribute('aria-hidden','false');
-        if (typeof pvLockBodyScroll==='function') pvLockBodyScroll();
-        if (typeof pvLoad==='function') pvLoad(postId);
-        if (typeof pvUpdateNavBtns==='function') pvUpdateNavBtns();
-      }
-    }catch(e){}
-  };
 })();
 </script>
 
@@ -16471,6 +16904,7 @@ pv.text.addEventListener('keydown', (e)=>{
 (function(){
   var alertPostId = <?php echo (int)$feedAlertPostId; ?>;
   var alertCommentId = <?php echo (int)$feedAlertCommentId; ?>;
+  var alertHideNav = <?php echo ((int)($_GET['hide_nav'] ?? 0) === 1) ? 'true' : 'false'; ?>;
   if(!alertPostId) return;
 
   function clearAlertParams(){
@@ -16479,6 +16913,7 @@ pv.text.addEventListener('keydown', (e)=>{
       nextUrl.searchParams.delete('open_post');
       nextUrl.searchParams.delete('post');
       nextUrl.searchParams.delete('open_comment');
+      nextUrl.searchParams.delete('hide_nav');
       history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
     }catch(err){}
   }
@@ -16508,6 +16943,28 @@ pv.text.addEventListener('keydown', (e)=>{
 
   function runAlertOpen(){
     try{
+      // Prefer the gallery/feed-style View-the-post modal (tags, mentions, etc.).
+      if (typeof window.pvOpenById === 'function') {
+        window.pvOpenById(alertPostId, alertHideNav ? { hideNav: true } : {});
+        if (alertCommentId > 0) {
+          var triesC = 0;
+          (function waitComment(){
+            triesC += 1;
+            try {
+              if (typeof window.pvFocusCommentById === 'function' && window.pvFocusCommentById(alertCommentId)) {
+                clearAlertParams();
+                return;
+              }
+            } catch (eFocus) {}
+            if (triesC < 20) window.setTimeout(waitComment, 160);
+            else clearAlertParams();
+          })();
+          return;
+        }
+        clearAlertParams();
+        return;
+      }
+
       if(typeof window.loadFeedAlertPost === 'function'){
         window.loadFeedAlertPost(alertPostId);
       }
@@ -16863,22 +17320,33 @@ html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-body .mf-re
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-reel-body .mf-readmore,
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-video-body .mf-readmore,
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .js-open-readmore,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act i,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act .mf-num,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love i,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love .mf-num,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-like,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act:not(.is-love):not(.is-like):not(.is-reacted),
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act:not(.is-love):not(.is-like):not(.is-reacted) i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act:not(.is-love):not(.is-like):not(.is-reacted) .mf-num,
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-save i,
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-share i,
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .msb-pact-bookmark,
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-readmore,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-readmore-inline,
-html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-act.is-like i{
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-readmore-inline{
   color:#0b1220!important;
   -webkit-text-fill-color:#0b1220!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .pv-act.is-like i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .has-rx-icon[data-selected-reaction="like"] .msb-pact-thumb{
+  color:var(--msb-rx-like, #2563eb)!important;
+  -webkit-text-fill-color:var(--msb-rx-like, #2563eb)!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love i,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .mf-act.is-love .mf-num,
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .has-rx-icon[data-selected-reaction="love"] .msb-pact-heart{
+  color:var(--msb-rx-love, #ff4d6d)!important;
+  -webkit-text-fill-color:var(--msb-rx-love, #ff4d6d)!important;
+}
+html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .has-rx-icon[data-selected-reaction="dislike"] .msb-pact-thumb-down{
+  color:var(--msb-rx-dislike, #475569)!important;
+  -webkit-text-fill-color:var(--msb-rx-dislike, #475569)!important;
 }
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .search-btn,
 html:not([data-theme="dark"]):not(.dark-auto) body.feed-insta-ui .yt-mic-btn{
@@ -17009,6 +17477,58 @@ body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-actions 
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-title{
   padding-left:0 !important;
   padding-right:0 !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-video-body,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-slide-title,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-slide-summary{
+  padding-left:0 !important;
+  padding-right:0 !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body .mf-body-formatted,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body .post-card-paragraph,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body .post-slide-summary-list{
+  margin-left:0 !important;
+  padding-left:0 !important;
+  text-indent:0 !important;
+}
+</style>
+
+<style id="feed-description-left-lock">
+/* Keep post description on the same left edge as avatar / action icons. */
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-body,
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-video-body,
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-title,
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-slide-title,
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-slide-summary,
+body.feed-insta-ui .mf-feed .mf-card > .mf-body,
+body.feed-insta-ui .mf-feed .mf-card > .mf-video-body,
+body.feed-insta-ui .mf-feed .mf-card > .mf-title,
+body.feed-insta-ui .mf-feed .mf-card > .mf-slide-title,
+body.feed-insta-ui .mf-feed .mf-card > .mf-slide-summary{
+  padding-left:0 !important;
+  padding-right:0 !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  text-align:left !important;
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-body .mf-body-formatted,
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-body .post-card-paragraph,
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-body p,
+body.feed-insta-ui .mf-feed .mf-card > .mf-body .mf-body-formatted,
+body.feed-insta-ui .mf-feed .mf-card > .mf-body .post-card-paragraph,
+body.feed-insta-ui .mf-feed .mf-card > .mf-body p{
+  margin-left:0 !important;
+  padding-left:0 !important;
+  text-indent:0 !important;
+  text-align:left !important;
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-card > .mf-slide-summary .post-slide-summary-list,
+body.feed-insta-ui .mf-feed .mf-card > .mf-slide-summary .post-slide-summary-list{
+  padding-left:1.15em !important;
+  margin-left:0 !important;
 }
 </style>
 

@@ -93,6 +93,93 @@ body.public-page.feed-insta-ui .ig-feed-top-actions{
   right:16px !important;
   gap:10px !important;
 }
+
+/* Search sits on the right, just under the header border (not in the top icon row). */
+body.feed-page.feed-insta-ui .feed-side-search,
+body.public-page.feed-insta-ui .feed-side-search{
+  display:none !important;
+}
+@media (min-width:1025px){
+  body.feed-page.feed-insta-ui .feed-side-search,
+  body.public-page.feed-insta-ui .feed-side-search{
+    display:block !important;
+    position:fixed !important;
+    /* Sit just right of the center column edge (small inset, not full rail gap). */
+    left:calc(
+      var(--feed-mainpanel-left, var(--feedRailW, 84px))
+      + max(
+          var(--feed-center-left, calc(8px + var(--feed-left-nav-w, 236px) + var(--feed-side-gap, 28px))),
+          (100vw - var(--feed-mainpanel-left, var(--feedRailW, 84px)) - var(--feed-center-w, 614px)) / 2
+        )
+      + var(--feed-center-w, 614px)
+      + 10px
+    ) !important;
+    right:auto !important;
+    top:98px !important;
+    width:min(360px, var(--feed-right-rail-w, 248px) + 110px) !important;
+    max-width:calc(100vw - 24px) !important;
+    z-index:110 !important;
+    margin:0 !important;
+    padding:0 !important;
+    box-sizing:border-box !important;
+  }
+  body.feed-page.feed-insta-ui .feed-side-search-form,
+  body.public-page.feed-insta-ui .feed-side-search-form{
+    display:block !important;
+    width:100% !important;
+    margin:0 !important;
+  }
+  body.feed-page.feed-insta-ui .feed-side-search .feed-top-search-input,
+  body.public-page.feed-insta-ui .feed-side-search .feed-top-search-input{
+    width:100% !important;
+    height:42px !important;
+    min-height:42px !important;
+    border-radius:999px !important;
+    background:var(--feed-control-bg, var(--public-control-bg, var(--msb-palette-bg, #fff))) !important;
+    color:var(--feed-topbar-text, var(--public-text, var(--msb-palette-text, #0d0d0d))) !important;
+    border:1px solid var(--feed-control-border, var(--public-border, var(--msb-palette-border-strong, #c0c2c4))) !important;
+    box-sizing:border-box !important;
+  }
+  body.feed-page.feed-insta-ui .feed-side-search .feed-top-search-input::placeholder,
+  body.public-page.feed-insta-ui .feed-side-search .feed-top-search-input::placeholder{
+    color:var(--feed-control-placeholder, var(--public-muted, var(--msb-palette-text-muted, #667085))) !important;
+  }
+  body.feed-page.feed-insta-ui .feed-side-search .feed-top-search-icon,
+  body.public-page.feed-insta-ui .feed-side-search .feed-top-search-icon{
+    color:var(--feed-control-placeholder, var(--public-muted, var(--msb-palette-icon, #667085))) !important;
+  }
+  body.feed-page.feed-insta-ui .feed-top-search--tabs-only,
+  body.public-page.feed-insta-ui .feed-top-search--tabs-only{
+    padding-top:12px !important;
+  }
+  body.feed-page.feed-insta-ui .feed-top-tabs-row,
+  body.public-page.feed-insta-ui .feed-top-tabs-row{
+    display:flex !important;
+    align-items:center !important;
+    gap:12px !important;
+    width:100% !important;
+  }
+  body.feed-page.feed-insta-ui .feed-top-tabs-row .feed-discover-tabs,
+  body.public-page.feed-insta-ui .feed-top-tabs-row .feed-discover-tabs{
+    flex:1 1 auto !important;
+    min-width:0 !important;
+  }
+}
+@media (max-width:1024px){
+  body.feed-page.feed-insta-ui .feed-side-search,
+  body.public-page.feed-insta-ui .feed-side-search{
+    display:block !important;
+    position:relative !important;
+    left:auto !important;
+    top:auto !important;
+    width:100% !important;
+    max-width:614px !important;
+    margin:0 auto !important;
+    padding:12px 16px 0 !important;
+    box-sizing:border-box !important;
+    z-index:1 !important;
+  }
+}
 body.feed-page.feed-insta-ui .ig-top-shop,
 body.feed-page.feed-insta-ui .ig-top-cart,
 body.feed-page.feed-insta-ui .ig-top-mic,

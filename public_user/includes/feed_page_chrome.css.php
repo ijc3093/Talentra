@@ -238,16 +238,16 @@ body.public-page.feed-insta-ui{
   --msb-top-search-pad-x:16px;
   --msb-top-search-pad-bottom:8px;
   --msb-top-search-input-h:42px;
-  --msb-top-story-item:72px;
-  --msb-top-story-ring:66px;
-  --msb-top-story-name-size:12px;
+  --msb-top-story-item:50px;
+  --msb-top-story-ring:44px;
+  --msb-top-story-name-size:11px;
   --msb-top-action-h:44px;
   --msb-feed-user-name-font:clamp(24px, 2.6vw, 32px);
   --msb-feed-user-name-font-family:'Segoe Script','Apple Chancery','Bradley Hand',cursive;
   --msb-feed-user-name-menu-gap:14px;
 }
 
-/* Top header row — match public.php height */
+/* Top header row — match public.php height; no paint transitions (avoids refresh flash) */
 body.feed-insta-ui .ig-feed-header,
 body.feed-page.feed-insta-ui .ig-feed-header,
 body.public-page.feed-insta-ui .ig-feed-header{
@@ -255,6 +255,8 @@ body.public-page.feed-insta-ui .ig-feed-header{
   justify-content:center !important;
   padding:var(--msb-top-header-pad-top) 0 var(--msb-top-header-pad-bottom) !important;
   box-sizing:border-box !important;
+  min-height:calc(var(--msb-top-header-pad-top, 16px) + var(--msb-top-story-item, 50px) + var(--msb-top-header-pad-bottom, 14px)) !important;
+  transition:none !important;
 }
 body.feed-insta-ui .ig-stories-wrap,
 body.feed-page.feed-insta-ui .ig-stories-wrap,
@@ -499,7 +501,7 @@ body.feed-page.feed-insta-ui .ig-feed-header .ig-story-ring,
 body.public-page.feed-insta-ui .ig-feed-header .ig-story-ring{
   width:var(--msb-top-story-ring) !important;
   height:var(--msb-top-story-ring) !important;
-  margin:0 auto 6px !important;
+  margin:0 auto 4px !important;
   padding:2px !important;
 }
 body.feed-insta-ui .ig-feed-header .ig-story-ring-create,
@@ -510,7 +512,7 @@ body.public-page.feed-insta-ui .ig-feed-header .ig-story-ring-create,
 body.public-page.feed-insta-ui .ig-feed-header .ig-story-ring-empty{
   width:var(--msb-top-story-ring) !important;
   height:var(--msb-top-story-ring) !important;
-  margin:0 auto 6px !important;
+  margin:0 auto 4px !important;
 }
 body.feed-insta-ui .ig-feed-header .ig-story-name,
 body.feed-page.feed-insta-ui .ig-feed-header .ig-story-name,
@@ -526,11 +528,11 @@ body.public-page.feed-insta-ui .ig-feed-header .ig-story-empty{
   max-width:var(--msb-top-story-item) !important;
 }
 
-/* Stories — compact circles (outside top header) */
+/* Stories — same compact size everywhere (no big→small flash on refresh) */
 body.feed-insta-ui .ig-story-item,
 body.public-page.feed-insta-ui .ig-story-item{
-  width:var(--msb-feed-chrome-size) !important;
-  min-width:var(--msb-feed-chrome-size) !important;
+  width:var(--msb-top-story-item) !important;
+  min-width:var(--msb-top-story-item) !important;
 }
 body.feed-insta-ui .ig-feed-header .ig-story-item,
 body.feed-page.feed-insta-ui .ig-feed-header .ig-story-item,
@@ -540,8 +542,8 @@ body.public-page.feed-insta-ui .ig-feed-header .ig-story-item{
 }
 body.feed-insta-ui .ig-story-ring,
 body.public-page.feed-insta-ui .ig-story-ring{
-  width:var(--msb-feed-chrome-size) !important;
-  height:var(--msb-feed-chrome-size) !important;
+  width:var(--msb-top-story-ring) !important;
+  height:var(--msb-top-story-ring) !important;
   margin:0 auto 4px !important;
   padding:2px !important;
   border-radius:var(--msb-feed-chrome-circle) !important;
@@ -554,14 +556,14 @@ body.feed-page.feed-insta-ui .ig-feed-header .ig-story-ring,
 body.public-page.feed-insta-ui .ig-feed-header .ig-story-ring{
   width:var(--msb-top-story-ring) !important;
   height:var(--msb-top-story-ring) !important;
-  margin:0 auto 6px !important;
+  margin:0 auto 4px !important;
 }
 body.feed-insta-ui .ig-story-ring-create,
 body.feed-insta-ui .ig-story-ring-empty,
 body.public-page.feed-insta-ui .ig-story-ring-create,
 body.public-page.feed-insta-ui .ig-story-ring-empty{
-  width:var(--msb-feed-chrome-size) !important;
-  height:var(--msb-feed-chrome-size) !important;
+  width:var(--msb-top-story-ring) !important;
+  height:var(--msb-top-story-ring) !important;
   margin:0 auto 4px !important;
   padding:0 !important;
   border-radius:var(--msb-feed-chrome-circle) !important;
@@ -588,7 +590,7 @@ body.public-page.feed-insta-ui .ig-story-create .ig-story-ring-create{
 }
 body.feed-insta-ui .ig-story-create .ig-story-ring-create i,
 body.public-page.feed-insta-ui .ig-story-create .ig-story-ring-create i{
-  font-size:var(--msb-feed-chrome-icon) !important;
+  font-size:18px !important;
 }
 body.feed-insta-ui .ig-story-ring-empty,
 body.public-page.feed-insta-ui .ig-story-ring-empty{
@@ -602,20 +604,20 @@ body.public-page.feed-insta-ui .ig-story-empty-icon{
   border-radius:var(--msb-feed-chrome-circle) !important;
   border:2px solid var(--msb-palette-bg, #fff) !important;
   background:var(--msb-palette-bg, #f2f4f7) !important;
-  font-size:var(--msb-feed-chrome-icon) !important;
+  font-size:18px !important;
   box-sizing:border-box !important;
 }
 body.feed-insta-ui .ig-story-name,
 body.public-page.feed-insta-ui .ig-story-name{
-  max-width:var(--msb-feed-chrome-size) !important;
-  font-size:10px !important;
-  line-height:1.1 !important;
+  max-width:var(--msb-top-story-item) !important;
+  font-size:var(--msb-top-story-name-size) !important;
+  line-height:1.2 !important;
   font-weight:600 !important;
 }
 body.feed-insta-ui .ig-story-empty,
 body.public-page.feed-insta-ui .ig-story-empty{
-  min-width:var(--msb-feed-chrome-size) !important;
-  max-width:var(--msb-feed-chrome-size) !important;
+  min-width:var(--msb-top-story-item) !important;
+  max-width:var(--msb-top-story-item) !important;
 }
 body.feed-insta-ui .ig-story-create:focus-visible,
 body.public-page.feed-insta-ui .ig-story-create:focus-visible{

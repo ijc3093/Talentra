@@ -2573,14 +2573,14 @@ html[data-msb-org-light].dark-auto:not([data-msb-appearance]) body.org-app .feed
   opacity: 0.72;
 }
 
-/* Keep love reactions purple */
+/* Keep love reactions pink (same as picker) */
 html.dark-auto:not([data-msb-appearance]) .is-love,
 html.dark-auto:not([data-msb-appearance]) .is-loved,
 html.dark-auto:not([data-msb-appearance]) .mf-act.is-love,
 html.dark-auto:not([data-msb-appearance]) .mf-act.is-love i,
 html.dark-auto:not([data-msb-appearance]) .ig-profile-love-btn.is-loved,
 html.dark-auto:not([data-msb-appearance]) .ig-profile-love-btn.is-loved i {
-  color: var(--msb-love-color, #7c3aed) !important;
+  color: var(--msb-rx-love, var(--msb-love-color, #ff4d6d)) !important;
 }
 
 /* Profile door — final contrast (wins over overlay + dark-auto inheritance) */

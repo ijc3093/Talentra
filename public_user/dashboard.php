@@ -8,6 +8,8 @@ require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
+require_once __DIR__ . '/includes/post_upload.php';
+require_once __DIR__ . '/includes/post_tags.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
@@ -124,6 +126,7 @@ $postCategories = fetchUserPostCategories($dbh, $meId);
 $editId = (int)($_GET['edit'] ?? 0);
 $editPost = null;
 $editAttachmentCount = 0;
+$editAttachments = [];
 $editBodyText = '';
 if ($editId > 0 && $meId > 0) {
     try {
@@ -165,18 +168,43 @@ function strip_layout_override_marker(string $description): string {
 $loggedEmail = $_SESSION['user_login'];
 $currentLayoutOverride = '';
 $currentCategoryId = 0;
+$editTaggedUsers = [];
 if ($editPost) {
     $editBodyText = trim((string)($editPost['body'] ?? ''));
     if ($editBodyText === '') {
         $editBodyText = strip_layout_override_marker((string)($editPost['description'] ?? ''));
     }
     try {
-        $stAtt = $dbh->prepare("SELECT COUNT(*) FROM public_post_attachments WHERE post_id = :pid");
-        $stAtt->execute([':pid' => (int)$editPost['id']]);
-        $editAttachmentCount = (int)($stAtt->fetchColumn() ?: 0);
+        msb_post_tags_ensure_schema($dbh);
+        $stTg = $dbh->prepare("
+          SELECT u.id, u.username, u.name, COALESCE(NULLIF(u.image,''), '') AS image
+          FROM public_post_tags t
+          INNER JOIN users u ON u.id = t.tagged_user_id
+          WHERE t.post_id = :pid
+          ORDER BY u.username ASC
+        ");
+        $stTg->execute([':pid' => (int)$editPost['id']]);
+        $editTaggedUsers = $stTg->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
-        $editAttachmentCount = 0;
+        $editTaggedUsers = [];
     }
+    try {
+        if (function_exists('post_attachments_ensure_slide_columns')) {
+            post_attachments_ensure_slide_columns($dbh);
+        }
+        $stAtt = $dbh->prepare("SELECT id, type, file_path, thumb_path, slide_title, slide_body FROM public_post_attachments WHERE post_id = :pid ORDER BY id ASC");
+        $stAtt->execute([':pid' => (int)$editPost['id']]);
+        $editAttachments = $stAtt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        try {
+            $stAtt = $dbh->prepare("SELECT id, type, file_path, thumb_path FROM public_post_attachments WHERE post_id = :pid ORDER BY id ASC");
+            $stAtt->execute([':pid' => (int)$editPost['id']]);
+            $editAttachments = $stAtt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e2) {
+            $editAttachments = [];
+        }
+    }
+    $editAttachmentCount = count($editAttachments);
     foreach (['layout_type','layout','post_type','type'] as $k) {
         if (!empty($editPost[$k])) {
             $currentLayoutOverride = trim((string)$editPost[$k]);
@@ -297,6 +325,20 @@ if ($editPost) {
    DASHBOARD RESPONSIVE FIX
    CSS ONLY — NO PHP/JS CHANGED
 ================================ */
+.create-post-slides{display:flex;flex-direction:column;gap:12px;}
+.create-post-slide{
+  display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:stretch;
+  padding:10px;border:1px solid rgba(15,23,42,.12);border-radius:12px;background:rgba(15,23,42,.03);
+}
+.create-post-slide-media{
+  width:112px;height:112px;border-radius:10px;overflow:hidden;background:#0b1220;
+  display:flex;align-items:center;justify-content:center;
+}
+.create-post-slide-media img,
+.create-post-slide-media video{width:100%;height:100%;object-fit:cover;display:block;}
+.create-post-slide-file{color:#fff;font-size:12px;font-weight:800;letter-spacing:.04em;}
+.create-post-slide-label{font-size:12px;font-weight:800;margin-bottom:4px;opacity:.8;}
+.create-post-slide-fields textarea{resize:vertical;min-height:72px;}
 @media (max-width: 991.98px) {
   body {
     margin-left: 0 !important;
@@ -1039,29 +1081,30 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                   <?php if ($editPost): ?>
                   <div class="alert alert-secondary py-2 px-3 mb-3" style="font-size:13px;">
                     Editing post #<?= (int)$editPost['id'] ?><?= $editAttachmentCount > 0 ? (' · ' . $editAttachmentCount . ' existing media file' . ($editAttachmentCount === 1 ? '' : 's') . ' kept unless you add new ones') : '' ?>.
-                    Change <strong>Friends</strong> / <strong>Public</strong> above to move this post between feed and public.
+                    Change <strong>Private</strong> / <strong>Friends</strong> / <strong>Public</strong> above to move this post.
                   </div>
                   <?php endif; ?>
                   <div class="form-row">
                     <div class="form-group col-md-6">
                       <label>Title</label>
-                      <input type="text" name="title" class="form-control" maxlength="120"
+                      <input type="text" name="title" class="form-control" maxlength="120" data-msb-mention="1"
                         value="<?= h((string)($editPost['title'] ?? '')) ?>" placeholder="<?= $isStoryCreate ? 'e.g., My story moment…' : 'e.g., Today’s thought…' ?>">
-                      <small class="text-muted"><?= $isStoryCreate ? 'Optional for stories. Add a title, description, photo, or video.' : 'Tip: For media-only posts (image/pdf/video/file), use a clear title. description is optional.' ?></small>
+                      <small class="text-muted"><?= $isStoryCreate ? 'Optional for stories. Add a title, description, photo, or video.' : 'Super title for the post. With slides, this stays fixed at the top while each slide has its own subtitle. Type @ to tag people.' ?></small>
                     </div>
                   <div class="form-group col-md-6">
                       <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
                       <?php $vis = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends')); ?>
                       <select name="visibility" id="createPostVisibility" class="form-control">
-                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends (For You)' : 'Friends' ?></option>
-                        <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public (Discover)' : 'Public' ?></option>
+                        <option value="private" <?= $vis==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
+                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends room (For You)' : 'Friends' ?></option>
+                        <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public room (Discover)' : 'Public' ?></option>
                       </select>
                       <?php if ($isStoryCreate): ?>
-                        <small class="text-muted"><strong>Friends</strong> → opens your <strong>story circle</strong> on feed.php. <strong>Public</strong> → opens your story circle on public.php.</small>
+                        <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → your <strong>story circle</strong> on feed.php. <strong>Public</strong> → story circle on public.php.</small>
                       <?php elseif ($isPublisherAccount): ?>
-                        <small class="text-muted"><strong>Friends</strong> → opens the <strong>post card</strong> on For You (feed.php). <strong>Public</strong> → opens the post card on Discover (public.php).</small>
+                        <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → post card on For You (feed.php). <strong>Public</strong> → Discover (public.php).</small>
                       <?php else: ?>
-                      <small class="text-muted"><strong>Friends</strong> → post card on feed.php. <strong>Public</strong> → post card on public.php.</small>
+                      <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → friends (feed + Friend tab). <strong>Public</strong> → public.php + Public tab (friends and strangers).</small>
                       <?php endif; ?>
                     </div>
                   </div>
@@ -1104,22 +1147,59 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                   </div>
                   <input type="hidden" name="description" value="">
 <div class="form-group">
-                    <label>Body (optional — leave empty for media-only posts)</label>
-                    <textarea name="body" class="form-control" rows="4" placeholder="Write your post…"><?= h($editBodyText) ?></textarea>
+                    <label>Introduction (optional)</label>
+                    <textarea name="body" class="form-control" rows="3" placeholder="Write an introduction under the title… Use @username to tag people" data-msb-mention="1"><?= h($editBodyText) ?></textarea>
+                    <small class="text-muted">Without slides, this is your post caption. With slides, it stays fixed under the title as the introduction. Type @ to tag friends.</small>
                   </div>
 
                   <div class="form-group">
-                    <label>Upload Media / Files (optional)</label>
-                    <input type="file" id="createPostAttachments" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip">
+                    <label>Tag people</label>
+                    <input type="text" id="createPostTagPeopleInput" class="form-control" placeholder="Type @username to tag someone" autocomplete="off" data-msb-mention="1">
+                    <input type="hidden" name="tagged_user_ids" id="createPostTaggedUserIds" value="">
+                    <div class="msb-tag-people" id="createPostTagPeopleChips" aria-live="polite"></div>
+                    <small class="text-muted">Tagged people get a notification and see this post on their Tags tab.</small>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Slides (media + subtitle + summary)</label>
+                    <p class="small text-muted mb-2">Optional. Add slides for a presentation. Title + introduction stay at the top; each slide’s subtitle and summary change when viewers press next/prev.</p>
+                    <div id="createPostSlides" class="create-post-slides">
+                      <?php foreach ($editAttachments as $idx => $att): ?>
+                        <?php
+                          $aid = (int)($att['id'] ?? 0);
+                          $fp = preg_replace('#^public_user/#', '', (string)($att['file_path'] ?? ''));
+                          $atype = strtolower((string)($att['type'] ?? 'file'));
+                          $stitle = (string)($att['slide_title'] ?? '');
+                          $sbody = (string)($att['slide_body'] ?? '');
+                        ?>
+                        <div class="create-post-slide" data-existing-id="<?= $aid ?>">
+                          <div class="create-post-slide-media">
+                            <?php if ($atype === 'video'): ?>
+                              <video src="<?= h($fp) ?>" muted playsinline preload="metadata"></video>
+                            <?php elseif ($atype === 'image'): ?>
+                              <img src="<?= h($fp) ?>" alt="">
+                            <?php else: ?>
+                              <div class="create-post-slide-file"><?= h(strtoupper($atype) ?: 'FILE') ?></div>
+                            <?php endif; ?>
+                          </div>
+                          <div class="create-post-slide-fields">
+                            <div class="create-post-slide-label">Slide <?= (int)$idx + 1 ?></div>
+                            <input type="text" class="form-control form-control-sm mb-1" name="existing_slide_title[<?= $aid ?>]" value="<?= h($stitle) ?>" placeholder="Subtitle (optional)">
+                            <textarea class="form-control form-control-sm" name="existing_slide_body[<?= $aid ?>]" rows="3" placeholder="Summary for this slide (one idea per line = bullets)…"><?= h($sbody) ?></textarea>
+                          </div>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                    <input type="file" id="createPostAttachments" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip" style="display:none;">
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="createPostAddSlideBtn"><i class="fa fa-plus" aria-hidden="true"></i> Add slide</button>
                     <div id="createPostUploadStatus" class="small text-muted mt-1" aria-live="polite"><?php
                       if ($editPost && $editAttachmentCount > 0) {
-                          echo h($editAttachmentCount . ' file' . ($editAttachmentCount === 1 ? '' : 's') . ' already on this post. New uploads are added; existing media stays.');
+                          echo h($editAttachmentCount . ' slide' . ($editAttachmentCount === 1 ? '' : 's') . ' already on this post. Add more below; existing media stays.');
                       }
                     ?></div>
                     <div id="createPostUploadProgress" class="progress mt-2" style="height:6px;display:none;overflow:hidden;border-radius:999px;background:rgba(15,23,42,.08);">
                       <div id="createPostUploadBar" class="progress-bar" role="progressbar" style="width:0%;height:100%;transition:width .08s linear;background:#2563eb;"></div>
                     </div>
-                    <small class="text-muted">Media starts uploading as soon as you pick it so Submit stays fast.</small>
                   </div>
 
                   <div class="d-flex align-items-center">
@@ -1279,7 +1359,12 @@ document.addEventListener('DOMContentLoaded', function(){
   function syncReturnToFromVisibility(){
     if (!returnToInput) return;
     const vis = visibilitySel ? String(visibilitySel.value || 'friends') : 'friends';
-    // Profile story "+" stays on profile. Other story "+" → feed/public. Left-nav "+" → post card surface.
+    // Profile story "+" stays on profile. Private → Gallery Private tab.
+    // Other story "+" → feed/public. Left-nav "+" → post card surface.
+    if (vis === 'private') {
+      returnToInput.value = 'profile.php?tab=gallery&gallery_vis=private';
+      return;
+    }
     if (isStoryCreateForm && fromProfileCreate) {
       returnToInput.value = 'profile.php?story=1';
       return;
@@ -1319,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', function(){
     submitBtn.style.opacity = uploading ? '0.7' : '';
   }
 
-  function addToken(token){
+  function addToken(token, fileMeta){
     if (!tokenBox || !token) return;
     const input = document.createElement('input');
     input.type = 'hidden';
@@ -1328,6 +1413,50 @@ document.addEventListener('DOMContentLoaded', function(){
     input.dataset.pendingToken = '1';
     tokenBox.appendChild(input);
     pendingCount++;
+    addSlideCardForToken(token, fileMeta || null);
+  }
+
+  function nextSlideNumber(){
+    const box = document.getElementById('createPostSlides');
+    if (!box) return 1;
+    return box.querySelectorAll('.create-post-slide').length + 1;
+  }
+
+  function addSlideCardForToken(token, fileMeta){
+    const box = document.getElementById('createPostSlides');
+    if (!box || !token) return;
+    const n = nextSlideNumber();
+    const card = document.createElement('div');
+    card.className = 'create-post-slide';
+    card.dataset.token = token;
+    const media = document.createElement('div');
+    media.className = 'create-post-slide-media';
+    const type = String((fileMeta && fileMeta.type) || '').toLowerCase();
+    const previewUrl = String((fileMeta && (fileMeta.previewUrl || fileMeta.web)) || '');
+    if (previewUrl && type.indexOf('video') === 0) {
+      media.innerHTML = '<video src="'+previewUrl.replace(/"/g,'&quot;')+'" muted playsinline preload="metadata"></video>';
+    } else if (previewUrl && type.indexOf('image') === 0) {
+      media.innerHTML = '<img src="'+previewUrl.replace(/"/g,'&quot;')+'" alt="">';
+    } else if (fileMeta && fileMeta.objectUrl) {
+      if (String(fileMeta.fileType || '').indexOf('video') === 0) {
+        media.innerHTML = '<video src="'+String(fileMeta.objectUrl).replace(/"/g,'&quot;')+'" muted playsinline preload="metadata"></video>';
+      } else if (String(fileMeta.fileType || '').indexOf('image') === 0) {
+        media.innerHTML = '<img src="'+String(fileMeta.objectUrl).replace(/"/g,'&quot;')+'" alt="">';
+      } else {
+        media.innerHTML = '<div class="create-post-slide-file">FILE</div>';
+      }
+    } else {
+      media.innerHTML = '<div class="create-post-slide-file">FILE</div>';
+    }
+    const fields = document.createElement('div');
+    fields.className = 'create-post-slide-fields';
+    fields.innerHTML =
+      '<div class="create-post-slide-label">Slide '+n+'</div>' +
+      '<input type="text" class="form-control form-control-sm mb-1" name="slide_title['+token+']" placeholder="Subtitle (optional)">' +
+      '<textarea class="form-control form-control-sm" name="slide_body['+token+']" rows="3" placeholder="Summary for this slide (one idea per line = bullets)…"></textarea>';
+    card.appendChild(media);
+    card.appendChild(fields);
+    box.appendChild(card);
   }
 
   function formatBytes(n){
@@ -1456,12 +1585,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
   function uploadSelectedFiles(fileList){
     if (!fileList || !fileList.length) return;
-    const files = Array.prototype.slice.call(fileList);
+    const files = Array.prototype.slice.call(fileList).map(function(f){
+      try { f.__objectUrl = URL.createObjectURL(f); } catch (_e) { f.__objectUrl = ''; }
+      return f;
+    });
     uploading = true;
     activeUploads = files.length;
     syncSubmitEnabled();
     setProgress(3, true);
-    setStatus('Uploading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…', false);
+    setStatus('Uploading ' + files.length + ' slide' + (files.length > 1 ? 's' : '') + '…', false);
 
     // Clear input immediately so picking the same file again still works,
     // and submit never re-sends original bytes.
@@ -1520,7 +1652,14 @@ document.addEventListener('DOMContentLoaded', function(){
           if (res && res.ok && res.files) {
             res.files.forEach(function(item){
               if (item && item.token) {
-                addToken(String(item.token));
+                const meta = {
+                  type: item.type || '',
+                  web: item.web || '',
+                  previewUrl: item.web || '',
+                  objectUrl: (files[idx] && files[idx].__objectUrl) ? files[idx].__objectUrl : '',
+                  fileType: String((files[idx] && files[idx].type) || '')
+                };
+                addToken(String(item.token), meta);
                 tokens.push(String(item.token));
               }
             });
@@ -1582,6 +1721,12 @@ document.addEventListener('DOMContentLoaded', function(){
       if (fileInput.files && fileInput.files.length) {
         uploadSelectedFiles(fileInput.files);
       }
+    });
+  }
+  const addSlideBtn = document.getElementById('createPostAddSlideBtn');
+  if (addSlideBtn && fileInput) {
+    addSlideBtn.addEventListener('click', function(){
+      fileInput.click();
     });
   }
 
@@ -1692,6 +1837,29 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
 });
+</script>
+<?php include __DIR__ . '/includes/mention_autocomplete.js.php'; ?>
+<script>
+(function(){
+  if (!window.MSBMentionAC) return;
+  window.MSBMentionAC.bindRoot(document);
+  var tagger = window.MSBMentionAC.mountTagPeople({
+    wrap: document.getElementById('createPostTagPeopleChips'),
+    hidden: document.getElementById('createPostTaggedUserIds'),
+    input: document.getElementById('createPostTagPeopleInput')
+  });
+  var seed = <?php echo json_encode(array_map(static function ($u) {
+    return [
+      'id' => (int)($u['id'] ?? 0),
+      'username' => (string)($u['username'] ?? ''),
+      'name' => (string)($u['name'] ?? ''),
+      'image' => (string)($u['image'] ?? ''),
+    ];
+  }, $editTaggedUsers ?? []), JSON_UNESCAPED_SLASHES); ?>;
+  if (tagger && Array.isArray(seed)) {
+    seed.forEach(function(u){ if (u && u.id) tagger.addUser(u); });
+  }
+})();
 </script>
 
 </body>

@@ -54,6 +54,10 @@ if (!$live) {
     if (!$canView) {
         $errorMessage = 'You do not have access to this live room.';
     }
+    $snapshotPath = __DIR__ . '/storage/live_snapshots/' . (int)($live['id'] ?? 0) . '.jpg';
+    if (is_file($snapshotPath)) {
+        $live['snapshot_version'] = (string)(@md5_file($snapshotPath) ?: (string)@filemtime($snapshotPath));
+    }
 }
 
 $title = trim((string)($live['title'] ?? 'Live room'));
@@ -66,8 +70,18 @@ $doorPanelMode = isset($_GET['door_panel']) && (string)$_GET['door_panel'] === '
 $hubEmbedMode = isset($_GET['hub_embed']) && (string)$_GET['hub_embed'] === '1';
 $hubPanelMode = isset($_GET['hub_panel']) && (string)$_GET['hub_panel'] === '1';
 $hubStageMode = isset($_GET['hub_stage']) && (string)$_GET['hub_stage'] === '1';
-$preferSnapshotInHub = ($embedMode && $snapshotEmbedMode);
 $snapshotEmbedMode = isset($_GET['snapshot_embed']) && (string)$_GET['snapshot_embed'] === '1';
+// Plain door-hub embeds use embed=1 only; treat them as hub embeds so the stage
+// shows snapshots / connecting UI instead of a black frame.
+if ($embedMode && !$hubEmbedMode && !$hubStageMode && !$headerModalMode && !$doorPanelMode && !$hubPanelMode) {
+    $hubEmbedMode = true;
+}
+$preferSnapshotInHub = ($embedMode && ($snapshotEmbedMode || $hubEmbedMode || $hubStageMode));
+$initialSnapshotVersion = trim((string)($live['snapshot_version'] ?? ''));
+$initialSnapshotUrl = '';
+if ($live && $status === 'live' && $initialSnapshotVersion !== '' && $canView) {
+    $initialSnapshotUrl = 'ajax/live_snapshot.php?live=' . (int)$liveId . '&t=' . rawurlencode($initialSnapshotVersion);
+}
 $ownerInitials = 'H';
 if ($ownerName !== '') {
     $parts = preg_split('/\s+/', $ownerName) ?: [];
@@ -370,6 +384,30 @@ if ($ownerName !== '') {
       object-fit: cover;
       display: none;
       background: var(--stage-fill);
+    }
+    .stage-image.stage-image-buf {
+      display: none;
+      opacity: 0;
+      transition: opacity .32s ease;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .stage-screen.has-snapshot .stage-image.stage-image-buf {
+      display: block;
+    }
+    .stage-screen.has-snapshot .stage-image.stage-image-buf.is-front {
+      opacity: 1;
+      z-index: 2;
+    }
+    /* Snapshot-primary live: never let WebRTC steal/hide the smooth picture. */
+    body.snapshot-host-stage .stage-screen.has-snapshot .stage-image.stage-image-buf.is-front {
+      display: block;
+      opacity: 1;
+      z-index: 3;
+    }
+    body.snapshot-host-stage .stage-video {
+      display: none !important;
+      opacity: 0 !important;
     }
     .stage-video {
       position: absolute;
@@ -4346,12 +4384,32 @@ if ($ownerName !== '') {
     }
     .stage-screen.has-snapshot .stage-image {
       display: block;
+      z-index: 1;
     }
     .stage-screen.has-webrtc .stage-video {
       display: block;
+      z-index: 2;
+      background: #0b0d12;
+      opacity: 1;
     }
-    .stage-screen.has-webrtc .stage-image {
-      display: none;
+    /* Soft stall: keep video visible; snapshot stays underneath as safety cover. */
+    .stage-screen.has-webrtc.is-frozen .stage-video {
+      opacity: 1;
+      z-index: 2;
+    }
+    .stage-screen.has-webrtc.is-frozen.has-snapshot .stage-image {
+      z-index: 1;
+    }
+    /* Hard dead: only hide video when peer has no live frames at all. */
+    .stage-screen.has-webrtc.is-frozen.is-rtc-dead .stage-video {
+      opacity: 0;
+      z-index: 1;
+    }
+    .stage-screen.has-webrtc.is-frozen.is-rtc-dead.has-snapshot .stage-image {
+      z-index: 3;
+    }
+    .stage-screen.has-webrtc:not(.has-snapshot) .stage-video {
+      background: #0b0d12;
     }
     .stage-screen.has-snapshot .stage-top,
     .stage-screen.has-snapshot .stage-center,
@@ -5650,7 +5708,8 @@ if ($ownerName !== '') {
       min-height: 100%;
       height: 100%;
       margin: 0;
-      background: #0b0d12;
+      background: transparent !important;
+      background-color: transparent !important;
     }
     body.hub-embed-mode .watch-frame {
       display: block;
@@ -5671,24 +5730,55 @@ if ($ownerName !== '') {
       display: block;
       height: 100%;
       min-height: 100%;
+      background: transparent !important;
     }
     body.hub-embed-mode .watch-stage,
     body.hub-embed-mode .stage-screen {
       min-height: 100%;
       height: 100%;
-      background: #0b0d12;
+      background: transparent !important;
     }
     body.hub-embed-mode .stage-screen.has-snapshot::after,
     body.hub-embed-mode .stage-screen.has-webrtc::after {
       display: none;
     }
+    body.hub-embed-mode,
+    body.hub-embed-mode .watch-shell,
+    body.hub-embed-mode .watch-frame,
+    body.hub-embed-mode .watch-grid,
+    body.hub-embed-mode .watch-stage,
+    body.hub-embed-mode .stage-screen {
+      background: transparent !important;
+      background-color: transparent !important;
+    }
     body.hub-embed-mode .stage-image,
     body.hub-embed-mode .stage-video {
-      background: #0b0d12;
+      background: transparent !important;
     }
     body.hub-embed-mode .stage-screen.has-webrtc .stage-video {
       display: block;
       z-index: 2;
+      opacity: 1;
+    }
+    body.hub-embed-mode .stage-screen.has-webrtc.is-frozen .stage-video {
+      opacity: 1;
+      z-index: 2;
+    }
+    body.hub-embed-mode .stage-screen.has-snapshot .stage-image {
+      display: block;
+      z-index: 1;
+    }
+    body.hub-embed-mode .stage-screen.has-webrtc.is-frozen.has-snapshot .stage-image {
+      z-index: 1;
+    }
+    body.hub-embed-mode.snapshot-host-stage .stage-screen.has-snapshot .stage-image.stage-image-buf.is-front {
+      display: block !important;
+      opacity: 1 !important;
+      z-index: 3 !important;
+    }
+    body.hub-embed-mode.snapshot-host-stage .stage-video {
+      display: none !important;
+      opacity: 0 !important;
     }
     body.hub-embed-mode .hub-owner-cam-tap {
       position: absolute;
@@ -5719,15 +5809,44 @@ if ($ownerName !== '') {
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: rgba(11, 13, 18, 0.88);
+      /* Soft dim only — never a solid black slab over host video. */
+      background: rgba(11, 13, 18, 0.28);
       color: rgba(255, 255, 255, 0.82);
       font-size: 14px;
       font-weight: 700;
       text-align: center;
+      pointer-events: none;
     }
     body.hub-embed-mode .hub-watch-connecting.is-visible,
     body.embed-mode.hub-stage-mode .hub-watch-connecting.is-visible {
       display: flex;
+    }
+    /* Once host video/snapshot paints, never keep the connecting cover. */
+    body.hub-embed-mode .stage-screen.has-webrtc .hub-watch-connecting,
+    body.hub-embed-mode .stage-screen.has-snapshot .hub-watch-connecting,
+    body.embed-mode.hub-stage-mode .stage-screen.has-webrtc .hub-watch-connecting,
+    body.embed-mode.hub-stage-mode .stage-screen.has-snapshot .hub-watch-connecting {
+      display: none !important;
+    }
+    /*
+     * Friends in the left-door hub: never paint the solid black "camera off" slab
+     * over the host stage. Stale camera.json (enabled:false) was hiding live video.
+     */
+    body.hub-embed-mode .watch-camera-off-stage,
+    body.embed-mode.hub-stage-mode .watch-camera-off-stage {
+      display: none !important;
+      background: transparent !important;
+    }
+    body.hub-embed-mode .stage-screen.is-host-camera-off .stage-video,
+    body.hub-embed-mode .stage-screen.is-host-camera-off .stage-image,
+    body.embed-mode.hub-stage-mode .stage-screen.is-host-camera-off .stage-video,
+    body.embed-mode.hub-stage-mode .stage-screen.is-host-camera-off .stage-image {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    body.hub-embed-mode .stage-screen.has-webrtc .stage-video,
+    body.embed-mode.hub-stage-mode .stage-screen.has-webrtc .stage-video {
+      background: transparent !important;
     }
 
     html.hub-stage-mode,
@@ -5792,7 +5911,8 @@ if ($ownerName !== '') {
         <div class="watch-grid">
           <section class="watch-stage">
             <div class="stage-screen">
-              <img class="stage-image" id="watchStageImage" alt="Live camera preview">
+              <img class="stage-image stage-image-buf is-front" id="watchStageImage" alt="Live camera preview"<?= $initialSnapshotUrl !== '' ? ' src="' . h($initialSnapshotUrl) . '"' : '' ?>>
+              <img class="stage-image stage-image-buf" id="watchStageImageB" alt="" aria-hidden="true">
               <video class="stage-video" id="watchStageVideo" autoplay playsinline muted></video>
               <?php if ($hubEmbedMode && (int)($live['user_id'] ?? 0) === (int)$meId): ?>
               <button type="button" class="hub-owner-cam-tap" id="hubOwnerCamTap" aria-label="Enable camera">Tap to enable camera</button>
@@ -6058,6 +6178,7 @@ if ($ownerName !== '') {
     const joinRequestButton = document.getElementById('joinRequestButton');
     const joinRequestStatusNode = document.getElementById('joinRequestStatus');
     const watchStageImage = document.getElementById('watchStageImage');
+    const watchStageImageB = document.getElementById('watchStageImageB');
     const watchStageVideo = document.getElementById('watchStageVideo');
     const hubOwnerCamTap = document.getElementById('hubOwnerCamTap');
     const watchStageReactions = document.getElementById('watchStageReactions');
@@ -6126,6 +6247,7 @@ if ($ownerName !== '') {
     let guestSnapshotBusy = false;
     let ownerSnapshotTimer = null;
     let ownerSnapshotBusy = false;
+    let ownerSnapshotCanvas = null;
     let joinRequestStatus = <?php echo json_encode(''); ?>;
     let approvedGuests = [];
     let approvedGuestSnapshotVersions = {};
@@ -6147,10 +6269,28 @@ if ($ownerName !== '') {
     let pendingWebRtcReadyTimer = null;
     let stageVideoLastAdvanceAt = 0;
     let stageSnapshotLoadToken = 0;
-    const peerDisconnectGraceMs = 8000;
-    const guestAudienceRetryGraceMs = 5000;
-    const guestAudienceFreezeGraceMs = 7000;
-    const stageVideoFreezeGraceMs = 6500;
+    let stageVideoStallStrikes = 0;
+    let viewerRtcOfferBackoffMs = 1000;
+    let viewerRtcNextOfferAt = 0;
+    let trackMuteDropTimer = null;
+    let webRtcStableAt = 0;
+    let webRtcLiveSince = 0;
+    let lastCapturedFrameAt = 0;
+    let stageFrozen = false;
+    let stageFrameCallbackId = 0;
+    let stageLastPaintAt = 0;
+    const peerDisconnectGraceMs = 16000;
+    const guestAudienceRetryGraceMs = 8000;
+    const guestAudienceFreezeGraceMs = 20000;
+    const stageVideoFreezeGraceMs = 22000;
+    const stageVideoSoftRecoverStrikes = 4;
+    const stageVideoHardRecoverStrikes = 8;
+    // Soft stall only — never hide live video for brief buffering (TikTok-like).
+    const webRtcPromoteMs = 120;
+    const webRtcDemoteMs = 8000;
+    let watchCommentsFingerprint = '';
+    let lastFrozenSnapshotPullAt = 0;
+    let lastGuestTilesFingerprint = '';
     let watchSidebarMode = 'chat';
     let watchMicEnabled = false;
     let watchCameraEnabled = true;
@@ -6393,7 +6533,19 @@ if ($ownerName !== '') {
       if (!watchStageScreen) {
         return;
       }
-      const shouldHideHostStage = !!(!watchHostCameraEnabled && !isOwnerView);
+      // Hub friends must keep host video visible. The solid #000 camera-off cover
+      // was blanking live streams when camera.json lagged behind the real camera.
+      if (isHubEmbedMode || (isHubStageMode && isEmbedMode)) {
+        watchStageScreen.classList.remove('is-host-camera-off');
+        if (watchStageVideo && !watchStageScreen.classList.contains('is-local-video-off')) {
+          watchStageVideo.play().catch(function() {});
+        }
+        return;
+      }
+      const hasLivePicture = !!(viewerVideoHasFrames()
+        || watchStageScreen.classList.contains('has-snapshot')
+        || (watchStageVideo && watchStageVideo.srcObject && watchStageScreen.classList.contains('has-webrtc')));
+      const shouldHideHostStage = !!(!watchHostCameraEnabled && !isOwnerView && !hasLivePicture);
       watchStageScreen.classList.toggle('is-host-camera-off', shouldHideHostStage);
       if (watchStageVideo && !shouldHideHostStage && !watchStageScreen.classList.contains('is-local-video-off')) {
         watchStageVideo.play().catch(function() {});
@@ -6923,12 +7075,23 @@ if ($ownerName !== '') {
       if (!isHubEmbedMode && !(isHubStageMode && isEmbedMode)) return;
       const node = document.getElementById('hubWatchConnecting');
       if (!node || !watchStageScreen) return;
-      const waiting = isLiveActive
-        && !isOwnerView
-        && !watchStageScreen.classList.contains('has-snapshot')
-        && !watchStageScreen.classList.contains('has-webrtc')
-        && (usesSnapshotOnlyGuestStage() || !webRtcReady);
+      const front = getFrontStageImage() || watchStageImage;
+      const snapPixels = !!(front
+        && front.complete
+        && Number(front.naturalWidth || 0) > 0
+        && watchStageScreen.classList.contains('has-snapshot'));
+      const rtcPixels = !usesSnapshotHostStage()
+        && !!(watchStageScreen.classList.contains('has-webrtc')
+          && !watchStageScreen.classList.contains('is-rtc-dead')
+          && viewerVideoHasFrames());
+      const hasStream = !!(watchStageVideo && watchStageVideo.srcObject
+        && watchStageScreen.classList.contains('has-webrtc'));
+      const hasPicture = snapPixels || rtcPixels || hasStream;
+      const waiting = isLiveActive && !isOwnerView && !hasPicture;
       node.classList.toggle('is-visible', !!waiting);
+      if (hasPicture) {
+        notifyHubWatchVideoState(true);
+      }
     }
 
     function viewerVideoHasFrames() {
@@ -6938,6 +7101,51 @@ if ($ownerName !== '') {
       return watchStageVideo.videoWidth > 0
         && watchStageVideo.videoHeight > 0
         && watchStageVideo.readyState >= 2;
+    }
+
+    function viewerRtcTrackIsLive() {
+      return !!(remoteStream && typeof remoteStream.getVideoTracks === 'function' && remoteStream.getVideoTracks().some(function(track) {
+        return track.readyState === 'live' && !track.muted;
+      }));
+    }
+
+    function viewerRtcConnectionOk() {
+      if (!remotePc) return false;
+      const state = String(remotePc.connectionState || '');
+      return state === 'connected' || state === 'connecting' || state === 'new' || state === '';
+    }
+
+    function markStagePaintProgress() {
+      stageLastPaintAt = Date.now();
+      stageVideoLastAdvanceAt = stageLastPaintAt;
+      stageVideoStallStrikes = 0;
+      if (!webRtcLiveSince) webRtcLiveSince = stageLastPaintAt;
+      if (webRtcReady && (Date.now() - webRtcLiveSince) >= webRtcPromoteMs) {
+        setStageFrozen(false, false);
+      }
+    }
+
+    function stopStageFrameCallback() {
+      if (stageFrameCallbackId && watchStageVideo && typeof watchStageVideo.cancelVideoFrameCallback === 'function') {
+        try { watchStageVideo.cancelVideoFrameCallback(stageFrameCallbackId); } catch (e) {}
+      }
+      stageFrameCallbackId = 0;
+    }
+
+    function startStageFrameCallback() {
+      if (!watchStageVideo || isOwnerView || typeof watchStageVideo.requestVideoFrameCallback !== 'function') {
+        return;
+      }
+      stopStageFrameCallback();
+      const onFrame = function() {
+        markStagePaintProgress();
+        if (!watchStageVideo || !webRtcReady) {
+          stageFrameCallbackId = 0;
+          return;
+        }
+        stageFrameCallbackId = watchStageVideo.requestVideoFrameCallback(onFrame);
+      };
+      stageFrameCallbackId = watchStageVideo.requestVideoFrameCallback(onFrame);
     }
 
     function notifyHubWatchVideoState(isReady) {
@@ -6952,10 +7160,113 @@ if ($ownerName !== '') {
       } catch (error) {}
     }
 
+    function captureLastVideoFrameToSnapshot() {
+      if (!watchStageVideo || !watchStageImage || !watchStageScreen) return;
+      if (watchStageVideo.readyState < 2 || !watchStageVideo.videoWidth) return;
+      const now = Date.now();
+      if (now - Number(lastCapturedFrameAt || 0) < 400) return;
+      try {
+        const canvas = document.createElement('canvas');
+        const maxW = 720;
+        const scale = watchStageVideo.videoWidth > maxW ? (maxW / watchStageVideo.videoWidth) : 1;
+        canvas.width = Math.max(1, Math.round(watchStageVideo.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(watchStageVideo.videoHeight * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(watchStageVideo, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+        if (!dataUrl || dataUrl.length < 64) return;
+        if (watchStageImage.dataset.objectUrl) {
+          try { URL.revokeObjectURL(watchStageImage.dataset.objectUrl); } catch (e) {}
+          delete watchStageImage.dataset.objectUrl;
+        }
+        watchStageImage.src = dataUrl;
+        watchStageScreen.classList.add('has-snapshot');
+        lastCapturedFrameAt = now;
+      } catch (error) {}
+    }
+
+    function setStageFrozen(isFrozen, isDead) {
+      if (!watchStageScreen || isOwnerView) return;
+      const next = !!isFrozen;
+      const dead = !!(next && isDead);
+      if (stageFrozen === next && !!watchStageScreen.classList.contains('is-rtc-dead') === dead) {
+        if (next && dead && (Date.now() - Number(lastFrozenSnapshotPullAt || 0)) > 1800) {
+          lastFrozenSnapshotPullAt = Date.now();
+          pullSnapshotFrame();
+        }
+        return;
+      }
+      stageFrozen = next;
+      watchStageScreen.classList.toggle('is-frozen', next);
+      watchStageScreen.classList.toggle('is-rtc-dead', dead);
+      watchStageScreen.classList.toggle('has-webrtc-live', webRtcReady && !dead);
+      if (next && dead) {
+        captureLastVideoFrameToSnapshot();
+        lastFrozenSnapshotPullAt = Date.now();
+        pullSnapshotFrame();
+      }
+      syncSnapshotPolling();
+    }
+
+    function syncWebRtcLiveLayer() {
+      if (isOwnerView || !watchStageScreen) return;
+      if (!webRtcReady || !viewerVideoHasFrames()) {
+        // No frames yet — soft cover only; do not declare RTC dead while connecting.
+        setStageFrozen(true, !viewerRtcConnectionOk() && !viewerRtcTrackIsLive());
+        webRtcLiveSince = 0;
+        return;
+      }
+      const paintAge = Date.now() - Number(stageLastPaintAt || stageVideoLastAdvanceAt || 0);
+      const connectionOk = viewerRtcConnectionOk();
+      const trackLive = viewerRtcTrackIsLive() || (!!remoteStream && remoteStream.getVideoTracks().some(function(t) {
+        return t.readyState === 'live';
+      }));
+      const playing = !!watchStageVideo
+        && !watchStageVideo.paused
+        && !watchStageVideo.ended
+        && Number(watchStageVideo.currentTime || 0) >= 0;
+
+      // TikTok-like: if we have pixels + live track + ok peer, keep video on screen.
+      // Do NOT demote just because currentTime stopped advancing (common with MediaStream).
+      if (trackLive && connectionOk && playing && viewerVideoHasFrames()) {
+        if (!webRtcLiveSince) webRtcLiveSince = Date.now();
+        if ((Date.now() - webRtcLiveSince) >= webRtcPromoteMs) {
+          setStageFrozen(false, false);
+        }
+        // Refresh paint timestamp from currentTime only as a weak backup.
+        const currentTime = Number(watchStageVideo.currentTime || 0);
+        if (currentTime > (stageVideoLastCurrentTime + 0.015)) {
+          stageVideoLastCurrentTime = currentTime;
+          markStagePaintProgress();
+        } else if (!stageLastPaintAt && paintAge > 2000) {
+          // rVFC unavailable: assume still alive while track+connection are healthy.
+          stageLastPaintAt = Date.now();
+        }
+        return;
+      }
+
+      if (!trackLive || !connectionOk) {
+        setStageFrozen(true, true);
+        webRtcLiveSince = 0;
+        return;
+      }
+
+      // Soft stall only — keep video visible.
+      if (paintAge > webRtcDemoteMs) {
+        setStageFrozen(true, false);
+        webRtcLiveSince = 0;
+      }
+    }
+
     function markWebRtcReady(isReady) {
-      if (usesSnapshotOnlyGuestStage()) {
+      if (usesSnapshotHostStage() || usesSnapshotOnlyGuestStage()) {
         webRtcReady = false;
-        watchStageScreen.classList.remove('has-webrtc');
+        if (watchStageScreen) {
+          watchStageScreen.classList.remove('has-webrtc', 'has-webrtc-live', 'is-frozen', 'is-rtc-dead');
+        }
+        stageFrozen = false;
+        stopStageFrameCallback();
         syncSnapshotPolling();
         syncHubWatchConnectingUi();
         return;
@@ -6967,7 +7278,7 @@ if ($ownerName !== '') {
             if (viewerVideoHasFrames()) {
               markWebRtcReady(true);
             }
-          }, 220);
+          }, 180);
         }
         return;
       }
@@ -6977,17 +7288,41 @@ if ($ownerName !== '') {
       }
       const wasReady = webRtcReady;
       webRtcReady = !!isReady;
-      watchStageScreen.classList.toggle('has-webrtc', !!isReady);
+      if (watchStageScreen) {
+        watchStageScreen.classList.toggle('has-webrtc', !!isReady);
+        if (isReady) {
+          watchStageScreen.classList.remove('is-host-camera-off');
+        }
+      }
       if (isReady && viewerVideoHasFrames()) {
-        watchStageScreen.classList.remove('has-snapshot');
+        stageVideoStallStrikes = 0;
+        viewerRtcOfferBackoffMs = 1000;
+        viewerRtcNextOfferAt = 0;
+        if (!wasReady) {
+          webRtcStableAt = Date.now();
+          webRtcLiveSince = Date.now();
+          stageLastPaintAt = Date.now();
+          setStageFrozen(false, false);
+        }
         if (watchStageVideo && watchStageVideo.srcObject) {
           watchStageVideo.play().catch(function() {});
         }
+        startStageFrameCallback();
+        syncWebRtcLiveLayer();
         if (!wasReady) {
           notifyHubWatchVideoState(true);
         }
-      } else if (!isReady && wasReady) {
-        notifyHubWatchVideoState(false);
+      } else if (!isReady) {
+        webRtcStableAt = 0;
+        webRtcLiveSince = 0;
+        stopStageFrameCallback();
+        setStageFrozen(true, true);
+        if (watchStageScreen) {
+          watchStageScreen.classList.remove('has-webrtc-live');
+        }
+        if (wasReady) {
+          notifyHubWatchVideoState(false);
+        }
       }
       syncSnapshotPolling();
       syncHubWatchConnectingUi();
@@ -6998,10 +7333,23 @@ if ($ownerName !== '') {
         return;
       }
       const currentTime = Number(watchStageVideo.currentTime || 0);
-      if (currentTime > stageVideoLastCurrentTime || watchStageVideo.readyState >= 2) {
+      if (currentTime > (stageVideoLastCurrentTime + 0.015)) {
         stageVideoLastCurrentTime = currentTime;
-        stageVideoLastAdvanceAt = Date.now();
+        markStagePaintProgress();
+        return;
       }
+      // MediaStream often stalls currentTime while still painting — never demote here.
+      if (viewerVideoHasFrames() && webRtcReady) {
+        return;
+      }
+      syncWebRtcLiveLayer();
+    }
+
+    function demoteWebRtcLiveLayer(reason) {
+      webRtcLiveSince = 0;
+      // Soft demote only — keep video visible unless peer is actually dead.
+      const dead = reason === 'failed' || reason === 'ended' || reason === 'closed';
+      setStageFrozen(true, dead);
     }
 
     function stopStageVideoHealthLoop() {
@@ -7010,26 +7358,105 @@ if ($ownerName !== '') {
         stageVideoHealthTimer = null;
       }
       stageVideoRecoveryBusy = false;
+      stageVideoStallStrikes = 0;
+    }
+
+    function scheduleViewerRtcRestart(delayMs) {
+      const wait = Math.max(400, Number(delayMs || viewerRtcOfferBackoffMs || 1000));
+      viewerRtcNextOfferAt = Date.now() + wait;
+      window.setTimeout(function() {
+        if (!isLiveActive || isOwnerView || webRtcReady) return;
+        startViewerRtc().catch(function() {});
+      }, wait);
+    }
+
+    async function softRestartViewerRtc() {
+      if (!remotePc || !window.RTCPeerConnection) {
+        return false;
+      }
+      const connectionState = String(remotePc.connectionState || '');
+      if (connectionState === 'failed' || connectionState === 'closed') {
+        return false;
+      }
+      try {
+        if (typeof remotePc.restartIce === 'function') {
+          remotePc.restartIce();
+        }
+        if (watchStageVideo && watchStageVideo.srcObject) {
+          await watchStageVideo.play().catch(function() {});
+        }
+        if (String(remotePc.signalingState || '') === 'stable' && !offerInFlight) {
+          offerInFlight = true;
+          try {
+            const offer = await remotePc.createOffer({ iceRestart: true });
+            await remotePc.setLocalDescription(offer);
+            await sendSignal('offer', {
+              type: offer.type,
+              sdp: offer.sdp
+            });
+          } catch (error) {
+            offerInFlight = false;
+            return false;
+          }
+        }
+        return true;
+      } catch (error) {
+        return false;
+      }
     }
 
     function recoverStageVideoIfFrozen() {
-      if (stageVideoRecoveryBusy || isOwnerView || !isLiveActive || usesSnapshotOnlyGuestStage()) {
+      if (stageVideoRecoveryBusy || isOwnerView || !isLiveActive || usesSnapshotHostStage() || usesSnapshotOnlyGuestStage()) {
         return;
       }
+      // Only recover when peer is actually unhealthy — not for soft currentTime stalls.
+      const connectionState = remotePc ? String(remotePc.connectionState || '') : 'closed';
+      const trackLive = viewerRtcTrackIsLive() || (!!remoteStream && remoteStream.getVideoTracks().some(function(t) {
+        return t.readyState === 'live';
+      }));
+      if ((connectionState === 'connected' || connectionState === 'connecting') && trackLive && viewerVideoHasFrames()) {
+        stageVideoStallStrikes = 0;
+        setStageFrozen(false, false);
+        return;
+      }
+
+      stageVideoStallStrikes += 1;
+      demoteWebRtcLiveLayer(connectionState === 'failed' || connectionState === 'closed' ? 'failed' : 'recover');
+      if (watchStageVideo && watchStageVideo.srcObject) {
+        watchStageVideo.play().catch(function() {});
+      }
+
+      if (stageVideoStallStrikes < stageVideoSoftRecoverStrikes) {
+        return;
+      }
+
+      if (stageVideoStallStrikes < stageVideoHardRecoverStrikes) {
+        softRestartViewerRtc().catch(function() {});
+        return;
+      }
+
       stageVideoRecoveryBusy = true;
-      markWebRtcReady(false);
-      resetRemotePeer();
+      webRtcReady = false;
+      stopStageFrameCallback();
+      setStageFrozen(true, true);
+      if (watchStageScreen) {
+        watchStageScreen.classList.remove('has-webrtc', 'has-webrtc-live');
+      }
+      resetRemotePeer(true);
+      viewerRtcOfferBackoffMs = Math.min(12000, Math.max(2500, viewerRtcOfferBackoffMs));
       window.setTimeout(function() {
         stageVideoRecoveryBusy = false;
+        stageVideoStallStrikes = 0;
         startViewerRtc().catch(function() {});
-      }, 120);
+      }, 1200);
     }
 
     function syncStageVideoHealthLoop() {
       const hasRemoteTrack = !!(remoteStream && typeof remoteStream.getVideoTracks === 'function' && remoteStream.getVideoTracks().some(function(track) {
         return track.readyState === 'live';
       }));
-      if (isOwnerView || usesSnapshotOnlyGuestStage() || !isLiveActive || !hasRemoteTrack || !watchStageVideo) {
+      const hasPeer = !!remotePc;
+      if (isOwnerView || usesSnapshotHostStage() || usesSnapshotOnlyGuestStage() || !isLiveActive || (!hasRemoteTrack && !hasPeer) || !watchStageVideo) {
         stopStageVideoHealthLoop();
         return;
       }
@@ -7037,28 +7464,60 @@ if ($ownerName !== '') {
         return;
       }
       markStageVideoProgress();
+      startStageFrameCallback();
       stageVideoHealthTimer = window.setInterval(function() {
         if (!watchStageVideo || document.visibilityState === 'hidden') {
+          return;
+        }
+        syncWebRtcLiveLayer();
+        const connectionState = remotePc ? String(remotePc.connectionState || '') : '';
+        if (connectionState === 'failed' || connectionState === 'closed') {
+          setStageFrozen(true, true);
+          markWebRtcReady(false);
+          resetRemotePeer(true);
+          scheduleViewerRtcRestart(viewerRtcOfferBackoffMs);
           return;
         }
         const hasLiveTrack = !!(remoteStream && typeof remoteStream.getVideoTracks === 'function' && remoteStream.getVideoTracks().some(function(track) {
           return track.readyState === 'live';
         }));
         if (!hasLiveTrack) {
+          setStageFrozen(true, true);
           return;
         }
         if (watchStageVideo.srcObject && watchStageVideo.paused && !watchStageVideo.ended) {
           watchStageVideo.play().catch(function() {});
         }
-        const age = Date.now() - Number(stageVideoLastAdvanceAt || 0);
-        if (age > stageVideoFreezeGraceMs && (webRtcReady || hasLiveTrack)) {
+        // Keep video on screen while track + peer look healthy.
+        if (viewerVideoHasFrames() && (connectionState === 'connected' || connectionState === 'connecting')) {
+          setStageFrozen(false, false);
+          return;
+        }
+        const age = Date.now() - Number(stageLastPaintAt || stageVideoLastAdvanceAt || 0);
+        if (age > stageVideoFreezeGraceMs && !viewerVideoHasFrames()) {
           recoverStageVideoIfFrozen();
         }
-      }, 2500);
+      }, 1500);
     }
 
     function usesSnapshotOnlyGuestStage() {
+      // Guest co-hosts still publish RTC to the host. Host picture for friends uses snapshot.
+      return false;
+    }
+
+    function usesSnapshotHostStage() {
+      // Friends must use WebRTC for the host stage. Snapshot-only left a solid black
+      // stage whenever host JPEG frames were missing (common on this install).
+      // Snapshots remain a soft cover / freeze backup via syncSnapshotPolling.
+      return false;
+    }
+
+    function prefersHubSnapshotFirst() {
       return isHubEmbedMode && !isOwnerView;
+    }
+
+    if (usesSnapshotHostStage()) {
+      document.body.classList.add('snapshot-host-stage');
     }
 
     function rtcGuestIds() {
@@ -7094,7 +7553,8 @@ if ($ownerName !== '') {
     }
 
     function liveAudienceGuestIds() {
-      if (usesSnapshotAudienceGrid()) {
+      // Snapshot-host stage: friends see guest tiles as JPEGs too (no guest mesh RTC).
+      if (usesSnapshotHostStage() || usesSnapshotAudienceGrid()) {
         return [];
       }
       return rtcGuestIds().filter(function(id) {
@@ -7136,17 +7596,19 @@ if ($ownerName !== '') {
       watchStageVideo.addEventListener('canplay', markStageVideoProgress);
       watchStageVideo.addEventListener('waiting', function() {
         if (!isOwnerView && watchStageVideo.srcObject) {
+          // Brief buffering is normal — keep live video visible (TikTok-like).
           watchStageVideo.play().catch(function() {});
         }
       });
       watchStageVideo.addEventListener('stalled', function() {
-        if (!isOwnerView) {
-          recoverStageVideoIfFrozen();
+        if (!isOwnerView && watchStageVideo.srcObject) {
+          watchStageVideo.play().catch(function() {});
         }
       });
       watchStageVideo.addEventListener('emptied', function() {
-        if (!isOwnerView) {
+        if (!isOwnerView && !watchStageVideo.srcObject) {
           markWebRtcReady(false);
+          pullSnapshotFrame();
         }
       });
     }
@@ -7196,11 +7658,15 @@ if ($ownerName !== '') {
       }
       isLiveActive = String(live.status || '').toLowerCase() === 'live';
       watchHostCameraEnabled = live.camera_enabled !== false;
+      // If host video is already painting, ignore a stale camera-off flag.
+      if (!watchHostCameraEnabled && (viewerVideoHasFrames() || (watchStageVideo && watchStageVideo.srcObject))) {
+        watchHostCameraEnabled = true;
+      }
       joinRequestStatus = String(data.join_request_status || '');
       approvedGuests = Array.isArray(data.approved_guests) ? data.approved_guests.slice(0, maxActiveGuests) : [];
       syncWatchHostStageVisibility();
       syncGuestMediaProfile();
-      if (usesSnapshotOnlyGuestStage()) {
+      if (usesSnapshotHostStage() || usesSnapshotOnlyGuestStage()) {
         resetRemotePeer(false);
       }
       refreshSnapshot(live);
@@ -7280,71 +7746,88 @@ if ($ownerName !== '') {
       syncJoinRequestUi();
 
       const shouldStickToBottom = (commentList.scrollHeight - commentList.scrollTop - commentList.clientHeight) <= 48;
-      if (!comments.length) {
-        commentList.innerHTML = '<div class="comment"><div class="comment-avatar">LR</div><div class="comment-main"><div class="comment-author">Live Room</div><div class="comment-body">Comments will appear here when the host or viewers post to this room.</div></div></div>';
-      } else {
-        commentList.innerHTML = comments.map(function(item) {
-          const isSelf = Number(item.user_id || 0) === viewerId;
-          const author = esc(item.author);
-          const body = esc(item.body);
-          const initials = escHtml(initialsForName(item.author || 'User'));
-          const meta = esc(item.created_at_label || 'Now');
-          const tone = commentTone(item.author || 'User');
-          const likeCount = Number(item.like_count || 0);
-          const likedByLabel = esc(item.liked_by_label || '');
-          return '<div class="comment' + (isSelf ? ' is-self' : '') + '" data-comment-id="' + Number(item.id || 0) + '" data-comment-author="' + author + '">'
-            + '<div class="comment-avatar" style="background:linear-gradient(135deg, hsl(' + tone + ' 80% 62%), hsl(' + ((tone + 38) % 360) + ' 78% 54%));">' + initials + '</div>'
-            + '<div class="comment-main">'
-            + '<div class="comment-author">' + author + (isSelf ? ' <span class="is-self">You</span>' : '') + '</div>'
-            + '<div class="comment-body">' + body + '</div>'
-            + '<div class="comment-meta"><span>' + meta + '</span><button type="button" class="comment-reply">Reply</button><button type="button" class="comment-like' + (item.liked_by_me ? ' is-liked' : '') + '" aria-label="Like comment" title="' + likedByLabel + '"><i class="fa fa-heart-o" aria-hidden="true"></i>' + (likeCount > 0 ? ('<span class="comment-like-count">' + likeCount + '</span>') : '') + '</button></div>'
-            + (likedByLabel ? ('<div class="comment-likes">' + likedByLabel + '</div>') : '')
-            + '</div></div>';
-        }).join('');
-      }
-      if (shouldStickToBottom) {
-        commentList.scrollTop = commentList.scrollHeight;
+      const commentsFingerprint = comments.length
+        ? comments.map(function(item) {
+            return String(item.id || '') + ':' + String(item.like_count || 0) + ':' + (item.liked_by_me ? '1' : '0');
+          }).join('|')
+        : 'empty';
+      if (commentsFingerprint !== watchCommentsFingerprint) {
+        watchCommentsFingerprint = commentsFingerprint;
+        if (!comments.length) {
+          commentList.innerHTML = '<div class="comment"><div class="comment-avatar">LR</div><div class="comment-main"><div class="comment-author">Live Room</div><div class="comment-body">Comments will appear here when the host or viewers post to this room.</div></div></div>';
+        } else {
+          commentList.innerHTML = comments.map(function(item) {
+            const isSelf = Number(item.user_id || 0) === viewerId;
+            const author = esc(item.author);
+            const body = esc(item.body);
+            const initials = escHtml(initialsForName(item.author || 'User'));
+            const meta = esc(item.created_at_label || 'Now');
+            const tone = commentTone(item.author || 'User');
+            const likeCount = Number(item.like_count || 0);
+            const likedByLabel = esc(item.liked_by_label || '');
+            return '<div class="comment' + (isSelf ? ' is-self' : '') + '" data-comment-id="' + Number(item.id || 0) + '" data-comment-author="' + author + '">'
+              + '<div class="comment-avatar" style="background:linear-gradient(135deg, hsl(' + tone + ' 80% 62%), hsl(' + ((tone + 38) % 360) + ' 78% 54%));">' + initials + '</div>'
+              + '<div class="comment-main">'
+              + '<div class="comment-author">' + author + (isSelf ? ' <span class="is-self">You</span>' : '') + '</div>'
+              + '<div class="comment-body">' + body + '</div>'
+              + '<div class="comment-meta"><span>' + meta + '</span><button type="button" class="comment-reply">Reply</button><button type="button" class="comment-like' + (item.liked_by_me ? ' is-liked' : '') + '" aria-label="Like comment" title="' + likedByLabel + '"><i class="fa fa-heart-o" aria-hidden="true"></i>' + (likeCount > 0 ? ('<span class="comment-like-count">' + likeCount + '</span>') : '') + '</button></div>'
+              + (likedByLabel ? ('<div class="comment-likes">' + likedByLabel + '</div>') : '')
+              + '</div></div>';
+          }).join('');
+        }
+        if (shouldStickToBottom) {
+          commentList.scrollTop = commentList.scrollHeight;
+        }
       }
     }
 
     function refreshSnapshot(live) {
-      if (usesSnapshotOnlyGuestStage()) {
-        return;
-      }
-      if (webRtcReady || (isOwnerView && !isEmbedMode && !isHubEmbedMode)) {
-        watchStageScreen.classList.remove('has-snapshot');
+      if (isOwnerView && !isEmbedMode && !isHubEmbedMode) {
         return;
       }
       const nextVersion = String((live && live.snapshot_version) || '');
       const isLive = String((live && live.status) || '').toLowerCase() === 'live';
 
-      if (!isLive || nextVersion === '') {
+      if (!isLive) {
         snapshotVersion = '';
         watchStageScreen.classList.remove('has-snapshot');
-        watchStageImage.removeAttribute('src');
+        [watchStageImage, watchStageImageB].forEach(function(img) {
+          if (!img) return;
+          img.removeAttribute('src');
+          img.classList.remove('is-front');
+          if (img.dataset.objectUrl) {
+            try { URL.revokeObjectURL(img.dataset.objectUrl); } catch (e) {}
+            delete img.dataset.objectUrl;
+          }
+        });
+        if (watchStageImage) watchStageImage.classList.add('is-front');
+        syncHubWatchConnectingUi();
+        return;
+      }
+
+      // Snapshot-host stage always keeps pulling the live picture.
+      if (webRtcReady && viewerVideoHasFrames() && !usesSnapshotHostStage() && !usesSnapshotOnlyGuestStage()) {
+        if (nextVersion && nextVersion !== snapshotVersion) {
+          snapshotVersion = nextVersion;
+          pullSnapshotFrame();
+        }
+        return;
+      }
+
+      // Snapshot-primary: keep pulling frames even without a version stamp.
+      if (nextVersion === '' || usesSnapshotHostStage() || usesSnapshotOnlyGuestStage()) {
+        pullSnapshotFrame();
         return;
       }
 
       if (nextVersion === snapshotVersion && watchStageImage.getAttribute('src')) {
         watchStageScreen.classList.add('has-snapshot');
+        syncHubWatchConnectingUi();
         return;
       }
 
       snapshotVersion = nextVersion;
-      stageSnapshotLoadToken += 1;
-      setImageSourceWhenReady(
-        watchStageImage,
-        'ajax/live_snapshot.php?live=' + encodeURIComponent(String(liveId)) + '&t=' + encodeURIComponent(String(snapshotVersion)),
-        {
-          token: 'stage-' + String(stageSnapshotLoadToken),
-          onLoaded: function() {
-            watchStageScreen.classList.add('has-snapshot');
-          },
-          onError: function() {
-            watchStageScreen.classList.remove('has-snapshot');
-          }
-        }
-      );
+      pullSnapshotFrame();
     }
 
     function renderApprovedGuestTiles() {
@@ -7354,6 +7837,18 @@ if ($ownerName !== '') {
       const visibleIds = visibleGuests.map(function(item) {
         return Number(item.user_id || 0);
       });
+      const tilesFingerprint = visibleGuests.map(function(item) {
+        return String(item.user_id || 0)
+          + ':' + String(item.snapshot_version || '')
+          + ':' + (item.camera_enabled === false ? '0' : '1')
+          + ':' + (guestAudienceStreams[Number(item.user_id || 0)] ? '1' : '0')
+          + ':' + (liveGuestIds.includes(Number(item.user_id || 0)) ? '1' : '0');
+      }).join('|');
+      if (tilesFingerprint === lastGuestTilesFingerprint
+        && watchGuestAudienceLayer.querySelectorAll('[data-guest-audience]').length === visibleIds.length) {
+        return;
+      }
+      lastGuestTilesFingerprint = tilesFingerprint;
 
       Array.from(watchGuestAudienceLayer.querySelectorAll('[data-guest-audience]')).forEach(function(tile) {
         const tileId = Number(tile.getAttribute('data-guest-audience') || 0);
@@ -7515,9 +8010,9 @@ if ($ownerName !== '') {
 
     function guestAudienceRefreshInterval() {
       const tileCount = watchGuestAudienceLayer ? watchGuestAudienceLayer.children.length : 0;
-      if (tileCount >= 3) return 1800;
-      if (tileCount === 2) return 1200;
-      return 700;
+      if (tileCount >= 3) return 2200;
+      if (tileCount === 2) return 1600;
+      return 1200;
     }
 
     function syncGuestAudienceRefreshLoop() {
@@ -7616,31 +8111,123 @@ if ($ownerName !== '') {
       }
     }
 
+    function getFrontStageImage() {
+      if (watchStageImage && watchStageImage.classList.contains('is-front')) return watchStageImage;
+      if (watchStageImageB && watchStageImageB.classList.contains('is-front')) return watchStageImageB;
+      return watchStageImage;
+    }
+
+    function getBackStageImage() {
+      const front = getFrontStageImage();
+      if (front === watchStageImage) return watchStageImageB || watchStageImage;
+      return watchStageImage;
+    }
+
     function pullSnapshotFrame() {
       if (!isLiveActive || (isOwnerView && !isEmbedMode && !isHubEmbedMode)) {
         syncHubWatchConnectingUi();
         return;
       }
-      if (webRtcReady && viewerVideoHasFrames()) {
+      if (!watchStageImage || !watchStageScreen) {
+        return;
+      }
+      // Snapshot-host stage always paints. Otherwise skip when RTC video is truly live.
+      const rtcCovered = !usesSnapshotHostStage()
+        && !!(watchStageScreen
+          && watchStageScreen.classList.contains('has-webrtc')
+          && !watchStageScreen.classList.contains('is-rtc-dead')
+          && viewerVideoHasFrames());
+      if (rtcCovered) {
         syncHubWatchConnectingUi();
         return;
       }
+      if (watchStageImage.dataset.fetching === '1' || (watchStageImageB && watchStageImageB.dataset.fetching === '1')) {
+        return;
+      }
       stageSnapshotLoadToken += 1;
-      setImageSourceWhenReady(
-        watchStageImage,
-        'ajax/live_snapshot.php?live=' + encodeURIComponent(String(liveId)) + '&t=' + encodeURIComponent(String(Date.now())),
-        {
-          token: 'stage-refresh-' + String(stageSnapshotLoadToken),
-          onLoaded: function() {
-            watchStageScreen.classList.add('has-snapshot');
-            syncHubWatchConnectingUi();
-          },
-          onError: function() {
-            watchStageScreen.classList.remove('has-snapshot');
+      const token = 'stage-refresh-' + String(stageSnapshotLoadToken);
+      const url = 'ajax/live_snapshot.php?live=' + encodeURIComponent(String(liveId))
+        + '&t=' + encodeURIComponent(String(Date.now()));
+      const target = getBackStageImage() || watchStageImage;
+      const previousFront = getFrontStageImage() || watchStageImage;
+      target.dataset.loadToken = token;
+      target.dataset.fetching = '1';
+
+      const commitPaint = function(objectUrl) {
+        if (target.dataset.loadToken !== token) {
+          if (objectUrl) {
+            try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+          }
+          target.dataset.fetching = '0';
+          return;
+        }
+        const previousUrl = target.dataset.objectUrl || '';
+        target.dataset.objectUrl = objectUrl;
+        target.onload = function() {
+          if (target.dataset.loadToken !== token) return;
+          target.dataset.fetching = '0';
+          target.classList.add('is-front');
+          if (previousFront && previousFront !== target) {
+            previousFront.classList.remove('is-front');
+          }
+          if (previousUrl && previousUrl !== objectUrl) {
+            window.setTimeout(function() {
+              try { URL.revokeObjectURL(previousUrl); } catch (e) {}
+            }, 400);
+          }
+          watchStageScreen.classList.add('has-snapshot');
+          syncHubWatchConnectingUi();
+          notifyHubWatchVideoState(true);
+        };
+        target.onerror = function() {
+          if (target.dataset.loadToken !== token) return;
+          target.dataset.fetching = '0';
+          if (!watchStageScreen.classList.contains('has-snapshot')) {
             syncHubWatchConnectingUi();
           }
+        };
+        target.src = objectUrl;
+        if (target.complete && Number(target.naturalWidth || 0) > 0) {
+          target.onload();
         }
-      );
+      };
+
+      fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function(response) {
+          if (!response.ok) throw new Error('snapshot ' + response.status);
+          return response.blob();
+        })
+        .then(function(blob) {
+          if (target.dataset.loadToken !== token) {
+            target.dataset.fetching = '0';
+            return;
+          }
+          if (!blob || blob.size < 64) throw new Error('invalid snapshot');
+          commitPaint(URL.createObjectURL(blob));
+        })
+        .catch(function() {
+          if (target.dataset.loadToken !== token) {
+            target.dataset.fetching = '0';
+            return;
+          }
+          target.onload = function() {
+            if (target.dataset.loadToken !== token) return;
+            target.dataset.fetching = '0';
+            target.classList.add('is-front');
+            if (previousFront && previousFront !== target) {
+              previousFront.classList.remove('is-front');
+            }
+            watchStageScreen.classList.add('has-snapshot');
+            syncHubWatchConnectingUi();
+            notifyHubWatchVideoState(true);
+          };
+          target.onerror = function() {
+            if (target.dataset.loadToken !== token) return;
+            target.dataset.fetching = '0';
+            syncHubWatchConnectingUi();
+          };
+          target.src = url + '&fb=1';
+        });
     }
 
     function syncSnapshotPolling() {
@@ -7651,20 +8238,40 @@ if ($ownerName !== '') {
         }
         return;
       }
-      if (webRtcReady && viewerVideoHasFrames()) {
+
+      // Snapshot-host stage: keep a steady live picture. Never stop for WebRTC.
+      const rtcLive = !usesSnapshotHostStage()
+        && !!(watchStageScreen
+          && watchStageScreen.classList.contains('has-webrtc')
+          && !watchStageScreen.classList.contains('is-rtc-dead')
+          && viewerVideoHasFrames());
+
+      if (rtcLive) {
         if (snapshotPollTimer) {
           clearInterval(snapshotPollTimer);
           snapshotPollTimer = null;
         }
+        if (watchStageImage) {
+          watchStageImage.dataset.pollMs = '0';
+        }
         return;
       }
 
+      // Match host upload cadence (~700ms) for TikTok-like continuous motion.
+      const desiredMs = usesSnapshotHostStage() ? 700 : ((isHubEmbedMode || preferSnapshotViewer) ? 900 : 1100);
       if (snapshotPollTimer) {
-        return;
+        if (Number(watchStageImage && watchStageImage.dataset.pollMs || 0) === desiredMs) {
+          return;
+        }
+        clearInterval(snapshotPollTimer);
+        snapshotPollTimer = null;
       }
 
       pullSnapshotFrame();
-      snapshotPollTimer = window.setInterval(pullSnapshotFrame, usesSnapshotOnlyGuestStage() ? 750 : 850);
+      if (watchStageImage) {
+        watchStageImage.dataset.pollMs = String(desiredMs);
+      }
+      snapshotPollTimer = window.setInterval(pullSnapshotFrame, desiredMs);
     }
 
     async function startOwnerLocalPreview(forceDirectCapture) {
@@ -7790,9 +8397,10 @@ if ($ownerName !== '') {
 
       ownerSnapshotBusy = true;
       try {
-        const maxWidth = 960;
+        const maxWidth = 720;
         const scale = watchStageVideo.videoWidth > maxWidth ? (maxWidth / watchStageVideo.videoWidth) : 1;
-        const canvas = document.createElement('canvas');
+        const canvas = ownerSnapshotCanvas || document.createElement('canvas');
+        ownerSnapshotCanvas = canvas;
         canvas.width = Math.max(1, Math.round(watchStageVideo.videoWidth * scale));
         canvas.height = Math.max(1, Math.round(watchStageVideo.videoHeight * scale));
         const ctx = canvas.getContext('2d');
@@ -7801,7 +8409,7 @@ if ($ownerName !== '') {
         }
         ctx.drawImage(watchStageVideo, 0, 0, canvas.width, canvas.height);
         const blob = await new Promise(function(resolve) {
-          canvas.toBlob(resolve, 'image/jpeg', 0.86);
+          canvas.toBlob(resolve, 'image/jpeg', 0.78);
         });
         if (!blob) {
           return;
@@ -7840,13 +8448,17 @@ if ($ownerName !== '') {
         return;
       }
       uploadOwnerSnapshotFrame();
-      ownerSnapshotTimer = window.setInterval(uploadOwnerSnapshotFrame, 1000);
+      ownerSnapshotTimer = window.setInterval(uploadOwnerSnapshotFrame, 700);
     }
 
     function resetRemotePeer(rebuildKey = true) {
       if (remoteDisconnectTimer) {
         clearTimeout(remoteDisconnectTimer);
         remoteDisconnectTimer = null;
+      }
+      if (trackMuteDropTimer) {
+        clearTimeout(trackMuteDropTimer);
+        trackMuteDropTimer = null;
       }
       if (remotePc) {
         try { remotePc.close(); } catch (error) {}
@@ -7859,13 +8471,147 @@ if ($ownerName !== '') {
       offerInFlight = false;
       stageVideoLastCurrentTime = 0;
       stageVideoLastAdvanceAt = 0;
-      watchStageScreen.classList.remove('has-webrtc');
+      webRtcStableAt = 0;
+      webRtcLiveSince = 0;
+      stageFrozen = false;
+      watchStageScreen.classList.remove('has-webrtc', 'has-webrtc-live', 'is-frozen');
+      // Keep last snapshot cover; only clear the video element.
       if (watchStageVideo) {
         watchStageVideo.srcObject = null;
       }
       if (rebuildKey) {
         rebuildPeerKey();
       }
+      syncSnapshotPolling();
+    }
+
+    function ensureRemotePeer() {
+      if (remotePc) {
+        const existingState = String(remotePc.connectionState || '');
+        if (existingState === 'failed' || existingState === 'closed') {
+          resetRemotePeer(true);
+        } else {
+          return remotePc;
+        }
+      }
+
+      remotePc = new RTCPeerConnection(rtcConfig);
+      remoteStream = new MediaStream();
+      watchStageVideo.muted = !watchMicEnabled;
+      watchStageVideo.defaultMuted = !watchMicEnabled;
+      if (watchMicEnabled) {
+        watchStageVideo.removeAttribute('muted');
+      } else {
+        watchStageVideo.setAttribute('muted', 'muted');
+      }
+      watchStageVideo.srcObject = remoteStream;
+      remoteVideoTransceiver = remotePc.addTransceiver('video', { direction: 'recvonly' });
+      remoteAudioTransceiver = remotePc.addTransceiver('audio', { direction: 'recvonly' });
+
+      if (localGuestStream) {
+        localGuestStream.getTracks().forEach(function(track) {
+          const sender = remotePc.addTrack(track, localGuestStream);
+          tuneOutgoingSender(sender, 'viewer-return');
+        });
+      }
+
+      remotePc.ontrack = function(event) {
+        event.streams[0].getTracks().forEach(function(track) {
+          const exists = remoteStream.getTracks().some(function(existing) {
+            return existing.id === track.id;
+          });
+          if (!exists) {
+            remoteStream.addTrack(track);
+          }
+          if (watchStageVideo) {
+            watchStageVideo.play().catch(function() {});
+          }
+          markStageVideoProgress();
+          markWebRtcReady(true);
+          syncStageVideoHealthLoop();
+          track.onmute = function() {
+            if (isOwnerView) return;
+            // Brief mute is normal (codec/keyframe). Only drop ready after sustained mute.
+            if (trackMuteDropTimer) clearTimeout(trackMuteDropTimer);
+            trackMuteDropTimer = window.setTimeout(function() {
+              trackMuteDropTimer = null;
+              if (track.muted && !viewerVideoHasFrames()) {
+                markWebRtcReady(false);
+                pullSnapshotFrame();
+              }
+            }, 2800);
+          };
+          track.onended = function() {
+            if (!isOwnerView) {
+              markWebRtcReady(false);
+              pullSnapshotFrame();
+            }
+          };
+          track.onunmute = function() {
+            if (!isOwnerView) {
+              if (trackMuteDropTimer) {
+                clearTimeout(trackMuteDropTimer);
+                trackMuteDropTimer = null;
+              }
+              markStageVideoProgress();
+              markWebRtcReady(true);
+              syncStageVideoHealthLoop();
+            }
+          };
+        });
+      };
+
+      remotePc.onicecandidate = function(event) {
+        if (!event.candidate) {
+          return;
+        }
+        sendSignal('candidate', event.candidate.toJSON()).catch(function() {});
+      };
+
+      remotePc.onconnectionstatechange = function() {
+        const connectionState = String(remotePc && remotePc.connectionState || '');
+        if (connectionState === 'connected') {
+          if (remoteDisconnectTimer) {
+            clearTimeout(remoteDisconnectTimer);
+            remoteDisconnectTimer = null;
+          }
+          viewerRtcOfferBackoffMs = 1000;
+          return;
+        }
+        if (connectionState === 'disconnected') {
+          if (remoteDisconnectTimer) {
+            return;
+          }
+          // Keep showing last snapshot underlay while we wait for ICE to recover.
+          pullSnapshotFrame();
+          remoteDisconnectTimer = window.setTimeout(function() {
+            remoteDisconnectTimer = null;
+            if (remotePc && String(remotePc.connectionState || '') === 'disconnected') {
+              markWebRtcReady(false);
+              softRestartViewerRtc().then(function(ok) {
+                if (!ok) {
+                  resetRemotePeer(true);
+                  scheduleViewerRtcRestart(viewerRtcOfferBackoffMs);
+                }
+              });
+            }
+          }, peerDisconnectGraceMs);
+          return;
+        }
+        if (remoteDisconnectTimer) {
+          clearTimeout(remoteDisconnectTimer);
+          remoteDisconnectTimer = null;
+        }
+        if (connectionState === 'failed' || connectionState === 'closed') {
+          markWebRtcReady(false);
+          pullSnapshotFrame();
+          resetRemotePeer(true);
+          viewerRtcOfferBackoffMs = Math.min(8000, Math.max(1500, viewerRtcOfferBackoffMs * 2));
+          scheduleViewerRtcRestart(viewerRtcOfferBackoffMs);
+        }
+      };
+
+      return remotePc;
     }
 
     async function startGuestPublishing() {
@@ -8019,7 +8765,7 @@ if ($ownerName !== '') {
         return;
       }
       uploadGuestSnapshotFrame();
-      guestSnapshotTimer = window.setInterval(uploadGuestSnapshotFrame, 1000);
+      guestSnapshotTimer = window.setInterval(uploadGuestSnapshotFrame, 900);
     }
 
     async function syncGuestJoinFlow() {
@@ -8083,105 +8829,6 @@ if ($ownerName !== '') {
       if (!data || !data.ok) {
         throw new Error(data && data.error ? data.error : 'Signal send failed');
       }
-    }
-
-    function ensureRemotePeer() {
-      if (remotePc) {
-        return remotePc;
-      }
-
-      remotePc = new RTCPeerConnection(rtcConfig);
-      remoteStream = new MediaStream();
-      watchStageVideo.muted = !watchMicEnabled;
-      watchStageVideo.defaultMuted = !watchMicEnabled;
-      if (watchMicEnabled) {
-        watchStageVideo.removeAttribute('muted');
-      } else {
-        watchStageVideo.setAttribute('muted', 'muted');
-      }
-      watchStageVideo.srcObject = remoteStream;
-      remoteVideoTransceiver = remotePc.addTransceiver('video', { direction: 'recvonly' });
-      remoteAudioTransceiver = remotePc.addTransceiver('audio', { direction: 'recvonly' });
-
-      if (localGuestStream) {
-        localGuestStream.getTracks().forEach(function(track) {
-          const sender = remotePc.addTrack(track, localGuestStream);
-          tuneOutgoingSender(sender, 'viewer-return');
-        });
-      }
-
-      remotePc.ontrack = function(event) {
-        event.streams[0].getTracks().forEach(function(track) {
-          const exists = remoteStream.getTracks().some(function(existing) {
-            return existing.id === track.id;
-          });
-          if (!exists) {
-            remoteStream.addTrack(track);
-          }
-          if (watchStageVideo) {
-            watchStageVideo.play().catch(function() {});
-          }
-          markStageVideoProgress();
-          markWebRtcReady(true);
-          syncStageVideoHealthLoop();
-          track.onmute = function() {
-            if (!isOwnerView) {
-              markWebRtcReady(false);
-            }
-          };
-          track.onended = function() {
-            if (!isOwnerView) {
-              markWebRtcReady(false);
-            }
-          };
-          track.onunmute = function() {
-            if (!isOwnerView) {
-              markStageVideoProgress();
-              markWebRtcReady(true);
-              syncStageVideoHealthLoop();
-            }
-          };
-        });
-      };
-
-      remotePc.onicecandidate = function(event) {
-        if (!event.candidate) {
-          return;
-        }
-        sendSignal('candidate', event.candidate.toJSON()).catch(function() {});
-      };
-
-      remotePc.onconnectionstatechange = function() {
-        const connectionState = String(remotePc.connectionState || '');
-        if (connectionState === 'connected') {
-          if (remoteDisconnectTimer) {
-            clearTimeout(remoteDisconnectTimer);
-            remoteDisconnectTimer = null;
-          }
-          return;
-        }
-        if (connectionState === 'disconnected') {
-          if (remoteDisconnectTimer) {
-            return;
-          }
-          remoteDisconnectTimer = window.setTimeout(function() {
-            remoteDisconnectTimer = null;
-            if (remotePc && String(remotePc.connectionState || '') === 'disconnected') {
-              markWebRtcReady(false);
-            }
-          }, peerDisconnectGraceMs);
-          return;
-        }
-        if (remoteDisconnectTimer) {
-          clearTimeout(remoteDisconnectTimer);
-          remoteDisconnectTimer = null;
-        }
-        if (connectionState === 'failed' || connectionState === 'closed') {
-          markWebRtcReady(false);
-        }
-      };
-
-      return remotePc;
     }
 
     function resetGuestPublishPeer(rebuildKey = true) {
@@ -8427,6 +9074,8 @@ if ($ownerName !== '') {
         if (!payload.sdp) return;
         await pc.setRemoteDescription(new RTCSessionDescription(payload));
         offerInFlight = false;
+        viewerRtcOfferBackoffMs = 1000;
+        viewerRtcNextOfferAt = 0;
         return;
       }
 
@@ -8441,11 +9090,10 @@ if ($ownerName !== '') {
       }
 
       if (type === 'bye') {
-        if (remotePc) {
-          remotePc.close();
-          remotePc = null;
-        }
         markWebRtcReady(false);
+        pullSnapshotFrame();
+        resetRemotePeer(true);
+        scheduleViewerRtcRestart(Math.max(800, viewerRtcOfferBackoffMs));
       }
     }
 
@@ -8535,6 +9183,22 @@ if ($ownerName !== '') {
       if (!window.RTCPeerConnection) {
         return;
       }
+      if (Date.now() < Number(viewerRtcNextOfferAt || 0)) {
+        return;
+      }
+      if (remotePc) {
+        const connectionState = String(remotePc.connectionState || '');
+        const signalingState = String(remotePc.signalingState || '');
+        if (connectionState === 'failed' || connectionState === 'closed') {
+          resetRemotePeer(true);
+        } else if (connectionState === 'connecting' || connectionState === 'connected') {
+          return;
+        } else if (signalingState !== 'stable' && signalingState !== 'have-local-offer') {
+          return;
+        } else if (signalingState === 'have-local-offer' && offerInFlight) {
+          return;
+        }
+      }
       offerInFlight = true;
       try {
         const pc = ensureRemotePeer();
@@ -8547,8 +9211,22 @@ if ($ownerName !== '') {
           type: offer.type,
           sdp: offer.sdp
         });
+        // Keep offerInFlight true until answer arrives (or timeout).
+        window.setTimeout(function() {
+          if (offerInFlight && !webRtcReady) {
+            offerInFlight = false;
+            viewerRtcOfferBackoffMs = Math.min(8000, viewerRtcOfferBackoffMs * 2);
+            viewerRtcNextOfferAt = Date.now() + viewerRtcOfferBackoffMs;
+          }
+        }, 8000);
       } catch (error) {
         offerInFlight = false;
+        viewerRtcOfferBackoffMs = Math.min(8000, Math.max(1500, viewerRtcOfferBackoffMs * 2));
+        viewerRtcNextOfferAt = Date.now() + viewerRtcOfferBackoffMs;
+        const connectionState = remotePc ? String(remotePc.connectionState || '') : 'closed';
+        if (connectionState === 'failed' || connectionState === 'closed') {
+          resetRemotePeer(true);
+        }
       }
     }
 
@@ -8629,6 +9307,14 @@ if ($ownerName !== '') {
         syncHubWatchConnectingUi();
         return;
       }
+      if (usesSnapshotHostStage()) {
+        stopViewerRtcLoop();
+        resetRemotePeer(false);
+        syncSnapshotPolling();
+        stopStageVideoHealthLoop();
+        syncHubWatchConnectingUi();
+        return;
+      }
       if (usesSnapshotOnlyGuestStage()) {
         stopViewerRtcLoop();
         resetRemotePeer(false);
@@ -8653,9 +9339,9 @@ if ($ownerName !== '') {
       signalPollTimer = window.setInterval(function() {
         pollSignals();
         if (!webRtcReady) {
-          startViewerRtc();
+          startViewerRtc().catch(function() {});
         }
-      }, 1000);
+      }, 1500);
       syncHubWatchConnectingUi();
     }
 
@@ -8675,7 +9361,7 @@ if ($ownerName !== '') {
         if (localGuestStream && !guestPublishPc) {
           startGuestPublishRtc();
         }
-      }, 1000);
+      }, 1400);
     }
 
     async function pollRoom() {
@@ -9020,7 +9706,31 @@ if ($ownerName !== '') {
     setWatchSidebarMode('chat');
     syncJoinRequestUi();
     syncSnapshotPolling();
-    pollTimer = window.setInterval(pollRoom, 2500);
+    // Show the latest host frame immediately in hub embeds.
+    if ((isHubEmbedMode || (isHubStageMode && isEmbedMode)) && !isOwnerView && isLiveActive) {
+      if (watchStageImage && watchStageImage.getAttribute('src')) {
+        const markInitial = function() {
+          if (!watchStageImage || Number(watchStageImage.naturalWidth || 0) <= 0) return;
+          watchStageScreen.classList.add('has-snapshot');
+          syncHubWatchConnectingUi();
+          notifyHubWatchVideoState(true);
+        };
+        if (watchStageImage.complete && Number(watchStageImage.naturalWidth || 0) > 0) {
+          markInitial();
+        } else {
+          watchStageImage.addEventListener('load', markInitial, { once: true });
+          watchStageImage.addEventListener('error', function() {
+            pullSnapshotFrame();
+          }, { once: true });
+        }
+      } else {
+        pullSnapshotFrame();
+      }
+      window.setTimeout(function() {
+        syncHubWatchConnectingUi();
+      }, 250);
+    }
+    pollTimer = window.setInterval(pollRoom, 3500);
     syncViewerRtcLoop();
     syncHubOwnerCamTap();
     if (hubOwnerCamTap) {
@@ -9029,6 +9739,7 @@ if ($ownerName !== '') {
       });
     }
     window.addEventListener('beforeunload', function() {
+      stopStageFrameCallback();
       if (pollTimer) clearInterval(pollTimer);
       if (snapshotPollTimer) clearInterval(snapshotPollTimer);
       if (signalPollTimer) clearInterval(signalPollTimer);

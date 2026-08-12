@@ -2,8 +2,15 @@
 declare(strict_types=1);
 ?>
 /* Thin post-action icons (X-style line icons) */
-:root{
-  --msb-love-color:#7c3aed;
+:root,
+html[data-msb-appearance],
+html.dark-auto,
+html[data-theme="dark"]{
+  /* Fixed reaction colors — same in picker + action bar; never follow appearance/progress/dark-auto */
+  --msb-rx-like:#2563eb !important;
+  --msb-rx-love:#ff4d6d !important;
+  --msb-rx-dislike:#475569 !important;
+  --msb-love-color:#ff4d6d !important;
   /* White halo + dark edge so icons/counts read on teal / dark / media backgrounds */
   --msb-pact-contrast-filter:drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 0 .6px rgba(255,255,255,.95)) drop-shadow(0 1px 2px rgba(0,0,0,.55));
   --msb-pact-contrast-text-shadow:0 0 2px rgba(255,255,255,.95), 0 0 1px rgba(255,255,255,.9), 0 1px 2px rgba(0,0,0,.5);
@@ -30,6 +37,21 @@ declare(strict_types=1);
 .msb-pact-heart.is-active,
 .is-love .msb-pact-heart{
   --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+}
+.msb-pact-thumb{
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z'/%3E%3Cpath d='M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3'/%3E%3C/svg%3E");
+}
+.msb-pact-thumb.is-active,
+.is-like .msb-pact-thumb{
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3'/%3E%3C/svg%3E");
+  color:var(--msb-rx-like, #2563eb) !important;
+}
+.msb-pact-thumb-down{
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10'/%3E%3Cpath d='M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3'/%3E%3C/svg%3E");
+}
+.msb-pact-thumb-down.is-active{
+  --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3'/%3E%3C/svg%3E");
+  color:var(--msb-rx-dislike, #475569) !important;
 }
 .msb-pact-comment{
   --msb-pact-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'/%3E%3C/svg%3E");
@@ -161,17 +183,78 @@ body.profile-page #profilePostsFeed .mf-act .mf-num,
 body.reel-page .reel-act-count{
   text-shadow:var(--msb-pact-contrast-text-shadow) !important;
 }
-html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-save):not(.is-share),
-html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-save):not(.is-share) .msb-pact,
-html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-save):not(.is-share) .mf-num,
-html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-save):not(.is-share),
-html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-save):not(.is-share) .msb-pact,
-html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-save):not(.is-share) .mf-num,
-html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-save):not(.is-share),
-html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-save):not(.is-share) .msb-pact,
-html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-save):not(.is-share) .action-count,
-html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-save):not(.is-share),
-html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-save):not(.is-share) .msb-pact{
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted),
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .msb-pact,
+html[data-msb-appearance] .mf-feed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .mf-num,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted),
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .msb-pact,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .mf-num,
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted),
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .msb-pact,
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .action-count,
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted),
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .msb-pact{
   color:var(--msb-palette-text, #0f172a) !important;
   -webkit-text-fill-color:var(--msb-palette-text, #0f172a) !important;
+}
+
+/* Locked reaction icon colors (picker + selected action) beat appearance / progress / dark-auto */
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="like"] .msb-pact-thumb,
+html[data-msb-appearance] .is-like .msb-pact-thumb,
+html[data-msb-appearance] .msb-pact-thumb.is-active,
+html.dark-auto .has-rx-icon[data-selected-reaction="like"] .msb-pact-thumb,
+html.dark-auto .is-like .msb-pact-thumb,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="like"] .msb-pact-thumb,
+html[data-theme="dark"] .is-like .msb-pact-thumb,
+html[data-msb-appearance] .msb-reaction-picker-item[data-reaction="like"] .msb-reaction-picker-emoji,
+html.dark-auto .msb-reaction-picker-item[data-reaction="like"] .msb-reaction-picker-emoji,
+html[data-theme="dark"] .msb-reaction-picker-item[data-reaction="like"] .msb-reaction-picker-emoji{
+  color:var(--msb-rx-like, #2563eb) !important;
+  -webkit-text-fill-color:var(--msb-rx-like, #2563eb) !important;
+  fill:var(--msb-rx-like, #2563eb) !important;
+}
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="love"] .msb-pact-heart,
+html[data-msb-appearance] .is-love .msb-pact-heart,
+html[data-msb-appearance] .msb-pact-heart.is-active,
+html.dark-auto .has-rx-icon[data-selected-reaction="love"] .msb-pact-heart,
+html.dark-auto .is-love .msb-pact-heart,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="love"] .msb-pact-heart,
+html[data-theme="dark"] .is-love .msb-pact-heart,
+html[data-msb-appearance] .msb-reaction-picker-item[data-reaction="love"] .msb-reaction-picker-emoji,
+html.dark-auto .msb-reaction-picker-item[data-reaction="love"] .msb-reaction-picker-emoji,
+html[data-theme="dark"] .msb-reaction-picker-item[data-reaction="love"] .msb-reaction-picker-emoji{
+  color:var(--msb-rx-love, #ff4d6d) !important;
+  -webkit-text-fill-color:var(--msb-rx-love, #ff4d6d) !important;
+  fill:var(--msb-rx-love, #ff4d6d) !important;
+}
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="dislike"] .msb-pact-thumb-down,
+html[data-msb-appearance] .msb-pact-thumb-down.is-active,
+html.dark-auto .has-rx-icon[data-selected-reaction="dislike"] .msb-pact-thumb-down,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="dislike"] .msb-pact-thumb-down,
+html[data-msb-appearance] .msb-reaction-picker-item[data-reaction="dislike"] .msb-reaction-picker-emoji,
+html.dark-auto .msb-reaction-picker-item[data-reaction="dislike"] .msb-reaction-picker-emoji,
+html[data-theme="dark"] .msb-reaction-picker-item[data-reaction="dislike"] .msb-reaction-picker-emoji{
+  color:var(--msb-rx-dislike, #475569) !important;
+  -webkit-text-fill-color:var(--msb-rx-dislike, #475569) !important;
+  fill:var(--msb-rx-dislike, #475569) !important;
+}
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="smile"] .msb-rx-face,
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="laugh"] .msb-rx-face,
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="wow"] .msb-rx-face,
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="sad"] .msb-rx-face,
+html[data-msb-appearance] .has-rx-icon[data-selected-reaction="angry"] .msb-rx-face,
+html.dark-auto .has-rx-icon[data-selected-reaction="smile"] .msb-rx-face,
+html.dark-auto .has-rx-icon[data-selected-reaction="laugh"] .msb-rx-face,
+html.dark-auto .has-rx-icon[data-selected-reaction="wow"] .msb-rx-face,
+html.dark-auto .has-rx-icon[data-selected-reaction="sad"] .msb-rx-face,
+html.dark-auto .has-rx-icon[data-selected-reaction="angry"] .msb-rx-face,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="smile"] .msb-rx-face,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="laugh"] .msb-rx-face,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="wow"] .msb-rx-face,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="sad"] .msb-rx-face,
+html[data-theme="dark"] .has-rx-icon[data-selected-reaction="angry"] .msb-rx-face{
+  color:transparent !important;
+  -webkit-text-fill-color:transparent !important;
+  background:transparent !important;
+  fill:none !important;
 }

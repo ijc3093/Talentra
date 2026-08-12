@@ -1217,8 +1217,50 @@ function publisher_session_establish_for_manager(PDO $dbh, int $managerId): void
 
 function publisher_post_visibility(PDO $dbh, int $userId, string $requested): string
 {
+    publisher_ensure_post_visibility_supports_private($dbh);
     $requested = strtolower(trim($requested));
-    return in_array($requested, ['public', 'friends'], true) ? $requested : 'public';
+    return in_array($requested, ['public', 'friends', 'private'], true) ? $requested : 'public';
+}
+
+/**
+ * public_posts.visibility was historically enum('public','friends').
+ * Private gallery posts need 'private' or MySQL rejects the INSERT.
+ */
+function publisher_ensure_post_visibility_supports_private(PDO $dbh): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        $st = $dbh->prepare("
+            SELECT COLUMN_TYPE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'public_posts'
+              AND COLUMN_NAME = 'visibility'
+            LIMIT 1
+        ");
+        $st->execute();
+        $columnType = strtolower(trim((string)($st->fetchColumn() ?: '')));
+        if ($columnType === '') {
+            return;
+        }
+        // Already accepts private (enum with private, or varchar).
+        if (strpos($columnType, 'private') !== false || strpos($columnType, 'varchar') === 0 || strpos($columnType, 'char(') === 0) {
+            return;
+        }
+        if (strpos($columnType, 'enum(') === 0) {
+            $dbh->exec("ALTER TABLE public_posts MODIFY COLUMN visibility ENUM('public','friends','private') NOT NULL DEFAULT 'public'");
+            return;
+        }
+        // Fallback: widen to varchar so any destination value is safe.
+        $dbh->exec("ALTER TABLE public_posts MODIFY COLUMN visibility VARCHAR(20) NOT NULL DEFAULT 'public'");
+    } catch (Throwable $e) {
+        // Non-fatal: insert may still fail and surface to the client.
+    }
 }
 
 /** After posting, land on the surface that matches the chosen destination. */
@@ -1226,9 +1268,13 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
 {
     $visibility = strtolower(trim($visibility));
 
-    // Friends → For You (feed.php). Public → Discover (public.php).
+    // Public → Discover (public.php). Friends → For You (feed.php).
+    // Private → owner Gallery Private tab (profile.php) — not feed/public.
     if ($visibility === 'public') {
         return 'public.php';
+    }
+    if ($visibility === 'private') {
+        return 'profile.php';
     }
 
     return 'feed.php';
@@ -1248,7 +1294,10 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
 function publisher_workspace_feed_scope_sql(): string
 {
     return "(
-        p.user_id = :wsFeedMe
+        (
+            p.user_id = :wsFeedMe
+            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) <> 'private'
+        )
         OR (
             p.visibility = 'friends'
             AND EXISTS (
@@ -1394,7 +1443,8 @@ function publisher_feed_can_view_post(PDO $dbh, int $meId, array $post): bool
     if ($authorId === $meId) {
         $vis = strtolower(trim((string)($post['visibility'] ?? 'friends')));
         // Own public-destination posts belong on public.php, not Friends Feed.
-        return ($vis === 'friends' || $vis === '' || $vis === 'private');
+        // Own private posts belong on profile Gallery → Private only.
+        return ($vis === 'friends' || $vis === '');
     }
 
     $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
@@ -1444,6 +1494,22 @@ function publisher_post_visible_on_public_surface(PDO $dbh, int $meId, array $po
 
 function publisher_can_view_post(PDO $dbh, int $meId, array $post): bool
 {
+    $authorId = (int)($post['user_id'] ?? 0);
+    // Owner can always open their own posts (Private gallery modal, edits, etc.).
+    // Friends/strangers still cannot see private — feed/list scopes already exclude them.
+    if ($authorId > 0 && $authorId === $meId) {
+        return true;
+    }
+
+    if ($meId > 0 && $authorId > 0) {
+        if (!function_exists('fs_block_either_way')) {
+            require_once __DIR__ . '/friend_system.php';
+        }
+        if (function_exists('fs_block_either_way') && fs_block_either_way($dbh, $meId, $authorId)) {
+            return false;
+        }
+    }
+
     return publisher_feed_can_view_post($dbh, $meId, $post)
         || publisher_post_visible_on_public_surface($dbh, $meId, $post)
         || publisher_profile_can_view_publisher_post($dbh, $meId, $post);
@@ -1485,6 +1551,20 @@ function publisher_post_interaction_allowed(PDO $dbh, int $meId, array $post): b
     }
 
     $authorId = (int)($post['user_id'] ?? 0);
+    $postId = (int)($post['id'] ?? $post['post_id'] ?? 0);
+    // People tagged or mentioned on the post may engage even when visibility is private/friends.
+    if ($meId > 0 && $postId > 0) {
+        if (!function_exists('msb_user_is_tagged_on_post') || !function_exists('msb_user_is_mentioned_on_post')) {
+            require_once __DIR__ . '/post_tags.php';
+        }
+        if (function_exists('msb_user_is_tagged_on_post') && msb_user_is_tagged_on_post($dbh, $postId, $meId)) {
+            return true;
+        }
+        if (function_exists('msb_user_is_mentioned_on_post') && msb_user_is_mentioned_on_post($dbh, $postId, $meId)) {
+            return true;
+        }
+    }
+
     if ($authorId <= 0 || !publisher_can_view_post($dbh, $meId, $post)) {
         return false;
     }
@@ -1500,6 +1580,15 @@ function publisher_profile_can_view_user(PDO $dbh, int $meId, int $viewId): bool
     }
     if ($meId === $viewId) {
         return true;
+    }
+
+    if ($meId !== $viewId) {
+        if (!function_exists('fs_block_either_way')) {
+            require_once __DIR__ . '/friend_system.php';
+        }
+        if (function_exists('fs_block_either_way') && fs_block_either_way($dbh, $meId, $viewId)) {
+            return false;
+        }
     }
 
     $viewIsPublisher = publisher_is_publisher_user($dbh, $viewId);
@@ -1593,9 +1682,11 @@ function publisher_news_list_scope_params(int $meId): array
 /**
  * profile.php Posts / Gallery / Tags: list by profile owner, not feed discover rules.
  * - Own profile: all posts.
- * - Publisher profile: any signed-in viewer (personal or publisher) may browse that
- *   publisher's public posts without following (brand page).
- * - Personal profile: public posts, or friends-only when an accepted contact.
+ * - Publisher profile: any signed-in viewer may browse that publisher's public posts.
+ * - Personal profile:
+ *   - accepted friends → Friend + Public posts
+ *   - strangers → Public posts only
+ *   - Private stays owner-only
  */
 function publisher_profile_author_posts_scope_sql(PDO $dbh, int $viewerId, int $authorId): string
 {
@@ -1612,6 +1703,7 @@ function publisher_profile_author_posts_scope_sql(PDO $dbh, int $viewerId, int $
         return "LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'";
     }
 
+    // Personal profile: strangers see Public only; friends see Friend + Public.
     return "(
         LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'
         OR (

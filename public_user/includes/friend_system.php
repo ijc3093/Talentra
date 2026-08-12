@@ -60,6 +60,9 @@ if (!function_exists('fs_send_friend_request')) {
     function fs_send_friend_request(PDO $dbh, int $fromUserId, int $toUserId): array {
         if ($fromUserId <= 0 || $toUserId <= 0) return ['ok' => false, 'message' => 'Invalid user.'];
         if ($fromUserId === $toUserId) return ['ok' => false, 'message' => 'You cannot add yourself.'];
+        if (fs_block_either_way($dbh, $fromUserId, $toUserId)) {
+            return ['ok' => false, 'message' => 'You cannot send a friend request to this user.'];
+        }
         $status = fs_friend_status($dbh, $fromUserId, $toUserId);
         if ($status === 'friends') return ['ok' => false, 'message' => 'This user is already your friend.'];
         if ($status === 'outgoing_pending') return ['ok' => false, 'message' => 'Friend request already sent.'];
@@ -150,6 +153,155 @@ if (!function_exists('fs_remove_friend')) {
         } catch (Throwable $e) {
             if ($dbh->inTransaction()) $dbh->rollBack();
             return ['ok' => false, 'message' => 'Unable to remove friend.'];
+        }
+    }
+}
+
+if (!function_exists('fs_ensure_blocks_table')) {
+    function fs_ensure_blocks_table(PDO $dbh): bool {
+        static $ready = null;
+        if ($ready !== null) {
+            return $ready;
+        }
+        try {
+            $dbh->exec("
+                CREATE TABLE IF NOT EXISTS user_blocks (
+                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                  user_id INT NOT NULL,
+                  blocked_user_id INT NOT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (id),
+                  UNIQUE KEY uq_user_blocks_pair (user_id, blocked_user_id),
+                  KEY idx_user_blocks_blocked (blocked_user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ");
+            $ready = true;
+        } catch (Throwable $e) {
+            $ready = false;
+        }
+        return $ready;
+    }
+}
+
+/** True when $blockerId has blocked $blockedId. */
+if (!function_exists('fs_has_blocked')) {
+    function fs_has_blocked(PDO $dbh, int $blockerId, int $blockedId): bool {
+        if ($blockerId <= 0 || $blockedId <= 0 || $blockerId === $blockedId) {
+            return false;
+        }
+        if (!fs_ensure_blocks_table($dbh)) {
+            return false;
+        }
+        try {
+            $st = $dbh->prepare("SELECT 1 FROM user_blocks WHERE user_id = ? AND blocked_user_id = ? LIMIT 1");
+            $st->execute([$blockerId, $blockedId]);
+            return (bool)$st->fetchColumn();
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+/** True when either user has blocked the other. */
+if (!function_exists('fs_block_either_way')) {
+    function fs_block_either_way(PDO $dbh, int $a, int $b): bool {
+        if ($a <= 0 || $b <= 0 || $a === $b) {
+            return false;
+        }
+        return fs_has_blocked($dbh, $a, $b) || fs_has_blocked($dbh, $b, $a);
+    }
+}
+
+/**
+ * SQL fragment: exclude authors involved in a block with the viewer.
+ * Uses two distinct binds (required when PDO native prepares are on).
+ * Bind both $meBind and $meBind2 (defaults :fsBlockMe / :fsBlockMe2) to the viewer id.
+ */
+if (!function_exists('fs_block_exclude_author_sql')) {
+    function fs_block_exclude_author_sql(string $authorExpr = 'p.user_id', string $meBind = ':fsBlockMe', ?string $meBind2 = null): string {
+        $meBind2 = ($meBind2 !== null && $meBind2 !== '') ? $meBind2 : ($meBind . '2');
+        return "NOT EXISTS (
+            SELECT 1 FROM user_blocks ub
+            WHERE (ub.user_id = {$meBind} AND ub.blocked_user_id = {$authorExpr})
+               OR (ub.user_id = {$authorExpr} AND ub.blocked_user_id = {$meBind2})
+        )";
+    }
+}
+
+if (!function_exists('fs_block_user')) {
+    function fs_block_user(PDO $dbh, int $meId, int $peerId): array {
+        if ($meId <= 0 || $peerId <= 0 || $meId === $peerId) {
+            return ['ok' => false, 'message' => 'Invalid user.'];
+        }
+        if (!fs_ensure_blocks_table($dbh)) {
+            return ['ok' => false, 'message' => 'Block is not available yet.'];
+        }
+        try {
+            $dbh->beginTransaction();
+
+            $ins = $dbh->prepare("
+                INSERT INTO user_blocks (user_id, blocked_user_id, created_at)
+                VALUES (?, ?, NOW())
+                ON DUPLICATE KEY UPDATE created_at = created_at
+            ");
+            $ins->execute([$meId, $peerId]);
+
+            // End friendship both ways.
+            $del = $dbh->prepare("
+                DELETE FROM user_contacts
+                WHERE (owner_user_id = ? AND friend_user_id = ?)
+                   OR (owner_user_id = ? AND friend_user_id = ?)
+            ");
+            $del->execute([$meId, $peerId, $peerId, $meId]);
+
+            // Cancel pending requests both ways.
+            try {
+                $req = $dbh->prepare("
+                    UPDATE contact_requests
+                    SET status = 'blocked', updated_at = NOW()
+                    WHERE ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))
+                      AND status = 'pending'
+                ");
+                $req->execute([$meId, $peerId, $peerId, $meId]);
+            } catch (Throwable $eReq) {
+                try {
+                    $req2 = $dbh->prepare("
+                        UPDATE contact_requests
+                        SET status = 'declined'
+                        WHERE ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))
+                          AND status = 'pending'
+                    ");
+                    $req2->execute([$meId, $peerId, $peerId, $meId]);
+                } catch (Throwable $e2) {
+                    // ignore
+                }
+            }
+
+            $dbh->commit();
+            return ['ok' => true, 'message' => 'User blocked. They can no longer see your profile, posts, or messages.'];
+        } catch (Throwable $e) {
+            if ($dbh->inTransaction()) {
+                $dbh->rollBack();
+            }
+            return ['ok' => false, 'message' => 'Unable to block this user.'];
+        }
+    }
+}
+
+if (!function_exists('fs_unblock_user')) {
+    function fs_unblock_user(PDO $dbh, int $meId, int $peerId): array {
+        if ($meId <= 0 || $peerId <= 0 || $meId === $peerId) {
+            return ['ok' => false, 'message' => 'Invalid user.'];
+        }
+        if (!fs_ensure_blocks_table($dbh)) {
+            return ['ok' => false, 'message' => 'Block is not available yet.'];
+        }
+        try {
+            $st = $dbh->prepare("DELETE FROM user_blocks WHERE user_id = ? AND blocked_user_id = ? LIMIT 1");
+            $st->execute([$meId, $peerId]);
+            return ['ok' => true, 'message' => 'User unblocked.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => 'Unable to unblock this user.'];
         }
     }
 }

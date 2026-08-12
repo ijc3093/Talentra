@@ -1,3 +1,14 @@
+/* FOUC: closed pcm dialogs stay hidden even if shamcey forces dialog{display:block} */
+dialog.pcm-share-dialog:not([open]),
+dialog.pcm-delete-dialog:not([open]),
+dialog.pcm-tag-dialog:not([open]),
+dialog.pcm-mention-dialog:not([open]),
+dialog.pcm-archive-dialog:not([open]){
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
 :root{
   --pcm-on-media-circle-size:30px;
   --pcm-menu-btn-size:28px;
@@ -752,3 +763,70 @@ html[data-theme="light"]:not([data-msb-appearance]) .post-card-menu .pcm-item i,
 html[data-theme="light"]:not([data-msb-appearance]) .post-card-menu .pcm-item span{
   color:var(--pcm-menu-text) !important;
 }
+
+/* Post visibility badge (after time): Public globe · Friends · Private lock */
+.post-vis-badge,
+.mf-vis,
+.head-meta .post-vis-badge,
+.standard-media-name-row .post-vis-badge,
+.standard-text-meta .post-vis-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  margin-left:2px;
+  width:16px;
+  height:16px;
+  line-height:1;
+  color:#667085;
+  opacity:.92;
+  vertical-align:middle;
+}
+.post-vis-badge i,
+.mf-vis i{
+  font-size:12px;
+  line-height:1;
+  color:inherit !important;
+}
+.post-vis-badge .post-vis-sr{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
+}
+.post-vis-badge.post-vis-public,
+.mf-vis.post-vis-public{ color:#0f766e; }
+.post-vis-badge.post-vis-friends,
+.mf-vis.post-vis-friends{ color:#2563eb; }
+.post-vis-badge.post-vis-private,
+.mf-vis.post-vis-private{ color:#b45309; }
+.mf-media-shell > .mf-head--on-media .post-vis-badge,
+.mf-media-shell > .mf-head--on-media .mf-vis,
+.standard-media-topbar .post-vis-badge{
+  color:rgba(255,255,255,.92);
+  text-shadow:0 1px 2px rgba(0,0,0,.45);
+}
+.mf-media-shell > .mf-head--on-media .post-vis-badge.post-vis-public,
+.standard-media-topbar .post-vis-badge.post-vis-public{ color:#5eead4; }
+.mf-media-shell > .mf-head--on-media .post-vis-badge.post-vis-friends,
+.standard-media-topbar .post-vis-badge.post-vis-friends{ color:#93c5fd; }
+.mf-media-shell > .mf-head--on-media .post-vis-badge.post-vis-private,
+.standard-media-topbar .post-vis-badge.post-vis-private{ color:#fcd34d; }
+html.dark-auto .post-vis-badge,
+html[data-theme="dark"] .post-vis-badge,
+html.dark-auto .mf-vis,
+html[data-theme="dark"] .mf-vis{
+  color:#94a3b8;
+}
+html.dark-auto .post-vis-badge.post-vis-public,
+html[data-theme="dark"] .post-vis-badge.post-vis-public{ color:#2dd4bf; }
+html.dark-auto .post-vis-badge.post-vis-friends,
+html[data-theme="dark"] .post-vis-badge.post-vis-friends{ color:#60a5fa; }
+html.dark-auto .post-vis-badge.post-vis-private,
+html[data-theme="dark"] .post-vis-badge.post-vis-private{ color:#fbbf24; }
+

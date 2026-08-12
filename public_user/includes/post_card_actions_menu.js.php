@@ -10,6 +10,155 @@
     });
   }
 
+  function normalizeVisibility(vis){
+    vis = String(vis || '').trim().toLowerCase();
+    if(vis === 'private') return 'private';
+    if(vis === 'friends' || vis === 'friend') return 'friends';
+    return 'public';
+  }
+
+  function visibilityMeta(vis){
+    var key = normalizeVisibility(vis);
+    if(key === 'private'){
+      return { key:'private', icon:'fa-lock', label:'Private', title:'Private — Only you can see this' };
+    }
+    if(key === 'friends'){
+      return { key:'friends', icon:'fa-users', label:'Friends', title:'Friends — Only friends can see this' };
+    }
+    return { key:'public', icon:'fa-globe', label:'Public', title:'Public — Anyone can see this' };
+  }
+
+  /** Compact icon after post time (globe / friends / lock). */
+  function visibilityBadgeHtml(vis, extraClass){
+    var meta = visibilityMeta(vis);
+    var cls = ('post-vis-badge mf-vis post-vis-' + meta.key + ' ' + String(extraClass || '')).trim();
+    return '<span class="'+escHtml(cls)+'" data-visibility="'+escHtml(meta.key)+'" title="'+escHtml(meta.title)+'" aria-label="'+escHtml(meta.title)+'">'
+      + '<i class="fa '+escHtml(meta.icon)+'" aria-hidden="true"></i>'
+      + '<span class="post-vis-sr">'+escHtml(meta.label)+'</span>'
+      + '</span>';
+  }
+
+  function personLabel(person){
+    person = person || {};
+    var name = String(person.display_name || person.name || '').trim();
+    if (name) return name;
+    var un = String(person.username || '').trim();
+    return un || 'User';
+  }
+
+  function personProfileHref(person){
+    person = person || {};
+    var un = String(person.username || '').trim();
+    if (un) return 'profile.php?username=' + encodeURIComponent(un);
+    var id = parseInt(person.id || 0, 10) || 0;
+    if (id > 0) return 'profile.php?id=' + String(id);
+    return 'profile.php';
+  }
+
+  /**
+   * Headline: "John • now [badge] is sharing with Akin."
+   * 3+: "… with Akin and others" — Others opens a name dropdown.
+   */
+  function authorSharingWithHtml(author, taggedPeople, opts){
+    opts = opts || {};
+    author = author || {};
+    var authorName = String(author.display_name || author.name || author.username || 'User').trim() || 'User';
+    var authorHref = String(author.href || author.profile_href || '').trim();
+    if (!authorHref) authorHref = personProfileHref(author);
+    var linkClass = String(opts.linkClass || 'msb-sharing-who');
+    var mutedClass = String(opts.mutedClass || 'msb-sharing-with');
+    var linkAuthor = opts.linkAuthor !== false;
+    var afterAuthorHtml = String(opts.afterAuthorHtml || '');
+    var authorHtml = escHtml(authorName);
+    if (linkAuthor && authorHref && authorHref !== '#') {
+      authorHtml = '<a class="'+escHtml(linkClass)+'" href="'+escHtml(authorHref)+'">'+authorHtml+'</a>';
+    }
+    var people = Array.isArray(taggedPeople) ? taggedPeople.filter(function(p){
+      return p && (personLabel(p) !== '');
+    }) : [];
+    if (!people.length) return authorHtml + afterAuthorHtml;
+    function whoHtml(p){
+      var label = escHtml(personLabel(p));
+      var href = personProfileHref(p);
+      if (!href || href === '#') return label;
+      return '<a class="'+escHtml(linkClass)+'" href="'+escHtml(href)+'">'+label+'</a>';
+    }
+    function othersDropdownHtml(rest){
+      var items = rest.map(function(p){
+        var label = escHtml(personLabel(p));
+        var href = personProfileHref(p);
+        var un = escHtml(String(p.username || '').trim());
+        return '<a class="msb-sharing-others-item" role="option" href="'+escHtml(href)+'">'
+          + '<span class="msb-sharing-others-name">'+label+'</span>'
+          + (un ? '<span class="msb-sharing-others-user">@'+un+'</span>' : '')
+          + '</a>';
+      }).join('');
+      return '<span class="msb-sharing-others-wrap">'
+        + '<button type="button" class="msb-sharing-others-btn" aria-expanded="false" aria-haspopup="listbox">Others</button>'
+        + '<span class="msb-sharing-others-menu" role="listbox" hidden>'+items+'</span>'
+        + '</span>';
+    }
+    var muted = '<span class="'+escHtml(mutedClass)+'"> is sharing with </span>';
+    var head = authorHtml + afterAuthorHtml + muted;
+    if (people.length === 1) {
+      return head + whoHtml(people[0]) + '.';
+    }
+    if (people.length === 2) {
+      return head + whoHtml(people[0])
+        + '<span class="'+escHtml(mutedClass)+'"> and </span>'
+        + whoHtml(people[1]) + '.';
+    }
+    return head + whoHtml(people[0])
+      + '<span class="'+escHtml(mutedClass)+'"> and </span>'
+      + othersDropdownHtml(people.slice(1))
+      + '.';
+  }
+
+  function closeSharingOthersMenus(exceptWrap){
+    document.querySelectorAll('.msb-sharing-others-wrap.is-open').forEach(function(wrap){
+      if (exceptWrap && wrap === exceptWrap) return;
+      wrap.classList.remove('is-open');
+      var btn = wrap.querySelector('.msb-sharing-others-btn');
+      var menu = wrap.querySelector('.msb-sharing-others-menu');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      if (menu) menu.hidden = true;
+    });
+  }
+
+  function toggleSharingOthersMenu(btn){
+    var wrap = closest(btn, '.msb-sharing-others-wrap');
+    if (!wrap) return;
+    var menu = wrap.querySelector('.msb-sharing-others-menu');
+    if (!menu) return;
+    var open = !wrap.classList.contains('is-open');
+    closeSharingOthersMenus(open ? wrap : null);
+    wrap.classList.toggle('is-open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menu.hidden = !open;
+  }
+
+  /**
+   * True when text is only @username tokens (e.g. "@akin_t @dayo_a").
+   */
+  function textIsPeopleTagOnly(text){
+    text = String(text || '').trim();
+    if (!text) return false;
+    if (!/(?:^|[\s,])@[A-Za-z0-9_]{2,50}\b/.test(' ' + text)) return false;
+    var rest = text.replace(/@[A-Za-z0-9_]{2,50}\b/g, '').replace(/[\s,.;:!?\-]+/g, '');
+    return rest === '';
+  }
+
+  /**
+   * Hide mention-only captions when people tags already power "is sharing with".
+   */
+  function displayTextWithoutTagHandles(text, taggedPeople){
+    text = String(text || '').trim();
+    if (!text) return '';
+    if (!Array.isArray(taggedPeople) || !taggedPeople.length) return text;
+    if (textIsPeopleTagOnly(text)) return '';
+    return text;
+  }
+
   function closest(el, sel){
     return el && el.closest ? el.closest(sel) : null;
   }
@@ -267,6 +416,354 @@
     window.__pcmShareUrl = '';
     window.__pcmShareTitle = '';
     hideModal('pcmShareSheet');
+  }
+
+  var pcmTagSelected = {};
+  var pcmMentionSelected = {};
+  var pcmTagger = null;
+
+  function syncSelfTagUi(postId, meTagged){
+    postId = Number(postId || 0);
+    meTagged = !!meTagged;
+    if(!postId) return;
+    document.querySelectorAll(
+      '.mf-card[data-id="'+String(postId)+'"], .public-post-card[data-post-id="'+String(postId)+'"], [data-post-id="'+String(postId)+'"]'
+    ).forEach(function(card){
+      card.setAttribute('data-me-tagged', meTagged ? '1' : '0');
+    });
+    document.querySelectorAll('.pcm-tag-self[data-post-id="'+String(postId)+'"]').forEach(function(btn){
+      btn.setAttribute('data-me-tagged', meTagged ? '1' : '0');
+      btn.classList.toggle('is-active', meTagged);
+      var label = btn.querySelector('span');
+      if(label) label.textContent = meTagged ? 'Remove from Tags' : 'Add to Tags';
+    });
+    // Portal clone may not keep data-post-id on the button — match open menu too.
+    document.querySelectorAll('.pcm-menu-portal .pcm-tag-self').forEach(function(btn){
+      btn.setAttribute('data-me-tagged', meTagged ? '1' : '0');
+      btn.classList.toggle('is-active', meTagged);
+      var label = btn.querySelector('span');
+      if(label) label.textContent = meTagged ? 'Remove from Tags' : 'Add to Tags';
+    });
+  }
+
+  function toggleSelfTagOnPost(postId, btn){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    var currently = btn ? (String(btn.getAttribute('data-me-tagged') || '0') === '1') : false;
+    var body = new URLSearchParams({
+      action: 'self_toggle',
+      post_id: String(postId)
+    });
+    fetch('ajax/post_tags_save.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body,
+      credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if(!res || !res.ok){
+        pcmToast((res && res.error) ? String(res.error) : 'Could not update Tags.');
+        return;
+      }
+      var meTagged = Number(res.me_tagged || 0) === 1;
+      syncSelfTagUi(postId, meTagged);
+      pcmToast(meTagged ? 'Saved to your Tags.' : 'Removed from your Tags.');
+    }).catch(function(){
+      pcmToast('Could not update Tags.');
+    });
+  }
+
+  function closePcmTagSheet(){
+    window.__pcmTagPostId = 0;
+    pcmTagSelected = {};
+    hideModal('pcmTagSheet');
+    var input = document.getElementById('pcmTagPeopleInput');
+    if(input) input.value = '';
+    var chips = document.getElementById('pcmTagPeopleChips');
+    if(chips) chips.innerHTML = '';
+  }
+
+  function renderPcmTagChips(){
+    var wrap = document.getElementById('pcmTagPeopleChips');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    Object.keys(pcmTagSelected).forEach(function(id){
+      var u = pcmTagSelected[id];
+      if(!u) return;
+      var chip = document.createElement('span');
+      chip.className = 'msb-tag-chip';
+      chip.innerHTML = '@' + String(u.username || id).replace(/</g,'&lt;') + ' <button type="button" aria-label="Remove">&times;</button>';
+      chip.querySelector('button').addEventListener('click', function(){
+        delete pcmTagSelected[id];
+        renderPcmTagChips();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+
+  function addPcmTagUser(u){
+    if(!u || !u.id) return;
+    pcmTagSelected[String(u.id)] = {
+      id: Number(u.id),
+      username: String(u.username || ''),
+      name: String(u.name || ''),
+      image: String(u.image || '')
+    };
+    renderPcmTagChips();
+    var input = document.getElementById('pcmTagPeopleInput');
+    if(input) input.value = '';
+  }
+
+  function ensurePcmTagger(){
+    var input = document.getElementById('pcmTagPeopleInput');
+    if(!input) return;
+    if(window.MSBMentionAC && typeof window.MSBMentionAC.bind === 'function'){
+      window.MSBMentionAC.bind(input, addPcmTagUser);
+      input.setAttribute('data-msb-mention', '1');
+    }
+  }
+
+  function openPcmTagSheet(postId){
+    postId = Number(postId || 0);
+    if(postId <= 0) return false;
+    var dialog = document.getElementById('pcmTagSheet');
+    if(!dialog){
+      pcmToast('Tag sheet unavailable.');
+      return false;
+    }
+    window.__pcmTagPostId = postId;
+    pcmTagSelected = {};
+    renderPcmTagChips();
+    var hid = document.getElementById('pcmTagPostId');
+    if(hid) hid.value = String(postId);
+    var input = document.getElementById('pcmTagPeopleInput');
+    if(input) input.value = '';
+    ensurePcmTagger();
+    showModal('pcmTagSheet');
+    // Re-bind after dialog is open in case autocomplete initialized earlier without chip handler.
+    ensurePcmTagger();
+    fetch('ajax/post_tags_save.php?action=list&post_id=' + encodeURIComponent(String(postId)), {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(!data || !data.ok) return;
+      if(Number(window.__pcmTagPostId || 0) !== postId) return;
+      (data.users || []).forEach(function(u){ addPcmTagUser(u); });
+      if(input){
+        try { input.focus(); } catch(e) {}
+      }
+    }).catch(function(){});
+    return true;
+  }
+
+  function savePcmTags(){
+    var postId = Number(window.__pcmTagPostId || 0);
+    if(postId <= 0){
+      closePcmTagSheet();
+      return;
+    }
+    var ids = Object.keys(pcmTagSelected).map(function(k){ return Number(k); }).filter(function(n){ return n > 0; });
+    var input = document.getElementById('pcmTagPeopleInput');
+    var mentionText = input ? String(input.value || '').trim() : '';
+    var body = new URLSearchParams();
+    body.set('action', 'save');
+    body.set('post_id', String(postId));
+    body.set('tagged_user_ids', ids.join(','));
+    // Fallback: resolve any leftover @username typed in the field (e.g. if chip callback missed).
+    if (mentionText) body.set('mention_text', mentionText);
+    var btn = document.getElementById('pcmTagSaveBtn');
+    if(btn){ btn.disabled = true; btn.style.opacity = '.7'; }
+    fetch('ajax/post_tags_save.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: body
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(btn){ btn.disabled = false; btn.style.opacity = ''; }
+      if(!data || !data.ok){
+        pcmToast((data && data.error) ? ('Could not save tags (' + data.error + ').') : 'Could not save tags.');
+        return;
+      }
+      var savedCount = Array.isArray(data.users) ? data.users.length : ids.length;
+      closePcmTagSheet();
+      pcmToast(savedCount ? ('Tagged ' + savedCount + (savedCount === 1 ? ' person.' : ' people.')) : 'Tags cleared.');
+    }).catch(function(){
+      if(btn){ btn.disabled = false; btn.style.opacity = ''; }
+      pcmToast('Network error while saving tags.');
+    });
+  }
+
+  function closePcmMentionSheet(){
+    window.__pcmMentionPostId = 0;
+    pcmMentionSelected = {};
+    hideModal('pcmMentionSheet');
+    var input = document.getElementById('pcmMentionPeopleInput');
+    if(input) input.value = '';
+    var chips = document.getElementById('pcmMentionPeopleChips');
+    if(chips) chips.innerHTML = '';
+  }
+
+  function renderPcmMentionChips(){
+    var wrap = document.getElementById('pcmMentionPeopleChips');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    Object.keys(pcmMentionSelected).forEach(function(id){
+      var u = pcmMentionSelected[id];
+      if(!u) return;
+      var chip = document.createElement('span');
+      chip.className = 'msb-tag-chip';
+      chip.innerHTML = '@' + String(u.username || id).replace(/</g,'&lt;') + ' <button type="button" aria-label="Remove">&times;</button>';
+      chip.querySelector('button').addEventListener('click', function(){
+        delete pcmMentionSelected[id];
+        renderPcmMentionChips();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+
+  function addPcmMentionUser(u){
+    if(!u || !u.id) return;
+    pcmMentionSelected[String(u.id)] = {
+      id: Number(u.id),
+      username: String(u.username || ''),
+      name: String(u.name || ''),
+      image: String(u.image || '')
+    };
+    renderPcmMentionChips();
+    var input = document.getElementById('pcmMentionPeopleInput');
+    if(input) input.value = '';
+  }
+
+  function ensurePcmMentioner(){
+    var input = document.getElementById('pcmMentionPeopleInput');
+    if(!input) return;
+    if(window.MSBMentionAC && typeof window.MSBMentionAC.bind === 'function'){
+      window.MSBMentionAC.bind(input, addPcmMentionUser);
+      input.setAttribute('data-msb-mention', '1');
+    }
+  }
+
+  function openPcmMentionSheet(postId){
+    postId = Number(postId || 0);
+    if(postId <= 0) return false;
+    var dialog = document.getElementById('pcmMentionSheet');
+    if(!dialog){
+      pcmToast('Mention sheet unavailable.');
+      return false;
+    }
+    window.__pcmMentionPostId = postId;
+    pcmMentionSelected = {};
+    renderPcmMentionChips();
+    var hid = document.getElementById('pcmMentionPostId');
+    if(hid) hid.value = String(postId);
+    var input = document.getElementById('pcmMentionPeopleInput');
+    if(input) input.value = '';
+    ensurePcmMentioner();
+    showModal('pcmMentionSheet');
+    ensurePcmMentioner();
+    try { if(input) input.focus(); } catch(e) {}
+    return true;
+  }
+
+  function sendPcmMentions(){
+    var postId = Number(window.__pcmMentionPostId || 0);
+    if(postId <= 0){
+      closePcmMentionSheet();
+      return;
+    }
+    var ids = Object.keys(pcmMentionSelected).map(function(k){ return Number(k); }).filter(function(n){ return n > 0; });
+    var input = document.getElementById('pcmMentionPeopleInput');
+    var mentionText = input ? String(input.value || '').trim() : '';
+    if(!ids.length && !mentionText){
+      pcmToast('Pick someone to mention.');
+      return;
+    }
+    var body = new URLSearchParams();
+    body.set('action', 'mention');
+    body.set('post_id', String(postId));
+    body.set('user_ids', ids.join(','));
+    if (mentionText) body.set('mention_text', mentionText);
+    var btn = document.getElementById('pcmMentionSendBtn');
+    if(btn){ btn.disabled = true; btn.style.opacity = '.7'; }
+    fetch('ajax/post_tags_save.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: body
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(btn){ btn.disabled = false; btn.style.opacity = ''; }
+      if(!data || !data.ok){
+        var err = data && data.error ? String(data.error) : '';
+        pcmToast(err === 'no_people' ? 'Pick someone to mention.' : (err ? ('Could not send mention (' + err + ').') : 'Could not send mention.'));
+        return;
+      }
+      closePcmMentionSheet();
+      pcmToast(String(data.message || 'Mention sent.'));
+    }).catch(function(){
+      if(btn){ btn.disabled = false; btn.style.opacity = ''; }
+      pcmToast('Network error while sending mention.');
+    });
+  }
+
+  function openPcmPostDestDialog(postId){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    var input = document.getElementById('pcmPostSourceId');
+    if(input) input.value = String(postId);
+    showModal('pcmPostDestDialog');
+  }
+
+  function closePcmPostDestDialog(){
+    hideModal('pcmPostDestDialog');
+    var input = document.getElementById('pcmPostSourceId');
+    if(input) input.value = '0';
+  }
+
+  function submitPcmPostDest(visibility){
+    var input = document.getElementById('pcmPostSourceId');
+    var postId = Number((input && input.value) || 0);
+    visibility = String(visibility || 'friends').toLowerCase();
+    if(visibility !== 'public') visibility = 'friends';
+    if(!postId){
+      closePcmPostDestDialog();
+      return;
+    }
+    var friendsBtn = document.getElementById('pcmPostToFriendsBtn');
+    var publicBtn = document.getElementById('pcmPostToPublicBtn');
+    if(friendsBtn) friendsBtn.disabled = true;
+    if(publicBtn) publicBtn.disabled = true;
+    var body = new URLSearchParams({
+      post_id: String(postId),
+      visibility: visibility
+    });
+    fetch('ajax/post_repost.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body,
+      credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if(friendsBtn) friendsBtn.disabled = false;
+      if(publicBtn) publicBtn.disabled = false;
+      if(!res || !res.ok){
+        pcmToast((res && res.error) ? String(res.error) : 'Unable to repost.');
+        return;
+      }
+      closePcmPostDestDialog();
+      pcmToast(String(res.message || (visibility === 'public' ? 'Reposted to Public.' : 'Reposted to Friends.')));
+      var redirect = String(res.redirect || '').trim();
+      if(redirect){
+        window.setTimeout(function(){ window.location.href = redirect; }, 350);
+      }
+    }).catch(function(){
+      if(friendsBtn) friendsBtn.disabled = false;
+      if(publicBtn) publicBtn.disabled = false;
+      pcmToast('Unable to repost.');
+    });
   }
 
   function openPcmShareSheet(postId, wrap){
@@ -633,8 +1130,14 @@
       it.is_archived != null ? it.is_archived :
       (it.my_archived != null ? it.my_archived : 0)
     ) === 1;
+    var vis = normalizeVisibility(it.visibility || 'friends');
     var editHref = 'dashboard.php?modal=1&edit=' + String(pid);
     var html = linkItem('pcm-edit', editHref, 'fa fa-edit', 'Edit', ' data-create-post-modal="1"');
+    html += buttonItem('pcm-tag', 'fa fa-at', 'Tag', ' data-post-id="'+esc(String(pid))+'"');
+    html += buttonItem('pcm-mention', 'fa fa-bullhorn', 'Mention', ' data-post-id="'+esc(String(pid))+'"');
+    if(vis !== 'private'){
+      html += buttonItem('pcm-private', 'fa fa-lock', 'Private', ' data-post-id="'+esc(String(pid))+'" data-visibility="private"');
+    }
     html += buttonItem(
       'pcm-archive',
       'fa fa-archive',
@@ -652,11 +1155,24 @@
     if(pid <= 0) return '';
 
     var isSaved = Number(it.my_saved != null ? it.my_saved : (it.is_saved != null ? it.is_saved : 0)) === 1;
+    var meTagged = Number(it.me_tagged != null ? it.me_tagged : 0) === 1;
+    var friendStatus = String(it.friend_status || helpers.friendStatus || 'none');
+    var canSelfTag = !isOwner && (meTagged || friendStatus === 'friends' || String(it.visibility || 'friends') === 'public');
     var html = '';
 
     if(!isOwner){
       html += buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+esc(String(pid))+'"');
+      if(canSelfTag){
+        html += buttonItem(
+          'pcm-tag-self' + (meTagged ? ' is-active' : ''),
+          'fa fa-at',
+          meTagged ? 'Remove from Tags' : 'Add to Tags',
+          ' data-post-id="'+esc(String(pid))+'" data-me-tagged="'+(meTagged ? '1' : '0')+'"'
+        );
+      }
+      html += buttonItem('pcm-mention', 'fa fa-bullhorn', 'Mention', ' data-post-id="'+esc(String(pid))+'"');
     }
+    html += buttonItem('pcm-post', 'fa fa-retweet', 'Repost', ' data-post-id="'+esc(String(pid))+'"');
     html += buttonItem(
       'pcm-bookmark' + (isSaved ? ' is-active' : ''),
       isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o',
@@ -666,6 +1182,14 @@
     html += buttonItem('pcm-share', 'fa fa-share', 'Share', ' data-post-id="'+esc(String(pid))+'"');
     html += buttonItem('pcm-copy-link', 'fa fa-link', 'Copy link', ' data-post-id="'+esc(String(pid))+'"');
     return html;
+  }
+
+  function buildViewPostItem(pid, helpers){
+    helpers = helpers || {};
+    var esc = helpers.esc || escHtml;
+    pid = Number(pid || 0);
+    if(pid <= 0) return '';
+    return buttonItem('pcm-view-post', 'fa fa-expand', 'View the post', ' data-post-id="'+esc(String(pid))+'"');
   }
 
   function menuItemSel(suffix){
@@ -693,9 +1217,16 @@
   }
 
   function refreshFeedCardMenus(root){
-    if(!isFeedSurface()) return;
+    var surface = String(opts.menu_surface || 'public');
+    if(surface !== 'feed' && surface !== 'profile') return;
     root = root || document;
-    root.querySelectorAll('.mf-card').forEach(function(card){
+    var cards = root.querySelectorAll
+      ? root.querySelectorAll('.mf-card')
+      : document.querySelectorAll((surface === 'profile' ? '#profilePostsFeed ' : '') + '.mf-card');
+    if(root && root.nodeType === 1 && root.classList && root.classList.contains('mf-card')){
+      cards = [root];
+    }
+    cards.forEach(function(card){
       var wrap = card.querySelector('.post-card-menu-wrap, .mf-menu-wrap.post-card-menu-wrap');
       var menu = wrap && wrap.querySelector('.post-card-menu, .mf-menu.post-card-menu');
       if(!wrap || !menu) return;
@@ -726,11 +1257,15 @@
     pid = Number(pid || it.id || 0);
     isOwner = resolveIsOwner(it, isOwner);
     var staffReadonly = !!opts.staff_readonly;
+    var viewPostHtml = buildViewPostItem(pid, helpers);
 
     if(isOwner && !staffReadonly){
       var ownerHtml = buildOwnerItems(it, pid, helpers);
       var ownerCommon = buildCommonItems(it, true, pid, helpers);
       if(ownerCommon) ownerHtml += menuDivider() + ownerCommon;
+      if(viewPostHtml){
+        ownerHtml = viewPostHtml + (ownerHtml ? menuDivider() + ownerHtml : '');
+      }
       return ownerHtml;
     }
 
@@ -750,7 +1285,7 @@
       }
     }
     var messageUrl = friendCode ? ('messages.php?peer=' + encodeURIComponent(friendCode)) : (peerId ? ('messages.php?peer_id=' + peerId) : 'messages.php');
-    var html = '';
+    var html = viewPostHtml;
     var feedSurface = isFeedSurface();
     var canFollowPublishers = opts.can_follow_publishers !== false;
     var publisherWorkspaceViewer = !!opts.publisher_workspace_viewer;
@@ -760,11 +1295,12 @@
     if((!feedSurface || !isPublisher || showPublisherView) && profileUrl){
       html += linkItem('pcm-view', profileUrl, 'fa fa-user', 'View');
     }
-    if(!feedSurface && !isPublisher && friendStatus === 'friends'){
-      html += linkItem('pcm-friends', 'contacts.php', 'fa fa-users', 'Friends');
-    }
     if(friendStatus === 'friends'){
       html += linkItem('pcm-message', messageUrl, 'fa fa-comments', 'Message');
+    }
+    if(!isPublisher && peerId && friendStatus === 'friends' && !staffReadonly){
+      html += '<button type="button" class="pcm-item pcm-unfriend is-danger" data-peer-id="' + esc(String(peerId)) + '" role="menuitem">' +
+        '<i class="fa fa-user-times" aria-hidden="true"></i><span>Unfriend</span></button>';
     }
     if(!feedSurface && !isPublisher && peerId && friendStatus === 'none' && !staffReadonly){
       html += '<button type="button" class="pcm-item pcm-add-friend" data-peer-id="' + esc(String(peerId)) + '" role="menuitem">' +
@@ -793,7 +1329,7 @@
   }
 
   function getMenuHelpers(pid){
-    var helpers = window.MSBFeedMenuHelpers || window.MSBPublicMenuHelpers || {};
+    var helpers = window.MSBProfileMenuHelpers || window.MSBFeedMenuHelpers || window.MSBPublicMenuHelpers || {};
     if(!helpers.profileHref || pid == null) return helpers;
     var baseProfileHref = helpers.profileHref;
     return {
@@ -807,24 +1343,92 @@
 
   function itemFromCard(card){
     if(!card) return null;
+    var stage = (card.classList && card.classList.contains('reel-stage'))
+      ? card
+      : (card.querySelector ? card.querySelector('.reel-stage') : null);
+    var wrap = card.querySelector ? card.querySelector('.post-card-menu-wrap, .mf-menu-wrap') : null;
+    var host = stage || card;
     return {
-      id: Number(card.getAttribute('data-post-id') || card.getAttribute('data-id') || 0),
-      user_id: Number(card.getAttribute('data-peer-id') || 0),
-      author_id: Number(card.getAttribute('data-peer-id') || 0),
-      friend_code: String(card.getAttribute('data-peer-code') || ''),
+      id: Number(host.getAttribute('data-post-id') || card.getAttribute('data-post-id') || card.getAttribute('data-id') || (wrap && wrap.getAttribute('data-post-id')) || 0),
+      user_id: Number(host.getAttribute('data-peer-id') || card.getAttribute('data-peer-id') || (wrap && wrap.getAttribute('data-peer-id')) || 0),
+      author_id: Number(host.getAttribute('data-peer-id') || card.getAttribute('data-peer-id') || (wrap && wrap.getAttribute('data-peer-id')) || 0),
+      friend_code: String(host.getAttribute('data-peer-code') || card.getAttribute('data-peer-code') || (wrap && wrap.getAttribute('data-peer-code')) || ''),
       username: String(card.getAttribute('data-peer-username') || ''),
-      account_kind: String(card.getAttribute('data-account-kind') || 'personal'),
-      is_following: Number(card.getAttribute('data-is-following') || 0),
-      friend_status: String(card.getAttribute('data-friend-status') || 'none'),
-      is_publisher: Number(card.getAttribute('data-is-publisher') || 0),
+      account_kind: String(host.getAttribute('data-account-kind') || card.getAttribute('data-account-kind') || 'personal'),
+      is_following: Number(host.getAttribute('data-is-following') || card.getAttribute('data-is-following') || 0),
+      friend_status: String(host.getAttribute('data-friend-status') || card.getAttribute('data-friend-status') || 'none'),
+      is_publisher: Number(host.getAttribute('data-is-publisher') || card.getAttribute('data-is-publisher') || 0),
       contact_id: Number(card.getAttribute('data-contact-id') || 0),
       contact_name: String(card.getAttribute('data-contact-name') || ''),
-      profile_url: String(card.getAttribute('data-profile-url') || ''),
-      my_saved: Number(card.getAttribute('data-my-saved') || 0),
-      is_saved: Number(card.getAttribute('data-my-saved') || 0),
-      is_archived: Number(card.getAttribute('data-is-archived') || 0),
-      my_archived: Number(card.getAttribute('data-is-archived') || 0)
+      profile_url: String(host.getAttribute('data-profile-url') || card.getAttribute('data-profile-url') || ''),
+      my_saved: Number(host.getAttribute('data-my-saved') || card.getAttribute('data-my-saved') || 0),
+      is_saved: Number(host.getAttribute('data-my-saved') || card.getAttribute('data-my-saved') || 0),
+      is_archived: Number(host.getAttribute('data-is-archived') || card.getAttribute('data-is-archived') || 0),
+      my_archived: Number(host.getAttribute('data-is-archived') || card.getAttribute('data-is-archived') || 0),
+      visibility: normalizeVisibility(host.getAttribute('data-visibility') || card.getAttribute('data-visibility') || 'friends')
     };
+  }
+
+  function rebuildCardFriendMenu(card, status){
+    if(!card) return;
+    status = String(status || 'none');
+    card.setAttribute('data-friend-status', status);
+    var stage = (card.classList && card.classList.contains('reel-stage'))
+      ? card
+      : (card.querySelector ? card.querySelector('.reel-stage') : null);
+    if(stage) stage.setAttribute('data-friend-status', status);
+    var slide = (card.classList && card.classList.contains('reel-slide'))
+      ? card
+      : (card.closest ? card.closest('.reel-slide') : null);
+    var menuRoot = slide || card;
+    var menu = menuRoot.querySelector('.mf-menu.post-card-menu, .post-card-menu');
+    if(!menu) return;
+    var wrap = menuRoot.querySelector('.post-card-menu-wrap, .mf-menu-wrap');
+    var it = itemFromCard(stage || card);
+    it.friend_status = status;
+    var pid = Number((wrap && wrap.getAttribute('data-post-id')) || (stage && stage.getAttribute('data-post-id')) || card.getAttribute('data-id') || card.getAttribute('data-post-id') || 0);
+    var isOwner = resolveIsOwner(it, String((wrap && wrap.getAttribute('data-is-owner')) || (stage && stage.getAttribute('data-post-owner')) || card.getAttribute('data-post-owner') || '0') === '1');
+    var html = buildItems(it, isOwner, pid, getMenuHelpers(pid));
+    if(html) menu.innerHTML = html;
+  }
+
+  function syncCardFriend(cardOrJq, status){
+    if($ && cardOrJq && cardOrJq.jquery){
+      cardOrJq.each(function(){
+        rebuildCardFriendMenu(this, status);
+      });
+      return;
+    }
+    if(cardOrJq && cardOrJq.nodeType === 1){
+      rebuildCardFriendMenu(cardOrJq, status);
+    }
+  }
+
+  function syncFriendCards(peerId, status){
+    peerId = Number(peerId || 0);
+    if(peerId <= 0) return;
+    status = String(status || 'none');
+    document.querySelectorAll('.mf-card[data-peer-id="'+String(peerId)+'"], .post.public-post-card[data-peer-id="'+String(peerId)+'"]').forEach(function(card){
+      if(Number(card.getAttribute('data-is-publisher') || 0) === 1) return;
+      rebuildCardFriendMenu(card, status);
+    });
+    document.querySelectorAll('.reel-slide').forEach(function(slide){
+      var stage = slide.querySelector('.reel-stage');
+      var wrap = slide.querySelector('.post-card-menu-wrap');
+      var slidePeer = Number((stage && stage.getAttribute('data-peer-id')) || (wrap && wrap.getAttribute('data-peer-id')) || 0);
+      if(slidePeer !== peerId) return;
+      if(Number((stage && stage.getAttribute('data-is-publisher')) || 0) === 1) return;
+      rebuildCardFriendMenu(slide, status);
+    });
+    var pvWrap = document.getElementById('pvMenuWrap');
+    if(pvWrap && Number(pvWrap.getAttribute('data-peer-id') || 0) === peerId){
+      pvWrap.setAttribute('data-friend-status', status);
+      if(typeof window.pvSyncMenu === 'function'){
+        try { window.pvSyncMenu(); } catch(e){}
+      } else {
+        rebuildCardFriendMenu(pvWrap, status);
+      }
+    }
   }
 
   function rebuildCardPublisherMenu(card, following){
@@ -963,6 +1567,204 @@
     document.body.classList.remove('modal-open');
   }
 
+  function syncVisibilityOnCards(postId, visibility){
+    postId = Number(postId || 0);
+    visibility = normalizeVisibility(visibility);
+    if(!postId) return;
+    var meta = visibilityMeta(visibility);
+    var badgeHtml = visibilityBadgeHtml(visibility);
+    document.querySelectorAll(
+      '.mf-card[data-id="'+String(postId)+'"],' +
+      '.mf-card[data-post-id="'+String(postId)+'"],' +
+      '.public-post-card[data-post-id="'+String(postId)+'"],' +
+      '.reel-stage[data-post-id="'+String(postId)+'"],' +
+      '.reel-slide[data-post-id="'+String(postId)+'"]'
+    ).forEach(function(card){
+      card.setAttribute('data-visibility', visibility);
+      var stage = card.querySelector ? card.querySelector('.reel-stage') : null;
+      if(stage) stage.setAttribute('data-visibility', visibility);
+      card.querySelectorAll('.post-vis-badge, .mf-vis').forEach(function(badge){
+        try{
+          var parent = badge.parentNode;
+          if(!parent) return;
+          var tmp = document.createElement('div');
+          tmp.innerHTML = badgeHtml;
+          var next = tmp.firstChild;
+          if(next) parent.replaceChild(next, badge);
+        }catch(eRep){}
+      });
+      var wrap = card.querySelector('.post-card-menu-wrap, .mf-menu-wrap');
+      var menu = wrap && wrap.querySelector('.post-card-menu, .mf-menu.post-card-menu');
+      if(menu){
+        var it = itemFromCard(card);
+        it.visibility = visibility;
+        var pid = Number((wrap && wrap.getAttribute('data-post-id')) || postId);
+        var isOwner = resolveIsOwner(it, String((wrap && wrap.getAttribute('data-is-owner')) || card.getAttribute('data-post-owner') || '0') === '1');
+        var html = buildItems(it, isOwner, pid, getMenuHelpers(pid));
+        if(html) menu.innerHTML = html;
+      }
+    });
+    return meta;
+  }
+
+  function shouldRemoveAfterPrivate(){
+    var surface = String(opts.menu_surface || '').toLowerCase();
+    if(surface === 'feed' || surface === 'public' || surface === 'reel') return true;
+    if(/\/(feed|public|reel)\.php/i.test(String(window.location.pathname || ''))) return true;
+    return false;
+  }
+
+  function privateConfirmBodyText(){
+    var path = String(window.location.pathname || '').toLowerCase();
+    var search = String(window.location.search || '').toLowerCase();
+    var surface = String(opts.menu_surface || '').toLowerCase();
+    var onProfile = /profile\.php/.test(path) || surface === 'profile';
+    var onPostsTab = onProfile && (
+      (document.body && document.body.classList && document.body.classList.contains('profile-posts-mode')) ||
+      /(?:^|[?&])tab=posts(?:&|$)/.test(search)
+    );
+    var onFeed = /feed\.php/.test(path) || surface === 'feed';
+    var onReel = /reel\.php/.test(path) || surface === 'reel';
+    var onPublic = /public\.php/.test(path) || (surface === 'public' && !onReel && !onFeed);
+
+    if(onPostsTab){
+      return 'Only you will see it. It will leave your Posts tab and move to your Gallery → Private.';
+    }
+    if(onFeed){
+      return 'Only you will see it. It will leave Friends and move to your Gallery → Private.';
+    }
+    if(onPublic || onReel){
+      return 'Only you will see it. It will leave Discover and Reels and move to your Gallery → Private.';
+    }
+    if(onProfile){
+      return 'Only you will see it. It will move to your Gallery → Private.';
+    }
+    return 'Only you will see it. It will move to your Gallery → Private.';
+  }
+
+  function openPcmPrivateConfirm(postId, onConfirm){
+    postId = Number(postId || 0);
+    if(!postId) return false;
+    var dialog = document.getElementById('pcmPrivateConfirmDialog');
+    if(!dialog) return false;
+    var input = document.getElementById('pcmPrivatePostId');
+    if(input) input.value = String(postId);
+    var body = document.getElementById('pcmPrivateConfirmBody');
+    if(body) body.textContent = privateConfirmBodyText();
+    window.__pcmPendingPrivateId = postId;
+    window.__pcmPendingPrivateDone = typeof onConfirm === 'function' ? onConfirm : null;
+    showModal('pcmPrivateConfirmDialog');
+    return true;
+  }
+
+  function closePcmPrivateConfirm(){
+    hideModal('pcmPrivateConfirmDialog');
+    window.__pcmPendingPrivateId = 0;
+    window.__pcmPendingPrivateDone = null;
+    var input = document.getElementById('pcmPrivatePostId');
+    if(input) input.value = '0';
+  }
+
+  function runSetVisibility(postId, visibility, done){
+    postId = Number(postId || 0);
+    visibility = normalizeVisibility(visibility || 'private');
+    if(!postId){
+      if(typeof done === 'function') done({ok:false, error:'Missing post id'});
+      return;
+    }
+    var api = String(opts.api_url || 'feed_api.php');
+    var body = new URLSearchParams({
+      ajax: 'set_visibility',
+      post_id: String(postId),
+      visibility: visibility
+    });
+    fetch(api, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body,
+      credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if(res && res.ok !== false){
+        var nextVis = normalizeVisibility(res.visibility || visibility);
+        syncVisibilityOnCards(postId, nextVis);
+        if(nextVis === 'private' && shouldRemoveAfterPrivate()){
+          removePostFromSurfaces(postId);
+        }
+        pcmToast(String(res.message || (nextVis === 'private'
+          ? 'Moved to Private. Find it in Gallery → Private.'
+          : 'Visibility updated.')));
+        var redirect = String(res.redirect || '').trim();
+        if(nextVis === 'private' && redirect && shouldRemoveAfterPrivate()){
+          // Stay on surface after hide; optional soft navigate only if user is alone on empty feed.
+        }
+      } else {
+        pcmToast((res && res.error) ? String(res.error) : 'Could not update visibility.');
+      }
+      if(typeof done === 'function') done(res);
+    }).catch(function(){
+      pcmToast('Network error while updating visibility.');
+      if(typeof done === 'function') done(null);
+    });
+  }
+
+  function confirmMakePrivate(btn){
+    if(!btn) return;
+    var postId = Number(
+      btn.getAttribute('data-post-id') ||
+      (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+      0
+    );
+    if(!postId) return;
+    if(openPcmPrivateConfirm(postId, function(){
+      runSetVisibility(postId, 'private');
+    })) return;
+    if(!window.confirm(privateConfirmBodyText())) return;
+    runSetVisibility(postId, 'private');
+  }
+
+  function pruneIdList(list, postId){
+    if(!Array.isArray(list)) return;
+    postId = Number(postId || 0);
+    for(var i = list.length - 1; i >= 0; i--){
+      if(Number(list[i] || 0) === postId) list.splice(i, 1);
+    }
+  }
+
+  function closePostViewerIfShowing(postId){
+    postId = Number(postId || 0);
+    if(!postId) return;
+    try{
+      if(typeof window.MSBClosePostViewer === 'function'){
+        window.MSBClosePostViewer(postId);
+        return;
+      }
+    }catch(eHook){}
+    var ov = document.getElementById('pvOverlay');
+    if(!ov || !(ov.classList.contains('show') || ov.getAttribute('aria-hidden') === 'false')) return;
+    var wrap = document.getElementById('pvMenuWrap');
+    var showing = Number((wrap && wrap.getAttribute('data-post-id')) || 0);
+    if(showing !== postId) return;
+    if(typeof window.pvClose === 'function'){
+      try{ window.pvClose(); }catch(eClose){}
+    }else{
+      try{
+        ov.classList.remove('show');
+        ov.setAttribute('aria-hidden', 'true');
+      }catch(eOv){}
+    }
+    try{
+      var u = new URL(window.location.href);
+      var changed = false;
+      ['post', 'post_id', 'open_post', 'fresh'].forEach(function(key){
+        if(u.searchParams.has(key)){
+          u.searchParams.delete(key);
+          changed = true;
+        }
+      });
+      if(changed) window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
+    }catch(eUrl){}
+  }
+
   function removePostFromSurfaces(postId){
     postId = Number(postId || 0);
     if(!postId) return;
@@ -970,6 +1772,14 @@
     if(typeof window.MSBReelAfterPostDeleted === 'function'){
       try { window.MSBReelAfterPostDeleted(postId); } catch(eReel){}
     }
+    closePostViewerIfShowing(postId);
+    try{
+      pruneIdList(window.GRID_IDS, postId);
+      pruneIdList(window.GALLERY_GRID_IDS, postId);
+      pruneIdList(window.TAGS_GRID_IDS, postId);
+      pruneIdList(window.pvActiveGridIds, postId);
+    }catch(eIds){}
+    var removedProfileCard = false;
     document.querySelectorAll(
       '.mf-card[data-id="'+String(postId)+'"],' +
       '.mf-card[data-post-id="'+String(postId)+'"],' +
@@ -977,10 +1787,16 @@
       '.public-post-card[data-id="'+String(postId)+'"],' +
       '.ig-item[data-post-id="'+String(postId)+'"]'
     ).forEach(function(el){
-      try { el.remove(); } catch(e){}
+      try {
+        if(el.closest && el.closest('#profilePostsFeed')) removedProfileCard = true;
+        el.remove();
+      } catch(e){}
     });
     if(window.TTStories && typeof window.TTStories.removePost === 'function'){
       try { window.TTStories.removePost(postId); } catch(e2){}
+    }
+    if(typeof window.MSBProfileAfterPostDeleted === 'function' && (removedProfileCard || document.body.classList.contains('profile-page'))){
+      try { window.MSBProfileAfterPostDeleted(postId); } catch(eProfile){}
     }
   }
 
@@ -991,6 +1807,11 @@
     if(!dialog) return false;
     window.__pcmPendingDeleteId = postId;
     window.__pcmPendingDeleteDone = typeof done === 'function' ? done : null;
+    try{ dialog.setAttribute('data-pcm-post-id', String(postId)); }catch(eAttr){}
+    var confirmBtn = document.getElementById('pcmGenericConfirmDeleteBtn');
+    if(confirmBtn){
+      try{ confirmBtn.setAttribute('data-post-id', String(postId)); }catch(eBtn){}
+    }
     pauseStoryDoorForConfirm();
     // Defer so the fries-menu click cannot light-dismiss the confirm popup.
     setTimeout(function(){
@@ -1002,7 +1823,6 @@
         }else{
           dialog.setAttribute('open', '');
         }
-        var confirmBtn = document.getElementById('pcmGenericConfirmDeleteBtn');
         try{ if(confirmBtn) confirmBtn.focus(); }catch(eFocus){}
       }catch(eOpen){
         try{ dialog.setAttribute('open', ''); }catch(e2){}
@@ -1268,9 +2088,74 @@
     if(typeof done === 'function') done({ok:false});
   }
 
+  function closePcmViewPostOverlay(){
+    var ov = document.getElementById('pcmViewPostOverlay');
+    var frame = document.getElementById('pcmViewPostFrame');
+    if(ov){
+      ov.classList.remove('is-open');
+      ov.setAttribute('aria-hidden', 'true');
+      ov.hidden = true;
+    }
+    if(frame){
+      try{ frame.src = 'about:blank'; }catch(e){}
+    }
+    try{ document.body.classList.remove('pcm-view-post-open'); }catch(e2){}
+  }
+
+  function openPcmViewPostOverlay(postId){
+    postId = Number(postId || 0);
+    if(postId <= 0) return false;
+    var ov = document.getElementById('pcmViewPostOverlay');
+    var frame = document.getElementById('pcmViewPostFrame');
+    if(!ov || !frame){
+      window.location.href = 'post.php?id=' + encodeURIComponent(String(postId));
+      return true;
+    }
+    frame.src = 'post.php?id=' + encodeURIComponent(String(postId));
+    ov.hidden = false;
+    ov.classList.add('is-open');
+    ov.setAttribute('aria-hidden', 'false');
+    try{ document.body.classList.add('pcm-view-post-open'); }catch(e){}
+    return true;
+  }
+
+  function openViewThePost(postId, opts){
+    postId = Number(postId || 0);
+    if(postId <= 0) return false;
+    opts = (opts && typeof opts === 'object') ? opts : {};
+    closeMenus();
+    // Prefer the gallery-style #pvOverlay used on feed + profile Posts/Gallery.
+    if(typeof window.pvOpenById === 'function'){
+      try{
+        var opened = window.pvOpenById(postId, opts);
+        if(opened === true) return true;
+        var ov = document.getElementById('pvOverlay');
+        if(ov && ov.classList.contains('show')) return true;
+      }catch(eOpen){}
+    }
+    return openPcmViewPostOverlay(postId);
+  }
+
   function handleMenuItemAction(target, e){
     if(!target) return false;
     e = e || {};
+
+    var viewPostBtn = closest(target, menuItemSel('.pcm-view-post'));
+    if(viewPostBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      var viewPostId = Number(
+        viewPostBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
+      if(!viewPostId){
+        var viewCard = closest(viewPostBtn, '.mf-card, .public-post-card, [data-post-id], [data-id]');
+        viewPostId = Number((viewCard && (viewCard.getAttribute('data-post-id') || viewCard.getAttribute('data-id'))) || 0);
+      }
+      openViewThePost(viewPostId);
+      return true;
+    }
 
     var editLink = closest(target, menuItemSel('.pcm-edit'));
     if(editLink){
@@ -1332,6 +2217,60 @@
       return true;
     }
 
+    var privateBtn = closest(target, menuItemSel('.pcm-private'));
+    if(privateBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      closeMenus();
+      confirmMakePrivate(privateBtn);
+      return true;
+    }
+
+    var tagBtn = closest(target, menuItemSel('.pcm-tag'));
+    if(tagBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      var tagPid = Number(
+        tagBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
+      closeMenus();
+      if(!tagPid) return true;
+      openPcmTagSheet(tagPid);
+      return true;
+    }
+
+    var mentionBtn = closest(target, menuItemSel('.pcm-mention'));
+    if(mentionBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      var mentionPid = Number(
+        mentionBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
+      closeMenus();
+      if(!mentionPid) return true;
+      openPcmMentionSheet(mentionPid);
+      return true;
+    }
+
+    var tagSelfBtn = closest(target, menuItemSel('.pcm-tag-self'));
+    if(tagSelfBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      var selfPid = Number(
+        tagSelfBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
+      closeMenus();
+      if(!selfPid) return true;
+      toggleSelfTagOnPost(selfPid, tagSelfBtn);
+      return true;
+    }
+
     var unfollowBtn = closest(target, menuItemSel('.pcm-follow, .pcm-unfollow'));
     if(unfollowBtn){
       if(e.preventDefault) e.preventDefault();
@@ -1368,12 +2307,46 @@
         body: body
       }).then(function(r){ return r.json(); }).then(function(res){
         if(!res || !res.status) return;
-        if(typeof window.applyStatusForPeer === 'function'){
+        if(typeof window.mfSyncFriendUiForPeer === 'function'){
+          window.mfSyncFriendUiForPeer(peerId, String(res.status));
+        } else if(typeof window.applyStatusForPeer === 'function'){
           window.applyStatusForPeer(peerId, String(res.status));
-        } else if(typeof window.msbApplyFriendActionBtnState === 'function'){
-          document.querySelectorAll('.friend-btn[data-peer-id="'+String(peerId)+'"]').forEach(function(btn){
-            window.msbApplyFriendActionBtnState(btn, String(res.status));
-          });
+        } else {
+          syncFriendCards(peerId, String(res.status));
+          if(typeof window.msbApplyFriendActionBtnState === 'function'){
+            document.querySelectorAll('.friend-btn[data-peer-id="'+String(peerId)+'"]').forEach(function(btn){
+              window.msbApplyFriendActionBtnState(btn, String(res.status));
+            });
+          }
+        }
+      });
+      return true;
+    }
+
+    var unfriendBtn = closest(target, menuItemSel('.pcm-unfriend'));
+    if(unfriendBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      closeMenus();
+      var unfriendPeerId = Number(unfriendBtn.getAttribute('data-peer-id') || 0);
+      if(!unfriendPeerId) return true;
+      var unfriendBody = new URLSearchParams({ action: 'unfriend', peer_id: String(unfriendPeerId) });
+      fetch('ajax/friend_action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: unfriendBody
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if(!res || !res.ok){
+          if(res && res.message) pcmToast(String(res.message));
+          return;
+        }
+        var nextStatus = String(res.status || 'none');
+        if(typeof window.mfSyncFriendUiForPeer === 'function'){
+          window.mfSyncFriendUiForPeer(unfriendPeerId, nextStatus);
+        } else if(typeof window.applyStatusForPeer === 'function'){
+          window.applyStatusForPeer(unfriendPeerId, nextStatus);
+        } else {
+          syncFriendCards(unfriendPeerId, nextStatus);
         }
       });
       return true;
@@ -1479,6 +2452,21 @@
       return true;
     }
 
+    var postBtn = closest(target, menuItemSel('.pcm-post'));
+    if(postBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      var postPid = Number(
+        postBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
+      closeMenus();
+      if(!postPid) return true;
+      openPcmPostDestDialog(postPid);
+      return true;
+    }
+
     var copyBtn = closest(target, menuItemSel('.pcm-copy-link'));
     if(copyBtn){
       if(e.preventDefault) e.preventDefault();
@@ -1504,7 +2492,19 @@
 
   function onDocumentClick(e){
     var target = e.target;
+    if(target && target.nodeType === 3) target = target.parentElement;
     if(!target) return;
+
+    var othersBtn = closest(target, '.msb-sharing-others-btn');
+    if (othersBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSharingOthersMenu(othersBtn);
+      return;
+    }
+    if (!closest(target, '.msb-sharing-others-wrap')) {
+      closeSharingOthersMenus();
+    }
 
     // Feed has several delegated click handlers. Handle the native dialog's
     // destructive action in this capture-phase dispatcher so a later handler
@@ -1513,7 +2513,7 @@
       e.preventDefault();
       e.stopPropagation();
       if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-      onGenericConfirmDeleteClick();
+      onGenericConfirmDeleteClick(target);
       return;
     }
     if(closest(target, '#pcmGenericConfirmArchiveBtn')){
@@ -1542,7 +2542,7 @@
       return;
     }
     // Keep the confirm popup open — do not treat dialog clicks as outside-menu dismiss.
-    if(closest(target, '#feedDeleteDialog, #pcmDeleteConfirmDialog, #pcmArchiveConfirmDialog, #pcmShareSheet, #reelDeleteDialog')){
+    if(closest(target, '#feedDeleteDialog, #pcmDeleteConfirmDialog, #pcmArchiveConfirmDialog, #pcmShareSheet, #pcmTagSheet, #reelDeleteDialog')){
       return;
     }
 
@@ -1592,17 +2592,29 @@
     });
   }
 
-  function onGenericConfirmDeleteClick(){
-    var postId = Number(window.__pcmPendingDeleteId || 0);
+  function onGenericConfirmDeleteClick(fromEl){
+    var dialog = document.getElementById('pcmDeleteConfirmDialog');
+    var btn = fromEl ? closest(fromEl, '#pcmGenericConfirmDeleteBtn') : document.getElementById('pcmGenericConfirmDeleteBtn');
+    var postId = Number(
+      window.__pcmPendingDeleteId ||
+      (btn && btn.getAttribute('data-post-id')) ||
+      (dialog && dialog.getAttribute('data-pcm-post-id')) ||
+      0
+    );
     if(!postId) return;
     var done = window.__pcmPendingDeleteDone;
     window.__pcmPendingDeleteId = 0;
     window.__pcmPendingDeleteDone = null;
-    // Remove card + close popup immediately; API soft-delete runs in background.
-    removePostFromSurfaces(postId);
-    hideModal('pcmDeleteConfirmDialog');
+    try{ if(dialog) dialog.removeAttribute('data-pcm-post-id'); }catch(eClear){}
+    try{ if(btn) btn.removeAttribute('data-post-id'); }catch(eClearBtn){}
+    // Close popup + remove surfaces first; API soft-delete runs next.
+    try{ hideModal('pcmDeleteConfirmDialog'); }catch(eHide){}
+    try{ removePostFromSurfaces(postId); }catch(eRm){}
     runDelete(postId, function(res){
       if(res && res.ok !== false){
+        try{
+          if(typeof pcmToast === 'function') pcmToast('Post deleted.');
+        }catch(eToast){}
         if(typeof done === 'function') done(res);
         return;
       }
@@ -1889,17 +2901,35 @@
     syncOnMediaContrast: syncOnMediaMenuContrast,
     syncCardPublisher: syncCardPublisher,
     syncPublisherCards: syncPublisherCards,
+    syncCardFriend: syncCardFriend,
+    syncFriendCards: syncFriendCards,
     syncBookmarkMenuState: syncBookmarkMenuState,
     syncArchiveMenuState: syncArchiveMenuState,
     syncPostTrackState: syncPostTrackState,
     toast: pcmToast,
     openShare: openPcmShareSheet,
-    closeShare: closePcmShareSheet
+    closeShare: closePcmShareSheet,
+    openTag: openPcmTagSheet,
+    closeTag: closePcmTagSheet,
+    openMention: openPcmMentionSheet,
+    closeMention: closePcmMentionSheet,
+    openViewPost: openViewThePost,
+    closeViewPost: closePcmViewPostOverlay,
+    openPostDest: openPcmPostDestDialog,
+    closePostDest: closePcmPostDestDialog,
+    visibilityBadgeHtml: visibilityBadgeHtml,
+    authorSharingWithHtml: authorSharingWithHtml,
+    displayTextWithoutTagHandles: displayTextWithoutTagHandles,
+    textIsPeopleTagOnly: textIsPeopleTagOnly,
+    normalizeVisibility: normalizeVisibility,
+    setVisibility: runSetVisibility,
+    makePrivate: function(postId){ runSetVisibility(Number(postId || 0), 'private'); }
   };
 
   document.addEventListener('click', onDocumentClick, true);
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape'){
+      closeSharingOthersMenus();
       closeMenus();
       var genericDeleteModal = document.getElementById('pcmDeleteConfirmDialog');
       if(genericDeleteModal && genericDeleteModal.open){
@@ -1912,6 +2942,27 @@
       var shareSheet = document.getElementById('pcmShareSheet');
       if(shareSheet && shareSheet.open){
         closePcmShareSheet();
+      }
+      var tagSheet = document.getElementById('pcmTagSheet');
+      if(tagSheet && tagSheet.open){
+        closePcmTagSheet();
+      }
+      var mentionSheet = document.getElementById('pcmMentionSheet');
+      if(mentionSheet && mentionSheet.open){
+        closePcmMentionSheet();
+      }
+      var viewPostOv = document.getElementById('pcmViewPostOverlay');
+      if(viewPostOv && viewPostOv.classList.contains('is-open')){
+        closePcmViewPostOverlay();
+        return;
+      }
+      var postDest = document.getElementById('pcmPostDestDialog');
+      if(postDest && postDest.open){
+        closePcmPostDestDialog();
+      }
+      var privateConfirm = document.getElementById('pcmPrivateConfirmDialog');
+      if(privateConfirm && privateConfirm.open){
+        closePcmPrivateConfirm();
       }
     }
   });
@@ -1928,6 +2979,21 @@
     hydrateEmptyMenus(document);
     observeOnMediaMenuContrast();
     syncOnMediaMenuContrast(document);
+    var viewPostClose = document.getElementById('pcmViewPostClose');
+    if(viewPostClose && !viewPostClose.__pcmBound){
+      viewPostClose.__pcmBound = true;
+      viewPostClose.addEventListener('click', function(e){
+        if(e && e.preventDefault) e.preventDefault();
+        closePcmViewPostOverlay();
+      });
+    }
+    var viewPostOv = document.getElementById('pcmViewPostOverlay');
+    if(viewPostOv && !viewPostOv.__pcmBound){
+      viewPostOv.__pcmBound = true;
+      viewPostOv.addEventListener('click', function(e){
+        if(e.target === viewPostOv) closePcmViewPostOverlay();
+      });
+    }
     var confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
     if(confirmDeleteBtn && !confirmDeleteBtn.__pcmBound){
       confirmDeleteBtn.__pcmBound = true;
@@ -1941,7 +3007,9 @@
     var genericConfirmDeleteBtn = document.getElementById('pcmGenericConfirmDeleteBtn');
     if(genericConfirmDeleteBtn && !genericConfirmDeleteBtn.__pcmBound){
       genericConfirmDeleteBtn.__pcmBound = true;
-      genericConfirmDeleteBtn.addEventListener('click', onGenericConfirmDeleteClick);
+      genericConfirmDeleteBtn.addEventListener('click', function(ev){
+        onGenericConfirmDeleteClick(ev && ev.target ? ev.target : genericConfirmDeleteBtn);
+      });
     }
     var genericConfirmArchiveBtn = document.getElementById('pcmGenericConfirmArchiveBtn');
     if(genericConfirmArchiveBtn && !genericConfirmArchiveBtn.__pcmBound){
@@ -1980,6 +3048,40 @@
         closePcmArchiveConfirm();
       });
     }
+    var genericConfirmPrivateBtn = document.getElementById('pcmGenericConfirmPrivateBtn');
+    if(genericConfirmPrivateBtn && !genericConfirmPrivateBtn.__pcmBound){
+      genericConfirmPrivateBtn.__pcmBound = true;
+      genericConfirmPrivateBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var input = document.getElementById('pcmPrivatePostId');
+        var postId = Number((input && input.value) || window.__pcmPendingPrivateId || 0);
+        var done = window.__pcmPendingPrivateDone;
+        closePcmPrivateConfirm();
+        if(postId > 0){
+          if(typeof done === 'function') done();
+          else runSetVisibility(postId, 'private');
+        }
+      });
+    }
+    var privateConfirmModal = document.getElementById('pcmPrivateConfirmDialog');
+    if(privateConfirmModal && !privateConfirmModal.__pcmDismissBound){
+      privateConfirmModal.__pcmDismissBound = true;
+      privateConfirmModal.querySelectorAll('[data-pcm-private-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ closePcmPrivateConfirm(); });
+      });
+      privateConfirmModal.addEventListener('click', function(e){
+        if(e.target !== privateConfirmModal) return;
+        var rect = privateConfirmModal.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          closePcmPrivateConfirm();
+        }
+      });
+      privateConfirmModal.addEventListener('cancel', function(e){
+        e.preventDefault();
+        closePcmPrivateConfirm();
+      });
+    }
     var shareSheet = document.getElementById('pcmShareSheet');
     if(shareSheet && !shareSheet.__pcmDismissBound){
       shareSheet.__pcmDismissBound = true;
@@ -2010,6 +3112,94 @@
       shareSheet.addEventListener('cancel', function(e){
         e.preventDefault();
         closePcmShareSheet();
+      });
+    }
+    var tagSheet = document.getElementById('pcmTagSheet');
+    if(tagSheet && !tagSheet.__pcmDismissBound){
+      tagSheet.__pcmDismissBound = true;
+      tagSheet.querySelectorAll('[data-pcm-tag-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ closePcmTagSheet(); });
+      });
+      var tagSaveBtn = document.getElementById('pcmTagSaveBtn');
+      if(tagSaveBtn){
+        tagSaveBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          savePcmTags();
+        });
+      }
+      ensurePcmTagger();
+      tagSheet.addEventListener('click', function(e){
+        if(e.target !== tagSheet) return;
+        var rect = tagSheet.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          closePcmTagSheet();
+        }
+      });
+      tagSheet.addEventListener('cancel', function(e){
+        e.preventDefault();
+        closePcmTagSheet();
+      });
+    }
+    var mentionSheet = document.getElementById('pcmMentionSheet');
+    if(mentionSheet && !mentionSheet.__pcmDismissBound){
+      mentionSheet.__pcmDismissBound = true;
+      mentionSheet.querySelectorAll('[data-pcm-mention-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ closePcmMentionSheet(); });
+      });
+      var mentionSendBtn = document.getElementById('pcmMentionSendBtn');
+      if(mentionSendBtn){
+        mentionSendBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          sendPcmMentions();
+        });
+      }
+      ensurePcmMentioner();
+      mentionSheet.addEventListener('click', function(e){
+        if(e.target !== mentionSheet) return;
+        var rect = mentionSheet.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          closePcmMentionSheet();
+        }
+      });
+      mentionSheet.addEventListener('cancel', function(e){
+        e.preventDefault();
+        closePcmMentionSheet();
+      });
+    }
+    var postDestDialog = document.getElementById('pcmPostDestDialog');
+    if(postDestDialog && !postDestDialog.__pcmDismissBound){
+      postDestDialog.__pcmDismissBound = true;
+      postDestDialog.querySelectorAll('[data-pcm-post-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ closePcmPostDestDialog(); });
+      });
+      var friendsBtn = document.getElementById('pcmPostToFriendsBtn');
+      if(friendsBtn){
+        friendsBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          submitPcmPostDest('friends');
+        });
+      }
+      var publicBtn = document.getElementById('pcmPostToPublicBtn');
+      if(publicBtn){
+        publicBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          submitPcmPostDest('public');
+        });
+      }
+      postDestDialog.addEventListener('click', function(e){
+        if(e.target !== postDestDialog) return;
+        var rect = postDestDialog.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          closePcmPostDestDialog();
+        }
+      });
+      postDestDialog.addEventListener('cancel', function(e){
+        e.preventDefault();
+        closePcmPostDestDialog();
       });
     }
     var renameSaveBtn = document.getElementById('pcmRenameSaveBtn');

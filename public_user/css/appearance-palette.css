@@ -1007,8 +1007,8 @@ html[data-msb-appearance] .mf-card .mf-actions .fa,
 html[data-msb-appearance] .mf-card .mf-actions [class*="ion-"],
 html[data-msb-appearance] .post.public-post-card .more-btn,
 html[data-msb-appearance] .post.public-post-card .standard-media-bottom .standard-media-more,
-html[data-msb-appearance] .post.public-post-card .action-btn i,
-html[data-msb-appearance] .standard-text-btn i {
+html[data-msb-appearance] .post.public-post-card .action-btn:not(.is-love):not(.is-like):not(.is-reacted) i,
+html[data-msb-appearance] .standard-text-btn:not(.is-love):not(.is-like):not(.is-reacted) i {
   color: var(--msb-palette-icon) !important;
   fill: currentColor !important;
 }
@@ -1128,8 +1128,8 @@ html[data-msb-appearance] .mf-card .mf-actions .fa,
 html[data-msb-appearance] .mf-card .mf-actions [class*="ion-"],
 html[data-msb-appearance] .post.public-post-card .more-btn,
 html[data-msb-appearance] .post.public-post-card .standard-media-bottom .standard-media-more,
-html[data-msb-appearance] .post.public-post-card .action-btn i,
-html[data-msb-appearance] .standard-text-btn i {
+html[data-msb-appearance] .post.public-post-card .action-btn:not(.is-love):not(.is-like):not(.is-reacted) i,
+html[data-msb-appearance] .standard-text-btn:not(.is-love):not(.is-like):not(.is-reacted) i {
   color: var(--msb-palette-icon) !important;
   fill: currentColor !important;
 }
@@ -1504,7 +1504,7 @@ html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act .fa {
 html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-love,
 html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-love .fa,
 html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-love .mf-num {
-  color: var(--msb-love-color, #7c3aed) !important;
+  color: var(--msb-rx-love, var(--msb-love-color, #ff4d6d)) !important;
 }
 
 html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-save .fa {
@@ -2235,6 +2235,7 @@ html[data-msb-appearance] .mf-friend-btn.primary:hover {
 
 /* Gallery / post viewer — comments panel follows Appearance; media side stays transparent */
 html[data-msb-appearance] .pv-right,
+html[data-msb-appearance] .pv-mid,
 html[data-msb-appearance] .pv-head,
 html[data-msb-appearance] .pv-body,
 html[data-msb-appearance] .pv-caption,
@@ -2396,7 +2397,8 @@ html[data-msb-appearance] .standard-text-btn.is-like i,
 html[data-msb-appearance] .standard-media-btn.is-like i,
 html[data-msb-appearance] .action-btn.is-like i,
 html[data-msb-appearance] .reel-inline-btn.is-like i {
-  color: var(--msb-palette-action) !important;
+  color: var(--msb-rx-like, #2563eb) !important;
+  -webkit-text-fill-color: var(--msb-rx-like, #2563eb) !important;
 }
 
 html[data-msb-appearance] .about-ico,
@@ -2530,7 +2532,8 @@ html[data-msb-appearance] .group-message-input:focus {
 }
 
 /* Messages empty-state FAB — blue/purple → light pink */
-html[data-msb-appearance] .chat-empty-plus {
+html[data-msb-appearance] .chat-empty-plus,
+html[data-msb-appearance] .tt-messages-plus {
   background: var(--msb-palette-nav-hover) !important;
   background-image: none !important;
   color: var(--msb-palette-action) !important;
@@ -2538,11 +2541,13 @@ html[data-msb-appearance] .chat-empty-plus {
   box-shadow: none !important;
 }
 
-html[data-msb-appearance] .chat-empty-plus i {
+html[data-msb-appearance] .chat-empty-plus i,
+html[data-msb-appearance] .tt-messages-plus i {
   color: var(--msb-palette-action) !important;
 }
 
-html[data-msb-appearance] .chat-empty-plus:hover {
+html[data-msb-appearance] .chat-empty-plus:hover,
+html[data-msb-appearance] .tt-messages-plus:hover {
   background: var(--msb-palette-action-soft) !important;
   color: var(--msb-palette-action) !important;
 }

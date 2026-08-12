@@ -6070,6 +6070,7 @@ $studioBodyClasses = array_filter([
       snapshotIntervalMs: 0,
       guestRelayIntervalMs: 0,
       snapshotBusy: false,
+      snapshotCanvas: null,
       guestSnapshotBusy: {},
       snapshotVersion: '',
       snapshotRelayVideo: null,
@@ -6089,13 +6090,14 @@ $studioBodyClasses = array_filter([
       sidebarMode: 'chat',
       reactionUsers: [],
       reactionCounts: {},
-      reactionFilter: 'all'
+      reactionFilter: 'all',
+      commentsFingerprint: ''
     };
     const hostUserId = <?php echo (int)$meId; ?>;
     const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     const maxActiveGuests = 29;
-    const peerDisconnectGraceMs = 8000;
-    const guestFreezeGraceMs = 7000;
+    const peerDisconnectGraceMs = 10000;
+    const guestFreezeGraceMs = 10000;
     let studioStageInitialized = false;
     let studioLastReactionCounts = { love: 0, like: 0, fire: 0, wow: 0, clap: 0 };
 
@@ -6271,6 +6273,86 @@ $studioBodyClasses = array_filter([
       return !!(mediaNode && typeof mediaNode.setSinkId === 'function');
     }
 
+    function isMediaDeviceMissingError(error) {
+      const name = String((error && error.name) || '');
+      const message = String((error && error.message) || '').toLowerCase();
+      return name === 'NotFoundError'
+        || name === 'OverconstrainedError'
+        || name === 'DevicesNotFoundError'
+        || message.indexOf('requested device not found') !== -1
+        || message.indexOf('could not start video source') !== -1
+        || message.indexOf('could not start audio source') !== -1;
+    }
+
+    function friendlyMediaDeviceError(error) {
+      const name = String((error && error.name) || '');
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        return 'Camera permission is blocked. Allow camera/microphone for this site, then click Turn Camera On.';
+      }
+      if (name === 'NotReadableError' || name === 'TrackStartError') {
+        return 'Camera is busy in another app. Close other video apps, then click Turn Camera On.';
+      }
+      if (isMediaDeviceMissingError(error)) {
+        return 'No usable camera/microphone was found. Plug in a device or choose another one in Settings, then try again.';
+      }
+      return (error && error.message) ? String(error.message) : 'Unable to start camera.';
+    }
+
+    function clearStaleStudioDeviceSelection(kind) {
+      if (kind === 'camera' || kind === 'all') {
+        state.selectedCameraDeviceId = '';
+        if (studioLiveCameraDeviceSelect) studioLiveCameraDeviceSelect.value = '';
+      }
+      if (kind === 'mic' || kind === 'all') {
+        state.selectedMicDeviceId = '';
+        if (studioLiveMicDeviceSelect) studioLiveMicDeviceSelect.value = '';
+      }
+    }
+
+    async function getUserMediaWithDeviceFallback(videoConstraints, audioConstraints) {
+      const attempt = function(video, audio) {
+        const constraints = {};
+        if (video) constraints.video = video;
+        if (audio) constraints.audio = audio;
+        return navigator.mediaDevices.getUserMedia(constraints);
+      };
+
+      try {
+        return await attempt(videoConstraints, audioConstraints || false);
+      } catch (error) {
+        if (!isMediaDeviceMissingError(error)) {
+          throw error;
+        }
+
+        // Stale saved device IDs (common after reconnecting USB cams / switching Macs).
+        const softVideo = videoConstraints ? Object.assign({}, videoConstraints) : null;
+        const softAudio = audioConstraints ? Object.assign({}, audioConstraints) : null;
+        if (softVideo && softVideo.deviceId) {
+          delete softVideo.deviceId;
+          softVideo.facingMode = softVideo.facingMode || 'user';
+        }
+        if (softAudio && softAudio.deviceId) {
+          delete softAudio.deviceId;
+        }
+        clearStaleStudioDeviceSelection('all');
+
+        try {
+          return await attempt(softVideo || true, softAudio || false);
+        } catch (softError) {
+          // Last resort: video only, then attach mic separately.
+          if (softVideo) {
+            try {
+              const videoOnly = await attempt(softVideo, false);
+              return videoOnly;
+            } catch (videoOnlyError) {
+              throw videoOnlyError;
+            }
+          }
+          throw softError;
+        }
+      }
+    }
+
     async function refreshStudioMediaDevices() {
       if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
         return;
@@ -6280,6 +6362,13 @@ $studioBodyClasses = array_filter([
         const cameras = devices.filter(function(device) { return device.kind === 'videoinput'; });
         const microphones = devices.filter(function(device) { return device.kind === 'audioinput'; });
         const speakers = devices.filter(function(device) { return device.kind === 'audiooutput'; });
+
+        if (state.selectedCameraDeviceId && !cameras.some(function(device) { return device.deviceId === state.selectedCameraDeviceId; })) {
+          clearStaleStudioDeviceSelection('camera');
+        }
+        if (state.selectedMicDeviceId && !microphones.some(function(device) { return device.deviceId === state.selectedMicDeviceId; })) {
+          clearStaleStudioDeviceSelection('mic');
+        }
 
         if (studioLiveCameraDeviceSelect) {
           studioLiveCameraDeviceSelect.innerHTML = '<option value="">System default camera</option>' + cameras.map(function(device, index) {
@@ -6338,10 +6427,26 @@ $studioBodyClasses = array_filter([
         if (state.selectedMicDeviceId) {
           audioConstraints.deviceId = { exact: state.selectedMicDeviceId };
         }
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
-          video: false
-        });
+        let audioStream;
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints,
+            video: false
+          });
+        } catch (error) {
+          if (!isMediaDeviceMissingError(error)) {
+            return false;
+          }
+          clearStaleStudioDeviceSelection('mic');
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            },
+            video: false
+          });
+        }
         const newTrack = audioStream && audioStream.getAudioTracks ? audioStream.getAudioTracks()[0] : null;
         if (!newTrack) {
           if (audioStream) {
@@ -7228,7 +7333,7 @@ $studioBodyClasses = array_filter([
         stopGuestTileSnapshotLoop();
         return;
       }
-      const intervalMs = snapshotTileCount >= 2 ? 1400 : 1100;
+      const intervalMs = snapshotTileCount >= 2 ? 1800 : 1400;
       if (state.guestTileSnapshotTimer && state.guestTileSnapshotIntervalMs === intervalMs) {
         return;
       }
@@ -7663,45 +7768,53 @@ $studioBodyClasses = array_filter([
       renderGuestTiles();
       syncSnapshotOnlyGuestPeers();
 
-      if (!comments.length) {
-        if (commentList) {
-          commentList.innerHTML = '<div class="comment-item"><div class="comment-author">Studio</div><div class="comment-body">Comments will appear here after the host or viewers post into this live room.</div></div>';
-        }
-        if (studioModalCommentsBox && studioModalCommentList) {
-          studioModalCommentsBox.classList.remove('has-comments');
-          studioModalCommentList.innerHTML = 'Comments will appear here when viewers join your live session.';
-        }
-        return;
-      }
+      const commentsFingerprint = comments.length
+        ? comments.map(function(item) {
+            return String(item.id || '') + ':' + String(item.like_count || 0) + ':' + (item.liked_by_me ? '1' : '0');
+          }).join('|')
+        : 'empty';
+      const commentsUnchanged = commentsFingerprint === state.commentsFingerprint;
+      if (!commentsUnchanged) {
+        state.commentsFingerprint = commentsFingerprint;
+        if (!comments.length) {
+          if (commentList) {
+            commentList.innerHTML = '<div class="comment-item"><div class="comment-author">Studio</div><div class="comment-body">Comments will appear here after the host or viewers post into this live room.</div></div>';
+          }
+          if (studioModalCommentsBox && studioModalCommentList) {
+            studioModalCommentsBox.classList.remove('has-comments');
+            studioModalCommentList.innerHTML = 'Comments will appear here when viewers join your live session.';
+          }
+        } else {
+          if (commentList) {
+            const shouldStickPrimaryComments = (commentList.scrollHeight - commentList.scrollTop - commentList.clientHeight) <= 48;
+            commentList.innerHTML = comments.map((item) => {
+              const author = escHtml(item.author || 'User');
+              const body = escHtml(item.body || '');
+              return `<div class="comment-item"><div class="comment-author">${author}</div><div class="comment-body">${body}</div></div>`;
+            }).join('');
+            if (shouldStickPrimaryComments) {
+              commentList.scrollTop = commentList.scrollHeight;
+            }
+          }
 
-      if (commentList) {
-        const shouldStickPrimaryComments = (commentList.scrollHeight - commentList.scrollTop - commentList.clientHeight) <= 48;
-        commentList.innerHTML = comments.map((item) => {
-          const author = escHtml(item.author || 'User');
-          const body = escHtml(item.body || '');
-          return `<div class="comment-item"><div class="comment-author">${author}</div><div class="comment-body">${body}</div></div>`;
-        }).join('');
-        if (shouldStickPrimaryComments) {
-          commentList.scrollTop = commentList.scrollHeight;
-        }
-      }
-
-      if (studioModalCommentsBox && studioModalCommentList) {
-        const shouldStickModalComments = (studioModalCommentList.scrollHeight - studioModalCommentList.scrollTop - studioModalCommentList.clientHeight) <= 48;
-        studioModalCommentsBox.classList.add('has-comments');
-        studioModalCommentList.innerHTML = comments.map((item) => {
-          const author = escHtml(item.author || 'User');
-          const body = escHtml(item.body || '');
-          const isSelf = Number(item.user_id || 0) === Number(hostUserId || 0);
-          const initials = escHtml(initialsForName(item.author || 'User'));
-          const tone = commentTone(item.author || 'User');
-          const meta = escHtml(String(item.created_at || '').trim() || 'Now');
-          const likeCount = Number(item.like_count || 0);
-          const likedByLabel = escHtml(String(item.liked_by_label || ''));
-          return `<div class="studio-live-comment-card${isSelf ? ' is-self' : ''}" data-comment-id="${Number(item.id || 0)}" data-comment-author="${author}"><div class="studio-live-comment-avatar" style="background:linear-gradient(135deg, hsl(${tone} 80% 62%), hsl(${(tone + 38) % 360} 78% 54%));">${initials}</div><div class="studio-live-comment-main"><div class="studio-live-comment-author">${author}${isSelf ? '<span class="studio-live-comment-team">Team</span>' : ''}</div><div class="studio-live-comment-body">${body}</div><div class="studio-live-comment-meta"><span>${meta}</span><button type="button" class="studio-live-comment-reply">Reply</button><button type="button" class="studio-live-comment-like${item.liked_by_me ? ' is-liked' : ''}" aria-label="Like comment" title="${likedByLabel}"><i class="fa fa-heart-o" aria-hidden="true"></i>${likeCount > 0 ? `<span class="studio-live-comment-like-count">${likeCount}</span>` : ''}</button></div>${likedByLabel ? `<div class="studio-live-comment-likes">${likedByLabel}</div>` : ''}</div></div>`;
-        }).join('');
-        if (shouldStickModalComments) {
-          studioModalCommentList.scrollTop = studioModalCommentList.scrollHeight;
+          if (studioModalCommentsBox && studioModalCommentList) {
+            const shouldStickModalComments = (studioModalCommentList.scrollHeight - studioModalCommentList.scrollTop - studioModalCommentList.clientHeight) <= 48;
+            studioModalCommentsBox.classList.add('has-comments');
+            studioModalCommentList.innerHTML = comments.map((item) => {
+              const author = escHtml(item.author || 'User');
+              const body = escHtml(item.body || '');
+              const isSelf = Number(item.user_id || 0) === Number(hostUserId || 0);
+              const initials = escHtml(initialsForName(item.author || 'User'));
+              const tone = commentTone(item.author || 'User');
+              const meta = escHtml(String(item.created_at || '').trim() || 'Now');
+              const likeCount = Number(item.like_count || 0);
+              const likedByLabel = escHtml(String(item.liked_by_label || ''));
+              return `<div class="studio-live-comment-card${isSelf ? ' is-self' : ''}" data-comment-id="${Number(item.id || 0)}" data-comment-author="${author}"><div class="studio-live-comment-avatar" style="background:linear-gradient(135deg, hsl(${tone} 80% 62%), hsl(${(tone + 38) % 360} 78% 54%));">${initials}</div><div class="studio-live-comment-main"><div class="studio-live-comment-author">${author}${isSelf ? '<span class="studio-live-comment-team">Team</span>' : ''}</div><div class="studio-live-comment-body">${body}</div><div class="studio-live-comment-meta"><span>${meta}</span><button type="button" class="studio-live-comment-reply">Reply</button><button type="button" class="studio-live-comment-like${item.liked_by_me ? ' is-liked' : ''}" aria-label="Like comment" title="${likedByLabel}"><i class="fa fa-heart-o" aria-hidden="true"></i>${likeCount > 0 ? `<span class="studio-live-comment-like-count">${likeCount}</span>` : ''}</button></div>${likedByLabel ? `<div class="studio-live-comment-likes">${likedByLabel}</div>` : ''}</div></div>`;
+            }).join('');
+            if (shouldStickModalComments) {
+              studioModalCommentList.scrollTop = studioModalCommentList.scrollHeight;
+            }
+          }
         }
       }
 
@@ -7776,7 +7889,7 @@ $studioBodyClasses = array_filter([
         return;
       }
       pollRoomData();
-      state.roomPollTimer = window.setInterval(pollRoomData, 2000);
+      state.roomPollTimer = window.setInterval(pollRoomData, 3000);
     }
 
     async function sendRtcSignal(receiverId, peerKey, signalType, payload) {
@@ -7802,6 +7915,10 @@ $studioBodyClasses = array_filter([
       if (entry.disconnectTimer) {
         clearTimeout(entry.disconnectTimer);
         entry.disconnectTimer = null;
+      }
+      if (entry.viewerId && state.live && Number(state.live.id || 0) > 0) {
+        // Tell the viewer to fall back to snapshot immediately instead of hanging on a dead PC.
+        sendRtcSignal(entry.viewerId, peerKey, 'bye', {}).catch(function() {});
       }
       if (entry.kind === 'guest-publisher' && entry.viewerId) {
         removeGuestStream(entry.viewerId);
@@ -7920,6 +8037,7 @@ $studioBodyClasses = array_filter([
       if (!(state.live && Number(state.live.id || 0) > 0 && String(state.live.status || '').toLowerCase() === 'live')) {
         return;
       }
+      adoptParentHubHostStreamIfNeeded();
       if (!state.mediaStream) {
         return;
       }
@@ -8003,7 +8121,38 @@ $studioBodyClasses = array_filter([
       Object.keys(state.peerConnections).forEach(closePeerConnection);
     }
 
+    function adoptParentHubHostStreamIfNeeded() {
+      if (!isHubEmbedMode) return false;
+      try {
+        if (!window.parent || window.parent === window) return false;
+        const parentStream = window.parent.__msbHubHostStream;
+        const parentLiveId = Number(window.parent.__msbHubHostStreamLiveId || 0);
+        const liveId = Number((state.live && state.live.id) || 0);
+        if (!parentStream || liveId <= 0 || parentLiveId !== liveId) {
+          return false;
+        }
+        const parentHasLiveVideo = typeof parentStream.getVideoTracks === 'function'
+          && parentStream.getVideoTracks().some(function(track) {
+            return track && track.readyState === 'live';
+          });
+        if (!parentHasLiveVideo) {
+          return false;
+        }
+        if (state.mediaStream === parentStream) {
+          return true;
+        }
+        // Hub may own the camera while studio iframe lost its local MediaStream.
+        // Re-adopt so WebRTC answers and snapshot uploads keep working for viewers.
+        state.mediaStream = parentStream;
+        state.cameraOn = true;
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
     function syncRtcHostLoop() {
+      adoptParentHubHostStreamIfNeeded();
       const shouldRun = !!(window.RTCPeerConnection
         && state.mediaStream
         && state.live
@@ -8020,7 +8169,7 @@ $studioBodyClasses = array_filter([
       }
 
       pollRtcSignals();
-      state.signalPollTimer = window.setInterval(pollRtcSignals, 900);
+      state.signalPollTimer = window.setInterval(pollRtcSignals, 1300);
     }
 
     function updateProgress() {
@@ -8096,10 +8245,26 @@ $studioBodyClasses = array_filter([
         if (state.selectedMicDeviceId) {
           audioConstraints.deviceId = { exact: state.selectedMicDeviceId };
         }
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
-          video: false
-        });
+        let audioStream;
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints,
+            video: false
+          });
+        } catch (error) {
+          if (!isMediaDeviceMissingError(error)) {
+            return false;
+          }
+          clearStaleStudioDeviceSelection('mic');
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            },
+            video: false
+          });
+        }
         const audioTrack = audioStream && audioStream.getAudioTracks ? audioStream.getAudioTracks()[0] : null;
         if (!audioTrack || typeof stream.addTrack !== 'function') {
           if (audioStream) {
@@ -8220,10 +8385,18 @@ $studioBodyClasses = array_filter([
       if (state.selectedMicDeviceId) {
         audioConstraints.deviceId = { exact: state.selectedMicDeviceId };
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
-        audio: audioConstraints
-      });
+
+      let stream;
+      try {
+        stream = await getUserMediaWithDeviceFallback(videoConstraints, audioConstraints);
+      } catch (error) {
+        throw new Error(friendlyMediaDeviceError(error));
+      }
+
+      // If fallback returned video-only, attach a default mic when possible.
+      if (stream && typeof stream.getAudioTracks === 'function' && !stream.getAudioTracks().length) {
+        await attachHostMicrophoneTrack(stream);
+      }
 
       if (existingStream) {
         stopCameraStream();
@@ -8244,6 +8417,7 @@ $studioBodyClasses = array_filter([
       syncSoftwareFileHealthLoop();
       syncSnapshotLoop();
       syncRtcHostLoop();
+      refreshStudioMediaDevices().catch(function() {});
     }
 
     async function enableDisplaySource(mode) {
@@ -8426,20 +8600,35 @@ $studioBodyClasses = array_filter([
       try {
         const sourceVideo = ensureSnapshotRelayVideo() || previewVideo;
         if (!sourceVideo || sourceVideo.readyState < 2 || !sourceVideo.videoWidth || !sourceVideo.videoHeight) return;
-        const maxWidth = 960;
+        const maxWidth = 360;
         const scale = sourceVideo.videoWidth > maxWidth ? (maxWidth / sourceVideo.videoWidth) : 1;
-        const canvas = document.createElement('canvas');
+        const canvas = state.snapshotCanvas || document.createElement('canvas');
+        state.snapshotCanvas = canvas;
         canvas.width = Math.max(1, Math.round(sourceVideo.videoWidth * scale));
         canvas.height = Math.max(1, Math.round(sourceVideo.videoHeight * scale));
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false });
         if (!ctx) return;
         ctx.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
-        if (!blob) return;
 
         const formData = new FormData();
         formData.append('live_id', String(state.live.id));
-        formData.append('frame', blob, 'frame.jpg');
+
+        if (typeof canvas.toBlob === 'function') {
+          const blob = await new Promise(function(resolve) {
+            canvas.toBlob(resolve, 'image/jpeg', 0.52);
+          });
+          if (!blob) return;
+          formData.append('frame', blob, 'frame.jpg');
+        } else {
+          let dataUrl = '';
+          try {
+            dataUrl = canvas.toDataURL('image/jpeg', 0.52);
+          } catch (error) {
+            return;
+          }
+          if (!dataUrl || dataUrl.indexOf('data:image') !== 0) return;
+          formData.append('frame_base64', dataUrl);
+        }
 
         const response = await fetch('ajax/live_snapshot.php', {
           method: 'POST',
@@ -8461,7 +8650,7 @@ $studioBodyClasses = array_filter([
     }
 
     async function uploadGuestSnapshotFrameForHost(userId) {
-      if (!usesSnapshotOnlyGuestStage()) return;
+      // Always relay guest covers so snapshot-host viewers can see co-hosts.
       const id = Number(userId || 0);
       if (!id || state.guestSnapshotBusy[id]) return;
       if (!(state.live && Number(state.live.id || 0) > 0)) return;
@@ -8529,23 +8718,29 @@ $studioBodyClasses = array_filter([
     }
 
     function desiredSnapshotIntervals() {
-      if (!usesSnapshotOnlyGuestStage()) {
-        return { host: 900, guest: 0 };
-      }
+      // Friends watch JPEG from host frames. When studio is inside the hub door,
+      // hub Host tab already publishes ~20fps — keep studio as a light backup so
+      // dual writers do not fight and stutter Friend watch.
+      var embeddedInHub = false;
+      try { embeddedInHub = !!(window.parent && window.parent !== window); } catch (e) { embeddedInHub = false; }
       const guestCount = Object.keys(state.guestStreams || {}).length;
+      if (embeddedInHub) {
+        if (guestCount >= 1) {
+          return { host: 220, guest: 700 };
+        }
+        return { host: 180, guest: 0 };
+      }
       if (guestCount >= 3) {
-        return { host: 1200, guest: 1200 };
+        return { host: 90, guest: 900 };
       }
-      if (guestCount === 2) {
-        return { host: 800, guest: 1800 };
+      if (guestCount >= 1) {
+        return { host: 70, guest: 700 };
       }
-      if (guestCount === 1) {
-        return { host: 600, guest: 900 };
-      }
-      return { host: 450, guest: 0 };
+      return { host: 48, guest: 0 };
     }
 
     function syncSnapshotLoop() {
+      adoptParentHubHostStreamIfNeeded();
       const shouldRun = !!(state.cameraOn
         && state.mediaStream
         && state.live
@@ -8784,13 +8979,72 @@ $studioBodyClasses = array_filter([
     }
 
     function openLiveDoorHub() {
+      var visibility = String((state.live && state.live.visibility) || (visibilityInput && visibilityInput.value) || 'friends').toLowerCase();
+      var liveId = Number((state.live && state.live.id) || 0);
+      var title = String((state.live && state.live.title) || '');
+      var hostLiveDoor = String(typeof getHostLiveDoor === 'function' ? (getHostLiveDoor() || 'left') : 'left');
+      var studioSource = String(state.source || 'webcam');
       if (isHubEmbedMode) {
+        // Public room → Host door on public.php only (Public tab for viewers).
+        // Friends room → Host door on feed.php only (Friend tab for viewers).
+        if (visibility === 'public') {
+          try {
+            window.parent.postMessage({
+              type: 'msb-hub-public-host-route',
+              liveId: liveId,
+              title: title,
+              visibility: 'public',
+              hostLiveDoor: hostLiveDoor,
+              studioSource: studioSource
+            }, '*');
+          } catch (routeErr) {}
+          return;
+        }
+        if (visibility === 'friends') {
+          try {
+            window.parent.postMessage({
+              type: 'msb-hub-friends-host-route',
+              liveId: liveId,
+              title: title,
+              visibility: 'friends',
+              hostLiveDoor: hostLiveDoor,
+              studioSource: studioSource
+            }, '*');
+          } catch (routeErrFriends) {}
+          return;
+        }
         try {
           window.parent.postMessage({ type: 'msb-hub-tab-switch', tab: 'chat' }, '*');
         } catch (error) {}
         return;
       }
-      const hubUrl = 'live_door_hub.php?can_studio=1';
+      if (visibility === 'public') {
+        try {
+          window.parent.postMessage({
+            type: 'msb-hub-public-host-route',
+            liveId: liveId,
+            title: title,
+            visibility: 'public',
+            hostLiveDoor: hostLiveDoor,
+            studioSource: studioSource
+          }, '*');
+          return;
+        } catch (routeErr2) {}
+      }
+      if (visibility === 'friends') {
+        try {
+          window.parent.postMessage({
+            type: 'msb-hub-friends-host-route',
+            liveId: liveId,
+            title: title,
+            visibility: 'friends',
+            hostLiveDoor: hostLiveDoor,
+            studioSource: studioSource
+          }, '*');
+          return;
+        } catch (routeErr3) {}
+      }
+      const hubUrl = 'live_door_hub.php?can_studio=1&hub_tab=chat';
       try {
         if (window.parent && window.parent.TTLive && typeof window.parent.TTLive.open === 'function') {
           window.parent.TTLive.open(hubUrl);
@@ -8891,16 +9145,46 @@ $studioBodyClasses = array_filter([
       setFeedback('Saving live studio changes...');
 
       try {
-        const data = await fetchJsonSafe('ajax/live_studio_host_action.php', {
-          method: 'POST',
-          body: formPayload(action),
-          credentials: 'same-origin'
-        });
+        const endUrl = action === 'end_live' ? 'ajax/live_end.php' : 'ajax/live_studio_host_action.php';
+        let data;
+        try {
+          data = await fetchJsonSafe(endUrl, {
+            method: 'POST',
+            body: formPayload(action),
+            credentials: 'same-origin',
+            cache: 'no-store'
+          });
+        } catch (firstError) {
+          if (action === 'end_live') {
+            data = await fetchJsonSafe('ajax/live_studio_host_action.php', {
+              method: 'POST',
+              body: formPayload(action),
+              credentials: 'same-origin',
+              cache: 'no-store'
+            });
+          } else {
+            throw firstError;
+          }
+        }
         if (!data || !data.ok) {
           throw new Error(data && data.error ? data.error : 'Request failed');
         }
-        state.live = data.live || { status: 'draft', snapshot_version: '' };
-        if (state.live && data.live) {
+        state.live = data.live || (action === 'end_live'
+          ? { id: 0, title: titleInput.value.trim(), description: descriptionInput.value.trim(), status: 'draft', visibility: visibilityInput.value || 'private', stream_key: '', schedule_input: scheduleInput.value || '', viewer_count: 0, snapshot_version: '' }
+          : { status: 'draft', snapshot_version: '' });
+        if (action === 'end_live') {
+          state.live = {
+            id: 0,
+            title: titleInput.value.trim(),
+            description: descriptionInput.value.trim(),
+            status: 'draft',
+            visibility: visibilityInput.value || 'private',
+            stream_key: '',
+            schedule_input: scheduleInput.value || '',
+            viewer_count: 0,
+            snapshot_version: ''
+          };
+        } else if (state.live && data.live) {
           state.live.host_door = String(data.live.host_door || state.live.host_door || '');
           state.live.studio_source = String(data.live.studio_source || state.live.studio_source || '');
         }
@@ -8940,12 +9224,32 @@ $studioBodyClasses = array_filter([
                 hostLiveDoor: hostLiveDoor,
                 studioSource: String(state.source || 'webcam')
               };
+              var startedVisibility = String(liveStartedPayload.visibility || 'friends').toLowerCase();
               var refreshPayload = { type: 'msb-hub-live-refresh' };
               function postHubLiveMessages(target){
                 if (!target) return;
                 try {
                   target.postMessage(liveStartedPayload, '*');
                   target.postMessage(refreshPayload, '*');
+                  if (startedVisibility === 'public') {
+                    target.postMessage({
+                      type: 'msb-hub-public-host-route',
+                      liveId: liveStartedPayload.liveId,
+                      title: liveStartedPayload.title,
+                      visibility: 'public',
+                      hostLiveDoor: hostLiveDoor,
+                      studioSource: liveStartedPayload.studioSource
+                    }, '*');
+                  } else if (startedVisibility === 'friends') {
+                    target.postMessage({
+                      type: 'msb-hub-friends-host-route',
+                      liveId: liveStartedPayload.liveId,
+                      title: liveStartedPayload.title,
+                      visibility: 'friends',
+                      hostLiveDoor: hostLiveDoor,
+                      studioSource: liveStartedPayload.studioSource
+                    }, '*');
+                  }
                 } catch (error) {}
               }
               postHubLiveMessages(window.parent);
@@ -9166,7 +9470,7 @@ $studioBodyClasses = array_filter([
           await activateSelectedSource();
         } catch (error) {
           stopCameraStream();
-          setFeedback(error.message || 'The selected source could not be started.', 'error');
+          setFeedback(friendlyMediaDeviceError(error), 'error');
         }
         renderCameraState();
       });

@@ -98,6 +98,10 @@ $dbh = $controller->pdo();
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $liveId = (int)($_GET['live_id'] ?? $_POST['live_id'] ?? 0);
 
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 if ($meId <= 0 || $liveId <= 0) {
     signal_json(['ok' => false, 'error' => 'Invalid request']);
 }
@@ -133,6 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if ($peerKey !== '') {
             $sql .= " AND peer_key = :peer_key";
             $params[':peer_key'] = $peerKey;
+        } elseif (!empty($_GET['host_relay_only'])) {
+            // Host-tab backup answers viewer offers only — never consume guest mesh signals.
+            $sql .= " AND peer_key NOT LIKE '%-guest-%'";
         }
         $sql .= " ORDER BY id ASC LIMIT 100";
         $st = $dbh->prepare($sql);

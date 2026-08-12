@@ -11,6 +11,15 @@ ini_set('display_errors', '0');
 
 $error = '';
 $usernameValue = '';
+$registerWelcome = null;
+if (!empty($_SESSION['register_welcome']) && is_array($_SESSION['register_welcome'])) {
+    $registerWelcome = $_SESSION['register_welcome'];
+    unset($_SESSION['register_welcome']);
+    $welcomeUsername = trim((string)($registerWelcome['username'] ?? ''));
+    if ($welcomeUsername !== '') {
+        $usernameValue = $welcomeUsername;
+    }
+}
 $accountType = strtolower(trim((string)($_GET['account_type'] ?? 'personal')));
 if (!in_array($accountType, ['personal', 'publisher', 'commerce'], true)) {
     $accountType = 'personal';
@@ -326,6 +335,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
   </head>
 
   <body class="bg-gray-900" data-login-mode="<?php echo htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8'); ?>">
+
+    <?php require __DIR__ . '/includes/register_welcome_modal.php'; ?>
 
     <div class="signpanel-wrapper">
       <div class="signbox">

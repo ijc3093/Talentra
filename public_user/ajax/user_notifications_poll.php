@@ -46,7 +46,7 @@ try {
           AND notitype NOT LIKE ?
           AND notitype NOT LIKE ?
         ORDER BY created_at DESC, id DESC
-        LIMIT 8
+        LIMIT 20
     ");
     $stList->execute(array_merge($receivers, ['New chat message%', 'Internal Chat%', 'New internal message%']));
 
@@ -87,6 +87,10 @@ try {
             if ($commentId > 0) {
                 $params['open_comment'] = $commentId;
             }
+            $typeLower = strtolower($type);
+            if (strpos($typeLower, 'mention') !== false || strpos($typeLower, 'tagged you') !== false) {
+                $params['hide_nav'] = 1;
+            }
             $url = $page . '?' . http_build_query($params);
         }
         $items[] = [
@@ -94,6 +98,7 @@ try {
             'sender' => trim((string)($row['notiuser'] ?? 'Someone')),
             'text' => $type,
             'live_id' => $liveId,
+            'post_id' => $postId,
             'url' => $url,
             'created_at' => (string)($row['created_at'] ?? ''),
             'is_read' => (int)($row['is_read'] ?? 0),

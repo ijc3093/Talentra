@@ -186,6 +186,40 @@ function post_story_caption(array $post): string
     return $title;
 }
 
+/**
+ * Slide summary HTML: multi-line text becomes a bullet list; single line stays a short summary.
+ */
+function post_slide_summary_html(string $text): string
+{
+    $text = post_normalize_card_plain_text($text);
+    if ($text === '') {
+        return '';
+    }
+    $rawLines = preg_split("/\r\n|\r|\n/", $text) ?: [];
+    $items = [];
+    foreach ($rawLines as $line) {
+        $line = trim((string)$line);
+        $line = preg_replace('/^(?:[•\-\*]|\d+[\.\)])\s+/u', '', $line) ?? $line;
+        if ($line !== '') {
+            $items[] = $line;
+        }
+    }
+    if ($items === []) {
+        return '';
+    }
+    if (count($items) === 1) {
+        return '<div class="post-slide-summary"><p class="post-slide-summary-p">'
+            . htmlspecialchars($items[0], ENT_QUOTES, 'UTF-8')
+            . '</p></div>';
+    }
+    $html = '<div class="post-slide-summary"><ul class="post-slide-summary-list">';
+    foreach ($items as $item) {
+        $html .= '<li>' . htmlspecialchars($item, ENT_QUOTES, 'UTF-8') . '</li>';
+    }
+    $html .= '</ul></div>';
+    return $html;
+}
+
 function post_format_card_text_html(string $text): string
 {
     $text = post_normalize_card_plain_text($text);

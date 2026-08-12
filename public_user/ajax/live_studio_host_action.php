@@ -130,24 +130,7 @@ function studio_ensure_live_table(PDO $dbh): bool
     }
 
     try {
-        $liveMeta = studio_column_meta($dbh, 'user_video_lives', 'friend_code');
-        $userMeta = studio_column_meta($dbh, 'users', 'friend_code');
-        $liveCollation = trim((string)($liveMeta['COLLATION_NAME'] ?? ''));
-        $userCollation = trim((string)($userMeta['COLLATION_NAME'] ?? ''));
-        if ($liveMeta && $userCollation !== '' && $liveCollation !== $userCollation) {
-            $columnType = trim((string)($liveMeta['COLUMN_TYPE'] ?? 'VARCHAR(60)'));
-            $nullable = strtoupper(trim((string)($liveMeta['IS_NULLABLE'] ?? 'NO'))) === 'YES' ? 'NULL' : 'NOT NULL';
-            $defaultRaw = $liveMeta['COLUMN_DEFAULT'] ?? '';
-            $defaultSql = "DEFAULT '" . str_replace("'", "''", (string)$defaultRaw) . "'";
-            $dbh->exec("
-                ALTER TABLE user_video_lives
-                MODIFY friend_code {$columnType}
-                CHARACTER SET utf8mb4
-                COLLATE {$userCollation}
-                {$nullable}
-                {$defaultSql}
-            ");
-        }
+        studio_ensure_friend_code_compat($dbh);
     } catch (Throwable $e) {
         // keep live table resilient
     }
@@ -165,6 +148,127 @@ function studio_ensure_live_table(PDO $dbh): bool
     }
 
     return true;
+}
+
+/**
+ * Align friend_code collations and rebuild guard triggers so MariaDB/MySQL
+ * never throws "Illegal mix of collations" on INSERT/UPDATE.
+ */
+function studio_ensure_friend_code_compat(PDO $dbh, bool $forceTriggerRebuild = false): void
+{
+    $liveMeta = studio_column_meta($dbh, 'user_video_lives', 'friend_code');
+    $userMeta = studio_column_meta($dbh, 'users', 'friend_code');
+    $liveCollation = trim((string)($liveMeta['COLLATION_NAME'] ?? ''));
+    $userCollation = trim((string)($userMeta['COLLATION_NAME'] ?? ''));
+
+    // Prefer the users table collation (source of truth for friend codes).
+    $targetCollation = $userCollation !== '' ? $userCollation : ($liveCollation !== '' ? $liveCollation : 'utf8mb4_unicode_ci');
+    if (!preg_match('/^[a-z0-9_]+$/i', $targetCollation)) {
+        $targetCollation = 'utf8mb4_unicode_ci';
+    }
+
+    $didAlignColumn = false;
+    if ($liveMeta && $liveCollation !== '' && $liveCollation !== $targetCollation) {
+        $columnType = trim((string)($liveMeta['COLUMN_TYPE'] ?? 'VARCHAR(60)'));
+        if ($columnType === '') {
+            $columnType = 'VARCHAR(60)';
+        }
+        $nullable = strtoupper(trim((string)($liveMeta['IS_NULLABLE'] ?? 'NO'))) === 'YES' ? 'NULL' : 'NOT NULL';
+        $defaultRaw = $liveMeta['COLUMN_DEFAULT'] ?? null;
+        $defaultSql = ($defaultRaw === null)
+            ? ''
+            : ("DEFAULT '" . str_replace("'", "''", (string)$defaultRaw) . "'");
+        $dbh->exec("
+            ALTER TABLE user_video_lives
+            MODIFY friend_code {$columnType}
+            CHARACTER SET utf8mb4
+            COLLATE {$targetCollation}
+            {$nullable}
+            {$defaultSql}
+        ");
+        $didAlignColumn = true;
+    }
+
+    $needsTriggerRebuild = $forceTriggerRebuild || $didAlignColumn;
+    if (!$needsTriggerRebuild) {
+        try {
+            $st = $dbh->query("
+                SELECT ACTION_STATEMENT
+                FROM information_schema.TRIGGERS
+                WHERE TRIGGER_SCHEMA = DATABASE()
+                  AND EVENT_OBJECT_TABLE = 'user_video_lives'
+                  AND TRIGGER_NAME IN ('trg_user_video_lives_guard_bi', 'trg_user_video_lives_guard_bu')
+            ");
+            $rows = $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+            if (count($rows) < 2) {
+                $needsTriggerRebuild = true;
+            } else {
+                foreach ($rows as $row) {
+                    $stmt = (string)($row['ACTION_STATEMENT'] ?? '');
+                    if (stripos($stmt, 'COLLATE') === false || stripos($stmt, 'CONVERT(') === false) {
+                        $needsTriggerRebuild = true;
+                        break;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            $needsTriggerRebuild = true;
+        }
+    }
+
+    if ($needsTriggerRebuild) {
+        studio_rebuild_friend_code_guard_triggers($dbh, $targetCollation);
+    }
+}
+
+function studio_is_collation_mix_error(Throwable $e): bool
+{
+    $detail = (string)$e->getMessage();
+    return stripos($detail, 'Illegal mix of collations') !== false
+        || stripos($detail, '1267') !== false;
+}
+
+function studio_rebuild_friend_code_guard_triggers(PDO $dbh, string $collation = 'utf8mb4_unicode_ci'): void
+{
+    if (!preg_match('/^[a-z0-9_]+$/i', $collation)) {
+        $collation = 'utf8mb4_unicode_ci';
+    }
+
+    // Explicit CONVERT/COLLATE avoids mixes between users.friend_code and
+    // user_video_lives.friend_code (common on MariaDB utf8mb4_uca1400_ai_ci hosts).
+    $body = "
+  DECLARE v_friend_code VARCHAR(60) CHARACTER SET utf8mb4 COLLATE {$collation};
+
+  SELECT CONVERT(`friend_code` USING utf8mb4) COLLATE {$collation}
+    INTO v_friend_code
+  FROM `users`
+  WHERE `id` = NEW.`user_id`
+  LIMIT 1;
+
+  IF v_friend_code IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'user_video_lives.user_id must reference an existing user';
+  END IF;
+
+  IF NEW.`friend_code` IS NULL OR CHAR_LENGTH(TRIM(NEW.`friend_code`)) = 0 THEN
+    SET NEW.`friend_code` = v_friend_code;
+  ELSEIF CONVERT(NEW.`friend_code` USING utf8mb4) COLLATE {$collation}
+        <> CONVERT(v_friend_code USING utf8mb4) COLLATE {$collation} THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'user_video_lives.friend_code must match the owner user';
+  END IF;
+
+  IF NEW.`ended_at` IS NOT NULL AND NEW.`started_at` IS NOT NULL AND NEW.`ended_at` < NEW.`started_at` THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'user_video_lives.ended_at cannot be earlier than started_at';
+  END IF;
+
+  IF NEW.`peak_viewers` < NEW.`viewer_count` THEN
+    SET NEW.`peak_viewers` = NEW.`viewer_count`;
+  END IF;
+";
+
+    $dbh->exec('DROP TRIGGER IF EXISTS trg_user_video_lives_guard_bi');
+    $dbh->exec('DROP TRIGGER IF EXISTS trg_user_video_lives_guard_bu');
+    $dbh->exec('CREATE TRIGGER trg_user_video_lives_guard_bi BEFORE INSERT ON user_video_lives FOR EACH ROW BEGIN' . $body . 'END');
+    $dbh->exec('CREATE TRIGGER trg_user_video_lives_guard_bu BEFORE UPDATE ON user_video_lives FOR EACH ROW BEGIN' . $body . 'END');
 }
 
 function studio_fetch_user_friend_code(PDO $dbh, int $userId): string
@@ -486,6 +590,7 @@ function studio_fetch_latest_finished_summary(PDO $dbh, int $meId): ?array
             WHERE user_id = :uid
               AND status NOT IN ('draft','scheduled','live')
             ORDER BY COALESCE(ended_at, started_at, created_at) DESC, id DESC
+            LIMIT 40
         ");
         $st->execute([':uid' => $meId]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -555,7 +660,7 @@ function studio_fetch_latest_finished_summary(PDO $dbh, int $meId): ?array
             'smile' => (int)($reactionCounts['wow'] ?? 0),
             'care' => (int)($reactionCounts['clap'] ?? 0),
             'angry' => (int)($reactionCounts['fire'] ?? 0),
-            'ended_at_label' => 'Saved across ' . count($rows) . ' finished live session' . (count($rows) === 1 ? '' : 's') . '. Latest: ' . studioFmt((string)($latestRow['ended_at'] ?? $latestRow['started_at'] ?? $latestRow['created_at'] ?? '')),
+            'ended_at_label' => 'Saved across ' . count($rows) . ' finished live session' . (count($rows) === 1 ? '' : 's') . '. Latest: ' . studio_fmt_dt_local((string)($latestRow['ended_at'] ?? $latestRow['started_at'] ?? $latestRow['created_at'] ?? '')),
         ];
     } catch (Throwable $e) {
         return null;
@@ -618,8 +723,17 @@ if (!studio_ensure_live_table($dbh)) {
 }
 require_once __DIR__ . '/../includes/live_browse.php';
 device_profile_ensure_live_columns($dbh);
+// Always use the DB friend_code. Session values can be stale/wrong and a
+// BEFORE INSERT/UPDATE trigger rejects mismatched friend_code values.
+$meCode = studio_fetch_user_friend_code($dbh, $meId);
 if ($meCode === '') {
-    $meCode = studio_fetch_user_friend_code($dbh, $meId);
+    $meCode = trim((string)($_SESSION['user_friend_code'] ?? $_SESSION['friend_code'] ?? ''));
+}
+
+// Release session lock so End Live / start_live are not blocked behind
+// snapshot, signal, and door-poll traffic (Safari surfaces that as "Load failed").
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -658,6 +772,8 @@ if (!in_array($hostDoor, ['left', 'right'], true)) {
 if ($title === '' && $action !== 'end_live') {
     $title = 'My live session';
 }
+$title = studio_fit_db_text($title, 160);
+$description = studio_fit_db_text($description, 65535);
 
 $scheduledForSql = null;
 if ($scheduledForInput !== '') {
@@ -677,7 +793,8 @@ try {
         if ($currentId > 0) {
             $st = $dbh->prepare("
                 UPDATE user_video_lives
-                SET title = :title,
+                SET friend_code = :friend_code,
+                    title = :title,
                     description = :description,
                     visibility = :visibility,
                     status = CASE WHEN status = 'live' THEN status ELSE 'draft' END,
@@ -688,6 +805,7 @@ try {
                 LIMIT 1
             ");
             $st->execute([
+                ':friend_code' => $meCode,
                 ':title' => $title,
                 ':description' => $description !== '' ? $description : null,
                 ':visibility' => $visibility,
@@ -717,7 +835,8 @@ try {
         if ($currentId > 0) {
             $st = $dbh->prepare("
                 UPDATE user_video_lives
-                SET title = :title,
+                SET friend_code = :friend_code,
+                    title = :title,
                     description = :description,
                     visibility = :visibility,
                     status = 'scheduled',
@@ -730,6 +849,7 @@ try {
                 LIMIT 1
             ");
             $st->execute([
+                ':friend_code' => $meCode,
                 ':title' => $title,
                 ':description' => $description !== '' ? $description : null,
                 ':visibility' => $visibility,
@@ -773,7 +893,8 @@ try {
         if ($currentId > 0) {
             $st = $dbh->prepare("
                 UPDATE user_video_lives
-                SET title = :title,
+                SET friend_code = :friend_code,
+                    title = :title,
                     description = :description,
                     visibility = :visibility,
                     device_label = :device_label,
@@ -790,6 +911,7 @@ try {
                 LIMIT 1
             ");
             $st->execute([
+                ':friend_code' => $meCode,
                 ':title' => $title,
                 ':description' => $description !== '' ? $description : null,
                 ':visibility' => $visibility,
@@ -822,7 +944,11 @@ try {
             ]);
             $liveId = (int)$dbh->lastInsertId();
         }
-        studio_sync_live_feed_post($dbh, $liveId, $meId, $title, $description, $visibility, $deviceLabel, $deviceViewport);
+        try {
+            studio_sync_live_feed_post($dbh, $liveId, $meId, $title, $description, $visibility, $deviceLabel, $deviceViewport);
+        } catch (Throwable $feedError) {
+            error_log('live_studio feed sync failed for live ' . $liveId . ': ' . $feedError->getMessage());
+        }
 
     } elseif ($action === 'end_live') {
         $endLiveId = (int)($_POST['live_id'] ?? 0);
@@ -881,7 +1007,22 @@ try {
                 @unlink($guestSnapshotPath);
             }
         }
-        studio_hide_live_feed_post($dbh, $currentId, $meId);
+        try {
+            studio_hide_live_feed_post($dbh, $currentId, $meId);
+        } catch (Throwable $hideError) {
+            error_log('live_studio hide feed post failed for live ' . $currentId . ': ' . $hideError->getMessage());
+        }
+
+        // Return immediately — skip heavy history summary (can stall/crash under
+        // concurrent snapshot traffic and surfaces as "Load failed" in Safari).
+        json_out([
+            'ok' => true,
+            'ended' => true,
+            'live_id' => $currentId,
+            'live' => null,
+            'history_count' => studio_fetch_history_count($dbh, $meId),
+            'history_summary' => null,
+        ]);
     } else {
         json_out(['ok' => false, 'error' => 'Unknown action']);
     }
@@ -894,11 +1035,29 @@ try {
         'history_summary' => studio_fetch_latest_finished_summary($dbh, $meId),
     ]);
 } catch (Throwable $e) {
-    $detail = '';
-    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-    $isLocal = strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false;
-    if ($isLocal) {
-        $detail = trim((string)$e->getMessage());
+    $detail = trim((string)$e->getMessage());
+    error_log('live_studio_host_action failed: ' . $detail . ' @ ' . $e->getFile() . ':' . $e->getLine());
+
+    if (studio_is_collation_mix_error($e)) {
+        try {
+            studio_ensure_friend_code_compat($dbh, true);
+            json_out([
+                'ok' => false,
+                'error' => 'Database text settings were repaired. Please click Start Live Now again.',
+                'retry' => true,
+            ]);
+        } catch (Throwable $healError) {
+            error_log('live_studio_host_action collation heal failed: ' . $healError->getMessage());
+            json_out([
+                'ok' => false,
+                'error' => 'Unable to save live studio changes: friend code text settings conflict. Contact support to align database collations.',
+            ]);
+        }
+    }
+
+    // Prefer a short, actionable message when the DB trigger rejects friend_code.
+    if (stripos($detail, 'friend_code must match') !== false) {
+        $detail = 'Friend code mismatch. Refresh the page and try again.';
     }
     json_out([
         'ok' => false,

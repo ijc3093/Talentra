@@ -111,6 +111,29 @@ $__notiStandalone = !empty($msbNotificationsDoorStandalone);
   line-height:1.35;
   color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
 }
+.tt-noti-door-tabs{
+  display:flex;
+  gap:8px;
+  padding:0 4px 10px;
+  flex:0 0 auto;
+}
+.tt-noti-door-tab{
+  border:0;
+  background:transparent;
+  color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
+  font-size:13px;
+  font-weight:800;
+  padding:8px 12px;
+  border-radius:999px;
+  cursor:pointer;
+}
+.tt-noti-door-tab.is-active{
+  background:var(--tt-accent-soft, rgba(37,99,235,.1));
+  color:var(--tt-text, var(--msb-palette-text, #101828));
+}
+.tt-noti-door-tab:hover{
+  background:var(--tt-control-hover, var(--msb-palette-nav-hover, #e9edf3));
+}
 .tt-notifications-divider{
   height:1px;
   background:var(--tt-panel-border, var(--msb-palette-border, rgba(15,23,42,.08)));
@@ -139,6 +162,9 @@ $__notiStandalone = !empty($msbNotificationsDoorStandalone);
   text-decoration:none;
   color:var(--tt-text, var(--msb-palette-text, #101828));
   transition:background .15s ease;
+}
+.tt-notifications-list .bestnoti-text{
+  color:var(--tt-text, var(--msb-palette-text, #101828));
 }
 .tt-notifications-list .dropdown-bestnoti-item + .dropdown-bestnoti-item{
   border-top:none;
@@ -275,6 +301,12 @@ body.msb-notifications-door-open .msb-notifications-door-backdrop{
     $notiWrap.setAttribute('aria-hidden', 'false');
     if(isStandalone) document.body.classList.add('msb-notifications-door-open');
     else document.body.classList.add('public-leftbar-open');
+    // Pull latest alerts (e.g. “tagged you in a post”) as soon as the door opens.
+    try {
+      if (window.MSBNotificationsUI && typeof window.MSBNotificationsUI.refresh === 'function') {
+        window.MSBNotificationsUI.refresh();
+      }
+    } catch (err) {}
   }
 
   function toggleNotificationsPanel(){
