@@ -57,23 +57,38 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 }
 
 $files = [];
-if (isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])) {
-    $n = count($_FILES['attachments']['name']);
-    for ($i = 0; $i < $n; $i++) {
-        $files[] = [
-            'name' => $_FILES['attachments']['name'][$i] ?? '',
-            'type' => $_FILES['attachments']['type'][$i] ?? '',
-            'tmp_name' => $_FILES['attachments']['tmp_name'][$i] ?? '',
-            'error' => $_FILES['attachments']['error'][$i] ?? UPLOAD_ERR_NO_FILE,
-            'size' => $_FILES['attachments']['size'][$i] ?? 0,
-        ];
+if (isset($_FILES['attachments'])) {
+    $att = $_FILES['attachments'];
+    if (is_array($att['name'] ?? null)) {
+        $n = count($att['name']);
+        for ($i = 0; $i < $n; $i++) {
+            $files[] = [
+                'name' => $att['name'][$i] ?? '',
+                'type' => $att['type'][$i] ?? '',
+                'tmp_name' => $att['tmp_name'][$i] ?? '',
+                'error' => $att['error'][$i] ?? UPLOAD_ERR_NO_FILE,
+                'size' => $att['size'][$i] ?? 0,
+            ];
+        }
+    } elseif (is_array($att)) {
+        $files[] = $att;
     }
 } elseif (isset($_FILES['file']) && is_array($_FILES['file'])) {
     $files[] = $_FILES['file'];
 }
 
 if ($files === []) {
-    post_media_json(['ok' => false, 'error' => 'no_files'], 400);
+    // Empty $_FILES often means the request exceeded post_max_size.
+    $contentLen = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $postMax = ini_get('post_max_size');
+    if ($contentLen > 0 && empty($_POST) && empty($_FILES)) {
+        post_media_json([
+            'ok' => false,
+            'error' => 'too_large',
+            'message' => 'File is too large for the server upload limit' . ($postMax ? (' (' . $postMax . ')') : '') . '.',
+        ], 413);
+    }
+    post_media_json(['ok' => false, 'error' => 'no_files', 'message' => 'No file received.'], 400);
 }
 
 $saved = [];
@@ -86,6 +101,7 @@ foreach ($files as $file) {
             'name' => (string)$result['name'],
             'type' => (string)$result['type'],
             'size' => (int)$result['size'],
+            'web' => (string)($result['web'] ?? ''),
         ];
     } else {
         $errors[] = [
@@ -96,7 +112,26 @@ foreach ($files as $file) {
 }
 
 if ($saved === []) {
-    post_media_json(['ok' => false, 'error' => 'upload_failed', 'errors' => $errors], 422);
+    $first = (string)(($errors[0]['error'] ?? '') ?: 'upload_failed');
+    $messages = [
+        'too_large' => 'File is too large (max 100MB).',
+        'unsupported_type' => 'That file type is not supported. Use JPG, PNG, GIF, WEBP, MP4, MOV, PDF, or Office files.',
+        'heic_unsupported' => 'HEIC/HEIF photos are not supported here. Export as JPG or PNG and try again.',
+        'mime_mismatch' => 'File type did not match its contents. Try another file or re-export it.',
+        'move_failed' => 'Could not save the file on the server. Try again.',
+        'dir_not_writable' => 'Upload folder is not writable on the server.',
+        'invalid_tmp' => 'Upload did not arrive completely. Try again.',
+        'partial' => 'Upload was interrupted. Try again.',
+        'cant_write' => 'Server could not write the temp upload. Try again.',
+        'no_tmp_dir' => 'Server temp folder is missing.',
+        'csrf' => 'Session expired. Refresh and try again.',
+    ];
+    post_media_json([
+        'ok' => false,
+        'error' => $first,
+        'message' => $messages[$first] ?? ('Upload failed (' . $first . ').'),
+        'errors' => $errors,
+    ], 422);
 }
 
 post_media_json([

@@ -7,6 +7,9 @@ if (defined('MSB_POST_VIEWER_MODAL_HTML')) {
     return;
 }
 define('MSB_POST_VIEWER_MODAL_HTML', true);
+if (!function_exists('post_action_thin_icon')) {
+    require_once __DIR__ . '/post_action_thin_icons.php';
+}
 ?>
 <!-- Post Viewer Modal (Instagram-style) -->
 <div id="pvOverlay" class="pv-overlay" aria-hidden="true" hidden style="display:none">
@@ -37,12 +40,12 @@ define('MSB_POST_VIEWER_MODAL_HTML', true);
 
       <div class="pv-actions">
         <div class="pv-actrow">
-          <button type="button" class="pv-act" id="pvLove" title="Love" aria-label="Love"><i class="icon ion-heart"></i><span class="pv-n" id="pvLoveN">0</span></button>
-          <button type="button" class="pv-act" id="pvLike" title="Like" aria-label="Like" hidden><i class="icon ion-thumbsup"></i><span class="pv-n" id="pvLikeN">0</span></button>
-          <button type="button" class="pv-act" id="pvComment" title="Comment" aria-label="Comment"><i class="icon ion-chatbubble"></i><span class="pv-n" id="pvComN">0</span></button>
-          <button type="button" class="pv-act" id="pvShare" title="Share" aria-label="Share"><i class="icon ion-forward"></i><span class="pv-n" id="pvShareN">0</span></button>
+          <button type="button" class="pv-act pv-act-love js-react-love" id="pvLove" title="Love" aria-label="Love"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('heart') : '<i class="icon ion-heart"></i>' ?><span class="pv-n" id="pvLoveN">0</span></button>
+          <button type="button" class="pv-act pv-act-like" id="pvLike" title="Like" aria-label="Like" hidden><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('thumb') : '<i class="icon ion-thumbsup"></i>' ?><span class="pv-n" id="pvLikeN">0</span></button>
+          <button type="button" class="pv-act pv-act-comment" id="pvComment" title="Comment" aria-label="Comment"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('comment') : '<i class="icon ion-chatbubble"></i>' ?><span class="pv-n" id="pvComN">0</span></button>
+          <button type="button" class="pv-act pv-act-share js-share-post" id="pvShare" title="Share" aria-label="Share"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('share') : '<i class="icon ion-forward"></i>' ?><span class="pv-n" id="pvShareN">0</span></button>
           <div class="pv-sp"></div>
-          <button type="button" class="pv-act" id="pvSave" title="Save" aria-label="Save"><i class="icon ion-bookmark"></i><span class="pv-n" id="pvSaveN">0</span></button>
+          <button type="button" class="pv-act pv-act-save js-save-post" id="pvSave" title="Save" aria-label="Save"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('bookmark') : '<i class="icon ion-bookmark"></i>' ?><span class="pv-n" id="pvSaveN">0</span></button>
         </div>
         <div class="pv-counts" hidden aria-hidden="true">
           <span class="pv-c" title="Views"><i class="icon ion-eye"></i> <b id="pvViewN">0</b></span>
@@ -130,11 +133,11 @@ define('MSB_POST_VIEWER_MODAL_HTML', true);
   .pv-right{flex:.85;min-width:320px;display:flex;flex-direction:column;background:var(--msb-palette-bg, #f2f1e8);min-height:0;border-left:1px solid var(--msb-palette-border, rgba(15,23,42,.18));}
   .pv-head{padding:14px 14px;border-bottom:1px solid rgba(15,23,42,.08);display:flex;align-items:center;justify-content:space-between;gap:10px;}
   .pv-user{display:flex;align-items:center;gap:10px;min-width:0;}
-  .pv-ava{width:38px;height:38px;border-radius:999px;object-fit:cover;background:#eef2ff;}
+  .pv-ava{width:35px;height:35px;border-radius:999px;object-fit:cover;background:#eef2ff;}
   .pv-namewrap{min-width:0;}
-  .pv-name{font-weight:700;font-size:14px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pv-name{font-weight:700;font-size:13px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pv-meta{font-size:12px;color:rgba(15,23,42,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .pv-dots{border:0;background:transparent;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .pv-dots{border:0;background:transparent;width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .pv-dots:hover{background:rgba(15,23,42,.06);}
   .pv-body{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.35) transparent;}
   #pvOverlay .pv-body::-webkit-scrollbar,
@@ -157,9 +160,9 @@ define('MSB_POST_VIEWER_MODAL_HTML', true);
   }
   .pv-caption{border-bottom:1px solid rgba(15,23,42,.08);padding:10px 14px;max-height:140px;overflow:auto;}
   .pv-cap{font-size:13px;line-height:1.35;color:#0f172a;word-break:break-word;}
-  .pv-cap-title{font-size:15px;font-weight:800;line-height:1.25;margin-bottom:6px;}
+  .pv-cap-title{font-size:14px;font-weight:700;line-height:1.25;margin-bottom:6px;}
   .pv-cap-desc{font-size:13px;line-height:1.45;}
-  .pv-cap-subtitle{font-size:14px;font-weight:700;line-height:1.3;margin:10px 0 6px;color:inherit;}
+  .pv-cap-subtitle{font-size:13px;font-weight:700;line-height:1.3;margin:10px 0 6px;color:inherit;}
   .pv-cap-summary{font-size:13px;line-height:1.45;opacity:.95;}
   .pv-cap-summary .post-slide-summary-p{margin:0}
   .pv-cap-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
@@ -182,8 +185,8 @@ define('MSB_POST_VIEWER_MODAL_HTML', true);
   .pv-com .a{width:20px;height:20px;border-radius:999px;background:#111;color:#fff;flex:0 0 20px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8px;}
   .pv-com .a img{width:100%;height:100%;object-fit:cover;display:block;}
   .pv-com .b{min-width:0;flex:1;display:flex;flex-direction:column;}
-  .pv-com .nm{font-weight:700;font-size:15px;line-height:1.25;color:var(--msb-palette-text, #101828);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .pv-com .tx{font-size:14px;color:var(--msb-palette-text, #101828);line-height:1.4;word-wrap:break-word;}
+  .pv-com .nm{font-weight:700;font-size:13px;line-height:1.25;color:var(--msb-palette-text, #101828);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pv-com .tx{font-size:13px;color:var(--msb-palette-text, #101828);line-height:1.4;word-wrap:break-word;}
   .pv-com .m{margin-top:8px;font-size:12px;color:var(--msb-palette-text-muted, #667085);display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
   .pv-com .m .link{cursor:pointer;border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;}
   .pv-com .m .replies-toggle{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;}
@@ -192,27 +195,34 @@ define('MSB_POST_VIEWER_MODAL_HTML', true);
   .pv-actions{border-top:1px solid rgba(15,23,42,.08);padding:10px 12px 12px;}
   .pv-actrow{display:flex;align-items:center;gap:14px;}
   .pv-act{border:0;background:transparent;display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;cursor:pointer;color:#111827;padding:0;}
-  .pv-act i{font-size:22px;line-height:1;}
-  .pv-act .pv-n{font-size:14px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;}
+  .pv-act i{font-size:16px;line-height:1;}
+  .pv-act .msb-pact{width:16px;height:16px;flex:0 0 auto;}
+  .pv-act .pv-n{font-size:12px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;}
   .pv-sp{flex:1;}
   .pv-counts{display:none !important;}
-  .pv-act.is-love{color:var(--msb-love-color, #7c3aed);}
+  .pv-act.is-love{color:var(--msb-love-color, #ff4d6d);}
   .pv-act.is-like{color:#2563eb;}
   .pv-act.is-save{color:#f59e0b;}
   .pv-act.is-share{color:#4b5563;}
+  .pv-act.is-save .msb-pact-bookmark,
+  .pv-act.is-share .msb-pact-share{opacity:1;}
+  .pv-act.is-save .msb-pact-bookmark{color:#f59e0b;}
+  body:has(#pvOverlay.show) .msb-reaction-picker,
+  html:has(#pvOverlay.show) .msb-reaction-picker{z-index:130000 !important;}
+  #pvOverlay .pv-actions{position:relative;z-index:5;}
   .pv-input{margin-top:10px;display:flex;gap:10px;align-items:center;}
   .pv-input input{
-    flex:1;min-width:0;min-height:46px;height:auto;border-radius:999px;
+    flex:1;min-width:0;min-height:40px;height:auto;border-radius:999px;
     border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.08));
-    padding:12px 14px;outline:none;font-size:14px;
+    padding:10px 14px;outline:none;font-size:13px;
     background:var(--msb-palette-input-bg, #1f1f1f) !important;
     color:var(--msb-palette-text, #101828) !important;
   }
-  .pv-input input::placeholder{color:var(--msb-palette-placeholder, #98a2b3) !important;font-size:14px;}
+  .pv-input input::placeholder{color:var(--msb-palette-placeholder, #98a2b3) !important;font-size:13px;}
   .pv-iconbtn{
-    width:25px;height:25px;border-radius:999px;border:1px solid transparent;
+    width:22px;height:22px;border-radius:999px;border:1px solid transparent;
     background:var(--msb-palette-hover-bg, #f2f4f7);color:var(--msb-palette-text, #101828);
-    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;padding:0;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;padding:0;flex:0 0 auto;
   }
   #pvAtBtn{background:linear-gradient(180deg, #ff2e89 0%, #c11353 100%) !important;color:#fff !important;}
   .pv-send{

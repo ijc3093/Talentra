@@ -743,11 +743,16 @@
       'html[data-msb-appearance] [data-live-avatar] img {\n' +
       '  background-color: transparent !important;\n' +
       '}\n' +
-      'html[data-msb-appearance] .create-post-modal,\n' +
       'html[data-msb-appearance] .global-live-modal,\n' +
       'html[data-msb-appearance] .modal-backdrop,\n' +
       'html[data-msb-appearance] .studio-live-modal {\n' +
       '  background-color: rgba(0,0,0,0.55) !important;\n' +
+      '  background-image: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .create-post-modal,\n' +
+      'html[data-msb-appearance] .create-post-modal.is-open {\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
       '  background-image: none !important;\n' +
       '}\n' +
       'html[data-msb-appearance] ' + PALETTE_FG_SELECTORS + ' {\n' +

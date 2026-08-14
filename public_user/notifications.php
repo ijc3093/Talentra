@@ -7,6 +7,8 @@ requireUserLogin();
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/user_identity.php';
 require_once __DIR__ . '/includes/friend_system.php';
+require_once __DIR__ . '/includes/post_card_actions_menu.php';
+require_once __DIR__ . '/includes/post_action_thin_icons.php';
 
 $controller = new Controller();
 $dbh = $controller->pdo();
@@ -30,6 +32,23 @@ $receivers = array_values(array_unique(array_filter([
 ], static function ($value) {
     return $value !== '';
 })));
+// Always include the DB username/email for this account (session can be stale).
+try {
+    $stRecv = $dbh->prepare('SELECT username, email FROM users WHERE id = :id LIMIT 1');
+    $stRecv->execute([':id' => $meId]);
+    $recvRow = $stRecv->fetch(PDO::FETCH_ASSOC) ?: [];
+    foreach (['username', 'email'] as $recvKey) {
+        $recvVal = trim((string)($recvRow[$recvKey] ?? ''));
+        if ($recvVal !== '') {
+            $receivers[] = $recvVal;
+        }
+    }
+    $receivers = array_values(array_unique(array_filter($receivers, static function ($value) {
+        return trim((string)$value) !== '';
+    })));
+} catch (Throwable $e) {
+    // keep session receivers
+}
 
 $message = '';
 $error = '';
@@ -44,8 +63,9 @@ function notifications_parse_meta(string $type): array {
     $route = '';
     $postId = 0;
     $commentId = 0;
+    $isStory = false;
 
-    while (preg_match('/\s\[(live|r|p|c):([^\]]+)\]\s*$/', $type, $m)) {
+    while (preg_match('/\s\[(live|r|p|c|story):([^\]]+)\]\s*$/', $type, $m)) {
         $key = trim((string)($m[1] ?? ''));
         $value = trim((string)($m[2] ?? ''));
         if ($key === 'live') {
@@ -56,13 +76,20 @@ function notifications_parse_meta(string $type): array {
             $postId = (int)$value;
         } elseif ($key === 'c') {
             $commentId = (int)$value;
+        } elseif ($key === 'story') {
+            $isStory = ((int)$value === 1) || strtolower($value) === '1';
         }
-        $type = trim((string)preg_replace('/\s\[(?:live|r|p|c):[^\]]+\]\s*$/', '', $type, 1));
+        $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story):[^\]]+\]\s*$/', '', $type, 1));
+    }
+    if (!$isStory && stripos($type, ' in a story') !== false) {
+        $isStory = true;
     }
 
     $url = '';
     if ($liveId > 0) {
         $url = 'live_watch.php?live=' . $liveId;
+    } elseif ($postId > 0 && $isStory) {
+        $url = 'home.php?tab=for-you&story_post=' . $postId;
     } elseif ($postId > 0) {
         $page = 'feed.php';
         if ($route === 'pf') {
@@ -73,8 +100,13 @@ function notifications_parse_meta(string $type): array {
             $page = 'shop.php';
         } elseif ($route === 'orgsales') {
             $page = 'org_shop.php';
+        } elseif ($route === 'fd') {
+            $page = 'home.php';
         }
         $params = ['open_post' => $postId];
+        if ($page === 'home.php') {
+            $params['tab'] = 'for-you';
+        }
         if ($commentId > 0) {
             $params['open_comment'] = $commentId;
         }
@@ -89,6 +121,9 @@ function notifications_parse_meta(string $type): array {
         'text' => $type,
         'url' => $url,
         'live_id' => $liveId,
+        'post_id' => $postId,
+        'is_story' => $isStory ? 1 : 0,
+        'comment_id' => $commentId,
     ];
 }
 
@@ -118,35 +153,133 @@ function notifications_date_label(?string $dt): string {
     return date('M j', $ts);
 }
 
-/** Tab bucket: all | mentions */
+/** Tab bucket: all | mentions | tags | reacts | whats-up */
 function notifications_tab(string $text): string {
     $text = strtolower(trim($text));
+    // Tags first — "tagged you" must not fall into Mentions.
+    if (strpos($text, 'tagged you') !== false
+      || preg_match('/\btagged\b/', $text)) {
+        return 'tags';
+    }
     if (strpos($text, 'mention') !== false
-      || strpos($text, 'tagged you') !== false
-      || strpos($text, '@') !== false) {
+      || strpos($text, 'mentioned') !== false
+      || (strpos($text, '@') !== false && strpos($text, 'tagged') === false)) {
         return 'mentions';
+    }
+    if (strpos($text, 'posted an update') !== false
+      || strpos($text, 'shared a new post') !== false
+      || strpos($text, "what's up") !== false
+      || strpos($text, 'whats up') !== false
+      || preg_match('/\bposted (something|a (new )?post)\b/', $text)) {
+        return 'whats-up';
+    }
+    if (preg_match('/\b(loved|love|liked|like|disliked|dislike|laughed|laugh|smiled|smile|wowed|wow|sadly|sad|angrily|angry|clapped|clap|reacted|reaction|react)\b/', $text)) {
+        return 'reacts';
     }
     return 'all';
 }
 
+function notifications_is_tag_or_mention(string $tab): bool {
+    return $tab === 'mentions' || $tab === 'tags';
+}
+
+/**
+ * @return array{0:string,1:string,2:string} [mode, kind, cssClass]
+ * mode: pact | face | emoji | fa
+ */
 function notifications_icon(string $text, int $liveId = 0): array {
     $t = strtolower(trim($text));
     if ($liveId > 0 || strpos($t, 'live') !== false) {
-        return ['fa-video-camera', 'is-live'];
+        return ['fa', 'fa-video-camera', 'is-live'];
     }
-    if (preg_match('/\b(like|liked|love|loved|react|reaction)\b/', $t)) {
-        return ['fa-heart', 'is-like'];
+    if (preg_match('/\b(loved|love)\b/', $t)) {
+        return ['pact', 'heart', 'is-like is-love'];
+    }
+    if (preg_match('/\b(liked|like)\b/', $t) && strpos($t, 'dislike') === false) {
+        return ['pact', 'thumb', 'is-like'];
+    }
+    if (preg_match('/\b(disliked|dislike)\b/', $t)) {
+        return ['pact', 'thumb-down', 'is-dislike'];
+    }
+    if (preg_match('/\b(laughed|laugh)\b/', $t)) {
+        return ['face', 'laugh', 'is-react'];
+    }
+    if (preg_match('/\b(smiled|smile)\b/', $t)) {
+        return ['face', 'smile', 'is-react'];
+    }
+    if (preg_match('/\b(wowed|wow)\b/', $t)) {
+        return ['face', 'wow', 'is-react'];
+    }
+    if (preg_match('/\b(sadly|sad)\b/', $t)) {
+        return ['face', 'sad', 'is-react'];
+    }
+    if (preg_match('/\b(angrily|angry)\b/', $t)) {
+        return ['face', 'angry', 'is-react'];
+    }
+    if (preg_match('/\b(clapped|clap)\b/', $t)) {
+        return ['emoji', '👏', 'is-react'];
+    }
+    if (preg_match('/\b(reacted|reaction|react)\b/', $t)) {
+        return ['pact', 'heart', 'is-like'];
     }
     if (preg_match('/\b(comment|commented|reply|replied)\b/', $t) && strpos($t, 'mentioned') === false && strpos($t, 'tagged') === false) {
-        return ['fa-comment', 'is-comment'];
+        return ['pact', 'comment', 'is-comment'];
     }
-    if (strpos($t, 'mention') !== false || strpos($t, 'tagged you') !== false) {
-        return ['fa-at', 'is-mention'];
+    if (preg_match('/\b(share|shared|repost|reposted)\b/', $t)) {
+        return ['pact', 'share', 'is-share'];
+    }
+    if (preg_match('/\b(save|saved|bookmark|bookmarked)\b/', $t)) {
+        return ['pact', 'bookmark', 'is-save'];
+    }
+    if (strpos($t, 'posted an update') !== false
+      || strpos($t, 'shared a new post') !== false
+      || preg_match('/\bposted (something|a (new )?post)\b/', $t)) {
+        return ['fa', 'fa-bolt', 'is-whats-up'];
+    }
+    if (strpos($t, 'tagged you') !== false || preg_match('/\btagged\b/', $t)) {
+        return ['fa', 'fa-tag', 'is-tag'];
+    }
+    if (strpos($t, 'mention') !== false || strpos($t, 'mentioned') !== false) {
+        return ['fa', 'fa-at', 'is-mention'];
     }
     if (preg_match('/\b(follow|friend|request)\b/', $t)) {
-        return ['fa-user-plus', 'is-follow'];
+        return ['fa', 'fa-user-plus', 'is-follow'];
     }
-    return ['fa-bell', 'is-bell'];
+    return ['pact', 'heart', 'is-bell'];
+}
+
+function notifications_face_svg(string $kind): string {
+    static $faces = [
+        'smile' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#FACC15"/><path d="M7 10.6c.9-1.5 2.6-1.5 3.5 0" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round"/><path d="M13.5 10.6c.9-1.5 2.6-1.5 3.5 0" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round"/><path d="M8 14.2c1.35 2.5 6.65 2.5 8 0" fill="none" stroke="#111" stroke-width="1.75" stroke-linecap="round"/></svg>',
+        'laugh' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#FACC15"/><path d="M6.2 8.2l3.2 2.3-3.2 2.3" fill="none" stroke="#111" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.8 8.2l-3.2 2.3 3.2 2.3" fill="none" stroke="#111" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.4 13.8c.5 4.4 8.7 4.4 9.2 0-.3-1.15-2.3-1.95-4.6-1.95s-4.3.8-4.6 1.95z" fill="#111"/><ellipse cx="12" cy="16.85" rx="3.1" ry="1.55" fill="#EF4444"/></svg>',
+        'wow' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#FACC15"/><path d="M6.4 7.4c1.1-1.35 3-1.35 4.1 0" fill="none" stroke="#111" stroke-width="1.45" stroke-linecap="round"/><path d="M13.5 7.4c1.1-1.35 3-1.35 4.1 0" fill="none" stroke="#111" stroke-width="1.45" stroke-linecap="round"/><circle cx="8.6" cy="10.7" r="1.45" fill="#111"/><circle cx="15.4" cy="10.7" r="1.45" fill="#111"/><ellipse cx="12" cy="16.2" rx="2.15" ry="2.85" fill="#111"/></svg>',
+        'sad' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#FACC15"/><path d="M6.3 8.1c1.2-1.2 3.2-.85 4.1.45" fill="none" stroke="#111" stroke-width="1.4" stroke-linecap="round"/><path d="M13.6 8.55c.9-1.3 2.9-1.65 4.1-.45" fill="none" stroke="#111" stroke-width="1.4" stroke-linecap="round"/><circle cx="8.7" cy="11" r="1.2" fill="#111"/><circle cx="15.3" cy="11" r="1.2" fill="#111"/><path d="M8.6 16.4c1.2-1.7 5.6-1.7 6.8 0" fill="none" stroke="#111" stroke-width="1.55" stroke-linecap="round"/><path d="M16.4 14.8c1.35 1.1 1.55 2.85.15 3.85-1.55-.55-2.05-2.05-.15-3.85z" fill="#60A5FA"/></svg>',
+        // Unique gradient id per render avoided by using solid fill here for list icons.
+        'angry' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#F59E0B"/><path d="M5.8 8.8l4.4 1.7" fill="none" stroke="#111" stroke-width="1.85" stroke-linecap="round"/><path d="M18.2 8.8l-4.4 1.7" fill="none" stroke="#111" stroke-width="1.85" stroke-linecap="round"/><circle cx="8.6" cy="11.6" r="1.15" fill="#111"/><circle cx="15.4" cy="11.6" r="1.15" fill="#111"/><path d="M9.4 16.3c.9-.7 4.3-.7 5.2 0" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    ];
+    $kind = strtolower(trim($kind));
+    return $faces[$kind] ?? '';
+}
+
+function notifications_icon_html(string $text, int $liveId = 0): string {
+    [$mode, $kind, $cssClass] = notifications_icon($text, $liveId);
+    if ($mode === 'pact') {
+        $html = post_action_thin_icon($kind, true);
+        return $html !== '' ? $html : '<i class="fa fa-bell" aria-hidden="true"></i>';
+    }
+    if ($mode === 'face') {
+        $svg = notifications_face_svg($kind);
+        if ($svg === '') {
+            return '<span class="x-noti-emoji" aria-hidden="true">🙂</span>';
+        }
+        // Inline SVG (same faces as the reaction picker). Avoid empty
+        // .msb-rx-face spans — shared CSS forces background:transparent.
+        return '<span class="x-noti-face msb-rx-' . htmlspecialchars($kind, ENT_QUOTES, 'UTF-8') . '" aria-hidden="true">' . $svg . '</span>';
+    }
+    if ($mode === 'emoji') {
+        return '<span class="x-noti-emoji" aria-hidden="true">' . htmlspecialchars($kind, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
+    return '<i class="fa ' . htmlspecialchars($kind, ENT_QUOTES, 'UTF-8') . '" aria-hidden="true"></i>';
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && empty($error)) {
@@ -218,7 +351,8 @@ if (empty($error) && !empty($receivers)) {
 }
 
 $activeTab = strtolower(trim((string)($_GET['tab'] ?? 'all')));
-if ($activeTab !== 'all' && $activeTab !== 'mentions') {
+$allowedTabs = ['all', 'mentions', 'tags', 'reacts', 'whats-up'];
+if (!in_array($activeTab, $allowedTabs, true)) {
     $activeTab = 'all';
 }
 
@@ -226,10 +360,76 @@ $unreadLabel = $unreadCount > 0
     ? ($unreadCount . ' unread')
     : 'All caught up';
 
+// What’s up — recent posts from publishers this user follows (+ existing notify rows).
+require_once __DIR__ . '/includes/publisher_accounts.php';
+$whatsUpSeenPostIds = [];
+foreach ($notifications as $row) {
+    $metaEarly = notifications_parse_meta((string)($row['notitype'] ?? ''));
+    $pidEarly = (int)($metaEarly['post_id'] ?? 0);
+    $textEarly = (string)($metaEarly['text'] ?? '');
+    if ($pidEarly > 0 && notifications_tab($textEarly) === 'whats-up') {
+        $whatsUpSeenPostIds[$pidEarly] = true;
+    }
+}
+try {
+    $blockSqlWu = function_exists('fs_block_exclude_author_sql')
+        ? (' AND ' . fs_block_exclude_author_sql('p.user_id', ':wuBlockMe', ':wuBlockMe2'))
+        : '';
+    $wuSt = $dbh->prepare("
+      SELECT
+        p.id,
+        p.created_at,
+        COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(u.username), ''), CONCAT('Publisher ', u.id)) AS publisher_name
+      FROM public_posts p
+      INNER JOIN users u ON u.id = p.user_id
+      INNER JOIN public_follows pf ON pf.following_id = p.user_id AND pf.follower_id = :me
+      WHERE p.is_deleted = 0
+        AND COALESCE(p.is_archived, 0) = 0
+        AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) IN ('public', 'friends')
+        AND COALESCE(u.account_kind, 'personal') = 'publisher'
+        AND u.status = 1
+        {$blockSqlWu}
+      ORDER BY COALESCE(p.created_at, p.updated_at) DESC
+      LIMIT 40
+    ");
+    $wuParams = [':me' => $meId];
+    if ($blockSqlWu !== '') {
+        $wuParams[':wuBlockMe'] = $meId;
+        $wuParams[':wuBlockMe2'] = $meId;
+    }
+    $wuSt->execute($wuParams);
+    foreach (($wuSt->fetchAll(PDO::FETCH_ASSOC) ?: []) as $wu) {
+        $pid = (int)($wu['id'] ?? 0);
+        if ($pid <= 0 || isset($whatsUpSeenPostIds[$pid])) {
+            continue;
+        }
+        $whatsUpSeenPostIds[$pid] = true;
+        $publisherName = trim((string)($wu['publisher_name'] ?? 'Publisher'));
+        $notifications[] = [
+            'id' => 0,
+            'notiuser' => $publisherName,
+            'notitype' => 'posted an update [r:pb] [p:' . $pid . ']',
+            'created_at' => (string)($wu['created_at'] ?? ''),
+            'is_read' => 1,
+            '_synthetic' => 1,
+        ];
+    }
+    // Keep newest first after merging synthetic rows.
+    usort($notifications, static function ($a, $b) {
+        $ta = strtotime((string)($a['created_at'] ?? '')) ?: 0;
+        $tb = strtotime((string)($b['created_at'] ?? '')) ?: 0;
+        if ($ta === $tb) {
+            return ((int)($b['id'] ?? 0)) <=> ((int)($a['id'] ?? 0));
+        }
+        return $tb <=> $ta;
+    });
+} catch (Throwable $eWu) {
+    // Keep regular notifications if What’s up query fails.
+}
+
 // What’s happening — recent public posts from publishers
 $happeningItems = [];
 try {
-    require_once __DIR__ . '/includes/publisher_accounts.php';
     $blockSql = function_exists('fs_block_exclude_author_sql')
         ? (' AND ' . fs_block_exclude_author_sql('p.user_id', ':happenBlockMe', ':happenBlockMe2'))
         : '';
@@ -300,6 +500,11 @@ try {
   require_once __DIR__ . '/includes/theme_prefs.php';
   theme_prefs_print_head_bootstrap($dbh, theme_prefs_viewer_user_id());
   ?>
+  <style id="modal-fouc-lock-css"><?php include __DIR__ . '/includes/modal_fouc_lock.css.php'; ?></style>
+  <?php post_action_thin_icons_render_css(); ?>
+  <?php if (!defined('MSB_POST_ENGAGEMENT_JS')): ?>
+  <script src="./js/post-engagement-sync.js?v=7"></script>
+  <?php define('MSB_POST_ENGAGEMENT_JS', true); endif; ?>
   <link rel="stylesheet" href="css/font-awesome.min.css">
   <link rel="stylesheet" href="css/bootstrap.min.css">
   <link rel="stylesheet" href="css/style.css">
@@ -420,23 +625,23 @@ try {
     .x-topbar{
       display:flex;
       align-items:center;
-      gap:12px;
-      padding:10px 16px;
-      min-height:53px;
+      gap:10px;
+      padding:8px 12px;
+      min-height:44px;
       box-sizing:border-box;
     }
     .x-top-meta{min-width:0;flex:1 1 auto;}
     .x-top-name{
       margin:0;
-      font-size:20px;
-      font-weight:800;
+      font-size:16px;
+      font-weight:700;
       line-height:1.2;
-      letter-spacing:-.02em;
+      letter-spacing:-.01em;
       color:var(--x-text);
     }
     .x-top-sub{
-      margin:2px 0 0;
-      font-size:13px;
+      margin:1px 0 0;
+      font-size:12px;
       line-height:1.2;
       color:var(--x-muted);
     }
@@ -444,8 +649,8 @@ try {
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      width:36px;
-      height:36px;
+      width:30px;
+      height:30px;
       border:0;
       border-radius:999px;
       background:transparent;
@@ -457,24 +662,37 @@ try {
     }
     .x-settings-btn:hover{background:var(--x-hover);}
     .x-settings-btn:disabled{opacity:.45;cursor:default;}
-    .x-settings-btn i{font-size:18px;}
+    .x-settings-btn i{font-size:14px;}
 
     .x-tabs{
       display:flex;
+      align-items:stretch;
       width:100%;
+      height:40px;
+      min-height:40px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      box-sizing:border-box;
     }
+    .x-tabs::-webkit-scrollbar{display:none;}
     .x-tab{
       flex:1 1 0;
       display:flex;
       align-items:center;
       justify-content:center;
-      min-height:53px;
-      padding:12px 8px;
+      height:30px;
+      min-height:30px;
+      min-width:max-content;
+      margin:0;
+      padding:8px 10px 12px;
       border:0;
       background:transparent;
       color:var(--x-muted);
-      font-size:15px;
-      font-weight:600;
+      font-size:13px;
+      font-weight:400;
+      line-height:1.2;
       text-decoration:none;
       position:relative;
       box-sizing:border-box;
@@ -483,11 +701,22 @@ try {
       font-family:inherit;
       appearance:none;
       -webkit-appearance:none;
+      white-space:nowrap;
+      outline:none;
+      box-shadow:none;
     }
-    .x-tab:hover{background:var(--x-hover);color:var(--x-text);text-decoration:none;}
+    .x-tab:hover{background:rgba(127,127,127,.07);color:var(--x-text);text-decoration:none;}
+    .x-tab:focus,
+    .x-tab:focus-visible,
+    .x-tab:active{
+      outline:none !important;
+      box-shadow:none !important;
+      border-color:transparent;
+    }
     .x-tab.is-active{
       color:var(--x-text);
-      font-weight:800;
+      font-size:13px;
+      font-weight:400;
     }
     .x-tab.is-active::after{
       content:'';
@@ -495,25 +724,27 @@ try {
       left:50%;
       bottom:0;
       transform:translateX(-50%);
-      width:56px;
+      width:40px;
       max-width:70%;
-      height:4px;
+      height:3px;
       border-radius:999px;
       background:var(--x-accent);
     }
 
     .noti-shell .alert{
-      margin:12px 16px;
-      border-radius:12px;
+      margin:10px 12px;
+      border-radius:10px;
+      font-size:13px;
+      padding:10px 12px;
     }
 
     .x-noti-row[data-href]{cursor:pointer;}
     .x-noti-row{
       display:flex;
       align-items:flex-start;
-      gap:12px;
+      gap:10px;
       width:100%;
-      padding:14px 16px;
+      padding:10px 12px;
       border-bottom:1px solid var(--x-border);
       box-sizing:border-box;
       background:var(--x-bg);
@@ -529,31 +760,97 @@ try {
 
     .x-noti-icon{
       flex:0 0 auto;
-      width:28px;
+      width:18px;
       padding-top:6px;
       text-align:center;
-      color:var(--x-accent);
-      font-size:18px;
+      color:var(--x-muted);
+      font-size:13px;
       line-height:1;
+      display:inline-flex;
+      align-items:flex-start;
+      justify-content:center;
     }
-    .x-noti-icon.is-like{color:#f91880;}
+    .x-noti-icon.is-like{color:var(--msb-rx-like, #2563eb);}
+    .x-noti-icon.is-love{color:var(--msb-rx-love, #ff4d6d);}
+    .x-noti-icon.is-dislike{color:var(--msb-rx-dislike, #475569);}
     .x-noti-icon.is-comment{color:var(--x-accent);}
+    .x-noti-icon.is-share{color:#6b7280;}
+    .x-noti-icon.is-save{color:#f59e0b;}
     .x-noti-icon.is-mention{color:#00ba7c;}
+    .x-noti-icon.is-tag{color:#f59e0b;}
+    .x-noti-icon.is-whats-up{color:#f59e0b;}
     .x-noti-icon.is-follow{color:var(--x-accent);}
     .x-noti-icon.is-live{color:#f4212e;}
-    .x-noti-icon.is-bell{color:var(--x-accent);}
+    .x-noti-icon.is-bell{color:var(--x-muted);}
+    .x-noti-icon.is-react{color:inherit;}
+    .x-noti-icon .msb-pact{
+      width:14px !important;
+      height:14px !important;
+      min-width:14px !important;
+      min-height:14px !important;
+      flex-basis:14px !important;
+      filter:none !important;
+      color:currentColor !important;
+    }
+    .x-noti-icon.is-love .msb-pact-heart,
+    .x-noti-icon.is-like.is-love .msb-pact-heart{
+      color:var(--msb-rx-love, #ff4d6d) !important;
+    }
+    .x-noti-icon.is-like .msb-pact-thumb{
+      color:var(--msb-rx-like, #2563eb) !important;
+    }
+    .x-noti-icon.is-dislike .msb-pact-thumb-down{
+      color:var(--msb-rx-dislike, #475569) !important;
+    }
+    .x-noti-icon .msb-rx-face,
+    .x-noti-icon .msb-rx-smile,
+    .x-noti-icon .msb-rx-laugh,
+    .x-noti-icon .msb-rx-wow,
+    .x-noti-icon .msb-rx-sad,
+    .x-noti-icon .msb-rx-angry,
+    .x-noti-icon .x-noti-face{
+      width:14px !important;
+      height:14px !important;
+      min-width:14px !important;
+      min-height:14px !important;
+      filter:none !important;
+      display:inline-flex !important;
+      align-items:center;
+      justify-content:center;
+      background:transparent !important;
+      -webkit-mask:none !important;
+      mask:none !important;
+    }
+    .x-noti-icon .x-noti-face svg{
+      width:14px;
+      height:14px;
+      display:block;
+    }
+    .x-noti-icon .x-noti-emoji{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:14px;
+      height:14px;
+      font-size:13px;
+      line-height:1;
+    }
+    .x-noti-icon .fa{
+      font-size:13px;
+      line-height:1;
+    }
 
     .x-noti-avatar{
       flex:0 0 auto;
-      width:40px;
-      height:40px;
+      width:32px;
+      height:32px;
       border-radius:999px;
       overflow:hidden;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      font-weight:800;
-      font-size:14px;
+      font-weight:700;
+      font-size:11px;
       color:#fff;
       background:#536471;
     }
@@ -568,23 +865,24 @@ try {
     .x-noti-head{
       display:flex;
       align-items:baseline;
-      gap:6px;
+      gap:5px;
       flex-wrap:wrap;
-      margin:0 0 4px;
-      font-size:15px;
-      line-height:1.3;
+      margin:0 0 2px;
+      font-size:13px;
+      line-height:1.25;
       color:var(--x-text);
-      padding-right:36px;
+      padding-right:28px;
     }
     .x-noti-name{
-      font-weight:800;
+      font-weight:700;
       color:var(--x-text);
+      font-size:13px;
     }
     .x-noti-sep{color:var(--x-muted);}
-    .x-noti-time{color:var(--x-muted);font-weight:500;font-size:14px;}
+    .x-noti-time{color:var(--x-muted);font-weight:400;font-size:12px;}
     .x-noti-body{
       margin:0;
-      font-size:15px;
+      font-size:13px;
       line-height:1.35;
       color:var(--x-text);
       word-break:break-word;
@@ -592,12 +890,12 @@ try {
 
     .x-noti-more{
       position:absolute;
-      top:10px;
-      right:10px;
+      top:6px;
+      right:6px;
     }
     .x-noti-more .dropdown-toggle{
-      width:34px;
-      height:34px;
+      width:24px;
+      height:24px;
       border:0;
       border-radius:999px;
       background:transparent;
@@ -607,6 +905,8 @@ try {
       justify-content:center;
       padding:0;
       cursor:pointer;
+      line-height:1;
+      font-size:12px;
     }
     .x-noti-more .dropdown-toggle:hover,
     .x-noti-more .dropdown-toggle:focus{
@@ -616,18 +916,41 @@ try {
       box-shadow:none;
     }
     .x-noti-more .dropdown-toggle::after{display:none;}
+    .x-noti-more .dropdown-toggle .pcm-fries-icon{
+      display:inline-flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:flex-start;
+      gap:2px;
+      width:10px;
+      color:currentColor;
+    }
+    .x-noti-more .dropdown-toggle .pcm-fries-bar{
+      display:block;
+      height:1.25px;
+      border-radius:1px;
+      background:currentColor;
+      width:10px;
+      filter:none;
+      box-shadow:none;
+    }
+    .x-noti-more .dropdown-toggle .pcm-fries-bar--short{width:6px;}
     .x-noti-more .dropdown-menu{
-      border-radius:12px;
+      border-radius:10px;
       border:1px solid var(--x-border);
       box-shadow:0 8px 28px rgba(15,20,25,.12);
       min-width:160px;
-      padding:6px 0;
+      padding:4px 0;
     }
     .x-noti-more .dropdown-item{
-      font-size:14px;
-      font-weight:600;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      font-weight:500;
+      line-height:1.25;
       color:var(--x-text);
-      padding:10px 14px;
+      padding:8px 12px;
     }
     .x-noti-more .dropdown-item:hover{background:var(--x-hover);}
     .x-noti-more form{margin:0;}
@@ -638,21 +961,30 @@ try {
       border:0;
       cursor:pointer;
     }
+    .x-noti-more .dropdown-item i{
+      width:14px;
+      min-width:14px;
+      margin-right:0;
+      text-align:center;
+      font-size:12px;
+      line-height:1;
+      opacity:.9;
+    }
 
     .x-empty{
-      padding:48px 24px;
+      padding:28px 16px;
       text-align:center;
     }
     .x-empty h3{
-      margin:0 0 8px;
-      font-size:28px;
-      font-weight:900;
-      letter-spacing:-.02em;
+      margin:0 0 4px;
+      font-size:15px;
+      font-weight:700;
+      letter-spacing:-.01em;
       color:var(--x-text);
     }
     .x-empty p{
       margin:0;
-      font-size:15px;
+      font-size:12px;
       color:var(--x-muted);
       line-height:1.4;
     }
@@ -688,18 +1020,18 @@ try {
       top: 50%;
       transform: translateY(-50%);
       color: var(--x-muted);
-      font-size: 14px;
+      font-size: 13px;
       pointer-events: none;
     }
     .x-rail-search-input{
       width: 100%;
-      height: 44px;
+      height: 36px;
       border-radius: 999px;
       border: 1px solid var(--x-border);
       background: var(--msb-palette-input-bg, var(--msb-palette-surface-2, #eff3f4));
       color: var(--x-text);
-      padding: 0 42px 0 16px;
-      font-size: 15px;
+      padding: 0 36px 0 14px;
+      font-size: 13px;
       outline: none;
       box-sizing: border-box;
     }
@@ -712,24 +1044,24 @@ try {
     .x-rail-card{
       background: var(--x-bg);
       border: 1px solid var(--x-border);
-      border-radius: 16px;
-      margin-bottom: 16px;
+      border-radius: 14px;
+      margin-bottom: 14px;
       overflow: hidden;
       box-sizing: border-box;
     }
-    .x-rail-card-pad{padding: 14px 16px 8px;}
+    .x-rail-card-pad{padding: 12px 14px 6px;}
     .x-rail-card-title{
       margin: 0;
-      font-size: 20px;
-      font-weight: 900;
-      letter-spacing: -.02em;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.01em;
       color: var(--x-text);
       line-height: 1.2;
     }
     .x-trend{
       display: block;
       width: 100%;
-      padding: 12px 16px;
+      padding: 10px 14px;
       border: 0;
       background: transparent;
       text-align: left;
@@ -742,36 +1074,57 @@ try {
     .x-trend:hover{background: var(--x-hover); text-decoration: none; color: inherit;}
     .x-trend-meta{
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--x-muted);
       line-height: 1.2;
       margin-bottom: 2px;
     }
     .x-trend-title{
       display: block;
-      font-size: 15px;
-      font-weight: 800;
+      font-size: 14px;
+      font-weight: 600;
       color: var(--x-text);
       line-height: 1.25;
-      padding-right: 28px;
+      padding-right: 26px;
     }
     .x-trend-more{
       position: absolute;
-      top: 10px;
-      right: 12px;
-      width: 30px;
-      height: 30px;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
       border-radius: 999px;
       color: var(--x-muted);
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      font-size: 13px;
+      line-height: 1;
     }
+    .x-trend-more .pcm-fries-icon{
+      display:inline-flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:flex-start;
+      gap:2px;
+      width:12px;
+      color:currentColor;
+    }
+    .x-trend-more .pcm-fries-bar{
+      display:block;
+      height:1.5px;
+      border-radius:1px;
+      background:currentColor;
+      width:12px;
+      filter:none;
+      box-shadow:none;
+    }
+    .x-trend-more .pcm-fries-bar--short{width:7px;}
     .x-rail-show-more{
       display: block;
-      padding: 14px 16px;
+      padding: 10px 14px;
       color: var(--x-accent);
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 500;
       text-decoration: none;
     }
@@ -784,9 +1137,9 @@ try {
     }
     .x-rail-footer{
       margin-top: auto;
-      padding: 16px 8px 0;
-      font-size: 13px;
-      line-height: 1.5;
+      padding: 12px 6px 0;
+      font-size: 12px;
+      line-height: 1.45;
       color: var(--x-muted);
       flex: 0 0 auto;
     }
@@ -829,10 +1182,28 @@ try {
     }
     body.notifications-page.feed-insta-ui .x-right-rail .sfy-panel-head{margin:0 0 8px !important;}
     body.notifications-page.feed-insta-ui .x-right-rail .sfy-title{
-      font-size:20px !important;
-      font-weight:900 !important;
-      letter-spacing:-.02em !important;
+      font-size:15px !important;
+      font-weight:700 !important;
+      letter-spacing:-.01em !important;
       color:var(--x-text) !important;
+    }
+    body.notifications-page.feed-insta-ui .x-right-rail .sfy-see{
+      font-size:12px !important;
+      font-weight:700 !important;
+    }
+    body.notifications-page.feed-insta-ui .x-right-rail .sfy-name{
+      font-size:14px !important;
+      font-weight:700 !important;
+    }
+    body.notifications-page.feed-insta-ui .x-right-rail .sfy-sub{
+      font-size:12px !important;
+    }
+    body.notifications-page.feed-insta-ui .x-right-rail .sfy-action{
+      font-size:12px !important;
+      font-weight:700 !important;
+    }
+    body.notifications-page.feed-insta-ui .x-right-rail .sfy-empty{
+      font-size:13px !important;
     }
     body.notifications-page.feed-insta-ui .x-right-rail .sfy-panel-body{
       padding-right:4px !important;
@@ -906,7 +1277,10 @@ try {
             </div>
             <nav class="x-tabs" aria-label="Notification filters">
               <button type="button" class="x-tab<?= $activeTab === 'all' ? ' is-active' : '' ?>" data-noti-tab="all"<?= $activeTab === 'all' ? ' aria-current="page"' : '' ?>>All</button>
+              <button type="button" class="x-tab<?= $activeTab === 'whats-up' ? ' is-active' : '' ?>" data-noti-tab="whats-up"<?= $activeTab === 'whats-up' ? ' aria-current="page"' : '' ?>>What’s up</button>
               <button type="button" class="x-tab<?= $activeTab === 'mentions' ? ' is-active' : '' ?>" data-noti-tab="mentions"<?= $activeTab === 'mentions' ? ' aria-current="page"' : '' ?>>Mentions</button>
+              <button type="button" class="x-tab<?= $activeTab === 'tags' ? ' is-active' : '' ?>" data-noti-tab="tags"<?= $activeTab === 'tags' ? ' aria-current="page"' : '' ?>>Tags</button>
+              <button type="button" class="x-tab<?= $activeTab === 'reacts' ? ' is-active' : '' ?>" data-noti-tab="reacts"<?= $activeTab === 'reacts' ? ' aria-current="page"' : '' ?>>Reacts</button>
             </nav>
           </div>
           <?php if ($error): ?><div class="alert alert-danger"><?= h($error) ?></div><?php endif; ?>
@@ -928,9 +1302,15 @@ try {
                   $text = (string)($meta['text'] ?? 'sent a notification');
                   $url = trim((string)($meta['url'] ?? ''));
                   $liveId = (int)($meta['live_id'] ?? 0);
+                  $postId = (int)($meta['post_id'] ?? 0);
+                  $isStoryNoti = (int)($meta['is_story'] ?? 0) === 1
+                    || stripos($text, ' in a story') !== false
+                    || (strpos($url, 'story_post=') !== false);
                   $isUnread = ((int)($item['is_read'] ?? 0) === 0);
                   $tab = notifications_tab($text);
-                  [$iconFa, $iconClass] = notifications_icon($text, $liveId);
+                  $isMentionOrTag = notifications_is_tag_or_mention($tab);
+                  [, , $iconClass] = notifications_icon($text, $liveId);
+                  $iconHtml = notifications_icon_html($text, $liveId);
                   $initials = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $sender) ?: 'NT', 0, 2));
                   $peerKey = function_exists('normalize_avatar_key') ? normalize_avatar_key($sender) : $sender;
                   $peerColor = function_exists('color_from_string') ? color_from_string($peerKey) : '#536471';
@@ -939,15 +1319,19 @@ try {
                   $dateLabel = notifications_date_label((string)($item['created_at'] ?? ''));
                   $timeAgo = notifications_time_ago((string)($item['created_at'] ?? ''));
                   $nid = (int)($item['id'] ?? 0);
-                  $rowHidden = ($activeTab === 'mentions' && $tab !== 'mentions');
+                  $isSynthetic = !empty($item['_synthetic']) || $nid <= 0;
+                  $rowHidden = ($activeTab !== 'all' && $tab !== $activeTab);
                 ?>
                 <article class="x-noti-row<?= $isUnread ? ' is-unread' : '' ?>"
                          data-noti-card="<?= h($tab) ?>"
                          data-id="<?= $nid ?>"
+                         <?php if ($postId > 0): ?>data-post-id="<?= $postId ?>"<?php endif; ?>
+                         data-is-story="<?= $isStoryNoti ? '1' : '0' ?>"
+                         <?php if ($isMentionOrTag): ?>data-hide-nav="1"<?php endif; ?>
                          <?php if ($url !== ''): ?>data-href="<?= h($url) ?>" role="link" tabindex="0"<?php endif; ?>
                          <?= $rowHidden ? 'hidden' : '' ?>>
                   <div class="x-noti-icon <?= h($iconClass) ?>" aria-hidden="true">
-                    <i class="fa <?= h($iconFa) ?>"></i>
+                    <?= $iconHtml ?>
                   </div>
                   <div class="x-noti-avatar" data-avatar-key="<?= h($peerKey) ?>" style="<?= h($peerGrad) ?>">
                     <img src="<?= h($avatarUrl) ?>" alt="" data-live-avatar="1" data-avatar-base="<?= h($avatarUrl) ?>">
@@ -964,20 +1348,28 @@ try {
                   </div>
                   <div class="x-noti-more dropdown">
                     <button type="button" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="More">
-                      <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
+                      <?= post_card_menu_fries_icon_html() ?>
                     </button>
                     <div class="dropdown-menu dropdown-menu-right">
-                      <?php if ($url !== ''): ?>
+                      <?php if ($postId > 0 && ($isMentionOrTag || $url !== '' || $isStoryNoti)): ?>
+                        <button
+                          type="button"
+                          class="dropdown-item js-noti-view-post"
+                          data-post-id="<?= $postId ?>"
+                          data-is-story="<?= $isStoryNoti ? '1' : '0' ?>"
+                          data-hide-nav="<?= $isMentionOrTag ? '1' : '0' ?>"
+                        ><i class="fa fa-expand" aria-hidden="true"></i><?= $isStoryNoti ? 'View story' : 'View the post' ?></button>
+                      <?php elseif ($url !== ''): ?>
                         <a class="dropdown-item" href="<?= h($url) ?>">Open</a>
                       <?php endif; ?>
-                      <?php if ($isUnread): ?>
+                      <?php if ($isUnread && !$isSynthetic && $nid > 0): ?>
                         <form method="post">
                           <input type="hidden" name="action" value="mark_one">
                           <input type="hidden" name="id" value="<?= $nid ?>">
                           <button type="submit" class="dropdown-item">Mark as read</button>
                         </form>
                       <?php endif; ?>
-                      <?php if ($url === '' && !$isUnread): ?>
+                      <?php if ($postId <= 0 && $url === '' && (!$isUnread || $isSynthetic)): ?>
                         <span class="dropdown-item text-muted" style="cursor:default;">No actions</span>
                       <?php endif; ?>
                     </div>
@@ -987,7 +1379,19 @@ try {
             </div>
             <div class="x-empty" id="notiEmptyMentions" hidden>
               <h3>Nothing in Mentions</h3>
-              <p>When someone mentions you, it’ll show up here.</p>
+              <p>When someone @mentions you, it’ll show up here.</p>
+            </div>
+            <div class="x-empty" id="notiEmptyTags" hidden>
+              <h3>Nothing in Tags</h3>
+              <p>When someone tags you in a post, it’ll show up here.</p>
+            </div>
+            <div class="x-empty" id="notiEmptyReacts" hidden>
+              <h3>Nothing in Reacts</h3>
+              <p>Loves, likes, and other reactions will show up here.</p>
+            </div>
+            <div class="x-empty" id="notiEmptyWhatsUp" hidden>
+              <h3>Nothing in What’s up</h3>
+              <p>When publishers you follow post, it’ll show up here.</p>
             </div>
           <?php endif; ?>
         </div>
@@ -1011,16 +1415,16 @@ try {
                 <a class="x-trend" href="<?= h((string)$item['href']) ?>">
                   <span class="x-trend-meta"><?= h((string)$item['meta']) ?></span>
                   <span class="x-trend-title"><?= h((string)$item['title']) ?></span>
-                  <span class="x-trend-more" aria-hidden="true"><i class="fa fa-ellipsis-h"></i></span>
+                  <span class="x-trend-more" aria-hidden="true"><?= post_card_menu_fries_icon_html() ?></span>
                 </a>
               <?php endforeach; ?>
-              <a class="x-rail-show-more" href="public.php">Show more</a>
+              <a class="x-rail-show-more" href="home.php?tab=discover">Show more</a>
             <?php else: ?>
               <p class="x-trend" style="cursor:default;pointer-events:none;">
                 <span class="x-trend-meta">Publishers</span>
                 <span class="x-trend-title" style="font-weight:600;color:var(--x-muted);">No publisher posts yet.</span>
               </p>
-              <a class="x-rail-show-more" href="public.php">Explore public</a>
+              <a class="x-rail-show-more" href="home.php?tab=discover">Explore public</a>
             <?php endif; ?>
           </div>
 
@@ -1048,28 +1452,52 @@ try {
   </div>
 </div>
 
+<?php
+post_card_actions_menu_render_modals();
+include __DIR__ . '/includes/post_viewer_modal.html.php';
+include __DIR__ . '/includes/post_viewer_gallery_chrome.css.php';
+post_card_actions_menu_render_css();
+post_card_actions_menu_render_js([
+  'delete_mode' => 'feed',
+  'staff_readonly' => !empty($staffReadonly),
+  'menu_surface' => 'notifications',
+  'api_url' => 'feed_api.php',
+  'always_portal' => true,
+]);
+$pvModalApiUrl = 'feed_api.php';
+include __DIR__ . '/includes/post_viewer_modal.js.php';
+?>
 <script>
 setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
 (function(){
   var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-noti-tab]'));
   var cards = Array.prototype.slice.call(document.querySelectorAll('[data-noti-card]'));
-  var emptyMentions = document.getElementById('notiEmptyMentions');
+  var emptyByMode = {
+    mentions: document.getElementById('notiEmptyMentions'),
+    tags: document.getElementById('notiEmptyTags'),
+    reacts: document.getElementById('notiEmptyReacts'),
+    'whats-up': document.getElementById('notiEmptyWhatsUp')
+  };
+  var allowed = { all:1, mentions:1, tags:1, reacts:1, 'whats-up':1 };
   if (!tabs.length) return;
 
   function syncEmpty(mode){
-    if (!emptyMentions) return;
-    if (mode !== 'mentions') {
-      emptyMentions.hidden = true;
-      return;
-    }
-    var visible = cards.some(function(card){
-      return card.getAttribute('data-noti-card') === 'mentions' && !card.hidden;
+    Object.keys(emptyByMode).forEach(function(key){
+      var el = emptyByMode[key];
+      if (!el) return;
+      if (mode !== key) {
+        el.hidden = true;
+        return;
+      }
+      var visible = cards.some(function(card){
+        return card.getAttribute('data-noti-card') === key && !card.hidden;
+      });
+      el.hidden = visible || cards.length === 0;
     });
-    emptyMentions.hidden = visible || cards.length === 0;
   }
 
   function setTab(mode){
-    mode = mode === 'mentions' ? 'mentions' : 'all';
+    mode = allowed[mode] ? mode : 'all';
     tabs.forEach(function(tab){
       var on = (tab.getAttribute('data-noti-tab') || 'all') === mode;
       tab.classList.toggle('is-active', on);
@@ -1095,28 +1523,114 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
     });
   });
 
+  syncEmpty(<?= json_encode($activeTab, JSON_UNESCAPED_SLASHES) ?>);
+  function openNotiStory(postId, href){
+    postId = parseInt(postId, 10) || 0;
+    if (postId <= 0 && href) {
+      try {
+        var uStory = new URL(href, window.location.href);
+        postId = parseInt(uStory.searchParams.get('story_post') || '0', 10) || 0;
+      } catch (eStoryUrl) {}
+    }
+    if (postId <= 0) return false;
+    try {
+      if (window.TTStories && typeof window.TTStories.openByPostId === 'function') {
+        if (window.TTStories.openByPostId(postId)) return true;
+      }
+    } catch (eOpenStory) {}
+    try {
+      var dest = href && href.indexOf('story_post=') !== -1
+        ? href
+        : ('home.php?tab=for-you&story_post=' + encodeURIComponent(String(postId)));
+      window.location.href = dest;
+      return true;
+    } catch (eNavStory) {}
+    return false;
+  }
+
+  function openNotiViewPost(postId, hideNav, isStory){
+    postId = parseInt(postId, 10) || 0;
+    if (postId <= 0) return false;
+    if (isStory) {
+      return openNotiStory(postId, 'home.php?tab=for-you&story_post=' + encodeURIComponent(String(postId)));
+    }
+    var opts = hideNav ? { hideNav: true } : {};
+    // Same Instagram-style #pvOverlay used by header bell → tagged/mentioned.
+    try {
+      if (typeof window.pvOpenById === 'function') {
+        var opened = window.pvOpenById(postId, opts);
+        var ov = document.getElementById('pvOverlay');
+        if (opened === true || (ov && (ov.classList.contains('show') || ov.style.display === 'flex'))) {
+          return true;
+        }
+        if (ov && !ov.hasAttribute('hidden') && ov.getAttribute('aria-hidden') === 'false') {
+          return true;
+        }
+      }
+    } catch (ePv) {}
+    try {
+      if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openViewPost === 'function') {
+        if (window.MSBPostCardMenu.openViewPost(postId, opts)) return true;
+      }
+    } catch (eMenu) {}
+    // Last resort: same destination the header uses when the modal is unavailable.
+    try {
+      window.location.href = 'home.php?tab=for-you&open_post=' + encodeURIComponent(String(postId)) + (hideNav ? '&hide_nav=1' : '');
+      return true;
+    } catch (eNav) {}
+    return false;
+  }
+
   function openNotiRow(row){
     if (!row) return;
     var href = String(row.getAttribute('data-href') || '').trim();
-    if (!href) return;
-    var openPostId = 0;
-    try {
-      var u = new URL(href, window.location.href);
-      openPostId = parseInt(u.searchParams.get('open_post') || u.searchParams.get('post') || '0', 10) || 0;
-    } catch (eUrl) {}
-    if (openPostId > 0 && typeof window.pvOpenById === 'function') {
-      var hideNav = false;
+    var openPostId = parseInt(row.getAttribute('data-post-id') || '0', 10) || 0;
+    var hideNav = row.getAttribute('data-hide-nav') === '1';
+    var isStory = row.getAttribute('data-is-story') === '1';
+    if (!openPostId && href) {
       try {
         var u = new URL(href, window.location.href);
-        hideNav = u.searchParams.get('hide_nav') === '1';
-      } catch (eNav) {}
-      try { window.pvOpenById(openPostId, hideNav ? { hideNav: true } : {}); } catch (eOpen) {}
+        openPostId = parseInt(u.searchParams.get('story_post') || u.searchParams.get('open_post') || u.searchParams.get('post') || '0', 10) || 0;
+        if (!hideNav) hideNav = u.searchParams.get('hide_nav') === '1';
+        if (!isStory) isStory = !!u.searchParams.get('story_post');
+      } catch (eUrl) {}
+    }
+    if (!isStory) {
+      try {
+        var bodyEl = row.querySelector('.x-noti-body');
+        var bodyText = bodyEl ? String(bodyEl.textContent || '').toLowerCase() : '';
+        isStory = bodyText.indexOf(' in a story') !== -1;
+      } catch (eBody) {}
+    }
+    if (openPostId > 0 && isStory && openNotiStory(openPostId, href)) {
       return;
     }
-    window.location.href = href;
+    if (openPostId > 0 && openNotiViewPost(openPostId, hideNav, false)) {
+      return;
+    }
+    if (href) window.location.href = href;
   }
 
   document.addEventListener('click', function(e){
+    var viewBtn = e.target && e.target.closest ? e.target.closest('.js-noti-view-post') : null;
+    if (viewBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var postId = parseInt(viewBtn.getAttribute('data-post-id') || '0', 10) || 0;
+      var hideNav = viewBtn.getAttribute('data-hide-nav') === '1';
+      var isStory = viewBtn.getAttribute('data-is-story') === '1';
+      var row = viewBtn.closest('.x-noti-row');
+      if (!isStory && row) isStory = row.getAttribute('data-is-story') === '1';
+      try {
+        if (window.jQuery) {
+          window.jQuery(viewBtn).closest('.dropdown').removeClass('show').find('.dropdown-menu').removeClass('show');
+          window.jQuery(viewBtn).closest('.dropdown-toggle').attr('aria-expanded', 'false');
+        }
+      } catch (eDrop) {}
+      if (openNotiViewPost(postId, hideNav, isStory)) return;
+      openNotiRow(row);
+      return;
+    }
     var row = e.target && e.target.closest ? e.target.closest('.x-noti-row[data-href]') : null;
     if (!row) return;
     if (e.target.closest('.x-noti-more, a, button, form, input')) return;

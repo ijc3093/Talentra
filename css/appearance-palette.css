@@ -746,10 +746,16 @@ html[data-msb-appearance] svg {
   background-color: transparent !important;
 }
 
-html[data-msb-appearance] .create-post-modal,
 html[data-msb-appearance] .global-live-modal,
 html[data-msb-appearance] .modal-backdrop {
   background-color: rgba(0, 0, 0, 0.55) !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] .create-post-modal,
+html[data-msb-appearance] .create-post-modal.is-open {
+  background: transparent !important;
+  background-color: transparent !important;
   background-image: none !important;
 }
 

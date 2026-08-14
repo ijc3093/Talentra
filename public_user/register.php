@@ -51,6 +51,16 @@ $signupTrack = register_signup_track_from_request();
 $defaultAccountType = ($signupTrack === 'personal') ? 'personal' : 'publisher';
 $defaultPublisherMode = ($signupTrack === 'commerce') ? 'commerce' : 'media';
 
+// Personal signup lives on index.php (in-pane). Keep publisher/commerce on this page.
+if (
+    ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+    && $signupTrack === 'personal'
+    && empty($_GET['stay'])
+) {
+    header('Location: index.php?view=register&account_type=personal');
+    exit;
+}
+
 $controller = new Controller();
 $dbh = $controller->pdo();
 publisher_ensure_schema($dbh);
@@ -813,16 +823,27 @@ if (isset($_POST['submit'])) {
                         'friend_code' => $friendCode,
                         'account_kind' => 'publisher',
                     ]);
-                    header('Location: feed.php');
+                    header('Location: entry.php');
                     exit;
                 }
 
+                setUserSession([
+                    'id' => $newUserId,
+                    'name' => $name,
+                    'username' => $username,
+                    'email' => $email,
+                    'role' => register_public_user_role_id($dbh),
+                    'status' => 1,
+                    'image' => $image,
+                    'friend_code' => $friendCode,
+                    'account_kind' => 'personal',
+                ]);
                 $_SESSION['register_welcome'] = [
                     'friend_code' => $friendCode,
                     'name' => $name,
                     'username' => $username,
                 ];
-                header('Location: index.php?registered=1');
+                header('Location: entry.php');
                 exit;
             }
         } catch (Throwable $e) {
@@ -1449,7 +1470,7 @@ if ($isPublisherReg) {
               </div>
               <div class="register-submit-row">
                 <button name="submit" type="submit" class="btn btn-success btn-block" id="registerSubmitBtn">Sign Up</button>
-                <div class="tx-center bd pd-10 mg-t-40 register-footer-link">Already a member? <a href="index.php">Sign In</a></div>
+                <div class="tx-center bd pd-10 mg-t-40 register-footer-link">Already a member? <a href="index.php?view=login">Sign In</a></div>
               </div>
           </form>
         </div>
@@ -3119,6 +3140,9 @@ if ($isPublisherReg) {
                   alert('Your commerce brand request must be approved by admin before you can create your account.');
                   return;
                 }
+                if (typeof window.msbArmEntryBridge === 'function') {
+                  window.msbArmEntryBridge();
+                }
                 return;
               }
               if (commerceBrandSelect && !commerceBrandSelect.value) {
@@ -3131,6 +3155,9 @@ if ($isPublisherReg) {
                 ev.preventDefault();
                 alert('Your commerce seller request must be approved by admin before you can create your account.');
                 return;
+              }
+              if (typeof window.msbArmEntryBridge === 'function') {
+                window.msbArmEntryBridge();
               }
               return;
             }
@@ -3147,6 +3174,10 @@ if ($isPublisherReg) {
               return;
             }
           }
+
+          if (typeof window.msbArmEntryBridge === 'function') {
+            window.msbArmEntryBridge();
+          }
         });
       }
 
@@ -3159,5 +3190,6 @@ if ($isPublisherReg) {
       }
     })();
     </script>
+    <?php require __DIR__ . '/includes/entry_bridge_handoff.php'; ?>
   </body>
 </html>

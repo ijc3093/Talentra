@@ -12,7 +12,7 @@ require_once __DIR__ . '/includes/live_browse.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
 if (!live_studio_user_can_access($dbh)) {
-    header('Location: feed.php');
+    header('Location: home.php?tab=for-you');
     exit;
 }
 
@@ -5302,7 +5302,7 @@ $studioBodyClasses = array_filter([
   <?php if (!$hubEmbedMode): include __DIR__.'/includes/live_right_door.php'; endif; ?>
   <div class="studio-shell">
     <aside class="studio-rail" aria-label="Studio navigation">
-      <a class="brand-mark" href="feed.php" aria-label="Talentra">t</a>
+      <a class="brand-mark" href="home.php?tab=for-you" aria-label="Talentra">t</a>
       <div class="brand-copy">Talentra</div>
 
       <a class="rail-avatar" href="profile.php" title="<?php echo h($meName); ?>">
@@ -5313,7 +5313,7 @@ $studioBodyClasses = array_filter([
         <a class="rail-icon" href="messages.php" title="Messages"><?php echo iconChat(); ?></a>
         <a class="rail-icon" href="dashboard.php" title="Notifications"><?php echo iconBell(); ?></a>
         <a class="rail-icon" href="compose.php" title="Create"><?php echo iconPlus(); ?></a>
-        <a class="rail-icon" href="public.php" title="Public"><?php echo iconGlobe(); ?></a>
+        <a class="rail-icon" href="home.php?tab=discover" title="Public"><?php echo iconGlobe(); ?></a>
         <a class="rail-icon is-active" href="live_studio.php" title="Live Studio"><?php echo iconVideo(); ?></a>
         <a class="rail-icon" href="profile.php" title="Profile"><?php echo iconUserPlus(); ?></a>
       </nav>

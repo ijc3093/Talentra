@@ -552,7 +552,7 @@
   }
 
   var PALETTE_FG_SELECTORS = [
-    'a', '.nav-link', '.feed-ig-btn', '.feed-ig-link', '.topicon-btn', '.dropdown-link',
+    'a', '.nav-link', '.feed-ig-btn', '.feed-ig-link:not(.feed-ig-reels)', '.topicon-btn', '.dropdown-link',
     '.dropdown-item', '.dropdown-menu-link', '.bestchat-menu-item', '.dropdown-bestnoti-item',
     '.btn', '.btn-light', '.btn-white', '.btn-soft', '.btn-outline-secondary', '.btn-link',
     '.icon', 'i.icon', '.sh-icon-link', '.tt-iconbtn', '.iconbtn', '.ig-btn',
@@ -608,8 +608,8 @@
     '.tt-menu-body .feed-left-nav-item:hover',
     '.feed-ig-btn:hover',
     '.feed-ig-btn:focus',
-    '.feed-ig-link:hover',
-    '.feed-ig-link:focus',
+    '.feed-ig-link:not(.feed-ig-reels):hover',
+    '.feed-ig-link:not(.feed-ig-reels):focus',
     '.ig-link:hover',
     '.bestprofile-nav li a:hover',
     '.right-sidebar a:hover',
@@ -627,7 +627,7 @@
     '.feed-right-nav-item.is-active',
     '.tt-menu-body .feed-left-nav-item.is-active',
     '.feed-ig-btn.active',
-    '.feed-ig-link.active',
+    '.feed-ig-link.active:not(.feed-ig-reels)',
     '.ig-link.active',
     '.bestprofile-nav li a.active',
     '.right-sidebar a.active',
@@ -646,7 +646,7 @@
     '.feed-right-nav-item:not(:hover)',
     '.tt-menu-body .feed-left-nav-item:not(:hover)',
     '.feed-ig-btn:not(:hover)',
-    '.feed-ig-link:not(:hover)',
+    '.feed-ig-link:not(.feed-ig-reels):not(:hover)',
     '.ig-link:not(:hover)',
     '.bestprofile-nav li a:not(:hover)',
     '.right-sidebar a:not(:hover)',
@@ -758,10 +758,10 @@
     for (i = 0; i < scripts.length; i++) {
       var src = scripts[i].src || '';
       if (src.indexOf('theme-bootstrap.js') !== -1) {
-        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=98');
+        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=109');
       }
     }
-    return './css/appearance-palette.css?v=98';
+    return './css/appearance-palette.css?v=109';
   }
 
   function ensurePaletteStylesheet(){
@@ -1292,11 +1292,16 @@
       'html[data-msb-appearance] [data-live-avatar] img {\n' +
       '  background-color: transparent !important;\n' +
       '}\n' +
-      'html[data-msb-appearance] .create-post-modal,\n' +
       'html[data-msb-appearance] .global-live-modal,\n' +
       'html[data-msb-appearance] .modal-backdrop,\n' +
       'html[data-msb-appearance] .studio-live-modal {\n' +
       '  background-color: rgba(0,0,0,0.55) !important;\n' +
+      '  background-image: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .create-post-modal,\n' +
+      'html[data-msb-appearance] .create-post-modal.is-open {\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
       '  background-image: none !important;\n' +
       '}\n' +
       'html[data-msb-appearance] ' + PALETTE_FG_SELECTORS + ' {\n' +
@@ -1307,6 +1312,20 @@
       'html[data-msb-appearance] [class*="ion-"],\n' +
       'html[data-msb-appearance] .fa {\n' +
       '  color: var(--msb-palette-icon) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] a.feed-ig-reels,\n' +
+      'html[data-msb-appearance] a.feed-ig-reels:hover,\n' +
+      'html[data-msb-appearance] a.feed-ig-reels:focus,\n' +
+      'html[data-msb-appearance] a.feed-ig-reels.active {\n' +
+      '  background-color: var(--msb-palette-surface-2, #fff) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-action) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border, transparent)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] a.feed-ig-reels .fa,\n' +
+      'html[data-msb-appearance] a.feed-ig-reels .fa.fa-play,\n' +
+      'html[data-msb-appearance] a.feed-ig-reels .icon {\n' +
+      '  color: var(--msb-palette-action) !important;\n' +
       '}\n' +
       'html[data-msb-appearance] a.gear-detail-open-btn,\n' +
       'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn {\n' +
@@ -1326,7 +1345,7 @@
       'html[data-msb-appearance] a.gear-detail-open-btn [class*="ion-"] {\n' +
       '  color: var(--msb-palette-btn-text) !important;\n' +
       '}\n' +
-      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):not(.feed-tab-link),\n' +
+      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.feed-ig-reels):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):not(.feed-tab-link),\n' +
       'html[data-msb-appearance] a.feed-ig-logo-label,\n' +
       'html[data-msb-appearance] .feed-ig-logo-label {\n' +
       '  color: var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;\n' +
@@ -1549,7 +1568,7 @@
       '  color: var(--msb-palette-icon) !important;\n' +
       '  fill: currentColor !important;\n' +
       '}\n' +
-      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.mf-peer-link):not(.post-author-link):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):hover,\n' +
+      'html[data-msb-appearance] a:not(.btn-primary):not(.bg-primary):not(.messages-shell-tab.active):not(.feed-ig-logo):not(.feed-ig-reels):not(.mf-peer-link):not(.post-author-link):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.ch-btn-primary):not(.btn-success):not(.btn):not(.ch-btn-ghost):not(.feed-ig-btn):hover,\n' +
       'html[data-msb-appearance] a.feed-ig-logo-label:hover,\n' +
       'html[data-msb-appearance] a.feed-ig-logo-label:focus {\n' +
       '  color: var(--msb-palette-link-hover) !important;\n' +
@@ -2325,8 +2344,8 @@
   ].join(',\n');
 
   var BUILTIN_HREF_TEXT_SELECTORS = [
-    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab)',
-    '.nav-link:not(.active)', '.feed-ig-link', '.dropdown-item', '.dropdown-link',
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab)',
+    '.nav-link:not(.active)', '.feed-ig-link:not(.feed-ig-reels)', '.dropdown-item', '.dropdown-link',
     '.dropdown-menu-link', '.bestchat-menu-item', '.dropdown-bestnoti-item',
     'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link)',
     'body.org-app .nav-link:not(.active)', 'body.org-app .sh-icon-link'
@@ -2343,9 +2362,9 @@
   ].join(',\n');
 
   var BUILTIN_HREF_TEXT_HOVER_SELECTORS = [
-    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):hover',
-    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):focus',
-    '.nav-link:hover', '.nav-link:focus', '.feed-ig-link:hover', '.feed-ig-link:focus',
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab):hover',
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab):focus',
+    '.nav-link:hover', '.nav-link:focus', '.feed-ig-link:not(.feed-ig-reels):hover', '.feed-ig-link:not(.feed-ig-reels):focus',
     '.dropdown-item:hover', '.dropdown-link:hover', '.dropdown-menu-link:hover',
     'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link):hover',
     'body.org-app .nav-link:hover', 'body.org-app .sh-icon-link:hover'

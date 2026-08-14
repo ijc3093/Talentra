@@ -597,13 +597,17 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       display:flex;
       align-items:center;
       justify-content:center;
-      min-height:53px;
-      padding:12px 8px;
+      height:30px;
+      min-height:30px;
+      min-width:max-content;
+      margin:0;
+      padding:8px 10px 12px;
       border:0;
       background:transparent;
       color:var(--x-muted);
-      font-size:15px;
-      font-weight:600;
+      font-size:13px;
+      font-weight:400;
+      line-height:1.2;
       text-decoration:none;
       position:relative;
       box-sizing:border-box;
@@ -612,11 +616,23 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       font-family:inherit;
       appearance:none;
       -webkit-appearance:none;
+      white-space:nowrap;
+      outline:none;
+      box-shadow:none;
+      -webkit-tap-highlight-color:transparent;
     }
-    .x-tab:hover{background:var(--x-hover);color:var(--x-text);text-decoration:none;}
+    .x-tab:hover{background:rgba(127,127,127,.07);color:var(--x-text);text-decoration:none;}
+    .x-tab:focus,
+    .x-tab:focus-visible,
+    .x-tab:active{
+      outline:none !important;
+      box-shadow:none !important;
+      border-color:transparent !important;
+    }
     .x-tab.is-active{
       color:var(--x-text);
-      font-weight:800;
+      font-size:13px;
+      font-weight:400;
     }
     .x-tab.is-active::after{
       content:'';
@@ -624,47 +640,11 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       left:50%;
       bottom:0;
       transform:translateX(-50%);
-      width:56px;
+      width:40px;
       max-width:70%;
-      height:4px;
+      height:3px;
       border-radius:999px;
       background:var(--x-accent);
-    }
-
-    .x-search-wrap{
-      padding:10px 16px 12px;
-      border-top:0;
-      border-left:1px solid var(--x-border);
-      border-right:1px solid var(--x-border);
-    }
-    .x-search{
-      position:relative;
-    }
-    .x-search .search-ico{
-      position:absolute;
-      left:14px;
-      top:50%;
-      transform:translateY(-50%);
-      color:var(--x-muted);
-      opacity:.85;
-      pointer-events:none;
-    }
-    .x-search .form-control,
-    #contactSearch{
-      width:100%;
-      height:42px;
-      border-radius:999px;
-      padding:0 16px 0 40px;
-      border:1px solid transparent;
-      background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, #eff3f4)) !important;
-      color:var(--x-text) !important;
-      font-size:15px;
-      box-shadow:none !important;
-    }
-    #contactSearch:focus{
-      border-color:var(--x-accent) !important;
-      background:var(--x-bg) !important;
-      outline:none;
     }
 
     .contacts-shell .alert{
@@ -686,9 +666,9 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     .contact-row{
       display:flex;
       align-items:flex-start;
-      gap:12px;
+      gap:10px;
       width:100%;
-      padding:12px 16px;
+      padding:10px 12px;
       border-bottom:1px solid var(--x-border);
       box-sizing:border-box;
       transition:background .12s ease;
@@ -700,10 +680,10 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     }
     .avatar-circle img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;}
     .avatar-circle{
-      width:48px;height:48px;border-radius:50%;
+      width:32px;height:32px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      font-weight:800;letter-spacing:.02em;
-      font-size:15px;flex:0 0 auto;
+      font-weight:700;letter-spacing:.02em;
+      font-size:11px;flex:0 0 auto;
       color:#fff;
       border:0;
       box-shadow:none;
@@ -724,7 +704,7 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
+      gap:10px;
     }
     .x-id{
       min-width:0;
@@ -732,8 +712,8 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     }
     .x-name{
       margin:0;
-      font-size:15px;
-      font-weight:800;
+      font-size:13px;
+      font-weight:700;
       line-height:1.25;
       color:var(--x-text);
       white-space:nowrap;
@@ -744,7 +724,7 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     .x-name a:hover{text-decoration:underline;}
     .x-handle{
       margin:1px 0 0;
-      font-size:14px;
+      font-size:12px;
       line-height:1.25;
       color:var(--x-muted);
       white-space:nowrap;
@@ -752,15 +732,15 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       text-overflow:ellipsis;
     }
     .x-bio{
-      margin:4px 0 0;
-      font-size:14px;
+      margin:2px 0 0;
+      font-size:13px;
       line-height:1.35;
       color:var(--x-text);
       word-break:break-word;
     }
     .x-bio.mono{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size:13px;
+      font-size:12px;
       letter-spacing:.01em;
       color:var(--x-muted);
     }
@@ -768,22 +748,22 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     .x-row-actions{
       display:flex;
       align-items:center;
-      gap:4px;
+      gap:2px;
       flex:0 0 auto;
     }
     .x-msg-btn{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-width:84px;
-      height:32px;
-      padding:0 16px;
+      min-width:68px;
+      height:28px;
+      padding:0 12px;
       border-radius:999px;
       border:0;
       background:var(--x-btn);
       color:var(--x-btn-text);
-      font-size:14px;
-      font-weight:800;
+      font-size:12px;
+      font-weight:700;
       text-decoration:none;
       line-height:1;
       white-space:nowrap;
@@ -794,19 +774,19 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     .x-req-actions{
       display:inline-flex;
       align-items:center;
-      gap:8px;
+      gap:6px;
       flex:0 0 auto;
     }
     .x-req-btn{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:32px;
-      padding:0 16px;
+      min-height:28px;
+      padding:0 12px;
       border-radius:999px;
       border:0;
-      font-size:14px;
-      font-weight:800;
+      font-size:12px;
+      font-weight:700;
       line-height:1;
       cursor:pointer;
       white-space:nowrap;
@@ -823,7 +803,9 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     }
     .x-req-decline:hover{background:var(--x-hover);}
     .x-tab-panel[hidden]{display:none !important;}
-    .x-search-wrap.is-hidden{display:none !important;}
+    .x-rail-search.is-hidden{display:none !important;}
+    .x-right-rail:has(.x-rail-search.is-hidden) .x-rail-main,
+    .x-right-rail.is-friends-search-hidden .x-rail-main{margin-top:0;}
     .x-add-wrap{
       padding:20px 16px 28px;
       box-sizing:border-box;
@@ -922,15 +904,15 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      width:34px;
-      min-width:34px;
-      height:34px;
+      width:28px;
+      min-width:28px;
+      height:28px;
       padding:0;
       border-radius:999px;
       border:0;
       background:transparent;
       color:var(--x-muted);
-      font-size:16px;
+      font-size:13px;
       line-height:1;
       cursor:pointer;
       box-shadow:none;
@@ -947,18 +929,18 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       flex-direction:column;
       justify-content:center;
       align-items:flex-start;
-      gap:3px;
-      width:14px;
+      gap:2px;
+      width:12px;
       color:currentColor;
     }
     .row-menu-toggle .pcm-fries-bar{
       display:block;
-      height:2px;
+      height:1.5px;
       border-radius:1px;
       background:currentColor;
-      width:14px;
+      width:12px;
     }
-    .row-menu-toggle .pcm-fries-bar--short{width:8px;}
+    .row-menu-toggle .pcm-fries-bar--short{width:7px;}
     .row-menu .dropdown-menu{
       min-width:220px;
       margin-top:8px;
@@ -1044,28 +1026,32 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     }
     .x-rail-search-field .fa-search{
       position: absolute;
-      right: 14px;
-      left: auto;
+      left: 14px;
+      right: auto;
       top: 50%;
       transform: translateY(-50%);
       color: var(--x-muted);
       font-size: 14px;
       pointer-events: none;
     }
-    .x-rail-search-input{
+    .x-rail-search-input,
+    #contactSearch{
       width: 100%;
       height: 44px;
       border-radius: 999px;
       border: 1px solid var(--x-border);
       background: var(--msb-palette-input-bg, var(--msb-palette-surface-2, #eff3f4));
       color: var(--x-text);
-      padding: 0 42px 0 16px;
+      padding: 0 16px 0 42px;
       font-size: 15px;
       outline: none;
       box-sizing: border-box;
+      box-shadow: none !important;
     }
-    .x-rail-search-input::placeholder{color: var(--x-muted);}
-    .x-rail-search-input:focus{
+    .x-rail-search-input::placeholder,
+    #contactSearch::placeholder{color: var(--x-muted);}
+    .x-rail-search-input:focus,
+    #contactSearch:focus{
       background: var(--x-bg);
       border-color: var(--x-accent);
     }
@@ -1267,13 +1253,13 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
         border-right:0;
       }
       .contacts-scroll{ overflow: visible; }
-      .x-tabs .x-tab{font-size:14px;padding:12px 4px;}
+      .x-tabs .x-tab{font-size:13px;padding:10px 4px;}
     }
 
     @media (max-width: 575.98px) {
       .x-top-name{font-size:18px;}
-      .x-msg-btn{min-width:72px;padding:0 12px;font-size:13px;}
-      .contact-row{padding:12px;}
+      .x-msg-btn{min-width:60px;padding:0 10px;font-size:12px;}
+      .contact-row{padding:10px 12px;}
     }
   </style>
 </head>
@@ -1304,7 +1290,7 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
       <div class="contacts-fixed">
         <div class="contacts-head-chrome">
         <div class="x-topbar">
-          <a class="x-back" href="feed.php" aria-label="Back">
+          <a class="x-back" href="home.php?tab=for-you" aria-label="Back">
             <i class="fa fa-arrow-left" aria-hidden="true"></i>
           </a>
           <div class="x-top-meta">
@@ -1323,13 +1309,6 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
           <button type="button" class="x-tab<?= $activeTab === 'requests' ? ' is-active' : '' ?>" data-contacts-tab="requests"<?= $activeTab === 'requests' ? ' aria-current="page"' : '' ?>>Friend Requests<?= $pendingRequestCount > 0 ? ' (' . (int)$pendingRequestCount . ')' : '' ?></button>
           <button type="button" class="x-tab<?= $activeTab === 'add' ? ' is-active' : '' ?>" data-contacts-tab="add"<?= $activeTab === 'add' ? ' aria-current="page"' : '' ?>>Add Friend</button>
         </nav>
-        </div>
-
-        <div class="x-search-wrap<?= $activeTab !== 'friends' ? ' is-hidden' : '' ?>" id="contactsSearchWrap">
-          <div class="x-search">
-            <i class="fa fa-search search-ico" aria-hidden="true"></i>
-            <input type="search" id="contactSearch" class="form-control" placeholder="Search friends" autocomplete="off">
-          </div>
         </div>
 
         <?php if ($error): ?><div class="alert alert-danger"><?= h($error) ?></div><?php endif; ?>
@@ -1552,12 +1531,12 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
 
     </div>
 
-    <aside class="x-right-rail" aria-label="Explore">
-      <div class="x-rail-search">
-        <form class="x-rail-search-field" action="public.php" method="get" role="search">
+    <aside class="x-right-rail<?= $activeTab !== 'friends' ? ' is-friends-search-hidden' : '' ?>" aria-label="Explore">
+      <div class="x-rail-search<?= $activeTab !== 'friends' ? ' is-hidden' : '' ?>" id="contactsSearchWrap">
+        <div class="x-rail-search-field" role="search">
           <i class="fa fa-search" aria-hidden="true"></i>
-          <input class="x-rail-search-input" type="search" name="q" placeholder="Search" autocomplete="off">
-        </form>
+          <input class="x-rail-search-input" type="search" id="contactSearch" placeholder="Search friends" autocomplete="off" aria-label="Search friends">
+        </div>
       </div>
 
       <div class="x-rail-main">
@@ -1583,13 +1562,13 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
               <span class="x-trend-more" aria-hidden="true"><i class="fa fa-ellipsis-h"></i></span>
             </a>
           <?php endforeach; ?>
-          <a class="x-rail-show-more" href="public.php">Show more</a>
+          <a class="x-rail-show-more" href="home.php?tab=discover">Show more</a>
         <?php else: ?>
           <p class="x-trend" style="cursor:default;pointer-events:none;">
             <span class="x-trend-meta">Publishers</span>
             <span class="x-trend-title" style="font-weight:600;color:var(--x-muted);">No publisher posts yet.</span>
           </p>
-          <a class="x-rail-show-more" href="public.php">Explore public</a>
+          <a class="x-rail-show-more" href="home.php?tab=discover">Explore public</a>
         <?php endif; ?>
       </div>
       </div>
@@ -1660,6 +1639,10 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
     if (panelRequests) panelRequests.hidden = (tab !== 'requests');
     if (panelAdd) panelAdd.hidden = (tab !== 'add');
     if (searchWrap) searchWrap.classList.toggle('is-hidden', tab !== 'friends');
+    try {
+      var rail = document.querySelector('.x-right-rail');
+      if (rail) rail.classList.toggle('is-friends-search-hidden', tab !== 'friends');
+    } catch (err) {}
     if (tabSub) {
       var label = tabSub.getAttribute('data-friends-label') || '';
       if (tab === 'requests') label = tabSub.getAttribute('data-requests-label') || '';
@@ -1683,6 +1666,7 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
   tabBtns.forEach(function(btn){
     btn.addEventListener('click', function(){
       setContactsTab(btn.getAttribute('data-contacts-tab') || 'friends', true);
+      try { btn.blur(); } catch (err) {}
     });
   });
 
@@ -2081,6 +2065,125 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
   });
 })(window.jQuery);
 </script>
+<style id="contacts-match-notifications">
+/* Force notifications.php sizing on contacts (beats later header/theme CSS) */
+body.contacts-page .x-tab,
+body.contacts-page button.x-tab{
+  height:30px !important;
+  min-height:30px !important;
+  padding:8px 10px 12px !important;
+  font-size:13px !important;
+  font-weight:400 !important;
+  line-height:1.2 !important;
+  outline:none !important;
+  outline-width:0 !important;
+  box-shadow:none !important;
+  border:0 !important;
+  -webkit-tap-highlight-color:transparent !important;
+  -webkit-appearance:none !important;
+  appearance:none !important;
+}
+body.contacts-page .x-tab:focus,
+body.contacts-page .x-tab:focus-visible,
+body.contacts-page .x-tab:active,
+body.contacts-page .x-tab.is-active:focus,
+body.contacts-page button.x-tab:focus,
+body.contacts-page button.x-tab:focus-visible{
+  outline:none !important;
+  outline-width:0 !important;
+  box-shadow:none !important;
+  border:0 !important;
+}
+body.contacts-page .x-tab.is-active{
+  color:var(--x-text) !important;
+  font-size:13px !important;
+  font-weight:400 !important;
+}
+body.contacts-page .x-tab.is-active::after{
+  width:40px !important;
+  height:3px !important;
+}
+
+body.contacts-page .contact-row{
+  gap:10px !important;
+  padding:10px 12px !important;
+  align-items:flex-start !important;
+}
+body.contacts-page .contact-row .avatar-circle,
+body.contacts-page .avatar-circle{
+  width:32px !important;
+  height:32px !important;
+  min-width:32px !important;
+  min-height:32px !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+}
+body.contacts-page .contact-row .avatar-circle img,
+body.contacts-page .avatar-circle img{
+  width:100% !important;
+  height:100% !important;
+}
+body.contacts-page .x-name,
+body.contacts-page .x-name a{
+  font-size:13px !important;
+  font-weight:700 !important;
+  line-height:1.25 !important;
+}
+body.contacts-page .x-handle{
+  font-size:12px !important;
+  line-height:1.25 !important;
+}
+body.contacts-page .x-bio{
+  font-size:13px !important;
+  line-height:1.35 !important;
+  margin-top:2px !important;
+}
+body.contacts-page .x-bio.mono{
+  font-size:12px !important;
+}
+body.contacts-page .x-msg-btn{
+  min-width:68px !important;
+  height:28px !important;
+  min-height:28px !important;
+  padding:0 12px !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+}
+body.contacts-page .x-req-btn{
+  min-height:28px !important;
+  height:28px !important;
+  padding:0 12px !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+}
+body.contacts-page .row-menu-toggle{
+  width:28px !important;
+  min-width:28px !important;
+  height:28px !important;
+  font-size:13px !important;
+}
+body.contacts-page .row-menu-toggle .pcm-fries-icon{
+  width:12px !important;
+  gap:2px !important;
+}
+body.contacts-page .row-menu-toggle .pcm-fries-bar{
+  width:12px !important;
+  height:1.5px !important;
+}
+body.contacts-page .row-menu-toggle .pcm-fries-bar--short{
+  width:7px !important;
+}
+body.contacts-page .x-rail-search-input,
+body.contacts-page #contactSearch{
+  height:36px !important;
+  font-size:13px !important;
+  padding:0 14px 0 36px !important;
+}
+body.contacts-page .x-rail-search-field .fa-search{
+  left:12px !important;
+  font-size:13px !important;
+}
+</style>
 <!-- <?php include __DIR__ . '/includes/footer.php'; ?> -->
 </body>
 </html>

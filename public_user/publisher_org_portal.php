@@ -18,7 +18,7 @@ if ($meId <= 0) {
     $meId = (int)($_SESSION['user_id'] ?? 0);
 }
 if ($meId <= 0) {
-    header('Location: feed.php?enterprise_error=login');
+    header('Location: home.php?tab=for-you&enterprise_error=login');
     exit;
 }
 
@@ -38,7 +38,7 @@ try {
 $sessionKind = strtolower(trim((string)($_SESSION['user_account_kind'] ?? '')));
 $isPublisherAccount = publisher_user_row_looks_like_publisher($dbh, $meRow) || $sessionKind === 'publisher';
 if (!$isPublisherAccount) {
-    header('Location: feed.php?enterprise_error=not_publisher');
+    header('Location: home.php?tab=for-you&enterprise_error=not_publisher');
     exit;
 }
 
@@ -52,7 +52,7 @@ if ($orgId <= 0 && $orgs) {
 }
 
 if ($orgId <= 0 || !publisher_org_public_user_can_access($dbh, $meId, $orgId)) {
-    header('Location: feed.php?enterprise_error=no_org');
+    header('Location: home.php?tab=for-you&enterprise_error=no_org');
     exit;
 }
 
@@ -82,13 +82,13 @@ try {
 
 $managerId = publisher_org_begin_session_for_publisher($dbh, $meId, $orgId);
 if ($managerId <= 0) {
-    header('Location: feed.php?enterprise_error=session');
+    header('Location: home.php?tab=for-you&enterprise_error=session');
     exit;
 }
 
 $query = publisher_org_enterprise_handoff_query($managerId, $orgId, $meId);
 if ($query === '') {
-    header('Location: feed.php?enterprise_error=handoff');
+    header('Location: home.php?tab=for-you&enterprise_error=handoff');
     exit;
 }
 

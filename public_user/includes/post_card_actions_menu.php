@@ -203,13 +203,19 @@ function post_card_actions_common_menu_items_html(array $ctx): string
     $isSaved = !empty($ctx['is_saved']);
     $meTagged = !empty($ctx['me_tagged']);
     $canSelfTag = !empty($ctx['can_self_tag']);
+    $friendStatus = strtolower(trim((string)($ctx['friend_status'] ?? 'none')));
+    $menuSurface = strtolower(trim((string)($ctx['menu_surface'] ?? 'public')));
+    $isDiscoverOrReel = in_array($menuSurface, ['public', 'reel'], true);
+    $isStranger = !$isOwner && $friendStatus !== 'friends' && $friendStatus !== 'self';
     $items = [];
 
     if (!$isOwner) {
         $items[] = post_card_actions_button_item('pcm-report is-danger', 'Report', 'fa fa-flag', [
             'data-post-id' => (string)$postId,
         ]);
-        if ($canSelfTag || $meTagged) {
+        // Discover / Reels strangers: Mention only — no Tag (incl. Add to Tags).
+        $allowTag = !($isDiscoverOrReel && $isStranger);
+        if ($allowTag && ($canSelfTag || $meTagged)) {
             $items[] = post_card_actions_button_item(
                 'pcm-tag-self' . ($meTagged ? ' is-active' : ''),
                 $meTagged ? 'Remove from Tags' : 'Add to Tags',
@@ -583,11 +589,11 @@ function post_card_actions_menu_render_modals(): void
 ?>
 <style id="pcm-tag-dialog-css">
   .pcm-tag-input{
-    width:100%;height:44px;box-sizing:border-box;margin:0 0 12px;
+    width:100%;height:36px;box-sizing:border-box;margin:0 0 10px;
     border:1px solid var(--msb-palette-border,rgba(15,23,42,.14));
-    border-radius:12px;padding:0 14px;
+    border-radius:10px;padding:0 12px;
     background:var(--msb-palette-input-bg,var(--msb-palette-bg,#fff));
-    color:var(--msb-palette-text,#0b1220);font-weight:700;font-size:14px;outline:none;
+    color:var(--msb-palette-text,#0b1220);font-weight:600;font-size:13px;outline:none;
   }
   .pcm-tag-input:focus{border-color:var(--msb-palette-border-strong,rgba(15,23,42,.28));}
   .pcm-tag-chips{min-height:28px;justify-content:flex-start;}
@@ -700,37 +706,37 @@ function post_card_actions_menu_render_modals(): void
   <button type="button" class="pcm-share-cancel" data-pcm-share-dismiss>Cancel</button>
 </dialog>
 <style id="pcm-confirm-modal-css">
-  html body dialog.pcm-delete-dialog{position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:min(430px,calc(100vw - 32px))!important;max-width:430px!important;height:max-content!important;min-height:0!important;max-height:calc(100dvh - 32px)!important;margin:auto!important;padding:30px!important;overflow:auto!important;transform:none!important;border:1px solid var(--msb-palette-border,rgba(148,163,184,.28))!important;border-radius:22px!important;background:var(--msb-palette-surface,var(--msb-palette-bg,#fff))!important;color:var(--msb-palette-text,#111827)!important;box-shadow:0 28px 80px rgba(0,0,0,.38)!important;text-align:center!important;box-sizing:border-box!important;z-index:2147483647!important}
+  html body dialog.pcm-delete-dialog{position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:min(360px,calc(100vw - 32px))!important;max-width:360px!important;height:max-content!important;min-height:0!important;max-height:calc(100dvh - 32px)!important;margin:auto!important;padding:20px 18px 16px!important;overflow:auto!important;transform:none!important;border:1px solid var(--msb-palette-border,rgba(148,163,184,.28))!important;border-radius:14px!important;background:var(--msb-palette-surface,var(--msb-palette-bg,#fff))!important;color:var(--msb-palette-text,#111827)!important;box-shadow:0 18px 48px rgba(0,0,0,.28)!important;text-align:center!important;box-sizing:border-box!important;z-index:2147483647!important}
   .pcm-delete-dialog::backdrop{background:rgba(15,23,42,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
   html body dialog.pcm-delete-dialog:not([open]){display:none!important}
   html body dialog.pcm-delete-dialog[open]{display:block!important}
-  html body .pcm-delete-dialog-close{position:absolute!important;top:12px!important;right:14px!important;width:34px!important;height:34px!important;margin:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;color:var(--msb-palette-text-muted,var(--msb-palette-muted,#64748b))!important;font-size:27px!important;line-height:32px!important;cursor:pointer!important}
+  html body .pcm-delete-dialog-close{position:absolute!important;top:10px!important;right:10px!important;width:28px!important;height:28px!important;margin:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;color:var(--msb-palette-text-muted,var(--msb-palette-muted,#64748b))!important;font-size:18px!important;line-height:28px!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
   .pcm-delete-dialog-close:hover{background:var(--msb-palette-hover-bg,var(--msb-palette-surface-2,rgba(148,163,184,.14)));color:var(--msb-palette-text,#111827)}
-  html body .pcm-delete-dialog-icon{position:static!important;display:grid!important;place-items:center!important;width:58px!important;height:58px!important;margin:0 auto 16px!important;border-radius:50%!important;background:rgba(239,68,68,.12)!important;color:#dc2626!important;font-size:23px!important}
+  html body .pcm-delete-dialog-icon{position:static!important;display:grid!important;place-items:center!important;width:40px!important;height:40px!important;margin:0 auto 10px!important;border-radius:50%!important;background:rgba(239,68,68,.12)!important;color:#dc2626!important;font-size:16px!important}
   html body .pcm-archive-dialog-icon{background:rgba(37,99,235,.12)!important;color:#2563eb!important}
   html body .pcm-post-dialog-icon{background:rgba(15,118,110,.12)!important;color:#0f766e!important}
   html body .pcm-post-dialog-actions{flex-wrap:wrap!important}
   html body .pcm-post-friends-btn{border:1px solid #2563eb!important;background:#2563eb!important;color:#fff!important;flex:1 1 42%!important}
   html body .pcm-post-public-btn{border:1px solid #0f766e!important;background:#0f766e!important;color:#fff!important;flex:1 1 42%!important}
   html body .pcm-post-dialog-actions .pcm-delete-dialog-cancel{flex:1 1 100%!important;order:3}
-  html body .pcm-delete-dialog h2{position:static!important;display:block!important;margin:0 30px 9px!important;padding:0!important;color:inherit!important;font-size:21px!important;font-weight:800!important;line-height:1.25!important}
-  html body .pcm-delete-dialog p{position:static!important;display:block!important;margin:0!important;padding:0!important;color:var(--msb-palette-text-muted,var(--msb-palette-muted,#64748b))!important;font-size:14px!important;line-height:1.55!important}
-  html body .pcm-delete-dialog-actions{position:static!important;display:flex!important;gap:10px!important;width:100%!important;margin:24px 0 0!important;padding:0!important}
-  .pcm-delete-dialog-actions button{flex:1 1 0;height:44px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer}
+  html body .pcm-delete-dialog h2{position:static!important;display:block!important;margin:0 28px 6px!important;padding:0!important;color:inherit!important;font-size:15px!important;font-weight:700!important;line-height:1.3!important}
+  html body .pcm-delete-dialog p{position:static!important;display:block!important;margin:0!important;padding:0!important;color:var(--msb-palette-text-muted,var(--msb-palette-muted,#64748b))!important;font-size:13px!important;line-height:1.45!important}
+  html body .pcm-delete-dialog-actions{position:static!important;display:flex!important;gap:8px!important;width:100%!important;margin:16px 0 0!important;padding:0!important}
+  .pcm-delete-dialog-actions button{flex:1 1 0;height:34px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer}
   .pcm-delete-dialog-cancel{border:1px solid var(--msb-palette-border,rgba(148,163,184,.38));background:var(--msb-palette-hover-bg,var(--msb-palette-surface-2,transparent));color:var(--msb-palette-text,#111827)}
   .pcm-delete-dialog-confirm{border:1px solid #dc2626;background:#dc2626;color:#fff}
   html body .pcm-archive-dialog-confirm{border:1px solid #2563eb!important;background:#2563eb!important;color:#fff!important}
   html body .pcm-private-dialog-icon{background:rgba(180,83,9,.12)!important;color:#b45309!important}
   html body .pcm-private-dialog-confirm{border:1px solid #b45309!important;background:#b45309!important;color:#fff!important}
-  @media(max-width:575.98px){html body dialog.pcm-delete-dialog{padding:28px 22px 22px!important}html body .pcm-delete-dialog h2{font-size:19px!important}}
+  @media(max-width:575.98px){html body dialog.pcm-delete-dialog{padding:18px 16px 14px!important}html body .pcm-delete-dialog h2{font-size:15px!important}}
 
   html body dialog.pcm-share-dialog{
     position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;
-    width:min(430px,calc(100vw - 32px))!important;max-width:430px!important;height:max-content!important;max-height:min(88dvh,720px)!important;
-    margin:auto!important;padding:22px 18px 18px!important;
-    overflow:auto!important;transform:none!important;border:1px solid var(--msb-palette-border,rgba(148,163,184,.28))!important;border-radius:22px!important;
+    width:min(360px,calc(100vw - 32px))!important;max-width:360px!important;height:max-content!important;max-height:min(88dvh,720px)!important;
+    margin:auto!important;padding:16px 14px 14px!important;
+    overflow:auto!important;transform:none!important;border:1px solid var(--msb-palette-border,rgba(148,163,184,.28))!important;border-radius:14px!important;
     background:var(--msb-palette-surface,var(--msb-palette-bg,#fff))!important;color:var(--msb-palette-text,#111827)!important;
-    box-shadow:0 28px 80px rgba(0,0,0,.38)!important;text-align:left!important;box-sizing:border-box!important;z-index:2147483647!important;
+    box-shadow:0 18px 48px rgba(0,0,0,.28)!important;text-align:left!important;box-sizing:border-box!important;z-index:2147483647!important;
   }
   html body dialog#pcmTagSheet.pcm-share-dialog{
     overflow:visible!important;
@@ -739,35 +745,36 @@ function post_card_actions_menu_render_modals(): void
   html body dialog.pcm-share-dialog:not([open]){display:none!important}
   html body dialog.pcm-share-dialog[open]{display:block!important}
   html body .pcm-share-close{
-    position:absolute!important;top:12px!important;right:12px!important;width:34px!important;height:34px!important;
+    position:absolute!important;top:10px!important;right:10px!important;width:28px!important;height:28px!important;
     margin:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;
-    color:var(--msb-palette-text-muted,#64748b)!important;font-size:26px!important;line-height:32px!important;cursor:pointer!important;
+    color:var(--msb-palette-text-muted,#64748b)!important;font-size:18px!important;line-height:28px!important;cursor:pointer!important;
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
   }
-  html body .pcm-share-dialog h2{margin:4px 40px 4px 4px!important;padding:0!important;font-size:20px!important;font-weight:800!important;line-height:1.2!important;color:inherit!important}
-  html body .pcm-share-sub{margin:0 4px 16px!important;font-size:13px!important;font-weight:600!important;color:var(--msb-palette-text-muted,#64748b)!important}
+  html body .pcm-share-dialog h2{margin:2px 32px 4px 2px!important;padding:0!important;font-size:15px!important;font-weight:700!important;line-height:1.3!important;color:inherit!important}
+  html body .pcm-share-sub{margin:0 2px 12px!important;font-size:12px!important;font-weight:500!important;color:var(--msb-palette-text-muted,#64748b)!important;line-height:1.45!important}
   html body .pcm-share-native{
-    display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;margin:0 0 14px!important;padding:12px 14px!important;
-    border:1px solid var(--msb-palette-border,rgba(148,163,184,.35))!important;border-radius:16px!important;
+    display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;margin:0 0 12px!important;padding:8px 10px!important;
+    border:1px solid var(--msb-palette-border,rgba(148,163,184,.35))!important;border-radius:12px!important;
     background:var(--msb-palette-hover-bg,rgba(148,163,184,.10))!important;color:inherit!important;cursor:pointer!important;text-align:left!important;
   }
   html body .pcm-share-native[hidden]{display:none!important}
   .pcm-share-native-ico{
-    width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:0 0 auto;
-    background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:18px;
+    width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;
+    background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:14px;
   }
-  .pcm-share-native-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
-  .pcm-share-native-txt strong{font-size:14px;font-weight:800}
-  .pcm-share-native-txt small{font-size:12px;font-weight:600;color:var(--msb-palette-text-muted,#64748b)}
+  .pcm-share-native-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .pcm-share-native-txt strong{font-size:13px;font-weight:700}
+  .pcm-share-native-txt small{font-size:11px;font-weight:500;color:var(--msb-palette-text-muted,#64748b)}
   html body .pcm-share-grid{
-    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px 6px!important;margin:0 0 14px!important;
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px 4px!important;margin:0 0 12px!important;
   }
   html body .pcm-share-app{
-    display:flex!important;flex-direction:column!important;align-items:center!important;gap:8px!important;
-    border:0!important;background:transparent!important;color:inherit!important;cursor:pointer!important;padding:6px 2px!important;font-size:11px!important;font-weight:700!important;
+    display:flex!important;flex-direction:column!important;align-items:center!important;gap:6px!important;
+    border:0!important;background:transparent!important;color:inherit!important;cursor:pointer!important;padding:4px 2px!important;font-size:10px!important;font-weight:600!important;
     text-decoration:none!important;-webkit-text-fill-color:inherit!important;
   }
   .pcm-share-app-ico{
-    width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:22px;color:#fff;
+    width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:16px;color:#fff;
   }
   .pcm-share-fb{background:#1877f2}
   .pcm-share-ig{background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af)}
@@ -779,8 +786,8 @@ function post_card_actions_menu_render_modals(): void
   .pcm-share-em{background:#64748b}
   html body .pcm-share-copy,
   html body .pcm-share-cancel{
-    display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;width:100%!important;
-    height:46px!important;margin:0 0 8px!important;border-radius:999px!important;font-size:14px!important;font-weight:800!important;cursor:pointer!important;
+    display:flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;width:100%!important;
+    height:34px!important;margin:0 0 6px!important;border-radius:999px!important;font-size:13px!important;font-weight:600!important;cursor:pointer!important;
   }
   html body .pcm-share-copy{
     border:1px solid var(--msb-palette-border,rgba(148,163,184,.38))!important;
@@ -791,7 +798,7 @@ function post_card_actions_menu_render_modals(): void
   }
   @media(max-width:419.98px){
     html body .pcm-share-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
-    .pcm-share-app-ico{width:48px;height:48px;border-radius:14px;font-size:20px}
+    .pcm-share-app-ico{width:36px;height:36px;border-radius:10px;font-size:14px}
   }
 </style>
     <?php

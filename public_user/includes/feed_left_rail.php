@@ -225,46 +225,46 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></span>
       <span class="feed-left-nav-label">Cart</span>
     </a> -->
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('entertainment') ?>" href="public.php?tab=entertainment" data-program-slug="entertainment" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('entertainment') ?>" href="home.php?tab=entertainment" data-program-slug="entertainment" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3v18"/><path d="M16 3v18"/><path d="M3 8h18"/><path d="M3 16h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg></span>
       <span class="feed-left-nav-label">Entertainment</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('library') ?>" href="public.php?tab=library" data-program-slug="library" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('library') ?>" href="home.php?tab=library" data-program-slug="library" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg></span>
       <span class="feed-left-nav-label">Library</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('cook') ?>" href="public.php?tab=cook" data-program-slug="cook" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('cook') ?>" href="home.php?tab=cook" data-program-slug="cook" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v7"/><path d="M3.5 3v4.5A2.5 2.5 0 0 0 6 10"/><path d="M8.5 3v4.5A2.5 2.5 0 0 1 6 10v11"/><path d="M15 3v18"/><path d="M15 3a5 5 0 0 1 5 5v4h-5"/></svg></span>
       <span class="feed-left-nav-label">Cook</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('seek-around-the-world') ?>" href="public.php?tab=seek-around-the-world" data-program-slug="seek-around-the-world" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('seek-around-the-world') ?>" href="home.php?tab=seek-around-the-world" data-program-slug="seek-around-the-world" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg></span>
       <span class="feed-left-nav-label">Seek around the World</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('geology') ?>" href="public.php?tab=geology" data-program-slug="geology" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('geology') ?>" href="home.php?tab=geology" data-program-slug="geology" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 20 6.5-11 3 5 2.5-4 6 10z"/><path d="m7.8 12 1.7 1.5 1.5-2"/><path d="M3 20h18"/></svg></span>
       <span class="feed-left-nav-label">Geology</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('animation') ?>" href="public.php?tab=animation" data-program-slug="animation" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('animation') ?>" href="home.php?tab=animation" data-program-slug="animation" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/><path d="M7 5v14"/><path d="M17 5v14"/></svg></span>
       <span class="feed-left-nav-label">Animation</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('make-a-new-friend') ?>" href="public.php?tab=make-a-new-friend" data-program-slug="make-a-new-friend" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('make-a-new-friend') ?>" href="home.php?tab=make-a-new-friend" data-program-slug="make-a-new-friend" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
       <span class="feed-left-nav-label">Make a new Friend</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('agents') ?>" href="public.php?tab=agents" data-program-slug="agents" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('agents') ?>" href="home.php?tab=agents" data-program-slug="agents" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="3"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="10" cy="13" r="1"/><circle cx="14" cy="13" r="1"/><path d="M10 16h4"/></svg></span>
       <span class="feed-left-nav-label">Agents</span>
       <span class="feed-left-nav-badge">NEW</span>
     </a>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('deep-research') ?>" href="public.php?tab=deep-research" data-program-slug="deep-research" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('deep-research') ?>" href="home.php?tab=deep-research" data-program-slug="deep-research" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20l6-6"/><path d="M14 4l6 6"/><path d="M9 15l-2 5 5-2 8-8-3-3-8 8z"/><circle cx="18" cy="6" r="2"/></svg></span>
       <span class="feed-left-nav-label">Deep research</span>
     </a>
     <?php if (function_exists('publisher_academic_categories') && function_exists('publisher_category_icon_path')): ?>
     <?php foreach (publisher_academic_categories() as $categorySlug => $categoryLabel): ?>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive($categorySlug) ?>" href="public.php?tab=<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" data-program-slug="<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive($categorySlug) ?>" href="home.php?tab=<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" data-program-slug="<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><?= publisher_category_icon_path($categorySlug) ?></svg></span>
       <span class="feed-left-nav-label"><?= htmlspecialchars($categoryLabel, ENT_QUOTES, 'UTF-8') ?></span>
     </a>
@@ -285,7 +285,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       }
     ?>
     <?php foreach ($flrCustomCategories as $categorySlug => $categoryLabel): ?>
-    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive($categorySlug) ?>" href="public.php?tab=<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" data-program-slug="<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" hidden>
+    <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive($categorySlug) ?>" href="home.php?tab=<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" data-program-slug="<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><?= function_exists('publisher_category_icon_path') ? publisher_category_icon_path($categorySlug) : '<circle cx="12" cy="12" r="9"/><path d="M7 12h10M12 7v10"/>' ?></svg></span>
       <span class="feed-left-nav-label"><?= htmlspecialchars($categoryLabel, ENT_QUOTES, 'UTF-8') ?></span>
     </a>
@@ -714,24 +714,54 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       return out;
     }
 
-    var programs = collectPrograms();
+    var programs = [];
     var selected = [];
-    try {
-      var saved = JSON.parse(localStorage.getItem(storageKey));
+
+    function normalizeSelected(list) {
+      var out = [];
+      var seen = {};
+      (Array.isArray(list) ? list : []).forEach(function (raw) {
+        var slug = String(raw || '').trim().toLowerCase();
+        if (!slug || seen[slug]) return;
+        // Core home tabs are never "programs".
+        if (slug === 'for-you' || slug === 'discover' || slug === 'public') return;
+        seen[slug] = true;
+        out.push(slug);
+      });
+      return out;
+    }
+
+    function loadSelected() {
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem(storageKey)); } catch (eRead) { saved = null; }
       if (!Array.isArray(saved)) {
         try { saved = JSON.parse(localStorage.getItem('msb.feed.programs.v1.' + viewerKey)); }
         catch (eLegacy) { saved = null; }
       }
-      if (Array.isArray(saved)) {
-        selected = saved.filter(function (slug) {
-          return programs.some(function (p) { return p.slug === slug; });
-        });
-      }
-    } catch (e) { selected = []; }
+      // Keep every saved slug. Do NOT filter against collectPrograms() here:
+      // this script boots inside the left rail, before top discover tabs exist.
+      // Filtering early used to wipe pinned top tabs after create/repost reloads.
+      selected = normalizeSelected(saved);
+    }
 
-    programs.forEach(function (program) {
-      if (program.active && selected.indexOf(program.slug) === -1) selected.push(program.slug);
-    });
+    function ensureActiveInSelected() {
+      programs = collectPrograms();
+      programs.forEach(function (program) {
+        if (program.active && selected.indexOf(program.slug) === -1) {
+          selected.push(program.slug);
+        }
+      });
+      var urlTab = currentDiscoverTab === 'discover' ? 'public' : currentDiscoverTab;
+      if (
+        urlTab
+        && urlTab !== 'for-you'
+        && urlTab !== 'public'
+        && selected.indexOf(urlTab) === -1
+        && document.querySelector('[data-program-slug="' + urlTab + '"]')
+      ) {
+        selected.push(urlTab);
+      }
+    }
 
     function save() {
       try { localStorage.setItem(storageKey, JSON.stringify(selected)); } catch (e) {}
@@ -743,7 +773,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       Array.prototype.slice.call(document.querySelectorAll('a.feed-discover-tab.feed-program-tab-item')).forEach(function (link) {
         var slug = programSlugFromLink(link);
         if (!slug) return;
-        var on = isSelected(slug) || link.classList.contains('is-active') || slug === currentDiscoverTab;
+        var on = isSelected(slug) || link.classList.contains('is-active') || slug === currentDiscoverTab || slug === activeTab;
         link.hidden = !on;
       });
       Array.prototype.slice.call(document.querySelectorAll('a.feed-program-nav-item')).forEach(function (link) {
@@ -755,7 +785,20 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       });
     }
 
+    function restoreProgramPins() {
+      try {
+        currentDiscoverTab = String(new URL(window.location.href).searchParams.get('tab') || '').toLowerCase();
+      } catch (eTab2) {}
+      loadSelected();
+      ensureActiveInSelected();
+      save();
+      syncProgramLinks();
+    }
+
+    loadSelected();
+
     function addProgram(slug) {
+      slug = String(slug || '').trim().toLowerCase();
       if (!slug || isSelected(slug)) return;
       selected.push(slug);
       save();
@@ -763,6 +806,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       renderModal(search ? search.value : '');
     }
     function removeProgram(slug) {
+      slug = String(slug || '').trim().toLowerCase();
       if (!slug) return;
       selected = selected.filter(function (item) { return item !== slug; });
       save();
@@ -940,10 +984,25 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
     });
     if (search) search.addEventListener('input', function () { renderModal(search.value); });
 
-    syncProgramLinks();
+    // Left rail boots before top discover tabs exist in the DOM. Restore pins
+    // after the full home chrome is parsed so create/repost redirects keep them.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', restoreProgramPins);
+    } else {
+      restoreProgramPins();
+    }
+    document.addEventListener('msb:public-tab-content-ready', function () {
+      syncProgramLinks();
+    });
+    window.addEventListener('popstate', function () {
+      window.setTimeout(restoreProgramPins, 0);
+    });
+
     window.MSBFeedPrograms = {
       open: openModal,
       close: closeModal,
+      sync: syncProgramLinks,
+      restore: restoreProgramPins,
       __ready: true
     };
   })();

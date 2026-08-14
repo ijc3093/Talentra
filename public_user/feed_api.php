@@ -1303,9 +1303,9 @@ try {
         'fresh' => 1,
       ]);
     } elseif ($visibility === 'public') {
-      $redirect = 'public.php?tab=public&post=' . $postId;
+      $redirect = 'home.php?tab=discover&post=' . $postId;
     } else {
-      $redirect = 'feed.php?post=' . $postId;
+      $redirect = 'home.php?tab=for-you&post=' . $postId;
     }
 
     jexit([

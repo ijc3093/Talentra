@@ -123,6 +123,16 @@ if (isset($_POST['existing_slide_title']) && is_array($_POST['existing_slide_tit
         $existingSlideTitles[$aid] = trim((string)$text);
     }
 }
+$removeAttachmentIds = [];
+if (isset($_POST['remove_attachment_ids']) && is_array($_POST['remove_attachment_ids'])) {
+    foreach ($_POST['remove_attachment_ids'] as $rid) {
+        $rid = (int)$rid;
+        if ($rid > 0) {
+            $removeAttachmentIds[] = $rid;
+        }
+    }
+    $removeAttachmentIds = array_values(array_unique($removeAttachmentIds));
+}
 $hasFreshFiles = isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])
     && count(array_filter((array)$_FILES['attachments']['error'], static fn($e) => (int)$e === UPLOAD_ERR_OK)) > 0;
 
@@ -353,6 +363,25 @@ try {
         $uploadAttempts += count($pendingTokens);
     }
 
+    // Remove slides the user deleted in the create/edit form.
+    if ($postId > 0 && $removeAttachmentIds !== []) {
+        try {
+            $stDel = $dbh->prepare(
+                'DELETE FROM public_post_attachments
+                 WHERE id = :aid AND post_id = :pid
+                 LIMIT 1'
+            );
+            foreach ($removeAttachmentIds as $aid) {
+                $aid = (int)$aid;
+                if ($aid <= 0) continue;
+                $stDel->execute([':aid' => $aid, ':pid' => $postId]);
+                unset($existingSlideBodies[$aid], $existingSlideTitles[$aid]);
+            }
+        } catch (Throwable $eDel) {
+            // non-fatal
+        }
+    }
+
     // Update per-slide captions on existing attachments (edit / presentation).
     if ($postId > 0 && ($existingSlideBodies !== [] || $existingSlideTitles !== [])) {
         try {
@@ -499,6 +528,15 @@ try {
             msb_post_tags_sync($dbh, $postId, $meId, $tagIds, $visibility, true);
         } catch (Throwable $eTag) {
             // Tagging failure must not block publish.
+        }
+    }
+
+    // What’s up: notify followers when a publisher publishes a new post.
+    if (!empty($inserted) && $postId > 0 && empty($isStoryPost) && function_exists('publisher_notify_followers_of_post')) {
+        try {
+            publisher_notify_followers_of_post($dbh, $meId, $postId, $visibility);
+        } catch (Throwable $eFollowNoti) {
+            // non-fatal
         }
     }
 

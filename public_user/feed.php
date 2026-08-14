@@ -22,11 +22,13 @@ require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
+require_once __DIR__ . '/includes/home_tabs.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 
 requireUserLogin();
+home_redirect_legacy_entry('for-you');
 sendNoCacheHeadersUser();
 
 $controller = new Controller();
@@ -52,7 +54,7 @@ $feedStoryPostId = (int)($_GET['story_post'] ?? 0);
 // story_post → open the top story circle only (do not pin/open a feed post card).
 $feedUploadWarn = (string)($_GET['upload_warn'] ?? '') === '1';
 $feedSearchQ = trim((string)($_GET['q'] ?? ''));
-$feedDiscoverTab = strtolower(trim((string)($_GET['tab'] ?? 'for-you')));
+$feedDiscoverTab = home_tab_internal(strtolower(trim((string)($_GET['tab'] ?? 'for-you'))));
 $feedDiscoverTabs = [
     'for-you' => 'For You',
     'public' => 'Discover',
@@ -2889,23 +2891,23 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     border-top:0;
   }
   .mf-actions .mf-left{
-    display:flex; gap:20px; align-items:center;
+    display:flex; gap:14px; align-items:center;
   }
   .mf-actions .mf-right{
     display:flex; align-items:center; margin-left:auto;
   }
   .mf-act{
     border:0;background:transparent;
-    display:flex;align-items:center;gap:6px;
+    display:flex;align-items:center;gap:5px;
     padding:0; cursor:pointer;
     color:var(--msb-palette-text, #101828);
   }
-  .mf-act i{ font-size:20px; }
+  .mf-act i{ font-size:16px; }
   .mf-act .msb-pact{
     filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
   }
   .mf-act .mf-num{
-    font-size:14px; font-weight:800;
+    font-size:12px; font-weight:600;
     color:var(--msb-palette-text, #101828);
     text-shadow:var(--msb-pact-contrast-text-shadow, 0 0 2px rgba(255,255,255,.95), 0 1px 2px rgba(0,0,0,.45));
   }
@@ -4107,7 +4109,7 @@ body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-s
   display:flex;
   align-items:stretch;
   width:100%;
-  margin-top:10px;
+  margin-top:8px;
   overflow-x:auto;
   scrollbar-width:none;
 }
@@ -4116,9 +4118,9 @@ body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-s
   position:relative;
   flex:1 0 auto;
   min-width:max-content;
-  padding:12px 12px 14px;
+  padding:6px 10px 10px;
   color:var(--feed-control-placeholder, #667085);
-  font-size:14px;
+  font-size:13px;
   font-weight:400;
   line-height:1.2;
   text-align:center;
@@ -4134,7 +4136,7 @@ body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-s
 }
 .feed-discover-tab.is-active{
   color:var(--feed-topbar-text, #0d0d0d);
-  font-size:14px;
+  font-size:13px;
   font-weight:400;
 }
 .feed-discover-tab.is-active::after{
@@ -4142,9 +4144,9 @@ body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-s
   position:absolute;
   left:50%;
   bottom:0;
-  width:68px;
+  width:40px;
   max-width:70%;
-  height:4px;
+  height:3px;
   border-radius:999px;
   background:#1d9bf0;
   transform:translateX(-50%);
@@ -4719,7 +4721,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 </head>
   <body class="feed-page feed-insta-ui">
   <?php $GLOBALS['msb_skip_header_leftbar'] = true; $skipHeaderThemeBootstrap = true; include __DIR__.'/includes/header.php'; ?>
-  <?php $feedLeftRailActive = 'feed.php'; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__.'/includes/feed_left_rail.php'; ?>
+  <?php $feedLeftRailActive = 'home.php'; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__.'/includes/feed_left_rail.php'; ?>
     
     <!-- ✅ Leftbar overlay (used on mobile/tablet drawer mode) -->
     <div id="lbOverlay" class="lb-overlay" style="display:none;"></div>
@@ -4772,8 +4774,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             </div>
             <div class="feed-desktop-layout">
               <div class="feed-side-search" aria-label="Search feed">
-                <form id="feedTopSearchForm" class="feed-top-search-form feed-side-search-form" method="get" action="feed.php">
-                  <input type="hidden" name="tab" value="<?= htmlspecialchars($feedDiscoverTab, ENT_QUOTES, 'UTF-8') ?>">
+                <form id="feedTopSearchForm" class="feed-top-search-form feed-side-search-form" method="get" action="home.php">
+                  <input type="hidden" name="tab" value="<?= htmlspecialchars(home_tab_url_key($feedDiscoverTab), ENT_QUOTES, 'UTF-8') ?>">
                   <div class="feed-top-search-field">
                     <button type="submit" class="feed-top-search-icon" aria-label="Search">
                       <i class="fa fa-search" aria-hidden="true"></i>
@@ -4797,19 +4799,17 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                     <nav class="feed-discover-tabs" aria-label="Feed categories">
                       <?php foreach ($feedDiscoverTabs as $tabKey => $tabLabel): ?>
                         <?php
-                          $feedTabQuery = ['tab' => $tabKey];
+                          $feedTabQuery = [];
                           if ($feedSearchQ !== '') {
                               $feedTabQuery['q'] = $feedSearchQ;
                           }
-                          $feedTabPage = $tabKey === 'for-you'
-                              ? 'feed.php'
-                              : ($tabKey === 'news' ? 'news.php' : 'public.php');
                           $isOptionalDiscoverTab = isset($optionalDiscoverTabs[$tabKey]);
                           $optionalTabActive = $isOptionalDiscoverTab && $feedDiscoverTab === $tabKey;
+                          $feedTabHref = home_tab_url($tabKey, $feedTabQuery);
                         ?>
                         <a
                           class="feed-discover-tab<?= $feedDiscoverTab === $tabKey ? ' is-active' : '' ?><?= $isOptionalDiscoverTab ? ' feed-program-tab-item' : '' ?>"
-                          href="<?= htmlspecialchars($feedTabPage . '?' . http_build_query($feedTabQuery), ENT_QUOTES, 'UTF-8') ?>"
+                          href="<?= htmlspecialchars($feedTabHref, ENT_QUOTES, 'UTF-8') ?>"
                           <?= $isOptionalDiscoverTab ? 'data-program-slug="' . htmlspecialchars($tabKey, ENT_QUOTES, 'UTF-8') . '"' : '' ?>
                           <?= $feedDiscoverTab === $tabKey ? 'aria-current="page"' : '' ?>
                           <?= ($isOptionalDiscoverTab && !$optionalTabActive) ? 'hidden' : '' ?>
@@ -4829,7 +4829,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                   function prefetchExternalTab(link){
                     if(!link) return;
                     var url = new URL(link.href, window.location.href);
-                    if(url.pathname.endsWith('/feed.php')) return;
+                    if(url.pathname.endsWith('/feed.php') || (url.pathname.endsWith('/home.php') && (url.searchParams.get('tab') || 'for-you') === 'for-you')) return;
                     var key = 'msb-prefetch-' + (url.pathname.endsWith('/news.php') ? 'news' : 'public');
                     if(document.querySelector('link[data-msb-prefetch="'+key+'"]')) return;
                     var hint = document.createElement('link');
@@ -4865,7 +4865,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                       if(active) tab.setAttribute('aria-current', 'page');
                       else tab.removeAttribute('aria-current');
                     });
-                    if(targetUrl.pathname.endsWith('/feed.php')){
+                    if(targetUrl.pathname.endsWith('/feed.php') || (targetUrl.pathname.endsWith('/home.php') && (targetUrl.searchParams.get('tab') || 'for-you') === 'for-you')){
                       e.preventDefault();
                       history.pushState({msbFeedTab:true}, '', targetUrl.href);
                       document.dispatchEvent(new CustomEvent('msb:feed-tab-change', {detail:{tab:selectedTab}}));
@@ -10364,12 +10364,15 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 name: peerLabel(it.display_name, it.username) || String(it.username || 'User'),
                 username: String(it.username || '').trim(),
                 friendCode: String(it.friend_code || '').trim().toUpperCase(),
+                friendStatus: String(it.friend_status || it.friendStatus || '').trim().toLowerCase() || 'none',
                 verified: Number(it.is_verified || it.verified || 0) === 1,
                 isPublisher: storyIsPublisher,
                 avatarUrl: avatarUrlFor(it, 96),
                 subtitle: '',
                 slides: []
               };
+            } else if(!byUser[key].friendStatus && (it.friend_status || it.friendStatus)){
+              byUser[key].friendStatus = String(it.friend_status || it.friendStatus || '').trim().toLowerCase() || 'none';
             }
             byUser[key].slides.push({
               src: src,
@@ -15147,7 +15150,7 @@ html[data-theme="dark"] .ig-post-progress{
   }
 
   body .mf-feed .mf-actions .mf-left{
-    gap:20px !important;
+    gap:14px !important;
   }
 
   body .mf-feed .mf-actions .mf-right{
@@ -15157,7 +15160,7 @@ html[data-theme="dark"] .ig-post-progress{
   body .mf-feed .mf-act{
     display:inline-flex !important;
     align-items:center !important;
-    gap:8px !important;
+    gap:5px !important;
     min-width:0 !important;
     padding:0 !important;
     border:0 !important;
@@ -15166,13 +15169,21 @@ html[data-theme="dark"] .ig-post-progress{
   }
 
   body .mf-feed .mf-act i{
-    font-size:20px !important;
+    font-size:16px !important;
     line-height:1 !important;
+  }
+
+  body .mf-feed .mf-act .msb-pact{
+    width:16px !important;
+    height:16px !important;
+    min-width:16px !important;
+    min-height:16px !important;
+    flex-basis:16px !important;
   }
 
   body .mf-feed .mf-act .mf-num{
     color:var(--feed-text) !important;
-    font-size:13px !important;
+    font-size:12px !important;
     font-weight:600 !important;
     line-height:1 !important;
   }
@@ -15250,11 +15261,8 @@ html[data-theme="dark"] .ig-post-progress{
   padding:0!important;
 }
 @media (min-width:1025px){
-  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-video-stage,
-  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-image-stage,
-  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage,
-  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage,
-  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.phone-shot{
+  .mf-feed .mf-card:has(.mf-head--on-media):not(.mf-card-media-head-outside) .media-stage.standard-video-stage,
+  .mf-feed .mf-card:has(.mf-head--on-media):not(.mf-card-media-head-outside) .media-stage.standard-image-stage{
     width:min(100%, var(--post-media-card-width, 100%)) !important;
     max-width:100% !important;
     margin-left:0 !important;
@@ -15262,10 +15270,8 @@ html[data-theme="dark"] .ig-post-progress{
   }
 }
 @media (max-width:1024.98px){
-  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-video-stage:not(.phone-shot),
-  .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-image-stage:not(.phone-shot),
-  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage:not(.phone-shot),
-  .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage:not(.phone-shot){
+  .mf-feed .mf-card:has(.mf-head--on-media):not(.mf-card-media-head-outside) .media-stage.standard-video-stage:not(.phone-shot),
+  .mf-feed .mf-card:has(.mf-head--on-media):not(.mf-card-media-head-outside) .media-stage.standard-image-stage:not(.phone-shot){
     width:min(100%, var(--post-media-card-width, 100%)) !important;
     max-width:100% !important;
     margin-left:0 !important;
@@ -15426,9 +15432,9 @@ body .mf-feed .mf-menu-wrap.post-card-menu-wrap{
 body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn{
   width:auto!important;
   height:auto!important;
-  min-width:var(--pcm-menu-btn-size, 28px)!important;
-  min-height:var(--pcm-menu-btn-size, 28px)!important;
-  padding:6px 4px!important;
+  min-width:var(--pcm-menu-btn-size, 24px)!important;
+  min-height:var(--pcm-menu-btn-size, 24px)!important;
+  padding:4px 2px!important;
   flex:0 0 auto!important;
   border:0!important;
   border-radius:0!important;
@@ -15442,10 +15448,31 @@ body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn{
 }
 body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn i,
 body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn .pcm-fries-icon{
-  font-size:16px!important;
+  font-size:12px!important;
   line-height:1!important;
   color:inherit!important;
   text-shadow:none!important;
+}
+body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn .pcm-fries-icon{
+  width:10px!important;
+  gap:2px!important;
+}
+body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn .pcm-fries-bar{
+  height:1.25px!important;
+  width:10px!important;
+  filter:none!important;
+  box-shadow:none!important;
+}
+body .mf-feed .post-card-menu-btn .pcm-fries-bar,
+body .mf-feed .post-card-menu-btn .pcm-fries-icon,
+body .mf-feed .post-card-menu-btn .post-card-fries-icon{
+  filter:none!important;
+  -webkit-filter:none!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn .pcm-fries-bar--short{
+  width:6px!important;
 }
 body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn:hover,
 body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn:focus{
@@ -17477,6 +17504,8 @@ body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-actions 
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-title{
   padding-left:0 !important;
   padding-right:0 !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
 }
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body,
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-video-body,
@@ -17486,6 +17515,20 @@ body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-slide-su
   padding-right:0 !important;
   margin-left:0 !important;
   margin-right:0 !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage > video,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage > img,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .mf-media-slide > img,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .media-slide > img,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .mf-media-slide > video,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .media-slide > video{
+  margin-left:0 !important;
+  margin-right:auto !important;
+  object-position:left center !important;
+}
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .mf-media-slide,
+body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside .media-slide{
+  justify-content:flex-start !important;
 }
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body .mf-body-formatted,
 body.feed-insta-ui .mf-feed > .mf-card.mf-card-media-head-outside > .mf-body .post-card-paragraph,

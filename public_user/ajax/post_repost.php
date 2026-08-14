@@ -257,8 +257,8 @@ try {
     $dbh->commit();
 
     $redirect = ($visibility === 'public')
-        ? ('public.php?tab=public&post=' . $newId)
-        : ('feed.php?post=' . $newId);
+        ? ('home.php?tab=discover&post=' . $newId)
+        : ('home.php?tab=for-you&post=' . $newId);
 
     echo json_encode([
         'ok' => true,

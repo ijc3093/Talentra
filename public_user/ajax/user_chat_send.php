@@ -123,6 +123,13 @@ if ($meId > 0 && publisher_is_publisher_user($dbh, $meId) && !publisher_is_publi
     j(['ok' => false, 'error' => 'You can message this buyer about their order once a purchase relationship exists.']);
 }
 
+// Story replies are DMs to the owner — only friends (or self) may send them.
+$fromStory = (int)($_POST['from_story'] ?? 0) === 1
+    || (int)($_POST['story_post_id'] ?? 0) > 0;
+if ($fromStory && $meId > 0 && $peerId > 0 && $meId !== $peerId && !fs_are_friends($dbh, $meId, $peerId)) {
+    j(['ok' => false, 'error' => 'You can message this person after you become friends.']);
+}
+
 // ---------------------------
 // Attachment handling (Option A: folder)
 // ---------------------------

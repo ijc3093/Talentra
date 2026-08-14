@@ -34,7 +34,7 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   flex-direction:column !important;
   overflow:hidden !important;
   min-height:0 !important;
-  box-shadow:18px 0 48px rgba(0,0,0,.32);
+  box-shadow:8px 0 24px rgba(0,0,0,.12);
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
@@ -50,7 +50,7 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   position:fixed;
   left:0;
   top:0;
-  width:min(360px, 88vw);
+  width:min(300px, 88vw);
   height:100vh;
   z-index:1290;
   pointer-events:none;
@@ -64,7 +64,7 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:22px 24px 16px;
+  padding:12px 14px 10px;
   border-bottom:1px solid var(--tt-panel-border, var(--msb-palette-border, rgba(15,23,42,.08)));
   background:var(--tt-panel-bg, var(--msb-palette-bg, #ffffff));
   position:sticky !important;
@@ -72,9 +72,9 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   z-index:30 !important;
 }
 .tt-profile-head .title{
-  font-weight:800;
-  font-size:20px;
-  line-height:1.1;
+  font-weight:700;
+  font-size:16px;
+  line-height:1.2;
   color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
   -webkit-text-fill-color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
   background:transparent !important;
@@ -85,8 +85,8 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
 }
 .msb-profile-door-host .tt-close,
 #ttLeftbarOverlays .tt-profile-wrap .tt-close{
-  width:34px;
-  height:34px;
+  width:28px;
+  height:28px;
   border:1px solid var(--msb-palette-border-strong, var(--tt-panel-border, rgba(15,23,42,.12)));
   border-radius:50%;
   background:var(--msb-palette-surface-2, transparent);
@@ -98,9 +98,10 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   padding:0;
   line-height:1;
   flex:0 0 auto;
+  box-shadow:none;
 }
 .msb-profile-door-host .tt-close i,
-#ttLeftbarOverlays .tt-profile-wrap .tt-close i{ font-size:20px; }
+#ttLeftbarOverlays .tt-profile-wrap .tt-close i{ font-size:14px; }
 .msb-profile-door-host .tt-close:hover,
 #ttLeftbarOverlays .tt-profile-wrap .tt-close:hover,
 .msb-profile-door-host .tt-close:focus,
@@ -113,7 +114,7 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   min-height:0 !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
-  padding:18px 18px 24px;
+  padding:12px 12px 18px;
   -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
   background:var(--tt-panel-bg, var(--msb-palette-bg, #ffffff));
@@ -121,19 +122,19 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
 .tt-profile-top{
   display:flex;
   align-items:center;
-  gap:14px;
-  padding:4px 6px 16px;
+  gap:10px;
+  padding:2px 4px 12px;
 }
 .tt-profile-avatar{
-  width:56px;
-  height:56px;
+  width:40px;
+  height:40px;
   border-radius:50%;
   overflow:hidden;
   flex:0 0 auto;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  box-shadow:0 10px 22px rgba(17,24,39,.12);
+  box-shadow:none;
   text-decoration:none;
   color:inherit;
 }
@@ -142,7 +143,7 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   text-decoration:none;
   color:inherit;
   outline:none;
-  box-shadow:0 10px 22px rgba(17,24,39,.18);
+  box-shadow:none;
 }
 .tt-profile-avatar img{
   width:100%;
@@ -155,22 +156,22 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   flex:1 1 auto;
 }
 .tt-profile-name{
-  font-size:17px;
-  font-weight:800;
+  font-size:14px;
+  font-weight:700;
   line-height:1.2;
   color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
 }
 .tt-profile-badge{
-  margin-top:4px;
-  font-size:13px;
-  font-weight:700;
+  margin-top:2px;
+  font-size:12px;
+  font-weight:600;
   line-height:1.2;
   color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
 }
 .tt-profile-email,
 .tt-profile-code{
-  margin-top:4px;
-  font-size:13px;
+  margin-top:2px;
+  font-size:12px;
   line-height:1.35;
   color:var(--msb-palette-text-muted, var(--msb-palette-text, #475569)) !important;
   word-break:break-word;
@@ -178,7 +179,7 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
 .tt-profile-divider{
   height:1px;
   background:var(--tt-panel-border, var(--msb-palette-border, rgba(15,23,42,.08)));
-  margin:0 6px 12px;
+  margin:0 4px 8px;
 }
 .tt-profile-nav{
   list-style:none;
@@ -192,13 +193,13 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
 .tt-profile-nav a{
   display:flex;
   align-items:center;
-  gap:12px;
-  min-height:44px;
-  padding:10px 12px;
-  border-radius:10px;
+  gap:8px;
+  min-height:34px;
+  padding:8px 10px;
+  border-radius:8px;
   color:var(--tt-text, var(--msb-palette-text, #101828)) !important;
-  font-size:15px;
-  font-weight:600;
+  font-size:13px;
+  font-weight:500;
   text-decoration:none;
   transition:background .15s ease, color .15s ease;
 }
@@ -210,9 +211,10 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   outline:none;
 }
 .tt-profile-nav a .icon{
-  width:20px;
+  width:14px;
+  min-width:14px;
   text-align:center;
-  font-size:18px;
+  font-size:13px;
   color:var(--msb-palette-text, var(--msb-palette-icon, #101828)) !important;
   opacity:1;
 }

@@ -27,6 +27,27 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
   var pvLoadSeq = 0;
   var pvScrollY = 0;
 
+  function pvSetActivePostId(id){
+    pvPostId = Number(id || 0) || 0;
+    try { window.pvPostId = pvPostId; } catch (e) {}
+  }
+  function pvSetActiveReaction(reaction){
+    pvCurrentReaction = String(reaction || '');
+    try { window.pvCurrentReaction = pvCurrentReaction; } catch (e) {}
+  }
+  function pvPublishReact(postId, data){
+    if (!window.MSBPostEngagement) return;
+    try { window.MSBPostEngagement.publishFromReact(postId, data || {}, { source: 'post-viewer' }); } catch (e) {}
+  }
+  function pvPublishTrack(postId, res){
+    if (!window.MSBPostEngagement) return;
+    try { window.MSBPostEngagement.publishFromTrack(postId, res || {}, { source: 'post-viewer' }); } catch (e) {}
+  }
+  function pvPublishCommentCount(postId, count){
+    if (!window.MSBPostEngagement) return;
+    try { window.MSBPostEngagement.publishCommentCount(postId, count, { source: 'post-viewer' }); } catch (e) {}
+  }
+
   var pv = {
     ov: document.getElementById('pvOverlay'),
     media: null,
@@ -155,9 +176,21 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
   }
 
   function pvTimeAgo(ts){
-    var t = Date.parse(ts || '');
+    var raw = String(ts == null ? '' : ts).trim();
+    if (!raw) return '';
+    // MySQL "YYYY-MM-DD HH:MM:SS" — parse as local wall time (avoid UTC skew → "-Ns").
+    var normalized = raw;
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(raw)) {
+      normalized = raw.replace(' ', 'T');
+    }
+    var t = Date.parse(normalized);
+    if (!t) {
+      t = Date.parse(raw.replace(/-/g, '/'));
+    }
     if (!t) return '';
     var sec = Math.floor((Date.now() - t) / 1000);
+    if (!isFinite(sec)) return '';
+    if (sec < 0) sec = 0;
     if (sec < 60) return sec + 's';
     var m = Math.floor(sec / 60); if (m < 60) return m + 'm';
     var h = Math.floor(m / 60); if (h < 24) return h + 'h';
@@ -382,13 +415,6 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       slideTitle = String(att.slide_title || '').trim();
       slideDesc = String(att.slide_body || '').trim();
     }
-    var hasMedia = list.length > 0;
-
-    if (!hasMedia && !anySlideText) {
-      pv.caption.style.display = 'none';
-      pv.caption.innerHTML = '';
-      return;
-    }
     if (!superTitle && !intro && !slideTitle && !slideDesc) {
       pv.caption.style.display = 'none';
       pv.caption.innerHTML = '';
@@ -491,6 +517,35 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     pv.comments.innerHTML = roots.map(function(c){ return commentHtml(c, 0); }).join('');
   }
 
+  function pvReactionTotal(counts, post){
+    counts = counts || {};
+    post = post || {};
+    if (counts.reaction_count != null && counts.reaction_count !== '') {
+      return Number(counts.reaction_count || 0);
+    }
+    if (post.reaction_count != null && post.reaction_count !== '') {
+      return Number(post.reaction_count || 0);
+    }
+    var hasLove = counts.love_count != null || post.love_count != null;
+    var hasLike = counts.like_count != null || post.like_count != null;
+    if (!hasLove && !hasLike) return null;
+    var love = Number(counts.love_count != null ? counts.love_count : (post.love_count || 0));
+    var like = Number(counts.like_count != null ? counts.like_count : (post.like_count || 0));
+    return love + like;
+  }
+
+  function pvSyncLoveCountEl(){
+    // applyReactionButton rebuilds icon nodes; keep a live handle on the count span.
+    pv.loveN = document.getElementById('pvLoveN') || (pv.love ? pv.love.querySelector('.pv-n, [data-count], .mf-num') : null);
+    return pv.loveN;
+  }
+
+  function pvSetLoveCount(n){
+    var el = pvSyncLoveCountEl();
+    if (!el) return;
+    el.textContent = String(Math.max(0, Number(n || 0)));
+  }
+
   function pvApplyCounts(data){
     var post = (data && data.post) || {};
     var counts = (data && data.counts) || data || {};
@@ -503,38 +558,140 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
             username: post.username || '',
             id: post.user_id || post.author_id || 0
           }, taggedPeople, { linkAuthor: true })
-        : dn;
+        : pvEsc(dn);
       pv.name.innerHTML = nameHtml;
       pv.name.classList.toggle('is-sharing-with', taggedPeople.length > 0);
-      pv.avatar.src = pvAvatarUrlFor(post || {}, 96);
+      if (pv.avatar) pv.avatar.src = pvAvatarUrlFor(post || {}, 96);
     }
-    if (post.created_at) {
+    if (post.created_at && pv.meta) {
       pv.meta.textContent = 'Posted ' + pvTimeAgo(post.created_at);
       if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
         pv.meta.insertAdjacentHTML('beforeend', ' ' + window.MSBPostCardMenu.visibilityBadgeHtml(post.visibility || 'public'));
       }
     }
-    if (pv.loveN) pv.loveN.textContent = String(Number(counts.love_count || 0));
-    if (pv.likeN) pv.likeN.textContent = String(Number(counts.like_count || 0));
-    var my = String(counts.my_reaction || post.my_reaction || pvCurrentReaction || '');
-    pvCurrentReaction = my;
-    if (window.MSBReactions) {
-      window.MSBReactions.applyReactionButton(pv.love, my, 'love');
-      window.MSBReactions.applyLikeButton(pv.like, my === 'like' ? my : '');
-    } else {
-      if (pv.love) pv.love.classList.toggle('is-love', my !== '' && my !== 'like');
-      if (pv.like) pv.like.classList.toggle('is-like', my === 'like');
+    // Heart button shows TOTAL reactions (love + like/thumbs/faces), same as For You / Discover.
+    var totalRx = pvReactionTotal(counts, post);
+    if (totalRx != null) pvSetLoveCount(totalRx);
+    if (pv.likeN && (counts.like_count != null || post.like_count != null)) {
+      pv.likeN.textContent = String(Number(counts.like_count != null ? counts.like_count : (post.like_count || 0)));
     }
-    if (pv.viewN) pv.viewN.textContent = String(Number(post.views_count || 0));
+    if (pv.comN && counts.comment_count != null) {
+      pv.comN.textContent = String(Number(counts.comment_count || 0));
+    }
+    if (pv.shareN && (counts.share_count != null || post.share_count != null)) {
+      pv.shareN.textContent = String(Number(counts.share_count != null ? counts.share_count : (post.share_count || 0)));
+    }
+    if (pv.saveN && (counts.save_count != null || post.save_count != null)) {
+      pv.saveN.textContent = String(Number(counts.save_count != null ? counts.save_count : (post.save_count || 0)));
+    }
+    if (pv.share && (counts.is_shared != null || counts.my_shared != null || post.my_shared != null)) {
+      var sharedOn = Number(counts.is_shared || counts.my_shared || post.my_shared || 0) === 1;
+      pv.share.classList.toggle('is-share', sharedOn);
+      var shareIcon = pv.share.querySelector('.msb-pact-share');
+      if (shareIcon) shareIcon.classList.toggle('is-active', sharedOn);
+    }
+    if (pv.save && (counts.is_saved != null || counts.my_saved != null || post.my_saved != null)) {
+      var savedOn = Number(counts.is_saved || counts.my_saved || post.my_saved || 0) === 1;
+      pv.save.classList.toggle('is-save', savedOn);
+      var saveIcon = pv.save.querySelector('.msb-pact-bookmark');
+      if (saveIcon) saveIcon.classList.toggle('is-active', savedOn);
+    }
+    if (counts.my_reaction != null || post.my_reaction != null || (data && data.post && Object.keys(post).length)) {
+      var my = String(counts.my_reaction != null ? counts.my_reaction : (post.my_reaction != null ? post.my_reaction : pvCurrentReaction));
+      pvSetActiveReaction(my);
+      if (window.MSBReactions) {
+        window.MSBReactions.applyReactionButton(pv.love, my, 'love');
+        window.MSBReactions.applyLikeButton(pv.like, my === 'like' ? my : '');
+      } else {
+        if (pv.love) pv.love.classList.toggle('is-love', my !== '' && my !== 'like');
+        if (pv.like) pv.like.classList.toggle('is-like', my === 'like');
+      }
+      // Re-apply count after icon swap so the number never disappears with the glyph.
+      if (totalRx != null) pvSetLoveCount(totalRx);
+    }
+    if (pv.viewN) pv.viewN.textContent = String(Number(post.views_count || counts.views_count || 0));
   }
 
   function pvApplyTrack(res){
     if (!res) return;
     var state = res.state || {};
-    if (pv.shareN) pv.shareN.textContent = String(Number(res.share_count || 0));
-    if (pv.saveN) pv.saveN.textContent = String(Number(res.save_count || 0));
-    if (pv.share) pv.share.classList.toggle('is-share', Number(state.shared ?? res.my_shared ?? 0) === 1);
-    if (pv.save) pv.save.classList.toggle('is-save', Number(state.saved ?? res.my_saved ?? 0) === 1);
+    var shared = Number(state.shared ?? res.my_shared ?? res.is_shared ?? 0) === 1;
+    var saved = Number(state.saved ?? res.my_saved ?? res.is_saved ?? 0) === 1;
+    if (pv.shareN && res.share_count != null) pv.shareN.textContent = String(Number(res.share_count || 0));
+    if (pv.saveN && res.save_count != null) pv.saveN.textContent = String(Number(res.save_count || 0));
+    if (pv.share) {
+      pv.share.classList.toggle('is-share', shared);
+      var shareIcon = pv.share.querySelector('.msb-pact-share');
+      if (shareIcon) shareIcon.classList.toggle('is-active', shared);
+      if (pvPostId) pv.share.setAttribute('data-post-id', String(pvPostId));
+    }
+    if (pv.save) {
+      pv.save.classList.toggle('is-save', saved);
+      var saveIcon = pv.save.querySelector('.msb-pact-bookmark');
+      if (saveIcon) saveIcon.classList.toggle('is-active', saved);
+      if (pvPostId) pv.save.setAttribute('data-post-id', String(pvPostId));
+    }
+  }
+
+  function pvBindLovePicker(){
+    if (!pv.love) return;
+    if (pv.love.getAttribute('data-msb-rx-bound') === '1') return;
+    if (!window.MSBReactions || typeof window.MSBReactions.bindLikePicker !== 'function') return;
+    pv.love.classList.add('js-react-love');
+    if (pvPostId) pv.love.setAttribute('data-post-id', String(pvPostId));
+    var onSelect = async function(btn, reaction){
+      if (!pvPostId || !reaction) return;
+      var next = String(reaction || 'none');
+      if (next !== 'none' && next === pvCurrentReaction) return;
+      var prev = pvCurrentReaction;
+      var prevTotal = Number((pvSyncLoveCountEl() && pv.loveN.textContent) || 0);
+      var nextMy = next === 'none' ? '' : next;
+      var optimisticTotal = prevTotal;
+      if (!prev && nextMy) optimisticTotal = prevTotal + 1;
+      else if (prev && !nextMy) optimisticTotal = Math.max(0, prevTotal - 1);
+      try {
+        if (pv.ov) pv.ov.setAttribute('data-engage-at', String(Date.now()));
+        pvSetActiveReaction(nextMy);
+        if (window.MSBReactions) window.MSBReactions.applyReactionButton(pv.love, nextMy, 'love');
+        pvSetLoveCount(optimisticTotal);
+        var data = await pvJson(PV_API + '?ajax=react', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+          body: 'post_id=' + encodeURIComponent(pvPostId) + '&reaction=' + encodeURIComponent(next),
+          credentials: 'same-origin'
+        });
+        var counts = Object.assign({}, data.counts || {});
+        if (counts.my_reaction == null || counts.my_reaction === '') {
+          if (nextMy) counts.my_reaction = nextMy;
+        }
+        if (counts.reaction_count == null && counts.love_count != null && counts.like_count != null) {
+          counts.reaction_count = Number(counts.love_count || 0) + Number(counts.like_count || 0);
+        }
+        if (counts.reaction_count == null) counts.reaction_count = optimisticTotal;
+        pvApplyCounts({ post: {}, counts: counts });
+        pvPublishReact(pvPostId, { counts: counts });
+      } catch (e) {
+        pvSetActiveReaction(prev);
+        if (window.MSBReactions) window.MSBReactions.applyReactionButton(pv.love, prev, 'love');
+        pvSetLoveCount(prevTotal);
+      }
+    };
+    window.MSBReactions.bindLikePicker('#pvLove', onSelect);
+    window.MSBReactions.bindLikePicker('#pvOverlay .js-react-love', onSelect);
+    pv.love.setAttribute('data-msb-rx-bound', '1');
+    if (!pv.love.getAttribute('data-msb-rx-click')) {
+      pv.love.setAttribute('data-msb-rx-click', '1');
+      pv.love.addEventListener('click', function(e){
+        if (!window.MSBReactions) return;
+        // Same as For You / Discover: click opens the reaction tray.
+        if (typeof window.MSBReactions.openPickerFor === 'function') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+          window.MSBReactions.openPickerFor(pv.love);
+        }
+      });
+    }
   }
 
   async function pvLoad(postId){
@@ -556,10 +713,23 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       pvRenderCaption(view.post, view.attachments, 0);
       pvRenderComments(view.post, view.comments);
       pvApplyCounts(view);
-      if (pv.comN) pv.comN.textContent = String(Array.isArray(view.comments) ? view.comments.length : 0);
+      if (pv.comN) {
+        var commentCount = (view.counts && view.counts.comment_count != null)
+          ? Number(view.counts.comment_count)
+          : (Array.isArray(view.comments) ? view.comments.length : 0);
+        pv.comN.textContent = String(commentCount);
+      }
+      if (view.counts) {
+        pvPublishReact(postId, { counts: view.counts });
+      }
       var tc = await pvJson(PV_API + '?ajax=track_counts&post_id=' + encodeURIComponent(postId), { credentials: 'same-origin' });
       if (seq !== pvLoadSeq) return;
       pvApplyTrack(tc);
+      pvPublishTrack(postId, tc);
+      if (pv.love) pv.love.setAttribute('data-post-id', String(postId));
+      if (pv.share) pv.share.setAttribute('data-post-id', String(postId));
+      if (pv.save) pv.save.setAttribute('data-post-id', String(postId));
+      pvBindLovePicker();
     } catch (e) {
       if (seq !== pvLoadSeq) return;
       pv.media.innerHTML = '<div style="color:#fff;opacity:.85;padding:24px;">Failed to load post.</div>';
@@ -585,7 +755,8 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     pv.comments.innerHTML = '';
     pvCommentsCache = [];
     pvCollapsedReplyIds.clear();
-    pvPostId = 0;
+    pvSetActivePostId(0);
+    pvSetActiveReaction('');
     pvSetReply(0, '');
     pv.ov.classList.remove('pv-is-portrait', 'pv-is-landscape');
   }
@@ -594,11 +765,11 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
 
   window.pvOpenById = function(postId, opts){
     postId = Number(postId || 0);
-    if (!postId) return;
+    if (!postId) return false;
     // Shared modal has no gallery prev/next; opts.hideNav is accepted for API parity.
     opts = (opts && typeof opts === 'object') ? opts : {};
     try { window.__pvHidePostNav = !!(opts.hideNav || opts.standalone || opts.fromMention || opts.fromTag); } catch (e) {}
-    pvPostId = postId;
+    pvSetActivePostId(postId);
     pvSetReply(0, '');
     pvCollapsedReplyIds.clear();
     pvCommentsCache = [];
@@ -609,7 +780,12 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     pv.ov.classList.add('show');
     pv.ov.setAttribute('aria-hidden', 'false');
     pvLockBodyScroll();
+    if (pv.love) pv.love.setAttribute('data-post-id', String(postId));
+    if (pv.share) pv.share.setAttribute('data-post-id', String(postId));
+    if (pv.save) pv.save.setAttribute('data-post-id', String(postId));
+    pvBindLovePicker();
     pvLoad(postId);
+    return true;
   };
 
   async function pvPostComment(){
@@ -629,6 +805,7 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       pv.text.value = '';
       pvSetReply(0, '');
       await pvLoad(pvPostId);
+      if (pv.comN) pvPublishCommentCount(pvPostId, pv.comN.textContent);
       if (pv.comments) pv.comments.scrollTop = pv.comments.scrollHeight;
     } catch (e) {
     } finally {
@@ -707,22 +884,18 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     if (e.key === 'Enter') { e.preventDefault(); pvPostComment(); }
   });
 
-  if (pv.love && window.MSBReactions) {
-    window.MSBReactions.bindLikePicker('#pvLove', async function(btn, reaction){
-      if (!pvPostId || !reaction) return;
-      var next = String(reaction || 'none');
-      if (next !== 'none' && next === pvCurrentReaction) return;
-      try {
-        var data = await pvJson(PV_API + '?ajax=react', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-          body: 'post_id=' + encodeURIComponent(pvPostId) + '&reaction=' + encodeURIComponent(next),
-          credentials: 'same-origin'
-        });
-        pvApplyCounts({ post: {}, counts: data.counts || {} });
-      } catch (e) {}
-    });
-  }
+  pvBindLovePicker();
+  // Late MSBReactions (or skipped first pass): keep trying briefly.
+  (function pvRetryLoveBind(){
+    var tries = 0;
+    var timer = window.setInterval(function(){
+      tries += 1;
+      pvBindLovePicker();
+      if ((pv.love && pv.love.getAttribute('data-msb-rx-bound') === '1') || tries >= 20) {
+        window.clearInterval(timer);
+      }
+    }, 150);
+  })();
 
   if (pv.share) {
     pv.share.addEventListener('click', async function(){
@@ -731,6 +904,16 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
         window.MSBPostCardMenu.openShare(pvPostId);
         return;
       }
+      try {
+        var res = await pvJson(PV_API + '?ajax=share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+          body: 'post_id=' + encodeURIComponent(pvPostId),
+          credentials: 'same-origin'
+        });
+        pvApplyTrack(res);
+        pvPublishTrack(pvPostId, res);
+      } catch (e) {}
     });
   }
 
@@ -745,7 +928,40 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
           credentials: 'same-origin'
         });
         pvApplyTrack(res);
+        pvPublishTrack(pvPostId, res);
       } catch (e) {}
+    });
+  }
+
+  if (window.MSBPostEngagement && typeof window.MSBPostEngagement.registerAdapter === 'function') {
+    window.MSBPostEngagement.registerAdapter(function(postId, patch){
+      if (Number(postId) !== Number(pvPostId) || !patch) return;
+      if (patch.my_reaction != null) pvSetActiveReaction(patch.my_reaction);
+      var counts = {
+        love_count: patch.love_count,
+        like_count: patch.like_count,
+        reaction_count: patch.reaction_count,
+        comment_count: patch.comment_count,
+        share_count: patch.share_count,
+        save_count: patch.save_count,
+        my_reaction: patch.my_reaction,
+        is_shared: patch.is_shared,
+        is_saved: patch.is_saved
+      };
+      if (counts.reaction_count == null && counts.love_count != null && counts.like_count != null) {
+        counts.reaction_count = Number(counts.love_count || 0) + Number(counts.like_count || 0);
+      }
+      pvApplyCounts({ post: {}, counts: counts });
+      if (patch.share_count != null || patch.save_count != null || patch.is_shared != null || patch.is_saved != null) {
+        pvApplyTrack({
+          share_count: patch.share_count != null ? patch.share_count : (pv.shareN ? pv.shareN.textContent : 0),
+          save_count: patch.save_count != null ? patch.save_count : (pv.saveN ? pv.saveN.textContent : 0),
+          state: {
+            shared: patch.is_shared != null ? patch.is_shared : ((pv.share && pv.share.classList.contains('is-share')) ? 1 : 0),
+            saved: patch.is_saved != null ? patch.is_saved : ((pv.save && pv.save.classList.contains('is-save')) ? 1 : 0)
+          }
+        });
+      }
     });
   }
 

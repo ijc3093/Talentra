@@ -33,5 +33,5 @@ if (!$user) {
 
 setUserSession($user);
 
-header('Location: ' . admin_linked_absolute_app_url('public_user/feed.php'));
+header('Location: ' . admin_linked_absolute_app_url('public_user/home.php?tab=for-you'));
 exit;

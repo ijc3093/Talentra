@@ -21,7 +21,7 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   flex-direction:column !important;
   overflow:hidden !important;
   min-height:0 !important;
-  box-shadow:18px 0 48px rgba(0,0,0,.32);
+  box-shadow:8px 0 24px rgba(0,0,0,.12);
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
@@ -37,7 +37,7 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   position:fixed;
   left:0;
   top:0;
-  width:min(360px, 88vw);
+  width:min(300px, 88vw);
   height:100vh;
   z-index:1290;
   pointer-events:none;
@@ -51,7 +51,7 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:22px 24px 16px;
+  padding:12px 14px 10px;
   border-bottom:1px solid var(--tt-panel-border, var(--msb-palette-border, rgba(15,23,42,.08)));
   background:var(--tt-panel-bg, var(--msb-palette-bg, #ffffff));
   position:sticky !important;
@@ -59,15 +59,15 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   z-index:30 !important;
 }
 .tt-friend-requests-head .title{
-  font-weight:800;
-  font-size:20px;
-  line-height:1.1;
+  font-weight:700;
+  font-size:16px;
+  line-height:1.2;
   color:var(--tt-text, var(--msb-palette-text, #101828));
 }
 .msb-friend-requests-door-host .tt-close,
 #ttLeftbarOverlays .tt-friend-requests-wrap .tt-close{
-  width:34px;
-  height:34px;
+  width:28px;
+  height:28px;
   border:0;
   border-radius:50%;
   background:transparent;
@@ -79,9 +79,10 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   padding:0;
   line-height:1;
   flex:0 0 auto;
+  box-shadow:none;
 }
 .msb-friend-requests-door-host .tt-close i,
-#ttLeftbarOverlays .tt-friend-requests-wrap .tt-close i{ font-size:20px; }
+#ttLeftbarOverlays .tt-friend-requests-wrap .tt-close i{ font-size:14px; }
 .msb-friend-requests-door-host .tt-close:hover,
 #ttLeftbarOverlays .tt-friend-requests-wrap .tt-close:hover{
   background:var(--tt-control-hover, var(--msb-palette-nav-hover, #e9edf3));
@@ -91,7 +92,7 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   min-height:0 !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
-  padding:14px 16px 20px;
+  padding:10px 12px 16px;
   -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
   background:var(--tt-panel-bg, var(--msb-palette-bg, #ffffff));
@@ -99,24 +100,24 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   flex-direction:column;
 }
 .tt-friend-requests-summary{
-  padding:2px 4px 10px;
+  padding:2px 4px 8px;
 }
 .tt-friend-requests-summary-main{
-  font-size:15px;
+  font-size:13px;
   font-weight:700;
-  line-height:1.35;
+  line-height:1.3;
   color:var(--tt-text, var(--msb-palette-text, #101828));
 }
 .tt-friend-requests-summary-sub{
-  margin-top:5px;
-  font-size:13px;
-  line-height:1.35;
+  margin-top:2px;
+  font-size:12px;
+  line-height:1.3;
   color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
 }
 .tt-friend-requests-divider{
   height:1px;
   background:var(--tt-panel-border, var(--msb-palette-border, rgba(15,23,42,.08)));
-  margin:0 0 8px;
+  margin:0 0 6px;
   flex:0 0 auto;
 }
 .tt-friend-requests-list{
@@ -127,24 +128,24 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   padding:0 4px;
 }
 .tt-fr-empty{
-  padding:16px 8px;
+  padding:12px 6px;
   text-align:center;
-  font-size:13px;
-  line-height:1.45;
+  font-size:12px;
+  line-height:1.4;
   color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
 }
 .tt-fr-row{
   display:flex;
   align-items:flex-start;
-  gap:10px;
-  padding:10px 8px;
-  border-radius:10px;
+  gap:8px;
+  padding:8px 6px;
+  border-radius:8px;
   transition:background .15s ease;
 }
-.tt-fr-row + .tt-fr-row{ margin-top:2px; }
+.tt-fr-row + .tt-fr-row{ margin-top:1px; }
 .tt-fr-avatar{
-  width:40px;
-  height:40px;
+  width:32px;
+  height:32px;
   border-radius:50%;
   overflow:hidden;
   flex:0 0 auto;
@@ -160,22 +161,22 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
 .tt-fr-topline{
   display:flex;
   align-items:baseline;
-  gap:8px;
+  gap:6px;
   flex-wrap:wrap;
 }
 .tt-fr-name{
-  font-size:14px;
+  font-size:13px;
   font-weight:700;
   color:var(--tt-text, var(--msb-palette-text, #101828));
 }
 .tt-fr-time{
-  font-size:12px;
+  font-size:11px;
   color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
 }
 .tt-fr-sub{
   margin-top:2px;
-  font-size:13px;
-  line-height:1.35;
+  font-size:12px;
+  line-height:1.3;
   color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
   word-break:break-word;
 }
@@ -183,17 +184,17 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   display:flex;
   flex-direction:column;
   align-items:stretch;
-  gap:6px;
+  gap:4px;
   flex:0 0 auto;
-  padding-top:2px;
+  padding-top:1px;
 }
 .tt-fr-btn{
-  min-width:76px;
-  padding:7px 12px;
+  min-width:64px;
+  padding:5px 10px;
   border-radius:8px;
   border:0;
-  font-size:13px;
-  font-weight:700;
+  font-size:12px;
+  font-weight:600;
   line-height:1.2;
   cursor:pointer;
   transition:opacity .15s ease, transform .15s ease;
@@ -211,19 +212,19 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
 .tt-fr-decline:hover{ opacity:.88; }
 .tt-friend-requests-footer{
   list-style:none;
-  margin:12px 0 0;
+  margin:8px 0 0;
   padding:0;
   flex:0 0 auto;
 }
 .tt-friend-requests-footer a{
   display:flex;
   align-items:center;
-  gap:12px;
-  min-height:44px;
-  padding:10px 12px;
-  border-radius:10px;
+  gap:8px;
+  min-height:34px;
+  padding:8px 10px;
+  border-radius:8px;
   color:var(--tt-text, var(--msb-palette-text, #101828));
-  font-size:15px;
+  font-size:13px;
   font-weight:500;
   text-decoration:none;
   transition:background .15s ease;
@@ -233,9 +234,10 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   text-decoration:none;
 }
 .tt-friend-requests-footer a .icon{
-  width:20px;
+  width:14px;
+  min-width:14px;
   text-align:center;
-  font-size:18px;
+  font-size:13px;
   color:var(--tt-muted, var(--msb-palette-text-muted, #667085));
 }
 body.msb-friend-requests-door-open{ overflow:hidden !important; }

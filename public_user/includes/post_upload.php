@@ -132,11 +132,13 @@ function post_upload_ensure_dir(): array
     if (!is_dir($baseDir)) {
         @mkdir($baseDir, 0775, true);
     }
+    @chmod($baseDir, 0775);
     $ym = date('Ym');
     $subDir = $baseDir . '/' . $ym;
     if (!is_dir($subDir)) {
         @mkdir($subDir, 0775, true);
     }
+    @chmod($subDir, 0775);
     return [$subDir, $ym];
 }
 
@@ -265,6 +267,27 @@ function post_upload_purge_stale(int $maxAgeSeconds = 7200): void
     }
 }
 
+function post_upload_php_error_code(int $err): string
+{
+    switch ($err) {
+        case UPLOAD_ERR_INI_SIZE:
+        case UPLOAD_ERR_FORM_SIZE:
+            return 'too_large';
+        case UPLOAD_ERR_PARTIAL:
+            return 'partial';
+        case UPLOAD_ERR_NO_FILE:
+            return 'no_file';
+        case UPLOAD_ERR_NO_TMP_DIR:
+            return 'no_tmp_dir';
+        case UPLOAD_ERR_CANT_WRITE:
+            return 'cant_write';
+        case UPLOAD_ERR_EXTENSION:
+            return 'blocked_extension';
+        default:
+            return 'upload_error';
+    }
+}
+
 /**
  * Save one uploaded file into pending storage for later claim by post_save.
  * @return array{ok:bool,error?:string,token?:string,name?:string,type?:string,size?:int,web?:string}
@@ -276,7 +299,7 @@ function post_upload_store_pending(int $userId, array $file): array
     }
     $err = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($err !== UPLOAD_ERR_OK) {
-        return ['ok' => false, 'error' => 'upload_error'];
+        return ['ok' => false, 'error' => post_upload_php_error_code($err)];
     }
     $tmp = (string)($file['tmp_name'] ?? '');
     if ($tmp === '' || !is_uploaded_file($tmp)) {
@@ -288,25 +311,39 @@ function post_upload_store_pending(int $userId, array $file): array
     if ($ext === '') {
         $ext = 'bin';
     }
+    // Normalize common camera/export aliases.
+    if ($ext === 'jfif' || $ext === 'jpe') {
+        $ext = 'jpg';
+    }
+    if ($ext === 'heic' || $ext === 'heif') {
+        return ['ok' => false, 'error' => 'heic_unsupported'];
+    }
     $allowedExt = post_upload_allowed_ext();
     if (!in_array($ext, $allowedExt, true)) {
         return ['ok' => false, 'error' => 'unsupported_type'];
     }
 
     $size = (int)($file['size'] ?? 0);
-    $maxBytes = 50 * 1024 * 1024;
+    $maxBytes = 100 * 1024 * 1024;
+    if ($size <= 0) {
+        $size = (int)@filesize($tmp);
+    }
     if ($size > $maxBytes) {
         return ['ok' => false, 'error' => 'too_large'];
     }
 
     // Fast trust path for common image/video extensions — skip full-file finfo sniff.
     $clientMime = strtolower(trim((string)($file['type'] ?? '')));
-    $fastExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov', 'm4v'];
+    $fastExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'mp4', 'webm', 'mov', 'm4v', 'ogg'];
     $detectedMime = '';
-    if (in_array($ext, $fastExts, true) && (
-        strncmp($clientMime, 'image/', 6) === 0 || strncmp($clientMime, 'video/', 6) === 0 || $clientMime === ''
-    )) {
-        $detectedMime = $clientMime;
+    $trustClient = in_array($ext, $fastExts, true) && (
+        $clientMime === ''
+        || strncmp($clientMime, 'image/', 6) === 0
+        || strncmp($clientMime, 'video/', 6) === 0
+        || $clientMime === 'application/octet-stream'
+    );
+    if ($trustClient) {
+        $detectedMime = ($clientMime === '' || $clientMime === 'application/octet-stream') ? '' : $clientMime;
     } else {
         $finfo = class_exists('finfo') ? new finfo(FILEINFO_MIME_TYPE) : null;
         if ($finfo) {
@@ -325,12 +362,24 @@ function post_upload_store_pending(int $userId, array $file): array
     $attType = post_upload_att_type($mime, $ext);
 
     [$subDir, $ym] = post_upload_ensure_dir();
+    if (!is_dir($subDir) || !is_writable($subDir)) {
+        return ['ok' => false, 'error' => 'dir_not_writable'];
+    }
     $token = bin2hex(random_bytes(16));
     $fname = 'pending_u' . $userId . '_' . $token . '.' . $ext;
     $destAbs = $subDir . '/' . $fname;
-    if (!move_uploaded_file($tmp, $destAbs)) {
+    $moved = @move_uploaded_file($tmp, $destAbs);
+    if (!$moved) {
+        // Some CGI setups report is_uploaded_file correctly but move fails; copy fallback.
+        $moved = @copy($tmp, $destAbs);
+        if ($moved) {
+            @unlink($tmp);
+        }
+    }
+    if (!$moved || !is_file($destAbs)) {
         return ['ok' => false, 'error' => 'move_failed'];
     }
+    @chmod($destAbs, 0644);
 
     $webPath = 'uploads/posts/' . $ym . '/' . $fname;
     // Purge stale pending files only ~10% of the time (avoid session/disk churn every upload).
@@ -343,7 +392,7 @@ function post_upload_store_pending(int $userId, array $file): array
         'web' => $webPath,
         'type' => $attType,
         'name' => $orig,
-        'size' => $size,
+        'size' => $size > 0 ? $size : (int)@filesize($destAbs),
         'created' => time(),
     ];
     // Disk meta is the source of truth so ajax uploads can release the PHP
@@ -360,7 +409,7 @@ function post_upload_store_pending(int $userId, array $file): array
         'token' => $token,
         'name' => $orig,
         'type' => $attType,
-        'size' => $size,
+        'size' => (int)$row['size'],
         'web' => $webPath,
     ];
 }

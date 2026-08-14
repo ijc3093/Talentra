@@ -569,6 +569,86 @@ function publisher_social_stat_label(int $count): string
     return ($count === 0 || $count === 1) ? 'Follow' : 'Follows';
 }
 
+/**
+ * Notify personal followers when a publisher publishes a visible post.
+ * Creates “posted an update” rows for the What’s up notifications tab.
+ */
+function publisher_notify_followers_of_post(PDO $dbh, int $publisherId, int $postId, string $visibility = 'public'): void
+{
+    $publisherId = (int)$publisherId;
+    $postId = (int)$postId;
+    $visibility = strtolower(trim($visibility)) ?: 'public';
+    if ($publisherId <= 0 || $postId <= 0 || $visibility === 'private') {
+        return;
+    }
+    if (!publisher_is_publisher_user($dbh, $publisherId)) {
+        return;
+    }
+
+    try {
+        publisher_ensure_schema($dbh);
+        $stPub = $dbh->prepare("
+            SELECT
+              COALESCE(NULLIF(TRIM(name), ''), NULLIF(TRIM(username), ''), CONCAT('Publisher ', id)) AS display_name
+            FROM users
+            WHERE id = :id AND status = 1
+            LIMIT 1
+        ");
+        $stPub->execute([':id' => $publisherId]);
+        $senderLabel = trim((string)($stPub->fetchColumn() ?: ''));
+        if ($senderLabel === '') {
+            return;
+        }
+
+        $route = ($visibility === 'public') ? 'pb' : 'fd';
+        $type = 'posted an update [r:' . $route . '] [p:' . $postId . ']';
+
+        $followers = [];
+        try {
+            $stFollowers = $dbh->prepare("
+                SELECT u.id, u.username
+                FROM public_follows pf
+                INNER JOIN users u ON u.id = pf.follower_id
+                WHERE pf.following_id = :pub
+                  AND u.status = 1
+                  AND COALESCE(u.account_kind, 'personal') = 'personal'
+                  AND NULLIF(TRIM(u.username), '') IS NOT NULL
+                LIMIT 500
+            ");
+            $stFollowers->execute([':pub' => $publisherId]);
+            $followers = $stFollowers->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $eFollowers) {
+            return;
+        }
+        if (!$followers) {
+            return;
+        }
+
+        $ins = $dbh->prepare("
+            INSERT INTO notification (notiuser, notireceiver, notitype, is_read)
+            VALUES (:sender, :receiver, :type, 0)
+        ");
+        foreach ($followers as $row) {
+            $receiverId = (int)($row['id'] ?? 0);
+            $receiverUsername = trim((string)($row['username'] ?? ''));
+            if ($receiverId <= 0 || $receiverUsername === '' || $receiverId === $publisherId) {
+                continue;
+            }
+            try {
+                $ins->execute([
+                    ':sender' => $senderLabel,
+                    ':receiver' => $receiverUsername,
+                    ':type' => $type,
+                ]);
+            } catch (Throwable $eIns) {
+                // Keep publishing even if one follower notify fails.
+            }
+        }
+    } catch (Throwable $e) {
+        // Notification failure must not break publish.
+    }
+}
+
 function publisher_list(PDO $dbh, string $category = '', int $limit = 40): array
 {
     publisher_ensure_schema($dbh);

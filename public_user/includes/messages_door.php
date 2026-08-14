@@ -65,8 +65,8 @@ $__msgStandalone = !empty($msbMessagesDoorStandalone);
 }
 .msb-messages-door-host .tt-close,
 #ttLeftbarOverlays .tt-messages-wrap .tt-close{
-  width:34px;
-  height:34px;
+  width:28px;
+  height:28px;
   border:0;
   border-radius:50%;
   background:transparent;
@@ -80,7 +80,7 @@ $__msgStandalone = !empty($msbMessagesDoorStandalone);
   flex:0 0 auto;
 }
 .msb-messages-door-host .tt-close i,
-#ttLeftbarOverlays .tt-messages-wrap .tt-close i{ font-size:20px; }
+#ttLeftbarOverlays .tt-messages-wrap .tt-close i{ font-size:14px; }
 .msb-messages-door-host .tt-close:hover,
 #ttLeftbarOverlays .tt-messages-wrap .tt-close:hover{
   background:var(--tt-control-hover, var(--msb-palette-nav-hover, #e9edf3));

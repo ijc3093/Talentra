@@ -43,6 +43,14 @@ $visibility = strtolower(trim((string)($post['visibility'] ?? 'friends')));
 $isOwner = ($ownerId > 0 && $ownerId === $meId);
 $meTagged = msb_user_is_tagged_on_post($dbh, $postId, $meId);
 $canSelfTag = msb_viewer_can_self_tag_post($dbh, $meId, $post);
+$isStoryPost = function_exists('msb_post_is_story_id') && msb_post_is_story_id($dbh, $postId);
+$viewerFriendsWithOwner = $isOwner;
+if (!$viewerFriendsWithOwner && $ownerId > 0 && function_exists('fs_are_friends')) {
+    $viewerFriendsWithOwner = fs_are_friends($dbh, $meId, $ownerId);
+} elseif (!$viewerFriendsWithOwner && $ownerId > 0) {
+    require_once __DIR__ . '/../includes/friend_system.php';
+    $viewerFriendsWithOwner = function_exists('fs_are_friends') && fs_are_friends($dbh, $meId, $ownerId);
+}
 
 function pcm_tag_users_payload(PDO $dbh, int $postId): array
 {
@@ -154,6 +162,12 @@ if ($action === 'save' || $action === 'sync') {
 
 // Fries → Mention: notify only (no Tags tab).
 if ($action === 'mention' || $action === 'notify') {
+    // On stories, only the owner or their friends may mention people
+    // (prevents non-friends from kicking off owner DMs / alerts via story tools).
+    if ($isStoryPost && !$isOwner && !$viewerFriendsWithOwner) {
+        echo json_encode(['ok' => false, 'error' => 'friends_only']);
+        exit;
+    }
     $canMention = $isOwner
         || publisher_post_interaction_allowed($dbh, $meId, [
             'id' => $postId,

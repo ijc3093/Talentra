@@ -302,6 +302,7 @@
   }
 
   function closeMenus(except){
+    var wasStoryMenu = !!window.__pcmStoryMenuOpen;
     removePortal();
     document.querySelectorAll('.post-card-menu-wrap.pcm-wrap-open, .mf-menu-wrap.pcm-wrap-open').forEach(function(wrap){
       wrap.classList.remove('pcm-wrap-open');
@@ -319,6 +320,10 @@
       menu.style.zIndex = '';
       menu.style.minWidth = '';
     });
+    if(wasStoryMenu){
+      window.__pcmStoryMenuOpen = false;
+      resumeStoryDoorAfterMenu();
+    }
   }
 
   function linkItem(cls, href, icon, label, extraAttrs){
@@ -472,7 +477,9 @@
     });
   }
 
-  function closePcmTagSheet(){
+  function closePcmTagSheet(opts){
+    opts = opts || {};
+    var fromStory = !!window.__pcmTagFromStory;
     window.__pcmTagPostId = 0;
     pcmTagSelected = {};
     hideModal('pcmTagSheet');
@@ -480,6 +487,14 @@
     if(input) input.value = '';
     var chips = document.getElementById('pcmTagPeopleChips');
     if(chips) chips.innerHTML = '';
+    if(fromStory){
+      window.__pcmTagFromStory = false;
+      if(opts.afterSend){
+        playStoryThroughThenClose();
+      } else {
+        resumeStoryDoorAfterMenu();
+      }
+    }
   }
 
   function renderPcmTagChips(){
@@ -587,15 +602,66 @@
         return;
       }
       var savedCount = Array.isArray(data.users) ? data.users.length : ids.length;
-      closePcmTagSheet();
+      closePcmTagSheet({ afterSend: true });
       pcmToast(savedCount ? ('Tagged ' + savedCount + (savedCount === 1 ? ' person.' : ' people.')) : 'Tags cleared.');
+      try{
+        if(window.MSBNotificationsUI && typeof window.MSBNotificationsUI.refresh === 'function'){
+          window.MSBNotificationsUI.refresh();
+        }
+      }catch(_e){}
     }).catch(function(){
       if(btn){ btn.disabled = false; btn.style.opacity = ''; }
       pcmToast('Network error while saving tags.');
     });
   }
 
-  function closePcmMentionSheet(){
+  function isStoryDoorOpen(){
+    try{
+      var wrap = document.getElementById('tt-stories-wrap');
+      return !!(wrap && wrap.classList && wrap.classList.contains('is-open'));
+    }catch(e){
+      return false;
+    }
+  }
+
+  function isStoryMenuWrap(wrap){
+    if(!wrap) return false;
+    return wrap.id === 'ttStoriesMenuWrap' ||
+      !!(wrap.classList && wrap.classList.contains('tt-stories-menu-wrap')) ||
+      String(wrap.getAttribute('data-menu-surface') || '').indexOf('story') !== -1;
+  }
+
+  function pauseStoryDoorForMenu(){
+    try{
+      if(!isStoryDoorOpen() || !window.TTStories) return;
+      if(typeof window.TTStories.holdForMenu === 'function') window.TTStories.holdForMenu();
+      else if(typeof window.TTStories.pause === 'function') window.TTStories.pause();
+    }catch(ePause){}
+  }
+
+  function resumeStoryDoorAfterMenu(){
+    try{
+      if(window.__pcmMentionFromStory || window.__pcmTagFromStory) return;
+      if(!isStoryDoorOpen() || !window.TTStories) return;
+      if(typeof window.TTStories.clearCloseAfterSlide === 'function') window.TTStories.clearCloseAfterSlide();
+      if(typeof window.TTStories.resume === 'function') window.TTStories.resume();
+    }catch(eResume){}
+  }
+
+  function playStoryThroughThenClose(){
+    try{
+      if(!isStoryDoorOpen() || !window.TTStories) return;
+      if(typeof window.TTStories.playThroughThenClose === 'function'){
+        window.TTStories.playThroughThenClose();
+      } else if(typeof window.TTStories.resume === 'function'){
+        window.TTStories.resume();
+      }
+    }catch(ePlay){}
+  }
+
+  function closePcmMentionSheet(opts){
+    opts = opts || {};
+    var fromStory = !!window.__pcmMentionFromStory;
     window.__pcmMentionPostId = 0;
     pcmMentionSelected = {};
     hideModal('pcmMentionSheet');
@@ -603,6 +669,14 @@
     if(input) input.value = '';
     var chips = document.getElementById('pcmMentionPeopleChips');
     if(chips) chips.innerHTML = '';
+    if(fromStory){
+      window.__pcmMentionFromStory = false;
+      if(opts.afterSend){
+        playStoryThroughThenClose();
+      } else {
+        resumeStoryDoorAfterMenu();
+      }
+    }
   }
 
   function renderPcmMentionChips(){
@@ -702,8 +776,13 @@
         pcmToast(err === 'no_people' ? 'Pick someone to mention.' : (err ? ('Could not send mention (' + err + ').') : 'Could not send mention.'));
         return;
       }
-      closePcmMentionSheet();
+      closePcmMentionSheet({ afterSend: true });
       pcmToast(String(data.message || 'Mention sent.'));
+      try{
+        if(window.MSBNotificationsUI && typeof window.MSBNotificationsUI.refresh === 'function'){
+          window.MSBNotificationsUI.refresh();
+        }
+      }catch(_e){}
     }).catch(function(){
       if(btn){ btn.disabled = false; btn.style.opacity = ''; }
       pcmToast('Network error while sending mention.');
@@ -1156,13 +1235,18 @@
 
     var isSaved = Number(it.my_saved != null ? it.my_saved : (it.is_saved != null ? it.is_saved : 0)) === 1;
     var meTagged = Number(it.me_tagged != null ? it.me_tagged : 0) === 1;
-    var friendStatus = String(it.friend_status || helpers.friendStatus || 'none');
+    var friendStatus = String(it.friend_status || helpers.friendStatus || 'none').toLowerCase();
+    var menuSurface = String(opts.menu_surface || helpers.menuSurface || 'public').toLowerCase();
+    var isDiscoverOrReel = (menuSurface === 'public' || menuSurface === 'reel');
+    var isStranger = !isOwner && friendStatus !== 'friends' && friendStatus !== 'self';
     var canSelfTag = !isOwner && (meTagged || friendStatus === 'friends' || String(it.visibility || 'friends') === 'public');
+    // Discover / Reels strangers: Mention only — no Tag / Add to Tags.
+    if(isDiscoverOrReel && isStranger) canSelfTag = false;
     var html = '';
 
     if(!isOwner){
       html += buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+esc(String(pid))+'"');
-      if(canSelfTag){
+      if(canSelfTag || (meTagged && !(isDiscoverOrReel && isStranger))){
         html += buttonItem(
           'pcm-tag-self' + (meTagged ? ' is-active' : ''),
           'fa fa-at',
@@ -1509,6 +1593,10 @@
       return;
     }
     closeMenus(menu);
+    if(isStoryMenuWrap(wrap)){
+      window.__pcmStoryMenuOpen = true;
+      pauseStoryDoorForMenu();
+    }
     if(usePortal){
       openPortalMenu(wrap, btn, menu);
       return;
@@ -2230,11 +2318,16 @@
     if(tagBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      var tagFromStory = isStoryHideContext(tagBtn);
       var tagPid = Number(
         tagBtn.getAttribute('data-post-id') ||
         (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
         0
       );
+      if(tagFromStory){
+        window.__pcmTagFromStory = true;
+        pauseStoryDoorForMenu();
+      }
       closeMenus();
       if(!tagPid) return true;
       openPcmTagSheet(tagPid);
@@ -2245,11 +2338,16 @@
     if(mentionBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      var mentionFromStory = isStoryHideContext(mentionBtn);
       var mentionPid = Number(
         mentionBtn.getAttribute('data-post-id') ||
         (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
         0
       );
+      if(mentionFromStory){
+        window.__pcmMentionFromStory = true;
+        pauseStoryDoorForMenu();
+      }
       closeMenus();
       if(!mentionPid) return true;
       openPcmMentionSheet(mentionPid);

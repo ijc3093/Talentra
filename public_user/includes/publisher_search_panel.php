@@ -76,7 +76,7 @@ if (!function_exists('h')) {
       </article>
     <?php endforeach; ?>
   </div>
-  <p class="pub-search-note">Tap <strong>Follow</strong> — their public posts will appear in your <a href="feed.php">Feed</a>.</p>
+  <p class="pub-search-note">Tap <strong>Follow</strong> — their public posts will appear in your <a href="home.php?tab=for-you">Feed</a>.</p>
 </section>
 <style>
   .pub-search-results{margin:0 0 16px;padding:14px 16px;background:#fff;border:1px solid var(--public-border,#e5e7eb);border-radius:16px}

@@ -271,7 +271,6 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
   padding:0;
   margin:0;
   color:#fff !important;
-  --pcm-fries-filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(0,0,0,.5));
 }
 .tt-stories-menu-wrap .post-card-menu-btn .pcm-fries-icon{
   color:#fff;
@@ -498,6 +497,17 @@ $storySheetMeAvatar = 'avatar.php?u=' . $storySheetMeId
 .tt-stories-textarea::placeholder{
   color:var(--msb-palette-placeholder, rgba(255,255,255,.72));
   font-size:14px;
+}
+/* Non-friends: view + love only (no direct reply/DM to the owner). */
+#tt-stories-wrap.is-love-only .tt-stories-textarea,
+#tt-stories-wrap.is-love-only .tt-stories-send{
+  display:none !important;
+}
+#tt-stories-wrap.is-love-only .tt-stories-input-row{
+  justify-content:flex-end;
+}
+#tt-stories-wrap.is-love-only .tt-stories-lovebtn{
+  pointer-events:auto;
 }
 .tt-stories-lovebtn,
 .tt-stories-send{
@@ -896,8 +906,8 @@ body.tt-stories-open{ overflow:hidden; }
   top:50%;
   right:10px;
   transform:translateY(-50%);
-  width:32px;
-  height:32px;
+  width:28px;
+  height:28px;
   border:0;
   border-radius:50%;
   background:transparent;
@@ -910,7 +920,7 @@ body.tt-stories-open{ overflow:hidden; }
   line-height:1;
 }
 .tt-story-cmt-close i{
-  font-size:22px;
+  font-size:14px;
   line-height:1;
 }
 .tt-story-cmt-close:hover{
@@ -1261,6 +1271,17 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav [class*="ion-"]{
   stroke:#fff !important;
   text-shadow:0 1px 3px rgba(0,0,0,.55) !important;
 }
+html #tt-stories-wrap .tt-stories-menu-wrap .post-card-menu-btn,
+html #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-icon,
+html #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-bar,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .post-card-menu-btn,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-bar{
+  text-shadow:none !important;
+  filter:none !important;
+  -webkit-filter:none !important;
+  box-shadow:none !important;
+}
 html #tt-stories-wrap .tt-stories-time,
 html #tt-stories-wrap .tt-stories-empty,
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,
@@ -1493,6 +1514,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
   var activeVideo = null;
   var currentStoryReaction = '';
   var isPaused = false;
+  var closeAfterSlideEnds = false;
   var slideNavInstant = false;
   var mediaRenderToken = 0;
   var mediaBufferA = null;
@@ -1681,8 +1703,13 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     var ms = 5500;
     if(activeVideo){
       var dur = Number(activeVideo.duration || 0);
-      if(dur > 0) ms = Math.round(dur * 1000);
-      else ms = 7000;
+      var cur = Number(activeVideo.currentTime || 0);
+      if(dur > 0){
+        var remain = Math.max(0.2, dur - cur);
+        ms = Math.round(remain * 1000);
+      } else {
+        ms = 7000;
+      }
     }
     scheduleAutoAdvance(ms, true);
   }
@@ -1724,16 +1751,21 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     return catalog[storyIndex] || null;
   }
 
-  function buildStoryDoorMenuHtml(postId, isOwner, isSaved, isArchived){
+  function buildStoryDoorMenuHtml(postId, isOwner, isSaved, isArchived, canInteract){
     postId = Number(postId || 0);
     if(postId <= 0) return '';
     isOwner = !!isOwner;
     isSaved = !!isSaved;
     isArchived = !!isArchived;
+    canInteract = canInteract !== false;
     var html = '';
     if(isOwner && !STORY_DOOR_STAFF_READONLY){
       html += '<a class="pcm-item pcm-edit" href="dashboard.php?modal=1&edit='+esc(String(postId))+'" data-create-post-modal="1" role="menuitem">'
         + '<i class="fa fa-edit" aria-hidden="true"></i><span>Edit</span></a>';
+      html += '<button type="button" class="pcm-item pcm-tag" role="menuitem" data-post-id="'+esc(String(postId))+'">'
+        + '<i class="fa fa-at" aria-hidden="true"></i><span>Tag</span></button>';
+      html += '<button type="button" class="pcm-item pcm-mention" role="menuitem" data-post-id="'+esc(String(postId))+'">'
+        + '<i class="fa fa-bullhorn" aria-hidden="true"></i><span>Mention</span></button>';
       html += '<button type="button" class="pcm-item pcm-archive" role="menuitem" data-post-id="'+esc(String(postId))+'" data-archived="'+(isArchived ? '1' : '0')+'" data-story-hide="1">'
         + '<i class="fa fa-archive" aria-hidden="true"></i><span>'+(isArchived ? 'Unarchive' : 'Archive')+'</span></button>';
       html += '<button type="button" class="pcm-item pcm-delete" role="menuitem" data-post-id="'+esc(String(postId))+'">'
@@ -1742,14 +1774,76 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     } else if(!isOwner){
       html += '<button type="button" class="pcm-item pcm-report is-danger" role="menuitem" data-post-id="'+esc(String(postId))+'">'
         + '<i class="fa fa-flag" aria-hidden="true"></i><span>Report</span></button>';
+      if(!STORY_DOOR_STAFF_READONLY && canInteract){
+        html += '<button type="button" class="pcm-item pcm-tag" role="menuitem" data-post-id="'+esc(String(postId))+'">'
+          + '<i class="fa fa-at" aria-hidden="true"></i><span>Tag</span></button>';
+        html += '<button type="button" class="pcm-item pcm-mention" role="menuitem" data-post-id="'+esc(String(postId))+'">'
+          + '<i class="fa fa-bullhorn" aria-hidden="true"></i><span>Mention</span></button>';
+      }
     }
-    html += '<button type="button" class="pcm-item pcm-bookmark'+(isSaved ? ' is-active' : '')+'" role="menuitem" data-post-id="'+esc(String(postId))+'" data-saved="'+(isSaved ? '1' : '0')+'">'
-      + '<i class="'+(isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o')+'" aria-hidden="true"></i><span>Bookmark</span></button>';
-    html += '<button type="button" class="pcm-item pcm-share" role="menuitem" data-post-id="'+esc(String(postId))+'">'
-      + '<i class="fa fa-share" aria-hidden="true"></i><span>Share</span></button>';
+    if(isOwner || canInteract){
+      html += '<button type="button" class="pcm-item pcm-bookmark'+(isSaved ? ' is-active' : '')+'" role="menuitem" data-post-id="'+esc(String(postId))+'" data-saved="'+(isSaved ? '1' : '0')+'">'
+        + '<i class="'+(isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o')+'" aria-hidden="true"></i><span>Bookmark</span></button>';
+      html += '<button type="button" class="pcm-item pcm-share" role="menuitem" data-post-id="'+esc(String(postId))+'">'
+        + '<i class="fa fa-share" aria-hidden="true"></i><span>Share</span></button>';
+    }
     html += '<button type="button" class="pcm-item pcm-copy-link" role="menuitem" data-post-id="'+esc(String(postId))+'">'
       + '<i class="fa fa-link" aria-hidden="true"></i><span>Copy link</span></button>';
     return html;
+  }
+
+  function storyFriendStatus(story){
+    story = story || currentStory();
+    if(!story) return 'none';
+    var uid = Number(story.userId || 0);
+    if(uid > 0 && STORY_SHEET_ME_ID > 0 && uid === STORY_SHEET_ME_ID) return 'self';
+    return String(story.friendStatus || story.friend_status || '').trim().toLowerCase() || 'none';
+  }
+
+  function canMessageStoryOwner(story){
+    story = story || currentStory();
+    if(!story) return false;
+    if(isPublisherStory(story)) return false;
+    var status = storyFriendStatus(story);
+    return status === 'self' || status === 'friends';
+  }
+
+  function isStoryLoveOnly(story){
+    story = story || currentStory();
+    if(!story || isPublisherStory(story)) return false;
+    return !canMessageStoryOwner(story);
+  }
+
+  function refreshStoryFriendStatus(story, done){
+    story = story || currentStory();
+    done = typeof done === 'function' ? done : function(){};
+    if(!story){ done('none'); return; }
+    var uid = Number(story.userId || 0);
+    if(uid <= 0){ done('none'); return; }
+    if(STORY_SHEET_ME_ID > 0 && uid === STORY_SHEET_ME_ID){
+      story.friendStatus = 'self';
+      done('self');
+      return;
+    }
+    var known = String(story.friendStatus || story.friend_status || '').trim().toLowerCase();
+    if(known === 'friends' || known === 'self'){
+      done(known);
+      return;
+    }
+    fetch('ajax/friend_status.php?peer_id=' + encodeURIComponent(String(uid)), {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json' }
+    }).then(function(r){ return r.json(); }).then(function(data){
+      var status = String((data && (data.status || data.friend_status)) || 'none').trim().toLowerCase() || 'none';
+      story.friendStatus = status;
+      catalog.forEach(function(s){
+        if(Number(s.userId || 0) === uid) s.friendStatus = status;
+      });
+      done(status);
+    }).catch(function(){
+      done(known || 'none');
+    });
   }
 
   function syncStoryDoorMenu(){
@@ -1767,7 +1861,8 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     }
     var isSaved = slide ? Number(slide.mySaved || 0) === 1 : false;
     var isArchived = slide ? Number(slide.isArchived || slide.is_archived || 0) === 1 : false;
-    var html = buildStoryDoorMenuHtml(pid, isOwner, isSaved, isArchived);
+    var canInteract = isOwner || canMessageStoryOwner(story) || isPublisherStory(story);
+    var html = buildStoryDoorMenuHtml(pid, isOwner, isSaved, isArchived, canInteract);
 
     storyMenuWrap.setAttribute('data-post-id', String(pid || 0));
     storyMenuWrap.setAttribute('data-is-owner', isOwner ? '1' : '0');
@@ -1953,6 +2048,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
       storyPublisherFoot.setAttribute('aria-hidden', publisherMode ? 'false' : 'true');
     }
     if(publisherMode){
+      if(wrap) wrap.classList.remove('is-love-only');
       var pid = currentPostId();
       if(storyPostId) storyPostId.value = String(pid || 0);
       applyStoryLoveState(currentSlide() ? String(currentSlide().myReaction || '') : '');
@@ -2236,14 +2332,22 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     }, 220);
   }
   function setStoryFootEnabled(on){
-    if(storyText) storyText.disabled = !on;
+    var loveOnly = isStoryLoveOnly();
+    if(storyText) storyText.disabled = !on || loveOnly;
     storyLoveButtons().forEach(function(btn){
       btn.disabled = !on;
     });
     if(storyForm){
       var sendBtn = storyForm.querySelector('.tt-stories-send');
-      if(sendBtn) sendBtn.disabled = !on;
+      if(sendBtn) sendBtn.disabled = !on || loveOnly;
     }
+  }
+
+  function syncStoryLoveOnlyMode(){
+    ensureDomRefs();
+    var loveOnly = isStoryLoveOnly();
+    if(wrap) wrap.classList.toggle('is-love-only', !!loveOnly);
+    if(loveOnly && storyText) storyText.value = '';
   }
 
   function applyStoryLoveState(reaction){
@@ -2278,8 +2382,9 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     var slide = currentSlide();
     applyStoryLoveState(slide ? String(slide.myReaction || '') : '');
     applyUserStoryActionCounts(slide);
+    syncStoryLoveOnlyMode();
     setStoryFootEnabled(!!pid);
-    if(storyText){
+    if(storyText && !isStoryLoveOnly(story)){
       var handle = storyHandle(story);
       storyText.placeholder = 'Reply to ' + handle + '...';
     }
@@ -2471,6 +2576,11 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
       setPaused(true);
     }
     if(!video) return;
+    video.addEventListener('ended', function onEnded(){
+      if(activeVideo !== video) return;
+      clearSlideTimer();
+      if(!isPaused) TTStories.nextSlide();
+    });
     video.addEventListener('loadedmetadata', function onMeta(){
       video.removeEventListener('loadedmetadata', onMeta);
       var dur = Number(video.duration || 0);
@@ -2629,6 +2739,12 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
 
     try{ syncStoryFootMode(); }catch(_err){}
     try{ syncStoryDoorMenu(); }catch(_err){}
+    try{
+      refreshStoryFriendStatus(currentStory(), function(){
+        try{ syncStoryFootMode(); }catch(_e1){}
+        try{ syncStoryDoorMenu(); }catch(_e2){}
+      });
+    }catch(_errFs){}
     var slides = Array.isArray(story.slides) ? story.slides : [];
     renderProgress(slides.length, slideIndex);
     syncStoryNavState();
@@ -2666,6 +2782,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     clearSlideTimer();
     activeVideo = null;
     isPaused = false;
+    closeAfterSlideEnds = false;
     if(wrap) wrap.classList.remove('is-open', 'is-paused', 'has-story-text', 'is-publisher-story');
     if(wrap) wrap.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('tt-stories-open');
@@ -2834,6 +2951,25 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
       return openStoryByKey(key);
     },
     openByIndex: function(index){ openStoryAt(Number(index)); },
+    openByPostId: function(postId){
+      postId = Number(postId || 0);
+      if(postId <= 0) return false;
+      for(var i = 0; i < catalog.length; i += 1){
+        var story = catalog[i] || {};
+        var slides = Array.isArray(story.slides) ? story.slides : [];
+        for(var j = 0; j < slides.length; j += 1){
+          if(Number(slides[j].postId || slides[j].post_id || 0) === postId){
+            openStoryAt(i);
+            if(j > 0){
+              slideIndex = j;
+              try{ renderSlide(); }catch(_err){}
+            }
+            return true;
+          }
+        }
+      }
+      return false;
+    },
     open: function(keyOrIndex){
       if(typeof keyOrIndex === 'number') return openStoryAt(keyOrIndex);
       return this.openByKey(keyOrIndex);
@@ -2841,9 +2977,25 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     close: closePanel,
     pause: function(){ setPaused(true); },
     resume: function(){ setPaused(false); },
+    holdForMenu: function(){
+      closeAfterSlideEnds = false;
+      setPaused(true);
+    },
+    playThroughThenClose: function(){
+      closeAfterSlideEnds = true;
+      setPaused(false);
+    },
+    clearCloseAfterSlide: function(){
+      closeAfterSlideEnds = false;
+    },
     closeComments: closeStoryCommentsSheet,
     openComments: openStoryComments,
     nextSlide: function(){
+      if(closeAfterSlideEnds){
+        closeAfterSlideEnds = false;
+        closePanel();
+        return;
+      }
       var story = currentStory();
       if(!story || !Array.isArray(story.slides) || !story.slides.length) return;
       if(slideIndex < story.slides.length - 1){
@@ -2858,6 +3010,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
       closePanel();
     },
     prevSlide: function(){
+      closeAfterSlideEnds = false;
       if(slideIndex > 0){
         slideIndex -= 1;
         renderSlide();
@@ -3066,6 +3219,10 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
   storyForm && storyForm.addEventListener('submit', function(e){
     e.preventDefault();
     if(isPublisherStory()) return;
+    if(isStoryLoveOnly()){
+      window.alert('You can love this story. Messaging is available after you become friends.');
+      return;
+    }
     var pid = Number(storyPostId && storyPostId.value || 0);
     var txt = String(storyText && storyText.value || '').trim();
     var peerCode = storyFriendCode();
@@ -3081,6 +3238,8 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     var fd = new FormData();
     fd.append('to', peerCode);
     fd.append('message', txt);
+    fd.append('from_story', '1');
+    if(pid > 0) fd.append('story_post_id', String(pid));
     if(media){
       fd.append('attachment_url', media.url);
       fd.append('attachment_type', media.type);

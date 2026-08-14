@@ -10,8 +10,8 @@ dialog.pcm-archive-dialog:not([open]){
 }
 
 :root{
-  --pcm-on-media-circle-size:30px;
-  --pcm-menu-btn-size:28px;
+  --pcm-on-media-circle-size:24px;
+  --pcm-menu-btn-size:24px;
   --pcm-on-media-menu-top:5px;
   --pcm-on-media-menu-right:1px;
   --pcm-on-media-topbar-menu-top:-10px;
@@ -29,7 +29,7 @@ dialog.pcm-archive-dialog:not([open]){
   height:auto;
   min-width:var(--pcm-menu-btn-size);
   min-height:var(--pcm-menu-btn-size);
-  padding:6px 4px;
+  padding:4px 2px;
   border:0;
   border-radius:0;
   background:transparent;
@@ -43,7 +43,7 @@ dialog.pcm-archive-dialog:not([open]){
 }
 .post-card-menu-btn i{
   color:#5c3d2e !important;
-  font-size:16px;
+  font-size:12px;
   line-height:1;
   text-shadow:none !important;
 }
@@ -52,20 +52,27 @@ dialog.pcm-archive-dialog:not([open]){
   flex-direction:column;
   justify-content:center;
   align-items:flex-start;
-  gap:3px;
-  width:14px;
+  gap:2px;
+  width:10px;
   color:currentColor;
+  filter:none !important;
+  text-shadow:none !important;
+  box-shadow:none !important;
+  -webkit-filter:none !important;
 }
 .pcm-fries-bar{
   display:block;
-  height:2px;
+  height:1.25px;
   border-radius:1px;
   background:currentColor;
-  width:14px;
-  filter:var(--pcm-fries-filter, none);
+  width:10px;
+  filter:none !important;
+  -webkit-filter:none !important;
+  box-shadow:none !important;
+  text-shadow:none !important;
 }
 .pcm-fries-bar--short{
-  width:8px;
+  width:6px;
 }
 /* On-media fries contrast — synced by post_card_actions_menu.js.php */
 .mf-media-shell > .mf-head--on-media .post-card-menu-btn.pcm-on-dark-media,
@@ -75,7 +82,6 @@ dialog.pcm-archive-dialog:not([open]){
 body .mf-feed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-dark-media,
 body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-dark-media{
   color:#fff !important;
-  --pcm-fries-filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(0,0,0,.5));
 }
 .mf-media-shell > .mf-head--on-media .post-card-menu-btn.pcm-on-dark-media .pcm-fries-icon,
 .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media .pcm-fries-icon,
@@ -92,7 +98,6 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-da
 body .mf-feed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-light-media,
 body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-light-media{
   color:#0f172a !important;
-  --pcm-fries-filter:drop-shadow(0 1px 1px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.75));
 }
 .mf-media-shell > .mf-head--on-media .post-card-menu-btn.pcm-on-light-media .pcm-fries-icon,
 .standard-media-topbar .post-card-menu-btn.pcm-on-light-media .pcm-fries-icon,
@@ -111,14 +116,14 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
 }
 .post-card-menu{
   position:absolute;
-  top:calc(100% + 8px);
+  top:calc(100% + 6px);
   right:0;
-  min-width:220px;
+  min-width:180px;
   background:var(--pcm-menu-bg, #fff8f3);
   border:1px solid var(--pcm-menu-border, rgba(107,58,30,.08));
-  border-radius:20px;
-  box-shadow:var(--pcm-menu-shadow, 0 16px 40px rgba(92,61,46,.18));
-  padding:10px 8px;
+  border-radius:12px;
+  box-shadow:var(--pcm-menu-shadow, 0 8px 24px rgba(92,61,46,.12));
+  padding:4px;
   z-index:120;
   display:none;
 }
@@ -141,28 +146,28 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
   position:fixed !important;
   z-index:100000 !important;
   pointer-events:auto !important;
-  min-width:220px;
+  min-width:180px;
   background:var(--pcm-menu-bg, #fff8f3);
   border:1px solid var(--pcm-menu-border, rgba(107,58,30,.08));
-  border-radius:20px;
-  box-shadow:var(--pcm-menu-shadow, 0 16px 40px rgba(92,61,46,.18));
-  padding:10px 8px;
+  border-radius:12px;
+  box-shadow:var(--pcm-menu-shadow, 0 8px 24px rgba(92,61,46,.12));
+  padding:4px;
 }
 .pcm-menu-portal .pcm-item,
 .post-card-menu.pcm-menu-portal .pcm-item{
   width:100%;
   display:flex;
   align-items:center;
-  gap:12px;
-  padding:11px 14px;
+  gap:8px;
+  padding:8px 12px;
   border:0;
   background:transparent;
   color:var(--pcm-menu-text, #6b3a1e);
   text-decoration:none;
-  font-weight:700;
-  font-size:15px;
-  line-height:1.2;
-  border-radius:12px;
+  font-weight:500;
+  font-size:13px;
+  line-height:1.25;
+  border-radius:8px;
   cursor:pointer;
   text-align:left;
 }
@@ -170,11 +175,11 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
 .pcm-menu-portal .pcm-item .icon,
 .post-card-menu.pcm-menu-portal .pcm-item i,
 .post-card-menu.pcm-menu-portal .pcm-item .icon{
-  width:18px;
-  min-width:18px;
+  width:14px;
+  min-width:14px;
   text-align:center;
   color:var(--pcm-menu-text, #6b3a1e);
-  font-size:16px;
+  font-size:12px;
   line-height:1;
 }
 .pcm-menu-portal .pcm-item:hover,
@@ -188,33 +193,33 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
 .pcm-menu-portal .pcm-divider,
 .post-card-menu.pcm-menu-portal .pcm-divider{
   height:1px;
-  margin:6px 10px;
+  margin:4px 8px;
   background:var(--pcm-menu-divider, rgba(107,58,30,.12));
 }
 .post-card-menu .pcm-item{
   width:100%;
   display:flex;
   align-items:center;
-  gap:12px;
-  padding:11px 14px;
+  gap:8px;
+  padding:8px 12px;
   border:0;
   background:transparent;
   color:var(--pcm-menu-text, #6b3a1e);
   text-decoration:none;
-  font-weight:700;
-  font-size:15px;
-  line-height:1.2;
-  border-radius:12px;
+  font-weight:500;
+  font-size:13px;
+  line-height:1.25;
+  border-radius:8px;
   cursor:pointer;
   text-align:left;
 }
 .post-card-menu .pcm-item i,
 .post-card-menu .pcm-item .icon{
-  width:18px;
-  min-width:18px;
+  width:14px;
+  min-width:14px;
   text-align:center;
   color:var(--pcm-menu-text, #6b3a1e);
-  font-size:16px;
+  font-size:12px;
   line-height:1;
 }
 .post-card-menu .pcm-item:hover,
@@ -231,7 +236,7 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
 }
 .post-card-menu .pcm-divider{
   height:1px;
-  margin:6px 10px;
+  margin:4px 8px;
   background:var(--pcm-menu-divider, rgba(107,58,30,.12));
 }
 .post-card-menu .pcm-item.is-danger,
@@ -247,7 +252,7 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn.pcm-on-li
 .post-card-menu .pcm-item.pcm-bookmark.is-active span,
 .pcm-menu-portal .pcm-item.pcm-bookmark.is-active span,
 .post-card-menu.pcm-menu-portal .pcm-item.pcm-bookmark.is-active span{
-  font-weight:800;
+  font-weight:600;
 }
 .mf-media-shell > .mf-head--on-media .post-card-menu-btn,
 .mf-media-shell > .mf-head--on-media .post-card-menu-btn i,
@@ -299,7 +304,6 @@ html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-
   backdrop-filter:none !important;
   -webkit-backdrop-filter:none !important;
   box-shadow:none !important;
-  --pcm-fries-filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(0,0,0,.5));
 }
 html[data-msb-appearance] body .mf-media-shell > .mf-head--on-media .post-card-menu-btn.pcm-on-dark-media,
 html[data-msb-appearance] body .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media,
@@ -316,7 +320,6 @@ html[data-msb-appearance] body.news-page .post.public-post-card .standard-media-
   border:0 !important;
   box-shadow:none !important;
   color:#0f172a !important;
-  --pcm-fries-filter:drop-shadow(0 1px 1px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.75));
 }
 html[data-msb-appearance] body .mf-media-shell > .mf-head--on-media .post-card-menu-btn i,
 html[data-msb-appearance] body .standard-media-topbar .post-card-menu-btn i,
@@ -381,7 +384,6 @@ body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn,
   -webkit-backdrop-filter:none !important;
   box-shadow:none !important;
   color:#fff !important;
-  --pcm-fries-filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(0,0,0,.5));
   display:inline-flex !important;
   align-items:center !important;
   justify-content:center !important;
@@ -405,7 +407,7 @@ body .mf-feed .mf-card .mf-head--on-media .post-card-menu-btn i,
 body #profilePostsFeed .mf-card .mf-head--on-media .post-card-menu-btn i,
 .mf-card .mf-head--on-media .post-card-menu-btn i{
   color:inherit !important;
-  font-size:16px !important;
+  font-size:12px !important;
   line-height:1 !important;
   text-shadow:none !important;
   background:transparent !important;
@@ -829,4 +831,24 @@ html.dark-auto .post-vis-badge.post-vis-friends,
 html[data-theme="dark"] .post-vis-badge.post-vis-friends{ color:#60a5fa; }
 html.dark-auto .post-vis-badge.post-vis-private,
 html[data-theme="dark"] .post-vis-badge.post-vis-private{ color:#fbbf24; }
+
+/* Final lock: fries icon stays flat (no halo / shadow / filter). */
+.post-card-menu-btn,
+.post-card-menu-btn:hover,
+.post-card-menu-btn:focus,
+.pcm-fries-icon,
+.pcm-fries-bar,
+.post-card-fries-icon,
+.post-card-fries-icon span,
+html[data-msb-appearance] .post-card-menu-btn,
+html[data-msb-appearance] .pcm-fries-icon,
+html[data-msb-appearance] .pcm-fries-bar,
+html[data-msb-appearance] .post-card-fries-icon,
+html.dark-auto .post-card-menu-btn,
+html[data-theme="dark"] .post-card-menu-btn{
+  filter:none !important;
+  -webkit-filter:none !important;
+  text-shadow:none !important;
+  box-shadow:none !important;
+}
 

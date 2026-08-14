@@ -175,7 +175,7 @@ if (!$isOwner && !$isApproved) {
           <?php if ($status === 'pending'): ?>
             <div class="note"><i class="fa fa-clock-o"></i> Your request is pending approval.</div>
             <div class="actions">
-              <a class="btn-ghost" href="feed.php"><i class="fa fa-rss"></i> Back to Feed</a>
+              <a class="btn-ghost" href="home.php?tab=for-you"><i class="fa fa-rss"></i> Back to Feed</a>
               <a class="btn-ghost" href="timeline.php"><i class="fa fa-user"></i> My Timeline</a>
             </div>
 
@@ -193,7 +193,7 @@ if (!$isOwner && !$isApproved) {
 
               <div class="actions">
                 <button class="btn-gold" type="submit"><i class="fa fa-key"></i> Request Visit</button>
-                <a class="btn-ghost" href="feed.php">Back to Feed</a>
+                <a class="btn-ghost" href="home.php?tab=for-you">Back to Feed</a>
               </div>
             </form>
           <?php endif; ?>
@@ -705,7 +705,7 @@ $mkScale = static fn(string $s) => $base . 'scale=' . urlencode($s);
 
         <div class="room-actions">
           <a class="btn-ghost" href="dashboard.php"><i class="fa fa-plus"></i> New Post</a>
-          <a class="btn-ghost" href="feed.php"><i class="fa fa-rss"></i> Feed</a>
+          <a class="btn-ghost" href="home.php?tab=for-you"><i class="fa fa-rss"></i> Feed</a>
           <a class="btn-gold" href="about.php<?= $ownerId !== $meId ? '?u='.(int)$ownerId : '' ?>"><i class="fa fa-user"></i> About</a>
         </div>
       </div>

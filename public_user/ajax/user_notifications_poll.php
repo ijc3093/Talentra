@@ -15,6 +15,25 @@ try {
     ], static function ($value) {
         return $value !== '';
     })));
+    try {
+        $uid = (int)($_SESSION['user_id'] ?? 0);
+        if ($uid > 0) {
+            $stUser = $dbh->prepare('SELECT username, email FROM users WHERE id = :id LIMIT 1');
+            $stUser->execute([':id' => $uid]);
+            $userRow = $stUser->fetch(PDO::FETCH_ASSOC) ?: [];
+            foreach (['username', 'email'] as $k) {
+                $v = trim((string)($userRow[$k] ?? ''));
+                if ($v !== '') {
+                    $receivers[] = $v;
+                }
+            }
+            $receivers = array_values(array_unique(array_filter($receivers, static function ($value) {
+                return trim((string)$value) !== '';
+            })));
+        }
+    } catch (Throwable $e) {
+        // keep session receivers
+    }
     if (empty($receivers)) {
         echo json_encode(['ok' => false, 'unread' => 0, 'error' => 'No session']);
         exit;
@@ -57,8 +76,9 @@ try {
         $route = '';
         $postId = 0;
         $commentId = 0;
+        $isStory = false;
 
-        while (preg_match('/\s\[(live|r|p|c):([^\]]+)\]\s*$/', $type, $m)) {
+        while (preg_match('/\s\[(live|r|p|c|story):([^\]]+)\]\s*$/', $type, $m)) {
             $key = trim((string)($m[1] ?? ''));
             $value = trim((string)($m[2] ?? ''));
             if ($key === 'live') {
@@ -69,21 +89,33 @@ try {
                 $postId = (int)$value;
             } elseif ($key === 'c') {
                 $commentId = (int)$value;
+            } elseif ($key === 'story') {
+                $isStory = ((int)$value === 1) || strtolower($value) === '1';
             }
-            $type = trim((string)preg_replace('/\s\[(?:live|r|p|c):[^\]]+\]\s*$/', '', $type, 1));
+            $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story):[^\]]+\]\s*$/', '', $type, 1));
+        }
+        if (!$isStory && stripos($type, ' in a story') !== false) {
+            $isStory = true;
         }
 
         $url = '';
         if ($liveId > 0) {
             $url = 'live_watch.php?live=' . $liveId;
+        } elseif ($postId > 0 && $isStory) {
+            $url = 'home.php?tab=for-you&story_post=' . $postId;
         } elseif ($postId > 0) {
             $page = 'feed.php';
             if ($route === 'pf') {
                 $page = 'profile.php';
             } elseif ($route === 'pb') {
                 $page = 'public.php';
+            } elseif ($route === 'fd') {
+                $page = 'home.php';
             }
             $params = ['open_post' => $postId];
+            if ($page === 'home.php') {
+                $params['tab'] = 'for-you';
+            }
             if ($commentId > 0) {
                 $params['open_comment'] = $commentId;
             }
@@ -99,6 +131,7 @@ try {
             'text' => $type,
             'live_id' => $liveId,
             'post_id' => $postId,
+            'is_story' => $isStory ? 1 : 0,
             'url' => $url,
             'created_at' => (string)($row['created_at'] ?? ''),
             'is_read' => (int)($row['is_read'] ?? 0),

@@ -3,7 +3,14 @@ declare(strict_types=1);
 
 function post_action_thin_icon(string $kind, bool $active = false): string
 {
-    static $allowed = ['heart' => true, 'comment' => true, 'share' => true, 'bookmark' => true];
+    static $allowed = [
+        'heart' => true,
+        'comment' => true,
+        'share' => true,
+        'bookmark' => true,
+        'thumb' => true,
+        'thumb-down' => true,
+    ];
     $kind = strtolower(trim($kind));
     if (!isset($allowed[$kind])) {
         return '';

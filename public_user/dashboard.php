@@ -21,6 +21,40 @@ $controller = new Controller();
 $dbh = $controller->pdo();
 
 $meId = (int)($_SESSION['user_id'] ?? 0);
+$composerName = trim((string)($_SESSION['user_name'] ?? $_SESSION['name'] ?? ''));
+$composerUsername = trim((string)($_SESSION['username'] ?? $_SESSION['user_login'] ?? ''));
+$composerEmail = trim((string)($_SESSION['user_email'] ?? $_SESSION['email'] ?? ''));
+$composerFriendCode = strtoupper(trim((string)($_SESSION['user_friend_code'] ?? $_SESSION['friend_code'] ?? '')));
+$composerImage = trim((string)($_SESSION['user_image'] ?? $_SESSION['image'] ?? ''));
+if ($meId > 0 && ($composerName === '' || $composerImage === '' || $composerUsername === '' || $composerEmail === '' || $composerFriendCode === '')) {
+    try {
+        $stMe = $dbh->prepare("SELECT name, username, email, friend_code, COALESCE(NULLIF(image,''), '') AS image FROM users WHERE id = :id LIMIT 1");
+        $stMe->execute([':id' => $meId]);
+        $meRow = $stMe->fetch(PDO::FETCH_ASSOC) ?: [];
+        if ($composerName === '') $composerName = trim((string)($meRow['name'] ?? ''));
+        if ($composerUsername === '') $composerUsername = trim((string)($meRow['username'] ?? ''));
+        if ($composerEmail === '') $composerEmail = trim((string)($meRow['email'] ?? ''));
+        if ($composerFriendCode === '') $composerFriendCode = strtoupper(trim((string)($meRow['friend_code'] ?? '')));
+        if ($composerImage === '') $composerImage = trim((string)($meRow['image'] ?? ''));
+    } catch (Throwable $eMe) {}
+}
+if ($composerName === '') $composerName = $composerUsername !== '' ? $composerUsername : 'You';
+$composerInitials = '';
+foreach (preg_split('/\s+/', $composerName) as $part) {
+    if ($part === '') continue;
+    $composerInitials .= strtoupper(substr($part, 0, 1));
+    if (strlen($composerInitials) >= 2) break;
+}
+if ($composerInitials === '') $composerInitials = 'U';
+/* Same avatar endpoint as header/feed — resolves photo or renders initials SVG. */
+$composerAvatarParams = [];
+if ($meId > 0) $composerAvatarParams[] = 'u=' . rawurlencode((string)$meId);
+if ($composerEmail !== '') $composerAvatarParams[] = 'email=' . rawurlencode($composerEmail);
+if ($composerFriendCode !== '') $composerAvatarParams[] = 'friend_code=' . rawurlencode($composerFriendCode);
+if ($composerUsername !== '') $composerAvatarParams[] = 'username=' . rawurlencode($composerUsername);
+if ($composerName !== '') $composerAvatarParams[] = 'name=' . rawurlencode($composerName);
+$composerAvatarParams[] = 's=84';
+$composerAvatarUrl = 'avatar.php?' . implode('&', $composerAvatarParams);
 $isModalCreate = (string)($_GET['modal'] ?? '') === '1';
 $isStoryCreate = ((string)($_GET['story'] ?? '') === '1');
 
@@ -285,6 +319,52 @@ if ($editPost) {
         overflow: hidden;
       }
 
+      /* Create-post modal iframe: no 100vh empty bottom (DevTools purple waste) */
+      html body.dashboard-modal-page,
+      html body.dashboard-page.dashboard-modal-page{
+        height:auto !important;
+        min-height:0 !important;
+        overflow:auto !important;
+      }
+      html body.dashboard-modal-page .sh-mainpanel,
+      html body.dashboard-page.dashboard-modal-page .sh-mainpanel{
+        height:auto !important;
+        min-height:0 !important;
+        max-height:none !important;
+        display:block !important;
+        overflow:visible !important;
+        padding-bottom:0 !important;
+        margin-bottom:0 !important;
+      }
+      html body.dashboard-modal-page .sh-pagebody,
+      html body.dashboard-page.dashboard-modal-page .sh-pagebody{
+        flex:none !important;
+        height:auto !important;
+        min-height:0 !important;
+        overflow:visible !important;
+        padding-bottom:0 !important;
+        margin-bottom:0 !important;
+      }
+      html body.dashboard-modal-page .sh-footer,
+      html body.dashboard-page.dashboard-modal-page .sh-footer,
+      html body.dashboard-modal-page .app-footer,
+      html body.dashboard-page.dashboard-modal-page .app-footer{
+        display:none !important;
+        height:0 !important;
+        margin:0 !important;
+        padding:0 !important;
+        overflow:hidden !important;
+      }
+      html body.dashboard-modal-page .card,
+      html body.dashboard-modal-page .card-body,
+      html body.dashboard-page.dashboard-modal-page .card,
+      html body.dashboard-page.dashboard-modal-page .card-body{
+        flex:none !important;
+        height:auto !important;
+        min-height:0 !important;
+        margin-bottom:0 !important;
+      }
+
       .sh-pagetitle{
         position: sticky;
         top: 100px;
@@ -316,7 +396,7 @@ if ($editPost) {
 
       .card-body {
         flex: 1 1 auto;
-        padding: 10px;
+        padding: 5px;
       }
     </style>
   
@@ -325,20 +405,149 @@ if ($editPost) {
    DASHBOARD RESPONSIVE FIX
    CSS ONLY — NO PHP/JS CHANGED
 ================================ */
-.create-post-slides{display:flex;flex-direction:column;gap:12px;}
+.create-post-slides-panel{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin:0 0 10px;
+}
+.create-post-slides-shell{
+  border:1px solid rgba(15,23,42,.12);
+  border-radius:10px;
+  background:rgba(15,23,42,.02);
+  padding:8px 6px;
+  margin:0;
+  flex:1 1 auto;
+  min-height:0;
+  max-height:148px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.create-post-slides{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  flex:1 1 auto;
+  min-height:0;
+  max-height:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:8px 4px 8px 2px;
+  scrollbar-width:thin;
+  overscroll-behavior:contain;
+}
 .create-post-slide{
-  display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:stretch;
-  padding:10px;border:1px solid rgba(15,23,42,.12);border-radius:12px;background:rgba(15,23,42,.03);
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr);
+  grid-template-rows:auto auto;
+  gap:6px;
+  align-items:start;
+  padding:8px 6px 6px;
+  border:1px solid rgba(15,23,42,.12);
+  border-radius:8px;
+  background:#fff;
+  flex:0 0 auto;
+  scroll-margin-top:12px;
+  scroll-margin-bottom:6px;
+}
+.create-post-slide-head{
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-height:22px;
+}
+.create-post-slide-label{
+  display:block !important;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.35;
+  margin:0;
+  padding:2px 0 0;
+  color:#0f172a !important;
+  opacity:1 !important;
+  letter-spacing:.02em;
+  overflow:visible;
+  flex:1 1 auto;
+  min-width:0;
+}
+.create-post-slide-remove{
+  width:22px;
+  height:22px;
+  min-width:22px;
+  border:0;
+  border-radius:999px;
+  background:rgba(15,23,42,.1);
+  color:#0f172a;
+  font-size:16px;
+  line-height:1;
+  padding:0;
+  cursor:pointer;
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.create-post-slide-remove:hover{
+  background:rgba(185,28,28,.14);
+  color:#b91c1c;
 }
 .create-post-slide-media{
-  width:112px;height:112px;border-radius:10px;overflow:hidden;background:#0b1220;
-  display:flex;align-items:center;justify-content:center;
+  width:44px;
+  height:44px;
+  min-width:44px;
+  min-height:44px;
+  max-width:44px;
+  max-height:44px;
+  border-radius:6px;
+  overflow:hidden;
+  background:#0b1220;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 44px;
+  align-self:start;
+  grid-row:2;
 }
 .create-post-slide-media img,
 .create-post-slide-media video{width:100%;height:100%;object-fit:cover;display:block;}
-.create-post-slide-file{color:#fff;font-size:12px;font-weight:800;letter-spacing:.04em;}
-.create-post-slide-label{font-size:12px;font-weight:800;margin-bottom:4px;opacity:.8;}
-.create-post-slide-fields textarea{resize:vertical;min-height:72px;}
+.create-post-slide-file{color:#fff;font-size:10px;font-weight:800;letter-spacing:.04em;}
+.create-post-slide-fields{
+  grid-row:2;
+  min-width:0;
+}
+.create-post-slide-fields textarea{resize:vertical;min-height:48px;}
+.create-post-slides-actions{
+  position:relative;
+  z-index:3;
+  flex:0 0 auto;
+  background:inherit;
+}
+body.dashboard-modal-page .create-post-slides-panel{
+  margin-bottom:0;
+}
+body.dashboard-modal-page .create-post-slides-shell{
+  max-height:148px;
+}
+body.dashboard-modal-page .create-post-slides-actions{
+  position:sticky;
+  bottom:0;
+  z-index:5;
+  margin-top:0;
+  margin-bottom:0;
+  padding:6px 0 2px;
+  background:var(--msb-palette-bg, #fff);
+  box-shadow:0 -6px 12px -8px rgba(15,23,42,.12);
+}
+body.dashboard-modal-page .sh-pagebody{
+  padding-bottom:0 !important;
+}
+body.dashboard-modal-page #createPostForm .form-group:last-child{
+  margin-bottom:0 !important;
+}
 @media (max-width: 991.98px) {
   body {
     margin-left: 0 !important;
@@ -467,8 +676,33 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page .alert-i
 
 <?php if ($isModalCreate): ?>
 html, body{
-  height:100% !important;
+  height:auto !important;
   min-height:0 !important;
+}
+html body.dashboard-page.dashboard-modal-page{
+  height:auto !important;
+  max-height:none !important;
+  min-height:0 !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+}
+html body.dashboard-page.dashboard-modal-page .sh-mainpanel{
+  min-height:0 !important;
+  height:auto !important;
+  max-height:none !important;
+  padding-bottom:0 !important;
+  margin-bottom:0 !important;
+}
+html body.dashboard-page.dashboard-modal-page .sh-pagebody{
+  min-height:0 !important;
+  height:auto !important;
+  padding-bottom:0 !important;
+  margin-bottom:0 !important;
+}
+html body.dashboard-page.dashboard-modal-page .sh-footer,
+html body.dashboard-page.dashboard-modal-page .app-footer{
+  display:none !important;
 }
 
 /* Default dark canvas only when no Gear appearance color / light canvas */
@@ -802,6 +1036,745 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
   border-color: rgba(15,23,42,.18) !important;
 }
 <?php endif; ?>
+
+/* Compact create-post — short inputs, small text/icons (perfect modal scale) */
+html body.dashboard-page.dashboard-modal-page .form-control,
+html body.dashboard-page.dashboard-modal-page select.form-control,
+html body.dashboard-page.dashboard-modal-page .msb-readonly-field,
+html body.dashboard-page.dashboard-modal-page #createPostForm .form-control,
+html body.dashboard-page.dashboard-modal-page #createPostForm select.form-control{
+  height:30px !important;
+  min-height:30px !important;
+  max-height:30px !important;
+  padding:4px 10px !important;
+  font-size:12px !important;
+  line-height:1.3 !important;
+  box-sizing:border-box !important;
+  border-radius:6px !important;
+}
+html body.dashboard-page.dashboard-modal-page textarea.form-control,
+html body.dashboard-page.dashboard-modal-page #createPostForm textarea.form-control{
+  height:auto !important;
+  min-height:56px !important;
+  max-height:none !important;
+  padding:6px 10px !important;
+  font-size:12px !important;
+}
+html body.dashboard-page.dashboard-modal-page .form-control-sm,
+html body.dashboard-page.dashboard-modal-page select.form-control-sm{
+  height:28px !important;
+  min-height:28px !important;
+  max-height:28px !important;
+  font-size:11px !important;
+  padding:3px 8px !important;
+}
+html body.dashboard-page.dashboard-modal-page textarea.form-control-sm{
+  height:auto !important;
+  min-height:48px !important;
+  max-height:none !important;
+}
+html body.dashboard-page.dashboard-modal-page label,
+html body.dashboard-page.dashboard-modal-page .form-check-label{
+  font-size:11px !important;
+  margin-bottom:3px !important;
+}
+html body.dashboard-page.dashboard-modal-page .text-muted,
+html body.dashboard-page.dashboard-modal-page small,
+html body.dashboard-page.dashboard-modal-page .form-text,
+html body.dashboard-page.dashboard-modal-page .small{
+  font-size:10px !important;
+  line-height:1.3 !important;
+}
+html body.dashboard-page.dashboard-modal-page .btn{
+  font-size:11px !important;
+  padding:4px 10px !important;
+  min-height:28px !important;
+  border-radius:6px !important;
+}
+html body.dashboard-page.dashboard-modal-page .btn .icon,
+html body.dashboard-page.dashboard-modal-page .btn .fa,
+html body.dashboard-page.dashboard-modal-page .btn i{
+  font-size:12px !important;
+}
+
+body.dashboard-page{
+  font-size:12px !important;
+  line-height:1.35 !important;
+}
+body.dashboard-page .sh-pagebody{
+  padding:8px 10px !important;
+}
+body.dashboard-page .card-body{
+  padding:8px 10px !important;
+}
+body.dashboard-page .card-title,
+body.dashboard-page h6{
+  font-size:13px !important;
+  font-weight:700 !important;
+  margin-bottom:6px !important;
+}
+body.dashboard-page label,
+body.dashboard-page .form-check-label{
+  font-size:11px !important;
+  font-weight:600 !important;
+  margin-bottom:3px !important;
+  line-height:1.25 !important;
+}
+body.dashboard-page .form-group{
+  margin-bottom:8px !important;
+}
+body.dashboard-page .form-row > [class*="col-"] > .form-group,
+body.dashboard-page .form-row .form-group{
+  margin-bottom:8px !important;
+}
+body.dashboard-page .text-muted,
+body.dashboard-page small,
+body.dashboard-page .form-text,
+body.dashboard-page .small{
+  font-size:10px !important;
+  line-height:1.3 !important;
+  margin-top:2px !important;
+}
+body.dashboard-page .form-control,
+body.dashboard-page select.form-control,
+body.dashboard-page .msb-readonly-field{
+  height:30px !important;
+  min-height:30px !important;
+  max-height:30px !important;
+  padding:4px 10px !important;
+  font-size:12px !important;
+  line-height:1.3 !important;
+  border-radius:6px !important;
+}
+body.dashboard-page select.form-control{
+  padding-right:24px !important;
+}
+body.dashboard-page textarea.form-control{
+  height:auto !important;
+  min-height:56px !important;
+  max-height:none !important;
+  padding:6px 10px !important;
+  font-size:12px !important;
+  line-height:1.35 !important;
+}
+body.dashboard-page .form-control-sm,
+body.dashboard-page select.form-control-sm,
+body.dashboard-page textarea.form-control-sm{
+  height:28px !important;
+  min-height:28px !important;
+  max-height:28px !important;
+  padding:3px 8px !important;
+  font-size:11px !important;
+}
+body.dashboard-page textarea.form-control-sm{
+  height:auto !important;
+  min-height:48px !important;
+  max-height:none !important;
+}
+body.dashboard-page .btn{
+  font-size:11px !important;
+  line-height:1.2 !important;
+  padding:4px 10px !important;
+  border-radius:6px !important;
+  height:auto !important;
+  min-height:28px !important;
+}
+body.dashboard-page .btn-sm{
+  font-size:11px !important;
+  padding:3px 8px !important;
+  min-height:26px !important;
+}
+body.dashboard-page .btn .icon,
+body.dashboard-page .btn .fa,
+body.dashboard-page .btn i,
+body.dashboard-page label .icon,
+body.dashboard-page label .fa,
+body.dashboard-page .card-title .icon,
+body.dashboard-page .card-title .fa{
+  font-size:12px !important;
+  line-height:1 !important;
+  vertical-align:middle;
+}
+body.dashboard-page #createPostSubmitBtn{
+  width:28px !important;
+  min-width:28px !important;
+  height:28px !important;
+  min-height:28px !important;
+  padding:0 !important;
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+}
+body.dashboard-page #createPostSubmitBtn .icon{
+  font-size:14px !important;
+}
+body.dashboard-page #createPostAddSlideBtn .fa{
+  font-size:11px !important;
+}
+body.dashboard-page .create-post-slides-panel{
+  margin-bottom:8px !important;
+}
+body.dashboard-page .create-post-slides-shell{
+  margin-bottom:0 !important;
+  max-height:150px !important;
+  overflow:hidden !important;
+}
+body.dashboard-page .create-post-slides{
+  max-height:100% !important;
+  overflow-y:auto !important;
+  gap:6px !important;
+}
+body.dashboard-page .create-post-slide{
+  grid-template-columns:48px minmax(0,1fr) !important;
+  gap:6px !important;
+  align-items:start !important;
+  padding:6px !important;
+  background:var(--msb-palette-bg, #fff) !important;
+}
+body.dashboard-page .create-post-slide-media{
+  width:48px !important;
+  height:48px !important;
+  min-width:48px !important;
+  min-height:48px !important;
+  max-width:48px !important;
+  max-height:48px !important;
+  border-radius:6px !important;
+  flex:0 0 48px !important;
+  align-self:start !important;
+}
+body.dashboard-page .create-post-slides-actions{
+  position:relative !important;
+  z-index:3 !important;
+  flex:0 0 auto !important;
+  gap:8px !important;
+}
+
+/* ===== Modal create-post composer (match locked screenshot UI) ===== */
+body.dashboard-page.dashboard-modal-page .card,
+body.dashboard-page.dashboard-modal-page .card.mb-3{
+  border:0 !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  margin:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .card-body{
+  padding:12px 14px 0 !important;
+  background:transparent !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin:0 0 10px;
+  padding:0;
+  flex:0 0 auto;
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer .form-group{
+  margin-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-identity,
+body.dashboard-page.dashboard-modal-page .msb-composer-main,
+body.dashboard-page.dashboard-modal-page .msb-composer-panel,
+body.dashboard-page.dashboard-modal-page .msb-composer-addbar,
+body.dashboard-page.dashboard-modal-page .msb-composer-footer{
+  flex:0 0 auto !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-identity{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:2px 0 0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-identity-left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+  flex:1 1 auto;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-avatar{
+  width:42px;
+  height:42px;
+  border-radius:999px;
+  overflow:hidden;
+  flex:0 0 42px;
+  background:rgba(15,23,42,.1);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  font-weight:800;
+  color:#0f172a;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-name{
+  font-size:15px;
+  font-weight:800;
+  color:#0f172a;
+  line-height:1.2;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-audience-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin:0 0 0 auto;
+  padding:4px 10px;
+  border-radius:999px;
+  background:rgba(15,23,42,.08);
+  color:#0f172a;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  flex:0 0 auto;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-audience-select{
+  border:0 !important;
+  background:transparent !important;
+  color:inherit !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  padding:0 !important;
+  box-shadow:none !important;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-main{
+  min-height:120px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-body{
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  resize:none !important;
+  min-height:120px !important;
+  max-height:180px !important;
+  height:auto !important;
+  padding:6px 2px !important;
+  font-size:17px !important;
+  line-height:1.45 !important;
+  color:#0f172a !important;
+  flex:0 0 auto !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-body::placeholder{
+  color:#94a3b8 !important;
+  opacity:1 !important;
+}
+body.dashboard-page.dashboard-modal-page .card,
+body.dashboard-page.dashboard-modal-page .card-body,
+body.dashboard-page.dashboard-modal-page .sh-pagebody,
+body.dashboard-page.dashboard-modal-page .sh-mainpanel{
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-body:focus{
+  outline:none !important;
+  box-shadow:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-panel{
+  border:1px solid rgba(15,23,42,.12);
+  border-radius:12px;
+  padding:10px;
+  background:rgba(15,23,42,.03);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-panel[hidden]{
+  display:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+  font-size:12px;
+  color:#0f172a;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-panel-close{
+  width:24px;
+  height:24px;
+  border:0;
+  border-radius:999px;
+  background:rgba(15,23,42,.08);
+  color:#0f172a;
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-addbar{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid rgba(15,23,42,.14);
+  border-radius:12px;
+  background:#fff;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-addbar-label{
+  font-size:13px;
+  font-weight:700;
+  color:#0f172a;
+  white-space:nowrap;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-addbar-icons{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool{
+  width:36px;
+  height:36px;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:#16a34a;
+  font-size:17px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-emoji-picker]{ color:#eab308; }
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-picker{
+  position:fixed;
+  z-index:120000;
+  width:min(300px, calc(100vw - 24px));
+  display:flex;
+  flex-direction:column;
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:14px;
+  background:rgba(48,48,52,.96);
+  backdrop-filter:saturate(160%) blur(18px);
+  -webkit-backdrop-filter:saturate(160%) blur(18px);
+  box-shadow:0 18px 40px rgba(0,0,0,.38);
+  color:#f5f5f7;
+  overflow:hidden;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-picker[hidden]{
+  display:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-chrome{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 10px 0;
+  flex:0 0 auto;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-close,
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-expand{
+  width:18px;
+  height:18px;
+  border:0;
+  border-radius:999px;
+  background:rgba(255,255,255,.14);
+  color:rgba(255,255,255,.85);
+  font-size:12px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-search-wrap{
+  position:relative;
+  margin:8px 10px 6px;
+  flex:0 0 auto;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-search-wrap i{
+  position:absolute;
+  left:10px;
+  top:50%;
+  transform:translateY(-50%);
+  color:rgba(255,255,255,.45);
+  font-size:12px;
+  pointer-events:none;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-search{
+  width:100%;
+  height:28px;
+  border:0;
+  border-radius:8px;
+  background:rgba(0,0,0,.28);
+  color:#f5f5f7;
+  font-size:13px;
+  padding:0 10px 0 28px;
+  outline:none;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-search::placeholder{
+  color:rgba(255,255,255,.42);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-body{
+  flex:1 1 auto;
+  min-height:0;
+  max-height:180px;
+  overflow:auto;
+  padding:2px 8px 6px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-section-label{
+  font-size:11px;
+  font-weight:600;
+  color:rgba(255,255,255,.55);
+  padding:4px 4px 6px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-grid{
+  display:grid;
+  grid-template-columns:repeat(6, minmax(0, 1fr));
+  gap:2px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-grid button{
+  width:100%;
+  aspect-ratio:1;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  font-size:26px;
+  line-height:1;
+  cursor:pointer;
+  padding:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-grid button:hover,
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-grid button:focus{
+  background:rgba(255,255,255,.12);
+  outline:none;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-cats{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:2px;
+  padding:6px 8px 8px;
+  border-top:1px solid rgba(255,255,255,.08);
+  background:rgba(0,0,0,.12);
+  flex:0 0 auto;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-cat{
+  width:26px;
+  height:26px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:rgba(255,255,255,.55);
+  font-size:13px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-cat.is-active{
+  background:#0a84ff;
+  color:#fff;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-cat:hover:not(.is-active){
+  color:rgba(255,255,255,.9);
+  background:rgba(255,255,255,.08);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-emoji-empty{
+  padding:18px 8px;
+  text-align:center;
+  font-size:12px;
+  color:rgba(255,255,255,.5);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="tag"]{ color:#2563eb; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="music"]{ color:#ea580c; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="title"]{ color:#7c3aed; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool:hover{
+  background:rgba(15,23,42,.06);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-aa{
+  font-size:14px;
+  font-weight:800;
+  line-height:1;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool.is-active{
+  background:rgba(37,99,235,.1);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-footer{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:2px;
+  margin-bottom:10px;
+  padding:0 0 2px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-post-btn{
+  flex:1 1 auto;
+  height:40px !important;
+  min-height:40px !important;
+  max-height:none !important;
+  border-radius:10px !important;
+  font-size:15px !important;
+  font-weight:800 !important;
+  background:#0f172a !important;
+  border-color:#0f172a !important;
+  color:#fff !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-cancel-btn{
+  flex:0 0 auto;
+  height:40px !important;
+  min-height:40px !important;
+  border-radius:10px !important;
+  font-size:13px !important;
+  padding-left:14px !important;
+  padding-right:14px !important;
+  background:#fff !important;
+  color:#475569 !important;
+  border:1px solid rgba(15,23,42,.16) !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer .create-post-slides-actions{
+  box-shadow:none !important;
+  padding:6px 0 0 !important;
+  position:relative !important;
+}
+
+/* Modal: Add slide / status / submit stay outside; only slides scroll */
+body.dashboard-page.dashboard-modal-page{
+  padding-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .sh-pagebody{
+  padding-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .card-body{
+  padding-bottom:4px !important;
+  margin-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .create-post-slides-panel{
+  margin-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .create-post-slides-shell{
+  max-height:148px !important;
+}
+body.dashboard-page.dashboard-modal-page .create-post-slides-actions{
+  position:sticky !important;
+  bottom:0 !important;
+  z-index:40 !important;
+  flex:0 0 auto !important;
+  margin-top:0 !important;
+  margin-bottom:0 !important;
+  padding:6px 0 2px !important;
+  background:var(--msb-palette-bg, #fff) !important;
+  box-shadow:0 -10px 18px -10px rgba(15,23,42,.22) !important;
+}
+body.dashboard-page.dashboard-modal-page #createPostForm{
+  padding-bottom:0 !important;
+  margin-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page #createPostForm .form-group:last-child{
+  margin-bottom:0 !important;
+  padding-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page #createPostUploadProgress{
+  margin-top:4px !important;
+  margin-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .create-post-slide-fields textarea.form-control,
+body.dashboard-page.dashboard-modal-page .create-post-slide-fields textarea.form-control-sm{
+  min-height:36px !important;
+}
+body.dashboard-page.dashboard-modal-page #createPostUploadProgress{
+  margin-bottom:2px !important;
+  font-size:10px !important;
+}
+body.dashboard-page .create-post-slide-fields,
+body.dashboard-page .create-post-slide-card{
+  font-size:11px !important;
+}
+body.dashboard-page .create-post-slide-fields textarea.form-control,
+body.dashboard-page .create-post-slide-fields textarea.form-control-sm{
+  min-height:48px !important;
+  font-size:11px !important;
+}
+body.dashboard-page .create-post-slide-file{
+  font-size:9px !important;
+}
+body.dashboard-page .create-post-slide-head{
+  grid-column:1 / -1 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:8px !important;
+}
+body.dashboard-page .create-post-slide-label{
+  display:block !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+  line-height:1.35 !important;
+  margin:0 !important;
+  padding:2px 0 0 !important;
+  color:#0f172a !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  overflow:visible !important;
+  flex:1 1 auto !important;
+}
+body.dashboard-page .create-post-slide-remove{
+  width:22px !important;
+  height:22px !important;
+  min-width:22px !important;
+  border:0 !important;
+  border-radius:999px !important;
+  background:rgba(15,23,42,.1) !important;
+  color:#0f172a !important;
+  font-size:16px !important;
+  line-height:1 !important;
+  padding:0 !important;
+  cursor:pointer !important;
+  flex:0 0 auto !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+body.dashboard-page .msb-tag-people{
+  font-size:11px !important;
+}
+body.dashboard-page .msb-tag-people .form-control,
+body.dashboard-page .msb-tag-people input{
+  height:30px !important;
+  min-height:30px !important;
+  font-size:12px !important;
+}
+body.dashboard-page .alert{
+  font-size:11px !important;
+  padding:6px 8px !important;
+  margin-bottom:8px !important;
+}
+body.dashboard-page .custom-file-label,
+body.dashboard-page .custom-control-label{
+  font-size:11px !important;
+}
+body.dashboard-page .progress{
+  height:4px !important;
+}
+body.dashboard-page .alert{
+  font-size:11px !important;
+  padding:6px 8px !important;
+  margin-bottom:8px !important;
+}
+body.dashboard-page .custom-file-label,
+body.dashboard-page .custom-control-label{
+  font-size:11px !important;
+}
+body.dashboard-page .progress{
+  height:4px !important;
+}
+@media (max-width: 575.98px){
+  body.dashboard-page #createPostForm .btn,
+  body.dashboard-page #createPostForm button{
+    width:auto !important;
+  }
+}
 </style>
 
 <script src="./js/device_profile.js"></script>
@@ -864,7 +1837,7 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                   <div class="alert alert-danger">Category could not be created. Please try again.</div>
                 <?php endif; ?>
 
-                <div class="card mb-3">
+                <div class="card mb-3" hidden aria-hidden="true">
                   <div class="card-body">
                     <!-- <h6 class="mb-1">Create New Category / Folder</h6>
                     <small class="text-muted d-block mb-3">Create folders for videos, photos, descriptions/topics, mixed media, or files. New categories appear immediately in the post category dropdown below and in Gallery.</small> -->
@@ -899,8 +1872,8 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                   </div>
                 </div>
 
-                <!-- ✅ HOW TO CREATE A POST (Instructions) -->
-                <div class="alert alert-info create-post-type-box" style="border-left:4px solid #0861bc;background:<?php echo $isModalCreate ? $modalPageBgCss : 'var(--msb-palette-bg, #f5f7fb)'; ?> !important;color:<?php echo $isModalCreate ? $modalPageTextCss : 'var(--msb-palette-text, #0f172a)'; ?> !important;">
+                <!-- ✅ HOW TO CREATE A POST (Instructions) — UI hidden; auto-detect + selector stay active -->
+                <div class="alert alert-info create-post-type-box" hidden aria-hidden="true" style="border-left:4px solid #0861bc;background:<?php echo $isModalCreate ? $modalPageBgCss : 'var(--msb-palette-bg, #f5f7fb)'; ?> !important;color:<?php echo $isModalCreate ? $modalPageTextCss : 'var(--msb-palette-text, #0f172a)'; ?> !important;">
                   <!-- <div style="font-weight:900; font-size:15px; margin-bottom:6px;">
                     How to create a new post (Mobile/Tablet Feed)
                   </div> -->
@@ -1063,7 +2036,7 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                 });
                 </script>
 
-                <form id="createPostForm" action="post_save.php" method="post" enctype="multipart/form-data" data-modal="<?= $isModalCreate ? '1' : '0' ?>" onsubmit="return false;">
+                <form id="createPostForm" class="<?= $isModalCreate ? 'msb-composer' : '' ?>" action="post_save.php" method="post" enctype="multipart/form-data" data-modal="<?= $isModalCreate ? '1' : '0' ?>" onsubmit="return false;">
                   <?php echo csrfInput(); ?>
                   <input type="hidden" name="ajax" value="1">
                   <input type="hidden" name="post_id" id="createPostId" value="<?= (int)($editPost['id'] ?? 0) ?>">
@@ -1071,6 +2044,7 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                   <input type="hidden" name="device_viewport" value="">
                   <input type="hidden" name="return_to" id="createPostReturnTo" value="feed.php">
                   <div id="pendingUploadTokens"></div>
+                  <div id="removedAttachmentIds"></div>
                   <?php if ($isPublisherAccount): ?>
                   <input type="hidden" name="publisher_account" value="1">
                   <?php endif; ?>
@@ -1079,60 +2053,111 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                   <input type="hidden" name="layout_override" value="story">
                   <?php endif; ?>
                   <?php if ($editPost): ?>
-                  <div class="alert alert-secondary py-2 px-3 mb-3" style="font-size:13px;">
+                  <div class="alert alert-secondary py-2 px-3 mb-3 msb-composer-edit-note" style="font-size:13px;">
                     Editing post #<?= (int)$editPost['id'] ?><?= $editAttachmentCount > 0 ? (' · ' . $editAttachmentCount . ' existing media file' . ($editAttachmentCount === 1 ? '' : 's') . ' kept unless you add new ones') : '' ?>.
-                    Change <strong>Private</strong> / <strong>Friends</strong> / <strong>Public</strong> above to move this post.
+                    Change <strong>Private</strong> / <strong>Friends</strong> / <strong>Public</strong> to move this post.
                   </div>
                   <?php endif; ?>
-                  <div class="form-row">
-                    <div class="form-group col-md-6">
-                      <label>Title</label>
-                      <input type="text" name="title" class="form-control" maxlength="120" data-msb-mention="1"
-                        value="<?= h((string)($editPost['title'] ?? '')) ?>" placeholder="<?= $isStoryCreate ? 'e.g., My story moment…' : 'e.g., Today’s thought…' ?>">
-                      <small class="text-muted"><?= $isStoryCreate ? 'Optional for stories. Add a title, description, photo, or video.' : 'Super title for the post. With slides, this stays fixed at the top while each slide has its own subtitle. Type @ to tag people.' ?></small>
+
+                  <?php if ($isModalCreate): ?>
+                  <div class="msb-composer-identity">
+                    <div class="msb-composer-identity-left">
+                      <div class="msb-composer-avatar" aria-hidden="true">
+                        <img src="<?= h($composerAvatarUrl) ?>" alt="" data-live-avatar="1" data-avatar-base="<?= h($composerAvatarUrl) ?>" onerror="this.style.display='none';var s=this.nextElementSibling;if(s){s.hidden=false;}">
+                        <span hidden><?= h($composerInitials) ?></span>
+                      </div>
+                      <div class="msb-composer-identity-meta">
+                        <div class="msb-composer-name"><?= h($composerName) ?></div>
+                      </div>
                     </div>
-                  <div class="form-group col-md-6">
-                      <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
-                      <?php $vis = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends')); ?>
-                      <select name="visibility" id="createPostVisibility" class="form-control">
+                    <?php $vis = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends')); ?>
+                    <label class="msb-composer-audience-pill" for="createPostVisibility">
+                      <i class="fa fa-users" aria-hidden="true"></i>
+                      <select name="visibility" id="createPostVisibility" class="msb-composer-audience-select" aria-label="<?= $isStoryCreate ? 'Story audience' : 'Post destination' ?>">
                         <option value="private" <?= $vis==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
-                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends room (For You)' : 'Friends' ?></option>
-                        <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public room (Discover)' : 'Public' ?></option>
+                        <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends' : 'Friends' ?></option>
+                        <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public' : 'Public' ?></option>
                       </select>
-                      <?php if ($isStoryCreate): ?>
-                        <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → your <strong>story circle</strong> on feed.php. <strong>Public</strong> → story circle on public.php.</small>
-                      <?php elseif ($isPublisherAccount): ?>
-                        <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → post card on For You (feed.php). <strong>Public</strong> → Discover (public.php).</small>
-                      <?php else: ?>
-                      <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → friends (feed + Friend tab). <strong>Public</strong> → public.php + Public tab (friends and strangers).</small>
+                      <i class="fa fa-caret-down" aria-hidden="true"></i>
+                    </label>
+                  </div>
+                  <?php endif; ?>
+
+                  <div class="msb-composer-main form-group">
+                    <?php if (!$isModalCreate): ?><label>Introduction (optional)</label><?php endif; ?>
+                    <textarea name="body" id="createPostBody" class="form-control msb-composer-body" rows="<?= $isModalCreate ? '4' : '3' ?>" placeholder="<?= $isModalCreate ? h("What's on your mind, " . explode(' ', $composerName)[0] . '?') : 'Write an introduction under the title… Use @username to tag people' ?>" data-msb-mention="1"><?= h($editBodyText) ?></textarea>
+                    <?php if (!$isModalCreate): ?><small class="text-muted">Without slides, this is your post caption. With slides, it stays fixed under the title as the introduction. Type @ to tag friends.</small><?php endif; ?>
+                  </div>
+
+                  <?php
+                    $visClassic = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends'));
+                    $titleVal = (string)($editPost['title'] ?? '');
+                    $musicTitleVal = (string)($editPost['music_title'] ?? '');
+                    $musicArtistVal = (string)($editPost['music_artist'] ?? '');
+                    $hasTitlePanel = $titleVal !== '';
+                    $hasMusicPanel = ($musicTitleVal !== '' || $musicArtistVal !== '');
+                    $hasTagPanel = !empty($editTaggedUsers);
+                    $hasMediaPanel = !empty($editAttachments);
+                  ?>
+
+                  <div class="msb-composer-panel<?= ($isModalCreate && !$hasTitlePanel) ? '' : ' is-open' ?>" data-panel="title"<?= ($isModalCreate && !$hasTitlePanel) ? ' hidden' : '' ?>>
+                    <div class="msb-composer-panel-head">
+                      <strong>Title</strong>
+                      <?php if ($isModalCreate): ?><button type="button" class="msb-composer-panel-close" data-close-panel="title" aria-label="Hide title">&times;</button><?php endif; ?>
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group col-md-<?= $isModalCreate ? '12' : '6' ?> mb-0">
+                        <?php if (!$isModalCreate): ?><label>Title</label><?php endif; ?>
+                        <input type="text" name="title" id="createPostTitle" class="form-control" maxlength="120" data-msb-mention="1"
+                          value="<?= h($titleVal) ?>" placeholder="<?= $isStoryCreate ? 'e.g., My story moment…' : 'Add a title…' ?>">
+                        <?php if (!$isModalCreate): ?>
+                        <small class="text-muted"><?= $isStoryCreate ? 'Optional for stories. Add a title, description, photo, or video.' : 'Super title for the post. With slides, this stays fixed at the top while each slide has its own subtitle. Type @ to tag people.' ?></small>
+                        <?php endif; ?>
+                      </div>
+                      <?php if (!$isModalCreate): ?>
+                      <div class="form-group col-md-6 mb-0">
+                        <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
+                        <select name="visibility" id="createPostVisibility" class="form-control">
+                          <option value="private" <?= $visClassic==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
+                          <option value="friends" <?= $visClassic==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends room (For You)' : 'Friends' ?></option>
+                          <option value="public" <?= $visClassic==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public room (Discover)' : 'Public' ?></option>
+                        </select>
+                        <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → friends. <strong>Public</strong> → public feed.</small>
+                      </div>
                       <?php endif; ?>
                     </div>
                   </div>
-                  <div class="form-row">
-                    <div class="form-group col-md-6">
-                      <label>Music title (optional)</label>
-                      <input type="text" name="music_title" class="form-control" maxlength="120"
-                        value="<?= h((string)($editPost['music_title'] ?? '')) ?>" placeholder="e.g., Me &amp; My Jesus">
-                      <small class="text-muted">Shown under your name on feed and public post cards.</small>
+
+                  <div class="msb-composer-panel<?= ($isModalCreate && !$hasMusicPanel) ? '' : ' is-open' ?>" data-panel="music"<?= ($isModalCreate && !$hasMusicPanel) ? ' hidden' : '' ?>>
+                    <div class="msb-composer-panel-head">
+                      <strong>Music</strong>
+                      <?php if ($isModalCreate): ?><button type="button" class="msb-composer-panel-close" data-close-panel="music" aria-label="Hide music">&times;</button><?php endif; ?>
                     </div>
-                    <div class="form-group col-md-6">
-                      <label>Music artist (optional)</label>
-                      <input type="text" name="music_artist" class="form-control" maxlength="120"
-                        value="<?= h((string)($editPost['music_artist'] ?? '')) ?>" placeholder="e.g., Noël Mio">
+                    <div class="form-row">
+                      <div class="form-group col-md-6">
+                        <?php if (!$isModalCreate): ?><label>Music title (optional)</label><?php endif; ?>
+                        <input type="text" name="music_title" class="form-control" maxlength="120"
+                          value="<?= h($musicTitleVal) ?>" placeholder="Music title (optional)">
+                      </div>
+                      <div class="form-group col-md-6 mb-0">
+                        <?php if (!$isModalCreate): ?><label>Music artist (optional)</label><?php endif; ?>
+                        <input type="text" name="music_artist" class="form-control" maxlength="120"
+                          value="<?= h($musicArtistVal) ?>" placeholder="Artist (optional)">
+                      </div>
                     </div>
                   </div>
+
                   <?php if (!$isStoryCreate): ?>
-                  <div class="form-group">
+                  <div class="form-group" hidden aria-hidden="true">
                     <label>Special Feed Layout (optional)</label>
                     <select name="layout_override" class="form-control">
                       <option value="">Standard auto layout</option>
                       <option value="image_bottom" <?= $currentLayoutOverride==='image_bottom' ? 'selected' : '' ?>>Image only: description at bottom of image</option>
                       <option value="media_reel_bottom" <?= $currentLayoutOverride==='media_reel_bottom' ? 'selected' : '' ?>>Reel: single image or video with description at bottom</option>
                     </select>
-                    <small class="text-muted">Choose Reel when you want a single image or video to open in the style reel layout on public posts, with the caption anchored at the bottom of the media.</small>
                   </div>
                   <?php endif; ?>
-                  <div class="form-group">
+                  <div class="form-group" hidden aria-hidden="true">
                     <label>Category / Folder</label>
                     <select name="category_id" class="form-control">
                       <option value="0">Auto category by post type</option>
@@ -1143,78 +2168,129 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
                         </option>
                       <?php endforeach; ?>
                     </select>
-                    <small class="text-muted">Auto puts video posts into Video Category, photo posts into Photo Category, text/description posts into Topic Category, and mixed uploads into Mixed Category.</small>
                   </div>
                   <input type="hidden" name="description" value="">
-<div class="form-group">
-                    <label>Introduction (optional)</label>
-                    <textarea name="body" class="form-control" rows="3" placeholder="Write an introduction under the title… Use @username to tag people" data-msb-mention="1"><?= h($editBodyText) ?></textarea>
-                    <small class="text-muted">Without slides, this is your post caption. With slides, it stays fixed under the title as the introduction. Type @ to tag friends.</small>
-                  </div>
 
-                  <div class="form-group">
-                    <label>Tag people</label>
-                    <input type="text" id="createPostTagPeopleInput" class="form-control" placeholder="Type @username to tag someone" autocomplete="off" data-msb-mention="1">
-                    <input type="hidden" name="tagged_user_ids" id="createPostTaggedUserIds" value="">
-                    <div class="msb-tag-people" id="createPostTagPeopleChips" aria-live="polite"></div>
-                    <small class="text-muted">Tagged people get a notification and see this post on their Tags tab.</small>
-                  </div>
-
-                  <div class="form-group">
-                    <label>Slides (media + subtitle + summary)</label>
-                    <p class="small text-muted mb-2">Optional. Add slides for a presentation. Title + introduction stay at the top; each slide’s subtitle and summary change when viewers press next/prev.</p>
-                    <div id="createPostSlides" class="create-post-slides">
-                      <?php foreach ($editAttachments as $idx => $att): ?>
-                        <?php
-                          $aid = (int)($att['id'] ?? 0);
-                          $fp = preg_replace('#^public_user/#', '', (string)($att['file_path'] ?? ''));
-                          $atype = strtolower((string)($att['type'] ?? 'file'));
-                          $stitle = (string)($att['slide_title'] ?? '');
-                          $sbody = (string)($att['slide_body'] ?? '');
-                        ?>
-                        <div class="create-post-slide" data-existing-id="<?= $aid ?>">
-                          <div class="create-post-slide-media">
-                            <?php if ($atype === 'video'): ?>
-                              <video src="<?= h($fp) ?>" muted playsinline preload="metadata"></video>
-                            <?php elseif ($atype === 'image'): ?>
-                              <img src="<?= h($fp) ?>" alt="">
-                            <?php else: ?>
-                              <div class="create-post-slide-file"><?= h(strtoupper($atype) ?: 'FILE') ?></div>
-                            <?php endif; ?>
-                          </div>
-                          <div class="create-post-slide-fields">
-                            <div class="create-post-slide-label">Slide <?= (int)$idx + 1 ?></div>
-                            <input type="text" class="form-control form-control-sm mb-1" name="existing_slide_title[<?= $aid ?>]" value="<?= h($stitle) ?>" placeholder="Subtitle (optional)">
-                            <textarea class="form-control form-control-sm" name="existing_slide_body[<?= $aid ?>]" rows="3" placeholder="Summary for this slide (one idea per line = bullets)…"><?= h($sbody) ?></textarea>
-                          </div>
-                        </div>
-                      <?php endforeach; ?>
+                  <div class="msb-composer-panel<?= ($isModalCreate && !$hasTagPanel) ? '' : ' is-open' ?>" data-panel="tag"<?= ($isModalCreate && !$hasTagPanel) ? ' hidden' : '' ?>>
+                    <div class="msb-composer-panel-head">
+                      <strong>Tag people</strong>
+                      <?php if ($isModalCreate): ?><button type="button" class="msb-composer-panel-close" data-close-panel="tag" aria-label="Hide tags">&times;</button><?php endif; ?>
                     </div>
-                    <input type="file" id="createPostAttachments" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip" style="display:none;">
-                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="createPostAddSlideBtn"><i class="fa fa-plus" aria-hidden="true"></i> Add slide</button>
-                    <div id="createPostUploadStatus" class="small text-muted mt-1" aria-live="polite"><?php
-                      if ($editPost && $editAttachmentCount > 0) {
-                          echo h($editAttachmentCount . ' slide' . ($editAttachmentCount === 1 ? '' : 's') . ' already on this post. Add more below; existing media stays.');
-                      }
-                    ?></div>
-                    <div id="createPostUploadProgress" class="progress mt-2" style="height:6px;display:none;overflow:hidden;border-radius:999px;background:rgba(15,23,42,.08);">
-                      <div id="createPostUploadBar" class="progress-bar" role="progressbar" style="width:0%;height:100%;transition:width .08s linear;background:#2563eb;"></div>
+                    <div class="form-group mb-0">
+                      <?php if (!$isModalCreate): ?><label>Tag people</label><?php endif; ?>
+                      <input type="text" id="createPostTagPeopleInput" class="form-control" placeholder="Type @username to tag someone" autocomplete="off" data-msb-mention="1">
+                      <input type="hidden" name="tagged_user_ids" id="createPostTaggedUserIds" value="">
+                      <div class="msb-tag-people" id="createPostTagPeopleChips" aria-live="polite"></div>
                     </div>
                   </div>
 
-                  <div class="d-flex align-items-center">
-                    <!-- Edit/Post -->
-                    <button type="submit" id="createPostSubmitBtn" class="btn btn-primary mr-2"><?= $editPost ? '' : '' ?><i class="icon ion-arrow-up-a" style="font-size:20px;"></i></button>
-                    <?php if ($editPost || $isModalCreate): ?>
-                      <a href="dashboard.php<?php echo $isModalCreate ? ('?modal=1' . ($isStoryCreate ? '&story=1' : '') . ($editPost ? ('&edit=' . (int)$editPost['id']) : '')) : ''; ?>" class="btn btn-outline-secondary"<?= $isModalCreate ? ' onclick="try{if(window.parent&&window.parent.MSBCreatePostModal){window.parent.MSBCreatePostModal.close();return false;}}catch(_e){}"' : '' ?>>Cancel</a>
-                    <?php endif; ?>
-                    <?php if (!$isModalCreate): ?>
-                      <a href="feed.php" class="btn btn-outline-primary ml-auto<?= $isPublisherAccount ? '' : ' mr-2' ?>"><?= $isPublisherAccount ? 'Back to Feed' : 'Go to Feed' ?></a>
-                      <?php if (!$isPublisherAccount): ?>
-                      <a href="public.php" class="btn btn-outline-dark">Go to Public</a>
+                  <div class="msb-composer-panel<?= ($isModalCreate && !$hasMediaPanel) ? '' : ' is-open' ?>" data-panel="media"<?= ($isModalCreate && !$hasMediaPanel) ? ' hidden' : '' ?>>
+                    <div class="msb-composer-panel-head">
+                      <strong>Photos / videos</strong>
+                      <?php if ($isModalCreate): ?><button type="button" class="msb-composer-panel-close" data-close-panel="media" aria-label="Hide media">&times;</button><?php endif; ?>
+                    </div>
+                    <div class="form-group mb-0">
+                      <?php if (!$isModalCreate): ?>
+                      <label>Slides (media + subtitle + summary)</label>
+                      <p class="small text-muted mb-2">Optional. Add slides for a presentation. Scroll media inside the box; Add slide / Submit stay below.</p>
                       <?php endif; ?>
-                    <?php endif; ?>
+                      <div class="create-post-slides-panel">
+                      <div class="create-post-slides-shell">
+                        <div id="createPostSlides" class="create-post-slides" aria-label="Slides list">
+                          <?php foreach ($editAttachments as $idx => $att): ?>
+                            <?php
+                              $aid = (int)($att['id'] ?? 0);
+                              $fp = preg_replace('#^public_user/#', '', (string)($att['file_path'] ?? ''));
+                              $atype = strtolower((string)($att['type'] ?? 'file'));
+                              $stitle = (string)($att['slide_title'] ?? '');
+                              $sbody = (string)($att['slide_body'] ?? '');
+                            ?>
+                            <div class="create-post-slide" data-existing-id="<?= $aid ?>">
+                              <div class="create-post-slide-head">
+                                <div class="create-post-slide-label">Slide <?= (int)$idx + 1 ?></div>
+                                <button type="button" class="create-post-slide-remove" aria-label="Remove slide <?= (int)$idx + 1 ?>" title="Remove slide">&times;</button>
+                              </div>
+                              <div class="create-post-slide-media">
+                                <?php if ($atype === 'video'): ?>
+                                  <video src="<?= h($fp) ?>" muted playsinline preload="metadata"></video>
+                                <?php elseif ($atype === 'image'): ?>
+                                  <img src="<?= h($fp) ?>" alt="">
+                                <?php else: ?>
+                                  <div class="create-post-slide-file"><?= h(strtoupper($atype) ?: 'FILE') ?></div>
+                                <?php endif; ?>
+                              </div>
+                              <div class="create-post-slide-fields">
+                                <input type="text" class="form-control form-control-sm mb-1" name="existing_slide_title[<?= $aid ?>]" value="<?= h($stitle) ?>" placeholder="Subtitle (optional)">
+                                <textarea class="form-control form-control-sm" name="existing_slide_body[<?= $aid ?>]" rows="2" placeholder="Summary for this slide (one idea per line = bullets)…"><?= h($sbody) ?></textarea>
+                              </div>
+                            </div>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                      <input type="file" id="createPostAttachments" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip" style="display:none;">
+                      <div class="create-post-slides-actions">
+                      <div class="d-flex align-items-center justify-content-between flex-wrap" style="gap:8px;">
+                        <div class="d-flex align-items-center flex-wrap" style="gap:8px;min-width:0;flex:1 1 auto;">
+                          <button type="button" class="btn btn-outline-primary btn-sm" id="createPostAddSlideBtn"><i class="fa fa-plus" aria-hidden="true"></i> Add media</button>
+                          <div id="createPostUploadStatus" class="small text-muted mb-0" aria-live="polite" style="line-height:1.3;"><?php
+                            if ($editPost && $editAttachmentCount > 0) {
+                                echo h($editAttachmentCount . ' slide' . ($editAttachmentCount === 1 ? '' : 's') . ' already on this post. Add more below; existing media stays.');
+                            }
+                          ?></div>
+                        </div>
+                        <?php if (!$isModalCreate): ?>
+                        <div class="d-flex align-items-center">
+                          <button type="submit" id="createPostSubmitBtn" class="btn btn-primary mr-2"><i class="icon ion-arrow-up-a" aria-hidden="true"></i></button>
+                          <?php if ($editPost): ?>
+                            <a href="dashboard.php<?= $editPost ? ('?edit=' . (int)$editPost['id']) : '' ?>" class="btn btn-outline-secondary">Cancel</a>
+                          <?php endif; ?>
+                          <a href="feed.php" class="btn btn-outline-primary ml-2<?= $isPublisherAccount ? '' : ' mr-2' ?>"><?= $isPublisherAccount ? 'Back to Feed' : 'Go to Feed' ?></a>
+                          <?php if (!$isPublisherAccount): ?>
+                          <a href="public.php" class="btn btn-outline-dark">Go to Public</a>
+                          <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+                      </div>
+                      <div id="createPostUploadProgress" class="progress mt-2" style="height:6px;display:none;overflow:hidden;border-radius:999px;background:rgba(15,23,42,.08);">
+                        <div id="createPostUploadBar" class="progress-bar" role="progressbar" style="width:0%;height:100%;transition:width .08s linear;background:#2563eb;"></div>
+                      </div>
+                      </div>
+                      </div>
+                    </div>
                   </div>
+
+                  <?php if ($isModalCreate): ?>
+                  <div class="msb-composer-addbar" role="toolbar" aria-label="Add to your post">
+                    <span class="msb-composer-addbar-label">Add to your post</span>
+                    <div class="msb-composer-addbar-icons">
+                      <button type="button" class="msb-composer-tool" data-emoji-picker="1" title="Emoji" aria-label="Emoji" aria-expanded="false" aria-controls="msbComposerEmojiPicker"><i class="fa fa-smile-o" aria-hidden="true"></i></button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="media" title="Photo / video" aria-label="Photo or video"><i class="fa fa-image" aria-hidden="true"></i></button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="tag" title="Tag people" aria-label="Tag people"><i class="fa fa-user-plus" aria-hidden="true"></i></button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="music" title="Music" aria-label="Music"><i class="fa fa-music" aria-hidden="true"></i></button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="title" title="Title" aria-label="Title"><span class="msb-composer-aa">Aa</span></button>
+                    </div>
+                  </div>
+                  <div class="msb-composer-emoji-picker" id="msbComposerEmojiPicker" hidden role="dialog" aria-label="Emoji & Symbols">
+                    <div class="msb-composer-emoji-chrome">
+                      <button type="button" class="msb-composer-emoji-close" id="msbComposerEmojiClose" aria-label="Close">&times;</button>
+                      <button type="button" class="msb-composer-emoji-expand" id="msbComposerEmojiExpand" aria-label="Expand" title="More"><i class="fa fa-th" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="msb-composer-emoji-search-wrap">
+                      <i class="fa fa-search" aria-hidden="true"></i>
+                      <input type="search" class="msb-composer-emoji-search" id="msbComposerEmojiSearch" placeholder="Search" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="msb-composer-emoji-body">
+                      <div class="msb-composer-emoji-section-label" id="msbComposerEmojiLabel">Frequently Used</div>
+                      <div class="msb-composer-emoji-grid" id="msbComposerEmojiGrid"></div>
+                      <div class="msb-composer-emoji-empty" id="msbComposerEmojiEmpty" hidden>No emoji found</div>
+                    </div>
+                    <div class="msb-composer-emoji-cats" id="msbComposerEmojiCats" role="tablist" aria-label="Emoji categories"></div>
+                  </div>
+                  <div class="msb-composer-footer">
+                    <button type="submit" id="createPostSubmitBtn" class="btn btn-primary msb-composer-post-btn">Post</button>
+                    <button type="button" class="btn btn-outline-secondary msb-composer-cancel-btn" onclick="try{if(window.parent&&window.parent.MSBCreatePostModal){window.parent.MSBCreatePostModal.close();}}catch(_e){}">Cancel</button>
+                  </div>
+                  <?php endif; ?>
                 </form>
               </div>
             </div>
@@ -1247,11 +2323,6 @@ html[data-theme="light"]:not([data-msb-appearance]) body.dashboard-page.dashboar
         </div> -->
 
       </div><!-- sh-pagebody -->
-
-      <!-- <div class="sh-footer">
-        <div>Copyright &copy; 2017. All Rights Reserved. Talentra</div>
-        <div class="mg-t-10 mg-md-t-0">Designed by: <a href="http://themepixels.me">ThemePixels</a></div>
-      </div> -->
     </div><!-- sh-mainpanel -->
 
     
@@ -1422,6 +2493,110 @@ document.addEventListener('DOMContentLoaded', function(){
     return box.querySelectorAll('.create-post-slide').length + 1;
   }
 
+  function renumberSlideCards(){
+    const box = document.getElementById('createPostSlides');
+    if (!box) return;
+    const cards = box.querySelectorAll('.create-post-slide');
+    cards.forEach(function(card, idx){
+      const label = card.querySelector('.create-post-slide-label');
+      const btn = card.querySelector('.create-post-slide-remove');
+      const n = idx + 1;
+      if (label) label.textContent = 'Slide ' + n;
+      if (btn) {
+        btn.setAttribute('aria-label', 'Remove slide ' + n);
+        btn.setAttribute('title', 'Remove slide');
+      }
+    });
+  }
+
+  function syncPendingStatusMessage(){
+    if (uploading) return;
+    if (pendingCount > 0) {
+      setStatus(pendingCount + ' file' + (pendingCount > 1 ? 's' : '') + ' ready — click submit.', false);
+    } else {
+      const box = document.getElementById('createPostSlides');
+      const remaining = box ? box.querySelectorAll('.create-post-slide').length : 0;
+      if (remaining > 0) {
+        setStatus(remaining + ' slide' + (remaining > 1 ? 's' : '') + ' on this post.', false);
+      } else {
+        setStatus('', false);
+      }
+    }
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'msb-create-post-fit', force: 1 }, '*');
+      }
+    } catch (_fitDel) {}
+  }
+
+  function removeSlideCard(card){
+    if (!card) return;
+    const token = String(card.getAttribute('data-token') || '').trim();
+    const existingId = parseInt(card.getAttribute('data-existing-id') || '0', 10) || 0;
+
+    try {
+      card.querySelectorAll('img[src^="blob:"], video[src^="blob:"]').forEach(function(el){
+        try { URL.revokeObjectURL(el.getAttribute('src') || ''); } catch (_r) {}
+      });
+    } catch (_blob) {}
+
+    if (token && tokenBox) {
+      Array.prototype.slice.call(tokenBox.querySelectorAll('input[data-pending-token="1"]')).forEach(function(inp){
+        if (String(inp.value || '') === token) {
+          if (inp.parentNode) inp.parentNode.removeChild(inp);
+          pendingCount = Math.max(0, pendingCount - 1);
+        }
+      });
+    }
+
+    if (existingId > 0) {
+      let removeBox = document.getElementById('removedAttachmentIds');
+      if (!removeBox && f) {
+        removeBox = document.createElement('div');
+        removeBox.id = 'removedAttachmentIds';
+        f.appendChild(removeBox);
+      }
+      if (removeBox) {
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'remove_attachment_ids[]';
+        inp.value = String(existingId);
+        removeBox.appendChild(inp);
+      }
+    }
+
+    if (card.parentNode) card.parentNode.removeChild(card);
+    renumberSlideCards();
+    syncPendingStatusMessage();
+    syncSubmitEnabled();
+  }
+
+  function scrollSlidesToLatest(card){
+    const box = document.getElementById('createPostSlides');
+    if (!box) return;
+    const go = function(){
+      try {
+        /* Keep the full "Slide N" label in view (not clipped at the top). */
+        if (card && box.contains(card)) {
+          var pad = 12;
+          box.scrollTop = Math.max(0, card.offsetTop - pad);
+        } else {
+          box.scrollTop = box.scrollHeight;
+        }
+      } catch (_e) {
+        box.scrollTop = box.scrollHeight;
+      }
+      if (window.parent && window.parent !== window) {
+        try { window.parent.postMessage({ type: 'msb-create-post-fit' }, '*'); } catch (_m) {}
+      }
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function(){ requestAnimationFrame(go); });
+    } else {
+      setTimeout(go, 0);
+    }
+  }
+
   function addSlideCardForToken(token, fileMeta){
     const box = document.getElementById('createPostSlides');
     if (!box || !token) return;
@@ -1429,6 +2604,23 @@ document.addEventListener('DOMContentLoaded', function(){
     const card = document.createElement('div');
     card.className = 'create-post-slide';
     card.dataset.token = token;
+
+    const label = document.createElement('div');
+    label.className = 'create-post-slide-label';
+    label.textContent = 'Slide ' + n;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'create-post-slide-remove';
+    removeBtn.setAttribute('aria-label', 'Remove slide ' + n);
+    removeBtn.title = 'Remove slide';
+    removeBtn.innerHTML = '&times;';
+
+    const head = document.createElement('div');
+    head.className = 'create-post-slide-head';
+    head.appendChild(label);
+    head.appendChild(removeBtn);
+
     const media = document.createElement('div');
     media.className = 'create-post-slide-media';
     const type = String((fileMeta && fileMeta.type) || '').toLowerCase();
@@ -1451,12 +2643,18 @@ document.addEventListener('DOMContentLoaded', function(){
     const fields = document.createElement('div');
     fields.className = 'create-post-slide-fields';
     fields.innerHTML =
-      '<div class="create-post-slide-label">Slide '+n+'</div>' +
       '<input type="text" class="form-control form-control-sm mb-1" name="slide_title['+token+']" placeholder="Subtitle (optional)">' +
-      '<textarea class="form-control form-control-sm" name="slide_body['+token+']" rows="3" placeholder="Summary for this slide (one idea per line = bullets)…"></textarea>';
+      '<textarea class="form-control form-control-sm" name="slide_body['+token+']" rows="2" placeholder="Summary for this slide (one idea per line = bullets)…"></textarea>';
+    card.appendChild(head);
     card.appendChild(media);
     card.appendChild(fields);
     box.appendChild(card);
+    try {
+      if (typeof window.msbComposerOpenPanel === 'function') {
+        window.msbComposerOpenPanel('media');
+      }
+    } catch (_openMedia) {}
+    scrollSlidesToLatest(card);
   }
 
   function formatBytes(n){
@@ -1545,16 +2743,46 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 
+  function humanUploadError(code, message){
+    const msg = String(message || '').trim();
+    if (msg) return msg;
+    const map = {
+      too_large: 'File is too large (max 100MB).',
+      unsupported_type: 'That file type is not supported. Use JPG, PNG, GIF, WEBP, MP4, MOV, or PDF.',
+      heic_unsupported: 'HEIC/HEIF photos are not supported. Export as JPG or PNG and try again.',
+      mime_mismatch: 'File type did not match its contents. Try another export.',
+      move_failed: 'Could not save the file on the server. Try again.',
+      dir_not_writable: 'Upload folder is not writable on the server.',
+      invalid_tmp: 'Upload did not arrive completely. Try again.',
+      partial: 'Upload was interrupted. Try again.',
+      csrf: 'Session expired. Refresh the page and try again.',
+      auth: 'Please sign in again, then retry the upload.',
+      readonly: 'This account cannot upload media.',
+      no_files: 'No file was received. Try choosing the file again.',
+      upload_failed: 'Upload failed. Try again or submit to upload on save.'
+    };
+    const key = String(code || '').trim();
+    return map[key] || ('Upload failed' + (key ? (' (' + key + ')') : '') + '.');
+  }
+
   function uploadOneFile(file, onByteProgress){
     return new Promise(function(resolve){
       const csrf = csrfInput ? String(csrfInput.value || '') : '';
       const fd = new FormData();
       if (csrf) fd.append('csrf_token', csrf);
-      fd.append('attachments[]', file, file.name);
+      // Use non-bracket name + bracket alias for broader PHP/CGI compatibility.
+      fd.append('attachments[]', file, file.name || 'upload.bin');
 
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', 'ajax/post_media_upload.php', true);
-      xhr.responseType = 'json';
+      const uploadUrl = (function(){
+        try {
+          return new URL('ajax/post_media_upload.php', window.location.href).toString();
+        } catch (_e) {
+          return 'ajax/post_media_upload.php';
+        }
+      })();
+      xhr.open('POST', uploadUrl, true);
+      xhr.responseType = 'text';
       xhr.upload.onprogress = function(ev){
         if (!ev.lengthComputable) return;
         if (typeof onByteProgress === 'function') onByteProgress(ev.loaded, ev.total, false);
@@ -1567,18 +2795,23 @@ document.addEventListener('DOMContentLoaded', function(){
         }
       };
       xhr.onload = function(){
-        let data = xhr.response;
-        if (!data || typeof data !== 'object') {
-          try { data = JSON.parse(xhr.responseText || '{}'); } catch (_e) { data = null; }
+        let data = null;
+        const raw = String(xhr.responseText || '').trim();
+        if (raw) {
+          try { data = JSON.parse(raw); } catch (_e) { data = null; }
         }
         if (!data || !data.ok || !Array.isArray(data.files) || !data.files.length) {
-          const err = data && data.error ? String(data.error) : ('http_' + String(xhr.status || 0));
-          resolve({ ok: false, error: err });
+          let err = data && data.error ? String(data.error) : ('http_' + String(xhr.status || 0));
+          if (data && Array.isArray(data.errors) && data.errors[0] && data.errors[0].error) {
+            err = String(data.errors[0].error);
+          }
+          const message = data && data.message ? String(data.message) : '';
+          resolve({ ok: false, error: err, message: message });
           return;
         }
         resolve({ ok: true, files: data.files });
       };
-      xhr.onerror = function(){ resolve({ ok: false }); };
+      xhr.onerror = function(){ resolve({ ok: false, error: 'network', message: 'Network error while uploading.' }); };
       xhr.send(fd);
     });
   }
@@ -1666,7 +2899,8 @@ document.addEventListener('DOMContentLoaded', function(){
           }
           return {
             ok: tokens.length > 0,
-            error: (res && !res.ok && res.error) ? String(res.error) : ''
+            error: (res && !res.ok && res.error) ? String(res.error) : '',
+            message: (res && !res.ok && res.message) ? String(res.message) : ''
           };
         });
       });
@@ -1677,6 +2911,7 @@ document.addEventListener('DOMContentLoaded', function(){
     let nextIdx = 0;
     let okFiles = 0;
     let lastError = '';
+    let lastMessage = '';
 
     function worker(){
       if (nextIdx >= files.length) return Promise.resolve();
@@ -1684,8 +2919,9 @@ document.addEventListener('DOMContentLoaded', function(){
       return runOne(idx).then(function(result){
         if (result && result.ok) {
           okFiles++;
-        } else if (result && result.error) {
-          lastError = String(result.error);
+        } else if (result && (result.error || result.message)) {
+          lastError = String(result.error || '');
+          lastMessage = String(result.message || '');
         }
         return worker();
       });
@@ -1699,14 +2935,25 @@ document.addEventListener('DOMContentLoaded', function(){
       activeUploads = 0;
       syncSubmitEnabled();
       if (okFiles <= 0) {
-        const hint = lastError ? (' (' + lastError + ')') : '';
-        setStatus('Upload failed' + hint + '. You can still submit and files will upload then.', true);
+        setStatus(humanUploadError(lastError, lastMessage) + ' You can still submit and files will upload then.', true);
         setTimeout(function(){ setProgress(0, false); }, 700);
         return;
       }
       setProgress(100, true);
       setStatus(pendingCount + ' file' + (pendingCount > 1 ? 's' : '') + ' ready — click submit.', false);
       setTimeout(function(){ setProgress(0, false); }, 450);
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'msb-create-post-fit', force: 1 }, '*');
+        }
+      } catch (_fitReady) {}
+      setTimeout(function(){
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'msb-create-post-fit', force: 1 }, '*');
+          }
+        } catch (_fitReady2) {}
+      }, 120);
     }).catch(function(){
       uploading = false;
       activeUploads = 0;
@@ -1729,6 +2976,27 @@ document.addEventListener('DOMContentLoaded', function(){
       fileInput.click();
     });
   }
+
+  const slidesBoxEl = document.getElementById('createPostSlides');
+  if (slidesBoxEl) {
+    slidesBoxEl.addEventListener('click', function(ev){
+      const btn = ev.target && ev.target.closest ? ev.target.closest('.create-post-slide-remove') : null;
+      if (!btn || !slidesBoxEl.contains(btn)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const card = btn.closest('.create-post-slide');
+      if (card) removeSlideCard(card);
+    });
+  }
+
+  // Editing an existing post with many slides: keep the latest in front.
+  (function(){
+    const box = document.getElementById('createPostSlides');
+    if (!box) return;
+    const cards = box.querySelectorAll('.create-post-slide');
+    if (!cards.length) return;
+    scrollSlidesToLatest(cards[cards.length - 1]);
+  })();
 
   f.addEventListener('submit', function(ev){
     ev.preventDefault();
@@ -1861,6 +3129,415 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 })();
 </script>
+<?php if ($isModalCreate): ?>
+<script>
+(function(){
+  var form = document.getElementById('createPostForm');
+  if (!form || !form.classList.contains('msb-composer')) return;
+
+  function fitParent(){
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'msb-create-post-fit', force: 1 }, '*');
+      }
+    } catch (_e) {}
+  }
+
+  function syncTools(){
+    form.querySelectorAll('.msb-composer-tool[data-open-panel]').forEach(function(btn){
+      var key = btn.getAttribute('data-open-panel');
+      var panel = form.querySelector('.msb-composer-panel[data-panel="'+key+'"]');
+      var open = !!(panel && !panel.hasAttribute('hidden'));
+      btn.classList.toggle('is-active', open);
+    });
+  }
+
+  function openPanel(key, opts){
+    opts = opts || {};
+    var panel = form.querySelector('.msb-composer-panel[data-panel="'+key+'"]');
+    if (!panel) return;
+    panel.hidden = false;
+    panel.classList.add('is-open');
+    syncTools();
+    fitParent();
+    if (key === 'media' && opts.pickFile) {
+      var addBtn = document.getElementById('createPostAddSlideBtn');
+      if (addBtn) setTimeout(function(){ addBtn.click(); }, 30);
+    }
+    if (key === 'tag') {
+      var tagInput = document.getElementById('createPostTagPeopleInput');
+      if (tagInput) setTimeout(function(){ tagInput.focus(); }, 40);
+    }
+    if (key === 'title') {
+      var titleInput = document.getElementById('createPostTitle');
+      if (titleInput) setTimeout(function(){ titleInput.focus(); }, 40);
+    }
+    if (key === 'music') {
+      var musicInput = form.querySelector('input[name="music_title"]');
+      if (musicInput) setTimeout(function(){ musicInput.focus(); }, 40);
+    }
+  }
+
+  function closePanel(key){
+    var panel = form.querySelector('.msb-composer-panel[data-panel="'+key+'"]');
+    if (!panel) return;
+    /* Keep media panel open if slides still exist. */
+    if (key === 'media') {
+      var slides = document.getElementById('createPostSlides');
+      if (slides && slides.querySelector('.create-post-slide')) return;
+    }
+    panel.hidden = true;
+    panel.classList.remove('is-open');
+    syncTools();
+    fitParent();
+  }
+
+  window.msbComposerOpenPanel = function(key){ openPanel(key, {}); };
+
+  form.addEventListener('click', function(ev){
+    var openBtn = ev.target.closest('[data-open-panel]');
+    if (openBtn && form.contains(openBtn)) {
+      try { closeEmojiPicker(); } catch (_ce) {}
+      ev.preventDefault();
+      var key = openBtn.getAttribute('data-open-panel');
+      var panel = form.querySelector('.msb-composer-panel[data-panel="'+key+'"]');
+      if (panel && !panel.hasAttribute('hidden') && key === 'media') {
+        openPanel(key, { pickFile: true });
+        return;
+      }
+      if (panel && !panel.hasAttribute('hidden')) {
+        closePanel(key);
+        return;
+      }
+      openPanel(key, { pickFile: key === 'media' });
+      return;
+    }
+    var closeBtn = ev.target.closest('[data-close-panel]');
+    if (closeBtn && form.contains(closeBtn)) {
+      ev.preventDefault();
+      closePanel(closeBtn.getAttribute('data-close-panel'));
+    }
+  });
+
+
+  /* Emoji picker → insert into description or title (fixed so full box stays visible) */
+  var emojiBtn = form.querySelector('[data-emoji-picker]');
+  var emojiPicker = document.getElementById('msbComposerEmojiPicker');
+  var emojiGrid = document.getElementById('msbComposerEmojiGrid');
+  var emojiLabel = document.getElementById('msbComposerEmojiLabel');
+  var emojiEmpty = document.getElementById('msbComposerEmojiEmpty');
+  var emojiCats = document.getElementById('msbComposerEmojiCats');
+  var emojiSearch = document.getElementById('msbComposerEmojiSearch');
+  var emojiClose = document.getElementById('msbComposerEmojiClose');
+  var emojiExpand = document.getElementById('msbComposerEmojiExpand');
+  var emojiHost = form.querySelector('.msb-composer-addbar') || form;
+  var bodyField = document.getElementById('createPostBody');
+  var titleField = document.getElementById('createPostTitle');
+  var lastTextField = bodyField;
+  var activeCat = 'recents';
+  var RECENT_KEY = 'msbComposerEmojiRecents';
+  var DEFAULT_RECENTS = ["👍", "😂", "❤️", "😍", "😊", "🙏", "🔥", "👏", "😅", "😎", "🥰", "😭", "😮", "🤔", "🎉", "💯", "✨", "👀", "🙌", "💪", "🫡", "😴", "😇", "😜"];
+  var CATEGORIES = [
+    { id:"recents", label:"Frequently Used", icon:"fa-clock-o", emojis:null },
+    { id:"smileys", label:"Smileys & People", icon:"fa-smile-o", emojis:["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🫡", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈", "👿", "👻", "💀", "☠️", "👽", "🤖", "🎃", "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "💪", "👀", "👁️", "👅", "👄", "💋", "👶", "🧒", "👦", "👧", "🧑", "👨", "👩", "🧓", "👴", "👵"] },
+    { id:"animals", label:"Animals & Nature", icon:"fa-paw", emojis:["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒", "🐔", "🐧", "🐦", "🐤", "🦆", "🦅", "🦉", "🦇", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞", "🐜", "🐢", "🐍", "🦎", "🦖", "🦕", "🐙", "🦑", "🦐", "🦞", "🦀", "🐡", "🐠", "🐟", "🐬", "🐳", "🐋", "🦈", "🐊", "🐅", "🐆", "🦓", "🦍", "🐘", "🦛", "🦏", "🐪", "🦒", "🦘", "🐄", "🐎", "🐖", "🐏", "🐑", "🦙", "🐐", "🦌", "🐕", "🐈", "🐓", "🦃", "🦚", "🦜", "🦢", "🦩", "🐇", "🦝", "🦨", "🦡", "🦦", "🦥", "🌵", "🎄", "🌲", "🌳", "🌴", "🌱", "🌿", "☘️", "🍀", "🍃", "🍂", "🍁", "🍄", "💐", "🌷", "🌹", "🥀", "🌺", "🌸", "🌼", "🌻", "🌞", "🌝", "🌙", "⭐", "🌟", "✨", "⚡", "💥", "🔥", "🌈", "☀️", "☁️", "⛅", "🌧️", "⛈️", "❄️", "☃️", "⛄", "💨", "💧", "💦", "☔", "🌊"] },
+    { id:"food", label:"Food & Drink", icon:"fa-apple", emojis:["🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥬", "🥒", "🌶️", "🫑", "🌽", "🥕", "🫒", "🧄", "🧅", "🥔", "🍠", "🥐", "🥯", "🍞", "🥖", "🥨", "🧀", "🥚", "🍳", "🧈", "🥞", "🧇", "🥓", "🥩", "🍗", "🍖", "🌭", "🍔", "🍟", "🍕", "🫓", "🥪", "🥙", "🧆", "🌮", "🌯", "🥗", "🍝", "🍜", "🍲", "🍛", "🍣", "🍱", "🥟", "🍤", "🍙", "🍚", "🍘", "🍥", "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯", "🥛", "☕", "🍵", "🧃", "🥤", "🍶", "🍺", "🍻", "🥂", "🍷", "🥃", "🍸", "🍹", "🍾", "🧊"] },
+    { id:"activity", label:"Activity", icon:"fa-futbol-o", emojis:["⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🥅", "⛳", "🏹", "🎣", "🥊", "🥋", "🎽", "🛹", "⛸️", "🎿", "🏂", "🏋️", "🤸", "🤺", "🏌️", "🏇", "🧘", "🏄", "🏊", "🚣", "🚴", "🏆", "🥇", "🥈", "🥉", "🏅", "🎖️", "🎯", "🎮", "🕹️", "🎰", "🎲", "🧩", "♟️", "🎭", "🎨", "🎼", "🎤", "🎧", "🎷", "🎸", "🎹", "🎺", "🎻", "🥁", "🎬"] },
+    { id:"travel", label:"Travel & Places", icon:"fa-car", emojis:["🚗", "🚕", "🚙", "🚌", "🚎", "🏎️", "🚓", "🚑", "🚒", "🚐", "🛻", "🚚", "🚛", "🚜", "🛴", "🚲", "🛵", "🏍️", "🛺", "🚨", "🚔", "🚍", "🚘", "🚖", "✈️", "🛫", "🛬", "🚀", "🛸", "🚁", "⛵", "🚤", "🚢", "⚓", "⛽", "🚧", "🚦", "🚥", "🚏", "🗺️", "🗽", "🗼", "🏰", "🏯", "🏟️", "🎡", "🎢", "🎠", "⛲", "⛺", "🏠", "🏡", "🏢", "🏬", "🏥", "🏦", "🏨", "🏪", "🏫", "⛪", "🕌", "🕍", "⛩️", "🕋", "🌁", "🌃", "🏙️", "🌄", "🌅", "🌆", "🌇", "🌉"] },
+    { id:"objects", label:"Objects", icon:"fa-lightbulb-o", emojis:["⌚", "📱", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "🕹️", "💽", "💾", "💿", "📀", "📷", "🎥", "📞", "☎️", "📺", "📻", "⏰", "⌛", "⏳", "📡", "🔋", "🔌", "💡", "🔦", "💸", "💵", "💴", "💶", "💷", "💰", "💳", "💎", "🧰", "🔧", "🔨", "🔩", "⚙️", "💣", "🔫", "🔮", "🔭", "🔬", "💊", "💉", "🧹", "🛒", "🎁", "🎀", "🎈", "🎉", "🎊", "✉️", "📧", "📦", "📁", "📂", "📝", "📒", "📕", "📗", "📘", "📙", "📚", "📌", "📍", "✂️", "🖊️", "🖋️", "🔑", "🔒", "🔓"] },
+    { id:"symbols", label:"Symbols", icon:"fa-heart-o", emojis:["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "☮️", "✝️", "☪️", "🕉️", "☸️", "✡️", "☯️", "⚛️", "❌", "⭕", "🛑", "⛔", "📛", "🚫", "💯", "💢", "♨️", "❗", "❕", "❓", "❔", "‼️", "⁉️", "⚠️", "✅", "❎", "♻️", "🔵", "🟢", "🟡", "🟠", "🔴", "🟣", "🟤", "⚫", "⚪", "🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "⬛", "⬜"] },
+    { id:"flags", label:"Flags", icon:"fa-flag", emojis:["🏳️", "🏴", "🏁", "🚩", "🏳️‍🌈", "🇺🇳", "🇺🇸", "🇨🇦", "🇲🇽", "🇧🇷", "🇦🇷", "🇬🇧", "🇮🇪", "🇫🇷", "🇩🇪", "🇮🇹", "🇪🇸", "🇵🇹", "🇳🇱", "🇧🇪", "🇨🇭", "🇸🇪", "🇳🇴", "🇩🇰", "🇫🇮", "🇵🇱", "🇺🇦", "🇷🇺", "🇹🇷", "🇬🇷", "🇮🇳", "🇨🇳", "🇯🇵", "🇰🇷", "🇹🇭", "🇻🇳", "🇵🇭", "🇮🇩", "🇲🇾", "🇸🇬", "🇦🇺", "🇳🇿", "🇿🇦", "🇪🇬", "🇳🇬", "🇮🇱", "🇸🇦", "🇦🇪"] }
+  ];
+  var SEARCH_NAMES = {"👍": "thumbs up like", "👎": "thumbs down", "😂": "joy laugh crying", "❤️": "heart red love", "😍": "heart eyes love", "😊": "smile blush", "🙏": "pray thanks please", "🔥": "fire lit", "👏": "clap applause", "😅": "sweat smile", "😎": "cool sunglasses", "🥰": "smiling hearts", "😭": "sob cry", "😮": "wow open mouth", "🤔": "thinking", "🎉": "party tada", "💯": "hundred", "✨": "sparkles", "👀": "eyes look", "🙌": "raised hands", "💪": "muscle strong", "🫡": "salute", "😴": "sleep", "😇": "angel halo", "😜": "wink tongue", "😀": "grin", "🤣": "rofl", "😘": "kiss", "🥳": "party", "🥺": "pleading", "😡": "rage", "👻": "ghost", "🐶": "dog", "🐱": "cat", "🍎": "apple", "🍕": "pizza", "🍔": "burger", "⚽": "soccer", "🏀": "basketball", "🎮": "game", "🚗": "car", "✈️": "airplane", "🚀": "rocket", "🏠": "house", "📱": "phone", "💻": "laptop", "💡": "bulb", "🇺🇸": "usa", "🇨🇦": "canada", "🇬🇧": "uk", "🇫🇷": "france", "🇩🇪": "germany", "🇯🇵": "japan", "🇰🇷": "korea", "🇨🇳": "china", "🇮🇳": "india", "🇦🇺": "australia"};
+
+  function loadRecents(){
+    try {
+      var raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      if (Array.isArray(raw) && raw.length) {
+        return raw.filter(function(e){ return typeof e === 'string' && e; }).slice(0, 48);
+      }
+    } catch (_e) {}
+    return DEFAULT_RECENTS.slice();
+  }
+
+  function saveRecent(emoji){
+    if (!emoji) return;
+    var list = loadRecents().filter(function(e){ return e !== emoji; });
+    list.unshift(emoji);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 48))); } catch (_e) {}
+  }
+
+  function catById(id){
+    for (var i = 0; i < CATEGORIES.length; i++) {
+      if (CATEGORIES[i].id === id) return CATEGORIES[i];
+    }
+    return CATEGORIES[0];
+  }
+
+  function currentEmojis(){
+    var q = ((emojiSearch && emojiSearch.value) || '').trim().toLowerCase();
+    if (q) {
+      var list = [];
+      CATEGORIES.forEach(function(cat){
+        var src = cat.id === 'recents' ? loadRecents() : (cat.emojis || []);
+        src.forEach(function(e){
+          if (!e || list.indexOf(e) !== -1) return;
+          var name = (SEARCH_NAMES[e] || '').toLowerCase();
+          if (name.indexOf(q) !== -1 || e.indexOf(q) !== -1) list.push(e);
+        });
+      });
+      return list;
+    }
+    var cat = catById(activeCat);
+    if (cat.id === 'recents') return loadRecents();
+    return cat.emojis || [];
+  }
+
+  function renderEmojiGrid(){
+    if (!emojiGrid) return;
+    var list = currentEmojis().filter(Boolean);
+    var searching = !!(emojiSearch && emojiSearch.value.trim());
+    if (emojiLabel) {
+      emojiLabel.textContent = searching ? 'Search Results' : (catById(activeCat).label || 'Emojis');
+    }
+    if (!list.length) {
+      emojiGrid.innerHTML = '';
+      if (emojiEmpty) emojiEmpty.hidden = false;
+      return;
+    }
+    if (emojiEmpty) emojiEmpty.hidden = true;
+    emojiGrid.innerHTML = list.map(function(e){
+      return '<button type="button" data-emoji="'+e+'" title="'+(SEARCH_NAMES[e] || 'Emoji')+'" aria-label="Insert emoji">'+e+'</button>';
+    }).join('');
+  }
+
+  function renderCats(){
+    if (!emojiCats) return;
+    emojiCats.innerHTML = CATEGORIES.map(function(cat){
+      return '<button type="button" class="msb-composer-emoji-cat'+(cat.id === activeCat ? ' is-active' : '')+'" data-cat="'+cat.id+'" title="'+cat.label+'" aria-label="'+cat.label+'"><i class="fa '+cat.icon+'" aria-hidden="true"></i></button>';
+    }).join('');
+  }
+
+  function setActiveCat(id){
+    activeCat = id || 'recents';
+    if (emojiSearch) emojiSearch.value = '';
+    renderCats();
+    renderEmojiGrid();
+    placeEmojiPicker();
+  }
+
+  function placeEmojiPicker(){
+    if (!emojiPicker || emojiPicker.hidden || !emojiBtn) return;
+    var btnRect = emojiBtn.getBoundingClientRect();
+    var vw = window.innerWidth || document.documentElement.clientWidth || 320;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 480;
+    var pad = 8;
+    emojiPicker.style.visibility = 'hidden';
+    emojiPicker.style.display = 'flex';
+    var pw = Math.min(300, vw - pad * 2);
+    emojiPicker.style.width = pw + 'px';
+    emojiPicker.style.left = '0px';
+    emojiPicker.style.top = '0px';
+    var chrome = 78;
+    var catsH = 40;
+    var desiredBody = 180;
+    var spaceAbove = Math.max(0, btnRect.top - pad);
+    var spaceBelow = Math.max(0, vh - btnRect.bottom - pad);
+    var placeAbove = spaceAbove >= 220 || spaceAbove >= spaceBelow;
+    var avail = placeAbove ? spaceAbove : spaceBelow;
+    var maxBox = Math.max(160, Math.min(340, avail - 4));
+    var bodyMax = Math.max(72, maxBox - chrome - catsH);
+    var bodyEl = emojiPicker.querySelector('.msb-composer-emoji-body');
+    if (bodyEl) bodyEl.style.maxHeight = bodyMax + 'px';
+    emojiPicker.style.maxHeight = maxBox + 'px';
+    var ph = emojiPicker.offsetHeight || maxBox;
+    var left = Math.round(btnRect.left + (btnRect.width / 2) - (pw / 2));
+    left = Math.max(pad, Math.min(vw - pw - pad, left));
+    var top;
+    if (placeAbove) {
+      top = Math.round(btnRect.top - ph - 8);
+      if (top < pad) top = pad;
+    } else {
+      top = Math.round(btnRect.bottom + 8);
+      if (top + ph > vh - pad) top = Math.max(pad, vh - ph - pad);
+    }
+    emojiPicker.style.left = left + 'px';
+    emojiPicker.style.top = top + 'px';
+    emojiPicker.style.visibility = 'visible';
+  }
+
+  function closeEmojiPicker(){
+    if (!emojiPicker) return;
+    emojiPicker.hidden = true;
+    emojiPicker.style.visibility = '';
+    if (emojiHost && emojiPicker.parentNode !== emojiHost) {
+      try { emojiHost.appendChild(emojiPicker); } catch (_e) {}
+    }
+    if (emojiBtn) {
+      emojiBtn.classList.remove('is-active');
+      emojiBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function openEmojiPicker(){
+    if (!emojiPicker) return;
+    try { document.body.appendChild(emojiPicker); } catch (_e) {}
+    emojiPicker.hidden = false;
+    if (emojiBtn) {
+      emojiBtn.classList.add('is-active');
+      emojiBtn.setAttribute('aria-expanded', 'true');
+    }
+    renderCats();
+    renderEmojiGrid();
+    requestAnimationFrame(function(){
+      placeEmojiPicker();
+      requestAnimationFrame(placeEmojiPicker);
+    });
+    if (emojiSearch) setTimeout(function(){ try { emojiSearch.focus(); } catch (_e2) {} }, 40);
+  }
+
+  function toggleEmojiPicker(){
+    if (!emojiPicker) return;
+    if (emojiPicker.hidden) openEmojiPicker();
+    else closeEmojiPicker();
+  }
+
+  function emojiTargetField(){
+    var active = document.activeElement;
+    if (active === bodyField || active === titleField) return active;
+    if (lastTextField === titleField || lastTextField === bodyField) return lastTextField;
+    var titlePanel = form.querySelector('.msb-composer-panel[data-panel="title"]');
+    if (titlePanel && !titlePanel.hasAttribute('hidden') && titleField) return titleField;
+    return bodyField || titleField;
+  }
+
+  function insertEmojiAtCursor(el, emoji){
+    if (!el || !emoji) return;
+    var start = typeof el.selectionStart === 'number' ? el.selectionStart : (el.value || '').length;
+    var end = typeof el.selectionEnd === 'number' ? el.selectionEnd : start;
+    var val = String(el.value || '');
+    el.value = val.slice(0, start) + emoji + val.slice(end);
+    var pos = start + emoji.length;
+    try { el.setSelectionRange(pos, pos); } catch (_e) {}
+    el.focus();
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e2) {}
+  }
+
+  if (bodyField) bodyField.addEventListener('focus', function(){ lastTextField = bodyField; });
+  if (titleField) titleField.addEventListener('focus', function(){ lastTextField = titleField; });
+
+  renderCats();
+  renderEmojiGrid();
+
+  if (emojiBtn) {
+    emojiBtn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggleEmojiPicker();
+    });
+  }
+  if (emojiClose) {
+    emojiClose.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      closeEmojiPicker();
+    });
+  }
+  if (emojiExpand) {
+    emojiExpand.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      var body = emojiPicker && emojiPicker.querySelector('.msb-composer-emoji-body');
+      if (!body) return;
+      var expanded = body.getAttribute('data-expanded') === '1';
+      body.setAttribute('data-expanded', expanded ? '0' : '1');
+      body.style.maxHeight = expanded ? '' : '260px';
+      placeEmojiPicker();
+    });
+  }
+  if (emojiCats) {
+    emojiCats.addEventListener('click', function(ev){
+      var btn = ev.target.closest('[data-cat]');
+      if (!btn || !emojiCats.contains(btn)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      setActiveCat(btn.getAttribute('data-cat'));
+    });
+  }
+  if (emojiSearch) {
+    emojiSearch.addEventListener('input', function(){ renderEmojiGrid(); placeEmojiPicker(); });
+    emojiSearch.addEventListener('keydown', function(ev){
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        closeEmojiPicker();
+      }
+    });
+  }
+  if (emojiGrid) {
+    emojiGrid.addEventListener('click', function(ev){
+      var btn = ev.target.closest('button[data-emoji]');
+      if (!btn || !emojiGrid.contains(btn)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      var emoji = btn.getAttribute('data-emoji') || btn.textContent || '';
+      saveRecent(emoji);
+      insertEmojiAtCursor(emojiTargetField(), emoji);
+      if (activeCat === 'recents' && !(emojiSearch && emojiSearch.value.trim())) renderEmojiGrid();
+    });
+  }
+
+  document.addEventListener('click', function(ev){
+    if (!emojiPicker || emojiPicker.hidden) return;
+    if (emojiPicker.contains(ev.target)) return;
+    if (emojiBtn && emojiBtn.contains(ev.target)) return;
+    closeEmojiPicker();
+  });
+  window.addEventListener('resize', function(){
+    if (emojiPicker && !emojiPicker.hidden) placeEmojiPicker();
+  });
+
+
+  syncTools();
+  setTimeout(fitParent, 80);
+})();
+</script>
+<script>
+(function(){
+  function scrubWaste(){
+    try {
+      document.querySelectorAll('.sh-footer, .app-footer').forEach(function(el){
+        el.setAttribute('hidden', 'hidden');
+        el.style.setProperty('display', 'none', 'important');
+        el.style.setProperty('height', '0', 'important');
+        if (el.parentNode) el.parentNode.removeChild(el);
+      });
+      var main = document.querySelector('.sh-mainpanel');
+      var page = document.querySelector('.sh-pagebody');
+      if (main) {
+        main.style.setProperty('height', 'auto', 'important');
+        main.style.setProperty('min-height', '0', 'important');
+      }
+      if (page) {
+        page.style.setProperty('height', 'auto', 'important');
+        page.style.setProperty('min-height', '0', 'important');
+        page.style.setProperty('padding-bottom', '0', 'important');
+      }
+      document.documentElement.style.setProperty('height', 'auto', 'important');
+      document.body.style.setProperty('height', 'auto', 'important');
+      document.body.style.setProperty('min-height', '0', 'important');
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'msb-create-post-fit' }, '*');
+      }
+    } catch (_e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scrubWaste);
+  else scrubWaste();
+  window.addEventListener('load', scrubWaste);
+  setTimeout(scrubWaste, 120);
+  setTimeout(scrubWaste, 400);
+})();
+</script>
+<?php endif; ?>
 
 </body>
 </html>

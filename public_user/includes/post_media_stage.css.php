@@ -120,7 +120,7 @@ function post_media_stage_css(string $scope = ''): string
         $lines[] = $s('.mf-media-shell > .mf-media-top-actions .mf-friend-btn{display:inline-flex!important}');
         $lines[] = $s('.mf-media-shell:has(> .mf-head--on-media){display:grid!important;grid-template:1fr / 1fr;background:transparent!important}');
         if (strpos($scope, 'profilePostsFeed') !== false) {
-            $lines[] = $s('.mf-card:has(.mf-head--on-media){padding:8px 40px!important;box-sizing:border-box!important}');
+            $lines[] = $s('.mf-card:has(.mf-head--on-media){padding:8px 12px!important;box-sizing:border-box!important}');
             $lines[] = $s('.mf-card:has(.mf-head--on-media) > .mf-actions{padding:10px 0 8px!important}');
         }
         $pubCard = $card . '[data-is-publisher="1"]';
@@ -130,7 +130,7 @@ function post_media_stage_css(string $scope = ''): string
             . $pubCard . ' .mf-media-shell:has(> .mf-head--on-media) > .mf-media-top-actions,'
             . $pubCard . ' .mf-media-shell:has(> .standard-media-bottom) > .standard-media-bottom{grid-area:1 / 1}';
         $lines[] = $s('.mf-media-shell:has(> .mf-head--on-media) > .mf-media,') . $s('.mf-media-shell:has(> .mf-head--on-media) > .media-stage{width:100%!important;max-width:100%!important;margin:0!important;padding:0!important;background:transparent!important}');
-        $lines[] = $s('.mf-media-shell > .mf-head--on-media{position:relative!important;align-self:start!important;justify-self:stretch!important;z-index:25!important;display:flex!important;align-items:center!important;gap:12px!important;padding:2px 6px 14px!important;box-sizing:border-box!important;width:100%!important;pointer-events:none;background:transparent!important;margin:0!important}');
+        $lines[] = $s('.mf-media-shell > .mf-head--on-media{position:relative!important;align-self:start!important;justify-self:stretch!important;z-index:25!important;display:flex!important;align-items:center!important;gap:12px!important;padding:1px 0 12px!important;box-sizing:border-box!important;width:100%!important;pointer-events:none;background:transparent!important;margin:0!important}');
         $lines[] = $s('.mf-media-shell > .mf-head--on-media .mf-peer-link,') . $s('.mf-media-shell > .mf-head--on-media .mf-menu-wrap,') . $s('.mf-media-shell > .mf-head--on-media .post-card-menu-wrap,') . $s('.mf-media-shell > .mf-head--on-media .post-card-menu-btn{pointer-events:auto;background:transparent!important}');
         $lines[] = $s('.mf-media-shell > .mf-head--on-media .mf-name,') . $s('.mf-media-shell > .mf-head--on-media .mf-time,') . $s('.mf-media-shell > .mf-head--on-media .mf-dot,') . $s('.mf-media-shell > .mf-head--on-media .mf-menu-btn{color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.34)}');
         $lines[] = $s('.mf-media-shell > .mf-head--on-media .mf-avatar img{border-color:#fff}');

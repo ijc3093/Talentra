@@ -36,6 +36,10 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
 
         $key = 'u' . $uid;
         $friendCode = strtoupper(trim((string)($post['friend_code'] ?? '')));
+        $friendStatus = strtolower(trim((string)($post['friend_status'] ?? $post['friendStatus'] ?? '')));
+        if ($friendStatus === '') {
+            $friendStatus = 'none';
+        }
         $isPublisher = story_catalog_item_is_publisher($post);
 
         if (!isset($byUser[$key])) {
@@ -45,6 +49,7 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
                 'name' => trim((string)($post['display_name'] ?? $post['username'] ?? 'User')),
                 'username' => trim((string)($post['username'] ?? '')),
                 'friendCode' => $friendCode,
+                'friendStatus' => $friendStatus,
                 'account_kind' => $isPublisher ? 'publisher' : (string)($post['account_kind'] ?? 'personal'),
                 'verified' => $isPublisher || !empty($post['is_verified']),
                 'isPublisher' => $isPublisher,
@@ -53,6 +58,10 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
                 'subtitle' => '',
                 'slides' => [],
             ];
+        } elseif ($friendStatus === 'friends' || empty($byUser[$key]['friendStatus']) || $byUser[$key]['friendStatus'] === 'none') {
+            if ($friendStatus !== 'none' || empty($byUser[$key]['friendStatus'])) {
+                $byUser[$key]['friendStatus'] = $friendStatus;
+            }
         }
 
         $storyWhen = (string)($post['updated_at'] ?? $post['created_at'] ?? '');

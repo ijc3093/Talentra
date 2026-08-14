@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/session_user.php';
 requireUserLogin();
+require_once __DIR__ . '/includes/home_tabs.php';
+home_redirect_legacy_entry((defined('MSB_PUBLIC_FEED_SURFACE') && MSB_PUBLIC_FEED_SURFACE === 'news') ? 'news' : 'public');
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/friend_system.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
@@ -31,16 +33,23 @@ device_profile_ensure_post_columns($dbh);
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $isPublisherWorkspaceViewer = publisher_workspace_viewer($dbh, $meId);
+$registerWelcome = null;
+if (!$discoverFragmentRequest && !empty($_SESSION['register_welcome']) && is_array($_SESSION['register_welcome'])) {
+    $registerWelcome = $_SESSION['register_welcome'];
+    unset($_SESSION['register_welcome']);
+}
 $canFollowOnPublicMenu = $canFollowPublishers || $isPublisherWorkspaceViewer;
 $staffReadonly = staff_pub_is_readonly();
 $canLiveStudio = live_studio_user_can_access($dbh, $meId);
 $feedLeftRailPublicPublishers = staff_pub_menu_for_viewer($dbh, $meId);
 $feedSurface = (defined('MSB_PUBLIC_FEED_SURFACE') && MSB_PUBLIC_FEED_SURFACE === 'news') ? 'news' : 'public';
-$selfPage = $feedSurface === 'news' ? 'news.php' : 'public.php';
-$pageTitle = $feedSurface === 'news' ? 'News' : 'Public';
+$selfPage = defined('MSB_HOME_BOOTSTRAP') ? 'home.php' : ($feedSurface === 'news' ? 'news.php' : 'public.php');
 $isNewsSurface = ($feedSurface === 'news');
 $q = trim((string)($_GET['q'] ?? ''));
-$discoverTab = strtolower(trim((string)($_GET['tab'] ?? ($isNewsSurface ? 'news' : 'public'))));
+$discoverTab = home_tab_internal(strtolower(trim((string)($_GET['tab'] ?? ($isNewsSurface ? 'news' : 'public')))));
+$pageTitle = $isNewsSurface
+    ? 'News'
+    : ($discoverTab === 'for-you' ? 'For You' : ($discoverTab === 'public' ? 'Discover' : 'Public'));
 $discoverTabs = [
     'for-you' => 'For You',
     'public' => 'Discover',
@@ -360,26 +369,39 @@ function public_caption_card_html(string $caption, int $maxSentences = 3, int $m
     return post_caption_card_html($caption, $maxSentences, $maxChars);
 }
 
-$where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND p.visibility = 'public' AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
+$isForYouTab = ($discoverTab === 'for-you');
 $params = [];
-if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
-    $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
-    $params[':fsBlockMe'] = $meId;
-    $params[':fsBlockMe2'] = $meId;
-}
-$where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, $isNewsSurface);
-$params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, $isNewsSurface));
-if (publisher_public_stranger_surface($dbh, $meId)) {
-    $where .= " AND (
-        COALESCE(u.account_kind, 'personal') <> 'publisher'
-        OR p.user_id = :pubBrandOwn
-        OR " . publisher_public_discoverable_publisher_sql($dbh, 'u') . '
-    )';
-    $params[':pubBrandOwn'] = $meId;
-}
-// Publishers never see personal-user posts on public.php — publisher posts only.
-if ($isPublisherWorkspaceViewer) {
-    $where .= ' AND ' . publisher_author_is_publisher_sql('u');
+if ($isForYouTab) {
+    // For You: same friends / followed-publisher scope as feed_api list (no 24h public window).
+    $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0";
+    if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
+        $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
+        $params[':fsBlockMe'] = $meId;
+        $params[':fsBlockMe2'] = $meId;
+    }
+    $where .= ' AND ' . publisher_feed_list_scope_sql_for($dbh, $meId);
+    $params = array_merge($params, publisher_feed_list_scope_params_for($dbh, $meId));
+} else {
+    $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND p.visibility = 'public' AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
+    if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
+        $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
+        $params[':fsBlockMe'] = $meId;
+        $params[':fsBlockMe2'] = $meId;
+    }
+    $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, $isNewsSurface);
+    $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, $isNewsSurface));
+    if (publisher_public_stranger_surface($dbh, $meId)) {
+        $where .= " AND (
+            COALESCE(u.account_kind, 'personal') <> 'publisher'
+            OR p.user_id = :pubBrandOwn
+            OR " . publisher_public_discoverable_publisher_sql($dbh, 'u') . '
+        )';
+        $params[':pubBrandOwn'] = $meId;
+    }
+    // Publishers never see personal-user posts on public.php — publisher posts only.
+    if ($isPublisherWorkspaceViewer) {
+        $where .= ' AND ' . publisher_author_is_publisher_sql('u');
+    }
 }
 if ($q !== '') {
     $where .= " AND (COALESCE(p.title,'') LIKE :qTitle OR COALESCE(p.body,'') LIKE :qBody OR COALESCE(u.name,u.username,'') LIKE :qName OR COALESCE(u.username,'') LIKE :qUser)";
@@ -416,15 +438,15 @@ foreach (publisher_academic_categories() as $categorySlug => $_categoryLabel) {
 foreach (publisher_custom_categories($dbh) as $categorySlug => $_categoryLabel) {
     $publisherCategoryTabs[$categorySlug] = $categorySlug;
 }
-if ($discoverTab === 'enterprise') {
+if (!$isForYouTab && $discoverTab === 'enterprise') {
     $where .= ' AND ' . publisher_author_is_publisher_sql('u');
     $where .= " AND LOWER(TRIM(COALESCE(u.publisher_category,''))) IN ('enterprise','commerce')";
-} elseif (isset($publisherCategoryTabs[$discoverTab])) {
+} elseif (!$isForYouTab && isset($publisherCategoryTabs[$discoverTab])) {
     // Category tabs are publisher lanes (view + Follow), not personal Discover.
     $where .= ' AND ' . publisher_author_is_publisher_sql('u');
     $where .= " AND LOWER(TRIM(COALESCE(u.publisher_category,''))) = :discoverCategory";
     $params[':discoverCategory'] = $publisherCategoryTabs[$discoverTab];
-} elseif (!$isNewsSurface && $discoverTab === 'public') {
+} elseif (!$isForYouTab && !$isNewsSurface && $discoverTab === 'public') {
     // Discover: personal users see people (add friend). Publishers see publishers only.
     if (!$isPublisherWorkspaceViewer) {
         $where .= ' AND ' . publisher_author_is_personal_sql('u');
@@ -510,7 +532,7 @@ JOIN users u ON u.id = p.user_id
 WHERE p.id = :pinId
   AND p.is_deleted = 0
   AND COALESCE(p.is_archived,0) = 0
-  AND p.visibility = 'public'
+  " . ($isForYouTab ? '' : "AND p.visibility = 'public'\n  ") . "
 LIMIT 1";
             $stPin = $dbh->prepare($pinSql);
             $stPin->execute([
@@ -521,7 +543,12 @@ LIMIT 1";
                 ':me3Pin' => $meId,
             ]);
             $pinRow = $stPin->fetch(PDO::FETCH_ASSOC) ?: null;
-            if (is_array($pinRow) && publisher_post_visible_on_public_surface($dbh, $meId, $pinRow)) {
+            $pinVisible = is_array($pinRow) && (
+                $isForYouTab
+                    ? publisher_can_view_post($dbh, $meId, $pinRow)
+                    : publisher_post_visible_on_public_surface($dbh, $meId, $pinRow)
+            );
+            if ($pinVisible) {
                 $authorKind = strtolower((string)($pinRow['account_kind'] ?? 'personal'));
                 $isPubAuthor = ($authorKind === 'publisher');
                 // Discover: personal viewers pin people; publishers pin publishers.
@@ -529,6 +556,8 @@ LIMIT 1";
                 $allowPin = true;
                 if ($isNewsSurface) {
                     $allowPin = $isPubAuthor;
+                } elseif ($discoverTab === 'for-you') {
+                    $allowPin = true;
                 } elseif ($discoverTab === 'public') {
                     $allowPin = $isPublisherWorkspaceViewer ? $isPubAuthor : !$isPubAuthor;
                 } elseif ($discoverTab === 'enterprise' || isset($publisherCategoryTabs[$discoverTab])) {
@@ -663,6 +692,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title><?= h($pageTitle) ?></title>
+  <?php require __DIR__ . '/includes/entry_wake_overlay.php'; ?>
   <script>
     try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
   </script>
@@ -1051,7 +1081,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .standard-text-title{
       margin:0 0 6px;
       color:var(--public-text);
-      font-size:16px;
+      font-size:15px;
       font-weight:800;
       line-height:1.3;
     }
@@ -1155,8 +1185,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       display:inline-flex !important;
       align-items:center;
       justify-content:center;
-      width:22px;height:22px;min-width:22px;min-height:22px;flex:0 0 22px;
-      font-size:20px !important;
+      width:16px;height:16px;min-width:16px;min-height:16px;flex:0 0 16px;
+      font-size:16px !important;
       line-height:1 !important;
       font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif !important;
       background:transparent !important;
@@ -1170,8 +1200,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .standard-text-btn.is-save i{color:#f59e0b !important}
     .standard-text-btn .action-count{
       color:var(--public-muted);
-      font-size:14px;
-      font-weight:800;
+      font-size:12px;
+      font-weight:600;
       line-height:1;
       text-shadow:var(--msb-pact-contrast-text-shadow, 0 0 2px rgba(255,255,255,.95), 0 1px 2px rgba(0,0,0,.45));
     }
@@ -1815,7 +1845,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .standard-media-title{
       margin:0 0 6px;
       color:#fff;
-      font-size:16px;
+      font-size:15px;
       font-weight:800;
       line-height:1.3;
     }
@@ -1926,8 +1956,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .standard-media-btn.is-save i{color:#f59e0b !important}
     .standard-media-btn .action-count{
       color:#fff;
-      font-size:14px;
-      font-weight:800;
+      font-size:12px;
+      font-weight:600;
       line-height:1;
     }
     .standard-media-comments,
@@ -1990,14 +2020,14 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       border-top:1px solid var(--public-border);
     }
     .action-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .action-left,.action-right{display:flex;align-items:center;gap:26px}
-    .action-btn{background:none;border:none;padding:0;color:var(--public-text);font-size:15px;line-height:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
+    .action-left,.action-right{display:flex;align-items:center;gap:14px}
+    .action-btn{background:none;border:none;padding:0;color:var(--public-text);font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;cursor:pointer}
     .action-btn:hover{opacity:.78}
     .action-btn i{
       color:#fff !important;
       text-shadow:0 1px 2px rgba(0,0,0,.55);
     }
-    .action-btn .action-count{font-size:13px;font-weight:700;color:var(--public-muted);line-height:1}
+    .action-btn .action-count{font-size:12px;font-weight:600;color:var(--public-muted);line-height:1}
     .action-btn.is-love i{color:var(--msb-love-color, #7c3aed) !important}
     .action-btn.is-like i{color:#2563eb !important}
     .action-btn.is-share i{color:#6b7280 !important}
@@ -2331,7 +2361,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .post-sheet .modal-content,.confirm-sheet .modal-content{border:none;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.18)}
     .post-sheet .modal-dialog,.confirm-sheet .modal-dialog{max-width:420px}
     .sheet-list{padding:10px 0;background:#fff}
-    .sheet-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:16px 22px;border:none;background:#fff;color:#111;font-size:17px;font-weight:700;border-bottom:1px solid #f1f5f9}
+    .sheet-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:none;background:#fff;color:#111;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9}
     .sheet-btn:last-child{border-bottom:none}
     .sheet-btn:hover{background:#f8fafc}
     .sheet-btn.primary{color:var(--blue)}
@@ -2340,11 +2370,11 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .sheet-btn.is-accept{color:#1d4ed8}
     .sheet-btn.danger{color:#dc2626}
     .sheet-cancel{background:#f8fafc;color:#374151}
-    .confirm-sheet .modal-body{padding:28px 22px 14px;text-align:center}
-    .confirm-sheet .confirm-title{font-size:20px;font-weight:800;color:#111;margin-bottom:8px}
-    .confirm-sheet .confirm-copy{font-size:14px;color:#6b7280;line-height:1.5;margin:0}
-    .confirm-sheet .modal-footer{border-top:none;padding:0 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .confirm-sheet .btn{height:46px;border-radius:12px;font-weight:700}
+    .confirm-sheet .modal-body{padding:20px 16px 12px;text-align:center}
+    .confirm-sheet .confirm-title{font-size:15px;font-weight:700;color:#111;margin-bottom:6px}
+    .confirm-sheet .confirm-copy{font-size:13px;color:#6b7280;line-height:1.45;margin:0}
+    .confirm-sheet .modal-footer{border-top:none;padding:0 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .confirm-sheet .btn{height:34px;border-radius:999px;font-weight:600;font-size:13px}
 
     @media (max-width: 1199.98px){
       .msg-pill{right:16px;bottom:18px;padding:13px 18px}
@@ -2911,10 +2941,14 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       }
 
       body .standard-text-card{
-        padding:2px 6px 0;
+        padding:0 !important;
         /* background:transparent; */
         color:var(--public-text);
         /* padding: 30px; */
+      }
+      body .post.public-post-card.public-text-only:not(.is-reel-post){
+        padding:8px 12px !important;
+        box-sizing:border-box !important;
       }
 
       body .standard-text-topbar{
@@ -2935,9 +2969,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         grid-area:stack;
         align-self:start;
         justify-self:stretch;
-        width:calc(100% - 12px);
+        width:100%;
         /* margin:20px 15px 20px; */
-        padding:2px 5px;
+        padding:1px 0 12px;
         box-sizing:border-box;
         z-index:5;
         pointer-events:none;
@@ -3173,7 +3207,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .standard-media-title{
         margin:0 0 8px;
         color:var(--public-text);
-        font-size:20px;
+        font-size:15px;
         font-weight:800;
         line-height:1.28;
       }
@@ -3289,25 +3323,25 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
 
       body .standard-text-btn i{
         color:var(--msb-palette-text, var(--public-text)) !important;
-        font-size:20px;
+        font-size:16px;
         filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
       }
       body .standard-media-btn i{
         color:#fff !important;
-        font-size:20px;
+        font-size:16px;
         filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
       }
 
       body .standard-text-btn .action-count{
         color:var(--msb-palette-text, var(--public-text));
-        font-size:13px;
+        font-size:12px;
         font-weight:600;
         line-height:1;
         text-shadow:var(--msb-pact-contrast-text-shadow, 0 0 2px rgba(255,255,255,.95), 0 1px 2px rgba(0,0,0,.45));
       }
       body .standard-media-btn .action-count{
         color:#fff;
-        font-size:13px;
+        font-size:12px;
         font-weight:600;
         line-height:1;
         text-shadow:0 1px 3px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.5);
@@ -3370,12 +3404,12 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .post.public-post-card:not(.is-reel-post) .standard-media-bottom{
         grid-area:bottom;
         position:static;
-        margin-right: -10px;
+        margin-right:0;
         left:auto;
         right:auto;
         bottom:auto;
         z-index:auto;
-        padding:2px 6px 0;
+        padding:0;
         background:var(--public-post-card-surface);
         color:var(--public-text);
         margin-top:12px;
@@ -3823,7 +3857,7 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
   display:flex;
   align-items:stretch;
   width:100%;
-  margin-top:10px;
+  margin-top:8px;
   overflow-x:auto;
   scrollbar-width:none;
 }
@@ -3832,9 +3866,9 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
   position:relative;
   flex:1 0 auto;
   min-width:max-content;
-  padding:12px 12px 14px;
+  padding:6px 10px 10px;
   color:var(--public-muted, #667085);
-  font-size:14px;
+  font-size:13px;
   font-weight:400;
   line-height:1.2;
   text-align:center;
@@ -3850,7 +3884,7 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
 }
 .feed-discover-tab.is-active{
   color:var(--public-text, #0d0d0d);
-  font-size:14px;
+  font-size:13px;
   font-weight:400;
 }
 .feed-discover-tab.is-active::after{
@@ -3858,9 +3892,9 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
   position:absolute;
   left:50%;
   bottom:0;
-  width:68px;
+  width:40px;
   max-width:70%;
-  height:4px;
+  height:3px;
   border-radius:999px;
   background:#1d9bf0;
   transform:translateX(-50%);
@@ -4722,9 +4756,9 @@ body.public-page .post.public-post-card .post-card-menu-btn,
 body.news-page .post.public-post-card .post-card-menu-btn{
   width:auto!important;
   height:auto!important;
-  min-width:var(--pcm-menu-btn-size, 28px)!important;
-  min-height:var(--pcm-menu-btn-size, 28px)!important;
-  padding:6px 4px!important;
+  min-width:var(--pcm-menu-btn-size, 24px)!important;
+  min-height:var(--pcm-menu-btn-size, 24px)!important;
+  padding:4px 2px!important;
   flex:0 0 auto!important;
   border:0!important;
   border-radius:0!important;
@@ -4738,7 +4772,6 @@ body.news-page .post.public-post-card .post-card-menu-btn{
 body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn,
 body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn{
   color:#fff!important;
-  --pcm-fries-filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(0,0,0,.5));
 }
 body.public-page .post.public-post-card .standard-text-topbar .post-card-menu-btn,
 body.public-page .post.public-post-card .post-card-head-actions .post-card-menu-btn,
@@ -4758,9 +4791,27 @@ body.public-page .post.public-post-card .post-card-menu-btn i,
 body.news-page .post.public-post-card .post-card-menu-btn i,
 body.public-page .post.public-post-card .post-card-menu-btn .pcm-fries-icon,
 body.news-page .post.public-post-card .post-card-menu-btn .pcm-fries-icon{
-  font-size:16px!important;
+  font-size:12px!important;
   line-height:1!important;
   transform:none!important;
+}
+body.public-page .post.public-post-card .post-card-menu-btn .pcm-fries-icon,
+body.news-page .post.public-post-card .post-card-menu-btn .pcm-fries-icon{
+  width:10px!important;
+  gap:2px!important;
+}
+body.public-page .post.public-post-card .post-card-menu-btn .pcm-fries-bar,
+body.news-page .post.public-post-card .post-card-menu-btn .pcm-fries-bar{
+  height:1.25px!important;
+  width:10px!important;
+  filter:none!important;
+  -webkit-filter:none!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+body.public-page .post.public-post-card .post-card-menu-btn .pcm-fries-bar--short,
+body.news-page .post.public-post-card .post-card-menu-btn .pcm-fries-bar--short{
+  width:6px!important;
 }
 body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn i,
 body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn i,
@@ -4782,7 +4833,6 @@ body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn
   border:0!important;
   color:#0f172a!important;
   box-shadow:none!important;
-  --pcm-fries-filter:drop-shadow(0 1px 1px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.75));
 }
 body.public-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media i,
 body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn.pcm-on-dark-media i,
@@ -4869,6 +4919,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 </style>
 </head>
 <body class="public-page feed-insta-ui public-suggestions-visible<?= $isNewsSurface ? ' news-page' : '' ?>">
+<?php require __DIR__ . '/includes/register_welcome_modal.php'; ?>
 <?php $GLOBALS['msb_skip_header_leftbar'] = true; $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
 <?php $feedLeftRailActive = isset($publicNavTabs[$discoverTab]) ? $discoverTab : $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__ . '/includes/feed_left_rail.php'; ?>
   <div class="sh-mainpanel">
@@ -4897,7 +4948,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     <div class="feed-desktop-layout">
       <div class="feed-side-search" aria-label="Search posts">
         <form class="feed-top-search-form feed-side-search-form" method="get" action="<?= h($selfPage) ?>">
-          <input type="hidden" name="tab" value="<?= h($discoverTab) ?>">
+          <input type="hidden" name="tab" value="<?= h(home_tab_url_key($discoverTab)) ?>">
           <div class="feed-top-search-field">
             <button type="submit" class="feed-top-search-icon" aria-label="Search">
               <i class="fa fa-search" aria-hidden="true"></i>
@@ -4920,19 +4971,17 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             <nav class="feed-discover-tabs" aria-label="Explore categories">
               <?php foreach ($discoverTabs as $tabKey => $tabLabel): ?>
                 <?php
-                  $tabQuery = ['tab' => $tabKey];
+                  $tabQuery = [];
                   if ($q !== '') {
                       $tabQuery['q'] = $q;
                   }
-                  $tabPage = $tabKey === 'for-you'
-                      ? 'feed.php'
-                      : ($tabKey === 'news' ? 'news.php' : 'public.php');
                   $isOptionalDiscoverTab = isset($optionalDiscoverTabs[$tabKey]);
                   $optionalTabActive = $isOptionalDiscoverTab && $discoverTab === $tabKey;
+                  $tabHref = home_tab_url($tabKey, $tabQuery);
                 ?>
                 <a
                   class="feed-discover-tab<?= $discoverTab === $tabKey ? ' is-active' : '' ?><?= $isOptionalDiscoverTab ? ' feed-program-tab-item' : '' ?>"
-                  href="<?= h($tabPage . '?' . http_build_query($tabQuery)) ?>"
+                  href="<?= h($tabHref) ?>"
                   <?= $isOptionalDiscoverTab ? 'data-program-slug="' . h($tabKey) . '"' : '' ?>
                   <?= $discoverTab === $tabKey ? 'aria-current="page"' : '' ?>
                   <?= ($isOptionalDiscoverTab && !$optionalTabActive) ? 'hidden' : '' ?>
@@ -4947,55 +4996,47 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         <script>
         (function(){
           var tabs = document.querySelector('.feed-discover-tabs');
-          if(!tabs) return;
           var storageKey = 'msbDiscoverTabsScroll';
-          try{
-            var saved = Number(sessionStorage.getItem(storageKey) || 0);
-            if(saved > 0) tabs.scrollLeft = saved;
-          }catch(e){}
+          if(tabs){
+            try{
+              var saved = Number(sessionStorage.getItem(storageKey) || 0);
+              if(saved > 0) tabs.scrollLeft = saved;
+            }catch(e){}
+          }
           var requestController = null;
           var tabHtmlCache = Object.create(null);
           var tabHtmlRequests = Object.create(null);
-          function activateTab(link){
-            var selected = new URL(link.href, window.location.href).searchParams.get('tab') || 'for-you';
+          function tabKeyFromLink(link){
+            try{
+              return new URL(link.href, window.location.href).searchParams.get('tab') || 'for-you';
+            }catch(err){
+              return 'for-you';
+            }
+          }
+          function activateDiscoverTabs(selected){
+            if(!tabs) return;
             tabs.querySelectorAll('.feed-discover-tab').forEach(function(tab){
-              var active = (new URL(tab.href, window.location.href).searchParams.get('tab') || 'for-you') === selected;
+              var active = tabKeyFromLink(tab) === selected;
               tab.classList.toggle('is-active', active);
               if(active) tab.setAttribute('aria-current', 'page');
               else tab.removeAttribute('aria-current');
             });
           }
+          function activateLeftProgramNav(selected){
+            document.querySelectorAll('a.feed-program-nav-item').forEach(function(link){
+              var slug = link.getAttribute('data-program-slug') || tabKeyFromLink(link);
+              var active = slug === selected || (selected === 'discover' && slug === 'public') || (selected === 'public' && slug === 'public');
+              link.classList.toggle('is-active', active);
+              if(active) link.setAttribute('aria-current', 'page');
+              else link.removeAttribute('aria-current');
+            });
+          }
+          function activateChromeForTab(selected){
+            activateDiscoverTabs(selected);
+            activateLeftProgramNav(selected);
+          }
           function prefetchTab(link){
             if(!link || !window.fetch || tabHtmlCache[link.href] || tabHtmlRequests[link.href]) return;
-            if(new URL(link.href, window.location.href).pathname.endsWith('/feed.php')){
-              if(!document.querySelector('link[data-msb-feed-prefetch]')){
-                var feedPrefetch = document.createElement('link');
-                feedPrefetch.rel = 'prefetch';
-                feedPrefetch.href = link.href;
-                feedPrefetch.setAttribute('data-msb-feed-prefetch', '1');
-                document.head.appendChild(feedPrefetch);
-              }
-              if(!window.__msbForYouDataPrefetch){
-                window.__msbForYouDataPrefetch = true;
-                fetch('feed_api.php?ajax=list&filter=all&order=recent&limit=200', {
-                  credentials:'same-origin',
-                  headers:{'X-Requested-With':'XMLHttpRequest'}
-                }).then(function(response){
-                  if(!response.ok) throw new Error('For You preload failed');
-                  return response.json();
-                }).then(function(result){
-                  if(!result || !result.ok || !Array.isArray(result.items)) return;
-                  try{
-                    sessionStorage.setItem('msbForYouPrefetchedItems', JSON.stringify({
-                      savedAt:Date.now(),
-                      meId:Number(result.me_id || 0),
-                      items:result.items
-                    }));
-                  }catch(e){}
-                }).catch(function(){});
-              }
-              return;
-            }
             var prefetchUrl = new URL(link.href, window.location.href);
             prefetchUrl.searchParams.set('ajax_discover', '1');
             tabHtmlRequests[link.href] = fetch(prefetchUrl.href, {
@@ -5014,55 +5055,44 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             });
           }
           function prefetchNeighbors(){
+            if(!tabs) return;
             var links = Array.prototype.slice.call(tabs.querySelectorAll('.feed-discover-tab'));
             var activeIndex = links.findIndex(function(tab){ return tab.classList.contains('is-active'); });
             if(activeIndex > 0) prefetchTab(links[activeIndex - 1]);
             if(activeIndex >= 0 && activeIndex + 1 < links.length) prefetchTab(links[activeIndex + 1]);
           }
           function prefetchRemainingTabs(){
+            if(!tabs) return;
             var links = Array.prototype.slice.call(tabs.querySelectorAll('.feed-discover-tab'));
             links.forEach(function(link, index){
               if(link.classList.contains('is-active')) return;
               window.setTimeout(function(){ prefetchTab(link); }, 120 * index);
             });
           }
-          tabs.addEventListener('pointerover', function(e){
-            prefetchTab(e.target.closest('.feed-discover-tab'));
-          });
-          window.setTimeout(prefetchNeighbors, 100);
-          if('requestIdleCallback' in window){
-            window.requestIdleCallback(prefetchRemainingTabs, {timeout:900});
-          }else{
-            window.setTimeout(prefetchRemainingTabs, 350);
-          }
-          tabs.addEventListener('click', function(e){
-            var link = e.target.closest('.feed-discover-tab');
-            if(!link) return;
-            if(link.classList.contains('is-active')){
-              e.preventDefault();
+          function softSwapCenter(link){
+            if(!link || !window.fetch || !window.DOMParser){
+              window.location.assign(link.href);
               return;
             }
-            if(new URL(link.href, window.location.href).pathname.endsWith('/feed.php')){
+            var selectedTab = tabKeyFromLink(link);
+            var currentTab = new URL(window.location.href).searchParams.get('tab') || 'for-you';
+            if(selectedTab === currentTab && link.classList.contains('is-active')) return;
+            if(tabs){
               try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
-              activateTab(link);
-              return;
+              tabs.classList.add('is-loading');
             }
-            if(!window.fetch || !window.DOMParser) return;
-            e.preventDefault();
-            try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
-            activateTab(link);
+            activateChromeForTab(selectedTab);
             if(requestController) requestController.abort();
             requestController = window.AbortController ? new AbortController() : null;
-            tabs.classList.add('is-loading');
             var htmlRequest = tabHtmlCache[link.href]
               ? Promise.resolve(tabHtmlCache[link.href])
               : (tabHtmlRequests[link.href] || (function(){
                   var fragmentUrl = new URL(link.href, window.location.href);
                   fragmentUrl.searchParams.set('ajax_discover', '1');
                   return fetch(fragmentUrl.href, {
-                  credentials:'same-origin',
-                  headers:{'X-Requested-With':'XMLHttpRequest'},
-                  signal:requestController ? requestController.signal : undefined
+                    credentials:'same-origin',
+                    headers:{'X-Requested-With':'XMLHttpRequest'},
+                    signal:requestController ? requestController.signal : undefined
                   });
                 })().then(function(response){
                   if(!response.ok) throw new Error('Tab request failed');
@@ -5085,14 +5115,17 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 window.msbBootPublicMediaCards();
               }
               document.dispatchEvent(new CustomEvent('msb:public-tab-content-ready', {
-                detail:{tab:(new URL(link.href, window.location.href).searchParams.get('tab') || 'public')}
+                detail:{tab:selectedTab}
               }));
-              var selectedTab = new URL(link.href, window.location.href).searchParams.get('tab') || 'for-you';
               var jumpRail = document.querySelector('.jump-rail');
               if(jumpRail) jumpRail.classList.toggle('is-hidden', selectedTab === 'for-you');
               var searchForm = document.querySelector('.feed-top-search-form');
-              if(searchForm) searchForm.action = new URL(link.href, window.location.href).pathname;
-              document.body.classList.toggle('news-page', new URL(link.href, window.location.href).pathname.endsWith('/news.php'));
+              if(searchForm){
+                searchForm.action = new URL(link.href, window.location.href).pathname;
+                var tabInput = searchForm.querySelector('input[name="tab"]');
+                if(tabInput) tabInput.value = selectedTab;
+              }
+              document.body.classList.toggle('news-page', selectedTab === 'news' || new URL(link.href, window.location.href).pathname.endsWith('/news.php'));
               document.body.classList.add('public-suggestions-visible');
               history.pushState({msbDiscover:true}, '', link.href);
               document.title = nextDoc.title || document.title;
@@ -5103,15 +5136,53 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               if(error && error.name === 'AbortError') return;
               window.location.assign(link.href);
             }).finally(function(){
-              tabs.classList.remove('is-loading');
+              if(tabs) tabs.classList.remove('is-loading');
             });
+          }
+          if(tabs){
+            tabs.addEventListener('pointerover', function(e){
+              prefetchTab(e.target.closest('.feed-discover-tab'));
+            });
+            window.setTimeout(prefetchNeighbors, 100);
+            if('requestIdleCallback' in window){
+              window.requestIdleCallback(prefetchRemainingTabs, {timeout:900});
+            }else{
+              window.setTimeout(prefetchRemainingTabs, 350);
+            }
+            tabs.addEventListener('click', function(e){
+              var link = e.target.closest('.feed-discover-tab');
+              if(!link) return;
+              if(link.classList.contains('is-active')){
+                e.preventDefault();
+                return;
+              }
+              e.preventDefault();
+              softSwapCenter(link);
+            });
+          }
+          document.addEventListener('click', function(e){
+            var link = e.target.closest('a.feed-program-nav-item');
+            if(!link) return;
+            if(link.hasAttribute('hidden') || link.getAttribute('aria-hidden') === 'true') return;
+            try{
+              var hrefUrl = new URL(link.href, window.location.href);
+              if(!/home\.php$/i.test(hrefUrl.pathname)) return;
+            }catch(err){
+              return;
+            }
+            if(link.classList.contains('is-active')){
+              e.preventDefault();
+              return;
+            }
+            e.preventDefault();
+            softSwapCenter(link);
           });
           window.addEventListener('popstate', function(){
             window.location.reload();
           });
         })();
         </script>
-        <?php if ($canFollowPublishers && !$isNewsSurface && $discoverTab !== 'public'): ?>
+        <?php if ($canFollowPublishers && !$isNewsSurface && $discoverTab !== 'public' && $discoverTab !== 'for-you'): ?>
           <?php
             $publisherSearchQuery = $q;
             include __DIR__ . '/includes/publisher_search_panel.php';
@@ -5358,8 +5429,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           $pcmCtx['publisher_workspace_viewer'] = $isPublisherWorkspaceViewer;
         ?>
 
+        <?php
+          $isPublicTextOnly = (!$isPublicLivePost && !$isReelOnly && !$isStandardMediaPost);
+        ?>
         <article
-          class="post public-post-card<?= $isStandardMediaPost ? ' public-media-head-outside' : '' ?><?= $isPublicLivePost ? ' is-live-post' : '' ?><?= $isReelOnly ? ' is-reel-post' : '' ?><?= $isSingleStandardVideo ? ' is-single-video-post' : '' ?><?= $isSingleStandardImage ? ' is-single-image-post' : '' ?><?= ($isSingleStandardVideo || $isSingleStandardImage) ? ' ' . h($shapeClass) : '' ?><?= $isMultiStandardMedia ? ' is-multi-media-post' : '' ?>"
+          class="post public-post-card<?= $isStandardMediaPost ? ' public-media-head-outside' : '' ?><?= $isPublicTextOnly ? ' public-text-only' : '' ?><?= $isPublicLivePost ? ' is-live-post' : '' ?><?= $isReelOnly ? ' is-reel-post' : '' ?><?= $isSingleStandardVideo ? ' is-single-video-post' : '' ?><?= $isSingleStandardImage ? ' is-single-image-post' : '' ?><?= ($isSingleStandardVideo || $isSingleStandardImage) ? ' ' . h($shapeClass) : '' ?><?= $isMultiStandardMedia ? ' is-multi-media-post' : '' ?>"
           id="post-<?= (int)$post['id'] ?>"
           data-index="<?= (int)$index ?>"
           data-post-id="<?= (int)$post['id'] ?>"
@@ -8523,12 +8597,12 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
     flex:0 0 42px!important;
     font-size:19px!important;
   }
-  body.public-page.feed-insta-ui .feed-discover-tabs{margin-top:10px!important}
+  body.public-page.feed-insta-ui .feed-discover-tabs{margin-top:8px!important}
   body.public-page.feed-insta-ui .feed-discover-tab,
   body.public-page.feed-insta-ui .feed-discover-tab.is-active{
     min-width:max-content!important;
     /* padding:12px 12px 14px!important; */
-    font-size:14px!important;
+    font-size:13px!important;
     font-weight:400!important;
     line-height:1.2!important;
   }
@@ -8592,9 +8666,11 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
     overflow:hidden!important;
   }
   body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standard-media-topbar{
-    padding:14px 16px 12px!important;
+    padding:1px 0 12px!important;
     gap:10px!important;
     box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
   }
   body.public-page.feed-insta-ui .standard-media-topbar .standard-media-author .avatar{
     width:35px!important;
@@ -8620,7 +8696,7 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
     width:100%!important;
     max-width:100%!important;
     margin:0!important;
-    padding:0px 0 0px!important;
+    padding:0!important;
     box-sizing:border-box!important;
   }
   body.public-page.feed-insta-ui .standard-media-actions{
@@ -8682,7 +8758,7 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
   body.public-page.feed-insta-ui .standard-media-title,
   body.public-page.feed-insta-ui .standard-text-title{
     margin-top: 15px!important;
-    font-size:20px!important;
+    font-size:15px!important;
     line-height:1.28!important;
     font-weight:800!important;
   }
@@ -8756,9 +8832,9 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
   body.public-page.feed-insta-ui .standard-media-btn .msb-pact,
   body.public-page.feed-insta-ui .standard-text-btn i,
   body.public-page.feed-insta-ui .standard-text-btn .msb-pact{
-    width:20px!important;
-    height:20px!important;
-    font-size:20px!important;
+    width:16px!important;
+    height:16px!important;
+    font-size:16px!important;
     line-height:1!important;
   }
 }
@@ -8987,6 +9063,8 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
   position:relative !important;
   left:auto !important;
   margin:0 0 12px !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
   transform:none !important;
   color:var(--msb-palette-text, var(--public-text)) !important;
   text-shadow:none !important;
@@ -9002,6 +9080,10 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
   color:var(--msb-palette-text, var(--public-text)) !important;
   -webkit-text-fill-color:var(--msb-palette-text, var(--public-text)) !important;
   text-shadow:none !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
 }
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-actions{
   grid-area:auto !important;
@@ -9029,6 +9111,84 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
   margin-left:auto !important;
   margin-right:0 !important;
   padding-right:0 !important;
+}
+
+/* Text-only (home.php via public.php): same left edge as media posts. */
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post),
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post){
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  width:100% !important;
+  max-width:100% !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  padding:8px 12px !important;
+  box-sizing:border-box !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) > .standard-text-card,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) > .standard-text-card{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  width:100% !important;
+  max-width:100% !important;
+  margin:0 !important;
+  padding:0 !important;
+  box-sizing:border-box !important;
+  background:transparent !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-topbar,
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-copy,
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-actions,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-topbar,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-copy,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-actions{
+  position:relative !important;
+  left:auto !important;
+  right:auto !important;
+  float:none !important;
+  clear:both !important;
+  width:100% !important;
+  max-width:100% !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+  transform:none !important;
+  box-sizing:border-box !important;
+  text-indent:0 !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-topbar,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-topbar{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  padding:1px 0 12px !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-title,
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption,
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption .post-card-paragraph,
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption .post-card-caption-formatted,
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption p,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-title,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption .post-card-paragraph,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption .post-card-caption-formatted,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-caption p{
+  margin-left:0 !important;
+  margin-right:0 !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+  text-indent:0 !important;
+  text-align:left !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-actions,
+body.news-page.feed-insta-ui .post.public-post-card.public-text-only:not(.is-reel-post) .standard-text-actions{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  padding:1px 0 2px !important;
 }
 </style>
 <style id="public-post-right-icons-lock">

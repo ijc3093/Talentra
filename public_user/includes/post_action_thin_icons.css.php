@@ -70,14 +70,14 @@ html[data-theme="dark"]{
   display:inline-flex !important;
   align-items:center;
   justify-content:center;
-  width:22px;
-  height:22px;
-  min-width:22px;
-  min-height:22px;
-  flex:0 0 22px;
+  width:16px;
+  height:16px;
+  min-width:16px;
+  min-height:16px;
+  flex:0 0 16px;
   line-height:1 !important;
   font-style:normal !important;
-  font-size:20px !important;
+  font-size:16px !important;
   background:transparent !important;
   -webkit-mask:none !important;
   mask:none !important;
@@ -89,12 +89,24 @@ html[data-theme="dark"]{
 .post.public-post-card .reel-inline-btn .msb-pact,
 .post.public-post-card .public-live-action-btn .msb-pact,
 .post.public-post-card .action-btn .msb-pact,
-.mf-feed .mf-act .msb-pact{
-  width:22px;
-  height:22px;
-  min-width:22px;
-  min-height:22px;
-  flex-basis:22px;
+.mf-feed .mf-act .msb-pact,
+body.profile-page #profilePostsFeed .mf-act .msb-pact,
+.pv-act .msb-pact,
+.has-rx-icon .msb-pact-heart,
+.is-love .msb-pact-heart,
+.msb-pact-heart.is-active,
+.has-rx-icon .msb-pact-thumb,
+.is-like .msb-pact-thumb,
+.msb-pact-thumb.is-active,
+.has-rx-icon .msb-pact-thumb-down,
+.msb-pact-thumb-down.is-active,
+body.reel-page .reel-act .msb-pact,
+body.reel-page .reel-act .msb-reaction-glyph{
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
+  flex-basis:16px !important;
 }
 .post.public-post-card .standard-media-btn .msb-pact{
   color:#fff;

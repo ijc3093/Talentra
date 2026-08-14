@@ -223,7 +223,6 @@ $iconFries = post_card_menu_fries_icon_html();
     .reel-media-topbar .post-card-menu-wrap{pointer-events:auto;margin:0;}
     .reel-media-topbar .post-card-menu-btn{
       color:#fff !important;
-      --pcm-fries-filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(0,0,0,.5));
     }
 
     /* Top: avatar + name + Follow + music */
@@ -414,16 +413,36 @@ $iconFries = post_card_menu_fries_icon_html();
       text-shadow:0 1px 2px rgba(0,0,0,.55);
     }
     .reel-act:hover{opacity:.82;}
+    /* Match home/profile compact 16px icons — keep love/comment/share/save identical. */
+    body.reel-page .reel-act .msb-pact,
+    body.reel-page .reel-act .msb-pact-heart,
+    body.reel-page .reel-act .msb-pact-comment,
+    body.reel-page .reel-act .msb-pact-share,
+    body.reel-page .reel-act .msb-pact-bookmark,
+    body.reel-page .reel-act .msb-pact-thumb,
+    body.reel-page .reel-act .msb-pact-thumb-down,
+    body.reel-page .reel-act .msb-reaction-glyph,
+    body.reel-page .reel-act.has-rx-icon .msb-pact,
+    body.reel-page .reel-act.is-love .msb-pact-heart,
+    body.reel-page .reel-act.is-like .msb-pact-thumb,
+    body.reel-page .reel-act.is-share .msb-pact-share,
+    body.reel-page .reel-act.is-save .msb-pact-bookmark{
+      width:16px !important;
+      height:16px !important;
+      min-width:16px !important;
+      min-height:16px !important;
+      flex:0 0 16px !important;
+      flex-basis:16px !important;
+      box-sizing:border-box !important;
+    }
     .reel-act .msb-pact{
-      width:26px;height:26px;min-width:26px;min-height:26px;flex:0 0 26px;
       color:#fff;
       filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55)));
     }
     .reel-act .msb-reaction-glyph{
-      width:26px;height:26px;min-width:26px;min-height:26px;flex:0 0 26px;
       display:inline-flex !important;
       align-items:center;justify-content:center;
-      font-size:24px !important;
+      font-size:16px !important;
       line-height:1 !important;
       font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif !important;
       background:transparent !important;
@@ -712,7 +731,7 @@ $iconFries = post_card_menu_fries_icon_html();
   <?php post_card_actions_menu_render_js([
     'delete_mode' => 'feed',
     'confirm_handler' => 'reel',
-    'menu_surface' => 'public',
+    'menu_surface' => 'reel',
     'api_url' => 'feed_api.php',
     'always_portal' => true,
   ]); ?>
@@ -882,6 +901,7 @@ $iconFries = post_card_menu_fries_icon_html();
   })();
   </script>
   <style id="reel-public-card-structure">
+    /* Match home/profile: one shared left edge for head / title+description / media. */
     body.reel-page .reel-card-main{
       display:flex;
       flex-direction:column;
@@ -889,27 +909,58 @@ $iconFries = post_card_menu_fries_icon_html();
       width:min(100%, var(--post-media-card-width, var(--post-media-max)));
       max-width:min(100%, var(--feed-center-w));
       flex:0 0 auto;
+      margin-left:0;
+      margin-right:0;
+      padding:0;
       box-sizing:border-box;
+    }
+    body.reel-page .reel-card-main > .reel-outside-head,
+    body.reel-page .reel-card-main > .reel-caption,
+    body.reel-page .reel-card-main > .reel-stage{
+      position:relative !important;
+      left:0 !important;
+      right:auto !important;
+      top:auto !important;
+      bottom:auto !important;
+      float:none !important;
+      clear:both !important;
+      width:100% !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:0 !important;
+      padding-left:0 !important;
+      padding-right:0 !important;
+      transform:none !important;
+      box-sizing:border-box !important;
+      text-indent:0 !important;
     }
     body.reel-page .reel-card-main > .reel-stage{
-      width:100%;
-      max-width:100%;
+      overflow:hidden;
+    }
+    body.reel-page .reel-card-main > .reel-stage > .reel-video,
+    body.reel-page .reel-card-main > .reel-stage > img{
+      display:block !important;
+      width:100% !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:0 !important;
+      object-position:left center !important;
     }
     body.reel-page .reel-outside-head{
-      position:relative;
-      display:flex;
-      align-items:flex-start;
-      width:100%;
-      max-width:100%;
+      display:flex !important;
+      align-items:flex-start !important;
+      justify-content:space-between !important;
       min-height:48px;
-      margin:0 auto;
-      padding:1px 0 12px 20px;
-      box-sizing:border-box;
+      margin:0 0 0 0 !important;
+      padding:1px 0 12px !important;
       color:var(--msb-palette-text, #fff);
     }
     body.reel-page .reel-outside-head .reel-top{
-      position:relative;
-      inset:auto;
+      position:relative !important;
+      inset:auto !important;
+      left:auto !important;
+      right:auto !important;
+      top:auto !important;
       z-index:5;
       flex:1 1 auto;
       min-width:0;
@@ -918,17 +969,19 @@ $iconFries = post_card_menu_fries_icon_html();
       flex-direction:column;
       align-items:flex-start;
       gap:4px;
-      margin-left: -19px;
+      margin:0 !important;
+      padding:0 !important;
     }
     body.reel-page .reel-outside-head .reel-media-topbar{
-      position:relative;
-      inset:auto;
+      position:relative !important;
+      inset:auto !important;
       z-index:8;
       flex:0 0 auto;
       display:flex;
       align-items:flex-start;
       justify-content:flex-end;
-      padding:0;
+      margin:0 !important;
+      padding:0 !important;
       pointer-events:auto;
       background:none;
     }
@@ -953,16 +1006,13 @@ $iconFries = post_card_menu_fries_icon_html();
       border-color:var(--msb-palette-border-strong, rgba(255,255,255,.35));
     }
     body.reel-page .reel-card-main > .reel-caption{
-      position:relative;
-      inset:auto;
       z-index:5;
-      width:100%;
-      max-width:100%;
-      margin:0 auto 12px;
+      margin-bottom:12px !important;
       color:var(--msb-palette-text, #fff) !important;
       -webkit-text-fill-color:var(--msb-palette-text, #fff) !important;
       text-shadow:none;
-      box-sizing:border-box;
+      text-align:left !important;
+      pointer-events:auto;
     }
     body.reel-page .reel-card-main > .reel-caption .see-more{
       color:var(--msb-palette-text, #fff) !important;

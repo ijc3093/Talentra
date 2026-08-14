@@ -107,8 +107,9 @@ if (!function_exists('parse_notification_meta')) {
     $route = '';
     $postId = 0;
     $commentId = 0;
+    $isStory = false;
 
-    while (preg_match('/\s\[(live|r|p|c):([^\]]+)\]\s*$/', $type, $m)) {
+    while (preg_match('/\s\[(live|r|p|c|story):([^\]]+)\]\s*$/', $type, $m)) {
       $key = trim((string)($m[1] ?? ''));
       $value = trim((string)($m[2] ?? ''));
       if ($key === 'live') {
@@ -119,8 +120,13 @@ if (!function_exists('parse_notification_meta')) {
         $postId = (int)$value;
       } elseif ($key === 'c') {
         $commentId = (int)$value;
+      } elseif ($key === 'story') {
+        $isStory = ((int)$value === 1) || strtolower($value) === '1' || strtolower($value) === 'true';
       }
-      $type = trim((string)preg_replace('/\s\[(?:live|r|p|c):[^\]]+\]\s*$/', '', $type, 1));
+      $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story):[^\]]+\]\s*$/', '', $type, 1));
+    }
+    if (!$isStory && (stripos($type, ' in a story') !== false || stripos($type, 'story') !== false && (stripos($type, 'tagged') !== false || stripos($type, 'mentioned') !== false))) {
+      $isStory = stripos($type, ' in a story') !== false;
     }
 
     $url = '';
@@ -130,14 +136,21 @@ if (!function_exists('parse_notification_meta')) {
       $url = 'Your_Shopping_preferences.php#notifications';
     } elseif ($route === 'orgsales') {
       $url = '../organization/sales_management.php#notification';
+    } elseif ($postId > 0 && $isStory) {
+      $url = 'home.php?tab=for-you&story_post=' . $postId;
     } elseif ($postId > 0) {
       $page = 'feed.php';
       if ($route === 'pf') {
         $page = 'profile.php';
       } elseif ($route === 'pb') {
         $page = 'public.php';
+      } elseif ($route === 'fd') {
+        $page = 'home.php';
       }
       $params = ['open_post' => $postId];
+      if ($page === 'home.php') {
+        $params['tab'] = 'for-you';
+      }
       if ($commentId > 0) $params['open_comment'] = $commentId;
       // Mention / tag alerts open a single post — hide gallery prev/next.
       $typeLower = strtolower($type);
@@ -151,6 +164,7 @@ if (!function_exists('parse_notification_meta')) {
       'text' => $type,
       'live_id' => $liveId,
       'post_id' => $postId,
+      'is_story' => $isStory ? 1 : 0,
       'url' => $url
     ];
   }
@@ -271,6 +285,24 @@ $notificationEmail = trim((string)($_SESSION['user_email'] ?? ''));
 $notificationReceivers = array_values(array_unique(array_filter([$notificationUsername, $notificationEmail], static function ($value) {
   return trim((string)$value) !== '';
 })));
+try {
+  if ($meId > 0 && isset($dbh) && $dbh instanceof PDO) {
+    $stNotiUser = $dbh->prepare('SELECT username, email FROM users WHERE id = :id LIMIT 1');
+    $stNotiUser->execute([':id' => $meId]);
+    $notiUserRow = $stNotiUser->fetch(PDO::FETCH_ASSOC) ?: [];
+    foreach (['username', 'email'] as $notiKey) {
+      $notiVal = trim((string)($notiUserRow[$notiKey] ?? ''));
+      if ($notiVal !== '') {
+        $notificationReceivers[] = $notiVal;
+      }
+    }
+    $notificationReceivers = array_values(array_unique(array_filter($notificationReceivers, static function ($value) {
+      return trim((string)$value) !== '';
+    })));
+  }
+} catch (Throwable $e) {
+  // keep session receivers
+}
 $headerNotifications = [];
 $headerNotificationUnread = 0;
 if (!empty($notificationReceivers)) {
@@ -304,6 +336,24 @@ if (!empty($notificationReceivers)) {
     $headerNotifications = [];
     $headerNotificationUnread = 0;
   }
+}
+
+$headerNotificationItemsJs = [];
+foreach ($headerNotifications as $notiRow) {
+  $notiMetaJs = function_exists('parse_notification_meta')
+    ? parse_notification_meta((string)($notiRow['notitype'] ?? 'sent a notification'))
+    : ['text' => (string)($notiRow['notitype'] ?? 'sent a notification'), 'live_id' => 0, 'post_id' => 0, 'is_story' => 0, 'url' => ''];
+  $headerNotificationItemsJs[] = [
+    'id' => (int)($notiRow['id'] ?? 0),
+    'sender' => trim((string)($notiRow['notiuser'] ?? 'Someone')),
+    'text' => (string)($notiMetaJs['text'] ?? 'sent a notification'),
+    'live_id' => (int)($notiMetaJs['live_id'] ?? 0),
+    'post_id' => (int)($notiMetaJs['post_id'] ?? 0),
+    'is_story' => (int)($notiMetaJs['is_story'] ?? 0) === 1 ? 1 : 0,
+    'url' => (string)($notiMetaJs['url'] ?? ''),
+    'created_at' => (string)($notiRow['created_at'] ?? ''),
+    'is_read' => (int)($notiRow['is_read'] ?? 0),
+  ];
 }
 
 if (!function_exists('render_header_chat_panel_inner')) {
@@ -418,13 +468,14 @@ if (!function_exists('render_header_notification_panel_inner')) {
               $notiLiveId = (int)($notiMeta['live_id'] ?? 0);
               $notiUrl = (string)($notiMeta['url'] ?? '');
               $notiPostId = (int)($notiMeta['post_id'] ?? 0);
+              $notiIsStory = (int)($notiMeta['is_story'] ?? 0) === 1;
               $notiTime = (string)($noti['created_at'] ?? '');
               $typeLower = strtolower($type);
               $isMention = (strpos($typeLower, 'mention') !== false
                 || strpos($typeLower, 'tagged you') !== false
                 || strpos($type, '@') !== false);
             ?>
-            <a href="<?php echo h($notiUrl !== '' ? $notiUrl : '#'); ?>" class="dropdown-bestnoti-item<?php echo ((int)($noti['is_read'] ?? 0) === 0 ? ' is-unread' : ''); ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>" data-notification-url="<?php echo h($notiUrl); ?>" data-live-id="<?php echo $notiLiveId; ?>" data-post-id="<?php echo $notiPostId; ?>" data-noti-kind="<?php echo $isMention ? 'mentions' : 'all'; ?>">
+            <a href="<?php echo h($notiUrl !== '' ? $notiUrl : '#'); ?>" class="dropdown-bestnoti-item<?php echo ((int)($noti['is_read'] ?? 0) === 0 ? ' is-unread' : ''); ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>" data-notification-url="<?php echo h($notiUrl); ?>" data-live-id="<?php echo $notiLiveId; ?>" data-post-id="<?php echo $notiPostId; ?>" data-is-story="<?php echo $notiIsStory ? '1' : '0'; ?>" data-noti-kind="<?php echo $isMention ? 'mentions' : 'all'; ?>">
               <div class="bestnoti-avatar"><?php echo h(initials_from_name($sender, 'NT')); ?></div>
               <div class="bestnoti-mid">
                 <div class="bestnoti-text"><strong><?php echo h($sender); ?></strong> <?php echo h($type); ?></div>
@@ -594,7 +645,7 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <link rel="stylesheet" href="./css/dark-auto.css?v=40">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=106">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=109">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
@@ -623,13 +674,16 @@ video.msb-clean-loop-video{
 <!-- ✅ Brand Fonts (Logo + UI) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600;700;800&display=optional" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600;700;800&display=optional" rel="stylesheet">
 
 <style>
 /* ===== Brand typography (Talentra) ===== */
 :root{
   --msb-font-ui: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
-  --msb-font-logo: 'Playfair Display', ui-serif, Georgia, 'Times New Roman', Times, serif;
+  --msb-font-logo: 'Cormorant Garamond', 'Playfair Display', ui-serif, Georgia, 'Times New Roman', Times, serif;
+  --msb-logo-gold: #e8c98a;
+  --msb-logo-mist: #9fd6c8;
+  --msb-logo-ink: #05090f;
   --msb-logo-my: #ffffff;
   --msb-logo-story: #c7d2fe; /* soft indigo */
   --msb-logo-book: #7dd3fc;  /* soft sky */
@@ -1071,22 +1125,70 @@ iframe{
     --msb-feed-chrome-circle:50%;
   }
   .feed-ig-logo{
-    width:var(--msb-feed-chrome-size); height:var(--msb-feed-chrome-size);
+    position:relative;
+    --msb-logo-size:58px;
+    width:var(--msb-logo-size); height:var(--msb-logo-size);
+    min-width:var(--msb-logo-size); min-height:var(--msb-logo-size);
     border-radius:var(--msb-feed-chrome-circle);
-    display:flex; align-items:center; justify-content:center;
-    /* Appearance / Dark auto palette — not a fixed photo green */
-    background:linear-gradient(
-      135deg,
-      var(--msb-palette-action, #4f46e5),
-      var(--msb-palette-accent, var(--msb-palette-action-strong, #0ea5e9))
-    );
-    color:#fff; font-weight:900;
-    font-size:var(--msb-feed-chrome-font); line-height:1;
-    box-shadow:none;
+    display:grid; place-items:center;
+    isolation:isolate;
+    overflow:hidden;
+    text-decoration:none !important;
+    /* Match entry.php orb — dark ink + gold monogram */
+    background:
+      radial-gradient(circle at 35% 30%, rgba(255,255,255,.14), transparent 55%),
+      radial-gradient(circle at 50% 58%, rgba(159,214,200,.14), transparent 70%),
+      linear-gradient(165deg, #05090f 0%, #0b1622 52%, #08131c 100%);
+    box-shadow:
+      0 0 0 1px rgba(232,201,138,.22),
+      0 8px 18px rgba(5,9,15,.22);
+    color:transparent;
+    font-size:0;
+    line-height:0;
+  }
+  .feed-ig-logo-ring{
+    position:absolute;inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    background:
+      conic-gradient(from 210deg, rgba(232,201,138,0), rgba(232,201,138,.9), rgba(159,214,200,.75), rgba(232,201,138,0));
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 1.6px), #000 calc(100% - 0.6px));
+            mask:radial-gradient(farthest-side, transparent calc(100% - 1.6px), #000 calc(100% - 0.6px));
+    opacity:.92;
+  }
+  .feed-ig-logo-glow{
+    position:absolute;inset:18%;
+    border-radius:50%;
+    pointer-events:none;
+    background:radial-gradient(circle at 40% 35%, rgba(255,255,255,.16), transparent 60%);
+    opacity:.85;
+  }
+  .feed-ig-logo-mark{
+    position:relative;z-index:1;
+    font-family:var(--msb-font-logo);
+    font-size:calc(var(--msb-logo-size) * 0.64);
+    font-weight:700;
+    line-height:1;
+    letter-spacing:0;
+    background:linear-gradient(180deg, #f8e7c2 0%, var(--msb-logo-gold, #e8c98a) 42%, #b8924a 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    filter:drop-shadow(0 0 8px rgba(232,201,138,.28));
+  }
+  .feed-ig-logo:hover,
+  .feed-ig-logo:focus{
+    transform:translateY(-1px);
+    box-shadow:
+      0 0 0 1px rgba(232,201,138,.34),
+      0 10px 22px rgba(5,9,15,.28);
+    outline:none;
   }
   .feed-ig-logo-label{
     display:block;
-    font-family:var(--msb-font-ui);font-size:11px;font-weight:800;
+    font-family:var(--msb-font-logo);
+    font-size:12px;font-weight:600;
+    letter-spacing:.02em;
     color:var(--msb-palette-text-on-nav, var(--msb-palette-text, #0f172a));
     line-height:1.15;text-align:center;margin-top:2px;
     max-width:72px;width:100%;
@@ -1094,7 +1196,7 @@ iframe{
   }
   .feed-ig-logo-label:hover,
   .feed-ig-logo-label:focus{
-    color:var(--msb-palette-link-hover, var(--msb-palette-link, #2563eb));
+    color:var(--msb-logo-gold, #e8c98a);
     text-decoration:none !important;
   }
   .feed-ig-avatar{margin-top:2px}
@@ -1149,6 +1251,21 @@ iframe{
     margin-left:2px;
     color:#fff !important;
   }
+  /* Appearance gear color → play triangle (circle stays light for contrast) */
+  html[data-msb-appearance] .feed-ig-reels,
+  html[data-msb-appearance] .feed-ig-reels:hover,
+  html[data-msb-appearance] .feed-ig-reels:focus,
+  html[data-msb-appearance] .feed-ig-reels.active{
+    background:var(--msb-palette-surface-2, #fff) !important;
+    color:var(--msb-palette-action) !important;
+    border-color:var(--msb-palette-border-strong, var(--msb-palette-border, transparent)) !important;
+    box-shadow:0 6px 16px color-mix(in srgb, var(--msb-palette-action) 28%, transparent) !important;
+  }
+  html[data-msb-appearance] .feed-ig-reels .fa,
+  html[data-msb-appearance] .feed-ig-reels .fa.fa-play,
+  html[data-msb-appearance] .feed-ig-reels .icon{
+    color:var(--msb-palette-action) !important;
+  }
   .feed-ig-dot{position:absolute; right:11px; top:11px; width:8px; height:8px; border-radius:50%; background:#ff3040}
   .feed-ig-badge{
     position:absolute;
@@ -1177,8 +1294,8 @@ iframe{
     border-color: var(--msb-dd-border);
   }
   .feed-ig-rail .dropdown-bestchat-menu,
-  .feed-ig-rail .dropdown-bestnoti-menu{width:min(320px, calc(100vw - 28px)); min-width:320px; max-width:calc(100vw - 28px)}
-  .feed-ig-rail .dropdown-bestprofile-menu{width:min(320px, calc(100vw - 28px)); min-width:320px; max-width:calc(100vw - 28px)}
+  .feed-ig-rail .dropdown-bestnoti-menu{width:min(280px, calc(100vw - 28px)); min-width:280px; max-width:calc(100vw - 28px)}
+  .feed-ig-rail .dropdown-bestprofile-menu{width:min(280px, calc(100vw - 28px)); min-width:280px; max-width:calc(100vw - 28px)}
   body .sh-logopanel, body .sh-headpanel{display:none !important}
   html, body{overflow-x:hidden !important;}
   body .sh-mainpanel{
@@ -1311,8 +1428,12 @@ iframe{
 
 <?php if ($showFeedRail): ?>
 <aside class="feed-ig-rail" aria-label="Feed navigation">
-  <a href="feed.php" class="feed-ig-logo" aria-label="Talentra">t</a>
-  <a href="feed.php" class="feed-ig-logo-label">Talentra</a>
+  <a href="home.php?tab=for-you" class="feed-ig-logo" aria-label="Talentra">
+    <span class="feed-ig-logo-ring" aria-hidden="true"></span>
+    <span class="feed-ig-logo-glow" aria-hidden="true"></span>
+    <span class="feed-ig-logo-mark">t</span>
+  </a>
+  <a href="home.php?tab=for-you" class="feed-ig-logo-label">Talentra</a>
 
   <div class="feed-ig-avatar">
     <button type="button" class="feed-ig-btn js-open-profile-door" aria-label="Profile" title="Profile">
@@ -1363,6 +1484,11 @@ iframe{
   if (empty($GLOBALS['msb_leftbar_included']) && empty($GLOBALS['msb_skip_header_leftbar'])) {
     include __DIR__ . '/leftbar.php';
   }
+  $__notiBootJson = json_encode(
+    is_array($headerNotificationItemsJs ?? null) ? $headerNotificationItemsJs : [],
+    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+  );
+  echo '<script>window.__MSB_HEADER_NOTIFICATIONS=' . ($__notiBootJson !== false ? $__notiBootJson : '[]') . ';</script>';
 ?>
 <?php else: ?>
 <div class="sh-logopanel">
@@ -1400,6 +1526,11 @@ iframe{
   echo '<div class="msb-notifications-door-host" id="msbNotificationsDoorHost">';
   include __DIR__ . '/notifications_door.php';
   echo '</div>';
+  $__notiBootJson = json_encode(
+    is_array($headerNotificationItemsJs ?? null) ? $headerNotificationItemsJs : [],
+    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+  );
+  echo '<script>window.__MSB_HEADER_NOTIFICATIONS=' . ($__notiBootJson !== false ? $__notiBootJson : '[]') . ';</script>';
   $msbLiveDoorStandalone = true;
   $msbLiveDoorCanStudio = $headerCanLiveStudio;
   echo '<div class="msb-live-door-host" id="msbLiveDoorHost">';
@@ -1506,17 +1637,18 @@ iframe{
 /* Must load before modal markup is parsed — prevents live/create modal flash on refresh/nav. */
 .global-live-modal:not(.is-open),
 #createPostModal:not(.is-open){
-  display:none !important;
   visibility:hidden !important;
-  opacity:0 !important;
   pointer-events:none !important;
+}
+.global-live-modal:not(.is-open){
+  display:none !important;
+  opacity:0 !important;
 }
 .global-live-modal:not(.is-open) .global-live-modal-dialog,
 .global-live-modal:not(.is-open) iframe,
 .global-live-modal:not(.is-open) video,
 .global-live-modal:not(.is-open) img,
 .global-live-modal:not(.is-open) aside,
-#createPostModal:not(.is-open) .create-post-dialog,
 #createPostModal:not(.is-open) iframe{
   display:none !important;
 }
@@ -1769,11 +1901,11 @@ iframe{
 <?php include __DIR__ . '/mention_autocomplete.js.php'; ?>
 
 <div class="create-post-modal" id="createPostModal" aria-hidden="true">
-  <div class="create-post-dialog" role="dialog" aria-modal="true" aria-label="Create post">
-    <div class="create-post-topbar">
-      <div class="create-post-title"><i class="icon ion-compose"></i> Create new post</div>
+  <div id="createPostAccordion" class="create-post-dialog create-post-accordion" role="dialog" aria-modal="true" aria-label="Create post">
+    <h3 class="create-post-topbar">
+      <span class="create-post-title">Create new post</span>
       <button type="button" class="create-post-close" id="createPostModalClose" aria-label="Close">&times;</button>
-    </div>
+    </h3>
     <div class="create-post-body">
       <div class="create-post-readonly" id="createPostReadonlyNotice" hidden>
         <div class="create-post-readonly-icon" aria-hidden="true"><i class="icon ion-ios-locked-outline"></i></div>
@@ -1824,78 +1956,219 @@ iframe{
 
 .create-post-modal{
   position:fixed;
-  inset:0;
+  left:0;
+  right:0;
+  top:0;
+  bottom:0;
   /* Above gallery/post viewers (.pv-overlay ~9999) and post-card menu portals (~100000). */
   z-index:110000;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding:18px;
-  background:rgba(7,10,18,.72);
-}
-
-.create-post-modal.is-open{
-  display:flex;
-}
-
-.create-post-dialog{
-  width:min(1180px, 96vw);
-  min-height:min(72vh, 680px);
-  max-height:min(92vh, 900px);
-  height:min(85vh, 820px);
-  background:var(--msb-palette-bg, #f5f7fb);
-  box-shadow:0 28px 90px rgba(0,0,0,.38);
-  display:grid;
-  grid-template-rows:60px minmax(0, 1fr);
+  display:block;
+  visibility:hidden;
+  pointer-events:none;
+  padding:0;
+  margin:0;
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
+  box-sizing:border-box;
   overflow:hidden;
 }
 
-.create-post-topbar{
-  display:flex;
+.create-post-modal.is-open{
+  visibility:visible;
+  pointer-events:none;
+  background:transparent !important;
+  background-color:transparent !important;
+}
+
+.create-post-modal.is-open .create-post-dialog,
+.create-post-modal.is-open .create-post-dialog *{
+  pointer-events:auto;
+}
+
+/* Beat appearance-palette / theme-bootstrap dim overlay on Create Post. */
+html[data-msb-appearance] #createPostModal.create-post-modal,
+html[data-msb-appearance] #createPostModal.create-post-modal.is-open,
+html #createPostModal.create-post-modal,
+html #createPostModal.create-post-modal.is-open{
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
+}
+
+/* jQuery UI Accordion shell — expands body height like https://jqueryui.com/accordion/ */
+.create-post-dialog.create-post-accordion{
+  position:absolute;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(1180px, calc(100vw - 24px));
+  max-width:1180px;
+  /* Short until form is measured — never flash tall blank shell. */
+  height:36px;
+  min-height:36px;
+  max-height:36px;
+  margin:0;
+  padding:0;
+  background:var(--msb-palette-bg, #f5f7fb);
+  box-shadow:
+    0 18px 48px rgba(15,23,42,.16),
+    0 8px 24px rgba(15,23,42,.12);
+  overflow:hidden;
+  border-radius:0 0 14px 14px;
+  margin-bottom:10px;
+  border:1px solid var(--msb-palette-border, rgba(15,23,42,.12));
+  border-top:0;
+  box-sizing:border-box;
+}
+
+/* While opening: allow height animation (do not freeze at 36px). */
+.create-post-modal.is-opening .create-post-dialog.create-post-accordion,
+.create-post-modal.is-form-ready .create-post-dialog.create-post-accordion{
+  max-height:none;
+}
+.create-post-modal.is-closing .create-post-dialog.create-post-accordion{
+  overflow:hidden;
+}
+
+.create-post-accordion.ui-accordion,
+.create-post-accordion.ui-widget,
+.create-post-accordion.ui-helper-reset{
+  font-family:inherit;
+  font-size:inherit;
+}
+
+.create-post-accordion > .create-post-topbar,
+.create-post-accordion > .ui-accordion-header{
+  display:flex !important;
   align-items:center;
   justify-content:space-between;
-  gap:16px;
-  padding:0 18px;
-  background:var(--msb-palette-btn-bg, var(--msb-palette-header, var(--msb-palette-bg, #111827)));
-  color:var(--msb-palette-btn-text, var(--msb-palette-header-text, #fff));
-}
-
-.create-post-title{
-  display:inline-flex;
-  align-items:center;
   gap:10px;
-  font-size:16px;
-  font-weight:800;
-  color:inherit;
+  margin:0 !important;
+  padding:0 12px !important;
+  height:36px;
+  min-height:36px;
+  max-height:36px;
+  box-sizing:border-box;
+  border:0 !important;
+  border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  border-radius:0 !important;
+  background:var(--msb-palette-bg, #f5f7fb) !important;
+  color:#0f172a !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  line-height:1.2 !important;
+  cursor:default;
+  outline:none !important;
+  box-shadow:none !important;
+  /* Open/close only via + / X — not header toggle. */
+  pointer-events:none;
 }
 
-.create-post-close{
-  width:38px;
-  height:38px;
-  border:0;
-  border-radius:999px;
-  background:rgba(255,255,255,.12);
-  color:inherit;
-  font-size:28px;
-  line-height:1;
-  cursor:pointer;
+.create-post-accordion > .create-post-topbar .create-post-close,
+.create-post-accordion > .ui-accordion-header .create-post-close{
+  pointer-events:auto;
 }
 
-.create-post-body{
-  min-height:0;
-  height:100%;
-  overflow:auto;
-  background:var(--msb-palette-bg, #f5f7fb);
+.create-post-accordion > .ui-accordion-header .ui-accordion-header-icon,
+.create-post-accordion > .ui-accordion-header .ui-icon{
+  display:none !important;
+}
+
+.create-post-accordion > .create-post-body,
+.create-post-accordion > .ui-accordion-content{
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:var(--msb-palette-bg, #f5f7fb) !important;
+  box-sizing:border-box;
+  overflow:hidden !important;
+  min-height:0 !important;
+  flex:1 1 auto !important;
+}
+/* Keep panel visible during our height animation (accordion must not display:none). */
+.create-post-modal.is-open .create-post-accordion > .create-post-body,
+.create-post-modal.is-opening .create-post-accordion > .create-post-body,
+.create-post-modal.is-closing .create-post-accordion > .create-post-body{
+  display:block !important;
 }
 
 .create-post-frame{
   width:100%;
   height:100%;
   min-height:0;
+  flex:1 1 auto;
   border:0;
   display:block;
   background:var(--msb-palette-bg, #f5f7fb);
 }
+
+.create-post-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:0 12px;
+  height:36px;
+  min-height:36px;
+  background:var(--msb-palette-bg, #f5f7fb);
+  color:#0f172a !important;
+}
+
+.create-post-title{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:13px;
+  font-weight:700;
+  color:#0f172a !important;
+  opacity:1 !important;
+}
+/* Never show compose/edit icon beside Create new post title. */
+.create-post-title .icon,
+.create-post-title i,
+.create-post-title .fa,
+.create-post-topbar > .ui-accordion-header-icon,
+.create-post-topbar > .ui-icon,
+.create-post-accordion > .ui-accordion-header > .ui-accordion-header-icon,
+.create-post-accordion > .ui-accordion-header > .ui-icon{
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  visibility:hidden !important;
+  font-size:0 !important;
+}
+
+.create-post-close{
+  width:28px;
+  height:28px;
+  border:0;
+  border-radius:999px;
+  background:rgba(15,23,42,.1) !important;
+  color:#0f172a !important;
+  font-size:20px;
+  line-height:1;
+  cursor:pointer;
+  flex:0 0 auto;
+  opacity:1 !important;
+}
+
+.create-post-body{
+  min-height:0;
+  height:0;
+  overflow:hidden;
+  background:var(--msb-palette-bg, #f5f7fb);
+  display:flex;
+  flex-direction:column;
+}
+.create-post-accordion > .create-post-body.ui-accordion-content-active{
+  display:flex !important;
+  flex-direction:column;
+}
+
 .create-post-modal.is-readonly-notice .create-post-frame{
   display:none;
 }
@@ -1941,15 +2214,8 @@ iframe{
 }
 
 @media (max-width: 860px){
-  .create-post-modal{
-    padding:0;
-  }
-
   .create-post-dialog{
-    width:100vw;
-    min-height:100vh;
-    max-height:100vh;
-    height:100vh;
+    border:0;
   }
 
   .create-post-frame{
@@ -3204,8 +3470,8 @@ iframe{
   color:var(--msb-dd-text);
 }
 .dropdown-bestnoti-menu{
-  width:320px;
-  min-width:320px;
+  width:280px;
+  min-width:280px;
   max-width:92vw;
   padding:0;
   background:var(--msb-dd-surface);
@@ -3256,16 +3522,17 @@ iframe{
 .dropdown-bestnoti-item:hover{ background:var(--msb-dd-hover); color:var(--msb-dd-text); }
 .dropdown-bestnoti-item.is-unread{ background:var(--msb-dd-unread); }
 .bestnoti-avatar{
-  width:38px;
-  height:38px;
+  width:32px;
+  height:32px;
   border-radius:999px;
   display:flex;
   align-items:center;
   justify-content:center;
   background:linear-gradient(135deg, #2563eb, #0f172a);
   color:#fff;
-  font-weight:900;
-  flex:0 0 38px;
+  font-weight:700;
+  font-size:11px;
+  flex:0 0 32px;
 }
 .bestnoti-mid{ min-width:0; flex:1 1 auto; }
 .bestnoti-text{
@@ -3470,21 +3737,22 @@ iframe{
 }
 .bestprofile-avatar.big{
   overflow:hidden;
-  width: 64px;
-  height: 64px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-  font-size: 18px;
-  margin-right: 12px;
+  font-size: 13px;
+  margin-right: 10px;
+  box-shadow:none;
 }
 
 .dropdown-bestprofile-menu{
-  width:320px;
+  width:280px;
   max-width:92vw;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--msb-dd-border);
   box-shadow: var(--msb-dd-shadow);
-  min-width: 320px;
+  min-width: 280px;
   background:var(--msb-dd-surface);
   color:var(--msb-dd-text);
 }
@@ -3492,29 +3760,29 @@ iframe{
 .bestprofile-top{
   display:flex;
   align-items:center;
-  gap: 12px;
-  padding: 14px 14px;
+  gap: 10px;
+  padding: 12px;
   background: var(--msb-dd-head-bg);
   color:var(--msb-dd-head-text);
 }
 .bestprofile-meta{ min-width:0; }
 .bestprofile-name{
-  font-weight: 900;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 13px;
   line-height: 1.2;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 .bestprofile-badge{
-  margin-top:4px;
+  margin-top:2px;
   font-size:12px;
-  font-weight:700;
+  font-weight:600;
   line-height:1.2;
   color:var(--msb-dd-head-text, #101828);
 }
 .bestprofile-email{
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 12px;
   opacity: .85;
   white-space:nowrap;
@@ -3522,7 +3790,7 @@ iframe{
   text-overflow:ellipsis;
 }
 .bestprofile-code{
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 12px;
   opacity: .85;
 }
@@ -3532,7 +3800,7 @@ iframe{
 }
 .bestprofile-nav{
   background:var(--msb-dd-surface);
-  padding: 10px 0;
+  padding: 4px 0;
 }
 .bestprofile-nav li + li{
   border-top:1px solid var(--msb-dd-divider);
@@ -3540,29 +3808,37 @@ iframe{
 .bestprofile-nav li a{
   display:flex;
   align-items:center;
-  gap: 10px;
-  min-height:44px;
-  padding: 10px 14px;
+  gap: 8px;
+  min-height:34px;
+  padding: 8px 12px;
   color:var(--msb-dd-text);
-  font-weight:600;
+  font-weight:500;
+  font-size:13px;
 }
 .bestprofile-nav li a:hover{
   background: var(--msb-dd-hover);
   color:var(--msb-dd-text);
 }
+.bestprofile-nav li a .icon{
+  width:14px;
+  min-width:14px;
+  text-align:center;
+  font-size:13px;
+  line-height:1;
+}
 .msb-reaction-glyph{
   display:inline-flex !important;
   align-items:center;
   justify-content:center;
-  width:22px;
-  height:22px;
-  min-width:22px;
-  min-height:22px;
-  flex:0 0 22px;
+  width:16px;
+  height:16px;
+  min-width:16px;
+  min-height:16px;
+  flex:0 0 16px;
   line-height:1 !important;
   font-style:normal !important;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif !important;
-  font-size:20px !important;
+  font-size:16px !important;
   background:transparent !important;
   -webkit-mask:none !important;
   mask:none !important;
@@ -3587,10 +3863,10 @@ iframe{
 /* Selected clap uses emoji glyph; face reactions use custom icons below */
 .has-rx-icon[data-selected-reaction]:not([data-selected-reaction=""]) .msb-reaction-glyph,
 .has-rx-icon[data-selected-reaction="clap"] .msb-reaction-glyph{
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  min-height:22px !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
   display:inline-flex !important;
   align-items:center !important;
   justify-content:center !important;
@@ -3598,7 +3874,7 @@ iframe{
   border-radius:0 !important;
   background:transparent !important;
   color:inherit !important;
-  font-size:20px !important;
+  font-size:16px !important;
   filter:var(--msb-pact-contrast-filter, drop-shadow(0 0 1.35px rgba(255,255,255,.98)) drop-shadow(0 1px 2px rgba(0,0,0,.55))) !important;
   box-shadow:none !important;
 }
@@ -3609,10 +3885,10 @@ iframe{
 .msb-rx-sad,
 .msb-rx-angry,
 img.msb-rx-face{
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  min-height:22px !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
   display:inline-block !important;
   border:0 !important;
   border-radius:0 !important;
@@ -3679,10 +3955,10 @@ img.msb-rx-face{
 .has-rx-icon[data-selected-reaction="like"] .msb-pact-thumb,
 .is-like .msb-pact-thumb,
 .msb-pact-thumb.is-active{
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  min-height:22px !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
   display:inline-block !important;
   border:0 !important;
   border-radius:0 !important;
@@ -3700,10 +3976,10 @@ img.msb-rx-face{
 /* Dislike selected: dark grey thumb-down icon only — no yellow emoji */
 .has-rx-icon[data-selected-reaction="dislike"] .msb-pact-thumb-down,
 .msb-pact-thumb-down.is-active{
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  min-height:22px !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
   display:inline-block !important;
   border:0 !important;
   border-radius:0 !important;
@@ -3720,10 +3996,10 @@ img.msb-rx-face{
 }
 /* Default love heart: icon only — no black circular disc */
 .has-rx-icon[data-selected-reaction=""] .msb-pact-heart{
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  min-height:22px !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
   display:inline-block !important;
   border:0 !important;
   border-radius:0 !important;
@@ -3742,10 +4018,10 @@ img.msb-rx-face{
 .has-rx-icon[data-selected-reaction="love"] .msb-pact-heart,
 .is-love .msb-pact-heart,
 .msb-pact-heart.is-active{
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  min-height:22px !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
   display:inline-block !important;
   border:0 !important;
   border-radius:0 !important;
@@ -3804,6 +4080,11 @@ img.msb-rx-face{
   transform:translateY(10px) scale(.92);
   pointer-events:none;
   transition:opacity .16s ease, transform .16s ease;
+}
+/* Post viewer locks body with position:fixed — keep picker above the overlay stage. */
+#pvOverlay.show .msb-reaction-picker,
+body:has(#pvOverlay.show) .msb-reaction-picker{
+  z-index:130000;
 }
 .msb-reaction-picker.is-open{
   opacity:1;
@@ -3899,10 +4180,10 @@ html[data-theme="dark"] .msb-reaction-picker-item.is-selected{
   display:block;
 }
 span.msb-rx-face{
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  min-height:22px !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
   display:inline-flex !important;
   align-items:center;
   justify-content:center;
@@ -3911,8 +4192,8 @@ span.msb-rx-face{
   mask:none !important;
 }
 span.msb-rx-face svg{
-  width:22px;
-  height:22px;
+  width:16px;
+  height:16px;
   display:block;
 }
 .msb-reaction-picker-item[data-reaction="like"] .msb-reaction-picker-emoji{
@@ -4265,12 +4546,26 @@ span.msb-rx-face svg{
       pickerSelect(anchor, reaction === current ? 'none' : reaction);
       closePicker();
     });
-    document.body.appendChild(picker);
+    mountPickerHost();
     return picker;
+  }
+
+  function mountPickerHost(){
+    if (!picker) return;
+    var ov = document.getElementById('pvOverlay');
+    // Body is position:fixed while the post viewer is open — mount on <html>
+    // so fixed positioning stays viewport-relative and the tray stays visible.
+    var host = (ov && ov.classList.contains('show')) ? document.documentElement : document.body;
+    if (picker.parentNode !== host) {
+      try { host.appendChild(picker); } catch (eMount) {
+        try { document.body.appendChild(picker); } catch (eBody) {}
+      }
+    }
   }
 
   function positionPicker(anchor){
     if (!picker || !anchor || picker.hidden) return;
+    mountPickerHost();
     const rect = anchor.getBoundingClientRect();
     const pickerRect = picker.getBoundingClientRect();
     const margin = 12;
@@ -4296,6 +4591,7 @@ span.msb-rx-face svg{
   function openPicker(anchor, onSelect){
     if (!anchor || typeof onSelect !== 'function') return;
     buildPicker();
+    mountPickerHost();
     pickerAnchor = anchor;
     pickerSelect = onSelect;
     renderSelection(anchor.getAttribute('data-selected-reaction') || '');
@@ -4305,6 +4601,14 @@ span.msb-rx-face svg{
     window.requestAnimationFrame(function(){
       if (picker) picker.classList.add('is-open');
     });
+  }
+
+  function openPickerFor(anchor){
+    if (!anchor || !anchor.closest) return false;
+    const match = matchDelegate(anchor) || matchDelegate(anchor.querySelector ? (anchor.querySelector('.msb-pact, .msb-reaction-glyph, i, svg') || anchor) : anchor);
+    if (!match) return false;
+    openPicker(match.element, match.delegate.onSelect);
+    return true;
   }
 
   function closePicker(){
@@ -4426,6 +4730,8 @@ span.msb-rx-face svg{
     applyReactionButton: applyReactionButton,
     applyLoveButton: applyLoveButton,
     bindLikePicker: bindLikePicker,
+    openPicker: openPicker,
+    openPickerFor: openPickerFor,
     closePicker: closePicker
   };
 })();
@@ -4451,12 +4757,95 @@ span.msb-rx-face svg{
   const notifMarkAll = document.getElementById('headerNotificationMarkAll');
   const notifMarkAllTop = document.getElementById('headerNotificationMarkAllTop');
   const notifItems = () => Array.from(document.querySelectorAll('.dropdown-bestnoti-item[data-notification-id]'));
-  let latestNotificationItems = [];
+  let latestNotificationItems = Array.isArray(window.__MSB_HEADER_NOTIFICATIONS)
+    ? window.__MSB_HEADER_NOTIFICATIONS.slice()
+    : [];
   let notificationDoorTab = 'all';
 
-  function notificationListTargets(){
-    return Array.from(document.querySelectorAll('#headerNotificationList, #headerNotificationListTop, [data-noti-door-list]'));
+  function notificationEsc(s){
+    return String(s || '').replace(/[&<>"']/g, function(m){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]);
+    });
   }
+
+  function notificationInitials(nameOrCode){
+    const t = String(nameOrCode || '').trim();
+    if(!t) return '??';
+    const parts = t.split(/\s+/).filter(Boolean);
+    if(parts.length === 1) return parts[0].substring(0,2).toUpperCase();
+    return (parts[0].substring(0,1) + parts[parts.length-1].substring(0,1)).toUpperCase();
+  }
+
+  function notificationTimeLabel(value){
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const parsed = new Date(raw.replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) return raw;
+    try {
+      return parsed.toLocaleString([], {
+        month: 'short',
+        day: '2-digit',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } catch (eTime) {
+      return raw;
+    }
+  }
+
+  function notificationListTargets(){
+    const nodes = [];
+    const seen = {};
+    [
+      document.getElementById('headerNotificationList'),
+      document.getElementById('headerNotificationListTop')
+    ].forEach(function(node){
+      if(!node || seen[node.id]) return;
+      seen[node.id] = true;
+      nodes.push(node);
+    });
+    document.querySelectorAll('[data-noti-door-list]').forEach(function(node){
+      const key = node.id || ('anon-' + nodes.length);
+      if(seen[key]) return;
+      seen[key] = true;
+      nodes.push(node);
+    });
+    return nodes;
+  }
+
+  function hydrateNotificationsFromDom(){
+    const items = [];
+    const seen = {};
+    document.querySelectorAll('#headerNotificationList .dropdown-bestnoti-item[data-notification-id], [data-noti-door-list] .dropdown-bestnoti-item[data-notification-id]').forEach((node) => {
+      const id = parseInt(node.getAttribute('data-notification-id') || '0', 10) || 0;
+      if (id > 0 && seen[id]) return;
+      if (id > 0) seen[id] = true;
+      const textNode = node.querySelector('.bestnoti-text');
+      let sender = 'Someone';
+      let text = 'sent a notification';
+      if (textNode) {
+        const strong = textNode.querySelector('strong');
+        sender = strong ? String(strong.textContent || '').trim() || sender : sender;
+        const full = String(textNode.textContent || '').trim();
+        text = strong ? full.replace(strong.textContent || '', '').trim() || text : full || text;
+      }
+      items.push({
+        id: id,
+        sender: sender,
+        text: text,
+        live_id: parseInt(node.getAttribute('data-live-id') || '0', 10) || 0,
+        post_id: parseInt(node.getAttribute('data-post-id') || '0', 10) || 0,
+        is_story: parseInt(node.getAttribute('data-is-story') || '0', 10) === 1 ? 1 : 0,
+        url: String(node.getAttribute('data-notification-url') || node.getAttribute('href') || ''),
+        created_at: '',
+        is_read: node.classList.contains('is-unread') ? 0 : 1
+      });
+    });
+    if (items.length && !latestNotificationItems.length) {
+      latestNotificationItems = items;
+    }
+  }
+  hydrateNotificationsFromDom();
 
   function isMentionNotificationText(text){
     const t = String(text || '').toLowerCase();
@@ -4634,9 +5023,10 @@ span.msb-rx-face svg{
   }
 
   function renderNotificationList(items){
-    latestNotificationItems = Array.isArray(items) ? items.slice() : [];
+    const nextItems = Array.isArray(items) ? items.slice() : [];
+    latestNotificationItems = nextItems;
     const targets = notificationListTargets();
-    if(!targets.length) return;
+    if(!targets.length) return false;
 
     const tab = notificationDoorTab === 'mentions' ? 'mentions' : 'all';
     const filtered = latestNotificationItems.filter((item) => {
@@ -4655,32 +5045,43 @@ span.msb-rx-face svg{
         ? '<div class="dropdown-bestnoti-empty">No mentions yet. Tags and @mentions will show here.</div>'
         : '<div class="dropdown-bestnoti-empty">No notifications yet. New alerts will appear here.</div>';
       targets.forEach((node) => { node.innerHTML = empty; });
-      return;
+      return true;
     }
 
-    const html = filtered.map((item) => {
-      const sender = esc(item.sender || 'Someone');
-      const text = esc(item.text || 'sent a notification');
-      const time = esc(formatChatTime(item.created_at || ''));
-      const url = esc(item.url || '#');
-      const unread = parseInt(item.is_read || 0, 10) === 0;
-      const initials = esc(initialsFrom(item.sender || 'NT'));
-      const kind = isMentionNotificationText(item.text) ? 'mentions' : 'all';
-      const postId = parseInt(item.post_id || 0, 10) || 0;
-      return `
-        <a href="${url}" class="dropdown-bestnoti-item${unread ? ' is-unread' : ''}" data-notification-id="${parseInt(item.id || 0, 10)}" data-notification-url="${url === '#' ? '' : url}" data-live-id="${parseInt(item.live_id || 0, 10)}" data-post-id="${postId}" data-noti-kind="${kind}">
-          <div class="bestnoti-avatar">${initials}</div>
-          <div class="bestnoti-mid">
-            <div class="bestnoti-text"><strong>${sender}</strong> ${text}</div>
-            <div class="bestnoti-time">${time}</div>
-          </div>
-        </a>
-      `;
-    }).join('');
+    try {
+      const html = filtered.map((item) => {
+        const sender = notificationEsc(item.sender || 'Someone');
+        const text = notificationEsc(item.text || 'sent a notification');
+        const time = notificationEsc(notificationTimeLabel(item.created_at || ''));
+        const url = notificationEsc(item.url || '#');
+        const unread = parseInt(item.is_read || 0, 10) === 0;
+        const initials = notificationEsc(notificationInitials(item.sender || 'NT'));
+        const kind = isMentionNotificationText(item.text) ? 'mentions' : 'all';
+        const postId = parseInt(item.post_id || 0, 10) || 0;
+        const isStory = parseInt(item.is_story || 0, 10) === 1 ? 1 : 0;
+        return ''
+          + '<a href="' + url + '" class="dropdown-bestnoti-item' + (unread ? ' is-unread' : '') + '"'
+          + ' data-notification-id="' + (parseInt(item.id || 0, 10) || 0) + '"'
+          + ' data-notification-url="' + (url === '#' ? '' : url) + '"'
+          + ' data-live-id="' + (parseInt(item.live_id || 0, 10) || 0) + '"'
+          + ' data-post-id="' + postId + '"'
+          + ' data-is-story="' + isStory + '"'
+          + ' data-noti-kind="' + kind + '">'
+          + '<div class="bestnoti-avatar">' + initials + '</div>'
+          + '<div class="bestnoti-mid">'
+          + '<div class="bestnoti-text"><strong>' + sender + '</strong> ' + text + '</div>'
+          + '<div class="bestnoti-time">' + time + '</div>'
+          + '</div>'
+          + '</a>';
+      }).join('');
 
-    targets.forEach((node) => {
-      node.innerHTML = html;
-    });
+      targets.forEach((node) => {
+        node.innerHTML = html;
+      });
+      return true;
+    } catch (eRender) {
+      return false;
+    }
   }
 
   window.__msbLiveBrowseFingerprint = window.__msbLiveBrowseFingerprint || '';
@@ -4711,15 +5112,26 @@ span.msb-rx-face svg{
       const res = await fetch('ajax/user_notifications_poll.php', { cache: 'no-store', credentials: 'same-origin' });
       const data = await res.json();
       if (data && data.ok) {
-        latestNotificationItems = Array.isArray(data.items) ? data.items.slice() : [];
+        const incoming = Array.isArray(data.items) ? data.items.slice() : [];
+        // Never wipe a good list with an empty payload while unread is still > 0.
+        if (incoming.length || !(parseInt(data.unread || 0, 10) > 0 && latestNotificationItems.length)) {
+          latestNotificationItems = incoming;
+        }
         setNotificationBadge(data.unread || 0);
         renderNotificationList(latestNotificationItems);
       }
     } catch(e) {}
+    return latestNotificationItems;
   }
+
+  // Keep the door list in sync with the badge as soon as scripts load.
+  try { renderNotificationList(latestNotificationItems); } catch (eHydrate) {}
 
   window.MSBNotificationsUI = window.MSBNotificationsUI || {};
   window.MSBNotificationsUI.refresh = pollNotificationCount;
+  window.MSBNotificationsUI.paint = function(){
+    return renderNotificationList(latestNotificationItems);
+  };
   window.MSBNotificationsUI.setTab = function(tab){
     notificationDoorTab = (tab === 'mentions') ? 'mentions' : 'all';
     renderNotificationList(latestNotificationItems);
@@ -4812,15 +5224,423 @@ span.msb-rx-face svg{
     }
   }
 
+  var CREATE_POST_ACCORDION_MS = 680;
+  var CREATE_POST_OPEN_ESTIMATE = 340;
+  var createPostFormReady = false;
+  var createPostTargetBodyH = 0;
+  var createPostAnimToken = 0;
+
+  function getCreatePostAccordion(){
+    return document.getElementById('createPostAccordion');
+  }
+
+  function ensureCreatePostAccordion(){
+    var $ = window.jQuery;
+    var el = getCreatePostAccordion();
+    if (!$ || !el || typeof $.fn.accordion !== 'function') return null;
+    var $acc = $(el);
+    if ($acc.data('ui-accordion')) return $acc;
+    $acc.accordion({
+      collapsible: true,
+      active: false,
+      animate: false,
+      heightStyle: 'content',
+      icons: false,
+      header: '> h3.create-post-topbar'
+    });
+    return $acc;
+  }
+
+  function createPostAnimEasing(){
+    var $ = window.jQuery;
+    if ($ && $.easing && typeof $.easing.easeOutCubic === 'function') return 'easeOutCubic';
+    return 'swing';
+  }
+
+  function parkCreatePostDoorShort(){
+    var dialog = getCreatePostAccordion() || (createPostModal && createPostModal.querySelector('.create-post-dialog'));
+    if (!dialog) return;
+    var bodyEl = dialog.querySelector('.create-post-body');
+    var frame = dialog.querySelector('.create-post-frame');
+    if (window.jQuery) {
+      try { window.jQuery(bodyEl).stop(true, false); } catch (_s) {}
+    }
+    dialog.style.height = '36px';
+    dialog.style.minHeight = '36px';
+    dialog.style.maxHeight = 'none';
+    if (bodyEl) {
+      bodyEl.style.height = '0px';
+      bodyEl.style.minHeight = '0px';
+      bodyEl.style.maxHeight = 'none';
+      bodyEl.style.overflow = 'hidden';
+      bodyEl.style.opacity = '1';
+      bodyEl.style.padding = '0';
+      bodyEl.style.display = 'block';
+    }
+    if (frame) {
+      frame.style.height = '0px';
+      frame.style.minHeight = '0px';
+      frame.style.maxHeight = 'none';
+      frame.style.opacity = '1';
+    }
+    createPostTargetBodyH = 0;
+  }
+
+  function applyCreatePostDoorHeights(bodyH){
+    var dialog = getCreatePostAccordion() || (createPostModal && createPostModal.querySelector('.create-post-dialog'));
+    if (!dialog) return;
+    var bodyEl = dialog.querySelector('.create-post-body');
+    var frame = dialog.querySelector('.create-post-frame') || createPostModalFrame;
+    var topbarH = 36;
+    var h = Math.max(0, Math.round(bodyH || 0));
+    createPostTargetBodyH = h;
+    if (bodyEl) {
+      bodyEl.style.height = h + 'px';
+      bodyEl.style.minHeight = h + 'px';
+      bodyEl.style.maxHeight = 'none';
+      bodyEl.style.overflow = 'auto';
+      bodyEl.style.opacity = '1';
+      bodyEl.style.display = 'block';
+    }
+    if (frame) {
+      frame.style.height = h + 'px';
+      frame.style.minHeight = h + 'px';
+      frame.style.maxHeight = 'none';
+      frame.style.opacity = '1';
+    }
+    dialog.style.height = (h + topbarH) + 'px';
+    dialog.style.minHeight = (h + topbarH) + 'px';
+    dialog.style.maxHeight = 'none';
+  }
+
+  function animateCreatePostDoor(toBodyH, opts){
+    opts = opts || {};
+    var dialog = getCreatePostAccordion() || (createPostModal && createPostModal.querySelector('.create-post-dialog'));
+    var bodyEl = dialog ? dialog.querySelector('.create-post-body') : null;
+    var frame = dialog ? (dialog.querySelector('.create-post-frame') || createPostModalFrame) : null;
+    if (!dialog || !bodyEl) {
+      if (typeof opts.done === 'function') opts.done(false);
+      return false;
+    }
+    var $ = window.jQuery;
+    var topbarH = 36;
+    var target = Math.max(0, Math.round(toBodyH || 0));
+    var duration = (typeof opts.duration === 'number') ? opts.duration : CREATE_POST_ACCORDION_MS;
+    var token = ++createPostAnimToken;
+    createPostTargetBodyH = target;
+
+    if (createPostModal) {
+      createPostModal.classList.remove('is-form-loading');
+      if (target > 0) {
+        createPostModal.classList.add('is-opening');
+        createPostModal.classList.remove('is-closing');
+      } else {
+        createPostModal.classList.add('is-closing');
+        createPostModal.classList.remove('is-opening');
+      }
+    }
+
+    bodyEl.style.display = 'block';
+    bodyEl.style.overflow = 'auto';
+    bodyEl.style.opacity = '1';
+    bodyEl.style.maxHeight = 'none';
+    if (frame) {
+      frame.style.opacity = '1';
+      frame.style.maxHeight = 'none';
+    }
+    dialog.style.maxHeight = 'none';
+
+    var startH = Math.round(bodyEl.getBoundingClientRect().height || parseFloat(bodyEl.style.height) || 0);
+    if (!$ || typeof $.fn.animate !== 'function') {
+      applyCreatePostDoorHeights(target);
+      if (createPostModal) {
+        createPostModal.classList.remove('is-opening', 'is-closing');
+        if (target > 0) createPostModal.classList.add('is-form-ready');
+      }
+      if (typeof opts.done === 'function') opts.done(true);
+      return true;
+    }
+
+    /* Avoid zero-duration snap when already there. */
+    if (Math.abs(startH - target) < 2) {
+      applyCreatePostDoorHeights(target);
+      if (createPostModal) {
+        createPostModal.classList.remove('is-opening', 'is-closing');
+        if (target > 0) createPostModal.classList.add('is-form-ready');
+      }
+      if (typeof opts.done === 'function') opts.done(true);
+      return true;
+    }
+
+    $(bodyEl).stop(true, false).css({ height: startH }).animate({ height: target }, {
+      duration: duration,
+      easing: createPostAnimEasing(),
+      step: function(now){
+        if (token !== createPostAnimToken) return;
+        var n = Math.max(0, Math.round(now));
+        bodyEl.style.minHeight = n + 'px';
+        if (frame) {
+          frame.style.height = n + 'px';
+          frame.style.minHeight = n + 'px';
+        }
+        dialog.style.height = (n + topbarH) + 'px';
+        dialog.style.minHeight = (n + topbarH) + 'px';
+      },
+      complete: function(){
+        if (token !== createPostAnimToken) return;
+        applyCreatePostDoorHeights(target);
+        if (createPostModal) {
+          createPostModal.classList.remove('is-opening', 'is-closing');
+          if (target > 0) {
+            createPostModal.classList.add('is-form-ready');
+            createPostFormReady = true;
+          }
+        }
+        var $acc = ensureCreatePostAccordion();
+        if ($acc) {
+          try {
+            $acc.accordion('option', 'active', target > 0 ? 0 : false);
+            $acc.accordion('refresh');
+          } catch (_acc) {}
+        }
+        if (typeof opts.done === 'function') opts.done(true);
+      }
+    });
+    return true;
+  }
+
+  function syncCreatePostDropGeometry(){
+    if (!createPostModal) return;
+    var dialog = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
+    if (!dialog) return;
+    try {
+      var headerEl =
+        document.querySelector('.ig-feed-header') ||
+        document.querySelector('.ig-stories-wrap') ||
+        document.querySelector('.ig-stories-bar');
+
+      var topPad = 0;
+      if (headerEl) {
+        var hr = headerEl.getBoundingClientRect();
+        if (hr && hr.height >= 8) topPad = Math.max(0, Math.round(hr.bottom));
+      }
+
+      var railW = 0;
+      var rail = document.querySelector('.feed-ig-rail');
+      if (rail && window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) {
+        var rr = rail.getBoundingClientRect();
+        if (rr && rr.width > 0) railW = Math.round(rr.width);
+      }
+
+      var sidePad = 16;
+      var hostW = Math.max(320, Math.round(window.innerWidth - railW));
+      var avail = Math.max(320, hostW - (sidePad * 2));
+      var width = Math.min(1180, avail);
+      var hostH = Math.max(280, Math.round(window.innerHeight - topPad));
+
+      createPostModal.style.top = topPad + 'px';
+      createPostModal.style.left = railW + 'px';
+      createPostModal.style.right = '0';
+      createPostModal.style.bottom = '0';
+      createPostModal.style.width = hostW + 'px';
+      createPostModal.style.height = hostH + 'px';
+      createPostModal.style.padding = '0';
+      createPostModal.style.setProperty('background', 'transparent', 'important');
+      createPostModal.style.setProperty('background-color', 'transparent', 'important');
+      createPostModal.style.setProperty('background-image', 'none', 'important');
+
+      dialog.style.position = 'absolute';
+      dialog.style.top = '0';
+      dialog.style.left = '50%';
+      dialog.style.right = 'auto';
+      dialog.style.bottom = 'auto';
+      dialog.style.width = width + 'px';
+      dialog.style.maxWidth = width + 'px';
+      dialog.style.margin = '0';
+      dialog.style.marginBottom = '10px';
+      dialog.style.borderRadius = '0 0 14px 14px';
+      dialog.style.transform = 'translateX(-50%)';
+
+      var frameEl = dialog.querySelector('.create-post-frame');
+      if (frameEl) {
+        frameEl.style.width = '100%';
+        frameEl.style.display = 'block';
+      }
+
+      /* Keep width/position only; height is owned by open/close animation. */
+      if (!createPostModal.classList.contains('is-open')) {
+        parkCreatePostDoorShort();
+      } else if (createPostFormReady && createPostTargetBodyH > 0
+        && !createPostModal.classList.contains('is-opening')
+        && !createPostModal.classList.contains('is-closing')) {
+        applyCreatePostDoorHeights(createPostTargetBodyH);
+      }
+
+      var $acc = ensureCreatePostAccordion();
+      if ($acc) {
+        try { $acc.accordion('refresh'); } catch (_ref) {}
+      }
+    } catch (_geoErr) {}
+  }
+
+  function measureCreatePostFormHeight(doc){
+    if (!doc) return 0;
+    try {
+      var form = doc.getElementById('createPostForm');
+      var card = doc.querySelector('.card');
+      var page = doc.querySelector('.sh-pagebody');
+      var cardBody = doc.querySelector('.card-body');
+      if (!form && !cardBody && !card) return 0;
+
+      var scrollY = (doc.defaultView && doc.defaultView.pageYOffset)
+        || doc.documentElement.scrollTop
+        || doc.body.scrollTop
+        || 0;
+
+      function isVisible(el){
+        if (!el) return false;
+        if (el.hasAttribute && el.hasAttribute('hidden')) return false;
+        if (el.closest && el.closest('[hidden]')) return false;
+        try {
+          var st = doc.defaultView.getComputedStyle(el);
+          if (!st || st.display === 'none' || st.visibility === 'hidden') return false;
+        } catch (_cs) {}
+        return (el.offsetParent !== null) || (el.getClientRects && el.getClientRects().length > 0);
+      }
+
+      /* Prefer composer Post/Cancel footer; else visible slides actions. */
+      var endEl =
+        (isVisible(doc.querySelector('.msb-composer-footer')) && doc.querySelector('.msb-composer-footer')) ||
+        (isVisible(doc.querySelector('.create-post-slides-actions')) && doc.querySelector('.create-post-slides-actions')) ||
+        form ||
+        cardBody ||
+        card;
+
+      if (endEl) {
+        var bottom = endEl.getBoundingClientRect().bottom + scrollY;
+        var progress = doc.getElementById('createPostUploadProgress');
+        if (progress && isVisible(progress)) {
+          bottom = Math.max(bottom, progress.getBoundingClientRect().bottom + scrollY);
+        }
+        var tight = Math.ceil(bottom + 10);
+        if (tight >= 160) {
+          var cap = Math.max(280, Math.round(window.innerHeight * 0.88));
+          return Math.min(tight, cap);
+        }
+      }
+
+      var el = form || cardBody || card;
+      var h = Math.ceil(Math.max(el.scrollHeight || 0, el.offsetHeight || 0));
+      if (h < 160) return 0;
+      var cap2 = Math.max(280, Math.round(window.innerHeight * 0.88));
+      if (h > cap2) h = cap2;
+      return h;
+    } catch (_m) {
+      return 0;
+    }
+  }
+
+  function resolveCreatePostBodyHeight(){
+    var frame = createPostModalFrame;
+    if (!frame) return 0;
+    var hostH = parseInt(createPostModal && createPostModal.style.height, 10) || Math.max(280, Math.round(window.innerHeight - 80));
+    var panelMax = Math.max(220, hostH - 36);
+    try {
+      var doc = frame.contentDocument;
+      if (!doc || !doc.body) return 0;
+      Array.prototype.forEach.call(doc.querySelectorAll('.sh-footer, .app-footer'), function(el){
+        el.style.setProperty('display', 'none', 'important');
+        el.style.setProperty('height', '0', 'important');
+        el.style.setProperty('margin', '0', 'important');
+        el.style.setProperty('padding', '0', 'important');
+        el.setAttribute('hidden', 'hidden');
+      });
+      var main = doc.querySelector('.sh-mainpanel');
+      var page = doc.querySelector('.sh-pagebody');
+      var cardBody = doc.querySelector('.card-body');
+      if (main) {
+        main.style.setProperty('height', 'auto', 'important');
+        main.style.setProperty('min-height', '0', 'important');
+        main.style.setProperty('padding-bottom', '0', 'important');
+        main.style.setProperty('margin-bottom', '0', 'important');
+      }
+      if (page) {
+        page.style.setProperty('height', 'auto', 'important');
+        page.style.setProperty('min-height', '0', 'important');
+        page.style.setProperty('padding-bottom', '0', 'important');
+        page.style.setProperty('margin-bottom', '0', 'important');
+      }
+      if (cardBody) {
+        cardBody.style.setProperty('padding-bottom', '4px', 'important');
+        cardBody.style.setProperty('margin-bottom', '0', 'important');
+      }
+      if (doc.documentElement) doc.documentElement.style.setProperty('height', 'auto', 'important');
+      doc.body.style.setProperty('height', 'auto', 'important');
+      doc.body.style.setProperty('min-height', '0', 'important');
+      doc.body.style.setProperty('overflow', 'hidden', 'important');
+      doc.body.style.setProperty('padding-bottom', '0', 'important');
+      doc.body.style.setProperty('margin-bottom', '0', 'important');
+
+      var contentH = measureCreatePostFormHeight(doc);
+      if (!contentH) contentH = CREATE_POST_OPEN_ESTIMATE;
+      /* No extra floor / fat padding — cut at the action bar. */
+      return Math.min(panelMax, contentH);
+    } catch (_r) {
+      return 0;
+    }
+  }
+
+  function fitCreatePostDoorToForm(opts){
+    opts = opts || {};
+    if (!createPostModal || !createPostModal.classList.contains('is-open')) return false;
+    if (createPostModal.classList.contains('is-closing')) return false;
+    var next = resolveCreatePostBodyHeight();
+    if (!next) return false;
+
+    createPostFormReady = true;
+    createPostModal.classList.add('is-form-ready');
+    createPostModal.classList.remove('is-form-loading');
+
+    /* Grow/shrink door so Add slide + Submit stay visible (never clip them). */
+    if (createPostModal.classList.contains('is-opening') || opts.forceAnimate || Math.abs((createPostTargetBodyH || 0) - next) > 12) {
+      animateCreatePostDoor(next, { duration: opts.duration || Math.round(CREATE_POST_ACCORDION_MS * 0.65) });
+    } else {
+      applyCreatePostDoorHeights(next);
+    }
+    return true;
+  }
+
+  var createPostCloseTimer = 0;
+  function clearCreatePostCloseTimer(){
+    if (createPostCloseTimer) {
+      clearTimeout(createPostCloseTimer);
+      createPostCloseTimer = 0;
+    }
+  }
+
+  function isCreatePostModalOpen(){
+    return !!(createPostModal && createPostModal.classList.contains('is-open')
+      && createPostModal.getAttribute('aria-hidden') !== 'true');
+  }
+
   function openCreatePostModal(src){
     if (!createPostModal) return;
+    clearCreatePostCloseTimer();
+    createPostFormReady = false;
+    createPostModal.classList.remove('is-form-ready', 'is-closing');
+    createPostModal.classList.add('is-opening');
     if (STAFF_READONLY) {
       if (createPostReadonlyText) {
         createPostReadonlyText.textContent = 'As Publisher ' + String(STAFF_ROLE_LABEL || 'Staff') + ', you can browse this organization feed but cannot create posts. Ask your manager if you need posting access.';
       }
       if (createPostReadonlyNotice) createPostReadonlyNotice.removeAttribute('hidden');
+      syncCreatePostDropGeometry();
       createPostModal.classList.add('is-open', 'is-readonly-notice');
       createPostModal.setAttribute('aria-hidden', 'false');
+      createPostFormReady = true;
+      createPostModal.classList.add('is-form-ready');
+      parkCreatePostDoorShort();
+      animateCreatePostDoor(Math.min(360, CREATE_POST_OPEN_ESTIMATE), { duration: CREATE_POST_ACCORDION_MS });
       if (createPostModalFrame) createPostModalFrame.setAttribute('src', 'about:blank');
       document.body.style.overflow = 'hidden';
       return;
@@ -4830,25 +5650,32 @@ span.msb-rx-face svg{
     if (createPostReadonlyNotice) createPostReadonlyNotice.setAttribute('hidden', 'hidden');
     var nextSrc = createPostModalSrc(src);
     var titleEl = createPostModal.querySelector('.create-post-title');
-    var dialogEl = createPostModal.querySelector('.create-post-dialog');
+    var dialogEl = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
     var isEdit = /(?:^|[?&#])edit=\d+/i.test(String(nextSrc)) || /(?:^|[?&#])edit=\d+/i.test(String(src || ''));
     if (titleEl) {
-      titleEl.innerHTML = isEdit
-        ? '<i class="icon ion-compose"></i> Edit post'
-        : '<i class="icon ion-compose"></i> Create new post';
+      titleEl.textContent = isEdit ? 'Edit post' : 'Create new post';
+      Array.prototype.forEach.call(titleEl.querySelectorAll('i, .icon, .fa'), function(el){
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      });
+    }
+    var topbarStrip = createPostModal.querySelector('.create-post-topbar');
+    if (topbarStrip) {
+      Array.prototype.forEach.call(topbarStrip.querySelectorAll('.ui-accordion-header-icon, .ui-icon, i.icon.ion-compose, .ion-compose'), function(el){
+        if (el && !el.closest('.create-post-close') && el.parentNode) el.parentNode.removeChild(el);
+      });
     }
     if (dialogEl) {
       dialogEl.setAttribute('aria-label', isEdit ? 'Edit post' : 'Create post');
     }
+    syncCreatePostDropGeometry();
+    parkCreatePostDoorShort();
     createPostModal.classList.add('is-open');
     createPostModal.setAttribute('aria-hidden', 'false');
     try {
       var cs = window.getComputedStyle(document.documentElement);
       var bg = (cs.getPropertyValue('--msb-palette-bg') || '').trim();
       var text = (cs.getPropertyValue('--msb-palette-text') || '').trim();
-      var btnBg = (cs.getPropertyValue('--msb-palette-btn-bg') || bg || '').trim();
-      var btnText = (cs.getPropertyValue('--msb-palette-btn-text') || text || '').trim();
-      var dialog = createPostModal.querySelector('.create-post-dialog');
+      var dialog = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
       var body = createPostModal.querySelector('.create-post-body');
       var frame = createPostModal.querySelector('.create-post-frame');
       var topbar = createPostModal.querySelector('.create-post-topbar');
@@ -4856,23 +5683,107 @@ span.msb-rx-face svg{
         if (dialog) dialog.style.setProperty('background', bg, 'important');
         if (body) body.style.setProperty('background', bg, 'important');
         if (frame) frame.style.setProperty('background', bg, 'important');
+        if (topbar) topbar.style.setProperty('background', bg, 'important');
       }
+      /* Keep title/icon/close dark on the light create-post bar. */
       if (topbar) {
-        if (btnBg) topbar.style.setProperty('background', btnBg, 'important');
-        if (btnText) topbar.style.setProperty('color', btnText, 'important');
+        topbar.style.setProperty('color', '#0f172a', 'important');
+        var titleNode = topbar.querySelector('.create-post-title');
+        var closeNode = topbar.querySelector('.create-post-close');
+        if (titleNode) titleNode.style.setProperty('color', '#0f172a', 'important');
+        if (closeNode) {
+          closeNode.style.setProperty('color', '#0f172a', 'important');
+          closeNode.style.setProperty('background', 'rgba(15,23,42,.1)', 'important');
+        }
       }
     } catch (_styleErr) {}
+    ensureCreatePostAccordion();
+    try {
+      var $accOpen = ensureCreatePostAccordion();
+      if ($accOpen) {
+        $accOpen.accordion('option', 'animate', false);
+        $accOpen.accordion('option', 'active', 0);
+        $accOpen.accordion('refresh');
+      }
+    } catch (_accShow) {}
+    parkCreatePostDoorShort();
+    /* Smooth open starts immediately — no freeze waiting on iframe. */
+    animateCreatePostDoor(CREATE_POST_OPEN_ESTIMATE, { duration: CREATE_POST_ACCORDION_MS });
     createPostModalFrame.setAttribute('src', nextSrc);
     document.body.style.overflow = 'hidden';
   }
 
+  function resetCreatePostGeometry(){
+    if (!createPostModal) return;
+    try {
+      var dialog = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
+      createPostModal.style.justifyContent = '';
+      createPostModal.style.paddingLeft = '';
+      createPostModal.style.paddingRight = '';
+      createPostModal.style.paddingTop = '';
+      createPostModal.style.padding = '';
+      createPostModal.style.top = '';
+      createPostModal.style.left = '';
+      createPostModal.style.right = '';
+      createPostModal.style.bottom = '';
+      createPostModal.style.width = '';
+      createPostModal.style.height = '';
+      if (dialog) {
+        dialog.style.position = '';
+        dialog.style.inset = '';
+        dialog.style.top = '';
+        dialog.style.left = '';
+        dialog.style.right = '';
+        dialog.style.bottom = '';
+        dialog.style.width = '';
+        dialog.style.maxWidth = '';
+        dialog.style.maxHeight = '';
+        dialog.style.height = '';
+        dialog.style.minHeight = '';
+        dialog.style.margin = '';
+        dialog.style.marginLeft = '';
+        dialog.style.marginRight = '';
+        dialog.style.borderRadius = '';
+        dialog.style.borderTop = '';
+        dialog.style.animation = '';
+        dialog.style.opacity = '';
+        dialog.style.transition = '';
+        dialog.style.transform = '';
+        var bodyEl = dialog.querySelector('.create-post-body');
+        if (bodyEl) {
+          bodyEl.style.height = '';
+          bodyEl.style.maxHeight = '';
+          bodyEl.style.minHeight = '';
+        }
+      }
+    } catch (_clr) {}
+  }
+
   function closeCreatePostModal(){
     if (!createPostModal) return;
-    createPostModal.classList.remove('is-open', 'is-readonly-notice');
-    createPostModal.setAttribute('aria-hidden', 'true');
-    if (createPostReadonlyNotice) createPostReadonlyNotice.setAttribute('hidden', 'hidden');
-    if (createPostModalFrame) createPostModalFrame.setAttribute('src', 'about:blank');
-    document.body.style.overflow = '';
+    if (!createPostModal.classList.contains('is-open') && createPostModal.getAttribute('aria-hidden') === 'true') {
+      return;
+    }
+    if (createPostModal.classList.contains('is-closing')) return;
+    clearCreatePostCloseTimer();
+    createPostFormReady = false;
+    createPostModal.classList.add('is-closing');
+    createPostModal.classList.remove('is-opening', 'is-form-ready', 'is-form-loading');
+    animateCreatePostDoor(0, {
+      duration: CREATE_POST_ACCORDION_MS,
+      done: function(){
+        createPostCloseTimer = 0;
+        createPostFormReady = false;
+        createPostTargetBodyH = 0;
+        createPostModal.classList.remove('is-open', 'is-readonly-notice', 'is-form-ready', 'is-form-loading', 'is-opening', 'is-closing');
+        createPostModal.setAttribute('aria-hidden', 'true');
+        if (createPostReadonlyNotice) createPostReadonlyNotice.setAttribute('hidden', 'hidden');
+        document.body.style.overflow = '';
+        if (createPostModalFrame) createPostModalFrame.setAttribute('src', 'about:blank');
+        parkCreatePostDoorShort();
+        resetCreatePostGeometry();
+      }
+    });
   }
 
   function liveVisibilityText(value){
@@ -6046,6 +6957,12 @@ span.msb-rx-face svg{
           if (pid > 0) modalSrc = 'dashboard.php?modal=1&edit=' + String(pid);
         }
       }
+      var isEditOpen = /(?:^|[?&#])edit=\d+/i.test(String(modalSrc || ''));
+      /* Header "+" toggles: open slowly, click again to close slowly. */
+      if (!isEditOpen && isCreatePostModalOpen()) {
+        closeCreatePostModal();
+        return;
+      }
       openCreatePostModal(modalSrc || 'dashboard.php?modal=1');
       return;
     }
@@ -6074,13 +6991,66 @@ span.msb-rx-face svg{
           return;
         }
 
-        // Tagged / post alerts: open View-the-post modal (same as fries → View the post).
+        // Tagged / mentioned story: open the story circle door.
         let openPostId = parseInt(item.getAttribute('data-post-id') || '0', 10) || 0;
         if (!openPostId && url) {
           try {
             const u = new URL(url, window.location.href);
-            openPostId = parseInt(u.searchParams.get('open_post') || u.searchParams.get('post') || '0', 10) || 0;
+            openPostId = parseInt(u.searchParams.get('story_post') || u.searchParams.get('open_post') || u.searchParams.get('post') || '0', 10) || 0;
           } catch (eUrl) {}
+        }
+        let isStoryNoti = String(item.getAttribute('data-is-story') || '') === '1';
+        if (!isStoryNoti && url) {
+          try {
+            const uStory = new URL(url, window.location.href);
+            isStoryNoti = !!uStory.searchParams.get('story_post');
+          } catch (eStoryUrl) {}
+        }
+        if (!isStoryNoti) {
+          try {
+            var textProbe = '';
+            var textNodeProbe = item.querySelector('.bestnoti-text');
+            if (textNodeProbe) textProbe = String(textNodeProbe.textContent || '').toLowerCase();
+            isStoryNoti = textProbe.indexOf(' in a story') !== -1;
+          } catch (eText) {}
+        }
+        if (openPostId > 0 && isStoryNoti) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (id && navigator.sendBeacon) {
+            try {
+              const fd = new FormData();
+              fd.append('id', id);
+              navigator.sendBeacon('ajax/user_mark_read.php', fd);
+            } catch (err) {}
+          }
+          if (item) item.classList.remove('is-unread');
+          try {
+            if (window.TTNotifications && typeof window.TTNotifications.close === 'function') {
+              window.TTNotifications.close();
+            }
+          } catch (eClose) {}
+          var openedStory = false;
+          try {
+            if (window.TTStories && typeof window.TTStories.openByPostId === 'function') {
+              openedStory = !!window.TTStories.openByPostId(openPostId);
+            }
+          } catch (eOpenStory) {
+            openedStory = false;
+          }
+          if (!openedStory) {
+            var storyDest = url && url !== '#' ? url : ('home.php?tab=for-you&story_post=' + openPostId);
+            try { window.location.href = storyDest; } catch (eNavStory) {}
+          }
+          return;
+        }
+
+        // Tagged / post alerts: open View-the-post modal (same as fries → View the post).
+        if (!openPostId && url) {
+          try {
+            const u = new URL(url, window.location.href);
+            openPostId = parseInt(u.searchParams.get('open_post') || u.searchParams.get('post') || '0', 10) || 0;
+          } catch (eUrl2) {}
         }
         if (openPostId > 0) {
           e.preventDefault();
@@ -6134,7 +7104,7 @@ span.msb-rx-face svg{
             opened = false;
           }
           if (!opened) {
-            var dest = url && url !== '#' ? url : ('feed.php?open_post=' + openPostId + (hideNav ? '&hide_nav=1' : ''));
+            var dest = url && url !== '#' ? url : ('home.php?tab=for-you&open_post=' + openPostId + (hideNav ? '&hide_nav=1' : ''));
             try { window.location.href = dest; } catch (eNav) {}
           }
           return;
@@ -6186,7 +7156,12 @@ span.msb-rx-face svg{
   if (createPostModalFrame) {
     createPostModalFrame.addEventListener('load', function(){
       if (!createPostModal || !createPostModal.classList.contains('is-open')) return;
+      if (createPostModal.classList.contains('is-closing')) return;
       try {
+        /* Do not park/reset mid-open — that caused freeze. Only refine height to the form. */
+        setTimeout(function(){ fitCreatePostDoorToForm(); }, 30);
+        setTimeout(function(){ fitCreatePostDoorToForm(); }, 180);
+        setTimeout(function(){ fitCreatePostDoorToForm(); }, 450);
         const doc = createPostModalFrame.contentDocument;
         const win = createPostModalFrame.contentWindow;
         if (!doc || !doc.documentElement) return;
@@ -6275,10 +7250,22 @@ span.msb-rx-face svg{
     close: closeCreatePostModal
   };
 
+  window.addEventListener('resize', function(){
+    if (createPostModal && createPostModal.classList.contains('is-open')) {
+      syncCreatePostDropGeometry();
+    }
+  });
+
   // After create/edit: close modal, then land by entry + Friends/Public:
   // story circle "+" → story circle; left-nav "+" → post card.
   window.addEventListener('message', function(ev){
     var data = ev && ev.data;
+    if (data && data.type === 'msb-create-post-fit') {
+      try {
+        fitCreatePostDoorToForm({ forceAnimate: !!(data && data.force), duration: 420 });
+      } catch (_fitMsg) {}
+      return;
+    }
     if (!data || data.type !== 'msb-create-post-done') return;
     try { closeCreatePostModal(); } catch (err) {}
     var postId = Number(data.postId || 0);
@@ -6319,32 +7306,40 @@ span.msb-rx-face svg{
         redirectPath = 'profile.php';
         redirect = 'profile.php?tab=gallery&gallery_vis=private&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       } else if (visibility === 'public') {
-        redirectPath = 'public.php';
-        redirect = 'public.php?tab=public&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+        redirectPath = 'home.php';
+        redirect = 'home.php?tab=discover&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       } else {
-        redirectPath = 'feed.php';
-        redirect = 'feed.php?tab=for-you&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+        redirectPath = 'home.php';
+        redirect = 'home.php?tab=for-you&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       }
     } else if (visibility === 'private') {
       redirectPath = 'profile.php';
       redirect = 'profile.php?tab=gallery&gallery_vis=private&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
-    } else if (visibility === 'public' && !/public\.php$/i.test(redirectPath) && !/news\.php$/i.test(redirectPath)) {
-      redirectPath = 'public.php';
-      redirect = 'public.php?tab=public&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
-    } else if (visibility === 'friends' && !/feed\.php$/i.test(redirectPath)) {
-      redirectPath = 'feed.php';
-      redirect = 'feed.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+    } else if (visibility === 'public' && !/home\.php$/i.test(redirectPath) && !/public\.php$/i.test(redirectPath) && !/news\.php$/i.test(redirectPath)) {
+      redirectPath = 'home.php';
+      redirect = 'home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+    } else if (visibility === 'friends' && !/home\.php$/i.test(redirectPath) && !/feed\.php$/i.test(redirectPath)) {
+      redirectPath = 'home.php';
+      redirect = 'home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     }
 
     var pathNow = String(window.location.pathname || '');
-    var onFeed = /feed\.php$/i.test(pathNow);
-    var onPublic = /public\.php$/i.test(pathNow);
+    var onFeed = /feed\.php$/i.test(pathNow) || (/home\.php$/i.test(pathNow) && (function(){
+      try { return (new URL(window.location.href).searchParams.get('tab') || 'for-you') === 'for-you'; }
+      catch (e) { return false; }
+    })());
+    var onPublic = /public\.php$/i.test(pathNow) || (/home\.php$/i.test(pathNow) && (function(){
+      try {
+        var t = new URL(window.location.href).searchParams.get('tab') || 'for-you';
+        return t !== 'for-you';
+      } catch (e) { return false; }
+    })());
     var onProfile = /profile\.php$/i.test(pathNow);
-    var wantsFeed = /feed\.php$/i.test(redirectPath);
-    var wantsPublic = /public\.php$/i.test(redirectPath);
+    var wantsFeed = /feed\.php$/i.test(redirectPath) || (/home\.php$/i.test(redirectPath) && /tab=for-you/i.test(redirect));
+    var wantsPublic = /public\.php$/i.test(redirectPath) || (/home\.php$/i.test(redirectPath) && /tab=discover/i.test(redirect));
     var wantsProfile = /profile\.php$/i.test(redirectPath);
-    var wantsNews = /news\.php$/i.test(redirectPath);
-    var switchingSurface = (onFeed && !wantsFeed) || (onPublic && !wantsPublic) || (onProfile && !wantsProfile) || (wantsNews && !/news\.php$/i.test(pathNow)) || (wantsProfile && !onProfile);
+    var wantsNews = /news\.php$/i.test(redirectPath) || (/home\.php$/i.test(redirectPath) && /tab=news/i.test(redirect));
+    var switchingSurface = (onFeed && !wantsFeed) || (onPublic && !wantsPublic) || (onProfile && !wantsProfile) || (wantsNews && !/news\.php$/i.test(pathNow) && !(/home\.php$/i.test(pathNow) && /tab=news/i.test(window.location.search || ''))) || (wantsProfile && !onProfile);
 
     // Moving Friends ↔ Public: drop the card on the current page, then open the destination.
     if (switchingSurface && postId > 0) {
@@ -6360,7 +7355,7 @@ span.msb-rx-face svg{
     // fresh/pinned destination so the parent refreshes automatically and the
     // new card is guaranteed to be present at the top.
     if (onFeed && wantsFeed && !switchingSurface && !data.story && typeof window.MSBFeedOnPostCreated === 'function') {
-      var freshFeedTarget = redirect || ('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      var freshFeedTarget = redirect || ('home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
       try { window.location.replace(freshFeedTarget); }
       catch (err2) { window.location.href = freshFeedTarget; }
       return;
@@ -6371,11 +7366,11 @@ span.msb-rx-face svg{
       return;
     }
     if (wantsPublic) {
-      window.location.replace('public.php?tab=public&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else if (wantsNews) {
-      window.location.replace('news.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('home.php?tab=news&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else {
-      window.location.replace('feed.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     }
   });
 

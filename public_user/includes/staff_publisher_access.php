@@ -289,7 +289,7 @@ function staff_pub_deny_write(): void
         return;
     }
 
-    header('Location: feed.php');
+    header('Location: home.php?tab=for-you');
     exit;
 }
 
@@ -315,7 +315,7 @@ function staff_pub_enforce_allowed_page(): void
     ];
 
     if (!in_array($script, $allowed, true)) {
-        header('Location: feed.php');
+        header('Location: home.php?tab=for-you');
         exit;
     }
 }

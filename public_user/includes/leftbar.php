@@ -152,15 +152,19 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   border-right:1px solid var(--tt-panel-border-strong, #d1d5db);
   box-sizing:border-box;
 }
-#ttLeftbarOverlays .tt-menu-wrap,
-#ttLeftbarOverlays .tt-profile-wrap,
-#ttLeftbarOverlays .tt-messages-wrap,
 #ttLeftbarOverlays .tt-notifications-wrap,
+#ttLeftbarOverlays .tt-messages-wrap,
 #ttLeftbarOverlays .tt-friend-requests-wrap,
+#ttLeftbarOverlays .tt-profile-wrap,
+#ttLeftbarOverlays .tt-menu-wrap,
 #ttLeftbarOverlays .tt-live-wrap{
   position:absolute !important;
   inset:0 !important;
   pointer-events:none;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  min-height:0 !important;
 }
 #ttLeftbarOverlays .tt-menu-wrap.is-open,
 #ttLeftbarOverlays .tt-profile-wrap.is-open,
@@ -197,6 +201,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   opacity:0;
   pointer-events:none;
   transition:transform .18s ease, opacity .18s ease;
+  --tt-comments-gutter:16px;
 }
 .tt-comments-wrap.is-open{
   transform:translateX(0);
@@ -204,18 +209,19 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   pointer-events:auto;
 }
 
-/* Header sticky */
+/* Header sticky — same left gutter as list + compose */
 .tt-comments-head{
   flex: 0 0 auto !important;
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:22px 24px 16px;
+  padding:18px var(--tt-comments-gutter) 14px;
   border-bottom:1px solid transparent;
   background:var(--tt-panel-bg);
   position: sticky !important;
   top: 0 !important;
   z-index: 30 !important;
+  box-sizing:border-box;
 }
 
 /* Only list scrolls */
@@ -224,30 +230,38 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   min-height:0 !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
-  padding:4px 18px 18px;
+  padding:8px var(--tt-comments-gutter) 16px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   margin-bottom: 0px;
   background:var(--tt-panel-bg);
   scrollbar-width:thin;
   scrollbar-color:rgba(15,23,42,.35) transparent;
+  box-sizing:border-box;
 }
 .tt-comments-list::-webkit-scrollbar{width:2px !important;height:2px !important;}
 .tt-comments-list::-webkit-scrollbar-thumb{background:rgba(15,23,42,.35) !important;border-radius:999px;border:0 !important;}
 .tt-comments-list::-webkit-scrollbar-track{background:transparent !important;}
-.tt-comments-list .text-muted{ color:var(--tt-muted) !important; }
+.tt-comments-list .text-muted,
+.tt-comments-list .tt-comments-empty{
+  color:var(--tt-muted) !important;
+  margin:0 !important;
+  padding:10px 0 !important;
+  text-align:left !important;
+  text-indent:0 !important;
+}
 
-/* Footer sticky */
+/* Footer sticky — same left gutter as title / empty / comments */
 .tt-comments-foot{
   flex: 0 0 auto !important;
   border-top:1px solid rgba(255,255,255,.06);
-  padding:10px 16px 18px;
+  padding:10px var(--tt-comments-gutter) 18px;
   background:var(--tt-panel-bg);
   position: sticky !important;
   /* bottom: 155px !important; */
   z-index: 30 !important;
   transform: translateZ(0);
-
+  box-sizing:border-box;
 }
 
 /* UI bits */
@@ -255,16 +269,55 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 .tt-comments-head .count{ font-weight:700; font-size:14px; color:var(--tt-muted); margin-left:8px; }
 
 .tt-close{
-  width:42px;height:42px;
+  width:28px !important;
+  height:28px !important;
+  min-width:28px !important;
+  min-height:28px !important;
   border-radius:999px;
   border:1px solid transparent;
   background:var(--tt-control-bg);
   color:var(--tt-text);
-  display:flex;align-items:center;justify-content:center;
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
   cursor:pointer;
+  padding:0 !important;
+  line-height:1 !important;
+  flex:0 0 28px !important;
+  box-sizing:border-box;
+  box-shadow:none;
 }
-.tt-close i{ font-size:20px; }
+.tt-close i,
+.tt-close .icon{
+  font-size:14px !important;
+  line-height:1 !important;
+  width:auto !important;
+  height:auto !important;
+}
 .tt-close:hover{ background:var(--tt-control-hover); }
+
+/* All leftbar doors: same compact close as notifications / profile */
+#ttLeftbarOverlays .tt-close,
+.msb-profile-door-host .tt-close,
+.msb-messages-door-host .tt-close,
+.msb-notifications-door-host .tt-close,
+.msb-friend-requests-door-host .tt-close{
+  width:28px !important;
+  height:28px !important;
+  min-width:28px !important;
+  min-height:28px !important;
+  flex:0 0 28px !important;
+  padding:0 !important;
+}
+#ttLeftbarOverlays .tt-close i,
+#ttLeftbarOverlays .tt-close .icon,
+.msb-profile-door-host .tt-close i,
+.msb-messages-door-host .tt-close i,
+.msb-notifications-door-host .tt-close i,
+.msb-friend-requests-door-host .tt-close i{
+  font-size:14px !important;
+  line-height:1 !important;
+}
 
 /* Comment rows */
 .tt-node{position:relative;--tt-avatar-size:20px;}
@@ -299,7 +352,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   border-bottom-left-radius:18px;
 }
 .tt-node.is-depth-clamped::before{display:none;}
-.tt-comment{ display:flex; gap:7px; padding:14px 12px 12px; border-radius:18px; }
+.tt-comment{ display:flex; gap:7px; padding:14px 0 12px; border-radius:18px; box-sizing:border-box; }
 .tt-comment.is-alert-focus{ background:var(--tt-focus-bg); border:1px solid var(--tt-focus-border); box-shadow:var(--tt-focus-shadow); margin:2px 0 10px; }
 .tt-avatar{
   width:20px;height:20px;border-radius:999px;
@@ -378,15 +431,16 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 
 .tt-replying{
   display:none; align-items:center; justify-content:space-between;
-  gap:8px; font-size:13px; color:var(--tt-muted); padding:0 8px 10px;
+  gap:8px; font-size:13px; color:var(--tt-muted); padding:0 0 10px;
 }
 .tt-replying .x{ cursor:pointer; color:var(--tt-text); font-weight:800; }
 
 @media (min-width:1025px){
-  .tt-comments-head{ padding:20px 20px 14px; }
-  .tt-comments-list{ padding:4px 10px 10px; }
-  .tt-comments-foot{ padding:10px 16px 20px; }
-  .tt-comment{ padding-left:10px; padding-right:10px; }
+  .tt-comments-wrap{ --tt-comments-gutter:16px; }
+  .tt-comments-head{ padding:16px var(--tt-comments-gutter) 14px; }
+  .tt-comments-list{ padding:8px var(--tt-comments-gutter) 14px; }
+  .tt-comments-foot{ padding:10px var(--tt-comments-gutter) 20px; }
+  .tt-comment{ padding-left:0; padding-right:0; }
   .tt-name{ font-size:15px; }
   .tt-text{ font-size:14px; }
 }
@@ -507,7 +561,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     </div>
 
     <div class="tt-comments-list" id="ttCommentsList">
-      <div class="text-muted" style="padding:10px 6px;">Select a post to load comments.</div>
+      <div class="text-muted tt-comments-empty">Select a post to load comments.</div>
     </div>
 
     <div class="tt-comments-foot">
@@ -789,7 +843,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     }
 
     window.TTComments.setPost(postId, [], false);
-    if($list) $list.innerHTML = '<div class="text-muted" style="padding:10px 6px;">Loading comments...</div>';
+    if($list) $list.innerHTML = '<div class="text-muted tt-comments-empty">Loading comments...</div>';
 
     fetchCommentsForPost(postId).then(function(items){
       if(Number(currentCommentsPostId) !== postId) return;
@@ -797,7 +851,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
       if(typeof opts.onLoaded === 'function') opts.onLoaded(items);
     }).catch(function(){
       if(Number(currentCommentsPostId) !== postId) return;
-      if($list) $list.innerHTML = '<div class="text-danger" style="padding:10px 6px;">Unable to load comments.</div>';
+      if($list) $list.innerHTML = '<div class="text-danger tt-comments-empty">Unable to load comments.</div>';
     });
   }
 
@@ -884,7 +938,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     $count.textContent = String(comments.length);
 
     if(comments.length === 0){
-      $list.innerHTML = '<div class="text-muted" style="padding:10px 6px;">No comments yet.</div>';
+      $list.innerHTML = '<div class="text-muted tt-comments-empty">No comments yet.</div>';
       return;
     }
 

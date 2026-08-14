@@ -301,8 +301,8 @@ html[data-msb-appearance] .tt-menu-body .feed-left-nav-item:hover,
 html[data-msb-appearance] .tt-menu-body .feed-left-nav-item:focus,
 html[data-msb-appearance] .feed-ig-btn:hover,
 html[data-msb-appearance] .feed-ig-btn:focus,
-html[data-msb-appearance] .feed-ig-link:hover,
-html[data-msb-appearance] .feed-ig-link:focus,
+html[data-msb-appearance] .feed-ig-link:not(.feed-ig-reels):hover,
+html[data-msb-appearance] .feed-ig-link:not(.feed-ig-reels):focus,
 html[data-msb-appearance] .ig-link:hover,
 html[data-msb-appearance] .bestprofile-nav li a:hover,
 html[data-msb-appearance] .right-sidebar a:hover,
@@ -323,8 +323,8 @@ html[data-msb-appearance] .feed-left-nav-item:hover .feed-left-nav-ic svg,
 html[data-msb-appearance] .feed-right-nav-item:hover .feed-right-nav-ic svg,
 html[data-msb-appearance] .feed-ig-btn:hover .icon,
 html[data-msb-appearance] .feed-ig-btn:focus .icon,
-html[data-msb-appearance] .feed-ig-link:hover .icon,
-html[data-msb-appearance] .feed-ig-link:focus .icon,
+html[data-msb-appearance] .feed-ig-link:not(.feed-ig-reels):hover .icon,
+html[data-msb-appearance] .feed-ig-link:not(.feed-ig-reels):focus .icon,
 html[data-msb-appearance] .ig-link:hover .icon,
 html[data-msb-appearance] .feed-left-nav-item:hover [class*="ion-"],
 html[data-msb-appearance] #ttNavLeftbar .nav-link:hover [class*="ion-"] {
@@ -346,7 +346,7 @@ html[data-msb-appearance] .tt-menu-body .feed-left-nav-item.is-active:focus,
 html[data-msb-appearance] .feed-ig-btn.active:not(:hover),
 html[data-msb-appearance] .feed-ig-btn.active:hover,
 html[data-msb-appearance] .feed-ig-btn.active:focus,
-html[data-msb-appearance] .feed-ig-link.active:not(:hover),
+html[data-msb-appearance] .feed-ig-link.active:not(.feed-ig-reels):not(:hover),
 html[data-msb-appearance] .ig-link.active:not(:hover),
 html[data-msb-appearance] .bestprofile-nav li a.active:not(:hover),
 html[data-msb-appearance] .right-sidebar a.active:not(:hover),
@@ -364,7 +364,7 @@ html[data-msb-appearance] .feed-right-nav-item.is-active:not(:hover) .feed-right
 html[data-msb-appearance] .feed-ig-btn.active:not(:hover) .icon,
 html[data-msb-appearance] .feed-ig-btn.active:hover .icon,
 html[data-msb-appearance] .feed-ig-btn.active:focus .icon,
-html[data-msb-appearance] .feed-ig-link.active:not(:hover) .icon,
+html[data-msb-appearance] .feed-ig-link.active:not(.feed-ig-reels):not(:hover) .icon,
 html[data-msb-appearance] .ig-link.active:not(:hover) .icon {
   color: var(--msb-palette-nav-active-icon) !important;
   stroke: currentColor !important;
@@ -378,7 +378,7 @@ html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active),
 html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active),
 html[data-msb-appearance] .tt-menu-body .feed-left-nav-item:not(:hover):not(.is-active),
 html[data-msb-appearance] .feed-ig-btn:not(:hover):not(.active),
-html[data-msb-appearance] .feed-ig-link:not(:hover):not(.active),
+html[data-msb-appearance] .feed-ig-link:not(.feed-ig-reels):not(:hover):not(.active),
 html[data-msb-appearance] .ig-link:not(:hover):not(.active),
 html[data-msb-appearance] .bestprofile-nav li a:not(:hover):not(.active),
 html[data-msb-appearance] .right-sidebar a:not(:hover):not(.active),
@@ -394,7 +394,7 @@ html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active) .feed-
 html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-ic,
 html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-label,
 html[data-msb-appearance] .feed-ig-btn:not(:hover):not(.active) .icon,
-html[data-msb-appearance] .feed-ig-link:not(:hover):not(.active) .icon,
+html[data-msb-appearance] .feed-ig-link:not(.feed-ig-reels):not(:hover):not(.active) .icon,
 html[data-msb-appearance] .ig-link:not(:hover):not(.active) .icon,
 html[data-msb-appearance] .feed-left-nav-item:not(:hover):not(.is-active) .feed-left-nav-ic svg,
 html[data-msb-appearance] .feed-right-nav-item:not(:hover):not(.is-active) .feed-right-nav-ic svg,
@@ -593,23 +593,31 @@ html[data-msb-appearance] .feed-ig-rail .ig-link .icon,
 html[data-msb-appearance] .feed-ig-rail .ig-link .fa {
   color: var(--msb-palette-icon) !important;
 }
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:hover,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:focus,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels.active {
-  background-color: #e53935 !important;
+/* Reels CTA: light disc + play triangle = Appearance accent */
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:hover,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:focus,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels.active,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:not(:hover):not(.active) {
+  background-color: var(--msb-palette-surface-2, #fff) !important;
   background-image: none !important;
-  color: #fff !important;
-  border-color: transparent !important;
+  color: var(--msb-palette-action) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border, transparent)) !important;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--msb-palette-action) 28%, transparent) !important;
 }
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:hover,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels:focus,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels.active {
-  background-color: #d32f2f !important;
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:hover,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:focus,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels.active {
+  background-color: var(--msb-palette-surface-2, #fff) !important;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--msb-palette-action) 36%, transparent) !important;
 }
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels .fa,
-html[data-msb-appearance] .feed-ig-rail .feed-ig-reels .icon {
-  color: #fff !important;
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels .fa,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels .fa.fa-play,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels .icon,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:hover .fa,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:focus .fa,
+html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels.active .fa {
+  color: var(--msb-palette-action) !important;
 }
 html[data-msb-appearance] .feed-left-rail .feed-left-nav-item:not(:hover):not(.is-active),
 html[data-msb-appearance] .feed-right-rail .feed-right-nav-item:not(:hover):not(.is-active) {
@@ -765,8 +773,8 @@ html[data-msb-appearance] body.dashboard-page.dashboard-modal-page .card.mb-3 {
 }
 
 html[data-msb-appearance] .create-post-topbar {
-  background-color: var(--msb-palette-btn-bg, var(--msb-palette-header, var(--msb-palette-bg))) !important;
-  color: var(--msb-palette-btn-text, var(--msb-palette-header-text, var(--msb-palette-text))) !important;
+  background-color: var(--msb-palette-bg) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
 }
 
 html[data-msb-appearance] .create-post-dialog,
@@ -777,9 +785,21 @@ html[data-msb-appearance] .create-post-frame {
   color: var(--msb-palette-text) !important;
 }
 
+/* Title/icon/close must stay readable on the light create-post bar (not btn-text / white). */
 html[data-msb-appearance] .create-post-title,
 html[data-msb-appearance] .create-post-close {
-  color: var(--msb-palette-btn-text) !important;
+  color: #0f172a !important;
+  opacity: 1 !important;
+}
+html[data-msb-appearance] .create-post-title .icon,
+html[data-msb-appearance] .create-post-title i,
+html[data-msb-appearance] .create-post-title .fa,
+html[data-msb-appearance] .create-post-topbar .ui-accordion-header-icon,
+html[data-msb-appearance] .create-post-topbar .ui-icon {
+  display: none !important;
+}
+html[data-msb-appearance] .create-post-close {
+  background: rgba(15, 23, 42, 0.1) !important;
 }
 
 html[data-msb-appearance] body.dashboard-page.dashboard-modal-page label,
@@ -915,13 +935,18 @@ html[data-msb-appearance] .gear-open-edit {
   box-shadow: none !important;
 }
 
-/* Brand logo — palette gradient + white mark */
+/* Brand logo — match entry.php orb (ink + gold monogram), not palette gradient */
 html[data-msb-appearance] .feed-ig-logo,
 html[data-msb-appearance] .ig-logo {
-  background: linear-gradient(135deg, var(--msb-palette-action), var(--msb-palette-accent)) !important;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.14), transparent 55%),
+    radial-gradient(circle at 50% 58%, rgba(159,214,200,.14), transparent 70%),
+    linear-gradient(165deg, #05090f 0%, #0b1622 52%, #08131c 100%) !important;
   background-color: transparent !important;
-  color: #ffffff !important;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18) !important;
+  color: transparent !important;
+  box-shadow:
+    0 0 0 1px rgba(232,201,138,.22),
+    0 8px 18px rgba(5,9,15,.22) !important;
   border: 0 !important;
 }
 
@@ -929,8 +954,18 @@ html[data-msb-appearance] .feed-ig-logo:hover,
 html[data-msb-appearance] .feed-ig-logo:focus,
 html[data-msb-appearance] .ig-logo:hover,
 html[data-msb-appearance] .ig-logo:focus {
-  background: linear-gradient(135deg, var(--msb-palette-action-strong), var(--msb-palette-action)) !important;
-  color: #ffffff !important;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.16), transparent 55%),
+    radial-gradient(circle at 50% 58%, rgba(159,214,200,.16), transparent 70%),
+    linear-gradient(165deg, #05090f 0%, #0b1622 52%, #08131c 100%) !important;
+  color: transparent !important;
+}
+
+html[data-msb-appearance] .feed-ig-logo-mark {
+  background: linear-gradient(180deg, #f8e7c2 0%, #e8c98a 42%, #b8924a 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
 }
 
 html[data-msb-appearance] .feed-ig-rail {
@@ -992,10 +1027,16 @@ html[data-msb-appearance] svg {
   background-color: transparent !important;
 }
 
-html[data-msb-appearance] .create-post-modal,
 html[data-msb-appearance] .global-live-modal,
 html[data-msb-appearance] .modal-backdrop {
   background-color: rgba(0, 0, 0, 0.55) !important;
+  background-image: none !important;
+}
+
+html[data-msb-appearance] .create-post-modal,
+html[data-msb-appearance] .create-post-modal.is-open {
+  background: transparent !important;
+  background-color: transparent !important;
   background-image: none !important;
 }
 
@@ -1792,6 +1833,25 @@ html[data-msb-appearance] #ttLeftbarOverlays .tt-iconbtn {
   color: var(--msb-palette-text) !important;
   border-color: var(--msb-palette-border) !important;
 }
+html[data-msb-appearance] #ttLeftbarOverlays .tt-close,
+html[data-msb-appearance] .msb-profile-door-host .tt-close,
+html[data-msb-appearance] .msb-messages-door-host .tt-close,
+html[data-msb-appearance] .msb-notifications-door-host .tt-close,
+html[data-msb-appearance] .msb-friend-requests-door-host .tt-close{
+  width:28px !important;
+  height:28px !important;
+  min-width:28px !important;
+  min-height:28px !important;
+}
+html[data-msb-appearance] #ttLeftbarOverlays .tt-close i,
+html[data-msb-appearance] #ttLeftbarOverlays .tt-close .icon,
+html[data-msb-appearance] .msb-profile-door-host .tt-close i,
+html[data-msb-appearance] .msb-messages-door-host .tt-close i,
+html[data-msb-appearance] .msb-notifications-door-host .tt-close i,
+html[data-msb-appearance] .msb-friend-requests-door-host .tt-close i{
+  font-size:14px !important;
+  line-height:1 !important;
+}
 
 html[data-msb-appearance] #ttLeftbarOverlays .tt-close:hover,
 html[data-msb-appearance] #ttLeftbarOverlays .tt-iconbtn:hover {
@@ -1855,6 +1915,14 @@ html[data-msb-appearance] #tt-stories-wrap .tt-stories-action .tt-stories-action
   fill: #fff !important;
   stroke: #fff !important;
   text-shadow: 0 1px 3px rgba(0,0,0,.55) !important;
+}
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .post-card-menu-btn,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-icon,
+html[data-msb-appearance] #tt-stories-wrap .tt-stories-menu-wrap .pcm-fries-bar{
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow: none !important;
 }
 
 html[data-msb-appearance] #tt-stories-wrap .tt-stories-time,

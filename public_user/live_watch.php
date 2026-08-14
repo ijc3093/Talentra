@@ -9609,7 +9609,7 @@ if ($ownerName !== '') {
           window.history.back();
           return;
         }
-        window.location.href = 'feed.php';
+        window.location.href = 'home.php?tab=for-you';
       });
     }
 

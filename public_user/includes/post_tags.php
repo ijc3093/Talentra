@@ -176,8 +176,17 @@ if (!function_exists('msb_viewer_can_self_tag_post')) {
             }
             return function_exists('fs_are_friends') && fs_are_friends($dbh, $viewerId, $ownerId);
         }
-        // public
-        return true;
+        if ($vis === 'public') {
+            // Public Discover / Reels: strangers may mention, but not tag.
+            // Already-tagged viewers can still remove themselves.
+            if (msb_user_is_tagged_on_post($dbh, $postId, $viewerId)) {
+                return true;
+            }
+            if (!function_exists('fs_are_friends')) {
+                require_once __DIR__ . '/friend_system.php';
+            }
+            return function_exists('fs_are_friends') && fs_are_friends($dbh, $viewerId, $ownerId);
+        }
     }
 }
 
@@ -550,6 +559,104 @@ if (!function_exists('msb_post_tags_sync')) {
     }
 }
 
+if (!function_exists('msb_post_is_story_id')) {
+    function msb_post_is_story_id(PDO $dbh, int $postId): bool
+    {
+        if ($postId <= 0) {
+            return false;
+        }
+        static $cache = [];
+        if (array_key_exists($postId, $cache)) {
+            return (bool)$cache[$postId];
+        }
+        if (!function_exists('post_is_story_only')) {
+            $layoutFile = __DIR__ . '/post_layout.php';
+            if (is_file($layoutFile)) {
+                require_once $layoutFile;
+            }
+        }
+        $row = [];
+        try {
+            $cols = 'id, title, body, description, visibility';
+            if (function_exists('post_layout_column')) {
+                $layoutCol = post_layout_column($dbh);
+                if (is_string($layoutCol) && $layoutCol !== '') {
+                    $cols .= ', `' . str_replace('`', '', $layoutCol) . '`';
+                }
+            }
+            $st = $dbh->prepare('SELECT ' . $cols . ' FROM public_posts WHERE id = :id LIMIT 1');
+            $st->execute([':id' => $postId]);
+            $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            $row = [];
+        }
+        $isStory = $row !== [] && function_exists('post_is_story_only') && post_is_story_only($row);
+        $cache[$postId] = $isStory;
+        return $isStory;
+    }
+}
+
+if (!function_exists('msb_insert_user_notification')) {
+    /**
+     * Always write a notification row (does not depend on feed_api.php).
+     *
+     * @param array<string,mixed> $meta
+     */
+    function msb_insert_user_notification(PDO $dbh, int $actorId, int $receiverId, string $message, array $meta = []): bool
+    {
+        if ($actorId <= 0 || $receiverId <= 0 || $actorId === $receiverId || trim($message) === '') {
+            return false;
+        }
+        try {
+            $stS = $dbh->prepare('SELECT id, name, username FROM users WHERE id = :id LIMIT 1');
+            $stS->execute([':id' => $actorId]);
+            $sender = $stS->fetch(PDO::FETCH_ASSOC) ?: [];
+            $stR = $dbh->prepare('SELECT id, username FROM users WHERE id = :id LIMIT 1');
+            $stR->execute([':id' => $receiverId]);
+            $receiver = $stR->fetch(PDO::FETCH_ASSOC) ?: [];
+            $senderLabel = trim((string)($sender['name'] ?? ''));
+            if ($senderLabel === '') {
+                $senderLabel = trim((string)($sender['username'] ?? ''));
+            }
+            $receiverUsername = trim((string)($receiver['username'] ?? ''));
+            if ($senderLabel === '' || $receiverUsername === '') {
+                return false;
+            }
+            $type = trim($message);
+            $route = trim((string)($meta['route'] ?? ''));
+            $postId = (int)($meta['post_id'] ?? 0);
+            $commentId = (int)($meta['comment_id'] ?? 0);
+            $isStory = !empty($meta['story']) || !empty($meta['is_story']);
+            if ($route !== '') {
+                $type .= ' [r:' . preg_replace('/[^a-z]/i', '', $route) . ']';
+            }
+            if ($postId > 0) {
+                $type .= ' [p:' . $postId . ']';
+            }
+            if ($commentId > 0) {
+                $type .= ' [c:' . $commentId . ']';
+            }
+            if ($isStory) {
+                $type .= ' [story:1]';
+            }
+            if (function_exists('mb_substr')) {
+                $type = mb_substr($type, 0, 100);
+            } else {
+                $type = substr($type, 0, 100);
+            }
+            $st = $dbh->prepare('INSERT INTO notification (notiuser, notireceiver, notitype, is_read) VALUES (:s, :r, :t, 0)');
+            $st->execute([
+                ':s' => $senderLabel,
+                ':r' => $receiverUsername,
+                ':t' => $type,
+            ]);
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
 if (!function_exists('msb_post_tags_notify')) {
     /**
      * @param list<int> $receiverIds
@@ -559,9 +666,10 @@ if (!function_exists('msb_post_tags_notify')) {
         if ($actorId <= 0 || $postId <= 0 || $receiverIds === []) {
             return;
         }
+        $isStory = msb_post_is_story_id($dbh, $postId);
+        $message = $isStory ? 'tagged you in a story' : 'tagged you in a post';
         $route = strtolower(trim($visibility)) === 'public' ? 'pb' : 'fd';
         if (function_exists('feedRouteForPostOwner')) {
-            // Prefer feed helper when available (e.g. feed_api.php).
             $route = feedRouteForPostOwner($receiverIds[0] ?? 0, $actorId, $visibility);
         }
         foreach ($receiverIds as $rid) {
@@ -573,42 +681,11 @@ if (!function_exists('msb_post_tags_notify')) {
             if (function_exists('feedRouteForPostOwner')) {
                 $notifRoute = feedRouteForPostOwner($rid, $actorId, $visibility);
             }
-            if (function_exists('feedAddNotification')) {
-                feedAddNotification($dbh, $actorId, $rid, 'tagged you in a post', 'mention', [
-                    'route' => $notifRoute,
-                    'post_id' => $postId,
-                ]);
-                continue;
-            }
-            try {
-                $stS = $dbh->prepare('SELECT id, name, username FROM users WHERE id = :id LIMIT 1');
-                $stS->execute([':id' => $actorId]);
-                $sender = $stS->fetch(PDO::FETCH_ASSOC) ?: [];
-                $stR = $dbh->prepare('SELECT id, username FROM users WHERE id = :id LIMIT 1');
-                $stR->execute([':id' => $rid]);
-                $receiver = $stR->fetch(PDO::FETCH_ASSOC) ?: [];
-                $senderLabel = trim((string)($sender['name'] ?? '')) !== ''
-                    ? trim((string)$sender['name'])
-                    : trim((string)($sender['username'] ?? ''));
-                $receiverUsername = trim((string)($receiver['username'] ?? ''));
-                if ($senderLabel === '' || $receiverUsername === '') {
-                    continue;
-                }
-                $type = 'tagged you in a post [r:' . preg_replace('/[^a-z]/i', '', $notifRoute) . '] [p:' . $postId . ']';
-                if (function_exists('mb_substr')) {
-                    $type = mb_substr($type, 0, 100);
-                } else {
-                    $type = substr($type, 0, 100);
-                }
-                $st = $dbh->prepare('INSERT INTO notification (notiuser, notireceiver, notitype, is_read) VALUES (:s, :r, :t, 0)');
-                $st->execute([
-                    ':s' => $senderLabel,
-                    ':r' => $receiverUsername,
-                    ':t' => $type,
-                ]);
-            } catch (Throwable $e) {
-                // non-fatal
-            }
+            msb_insert_user_notification($dbh, $actorId, $rid, $message, [
+                'route' => $notifRoute,
+                'post_id' => $postId,
+                'story' => $isStory ? 1 : 0,
+            ]);
         }
     }
 }
@@ -677,6 +754,8 @@ if (!function_exists('msb_post_mentions_notify')) {
         }
         msb_post_mentions_ensure_schema($dbh);
         $notified = [];
+        $isStory = msb_post_is_story_id($dbh, $postId);
+        $message = $isStory ? 'mentioned you in a story' : 'mentioned you in a post';
         $route = strtolower(trim($visibility)) === 'public' ? 'pb' : 'fd';
         foreach ($receiverIds as $rid) {
             $rid = (int)$rid;
@@ -694,43 +773,12 @@ if (!function_exists('msb_post_mentions_notify')) {
             if (function_exists('feedRouteForPostOwner')) {
                 $notifRoute = feedRouteForPostOwner($rid, $actorId, $visibility);
             }
-            if (function_exists('feedAddNotification')) {
-                feedAddNotification($dbh, $actorId, $rid, 'mentioned you in a post', 'mention', [
-                    'route' => $notifRoute,
-                    'post_id' => $postId,
-                ]);
+            if (msb_insert_user_notification($dbh, $actorId, $rid, $message, [
+                'route' => $notifRoute,
+                'post_id' => $postId,
+                'story' => $isStory ? 1 : 0,
+            ])) {
                 $notified[] = $rid;
-                continue;
-            }
-            try {
-                $stS = $dbh->prepare('SELECT id, name, username FROM users WHERE id = :id LIMIT 1');
-                $stS->execute([':id' => $actorId]);
-                $sender = $stS->fetch(PDO::FETCH_ASSOC) ?: [];
-                $stR = $dbh->prepare('SELECT id, username FROM users WHERE id = :id LIMIT 1');
-                $stR->execute([':id' => $rid]);
-                $receiver = $stR->fetch(PDO::FETCH_ASSOC) ?: [];
-                $senderLabel = trim((string)($sender['name'] ?? '')) !== ''
-                    ? trim((string)$sender['name'])
-                    : trim((string)($sender['username'] ?? ''));
-                $receiverUsername = trim((string)($receiver['username'] ?? ''));
-                if ($senderLabel === '' || $receiverUsername === '') {
-                    continue;
-                }
-                $type = 'mentioned you in a post [r:' . preg_replace('/[^a-z]/i', '', $notifRoute) . '] [p:' . $postId . ']';
-                if (function_exists('mb_substr')) {
-                    $type = mb_substr($type, 0, 100);
-                } else {
-                    $type = substr($type, 0, 100);
-                }
-                $st = $dbh->prepare('INSERT INTO notification (notiuser, notireceiver, notitype, is_read) VALUES (:s, :r, :t, 0)');
-                $st->execute([
-                    ':s' => $senderLabel,
-                    ':r' => $receiverUsername,
-                    ':t' => $type,
-                ]);
-                $notified[] = $rid;
-            } catch (Throwable $e) {
-                // non-fatal
             }
         }
         return array_values(array_unique($notified));

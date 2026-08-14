@@ -18,6 +18,8 @@ if ($welcomeCode === '') {
 
 $welcomeFirst = $welcomeName !== '' ? preg_split('/\s+/', $welcomeName)[0] : '';
 $welcomeGreeting = $welcomeFirst !== '' ? ('Welcome, ' . $welcomeFirst) : 'Welcome aboard';
+$welcomeAlreadySignedIn = !empty($_SESSION['user_id']) && !empty($_SESSION['user_login']);
+$welcomeContinueLabel = $welcomeAlreadySignedIn ? 'Continue to Home' : 'Continue to Sign In';
 ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -241,7 +243,7 @@ $welcomeGreeting = $welcomeFirst !== '' ? ('Welcome, ' . $welcomeFirst) : 'Welco
         <p class="reg-welcome-hint">You can also find this later in your profile settings.</p>
       </div>
       <div class="reg-welcome-actions">
-        <button type="button" class="reg-welcome-continue" id="regWelcomeContinueBtn">Continue to Sign In</button>
+        <button type="button" class="reg-welcome-continue" id="regWelcomeContinueBtn"><?= htmlspecialchars($welcomeContinueLabel, ENT_QUOTES, 'UTF-8') ?></button>
       </div>
     </div>
   </div>

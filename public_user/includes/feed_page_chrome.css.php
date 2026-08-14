@@ -26,45 +26,80 @@ body.public-page.feed-insta-ui .feed-ig-rail{
   border-right-color:var(--public-border-strong, #c0c2c4) !important;
 }
 .feed-ig-rail .feed-ig-logo{
-  width:var(--msb-feed-chrome-size) !important;
-  height:var(--msb-feed-chrome-size) !important;
-  min-width:var(--msb-feed-chrome-size) !important;
-  min-height:var(--msb-feed-chrome-size) !important;
+  --msb-logo-size:58px;
+  position:relative !important;
+  width:var(--msb-logo-size) !important;
+  height:var(--msb-logo-size) !important;
+  min-width:var(--msb-logo-size) !important;
+  min-height:var(--msb-logo-size) !important;
   border-radius:var(--msb-feed-chrome-circle) !important;
-  font-size:var(--msb-feed-chrome-font) !important;
-  line-height:1 !important;
-  box-shadow:none !important;
-  /* Follow Appearance / Dark auto from profile gear — not photo green */
-  background:linear-gradient(
-    135deg,
-    var(--msb-palette-action, #4f46e5),
-    var(--msb-palette-accent, var(--msb-palette-action-strong, #0ea5e9))
-  ) !important;
+  display:grid !important;
+  place-items:center !important;
+  isolation:isolate !important;
+  overflow:hidden !important;
+  font-size:0 !important;
+  line-height:0 !important;
+  color:transparent !important;
+  text-decoration:none !important;
+  /* Same UI as entry.php monogram orb */
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.14), transparent 55%),
+    radial-gradient(circle at 50% 58%, rgba(159,214,200,.14), transparent 70%),
+    linear-gradient(165deg, #05090f 0%, #0b1622 52%, #08131c 100%) !important;
   background-color:transparent !important;
-  color:#fff !important;
+  box-shadow:
+    0 0 0 1px rgba(232,201,138,.22),
+    0 8px 18px rgba(5,9,15,.22) !important;
+  border:0 !important;
+}
+.feed-ig-rail .feed-ig-logo-ring{
+  position:absolute !important;
+  inset:0 !important;
+  border-radius:inherit !important;
+  pointer-events:none !important;
+  background:
+    conic-gradient(from 210deg, rgba(232,201,138,0), rgba(232,201,138,.9), rgba(159,214,200,.75), rgba(232,201,138,0)) !important;
+  -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 1.6px), #000 calc(100% - 0.6px)) !important;
+          mask:radial-gradient(farthest-side, transparent calc(100% - 1.6px), #000 calc(100% - 0.6px)) !important;
+  opacity:.92 !important;
+}
+.feed-ig-rail .feed-ig-logo-glow{
+  position:absolute !important;
+  inset:18% !important;
+  border-radius:50% !important;
+  pointer-events:none !important;
+  background:radial-gradient(circle at 40% 35%, rgba(255,255,255,.16), transparent 60%) !important;
+}
+.feed-ig-rail .feed-ig-logo-mark{
+  position:relative !important;
+  z-index:1 !important;
+  font-family:var(--msb-font-logo, "Cormorant Garamond", Georgia, serif) !important;
+  font-size:calc(var(--msb-logo-size) * 0.64) !important;
+  font-weight:700 !important;
+  line-height:1 !important;
+  letter-spacing:0 !important;
+  background:linear-gradient(180deg, #f8e7c2 0%, #e8c98a 42%, #b8924a 100%) !important;
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  color:transparent !important;
+  filter:drop-shadow(0 0 8px rgba(232,201,138,.28));
 }
 html.dark-auto .feed-ig-rail .feed-ig-logo,
-html[data-theme="dark"] .feed-ig-rail .feed-ig-logo{
-  background:linear-gradient(
-    135deg,
-    var(--msb-palette-action, #60a5fa),
-    var(--msb-palette-accent, var(--msb-palette-action-strong, #38bdf8))
-  ) !important;
-  color:#fff !important;
-}
+html[data-theme="dark"] .feed-ig-rail .feed-ig-logo,
 html[data-theme="light"] .feed-ig-rail .feed-ig-logo{
-  background:linear-gradient(
-    135deg,
-    var(--msb-palette-action, #4f46e5),
-    var(--msb-palette-accent, var(--msb-palette-action-strong, #0ea5e9))
-  ) !important;
-  color:#fff !important;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.14), transparent 55%),
+    radial-gradient(circle at 50% 58%, rgba(159,214,200,.14), transparent 70%),
+    linear-gradient(165deg, #05090f 0%, #0b1622 52%, #08131c 100%) !important;
+  color:transparent !important;
 }
 .feed-ig-rail .feed-ig-logo-label{
   display:block !important;
-  font-size:11px !important;
+  font-family:var(--msb-font-logo, "Cormorant Garamond", Georgia, serif) !important;
+  font-size:12px !important;
   line-height:1.15 !important;
-  font-weight:800 !important;
+  font-weight:600 !important;
+  letter-spacing:.02em !important;
   max-width:72px !important;
   width:100% !important;
   margin-top:2px !important;
@@ -73,7 +108,7 @@ html[data-theme="light"] .feed-ig-rail .feed-ig-logo{
 }
 .feed-ig-rail a.feed-ig-logo-label:hover,
 .feed-ig-rail a.feed-ig-logo-label:focus{
-  color:var(--msb-palette-link-hover, var(--msb-palette-link, #2563eb)) !important;
+  color:#e8c98a !important;
   text-decoration:none !important;
 }
 html.dark-auto .feed-ig-rail,
@@ -135,6 +170,9 @@ html[data-theme="light"] .feed-ig-rail .feed-ig-logo-label{
   min-height:var(--msb-feed-chrome-size) !important;
   border-radius:var(--msb-feed-chrome-circle) !important;
   padding:0 !important;
+  box-shadow:none !important;
+  filter:none !important;
+  text-shadow:none !important;
 }
 .feed-ig-rail .feed-ig-menu-mobile .fa,
 .feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile .fa,
@@ -142,14 +180,21 @@ html[data-theme="light"] .feed-ig-rail .feed-ig-logo-label{
   font-size:var(--msb-feed-chrome-icon) !important;
   line-height:1 !important;
   color:var(--msb-palette-icon, var(--msb-palette-text-on-nav, currentColor)) !important;
+  box-shadow:none !important;
+  filter:none !important;
+  text-shadow:none !important;
 }
 .feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:hover,
 .feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:focus,
 .feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:hover,
-.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:focus{
+.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile:focus,
+.feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile.active,
+.feed-ig-rail .ig-stories-menu-btn.feed-ig-menu-mobile.active{
   color:var(--msb-palette-text-on-nav-hover, var(--msb-palette-text-on-nav, var(--msb-palette-text, #111827))) !important;
   background:var(--msb-palette-nav-hover, rgba(255,255,255,.08)) !important;
   outline:none !important;
+  box-shadow:none !important;
+  filter:none !important;
 }
 .feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:hover .fa,
 .feed-ig-rail .feed-ig-btn.ig-stories-menu-btn.feed-ig-menu-mobile:focus .fa,

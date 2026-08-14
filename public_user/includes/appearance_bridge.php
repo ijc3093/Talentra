@@ -1046,11 +1046,11 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
     if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
         $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
-        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=121', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=122', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=106', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=109', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
