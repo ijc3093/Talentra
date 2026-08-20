@@ -358,6 +358,10 @@ CREATE TABLE `organizations` (
   `rent_status` enum('trial','active','overdue','suspended') NOT NULL DEFAULT 'trial',
   `rent_paid_until` datetime DEFAULT NULL,
   `rent_trial_ends_at` datetime DEFAULT NULL,
+  `stripe_connect_account_id` varchar(64) DEFAULT NULL,
+  `stripe_connect_charges_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `stripe_connect_payouts_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `stripe_connect_details_submitted` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -984,7 +988,8 @@ CREATE TABLE `org_orders` (
   `fulfillment_fee_cents` int(11) NOT NULL DEFAULT '0',
   `platform_fee_cents` int(11) NOT NULL DEFAULT '0',
   `seller_payout_cents` int(11) NOT NULL DEFAULT '0',
-  `payout_status` enum('pending','scheduled','paid') NOT NULL DEFAULT 'pending'
+  `payout_status` enum('pending','scheduled','paid') NOT NULL DEFAULT 'pending',
+  `stripe_transfer_id` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- --------------------------------------------------------
 
@@ -1510,6 +1515,36 @@ CREATE TABLE `user_profile_settings` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `public_user_reports`
+--
+
+CREATE TABLE `public_user_reports` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `reporter_id` int(11) NOT NULL DEFAULT '0',
+  `reporter_kind` enum('user','manager','staff') NOT NULL DEFAULT 'user',
+  `reporter_org_id` bigint(20) DEFAULT NULL,
+  `reporter_label` varchar(160) DEFAULT NULL,
+  `target_type` enum('post','user','message','product','org','other') NOT NULL DEFAULT 'other',
+  `target_id` bigint(20) NOT NULL DEFAULT '0',
+  `target_user_id` bigint(20) DEFAULT NULL,
+  `target_org_id` bigint(20) DEFAULT NULL,
+  `reason` varchar(40) NOT NULL DEFAULT 'other',
+  `details` text,
+  `status` enum('pending','reviewed','resolved','dismissed') NOT NULL DEFAULT 'pending',
+  `admin_note` text,
+  `reviewed_by_admin_id` int(11) DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_reports_status_created` (`status`,`created_at`),
+  KEY `idx_reports_reporter` (`reporter_id`,`created_at`),
+  KEY `idx_reports_target` (`target_type`,`target_id`),
+  KEY `idx_reports_target_user` (`target_user_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `user_sessions`
 --
 
@@ -1754,6 +1789,12 @@ CREATE TABLE `public_posts` (
   `device_viewport` varchar(32) NOT NULL DEFAULT '',
   `music_title` varchar(120) NOT NULL DEFAULT '',
   `music_artist` varchar(120) NOT NULL DEFAULT '',
+  `watch_ms_total` bigint(20) NOT NULL DEFAULT '0',
+  `watch_completes` int(11) NOT NULL DEFAULT '0',
+  `watch_skips` int(11) NOT NULL DEFAULT '0',
+  `sound_id` int(11) DEFAULT NULL,
+  `stitch_of_post_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `duet_of_post_id` bigint(20) UNSIGNED DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `is_deleted` tinyint(1) NOT NULL DEFAULT '0',
@@ -3737,7 +3778,10 @@ ALTER TABLE `public_posts`
   ADD KEY `idx_posts_views` (`views_count`),
   ADD KEY `idx_category_id` (`category_id`),
   ADD KEY `idx_public_posts_visibility_activity` (`is_deleted`,`visibility`,`activity_at`,`id`),
-  ADD KEY `idx_public_posts_user_activity` (`user_id`,`is_deleted`,`activity_at`,`id`);
+  ADD KEY `idx_public_posts_user_activity` (`user_id`,`is_deleted`,`activity_at`,`id`),
+  ADD KEY `idx_posts_sound_id` (`sound_id`),
+  ADD KEY `idx_posts_stitch` (`stitch_of_post_id`),
+  ADD KEY `idx_posts_duet` (`duet_of_post_id`);
 
 --
 -- Indexes for table `public_post_attachments`
@@ -5357,3 +5401,52 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+
+-- --------------------------------------------------------
+-- Feed engagement (public_user)
+-- --------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `public_sounds` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `created_by` INT(11) NOT NULL DEFAULT 0,
+  `title` VARCHAR(120) NOT NULL DEFAULT '',
+  `artist` VARCHAR(120) NOT NULL DEFAULT '',
+  `source_post_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+  `use_count` INT(11) NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_sounds_title_artist` (`title`, `artist`),
+  KEY `idx_sounds_use` (`use_count`),
+  KEY `idx_sounds_created_by` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `public_post_watch_events` (
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `post_id` BIGINT(20) UNSIGNED NOT NULL,
+  `user_id` INT(11) NOT NULL,
+  `watch_ms` INT(11) NOT NULL DEFAULT 0,
+  `duration_ms` INT(11) NOT NULL DEFAULT 0,
+  `completed` TINYINT(1) NOT NULL DEFAULT 0,
+  `skipped` TINYINT(1) NOT NULL DEFAULT 0,
+  `source` ENUM('reel','feed','story') NOT NULL DEFAULT 'feed',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_watch_post_created` (`post_id`, `created_at`),
+  KEY `idx_watch_user_created` (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `public_post_products` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `post_id` BIGINT(20) UNSIGNED NOT NULL,
+  `product_id` INT(11) NOT NULL,
+  `org_id` INT(11) NOT NULL DEFAULT 0,
+  `sort_order` INT(11) NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_post_product` (`post_id`, `product_id`),
+  KEY `idx_ppp_post` (`post_id`),
+  KEY `idx_ppp_product` (`product_id`),
+  KEY `idx_ppp_org` (`org_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+

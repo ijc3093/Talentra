@@ -456,6 +456,11 @@
       'sales_management.php': true,
       'orders.php': true,
       'products.php': true,
+      'product_catalog.php': true,
+      'product_table.php': true,
+      'inventory_detail.php': true,
+      'overview.php': true,
+      'transactions.php': true,
       'shop_settings.php': true,
       'seller_journey.php': true,
       'quotations.php': true,
@@ -653,6 +658,18 @@
       if (push) history.pushState({ orgNav: true, url: url }, '', url);
       else history.replaceState({ orgNav: true, url: url }, '', url);
       setActiveNav(url);
+      // sales_management.php uses hash panels (#quotations, #orders, …)
+      if (pageFromUrl(url) === 'sales_management.php') {
+        var hash = '';
+        try { hash = new URL(url, window.location.href).hash || ''; } catch (e) { hash = String(url).split('#')[1] || ''; if (hash) hash = '#' + hash; }
+        if (typeof window.__salesShowView === 'function') {
+          window.__salesShowView(hash);
+        } else {
+          try { window.dispatchEvent(new HashChangeEvent('hashchange')); } catch (e2) {
+            window.dispatchEvent(new Event('hashchange'));
+          }
+        }
+      }
       return;
     }
 
@@ -688,10 +705,12 @@
       var newMain = insertPageFragments(bundle);
       if (!newMain) throw new Error('Main panel missing after swap');
 
-      runTrailingScripts(bundle);
-
       if (doc.title) document.title = doc.title;
+      // Update URL before page scripts so hash panels (sales_management) see the target hash.
       if (push) history.pushState({ orgNav: true, url: url }, '', url);
+      else history.replaceState({ orgNav: true, url: url }, '', url);
+
+      runTrailingScripts(bundle);
 
       if (isFeedPage(url)) {
         syncHtmlFeedFlag(url);
@@ -702,6 +721,12 @@
       setActiveNav(url);
       bindLinks(document);
       window.scrollTo(0, 0);
+
+      if (pageFromUrl(url) === 'sales_management.php' && typeof window.__salesShowView === 'function') {
+        var salesHash = '';
+        try { salesHash = new URL(url, window.location.href).hash || ''; } catch (eSales) {}
+        window.__salesShowView(salesHash);
+      }
 
       dispatchNavComplete(url);
 
@@ -789,6 +814,11 @@
       'sales_management.php': true,
       'orders.php': true,
       'products.php': true,
+      'product_catalog.php': true,
+      'product_table.php': true,
+      'inventory_detail.php': true,
+      'overview.php': true,
+      'transactions.php': true,
       'shop_settings.php': true,
       'seller_journey.php': true,
       'quotations.php': true,

@@ -74,12 +74,15 @@ if (!function_exists('admin_support_user_email')) {
 
 if (!function_exists('admin_support_topic_meta')) {
     /**
-     * @return array{title:string,label:string,prefix:string}
+     * @return array{title:string,label:string,prefix:string,scope:string,channel:string}
      */
     function admin_support_topic_meta(string $topic, string $role): array
     {
         $topic = strtolower(trim($topic));
-        $role = strtolower(trim($role)) === 'seller' ? 'seller' : 'customer';
+        $role = strtolower(trim($role));
+        if (!in_array($role, ['personal', 'customer', 'seller', 'publisher'], true)) {
+            $role = 'customer';
+        }
 
         if ($role === 'seller') {
             $map = [
@@ -87,19 +90,72 @@ if (!function_exists('admin_support_topic_meta')) {
                     'title' => 'Seller Help',
                     'label' => 'Seller help',
                     'prefix' => '[Seller help] ',
+                    'scope' => 'seller',
+                    'channel' => 'user_admin',
                 ],
                 'orders' => [
-                    'title' => 'Seller Orders Help',
+                    'title' => 'Seller Order Dispute',
                     'label' => 'Orders & fulfillment',
-                    'prefix' => '[Seller orders] ',
+                    'prefix' => '[Seller dispute] ',
+                    'scope' => 'seller',
+                    'channel' => 'dispute',
                 ],
                 'account' => [
                     'title' => 'Seller Account Help',
                     'label' => 'Store & account',
                     'prefix' => '[Seller account] ',
+                    'scope' => 'seller',
+                    'channel' => 'user_admin',
+                ],
+                'dispute' => [
+                    'title' => 'Seller Order Dispute',
+                    'label' => 'Dispute with buyer / order',
+                    'prefix' => '[Seller dispute] ',
+                    'scope' => 'seller',
+                    'channel' => 'dispute',
                 ],
             ];
             return $map[$topic] ?? $map['seller_help'];
+        }
+
+        if ($role === 'publisher') {
+            $map = [
+                'help' => [
+                    'title' => 'Publisher Help',
+                    'label' => 'Publisher help',
+                    'prefix' => '[Publisher help] ',
+                    'scope' => 'publisher',
+                    'channel' => 'user_admin',
+                ],
+                'account' => [
+                    'title' => 'Publisher Account Help',
+                    'label' => 'Publisher account',
+                    'prefix' => '[Publisher account] ',
+                    'scope' => 'publisher',
+                    'channel' => 'user_admin',
+                ],
+            ];
+            return $map[$topic] ?? $map['help'];
+        }
+
+        if ($role === 'personal') {
+            $map = [
+                'help' => [
+                    'title' => 'Personal User Help',
+                    'label' => 'Personal help',
+                    'prefix' => '[Personal help] ',
+                    'scope' => 'personal',
+                    'channel' => 'user_admin',
+                ],
+                'account' => [
+                    'title' => 'Personal Account Help',
+                    'label' => 'Account help',
+                    'prefix' => '[Personal account] ',
+                    'scope' => 'personal',
+                    'channel' => 'user_admin',
+                ],
+            ];
+            return $map[$topic] ?? $map['help'];
         }
 
         $map = [
@@ -107,11 +163,15 @@ if (!function_exists('admin_support_topic_meta')) {
                 'title' => 'Customer Dispute',
                 'label' => 'Dispute with seller',
                 'prefix' => '[Dispute] ',
+                'scope' => 'customer',
+                'channel' => 'dispute',
             ],
             'help' => [
                 'title' => 'Customer Help',
                 'label' => 'Need help',
                 'prefix' => '[Help] ',
+                'scope' => 'customer',
+                'channel' => 'user_admin',
             ],
         ];
         return $map[$topic] ?? $map['help'];
@@ -136,7 +196,7 @@ if (!function_exists('admin_support_poll')) {
                 $mk = $dbh->prepare("
                     UPDATE feedback_admin
                     SET is_read = 1, read_at = NOW()
-                    WHERE channel = 'user_admin'
+                    WHERE channel IN ('user_admin', 'dispute')
                       AND sender = 'Admin'
                       AND receiver = :me
                       AND is_read = 0
@@ -145,9 +205,9 @@ if (!function_exists('admin_support_poll')) {
             }
 
             $st = $dbh->prepare("
-                SELECT {$idCol} AS id, sender, receiver, title, feedbackdata, attachment, created_at
+                SELECT {$idCol} AS id, sender, receiver, channel, title, feedbackdata, attachment, created_at
                 FROM feedback_admin
-                WHERE channel = 'user_admin'
+                WHERE channel IN ('user_admin', 'dispute')
                   AND (
                         (sender = :me AND receiver = 'Admin')
                      OR (sender = 'Admin' AND receiver = :me2)
@@ -178,6 +238,7 @@ if (!function_exists('admin_support_poll')) {
                 'is_me' => $isMe,
                 'from' => $isMe ? 'You' : 'Admin',
                 'title' => (string)($row['title'] ?? ''),
+                'channel' => (string)($row['channel'] ?? 'user_admin'),
                 'text' => (string)($row['feedbackdata'] ?? ''),
                 'attachment' => (string)($row['attachment'] ?? ''),
                 'created_at' => $created,
@@ -219,17 +280,38 @@ if (!function_exists('admin_support_send')) {
         if ($extraContext !== '') {
             $body .= "\n\n—\n" . $extraContext;
         }
+        $scope = (string)($meta['scope'] ?? 'customer');
+        $channel = strtolower(trim((string)($meta['channel'] ?? 'user_admin')));
+        if (!in_array($channel, ['user_admin', 'dispute'], true)) {
+            $channel = 'user_admin';
+        }
 
         try {
-            $ins = $dbh->prepare("
-                INSERT INTO feedback_admin (sender, receiver, channel, title, feedbackdata, attachment, is_read)
-                VALUES (:s, 'Admin', 'user_admin', :title, :d, NULL, 0)
-            ");
-            $ins->execute([
-                ':s' => $meEmail,
-                ':title' => $meta['title'],
-                ':d' => $body,
-            ]);
+            // Prefer writing scope + channel so Admin can split Help vs Disputes.
+            try {
+                $ins = $dbh->prepare("
+                    INSERT INTO feedback_admin (sender, receiver, channel, scope, title, feedbackdata, attachment, is_read)
+                    VALUES (:s, 'Admin', :ch, :scope, :title, :d, NULL, 0)
+                ");
+                $ins->execute([
+                    ':s' => $meEmail,
+                    ':ch' => $channel,
+                    ':scope' => $scope,
+                    ':title' => $meta['title'],
+                    ':d' => $body,
+                ]);
+            } catch (Throwable $eScope) {
+                $ins = $dbh->prepare("
+                    INSERT INTO feedback_admin (sender, receiver, channel, title, feedbackdata, attachment, is_read)
+                    VALUES (:s, 'Admin', :ch, :title, :d, NULL, 0)
+                ");
+                $ins->execute([
+                    ':s' => $meEmail,
+                    ':ch' => $channel,
+                    ':title' => $meta['title'],
+                    ':d' => $body,
+                ]);
+            }
             $id = (int)$dbh->lastInsertId();
             if ($id <= 0) {
                 // Some schemas need explicit PK read after insert.
@@ -237,11 +319,11 @@ if (!function_exists('admin_support_send')) {
                 $st = $dbh->prepare("
                     SELECT {$idCol} AS id
                     FROM feedback_admin
-                    WHERE channel = 'user_admin' AND sender = :s AND receiver = 'Admin'
+                    WHERE channel = :ch AND sender = :s AND receiver = 'Admin'
                     ORDER BY {$idCol} DESC
                     LIMIT 1
                 ");
-                $st->execute([':s' => $meEmail]);
+                $st->execute([':ch' => $channel, ':s' => $meEmail]);
                 $id = (int)($st->fetchColumn() ?: 0);
             }
         } catch (Throwable $e) {
@@ -256,6 +338,7 @@ if (!function_exists('admin_support_send')) {
                 'is_me' => true,
                 'from' => 'You',
                 'title' => $meta['title'],
+                'channel' => $channel,
                 'text' => $body,
                 'attachment' => '',
                 'created_at' => $now,

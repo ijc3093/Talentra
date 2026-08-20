@@ -5,6 +5,7 @@ requireUserLogin();
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/profile_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
+require_once __DIR__ . '/includes/msb_reports.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
 $meId = theme_prefs_viewer_user_id();
@@ -19,6 +20,7 @@ $settings = [
   'report_history_enabled' => 1,
 ];
 $counts = ['blocked' => 0, 'hidden' => 0, 'muted' => 0, 'reports' => 0];
+$myReports = [];
 
 try {
   $st = $dbh->prepare("SELECT blocked_users_enabled, hidden_users_enabled, mute_users_enabled, report_history_enabled FROM user_profile_settings WHERE user_id = :uid LIMIT 1");
@@ -48,6 +50,16 @@ foreach ($possibleTables as $table => $meta) {
       $st->execute([':uid' => $meId]);
       $counts[$meta['key']] = max($counts[$meta['key']], (int)$st->fetchColumn());
     }
+  } catch (Throwable $e) {}
+}
+
+if (!empty($settings['report_history_enabled'])) {
+  try {
+    msb_reports_ensure_schema($dbh);
+    $myReports = msb_reports_list_for_reporter($dbh, $meId, 40);
+    $st = $dbh->prepare('SELECT COUNT(*) FROM public_user_reports WHERE reporter_id = :uid');
+    $st->execute([':uid' => $meId]);
+    $counts['reports'] = (int)$st->fetchColumn();
   } catch (Throwable $e) {}
 }
 ?>
@@ -90,9 +102,33 @@ foreach ($possibleTables as $table => $meta) {
     </div>
   </div>
 
+  <?php if (!empty($settings['report_history_enabled'])): ?>
+  <div class="sec-card" id="report-history">
+    <div class="sec-title" style="font-size:22px">Your report history</div>
+    <div class="sec-sub" style="margin-top:4px;">Reports you sent to platform admin (posts, users, products, messages).</div>
+    <div class="list">
+      <?php if (!$myReports): ?>
+        <div class="row"><div><strong>No reports yet</strong><small>When you report something, it will show up here.</small></div></div>
+      <?php else: foreach ($myReports as $r): ?>
+        <div class="row">
+          <div>
+            <strong><?= h(ucfirst((string)($r['target_type'] ?? 'item'))) ?> #<?= (int)($r['target_id'] ?? 0) ?></strong>
+            <small>
+              Reason: <?= h((string)($r['reason'] ?? 'other')) ?>
+              · Status: <?= h((string)($r['status'] ?? 'pending')) ?>
+              · <?= h((string)($r['created_at'] ?? '')) ?>
+            </small>
+          </div>
+          <span class="pill"><?= h((string)($r['status'] ?? 'pending')) ?></span>
+        </div>
+      <?php endforeach; endif; ?>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <div class="sec-card">
     <div class="sec-title" style="font-size:22px">Safety notes</div>
-    <div class="warn">Your Gear tab now controls whether blocked-user, hidden-user, mute-user, and report-history tools stay visible. When you later add full SQL tables for those lists, this page will automatically start showing real counts from them.</div>
+    <div class="warn">Report, block, hide, and mute tools are controlled from Gear. New reports go to Admin → Reports for review.</div>
     <a class="back" href="profile.php?tab=gear">← Back to Gear</a>
   </div>
 </div>

@@ -21,13 +21,9 @@ $err = '';
 $ok = '';
 
 $statusFilter = strtolower(trim((string)($_GET['status'] ?? 'all')));
-$allowedFilters = ['all', 'pending', 'confirmed', 'paid', 'cancelled', 'history'];
+$allowedFilters = ['all', 'processing', 'shipped', 'delivered', 'cancelled', 'pending', 'confirmed', 'paid', 'history'];
 if (!in_array($statusFilter, $allowedFilters, true)) {
-    if (in_array($statusFilter, ['shipped', 'delivered'], true)) {
-        $statusFilter = 'history';
-    } else {
-        $statusFilter = 'all';
-    }
+    $statusFilter = 'all';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

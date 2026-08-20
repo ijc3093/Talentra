@@ -148,6 +148,25 @@ $shopFilterSections = [
 <a class="shop-nav-preferences-link" href="Your_Shopping_preferences.php">
   <span class="shop-nav-preferences-label">Shopping Preferences</span>
 </a>
+<nav class="shop-nav-utility-links" aria-label="Shop help and account links">
+  <a href="Your_Shopping_preferences.php#order-history">
+    <i class="fa fa-cube" aria-hidden="true"></i>
+    <span>Track Order</span>
+  </a>
+  <a href="support.php">
+    <i class="fa fa-question-circle-o" aria-hidden="true"></i>
+    <span>Help Center</span>
+  </a>
+  <a href="register.php?account_type=publisher&amp;publisher_mode=commerce">
+    <i class="fa fa-shopping-bag" aria-hidden="true"></i>
+    <span>Sell on Talentra</span>
+  </a>
+  <button type="button" class="shop-nav-locale" aria-label="Language and currency: English, USD">
+    <i class="fa fa-globe" aria-hidden="true"></i>
+    <span>English <b aria-hidden="true"></b> USD</span>
+    <i class="fa fa-angle-down" aria-hidden="true"></i>
+  </button>
+</nav>
 <?php
 if (empty($GLOBALS['shop_location_modal_included'])) {
     $GLOBALS['shop_location_modal_included'] = true;

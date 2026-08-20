@@ -32,7 +32,42 @@ if (!$adminMode) $view = 'internal';
 $filter = strtolower(trim($_GET['filter'] ?? 'all'));
 $filter = in_array($filter, ['all','unread','read'], true) ? $filter : 'all';
 
+$lane = strtolower(trim((string)($_GET['lane'] ?? 'all')));
+$lane = in_array($lane, ['all', 'personal', 'customer', 'seller', 'publisher'], true) ? $lane : 'all';
+
 $internalChannels = allowedInternalChannelsForMe();
+
+function threads_poll_not_content_report(string $alias = ''): string {
+    $p = $alias !== '' ? rtrim($alias, '.') . '.' : '';
+    return "(
+        COALESCE({$p}title, '') <> 'Content Report'
+        AND COALESCE({$p}feedbackdata, '') NOT LIKE '[Report #%'
+        AND COALESCE({$p}feedbackdata, '') NOT LIKE 'Reporter message:%'
+    )";
+}
+
+function threads_poll_lane_sql(string $lane): array {
+    $lane = strtolower(trim($lane));
+    if ($lane === '' || $lane === 'all') {
+        return ['1=1', []];
+    }
+    if (!in_array($lane, ['personal', 'customer', 'seller', 'publisher'], true)) {
+        return ['1=0', []];
+    }
+    $scopeOk = "LOWER(TRIM(COALESCE(scope, ''))) = :lane_scope";
+    $params = [':lane_scope' => $lane];
+    if ($lane === 'seller') {
+        $fallback = "(COALESCE(title, '') LIKE 'Seller%' OR COALESCE(feedbackdata, '') LIKE '[Seller %')";
+    } elseif ($lane === 'publisher') {
+        $fallback = "(COALESCE(title, '') LIKE 'Publisher%' OR COALESCE(feedbackdata, '') LIKE '[Publisher %')";
+    } elseif ($lane === 'personal') {
+        $fallback = "(COALESCE(title, '') LIKE 'Personal%' OR COALESCE(feedbackdata, '') LIKE '[Personal %')";
+    } else {
+        $fallback = "(COALESCE(title, '') LIKE 'Customer%' OR COALESCE(feedbackdata, '') LIKE '[Help] %' OR COALESCE(feedbackdata, '') LIKE '[Dispute] %')";
+    }
+    $sql = "({$scopeOk} OR (TRIM(COALESCE(scope, '')) = '' AND {$fallback}))";
+    return [$sql, $params];
+}
 
 /**
  * feedback_admin primary key column is not always named `id` in your database.
@@ -72,16 +107,18 @@ function fmt_dt($dt): string { return $dt ? date('M d, Y h:i A', strtotime($dt))
 
 try {
   $threads = [];
+  $idCol = feedback_admin_id_col($dbh);
 
   if ($view === 'public') {
     if (!$adminMode) {
       $threads = [];
     } else {
-      // group by peer email (both directions)
+      [$laneSql, $laneParams] = threads_poll_lane_sql($lane);
+      // group by peer email (both directions); support help only (no Content Reports)
       $sql = "
         SELECT
           peer,
-          MAX(id_feedback_admin) AS last_id,
+          MAX(id) AS last_id,
           MAX(created_at) AS last_time,
           SUM(CASE
                 WHEN receiver='Admin' AND sender=peer AND is_read=0 THEN 1
@@ -89,17 +126,19 @@ try {
               END) AS unread_count
         FROM (
           SELECT
-            {$idCol} AS id, sender, receiver, created_at, is_read,
+            {$idCol} AS id, sender, receiver, created_at, is_read, title, scope, feedbackdata,
             CASE WHEN sender='Admin' THEN receiver ELSE sender END AS peer
           FROM feedback_admin
           WHERE channel='user_admin'
             AND (sender='Admin' OR receiver='Admin')
+            AND " . threads_poll_not_content_report('') . "
+            AND {$laneSql}
         ) x
         GROUP BY peer
         ORDER BY last_id DESC
       ";
       $st = $dbh->prepare($sql);
-      $st->execute();
+      $st->execute($laneParams);
       $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
       // last message preview by last_id

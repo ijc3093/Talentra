@@ -777,3 +777,107 @@ function org_sales_attention_counts(PDO $dbh, int $orgId): array
 
     return $out;
 }
+
+/**
+ * Seller payout ledger rows (platform fee already applied on paid orders).
+ *
+ * @return list<array<string, mixed>>
+ */
+function org_sales_payout_rows(PDO $dbh, int $orgId, int $limit = 100): array
+{
+    $limit = max(1, min(200, $limit));
+    if ($orgId <= 0) {
+        return [];
+    }
+    try {
+        $st = $dbh->prepare("
+            SELECT id, order_code, buyer_name, currency, total_cents,
+                   COALESCE(seller_payout_cents, 0) AS seller_payout_cents,
+                   COALESCE(NULLIF(TRIM(payout_status), ''), 'pending') AS payout_status,
+                   paid_at, created_at, status AS order_status
+            FROM org_orders
+            WHERE org_id = :org
+              AND status IN ('paid','shipped','delivered')
+            ORDER BY
+              CASE COALESCE(NULLIF(TRIM(payout_status), ''), 'pending')
+                WHEN 'pending' THEN 0
+                WHEN 'scheduled' THEN 1
+                ELSE 2
+              END,
+              COALESCE(paid_at, updated_at, created_at) DESC
+            LIMIT {$limit}
+        ");
+        $st->execute([':org' => $orgId]);
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/** @return array<string, int> */
+function org_sales_payout_totals(PDO $dbh, int $orgId): array
+{
+    $out = [
+        'pending_cents' => 0,
+        'scheduled_cents' => 0,
+        'paid_cents' => 0,
+        'pending_count' => 0,
+        'scheduled_count' => 0,
+        'paid_count' => 0,
+    ];
+    if ($orgId <= 0) {
+        return $out;
+    }
+    try {
+        $st = $dbh->prepare("
+            SELECT
+              COALESCE(NULLIF(TRIM(payout_status), ''), 'pending') AS ps,
+              COUNT(*) AS cnt,
+              COALESCE(SUM(COALESCE(seller_payout_cents, 0)), 0) AS cents
+            FROM org_orders
+            WHERE org_id = :org
+              AND status IN ('paid','shipped','delivered')
+            GROUP BY COALESCE(NULLIF(TRIM(payout_status), ''), 'pending')
+        ");
+        $st->execute([':org' => $orgId]);
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            $ps = strtolower(trim((string)($row['ps'] ?? 'pending')));
+            if (!in_array($ps, ['pending', 'scheduled', 'paid'], true)) {
+                $ps = 'pending';
+            }
+            $out[$ps . '_cents'] = (int)($row['cents'] ?? 0);
+            $out[$ps . '_count'] = (int)($row['cnt'] ?? 0);
+        }
+    } catch (Throwable $e) {
+    }
+    return $out;
+}
+
+/**
+ * @return array{ok:bool,error?:string}
+ */
+function org_sales_set_payout_status(PDO $dbh, int $orgId, int $orderId, string $status): array
+{
+    $status = strtolower(trim($status));
+    if (!in_array($status, ['pending', 'scheduled', 'paid'], true)) {
+        return ['ok' => false, 'error' => 'Invalid payout status.'];
+    }
+    if ($orgId <= 0 || $orderId <= 0) {
+        return ['ok' => false, 'error' => 'Missing order.'];
+    }
+    try {
+        $st = $dbh->prepare("
+            UPDATE org_orders
+            SET payout_status = :ps, updated_at = NOW()
+            WHERE id = :id AND org_id = :org AND status IN ('paid','shipped','delivered')
+            LIMIT 1
+        ");
+        $st->execute([':ps' => $status, ':id' => $orderId, ':org' => $orgId]);
+        if ($st->rowCount() <= 0) {
+            return ['ok' => false, 'error' => 'Order not found or not payable yet.'];
+        }
+        return ['ok' => true];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not update payout.'];
+    }
+}

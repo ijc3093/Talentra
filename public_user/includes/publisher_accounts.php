@@ -1348,35 +1348,33 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
 {
     $visibility = strtolower(trim($visibility));
 
-    // Public → Discover (public.php). Friends → For You (feed.php).
-    // Private → owner Gallery Private tab (profile.php) — not feed/public.
+    // Public → Discover. Friends → For You. Private → Gallery Private.
+    // Prefer home.php so create/publish never depends on legacy feed.php/public.php hops.
     if ($visibility === 'public') {
-        return 'public.php';
+        return 'home.php';
     }
     if ($visibility === 'private') {
         return 'profile.php';
     }
 
-    return 'feed.php';
+    return 'home.php';
 }
 
 /**
- * Posts that belong in feed.php (Friends Feed):
+ * Posts that belong in For You (friends room):
  * - my own friends-destination posts
- * - friends-only posts from my friends (personal users)
- * - public posts from publishers I follow
+ * - friends-only posts from my friends
+ * - public posts from publishers I follow (following lane, not stranger Discover)
  *
- * Personal public-destination posts belong on public.php (not here).
- * Unfollowed publisher posts stay on public.php / news.php.
- * Publisher workspace feed.php uses the same social visibility rules: own posts,
- * friends-only posts from contacts, and public posts from followed publishers.
+ * Public posts anyone can open belong on Discover — not For You.
+ * Private stays in Gallery → Private.
  */
 function publisher_workspace_feed_scope_sql(): string
 {
     return "(
         (
             p.user_id = :wsFeedMe
-            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) <> 'private'
+            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
         )
         OR (
             p.visibility = 'friends'
@@ -1399,7 +1397,10 @@ function publisher_workspace_feed_scope_sql(): string
 function publisher_feed_list_scope_sql(): string
 {
     return "(
-        (p.user_id = :scopeMeOwn AND LOWER(COALESCE(p.visibility,'friends')) = 'friends')
+        (
+            p.user_id = :scopeMeOwn
+            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+        )
         OR
         (p.visibility = 'friends' AND EXISTS (
             SELECT 1 FROM user_contacts uc
@@ -1447,7 +1448,10 @@ function publisher_feed_list_scope_params_for(PDO $dbh, int $meId): array
 function publisher_feed_unread_scope_named_sql(): string
 {
     return "(
-        (p.user_id = :unreadMe4 AND LOWER(COALESCE(p.visibility,'friends')) = 'friends')
+        (
+            p.user_id = :unreadMe4
+            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+        )
         OR
         (p.visibility = 'friends' AND EXISTS (
             SELECT 1 FROM user_contacts uc WHERE uc.owner_user_id = :unreadMe2 AND uc.friend_user_id = p.user_id
@@ -1522,8 +1526,7 @@ function publisher_feed_can_view_post(PDO $dbh, int $meId, array $post): bool
 
     if ($authorId === $meId) {
         $vis = strtolower(trim((string)($post['visibility'] ?? 'friends')));
-        // Own public-destination posts belong on public.php, not Friends Feed.
-        // Own private posts belong on profile Gallery → Private only.
+        // Own friends posts → For You. Own public → Discover. Own private → Gallery.
         return ($vis === 'friends' || $vis === '');
     }
 

@@ -52,7 +52,10 @@ org_admin_render_head('Customer Membership');
 ?>
 <?php
 require_once __DIR__ . '/includes/admin_chrome.php';
-admin_chrome_open('Customer Membership');
+admin_chrome_open(null, [
+    'title' => 'Customer Membership',
+    'description' => 'Optional membership. Members pay $0 service fee on shop orders (normally $1.99).',
+]);
 ?>
 
 <div class="sh-mainpanel">

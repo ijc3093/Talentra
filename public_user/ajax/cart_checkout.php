@@ -58,14 +58,18 @@ $warnings = $result['errors'] ?? [];
 $codes = array_map(static fn($o) => (string)($o['order_code'] ?? ''), $orders);
 $codes = array_values(array_filter($codes));
 
-$checkoutUrl = '';
+$checkoutUrls = [];
 $pendingPayments = 0;
-if (stripe_shop_is_configured()) {
-    foreach ($orders as $idx => $order) {
+$cancelUrl = stripe_shop_public_base_url() . '/cart.php?checkout=cancel';
+
+if (stripe_shop_is_configured() && $orders !== []) {
+    /** @var array<string, list<array{order_id:int,order_code:string,title:string,unit_cents:int,quantity:int,currency:string}>> $byCurrency */
+    $byCurrency = [];
+    foreach ($orders as $order) {
         $orderId = (int)($order['order_id'] ?? 0);
         $orderCode = (string)($order['order_code'] ?? '');
         $totalCents = (int)($order['total_cents'] ?? 0);
-        $currency = (string)($order['currency'] ?? 'USD');
+        $currency = strtoupper(trim((string)($order['currency'] ?? 'USD')) ?: 'USD');
         if ($orderId <= 0 || $totalCents <= 0) {
             continue;
         }
@@ -73,30 +77,66 @@ if (stripe_shop_is_configured()) {
         $st->execute([':id' => $orderId]);
         $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
         $qty = max(1, (int)($row['quantity'] ?? 1));
-        // Charge the discounted order total (unit ≈ total/qty).
         $unitForStripe = (int)max(1, (int)round($totalCents / $qty));
-        $stripe = stripe_shop_create_checkout_session(
-            $orderId,
-            $orderCode,
-            (string)($row['product_title'] ?? 'Order'),
-            $unitForStripe,
-            $qty,
-            $currency,
-            $meId,
-            stripe_shop_public_base_url() . '/cart.php?checkout=cancel'
-        );
-        if (!empty($stripe['ok'])) {
-            org_shop_attach_stripe_session($dbh, $orderId, (string)($stripe['session_id'] ?? ''));
-            if ($checkoutUrl === '') {
-                $checkoutUrl = (string)($stripe['checkout_url'] ?? '');
+        if (!isset($byCurrency[$currency])) {
+            $byCurrency[$currency] = [];
+        }
+        $byCurrency[$currency][] = [
+            'order_id' => $orderId,
+            'order_code' => $orderCode,
+            'title' => (string)($row['product_title'] ?? ('Order ' . $orderCode)),
+            'unit_cents' => $unitForStripe,
+            'quantity' => $qty,
+            'currency' => $currency,
+        ];
+    }
+
+    foreach ($byCurrency as $currency => $lines) {
+        if ($lines === []) {
+            continue;
+        }
+        if (count($lines) === 1) {
+            $line = $lines[0];
+            $stripe = stripe_shop_create_checkout_session(
+                (int)$line['order_id'],
+                (string)$line['order_code'],
+                (string)$line['title'],
+                (int)$line['unit_cents'],
+                (int)$line['quantity'],
+                (string)$line['currency'],
+                $meId,
+                $cancelUrl
+            );
+            if (!empty($stripe['ok'])) {
+                org_shop_attach_stripe_session($dbh, (int)$line['order_id'], (string)($stripe['session_id'] ?? ''));
+                $url = trim((string)($stripe['checkout_url'] ?? ''));
+                if ($url !== '') {
+                    $checkoutUrls[] = $url;
+                }
             } else {
-                $pendingPayments++;
+                $pendingPayments += count($lines);
+            }
+            continue;
+        }
+
+        $stripe = stripe_shop_create_multi_order_checkout_session($lines, $meId, $cancelUrl);
+        if (!empty($stripe['ok'])) {
+            $sid = (string)($stripe['session_id'] ?? '');
+            $url = trim((string)($stripe['checkout_url'] ?? ''));
+            foreach ($lines as $line) {
+                org_shop_attach_stripe_session($dbh, (int)$line['order_id'], $sid);
+            }
+            if ($url !== '') {
+                $checkoutUrls[] = $url;
             }
         } else {
-            $pendingPayments++;
+            $pendingPayments += count($lines);
         }
     }
 }
+
+$checkoutUrl = $checkoutUrls[0] ?? '';
+$remainingUrls = array_values(array_slice($checkoutUrls, 1));
 
 $message = count($codes) === 1
     ? 'Order placed! Code: ' . $codes[0]
@@ -104,6 +144,11 @@ $message = count($codes) === 1
 
 if ($warnings) {
     $message .= ' Some items could not be ordered.';
+}
+if (count($checkoutUrls) > 1) {
+    $message .= ' You will complete ' . count($checkoutUrls) . ' secure checkouts (one per currency).';
+} elseif ($checkoutUrl !== '' && count($orders) > 1) {
+    $message .= ' Complete payment for all items in one checkout.';
 }
 if ($pendingPayments > 0) {
     $message .= ' Complete remaining payments from My Orders.';
@@ -114,6 +159,8 @@ echo json_encode([
     'message' => $message,
     'order_codes' => $codes,
     'checkout_url' => $checkoutUrl,
+    'checkout_urls' => $checkoutUrls,
+    'remaining_checkout_urls' => $remainingUrls,
     'pending_payments' => $pendingPayments,
     'count' => (int)($result['count'] ?? 0),
 ]);

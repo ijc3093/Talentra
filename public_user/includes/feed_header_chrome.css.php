@@ -399,6 +399,61 @@ body.shop-page.feed-insta-ui .shop-nav-preferences-link:hover{
   background:var(--shop-hover-bg, var(--msb-palette-hover-bg, rgba(15,23,42,.04)));
   text-decoration:none;
 }
+body.shop-page.feed-insta-ui .shop-nav-utility-links{
+  margin-top:8px;
+  padding:8px 0 2px;
+  border-top:1px solid var(--shop-border, var(--msb-palette-border, rgba(15,23,42,.08)));
+}
+body.shop-page.feed-insta-ui .shop-nav-utility-links>a,
+body.shop-page.feed-insta-ui .shop-nav-locale{
+  width:100%;
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:9px 12px;
+  border:0;
+  background:transparent;
+  color:var(--shop-text, var(--msb-palette-text, #111827));
+  font-family:inherit;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.2;
+  text-align:left;
+  text-decoration:none;
+  box-sizing:border-box;
+  cursor:pointer;
+}
+body.shop-page.feed-insta-ui .shop-nav-utility-links>a:hover,
+body.shop-page.feed-insta-ui .shop-nav-locale:hover{
+  background:var(--shop-hover-bg, var(--msb-palette-hover-bg, rgba(15,23,42,.04)));
+  text-decoration:none;
+}
+body.shop-page.feed-insta-ui .shop-nav-utility-links>a>i,
+body.shop-page.feed-insta-ui .shop-nav-locale>i:first-child{
+  width:22px;
+  flex:0 0 22px;
+  font-size:18px;
+  text-align:center;
+}
+body.shop-page.feed-insta-ui .shop-nav-locale{
+  margin-top:10px;
+  padding-top:14px;
+  padding-bottom:14px;
+  border-top:1px solid var(--shop-border, var(--msb-palette-border, rgba(15,23,42,.08)));
+}
+body.shop-page.feed-insta-ui .shop-nav-locale span{
+  flex:1 1 auto;
+}
+body.shop-page.feed-insta-ui .shop-nav-locale span b{
+  display:inline-block;
+  height:17px;
+  margin:0 8px -4px;
+  border-left:1px solid var(--shop-border, var(--msb-palette-border, rgba(15,23,42,.12)));
+}
+body.shop-page.feed-insta-ui .shop-nav-locale>i:last-child{
+  font-size:15px;
+}
 body.shop-page.feed-insta-ui .shop-brand-nav{
   margin:10px 0 12px;
   padding:10px 0 4px;
@@ -504,8 +559,17 @@ body.shop-page.feed-insta-ui .shop-market-brand-pill-icon{
 }
 @media (min-width:1025px){
   body.shop-page.feed-insta-ui .feed-left-rail{
-    height:min(560px, calc(100vh - 180px));
-    max-height:min(560px, calc(100vh - 180px));
+    height:calc(100vh - var(--feed-left-rail-top, 180px) - 8px);
+    max-height:calc(100vh - var(--feed-left-rail-top, 180px) - 8px);
+  }
+  body.shop-page.feed-insta-ui .feed-left-nav{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  body.shop-page.feed-insta-ui .shop-nav-utility-links{
+    margin-top:auto;
+    flex:0 0 auto;
   }
 }
 @media (max-width:1024px){
@@ -602,7 +666,7 @@ body.shop-page.feed-insta-ui .shop-page-scroll{
     background:var(--shop-surface, var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))));
     color:var(--shop-text, var(--msb-palette-text, inherit));
     padding:0 12px 6px;
-    margin:10px 0 0;
+    margin:10px 7px 0;
   }
   body.shop-page.feed-insta-ui .feed-left-rail{
     top:var(--feed-left-rail-top);

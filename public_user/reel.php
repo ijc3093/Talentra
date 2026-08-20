@@ -11,6 +11,7 @@ require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
+require_once __DIR__ . '/includes/msb_feed_engagement.php';
 requireUserLogin();
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -18,6 +19,7 @@ header('Pragma: no-cache');
 
 $controller = new Controller();
 $dbh = $controller->pdo();
+msb_feed_engagement_ensure_schema($dbh);
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $q = trim((string)($_GET['q'] ?? ''));
 $reelViewerIsPublisher = $meId > 0 && publisher_workspace_viewer($dbh, $meId);
@@ -726,6 +728,7 @@ $iconFries = post_card_menu_fries_icon_html();
   <div class="reel-loading" id="reelLoading">Loading reels…</div>
 
   <?php include __DIR__ . '/includes/leftbar.php'; ?>
+  <?php include __DIR__ . '/includes/live_right_door.php'; ?>
 
   <?php post_card_actions_menu_render_modals(); ?>
   <?php post_card_actions_menu_render_js([
@@ -1255,6 +1258,7 @@ $iconFries = post_card_menu_fries_icon_html();
       menuWrap.setAttribute('data-post-id', String(pid));
       menuWrap.setAttribute('data-peer-id', String(peer));
       menuWrap.setAttribute('data-is-owner', isOwner ? '1' : '0');
+      menuWrap.setAttribute('data-menu-surface', 'reel');
       if(it.friend_code) menuWrap.setAttribute('data-peer-code', String(it.friend_code));
       else menuWrap.removeAttribute('data-peer-code');
       stageEl.setAttribute('data-post-id', String(pid));
@@ -1274,8 +1278,14 @@ $iconFries = post_card_menu_fries_icon_html();
       if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.buildItems === 'function'){
         html = window.MSBPostCardMenu.buildItems(it, isOwner, pid) || '';
       }
+      if(!html && !isOwner && pid > 0){
+        html = '<button type="button" class="pcm-item pcm-report is-danger" role="menuitem" data-post-id="'+String(pid)+'"><i class="fa fa-flag" aria-hidden="true"></i><span>Report</span></button>';
+      }
       menu.innerHTML = html;
       menuWrap.style.display = html ? '' : 'none';
+      if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.hydrateReports === 'function'){
+        window.MSBPostCardMenu.hydrateReports(slide);
+      }
       if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.syncOnMediaContrast === 'function'){
         window.MSBPostCardMenu.syncOnMediaContrast(stageEl);
       }
@@ -1566,6 +1576,23 @@ $iconFries = post_card_menu_fries_icon_html();
         capHtml = esc(cap.short);
       }
       var music = musicLine(it);
+      var soundId = Number((it && it.sound_id) || 0);
+      var musicAttrs = ' class="reel-music'+(music ? ' is-on' : '')+'"';
+      if (soundId > 0 && music) {
+        musicAttrs += ' role="button" tabindex="0" data-sound-id="'+soundId+'" data-sound-title="'+esc(String((it && it.music_title) || ''))+'" data-sound-artist="'+esc(String((it && it.music_artist) || ''))+'" title="Use this sound"';
+      }
+      var products = Array.isArray(it && it.products) ? it.products : [];
+      var productsHtml = '';
+      if (products.length) {
+        productsHtml = '<div class="mf-products-row reel-products-row" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px;">';
+        products.slice(0, 3).forEach(function(p){
+          var pid = Number(p.product_id || 0);
+          if (!pid) return;
+          var label = String(p.title || ('Product #'+pid)).trim();
+          productsHtml += '<button type="button" class="mf-product-buy-chip js-open-shop-buy-door" data-shop-buy="'+pid+'" data-product-id="'+pid+'" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:0;border-radius:999px;background:rgba(255,255,255,.18);color:#fff;font-size:12px;font-weight:700;cursor:pointer;"><i class="fa fa-shopping-bag" aria-hidden="true"></i>'+esc(label)+'</button>';
+        });
+        productsHtml += '</div>';
+      }
       var slide = document.createElement('section');
       slide.className = 'reel-slide';
       slide.setAttribute('data-index', String(i));
@@ -1583,16 +1610,17 @@ $iconFries = post_card_menu_fries_icon_html();
                   '<a class="reel-author-name" href="'+esc(href)+'">'+esc(name)+'</a>'+
                   '<button type="button" class="reel-follow" hidden>Follow</button>'+
                 '</div>'+
-                '<div class="reel-music'+(music ? ' is-on' : '')+'"><i class="fa fa-music" aria-hidden="true"></i><span class="reel-music-text">'+esc(music)+'</span></div>'+
+                '<div'+musicAttrs+'><i class="fa fa-music" aria-hidden="true"></i><span class="reel-music-text">'+esc(music)+'</span></div>'+
               '</div>'+
               '<div class="standard-media-topbar reel-media-topbar">'+
-              '<div class="post-card-menu-wrap mf-menu-wrap standard-media-topbar-menu" data-post-id="0" data-peer-id="0" data-is-owner="0" data-menu-surface="public">'+
+              '<div class="post-card-menu-wrap mf-menu-wrap standard-media-topbar-menu" data-post-id="0" data-peer-id="0" data-is-owner="0" data-menu-surface="reel">'+
                 '<button type="button" class="post-card-menu-btn mf-menu-btn pcm-on-dark-media" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false">'+ICON.fries+'</button>'+
                 '<div class="post-card-menu mf-menu" role="menu"></div>'+
               '</div>'+
               '</div>'+
             '</div>'+
             '<div class="reel-caption">'+capHtml+'</div>'+
+            productsHtml+
             '<div class="reel-stage" data-post-id="'+esc(String(it.id || 0))+'" data-slide-index="0">'+
               '<video class="reel-video" playsinline loop muted preload="none" src="'+esc(src)+'"></video>'+
               '<button type="button" class="reel-slide-nav prev js-reel-slide-prev" aria-label="Previous slide"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>'+
@@ -1608,6 +1636,8 @@ $iconFries = post_card_menu_fries_icon_html();
             '<div class="reel-act-wrap"><button type="button" class="reel-act js-open-comments" data-act="comment" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Comment">'+ICON.comment+'</button><span class="reel-act-count" data-count="comment">0</span></div>'+
             '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="share" aria-label="Share">'+ICON.share+'</button><span class="reel-act-count" data-count="share">0</span></div>'+
             '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="save" aria-label="Save">'+ICON.bookmark+'</button><span class="reel-act-count" data-count="save">0</span></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="stitch" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Stitch" title="Stitch">St</button></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="duet" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Duet" title="Duet">Du</button></div>'+
           '</div>'+
         '</div>';
 
@@ -1737,6 +1767,15 @@ $iconFries = post_card_menu_fries_icon_html();
 
     function activateIndex(nextIndex, play){
       if(!items.length) return;
+      // Flush watch for previous active reel before switching.
+      try {
+        if (typeof index === 'number' && slideEls[index] && window.MSBWatchBeacon) {
+          var prevSlide = slideEls[index];
+          var prevVid = prevSlide.querySelector('video');
+          var prevPid = Number(prevSlide.getAttribute('data-post-id') || 0);
+          if (prevVid && prevPid) window.MSBWatchBeacon.fromVideo(prevVid, prevPid, 'reel');
+        }
+      } catch (_w) {}
       nextIndex = Math.max(0, Math.min(items.length - 1, nextIndex));
       index = nextIndex;
       var slide = slideEls[index];
@@ -1881,6 +1920,23 @@ $iconFries = post_card_menu_fries_icon_html();
             return;
           }
           window.location.href = 'public.php?post=' + encodeURIComponent(String(commentPid)) + '#post-' + encodeURIComponent(String(commentPid));
+          return;
+        }
+        if(act === 'stitch' || act === 'duet'){
+          var remixPid = Number(actBtn.getAttribute('data-post-id') || it.id || 0);
+          if(!remixPid) return;
+          var remixSrc = 'dashboard.php?modal=1&' + encodeURIComponent(act) + '=' + encodeURIComponent(String(remixPid));
+          try {
+            if (window.parent && window.parent !== window && window.parent.MSBCreatePostModal) {
+              window.parent.MSBCreatePostModal.open(remixSrc);
+              return;
+            }
+          } catch (_e) {}
+          if (window.MSBCreatePostModal) {
+            window.MSBCreatePostModal.open(remixSrc);
+            return;
+          }
+          window.location.href = remixSrc;
           return;
         }
         if(act === 'love'){
@@ -2365,6 +2421,35 @@ $iconFries = post_card_menu_fries_icon_html();
     setTimeout(syncReelSideChrome, 0);
     setTimeout(syncReelSideChrome, 120);
     setTimeout(syncReelSideChrome, 400);
+  })();
+  </script>
+  <?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
+  <script>
+  (function(){
+    function flushActiveReelWatch(){
+      try {
+        if (!window.MSBWatchBeacon) return;
+        var slide = document.querySelector('.reel-slide.is-active, .reel-slide[data-index].is-on, #reelTrack .reel-slide');
+        // Prefer current visible: first video that is not paused
+        var videos = document.querySelectorAll('#reelApp video.reel-video, #reelTrack video.reel-video');
+        var best = null, bestPid = 0;
+        videos.forEach(function(v){
+          if (!v || v.paused) return;
+          var s = v.closest('[data-post-id]');
+          var pid = Number((s && s.getAttribute('data-post-id')) || 0);
+          if (pid) { best = v; bestPid = pid; }
+        });
+        if (!best && slide) {
+          best = slide.querySelector('video');
+          bestPid = Number(slide.getAttribute('data-post-id') || 0);
+        }
+        if (best && bestPid) window.MSBWatchBeacon.fromVideo(best, bestPid, 'reel');
+      } catch (_e) {}
+    }
+    window.addEventListener('pagehide', flushActiveReelWatch);
+    document.addEventListener('visibilitychange', function(){
+      if (document.visibilityState === 'hidden') flushActiveReelWatch();
+    });
   })();
   </script>
 </body>

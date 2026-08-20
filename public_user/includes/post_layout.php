@@ -107,7 +107,15 @@ function post_music_row_html(array $post, string $class = 'mf-music-row'): strin
     }
 
     $class = trim($class) !== '' ? trim($class) : 'mf-music-row';
-    $html = '<div class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '" aria-label="Music">';
+    $soundId = (int)($post['sound_id'] ?? 0);
+    $attrs = ' class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '" aria-label="Music"';
+    if ($soundId > 0) {
+        $attrs .= ' role="button" tabindex="0" data-sound-id="' . $soundId . '"'
+            . ' data-sound-title="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '"'
+            . ' data-sound-artist="' . htmlspecialchars($artist, ENT_QUOTES, 'UTF-8') . '"'
+            . ' title="Use this sound"';
+    }
+    $html = '<div' . $attrs . '>';
     $html .= '<i class="fa fa-music mf-music-ic" aria-hidden="true"></i>';
     if ($title !== '') {
         $html .= '<span class="mf-music-title">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</span>';

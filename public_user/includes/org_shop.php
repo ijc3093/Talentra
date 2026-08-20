@@ -1079,13 +1079,17 @@ function org_shop_list_orders(PDO $dbh, int $orgId, string $statusFilter = 'all'
     if ($orgId <= 0) {
         return [];
     }
-    $limit = max(1, min($limit, 200));
+    $limit = max(1, min($limit, 500));
     $where = ['o.org_id = :org'];
     $params = [':org' => $orgId];
     $statusFilter = strtolower(trim($statusFilter));
     if ($statusFilter === 'history') {
         // Completed orders archive (left the active OMS inbox).
         $where[] = "o.status IN ('shipped', 'delivered')";
+    } elseif ($statusFilter === 'any' || $statusFilter === 'all_orders') {
+        // Full ledger: every status, including cancelled / shipped / delivered.
+    } elseif ($statusFilter === 'processing') {
+        $where[] = "o.status IN ('pending', 'confirmed', 'paid')";
     } elseif ($statusFilter !== '' && $statusFilter !== 'all') {
         $where[] = 'o.status = :status';
         $params[':status'] = $statusFilter;
@@ -1096,7 +1100,8 @@ function org_shop_list_orders(PDO $dbh, int $orgId, string $statusFilter = 'all'
     $sql = "
         SELECT o.*,
                u.username AS buyer_username,
-               p.product_code AS product_code
+               p.product_code AS product_code,
+               p.cover_image_path AS product_cover
         FROM org_orders o
         LEFT JOIN users u ON u.id = o.buyer_user_id
         LEFT JOIN org_products p ON p.id = o.product_id
@@ -1119,7 +1124,16 @@ function org_shop_list_orders(PDO $dbh, int $orgId, string $statusFilter = 'all'
         unset($row);
         return $rows;
     } catch (Throwable $e) {
-        return [];
+        try {
+            $sql2 = str_replace(',
+               p.cover_image_path AS product_cover', ',
+               NULL AS product_cover', $sql);
+            $st = $dbh->prepare($sql2);
+            $st->execute($params);
+            return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e2) {
+            return [];
+        }
     }
 }
 
@@ -1379,7 +1393,7 @@ function org_shop_seller_order_batch(PDO $dbh, int $orgId, array $order): array
             return [$order];
         }
         $sql = '
-            SELECT o.*, u.username AS buyer_username, p.sku
+            SELECT o.*, u.username AS buyer_username, p.sku, p.cover_image_path AS product_cover
             FROM org_orders o
             LEFT JOIN users u ON u.id = o.buyer_user_id
             LEFT JOIN org_products p ON p.id = o.product_id
@@ -1882,6 +1896,214 @@ function org_shop_delete_product(PDO $dbh, int $orgId, int $productId): bool
     }
 }
 
+/**
+ * Duplicate a listing (draft copy, new product code, shared photos).
+ *
+ * @return array{ok:bool,product_id?:int,error?:string}
+ */
+function org_shop_duplicate_product(PDO $dbh, int $orgId, int $productId, int $memberId = 0): array
+{
+    if ($orgId <= 0 || $productId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid product.'];
+    }
+    org_shop_ensure_schema($dbh);
+    $src = org_shop_get_product($dbh, $productId, $orgId);
+    if (!$src) {
+        return ['ok' => false, 'error' => 'Product not found.'];
+    }
+    $max = org_shop_max_products($dbh, $orgId);
+    if (org_shop_product_count($dbh, $orgId) >= $max) {
+        return ['ok' => false, 'error' => 'Product limit reached for your rent plan (' . $max . ').'];
+    }
+
+    $title = trim((string)($src['title'] ?? 'Product'));
+    if (!preg_match('/\(copy\)\s*$/i', $title)) {
+        $title .= ' (Copy)';
+    }
+    if (mb_strlen($title) > 200) {
+        $title = mb_substr($title, 0, 200);
+    }
+    $sku = trim((string)($src['sku'] ?? ''));
+    if ($sku !== '') {
+        $sku = mb_substr($sku . '-COPY', 0, 64);
+    }
+    $slug = strtolower(trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($title)) ?? 'product', '-'));
+    if ($slug === '') {
+        $slug = 'product';
+    }
+    $productCode = org_shop_gen_product_code($dbh, $orgId, 0);
+
+    try {
+        $st = $dbh->prepare('
+            INSERT INTO org_products (
+                org_id, sku, product_code, title, description, seo_title, seo_description, slug,
+                bullet_points, search_keywords, fulfillment_method,
+                delivery_enabled, pickup_enabled, delivery_carriers, shipping_fee_cents,
+                offer_type, pricing_model,
+                price_cents, currency, stock_qty, category, selling_type, attributes_json, status,
+                cover_image_path, created_by_member_id, created_at, updated_at, is_deleted
+            ) VALUES (
+                :org, :sku, :pcode, :title, :desc, :seo_t, :seo_d, :slug,
+                :bullets, :keywords, :fmethod,
+                :deliv, :pickup, :carriers, :shipfee,
+                :otype, :pmodel,
+                :price, :cur, :stock, :cat, :stype, :attrs, \'draft\',
+                :cover, :member, NOW(), NOW(), 0
+            )
+        ');
+        $st->execute([
+            ':org' => $orgId,
+            ':sku' => $sku !== '' ? $sku : null,
+            ':pcode' => $productCode,
+            ':title' => $title,
+            ':desc' => ($src['description'] ?? null) !== null && trim((string)$src['description']) !== '' ? $src['description'] : null,
+            ':seo_t' => ($src['seo_title'] ?? null) !== null && trim((string)$src['seo_title']) !== '' ? $src['seo_title'] : null,
+            ':seo_d' => ($src['seo_description'] ?? null) !== null && trim((string)$src['seo_description']) !== '' ? $src['seo_description'] : null,
+            ':slug' => $slug,
+            ':bullets' => ($src['bullet_points'] ?? null) !== null && trim((string)$src['bullet_points']) !== '' ? $src['bullet_points'] : null,
+            ':keywords' => ($src['search_keywords'] ?? null) !== null && trim((string)$src['search_keywords']) !== '' ? $src['search_keywords'] : null,
+            ':fmethod' => in_array((string)($src['fulfillment_method'] ?? 'fbm'), ['fba', 'fbm'], true) ? (string)$src['fulfillment_method'] : 'fbm',
+            ':deliv' => !empty($src['delivery_enabled']) ? 1 : 0,
+            ':pickup' => !empty($src['pickup_enabled']) ? 1 : 0,
+            ':carriers' => ($src['delivery_carriers'] ?? null) !== null && trim((string)$src['delivery_carriers']) !== '' ? $src['delivery_carriers'] : null,
+            ':shipfee' => max(0, (int)($src['shipping_fee_cents'] ?? 0)),
+            ':otype' => (string)($src['offer_type'] ?? 'physical'),
+            ':pmodel' => (string)($src['pricing_model'] ?? 'one_time'),
+            ':price' => max(0, (int)($src['price_cents'] ?? 0)),
+            ':cur' => trim((string)($src['currency'] ?? 'USD')) !== '' ? (string)$src['currency'] : 'USD',
+            ':stock' => $src['stock_qty'] === null || $src['stock_qty'] === '' ? null : max(0, (int)$src['stock_qty']),
+            ':cat' => ($src['category'] ?? null) !== null && trim((string)$src['category']) !== '' ? $src['category'] : null,
+            ':stype' => ($src['selling_type'] ?? null) !== null && trim((string)$src['selling_type']) !== '' ? $src['selling_type'] : null,
+            ':attrs' => ($src['attributes_json'] ?? null) !== null && trim((string)$src['attributes_json']) !== '' ? $src['attributes_json'] : null,
+            ':cover' => ($src['cover_image_path'] ?? null) !== null && trim((string)$src['cover_image_path']) !== '' ? $src['cover_image_path'] : null,
+            ':member' => $memberId > 0 ? $memberId : null,
+        ]);
+        $newId = (int)$dbh->lastInsertId();
+        if ($newId <= 0) {
+            return ['ok' => false, 'error' => 'Could not duplicate product.'];
+        }
+        org_shop_ensure_product_code($dbh, $orgId, $newId, '');
+        foreach (org_shop_list_product_images($dbh, $productId, $orgId) as $img) {
+            $path = trim((string)($img['file_path'] ?? ''));
+            if ($path === '') {
+                continue;
+            }
+            org_shop_add_product_image_row($dbh, $orgId, $newId, $path, (int)($img['sort_order'] ?? 0));
+        }
+        return ['ok' => true, 'product_id' => $newId];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not duplicate product.'];
+    }
+}
+
+function org_shop_set_product_listing_status(PDO $dbh, int $orgId, int $productId, string $status): bool
+{
+    $status = strtolower(trim($status));
+    if ($orgId <= 0 || $productId <= 0 || !in_array($status, ['draft', 'active', 'sold_out', 'archived'], true)) {
+        return false;
+    }
+    try {
+        $st = $dbh->prepare('
+            UPDATE org_products
+            SET status = :st, updated_at = NOW()
+            WHERE id = :id AND org_id = :org AND is_deleted = 0
+            LIMIT 1
+        ');
+        $st->execute([':st' => $status, ':id' => $productId, ':org' => $orgId]);
+        if ($st->rowCount() <= 0) {
+            return false;
+        }
+        if ($status === 'active') {
+            org_shop_mark_sold_out_if_empty($dbh, $productId, $orgId);
+        }
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function org_shop_mark_product_out_of_stock(PDO $dbh, int $orgId, int $productId): bool
+{
+    if ($orgId <= 0 || $productId <= 0) {
+        return false;
+    }
+    try {
+        $st = $dbh->prepare('
+            UPDATE org_products
+            SET stock_qty = 0, status = \'sold_out\', updated_at = NOW()
+            WHERE id = :id AND org_id = :org AND is_deleted = 0
+            LIMIT 1
+        ');
+        $st->execute([':id' => $productId, ':org' => $orgId]);
+        return $st->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function org_shop_set_product_stock(PDO $dbh, int $orgId, int $productId, int $qty): bool
+{
+    if ($orgId <= 0 || $productId <= 0) {
+        return false;
+    }
+    $qty = max(0, $qty);
+    try {
+        $statusSql = $qty <= 0
+            ? ', status = \'sold_out\''
+            : ', status = CASE WHEN status = \'sold_out\' THEN \'active\' ELSE status END';
+        $st = $dbh->prepare("
+            UPDATE org_products
+            SET stock_qty = :q {$statusSql}, updated_at = NOW()
+            WHERE id = :id AND org_id = :org AND is_deleted = 0
+            LIMIT 1
+        ");
+        $st->execute([':q' => $qty, ':id' => $productId, ':org' => $orgId]);
+        return $st->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Row actions from the Products catalog ⋯ menu.
+ *
+ * @return array{ok:bool,message?:string,error?:string}
+ */
+function org_shop_run_catalog_row_action(PDO $dbh, int $orgId, string $action, int $productId): array
+{
+    $action = strtolower(trim($action));
+    if ($orgId <= 0 || $productId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid product.'];
+    }
+    if ($action === 'delete') {
+        return org_shop_delete_product($dbh, $orgId, $productId)
+            ? ['ok' => true, 'message' => 'Product removed.']
+            : ['ok' => false, 'error' => 'Could not remove product.'];
+    }
+    if ($action === 'duplicate') {
+        $dup = org_shop_duplicate_product($dbh, $orgId, $productId);
+        return !empty($dup['ok'])
+            ? ['ok' => true, 'message' => 'Product duplicated as a draft.']
+            : ['ok' => false, 'error' => (string)($dup['error'] ?? 'Could not duplicate product.')];
+    }
+    if ($action === 'out_of_stock') {
+        return org_shop_mark_product_out_of_stock($dbh, $orgId, $productId)
+            ? ['ok' => true, 'message' => 'Product marked out of stock.']
+            : ['ok' => false, 'error' => 'Could not update stock.'];
+    }
+    if ($action === 'deactivate') {
+        return org_shop_set_product_listing_status($dbh, $orgId, $productId, 'draft')
+            ? ['ok' => true, 'message' => 'Listing deactivated.']
+            : ['ok' => false, 'error' => 'Could not deactivate listing.'];
+    }
+    if ($action === 'activate') {
+        return org_shop_set_product_listing_status($dbh, $orgId, $productId, 'active')
+            ? ['ok' => true, 'message' => 'Listing activated.']
+            : ['ok' => false, 'error' => 'Could not activate listing.'];
+    }
+    return ['ok' => false, 'error' => 'Unknown action.'];
+}
+
 function org_shop_handle_cover_upload(int $orgId, int $productId): ?string
 {
     if ($orgId <= 0 || $productId <= 0 || empty($_FILES['cover_image']) || !is_array($_FILES['cover_image'])) {
@@ -2232,13 +2454,11 @@ function org_shop_list_marketplace_products(PDO $dbh, int $limit = 120): array
                    cb.icon_letter AS commerce_brand_icon
             FROM org_products p
             INNER JOIN organizations o ON o.id = p.org_id AND o.status = 1
-            INNER JOIN users u ON u.id = o.publisher_user_id
+            LEFT JOIN users u ON u.id = o.publisher_user_id
             LEFT JOIN commerce_brands cb ON cb.id = o.commerce_brand_id AND cb.is_active = 1
             WHERE p.is_deleted = 0
               AND p.status = 'active'
               AND (p.stock_qty IS NULL OR p.stock_qty > 0)
-              AND o.publisher_user_id IS NOT NULL
-              AND o.publisher_user_id > 0
               AND o.commerce_brand_id IS NOT NULL
               AND o.commerce_brand_id > 0
               AND LOWER(TRIM(COALESCE(o.publisher_category, ''))) IN ('', 'commerce')
@@ -2306,14 +2526,12 @@ function org_shop_get_marketplace_product(PDO $dbh, int $productId): ?array
                    cb.icon_letter AS commerce_brand_icon
             FROM org_products p
             INNER JOIN organizations o ON o.id = p.org_id AND o.status = 1
-            INNER JOIN users u ON u.id = o.publisher_user_id
+            LEFT JOIN users u ON u.id = o.publisher_user_id
             LEFT JOIN commerce_brands cb ON cb.id = o.commerce_brand_id AND cb.is_active = 1
             WHERE p.id = :id
               AND p.is_deleted = 0
               AND p.status = 'active'
               AND (p.stock_qty IS NULL OR p.stock_qty > 0)
-              AND o.publisher_user_id IS NOT NULL
-              AND o.publisher_user_id > 0
               AND o.commerce_brand_id IS NOT NULL
               AND o.commerce_brand_id > 0
               AND LOWER(TRIM(COALESCE(o.publisher_category, ''))) IN ('', 'commerce')
@@ -2828,6 +3046,19 @@ function org_shop_fulfill_stripe_payment(
         $payRef = $paymentIntentId !== '' ? $paymentIntentId : $sessionId;
         org_shop_issue_receipt($dbh, $orgId, $orderId, 'stripe', $payRef);
 
+        // Auto-push seller payout via Stripe Connect when the org is onboarded.
+        try {
+            $connectPath = __DIR__ . '/org_shop_connect.php';
+            if (is_file($connectPath)) {
+                require_once $connectPath;
+            }
+            if (function_exists('org_shop_connect_auto_payout_order')) {
+                org_shop_connect_auto_payout_order($dbh, $orderId);
+            }
+        } catch (Throwable $eConnect) {
+            // non-fatal — seller can mark payouts manually
+        }
+
         $buyerUserId = (int)($order['buyer_user_id'] ?? 0);
         $orderCode = (string)($order['order_code'] ?? '');
         org_shop_notify_seller_order_status($dbh, $orgId, $buyerUserId, 'paid', [$orderCode]);
@@ -2854,23 +3085,6 @@ function org_shop_fulfill_stripe_payment(
 
 function org_shop_fulfill_stripe_session(PDO $dbh, array $session): bool
 {
-    $orderId = (int)($session['metadata']['order_id'] ?? 0);
-    if ($orderId <= 0) {
-        $code = trim((string)($session['client_reference_id'] ?? ''));
-        if ($code !== '') {
-            try {
-                $st = $dbh->prepare('SELECT id FROM org_orders WHERE order_code = :c LIMIT 1');
-                $st->execute([':c' => $code]);
-                $orderId = (int)($st->fetchColumn() ?: 0);
-            } catch (Throwable $e) {
-                $orderId = 0;
-            }
-        }
-    }
-    if ($orderId <= 0) {
-        return false;
-    }
-
     $paymentStatus = (string)($session['payment_status'] ?? '');
     if ($paymentStatus !== 'paid') {
         return false;
@@ -2883,7 +3097,59 @@ function org_shop_fulfill_stripe_session(PDO $dbh, array $session): bool
     }
     $paymentIntent = trim((string)$paymentIntent);
 
-    return org_shop_fulfill_stripe_payment($dbh, $orderId, $sessionId, $paymentIntent);
+    $orderIds = [];
+    $metaIds = trim((string)($session['metadata']['order_ids'] ?? ''));
+    if ($metaIds !== '') {
+        foreach (explode(',', $metaIds) as $piece) {
+            $oid = (int)trim($piece);
+            if ($oid > 0) {
+                $orderIds[$oid] = $oid;
+            }
+        }
+    }
+    $singleId = (int)($session['metadata']['order_id'] ?? 0);
+    if ($singleId > 0) {
+        $orderIds[$singleId] = $singleId;
+    }
+    if (!$orderIds) {
+        $code = trim((string)($session['client_reference_id'] ?? ''));
+        if ($code !== '' && strpos($code, 'cart-') !== 0) {
+            try {
+                $st = $dbh->prepare('SELECT id FROM org_orders WHERE order_code = :c LIMIT 1');
+                $st->execute([':c' => $code]);
+                $oid = (int)($st->fetchColumn() ?: 0);
+                if ($oid > 0) {
+                    $orderIds[$oid] = $oid;
+                }
+            } catch (Throwable $e) {
+            }
+        }
+    }
+    if ($sessionId !== '' && !$orderIds) {
+        try {
+            $st = $dbh->prepare('SELECT id FROM org_orders WHERE stripe_checkout_session_id = :sid');
+            $st->execute([':sid' => $sessionId]);
+            while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+                $oid = (int)($row['id'] ?? 0);
+                if ($oid > 0) {
+                    $orderIds[$oid] = $oid;
+                }
+            }
+        } catch (Throwable $e) {
+        }
+    }
+
+    if (!$orderIds) {
+        return false;
+    }
+
+    $okAny = false;
+    foreach ($orderIds as $orderId) {
+        if (org_shop_fulfill_stripe_payment($dbh, $orderId, $sessionId, $paymentIntent)) {
+            $okAny = true;
+        }
+    }
+    return $okAny;
 }
 
 function org_shop_copy_product_image_to_public_post(PDO $dbh, int $publicPostId, string $coverRelPath): bool
@@ -2952,11 +3218,13 @@ function org_shop_publish_product_to_feed(PDO $dbh, int $orgId, int $productId):
     $title = trim((string)($product['title'] ?? ''));
     $priceLabel = org_shop_format_price((int)($product['price_cents'] ?? 0), (string)($product['currency'] ?? 'USD'));
     $shopUrl = 'profile.php?tab=shop&id=' . $publisherUserId;
+    $productUrl = 'product_detail.php?id=' . $productId;
     $bodyLines = [];
     if (trim((string)($product['description'] ?? '')) !== '') {
         $bodyLines[] = trim((string)$product['description']);
     }
     $bodyLines[] = 'Price: ' . $priceLabel;
+    $bodyLines[] = 'Buy: ' . $productUrl;
     $bodyLines[] = 'Shop: ' . $shopUrl;
     $body = implode("\n\n", $bodyLines);
 
@@ -2976,6 +3244,19 @@ function org_shop_publish_product_to_feed(PDO $dbh, int $orgId, int $productId):
     $cover = trim((string)($product['cover_image_path'] ?? ''));
     if ($cover !== '') {
         org_shop_copy_product_image_to_public_post($dbh, $publicPostId, $cover);
+    }
+
+    // Attach shoppable tag so feed/reel Buy chips open the existing buy door.
+    try {
+        $engagePath = __DIR__ . '/msb_feed_engagement.php';
+        if (is_file($engagePath)) {
+            require_once $engagePath;
+        }
+        if (function_exists('msb_save_post_products')) {
+            msb_save_post_products($dbh, $publicPostId, $orgId, [$productId]);
+        }
+    } catch (Throwable $e) {
+        // non-fatal — post still published
     }
 
     try {

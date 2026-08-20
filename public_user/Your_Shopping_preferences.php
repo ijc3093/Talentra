@@ -7,6 +7,7 @@ requireUserLogin();
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/org_shop.php';
 require_once __DIR__ . '/includes/org_cart.php';
+require_once __DIR__ . '/includes/org_wishlist.php';
 require_once __DIR__ . '/includes/buyer_shipping.php';
 require_once __DIR__ . '/includes/buyer_membership.php';
 require_once __DIR__ . '/includes/stripe_shop.php';
@@ -240,6 +241,8 @@ foreach ($buyerOrders as $buyerOrder) {
 }
 $buyerCartCount = org_cart_count($dbh, $meId);
 $buyerCartItems = org_cart_list_items($dbh, $meId);
+$buyerWishlistItems = org_wishlist_list($dbh, $meId, 100);
+$buyerWishlistCount = count($buyerWishlistItems);
 buyer_membership_ensure_schema($dbh);
 $membershipSnap = buyer_membership_snapshot($dbh, $meId) ?: [];
 $membershipActive = !empty($membershipSnap['is_active']);
@@ -1280,12 +1283,32 @@ if ($buyerOrderHistorySelected) {
               </table></div>
             </div>
             <div class="shop-pref-panel" id="wishlist" data-shop-pref-panel="wishlist">
-              <div><p class="shop-customer-kicker">Wishlist</p><h2 class="shop-customer-name">Saved products</h2><p class="shop-customer-sub">Products saved in the cart for later checkout show here.</p></div>
-              <div class="shop-pref-table-wrap"><table class="shop-pref-table"><thead><tr><th>Saved item</th><th>Seller</th><th>Status</th></tr></thead><tbody>
-                <?php if ($buyerCartItems): foreach (array_slice($buyerCartItems, 0, 6) as $item): ?>
-                  <tr><td><?= h((string)($item['title'] ?? 'Product')) ?></td><td><?= h((string)($item['seller_name'] ?? 'Seller')) ?></td><td>Saved in cart</td></tr>
+              <div><p class="shop-customer-kicker">Wishlist</p><h2 class="shop-customer-name"><?= (int)$buyerWishlistCount ?> saved product<?= (int)$buyerWishlistCount === 1 ? '' : 's' ?></h2><p class="shop-customer-sub">Items you saved from product pages. Separate from your cart.</p></div>
+              <div class="shop-pref-table-wrap"><table class="shop-pref-table"><thead><tr><th>Saved item</th><th>Seller</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>
+                <?php if ($buyerWishlistItems): foreach ($buyerWishlistItems as $wItem):
+                  $wPid = (int)($wItem['product_id'] ?? 0);
+                  $wTitle = trim((string)($wItem['title'] ?? 'Product'));
+                  $wSeller = trim((string)($wItem['seller_name'] ?? '')) ?: trim((string)($wItem['publisher_name'] ?? 'Seller'));
+                  $wPrice = org_shop_format_price((int)($wItem['price_cents'] ?? 0), (string)($wItem['currency'] ?? 'USD'));
+                  $wStock = $wItem['stock_qty'] ?? null;
+                  $wOut = ($wStock !== null && $wStock !== '' && (int)$wStock <= 0) || strtolower((string)($wItem['product_status'] ?? '')) === 'sold_out';
+                  $wUrl = 'product_detail.php?id=' . $wPid;
+                ?>
+                  <tr data-wishlist-row="<?= $wPid ?>">
+                    <td><a href="<?= h($wUrl) ?>"><?= h($wTitle) ?></a></td>
+                    <td><?= h($wSeller) ?></td>
+                    <td><?= h($wPrice) ?></td>
+                    <td><?= $wOut ? 'Out of stock' : 'Available' ?></td>
+                    <td>
+                      <?php if (!$wOut): ?>
+                        <button type="button" class="btn btn-sm btn-primary js-wishlist-add-cart" data-product-id="<?= $wPid ?>">Add to cart</button>
+                      <?php endif; ?>
+                      <button type="button" class="btn btn-sm btn-outline-secondary js-wishlist-remove" data-product-id="<?= $wPid ?>">Remove</button>
+                      <a class="btn btn-sm btn-outline-secondary" href="<?= h($wUrl) ?>">View</a>
+                    </td>
+                  </tr>
                 <?php endforeach; else: ?>
-                  <tr><td colspan="3" class="shop-pref-table-empty">No saved products yet.</td></tr>
+                  <tr><td colspan="5" class="shop-pref-table-empty">No saved products yet. Tap “Add to Wishlist” on a product page.</td></tr>
                 <?php endif; ?>
               </tbody></table></div>
             </div>
@@ -1802,7 +1825,7 @@ if ($buyerOrderHistorySelected) {
                     <li>Add the order code and seller name when you can, then send your message.</li>
                     <li>Admin replies appear in this same chat thread.</li>
                   </ol>
-                  <p>Disputes and help requests go to Admin — not to the seller.</p>
+                  <p>Disputes go to Admin Disputes. Need-help messages go to Admin Help Inbox — not to the seller.</p>
                 </div>
                 <div class="shop-admin-support-chat">
                   <div class="shop-admin-support-head">Admin support chat</div>
@@ -2342,6 +2365,68 @@ document.addEventListener('DOMContentLoaded', function () {
     loadHistory();
     setInterval(pollNew, 5000);
   })();
+
+  document.querySelectorAll('.js-wishlist-remove').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var productId = parseInt(btn.getAttribute('data-product-id') || '0', 10);
+      if (!productId) return;
+      btn.disabled = true;
+      try {
+        var body = new URLSearchParams();
+        body.set('action', 'remove');
+        body.set('product_id', String(productId));
+        var res = await fetch('ajax/wishlist_action.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+          credentials: 'same-origin'
+        });
+        var data = await res.json();
+        if (!data || !data.ok) {
+          window.alert((data && data.message) || 'Could not remove.');
+          btn.disabled = false;
+          return;
+        }
+        var row = btn.closest('tr[data-wishlist-row]');
+        if (row && row.parentNode) row.parentNode.removeChild(row);
+      } catch (e) {
+        window.alert('Could not remove.');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll('.js-wishlist-add-cart').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var productId = parseInt(btn.getAttribute('data-product-id') || '0', 10);
+      if (!productId) return;
+      btn.disabled = true;
+      try {
+        var body = new URLSearchParams();
+        body.set('action', 'add');
+        body.set('product_id', String(productId));
+        body.set('quantity', '1');
+        var res = await fetch('ajax/cart_action.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+          credentials: 'same-origin'
+        });
+        var data = await res.json();
+        if (!data || !data.ok) {
+          window.alert((data && data.message) || 'Could not add to cart.');
+          btn.disabled = false;
+          return;
+        }
+        btn.textContent = 'In cart';
+        var badge = document.getElementById('feedTopCartBadge');
+        if (badge && data.count != null) badge.textContent = String(data.count);
+      } catch (e) {
+        window.alert('Could not add to cart.');
+        btn.disabled = false;
+      }
+    });
+  });
 });
 </script>
 </body>

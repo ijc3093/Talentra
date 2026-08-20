@@ -164,7 +164,7 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 .pt-head {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 18px;
@@ -300,6 +300,35 @@ html[data-msb-appearance]:not([data-msb-org-light]) body.org-app .product-table-
 
 .pt-table-wrap {
   overflow-x: auto;
+}
+
+/* Desktop catalog tables must fit their card without a horizontal scrollbar. */
+@media (min-width: 901px) {
+  .pt-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .pt-table {
+    min-width: 0 !important;
+    table-layout: fixed !important;
+  }
+
+  .pt-table th,
+  .pt-table td {
+    min-width: 0 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .pt-col-product {
+    width: 27%;
+  }
+
+  .pt-col-id {
+    width: 7%;
+    white-space: normal;
+  }
 }
 
 .pt-table {

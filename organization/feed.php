@@ -4166,6 +4166,7 @@ if ($isView) {
   </div>
 
   <?php include __DIR__ . '/includes/footer.php'; ?>
+  <?php require_once __DIR__ . '/../public_user/includes/msb_report_client.js.php'; ?>
 
 </div>
 
@@ -4647,7 +4648,24 @@ function openEditPostModal(postId, title, bodyHtml){
     var fullUrl = absPostUrl(wrap);
 
     if (action === 'report'){
-      flashSidebarToast('Thanks for your report.');
+      var reportPid = Number(pid || 0);
+      if (typeof window.msbSubmitReport === 'function' && reportPid > 0){
+        window.msbSubmitReport({
+          target_type: 'post',
+          target_id: reportPid,
+          endpoint: 'ajax/report_action.php',
+          silent: true,
+          onDone: function(data){
+            if (data && data.ok){
+              flashSidebarToast(data.message || 'Thanks — report sent to admin.');
+            } else if (!(data && data.cancelled)){
+              flashSidebarToast((data && data.error) ? String(data.error) : 'Could not submit report.');
+            }
+          }
+        });
+      } else {
+        flashSidebarToast('Report is unavailable right now.');
+      }
       return;
     }
     if (action === 'unpin' && unpinUrl){

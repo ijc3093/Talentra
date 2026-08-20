@@ -276,12 +276,16 @@
     menu.classList.remove('open');
     menu.style.display = 'none';
 
+    ensureReportMenuItem(wrap, menu);
+
     var clone = menu.cloneNode(true);
     clone.classList.add(PORTAL_CLASS, 'open');
     clone.style.position = 'fixed';
     clone.style.zIndex = '100000';
     clone.style.minWidth = '220px';
     clone.style.display = 'block';
+    clone.style.maxHeight = 'min(70vh, 420px)';
+    clone.style.overflowY = 'auto';
     // Story-door fries: mark the portaled menu so Archive lands in Archive → Stories.
     var fromStoryDoor = !!(wrap && (
       wrap.id === 'ttStoriesMenuWrap' ||
@@ -1245,7 +1249,7 @@
     var html = '';
 
     if(!isOwner){
-      html += buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+esc(String(pid))+'"');
+      // Tag / Mention only here — Report is injected first in buildItems for non-own posts.
       if(canSelfTag || (meTagged && !(isDiscoverOrReel && isStranger))){
         html += buttonItem(
           'pcm-tag-self' + (meTagged ? ' is-active' : ''),
@@ -1293,10 +1297,15 @@
 
   function resolveIsOwner(it, isOwner){
     isOwner = !!isOwner;
-    var meId = Number(window.ME_ID || window.__MSB_FEED_ME_ID || 0);
+    var meId = Number(window.ME_ID || window.__MSB_FEED_ME_ID || window.PV_ME_ID || 0);
     var userId = Number(it.user_id || it.author_id || 0);
-    if(String(it.friend_status || '') === 'self') return true;
+    // Only trust friend_status=self when it matches the signed-in user.
     if(meId > 0 && userId > 0 && userId === meId) return true;
+    if(String(it.friend_status || '') === 'self' && meId > 0 && userId > 0 && userId === meId) return true;
+    if(String(it.friend_status || '') === 'self' && (userId <= 0 || meId <= 0)) {
+      // Keep explicit isOwner from the card/wrap when ids are missing.
+      return isOwner;
+    }
     return isOwner;
   }
 
@@ -1369,12 +1378,21 @@
       }
     }
     var messageUrl = friendCode ? ('messages.php?peer=' + encodeURIComponent(friendCode)) : (peerId ? ('messages.php?peer_id=' + peerId) : 'messages.php');
-    var html = viewPostHtml;
+    var html = '';
     var feedSurface = isFeedSurface();
     var canFollowPublishers = opts.can_follow_publishers !== false;
     var publisherWorkspaceViewer = !!opts.publisher_workspace_viewer;
     // Personal users may always open a publisher profile (Posts / Gallery / Tags).
     var showPublisherView = isPublisher && (isFollowing || canFollowPublishers) && profileUrl;
+
+    // Report FIRST on every non-own fries (For You / Discover / Profile / Reel).
+    if(!isOwner && pid > 0){
+      html += buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+esc(String(pid))+'"');
+      html += menuDivider();
+    }
+    if(viewPostHtml){
+      html += viewPostHtml;
+    }
 
     if((!feedSurface || !isPublisher || showPublisherView) && profileUrl){
       html += linkItem('pcm-view', profileUrl, 'fa fa-user', 'View');
@@ -1572,6 +1590,58 @@
     });
   }
 
+  function rebuildMenuFromWrap(wrap, menu){
+    if(!wrap || !menu) return;
+    var card = wrap.closest('.mf-card, .reel-stage, .public-post-card, .post, article, [data-post-id], [data-id]') || wrap;
+    var it = itemFromCard(card);
+    if(!it){
+      it = {
+        id: Number(wrap.getAttribute('data-post-id') || 0),
+        user_id: Number(wrap.getAttribute('data-peer-id') || 0),
+        author_id: Number(wrap.getAttribute('data-peer-id') || 0),
+        friend_code: String(wrap.getAttribute('data-peer-code') || ''),
+        friend_status: String(wrap.getAttribute('data-friend-status') || card.getAttribute('data-friend-status') || 'none'),
+        account_kind: String(wrap.getAttribute('data-account-kind') || card.getAttribute('data-account-kind') || 'personal'),
+        is_publisher: Number(wrap.getAttribute('data-is-publisher') || card.getAttribute('data-is-publisher') || 0),
+        is_following: Number(wrap.getAttribute('data-is-following') || card.getAttribute('data-is-following') || 0),
+        profile_url: String(wrap.getAttribute('data-profile-url') || card.getAttribute('data-profile-url') || ''),
+        my_saved: Number(wrap.getAttribute('data-my-saved') || card.getAttribute('data-my-saved') || 0),
+        is_archived: Number(wrap.getAttribute('data-is-archived') || card.getAttribute('data-is-archived') || 0),
+        visibility: String(wrap.getAttribute('data-visibility') || card.getAttribute('data-visibility') || 'public'),
+        me_tagged: Number(card.getAttribute('data-me-tagged') || 0)
+      };
+    }
+    var meId = Number(window.ME_ID || window.__MSB_FEED_ME_ID || window.PV_ME_ID || 0);
+    var peerId = Number(it.user_id || it.author_id || wrap.getAttribute('data-peer-id') || 0);
+    var pid = Number(it.id || wrap.getAttribute('data-post-id') || card.getAttribute('data-post-id') || card.getAttribute('data-id') || 0);
+    // Source of truth: signed-in user vs post author (ignore stale data-post-owner).
+    var isOwner = (meId > 0 && peerId > 0 && meId === peerId);
+    wrap.setAttribute('data-is-owner', isOwner ? '1' : '0');
+    wrap.setAttribute('data-post-id', String(pid));
+    wrap.setAttribute('data-peer-id', String(peerId));
+    if(card && card.setAttribute){
+      card.setAttribute('data-post-owner', isOwner ? '1' : '0');
+      if(peerId > 0) card.setAttribute('data-peer-id', String(peerId));
+    }
+    it.user_id = peerId;
+    it.author_id = peerId;
+    it.id = pid;
+    if(isOwner){
+      it.friend_status = 'self';
+    } else if(String(it.friend_status || '') === 'self'){
+      it.friend_status = 'none';
+    }
+    var html = buildItems(it, isOwner, pid, getMenuHelpers(pid));
+    if(!html && !isOwner && pid > 0){
+      html = buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+escHtml(String(pid))+'"');
+    }
+    if(html){
+      menu.innerHTML = html;
+      wrap.style.display = '';
+    }
+    ensureReportMenuItem(wrap, menu);
+  }
+
   function toggleMenuBtn(btn){
     var wrap = btn.closest('.post-card-menu-wrap, .mf-menu-wrap');
     if(!wrap) return;
@@ -1584,6 +1654,8 @@
       }
       if(!menu.innerHTML.trim()) hydrateEmptyMenus(document);
     }
+    // Always recompute owner vs other from ME_ID so Report appears on others' posts.
+    rebuildMenuFromWrap(wrap, menu);
     var usePortal = shouldUsePortalMenu(wrap);
     var isOpen = usePortal
       ? (wrap.classList.contains('pcm-wrap-open') || (activePortalWrap === wrap && !!activePortal))
@@ -1603,6 +1675,70 @@
     }
     menu.classList.add('open');
     btn.setAttribute('aria-expanded', 'true');
+  }
+
+  /** Guarantee Report on every non-own fries menu (friend / publisher / stranger posts). */
+  function ensureReportMenuItem(wrap, menu){
+    if(!wrap || !menu) return;
+    var card = wrap.closest('.mf-card, .reel-stage, .public-post-card, .post, [data-post-id], [data-id]');
+    var meId = Number(window.ME_ID || window.__MSB_FEED_ME_ID || window.PV_ME_ID || 0);
+    var peerId = Number(
+      wrap.getAttribute('data-peer-id') ||
+      (card && (card.getAttribute('data-peer-id') || card.getAttribute('data-user-id'))) ||
+      0
+    );
+    var isOwner = String(wrap.getAttribute('data-is-owner') || '0') === '1';
+    if(card && String(card.getAttribute('data-post-owner') || '0') === '1') isOwner = true;
+    if(meId > 0 && peerId > 0 && meId === peerId) isOwner = true;
+    if(meId > 0 && peerId > 0 && meId !== peerId) isOwner = false;
+    if(isOwner) return;
+    var pid = Number(
+      wrap.getAttribute('data-post-id') ||
+      (card && (card.getAttribute('data-post-id') || card.getAttribute('data-id'))) ||
+      0
+    );
+    if(pid <= 0) return;
+    if(menu.querySelector('.pcm-report')){
+      // Keep Report pinned at the top.
+      var existing = menu.querySelector('.pcm-report');
+      if(existing && menu.firstChild !== existing){
+        var next = existing.nextSibling;
+        if(next && next.classList && next.classList.contains('pcm-divider')){
+          menu.insertBefore(existing, menu.firstChild);
+          menu.insertBefore(next, existing.nextSibling);
+        } else {
+          menu.insertBefore(existing, menu.firstChild);
+        }
+      }
+      return;
+    }
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pcm-item pcm-report is-danger';
+    btn.setAttribute('role', 'menuitem');
+    btn.setAttribute('data-post-id', String(pid));
+    btn.innerHTML = '<i class="fa fa-flag" aria-hidden="true"></i><span>Report</span>';
+    var divider = document.createElement('div');
+    divider.className = 'pcm-divider';
+    divider.setAttribute('role', 'separator');
+    if(menu.firstChild){
+      menu.insertBefore(divider, menu.firstChild);
+      menu.insertBefore(btn, menu.firstChild);
+    } else {
+      menu.appendChild(btn);
+      menu.appendChild(divider);
+    }
+  }
+
+  function hydrateAllReportMenus(root){
+    root = root || document;
+    var wraps = root.querySelectorAll
+      ? root.querySelectorAll('.post-card-menu-wrap, .mf-menu-wrap.post-card-menu-wrap')
+      : [];
+    wraps.forEach(function(wrap){
+      var menu = wrap.querySelector('.post-card-menu, .mf-menu.post-card-menu');
+      if(menu) ensureReportMenuItem(wrap, menu);
+    });
   }
 
   function showModal(id){
@@ -2499,8 +2635,37 @@
     if(reportBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      var reportPid = Number(
+        reportBtn.getAttribute('data-post-id') ||
+        (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+        0
+      );
       closeMenus();
-      pcmToast('Thanks for your report.');
+      if(!reportPid){
+        pcmToast('Nothing to report.');
+        return true;
+      }
+      if(typeof window.msbSubmitReport === 'function'){
+        var reportEndpoint = 'ajax/report_action.php';
+        try {
+          reportEndpoint = new URL('ajax/report_action.php', window.location.href).pathname;
+        } catch (_e) {}
+        window.msbSubmitReport({
+          target_type: 'post',
+          target_id: reportPid,
+          endpoint: reportEndpoint,
+          silent: true,
+          onDone: function(data){
+            if(data && data.ok){
+              pcmToast(data.message || 'Thanks — report sent to admin.');
+            } else if(!(data && data.cancelled)){
+              pcmToast((data && data.error) ? String(data.error) : 'Could not submit report.');
+            }
+          }
+        });
+      } else {
+        pcmToast('Report is unavailable right now.');
+      }
       return true;
     }
 
@@ -2640,7 +2805,7 @@
       return;
     }
     // Keep the confirm popup open — do not treat dialog clicks as outside-menu dismiss.
-    if(closest(target, '#feedDeleteDialog, #pcmDeleteConfirmDialog, #pcmArchiveConfirmDialog, #pcmShareSheet, #pcmTagSheet, #reelDeleteDialog')){
+    if(closest(target, '#feedDeleteDialog, #pcmDeleteConfirmDialog, #pcmArchiveConfirmDialog, #pcmShareSheet, #pcmTagSheet, #pcmMentionSheet, #msbReportDialog, #reelDeleteDialog')){
       return;
     }
 
@@ -2996,6 +3161,7 @@
     confirmDelete: confirmDelete,
     runDelete: runDelete,
     hydrate: hydrateEmptyMenus,
+    hydrateReports: hydrateAllReportMenus,
     syncOnMediaContrast: syncOnMediaMenuContrast,
     syncCardPublisher: syncCardPublisher,
     syncPublisherCards: syncPublisherCards,
@@ -3049,6 +3215,14 @@
       if(mentionSheet && mentionSheet.open){
         closePcmMentionSheet();
       }
+      var reportDialog = document.getElementById('msbReportDialog');
+      if(reportDialog && reportDialog.open){
+        try {
+          if (typeof reportDialog.close === 'function') reportDialog.close();
+          else reportDialog.removeAttribute('open');
+        } catch (_rep) {}
+        return;
+      }
       var viewPostOv = document.getElementById('pcmViewPostOverlay');
       if(viewPostOv && viewPostOv.classList.contains('is-open')){
         closePcmViewPostOverlay();
@@ -3075,6 +3249,7 @@
   function boot(){
     refreshFeedCardMenus(document);
     hydrateEmptyMenus(document);
+    hydrateAllReportMenus(document);
     observeOnMediaMenuContrast();
     syncOnMediaMenuContrast(document);
     var viewPostClose = document.getElementById('pcmViewPostClose');

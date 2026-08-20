@@ -1,0 +1,595 @@
+/**
+ * Admin UI — normal readable sizes for page chrome, buttons, icons, tables.
+ * Loaded on all admin pages via admin_layout_head_assets().
+ *
+ * Header chrome matches service_fees.php (azia-welcome-in-header defaults).
+ */
+:root {
+  --admin-ui-btn-h: 34px;
+  --admin-ui-btn-fs: 13px;
+  --admin-ui-input-h: 34px;
+  --admin-ui-input-fs: 13px;
+  --admin-ui-label-fs: 12px;
+  --admin-ui-body-fs: 13px;
+  --admin-ui-meta-fs: 12px;
+  --admin-ui-th-fs: 11px;
+  --admin-ui-ico: 32px;
+  --admin-ui-ico-fs: 14px;
+  --admin-ui-val-fs: 22px;
+}
+
+/* —— Header: match service_fees.php welcome + icon chrome —— */
+.azia-headpanel,
+.sh-headpanel.azia-headpanel,
+.azia-headpanel-intro {
+  min-height: 70px !important;
+  padding: 0 11px !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+.azia-head-left,
+.azia-head-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.azia-head-right {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Classic welcome title (service_fees) */
+.azia-welcome-in-header h2 {
+  margin: 0 0 2px !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #1c273c !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.azia-welcome-in-header p {
+  margin: 0 !important;
+  color: #8392a5 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Page-intro titles use the same visual language as welcome h2/p */
+.azia-page-intro {
+  min-width: 0;
+  max-width: 520px;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+.azia-page-intro h1 {
+  margin: 0 0 2px !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #1c273c !important;
+  letter-spacing: 0 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.azia-page-crumb {
+  margin: 0 0 2px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #8392a5 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.azia-page-crumb a {
+  color: #8392a5 !important;
+  text-decoration: none;
+  font-weight: 500 !important;
+}
+.azia-page-crumb a:hover {
+  color: #5b47fb !important;
+}
+.azia-page-crumb-sep {
+  margin: 0 5px;
+  color: #8392a5;
+}
+.azia-page-intro p {
+  margin: 0 !important;
+  font-size: 12px !important;
+  color: #8392a5 !important;
+  font-weight: 400 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Header icons + search — exact service_fees / admin-layout sizes */
+.azia-icon-btn {
+  position: relative;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #596882 !important;
+  font-size: 20px !important;
+  text-decoration: none !important;
+  flex: 0 0 40px;
+}
+.azia-icon-btn .icon,
+.azia-icon-btn i,
+.azia-icon-btn .fa {
+  font-size: 20px !important;
+  line-height: 1 !important;
+  width: auto !important;
+  margin: 0 !important;
+}
+.azia-icon-btn.azia-icon-admin-roles .azia-icon-admin-roles-key {
+  font-size: 11px !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+.azia-icon-btn:hover {
+  background: #f1f2f9 !important;
+  color: #5b47fb !important;
+  text-decoration: none !important;
+}
+.azia-icon-btn .azia-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px !important;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  border: 1px solid #fff;
+}
+.azia-search {
+  position: relative;
+  min-width: 200px !important;
+  max-width: 280px !important;
+  width: 240px !important;
+  margin-right: 4px !important;
+}
+.azia-search .fa-search {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8392a5 !important;
+  font-size: 13px !important;
+  pointer-events: none;
+}
+.azia-search input {
+  width: 100% !important;
+  border: 0 !important;
+  background: #f1f2f9 !important;
+  border-radius: 4px !important;
+  padding: 10px 14px 10px 38px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: #1c273c !important;
+  outline: none;
+  height: auto !important;
+  line-height: 1.3 !important;
+}
+.azia-search input:focus {
+  box-shadow: 0 0 0 2px rgba(91, 71, 251, 0.2);
+  background: #fff !important;
+}
+.azia-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  font-size: 12px !important;
+}
+
+/* —— Shared action / filter buttons (page body, not header) —— */
+.pr-btn,
+.rp-btn,
+.ps-btn,
+.ds-btn,
+.ol-btn,
+.cb-btn,
+.ml-btn,
+.sl-btn,
+.fb-btn,
+.ar-btn,
+.ul-btn,
+.as-btn,
+.uat-btn,
+.da-btn,
+.la-btn,
+.aud-btn,
+.tr-btn,
+.btn-mini {
+  height: var(--admin-ui-btn-h) !important;
+  min-height: var(--admin-ui-btn-h);
+  padding: 0 14px !important;
+  font-size: var(--admin-ui-btn-fs) !important;
+  font-weight: 700 !important;
+  gap: 6px !important;
+  border-radius: 8px !important;
+  line-height: 1.2 !important;
+}
+.pr-btn i,
+.rp-btn i,
+.ps-btn i,
+.ds-btn i,
+.ol-btn i,
+.cb-btn i,
+.ml-btn i,
+.sl-btn i,
+.fb-btn i,
+.ar-btn i,
+.ul-btn i,
+.as-btn i,
+.uat-btn i,
+.da-btn i,
+.la-btn i,
+.aud-btn i,
+.tr-btn i,
+.btn-mini i {
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+
+/* Filter inputs / selects */
+.pr-search input,
+.pr-filters select,
+.rp-search input,
+.rp-filters select,
+.ps-search input,
+.ps-filters select,
+.ds-search input,
+.ds-filters select,
+.ol-search input,
+.ol-filters select,
+.cb-search input,
+.cb-filters select,
+.ml-search input,
+.ml-filters select,
+.sl-search input,
+.sl-filters select,
+.fb-search input,
+.fb-filters select,
+.ar-search input,
+.ar-filters select,
+.ul-search input,
+.ul-filters select,
+.as-search input,
+.as-filters select,
+.uat-search input,
+.da-filters input,
+.da-filters select,
+.la-filters input,
+.la-filters select,
+.aud-filters input,
+.aud-filters select,
+.tr-filters input,
+.tr-filters select,
+.search-form input[type="text"],
+.search-form input[type="search"] {
+  height: var(--admin-ui-input-h) !important;
+  font-size: var(--admin-ui-input-fs) !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+.pr-search i,
+.ul-search i,
+.ar-search i,
+.da-filters .da-q-wrap i,
+.la-filters .la-q-wrap i,
+.aud-filters .aud-q-wrap i {
+  font-size: 14px !important;
+}
+.pr-search input,
+.ul-search input,
+.ar-search input {
+  padding-left: 32px !important;
+}
+
+/* Metric / stat cards */
+.pr-card .lab,
+.rp-card .lab,
+.ps-card .lab,
+.ul-card .lab,
+.ar-card .lab,
+.ds-card .lab,
+.ol-card .lab,
+.cb-card .lab,
+.ml-card .lab,
+.sl-card .lab,
+.fb-card .lab,
+.ov-metric .k,
+.da-metric .k,
+.la-metric .k,
+.aud-metric .k,
+.tr-metric .k,
+.uat-card .lab {
+  font-size: var(--admin-ui-label-fs) !important;
+}
+.pr-card .val,
+.rp-card .val,
+.ps-card .val,
+.ul-card .val,
+.ar-card .val,
+.ds-card .val,
+.ol-card .val,
+.cb-card .val,
+.ml-card .val,
+.sl-card .val,
+.fb-card .val,
+.ov-metric .v,
+.da-metric .v,
+.la-metric .v,
+.aud-metric .v,
+.tr-metric .v,
+.uat-card .val {
+  font-size: var(--admin-ui-val-fs) !important;
+}
+.pr-card .sub,
+.rp-card .sub,
+.ps-card .sub,
+.ul-card .sub,
+.ar-card .sub,
+.ds-card .sub,
+.ol-card .sub,
+.cb-card .sub,
+.ml-card .sub,
+.sl-card .sub,
+.fb-card .sub,
+.ov-metric .d,
+.da-metric .d,
+.la-metric .d,
+.aud-metric .d,
+.tr-metric .d {
+  font-size: var(--admin-ui-meta-fs) !important;
+}
+.pr-ico,
+.rp-ico,
+.ps-ico,
+.ul-ico,
+.ar-ico,
+.ds-ico,
+.ol-ico,
+.cb-ico,
+.ml-ico,
+.sl-ico,
+.fb-ico,
+.ov-metric .ico,
+.da-metric .ico,
+.la-metric .ico,
+.aud-metric .ico,
+.tr-metric .ico {
+  width: var(--admin-ui-ico) !important;
+  height: var(--admin-ui-ico) !important;
+  flex: 0 0 var(--admin-ui-ico) !important;
+  font-size: var(--admin-ui-ico-fs) !important;
+}
+
+/* Kind / status tabs */
+.pr-kinds a,
+.ul-kinds a,
+.ar-kinds a,
+.rp-kinds a,
+.ps-kinds a,
+.ds-kinds a,
+.ol-kinds a,
+.cb-kinds a,
+.ml-kinds a,
+.sl-kinds a,
+.fb-kinds a,
+.filter-tabs a {
+  font-size: 13px !important;
+  padding: 10px 14px !important;
+}
+.pr-kinds a .cnt,
+.ul-kinds a .cnt,
+.ar-kinds a .cnt {
+  font-size: 12px !important;
+}
+
+/* Tables */
+.pr-table thead th,
+.ul-table thead th,
+.ar-table thead th,
+.rp-table thead th,
+.ps-table thead th,
+.ds-table thead th,
+.ol-table thead th,
+.cb-table thead th,
+.ml-table thead th,
+.sl-table thead th,
+.fb-table thead th,
+.as-table thead th,
+.uat-table thead th,
+.da-table thead th,
+.la-table thead th,
+.aud-table thead th,
+.sh-admin-table-card table thead th,
+.admin-card table thead th {
+  font-size: var(--admin-ui-th-fs) !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+.pr-table tbody td,
+.ul-table tbody td,
+.ar-table tbody td,
+.rp-table tbody td,
+.ps-table tbody td,
+.ds-table tbody td,
+.ol-table tbody td,
+.cb-table tbody td,
+.ml-table tbody td,
+.sl-table tbody td,
+.fb-table tbody td,
+.as-table tbody td,
+.uat-table tbody td,
+.da-table tbody td,
+.la-table tbody td,
+.aud-table tbody td,
+.sh-admin-table-card table tbody td,
+.admin-card table tbody td {
+  font-size: var(--admin-ui-body-fs) !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+/* User/name cells & pills */
+.pr-user .nm,
+.ul-user .nm,
+.ar-user .nm,
+.da-user .n,
+.la-user .n,
+.aud-user .n {
+  font-size: 13px !important;
+}
+.pr-user .un,
+.ul-user .un,
+.ar-user .un,
+.da-user .e,
+.la-user .e,
+.aud-user .e {
+  font-size: 12px !important;
+}
+.pr-badge,
+.ul-badge,
+.ar-badge,
+.ul-status,
+.da-pill,
+.la-pill,
+.aud-pill,
+.rp-pill,
+.ps-pill {
+  font-size: 11px !important;
+  height: auto !important;
+  min-height: 22px;
+  padding: 2px 9px !important;
+}
+
+/* Avatars */
+.pr-av,
+.ul-av,
+.ar-av,
+.da-av,
+.la-av,
+.aud-av {
+  width: 32px !important;
+  height: 32px !important;
+  flex-basis: 32px !important;
+  font-size: 11px !important;
+}
+
+/* Clear / more links, footers */
+.pr-clear,
+.ul-clear,
+.ar-clear,
+.rp-clear,
+.more,
+.aud-card-hd a.more,
+.da-foot,
+.la-foot,
+.aud-foot,
+.ul-foot .muted,
+.pr-foot .muted {
+  font-size: 12px !important;
+}
+
+/* Settings / overview cards */
+.ps-card-hd h2,
+.ov-card-hd h2,
+.aud-card-hd h2,
+.da-card-hd h2,
+.sec-card > h2 {
+  font-size: 15px !important;
+}
+.ps-card-hd p,
+.ov-card-hd .more,
+.ps-field label,
+.ps-field .hint,
+.ps-nav a {
+  font-size: 12px !important;
+}
+.ps-nav a {
+  font-size: 13px !important;
+}
+.ps-nav a i {
+  font-size: 14px !important;
+}
+.ps-field input,
+.ps-field select,
+.ps-field textarea {
+  font-size: 13px !important;
+}
+.ps-save,
+.ps-card-hd .ps-save {
+  height: var(--admin-ui-btn-h) !important;
+  font-size: var(--admin-ui-btn-fs) !important;
+  padding: 0 14px !important;
+}
+
+/* Card headers on rent / stripe / memberships */
+.admin-card .card-header,
+.sh-admin-table-card .card-header {
+  font-size: 15px !important;
+  font-weight: 800;
+}
+.admin-card .card-header .sub,
+.sh-admin-table-card .card-header .sub {
+  font-size: 12px !important;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.detail-box .label {
+  font-size: 12px !important;
+}
+.detail-box .value {
+  font-size: 18px !important;
+}
+.detail-box .muted {
+  font-size: 12px !important;
+}
+
+/* Fries / action menus */
+.fries-toggle {
+  width: 32px !important;
+  height: 32px !important;
+}
+.fries-item {
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+}
+.fries-item i {
+  font-size: 14px !important;
+}
+
+/* Pagination */
+.dataTables_wrapper .dataTables_paginate .paginate_button,
+.da-pager a,
+.da-pager span,
+.la-pager a,
+.la-pager span,
+.aud-pager a,
+.aud-pager span {
+  min-width: 32px !important;
+  height: 32px !important;
+  font-size: 13px !important;
+  line-height: 30px !important;
+}

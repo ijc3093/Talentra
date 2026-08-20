@@ -11,6 +11,8 @@ require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/post_upload.php';
 require_once __DIR__ . '/includes/post_tags.php';
+require_once __DIR__ . '/includes/msb_feed_engagement.php';
+require_once __DIR__ . '/includes/home_tabs.php';
 
 sendNoCacheHeadersUser();
 
@@ -224,6 +226,29 @@ if (function_exists('msb_text_is_people_tag_only')) {
 
 $musicTitle = mb_substr(trim((string)($_POST['music_title'] ?? '')), 0, 120);
 $musicArtist = mb_substr(trim((string)($_POST['music_artist'] ?? '')), 0, 120);
+$preferSoundId = (int)($_POST['sound_id'] ?? 0);
+$stitchOfPostId = (int)($_POST['stitch_of_post_id'] ?? $_GET['stitch'] ?? 0);
+$duetOfPostId = (int)($_POST['duet_of_post_id'] ?? $_GET['duet'] ?? 0);
+$taggedProductIds = [];
+if (isset($_POST['product_ids']) && is_array($_POST['product_ids'])) {
+    foreach ($_POST['product_ids'] as $pp) {
+        $pp = (int)$pp;
+        if ($pp > 0) {
+            $taggedProductIds[] = $pp;
+        }
+    }
+} else {
+    $rawProducts = trim((string)($_POST['product_ids'] ?? ''));
+    if ($rawProducts !== '') {
+        foreach (preg_split('/[\s,]+/', $rawProducts) ?: [] as $piece) {
+            $pp = (int)$piece;
+            if ($pp > 0) {
+                $taggedProductIds[] = $pp;
+            }
+        }
+    }
+}
+$commerceOrgId = (int)($_POST['commerce_org_id'] ?? 0);
 
 if (mb_strlen($title) > 120) $title = mb_substr($title, 0, 120);
 if (mb_strlen($description) > 255) $description = mb_substr($description, 0, 255);
@@ -487,10 +512,12 @@ try {
             $queryKey => $postId,
             'fresh' => 1,
         ];
-        if ($visibility === 'public' && $dest === 'public.php') {
-            $redirectParams = ['tab' => 'public'] + $redirectParams;
-        } elseif ($visibility === 'friends' && $dest === 'feed.php') {
+        if ($visibility === 'public' && ($dest === 'home.php' || $dest === 'public.php')) {
+            $redirectParams = ['tab' => home_tab_url_key('public')] + $redirectParams;
+            $dest = 'home.php';
+        } elseif ($visibility === 'friends' && ($dest === 'home.php' || $dest === 'feed.php')) {
             $redirectParams = ['tab' => 'for-you'] + $redirectParams;
+            $dest = 'home.php';
         }
         $redirect = $dest . '?' . http_build_query($redirectParams);
     }
@@ -528,6 +555,21 @@ try {
             msb_post_tags_sync($dbh, $postId, $meId, $tagIds, $visibility, true);
         } catch (Throwable $eTag) {
             // Tagging failure must not block publish.
+        }
+
+        try {
+            msb_feed_engagement_ensure_schema($dbh);
+            if ($musicTitle !== '' || $musicArtist !== '' || $preferSoundId > 0) {
+                msb_upsert_sound_for_post($dbh, $postId, $meId, $musicTitle, $musicArtist, $preferSoundId);
+            }
+            if ($stitchOfPostId > 0 || $duetOfPostId > 0) {
+                msb_set_remix_parents($dbh, $postId, $stitchOfPostId, $duetOfPostId);
+            }
+            if ($taggedProductIds !== [] || isset($_POST['product_ids'])) {
+                msb_save_post_products($dbh, $postId, $commerceOrgId, $taggedProductIds);
+            }
+        } catch (Throwable $eTt) {
+            // non-fatal
         }
     }
 

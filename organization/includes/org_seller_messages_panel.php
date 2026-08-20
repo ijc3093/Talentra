@@ -72,14 +72,6 @@ $activeName = trim((string)($sellerBuyerMsgActive['buyer_name'] ?? 'Customer'));
   @media (max-width:900px){.seller-buyer-msg-layout{grid-template-columns:1fr;}}
 </style>
 
-<div class="sales-management-detail-head">
-  <div>
-    <p class="sales-management-kicker">Messages</p>
-    <h1>Customer chat</h1>
-    <p>Receive and reply to customer questions about products, orders, pickup, and delivery.</p>
-  </div>
-</div>
-
 <?php if (!$sellerBuyerMsgContacts): ?>
   <div class="seller-buyer-msg-empty">
     No customer chats yet. When a buyer messages you from the shop, their thread appears here.

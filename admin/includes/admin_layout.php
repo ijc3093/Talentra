@@ -9,18 +9,19 @@ if (!function_exists('admin_layout_head_assets')) {
             return;
         }
         $emitted = true;
-        // Narrow icon-rail sidebar (64px)
+        // Labeled grouped sidebar (248px)
         echo '<style id="admin-layout-critical">'
             . 'html,body{background:#f8f9fa;}'
             . '@media (min-width:1200px){'
-            . '.sh-logopanel{left:0!important;width:64px!important;}'
-            . '.sh-sideleft-menu{left:0!important;width:64px!important;}'
-            . '.sh-headpanel{left:64px!important;}'
-            . '.sh-mainpanel{margin-left:64px!important;}'
+            . '.sh-logopanel{left:0!important;width:248px!important;}'
+            . '.sh-sideleft-menu{left:0!important;width:248px!important;}'
+            . '.sh-headpanel{left:248px!important;}'
+            . '.sh-mainpanel{margin-left:248px!important;}'
             . '}'
             . '</style>' . "\n";
-        echo '<link rel="stylesheet" href="css/admin-layout.css?v=9">' . "\n";
+        echo '<link rel="stylesheet" href="css/admin-layout.css?v=20">' . "\n";
         echo '<link rel="stylesheet" href="css/admin-tables-shamcey.css?v=8">' . "\n";
+        echo '<link rel="stylesheet" href="css/admin-ui-scale.css?v=3">' . "\n";
         echo '<script defer src="js/admin-fries-menu.js?v=1"></script>' . "\n";
     }
 }
@@ -88,7 +89,7 @@ if (!function_exists('admin_nav_attention_counts')) {
     /**
      * Pending/attention counts for sidebar badges.
      *
-     * @return array{publisher_requests:int,shop_rent:int,commerce_brands:int,inbox:int}
+     * @return array{publisher_requests:int,shop_rent:int,commerce_brands:int,stripe_connect:int,reports:int,inbox:int,disputes:int}
      */
     function admin_nav_attention_counts(PDO $dbh): array
     {
@@ -101,7 +102,10 @@ if (!function_exists('admin_nav_attention_counts')) {
             'publisher_requests' => 0,
             'shop_rent' => 0,
             'commerce_brands' => 0,
+            'stripe_connect' => 0,
+            'reports' => 0,
             'inbox' => 0,
+            'disputes' => 0,
         ];
 
         try {
@@ -136,6 +140,22 @@ if (!function_exists('admin_nav_attention_counts')) {
         }
 
         try {
+            require_once __DIR__ . '/org_admin_helpers_load.php';
+            $counts['stripe_connect'] = function_exists('org_admin_connect_incomplete_count')
+                ? org_admin_connect_incomplete_count($dbh)
+                : 0;
+        } catch (Throwable $e) {
+            $counts['stripe_connect'] = 0;
+        }
+
+        try {
+            require_once __DIR__ . '/../../public_user/includes/msb_reports.php';
+            $counts['reports'] = msb_reports_pending_count($dbh);
+        } catch (Throwable $e) {
+            $counts['reports'] = 0;
+        }
+
+        try {
             $receivers = ['Admin'];
             $friendCode = trim((string)($_SESSION['admin_friend_code'] ?? ''));
             if ($friendCode !== '' && strcasecmp($friendCode, 'Admin') !== 0) {
@@ -153,11 +173,46 @@ if (!function_exists('admin_nav_attention_counts')) {
                 FROM feedback_admin
                 WHERE is_read = 0
                   AND receiver IN (' . implode(',', $placeholders) . ')
+                  AND NOT (
+                    channel = \'user_admin\'
+                    AND (
+                      COALESCE(title, \'\') = \'Content Report\'
+                      OR COALESCE(feedbackdata, \'\') LIKE \'[Report #%\'
+                      OR COALESCE(feedbackdata, \'\') LIKE \'Reporter message:%\'
+                    )
+                  )
+                  AND channel <> \'dispute\'
+                  AND COALESCE(title, \'\') NOT LIKE \'%Dispute%\'
+                  AND COALESCE(feedbackdata, \'\') NOT LIKE \'[Dispute]%\'
+                  AND COALESCE(feedbackdata, \'\') NOT LIKE \'[Seller dispute]%\'
             ');
             $st->execute($params);
             $counts['inbox'] = (int)$st->fetchColumn();
         } catch (Throwable $e) {
             $counts['inbox'] = 0;
+        }
+
+        try {
+            $st = $dbh->query("
+                SELECT COUNT(*)
+                FROM feedback_admin
+                WHERE is_read = 0
+                  AND receiver = 'Admin'
+                  AND (
+                        channel = 'dispute'
+                     OR (
+                          channel = 'user_admin'
+                          AND (
+                            COALESCE(title, '') LIKE '%Dispute%'
+                            OR COALESCE(feedbackdata, '') LIKE '[Dispute]%'
+                            OR COALESCE(feedbackdata, '') LIKE '[Seller dispute]%'
+                          )
+                        )
+                  )
+            ");
+            $counts['disputes'] = (int)($st ? $st->fetchColumn() : 0);
+        } catch (Throwable $e) {
+            $counts['disputes'] = 0;
         }
 
         $cached = $counts;

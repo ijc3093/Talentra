@@ -177,27 +177,46 @@ if ($isManager) {
   }
   .sh-header-welcome{
     display:inline-flex;
-    flex-direction:row;
-    align-items:center;
+    flex-direction:column;
+    justify-content:center;
+    align-items:flex-start;
     align-self:center;
     height:var(--org-header-h, 48px);
     min-width:0;
+    max-width:min(560px, 46vw);
     padding:0 12px 0 8px;
     margin:0;
     box-sizing:border-box;
+    gap:1px;
   }
   .sh-header-welcome strong{
     display:block;
     margin:0;
     padding:0;
     font-size:15px;
-    font-weight:700;
-    line-height:1;
+    font-weight:800;
+    line-height:1.15;
     letter-spacing:-0.02em;
     color:var(--msb-palette-text-on-nav, #fff);
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
+  }
+  .sh-header-welcome span{
+    display:block;
+    margin:0;
+    padding:0;
+    font-size:11px;
+    font-weight:500;
+    line-height:1.2;
+    color:var(--msb-palette-text-on-nav, #fff);
+    opacity:0.72;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .sh-header-welcome span:empty{
+    display:none;
   }
   body.org-app .sh-headpanel{
     align-items:center !important;
@@ -612,14 +631,56 @@ if ($isManager) {
       $headerPageBase = basename((string)($_SERVER['PHP_SELF'] ?? ''));
       $hideHeaderCreateLinks = ($headerPageBase === 'sales_management.php');
       $headerWelcomeFirst = '';
+      $salesHeaderCopy = [];
+      $salesHeaderTitle = '';
+      $salesHeaderSub = '';
       if ($hideHeaderCreateLinks) {
         $headerWelcomeFirst = trim(explode(' ', $displayName !== '' ? $displayName : 'there')[0] ?: 'there');
+        $salesHeaderCopy = is_array($GLOBALS['salesHeaderCopy'] ?? null) ? $GLOBALS['salesHeaderCopy'] : [];
+        $salesHeaderCopy['dashboard'] = [
+          'title' => 'Welcome back' . ($headerWelcomeFirst !== '' && strtolower($headerWelcomeFirst) !== 'there' ? ', ' . $headerWelcomeFirst : '') . '!',
+          'sub' => "Here's what's happening with your store today.",
+        ];
+        $salesHeaderCopyJson = json_encode($salesHeaderCopy, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($salesHeaderCopyJson)) {
+          $salesHeaderCopyJson = '{}';
+        }
+        $salesHeaderTitle = (string)($salesHeaderCopy['dashboard']['title'] ?? 'Welcome back!');
+        $salesHeaderSub = (string)($salesHeaderCopy['dashboard']['sub'] ?? '');
       }
     ?>
     <?php if ($hideHeaderCreateLinks): ?>
-      <div class="sh-header-welcome">
-        <strong>Hi, welcome back<?= $headerWelcomeFirst !== '' && strtolower($headerWelcomeFirst) !== 'there' ? ', ' . h($headerWelcomeFirst) : '' ?>!</strong>
+      <div class="sh-header-welcome" id="salesHeaderWelcome" data-copy="<?= h($salesHeaderCopyJson) ?>">
+        <strong><?= h($salesHeaderTitle) ?></strong>
+        <span><?= h($salesHeaderSub) ?></span>
       </div>
+      <script>
+      (function(){
+        var el = document.getElementById('salesHeaderWelcome');
+        if (!el) return;
+        var map = {};
+        try { map = JSON.parse(el.getAttribute('data-copy') || '{}') || {}; } catch (e) { map = {}; }
+        function alias(slug) {
+          slug = String(slug || '').replace(/^#/, '').trim();
+          try { slug = decodeURIComponent(slug); } catch (e2) {}
+          if (slug === 'order-cancel-table') return 'notification';
+          if (slug === 'settings') return 'detail_employee';
+          if (slug === 'product-table') return 'inventory';
+          if (slug === 'messages') return 'message';
+          return slug;
+        }
+        function apply(slug) {
+          slug = alias(slug);
+          var copy = map[slug] || map.dashboard || {};
+          var titleEl = el.querySelector('strong');
+          var subEl = el.querySelector('span');
+          if (titleEl) titleEl.textContent = copy.title || '';
+          if (subEl) subEl.textContent = copy.sub || '';
+        }
+        window.__salesSyncHeader = apply;
+        apply(window.location.hash);
+      })();
+      </script>
     <?php elseif ($isManager): ?>
       <a href="create_org.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('create_org.php'); ?>><div><i class="icon ion-ios-plus-outline"></i><span>New Org</span></div></a>
       <a href="create_staff.php" class="sh-icon-link"<?php echo org_layout_nav_attrs('create_staff.php'); ?>><div><i class="icon ion-person-add"></i><span>Create Staff</span></div></a>

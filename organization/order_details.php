@@ -12,34 +12,70 @@ require_once __DIR__ . '/../public_user/includes/buyer_seller_relationship.php';
 
 org_require_manager();
 
-org_require_commerce_seller();
+$adminOversight = function_exists('admin_linked_is_org_admin_oversight') && admin_linked_is_org_admin_oversight();
+if (!$adminOversight) {
+    org_require_commerce_seller();
+}
+
 org_ecommerce_ensure_schema($dbh);
 buyer_seller_rel_ensure_schema($dbh);
 
 $orgId = (int)orgActiveOrgId();
 $orderId = (int)($_GET['id'] ?? $_POST['order_id'] ?? 0);
+$codeParam = trim((string)($_GET['code'] ?? ''));
 $embed = ((string)($_GET['embed'] ?? '') === '1');
 $download = ((string)($_GET['download'] ?? '') === '1');
+$fromSales = ((string)($_GET['from'] ?? '') === 'sales');
 $fulfillFlashOk = '';
 $fulfillFlashErr = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['od_fulfill_action'])) {
-    $postOrderId = (int)($_POST['order_id'] ?? 0);
-    $newStatus = strtolower(trim((string)($_POST['status'] ?? '')));
-    $sellerNotes = trim((string)($_POST['seller_notes'] ?? ''));
-    $tracking = trim((string)($_POST['tracking_number'] ?? ''));
-    $carrier = trim((string)($_POST['carrier'] ?? ''));
-    $redirEmbed = ((string)($_POST['embed'] ?? '') === '1') || $embed;
+    if ($adminOversight) {
+        $fulfillFlashErr = 'Fulfillment updates are disabled in admin oversight view.';
+        $orderId = (int)($_POST['order_id'] ?? $orderId);
+        $embed = ((string)($_POST['embed'] ?? '') === '1') || $embed;
+    } else {
+        $postOrderId = (int)($_POST['order_id'] ?? 0);
+        $newStatus = strtolower(trim((string)($_POST['status'] ?? '')));
+        $sellerNotes = trim((string)($_POST['seller_notes'] ?? ''));
+        $tracking = trim((string)($_POST['tracking_number'] ?? ''));
+        $carrier = trim((string)($_POST['carrier'] ?? ''));
+        $redirEmbed = ((string)($_POST['embed'] ?? '') === '1') || $embed;
 
-    if ($postOrderId > 0 && org_ecommerce_update_fulfillment($dbh, $orgId, $postOrderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
-        $qs = 'id=' . $postOrderId . ($redirEmbed ? '&embed=1' : '');
-        $_SESSION['od_fulfill_flash_ok'] = 'Carrier and tracking saved.';
-        header('Location: order_details.php?' . $qs);
-        exit;
+        if ($postOrderId > 0 && org_ecommerce_update_fulfillment($dbh, $orgId, $postOrderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
+            $qs = 'id=' . $postOrderId . ($redirEmbed ? '&embed=1' : '');
+            $_SESSION['od_fulfill_flash_ok'] = 'Carrier and tracking saved.';
+            header('Location: order_details.php?' . $qs);
+            exit;
+        }
+        $fulfillFlashErr = 'Could not update carrier / tracking.';
+        $orderId = $postOrderId > 0 ? $postOrderId : $orderId;
+        $embed = $redirEmbed;
     }
-    $fulfillFlashErr = 'Could not update carrier / tracking.';
-    $orderId = $postOrderId > 0 ? $postOrderId : $orderId;
-    $embed = $redirEmbed;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['od_note_action']) && empty($adminOversight)) {
+    $postOrderId = (int)($_POST['order_id'] ?? 0);
+    $note = trim((string)($_POST['seller_notes'] ?? ''));
+    $redirEmbed = ((string)($_POST['embed'] ?? '') === '1') || $embed;
+    $fromSalesPost = ((string)($_POST['from'] ?? '') === 'sales') || $fromSales;
+    if ($postOrderId > 0) {
+        try {
+            $stNote = $dbh->prepare('UPDATE org_orders SET seller_notes = :n, updated_at = NOW() WHERE id = :id AND org_id = :org LIMIT 1');
+            $stNote->execute([
+                ':n' => $note !== '' ? $note : null,
+                ':id' => $postOrderId,
+                ':org' => $orgId,
+            ]);
+            $_SESSION['od_fulfill_flash_ok'] = 'Note saved.';
+            $qs = 'id=' . $postOrderId . ($redirEmbed ? '&embed=1' : '') . ($fromSalesPost ? '&from=sales' : '');
+            header('Location: order_details.php?' . $qs);
+            exit;
+        } catch (Throwable $e) {
+            $fulfillFlashErr = 'Could not save note.';
+            $orderId = $postOrderId;
+        }
+    }
 }
 
 if (!empty($_SESSION['od_fulfill_flash_ok'])) {
@@ -47,8 +83,55 @@ if (!empty($_SESSION['od_fulfill_flash_ok'])) {
     unset($_SESSION['od_fulfill_flash_ok']);
 }
 
-$order = org_sales_order($dbh, $orgId, $orderId);
+$order = null;
+if ($orderId <= 0 && $codeParam !== '') {
+    try {
+        $stCode = $dbh->prepare('
+            SELECT id FROM org_orders
+            WHERE org_id = :org AND order_code = :code
+            ORDER BY id DESC LIMIT 1
+        ');
+        $stCode->execute([':org' => $orgId, ':code' => $codeParam]);
+        $orderId = (int)($stCode->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        $orderId = 0;
+    }
+    if ($orderId <= 0 && preg_match('/^ORD-0*([0-9]+)$/i', $codeParam, $m)) {
+        $orderId = (int)$m[1];
+    }
+}
+if ($orderId > 0) {
+    if ($adminOversight) {
+        // Load any marketplace order, then bind org to its seller.
+        try {
+            $stAny = $dbh->prepare('SELECT * FROM org_orders WHERE id = :id LIMIT 1');
+            $stAny->execute([':id' => $orderId]);
+            $order = $stAny->fetch(PDO::FETCH_ASSOC) ?: null;
+        } catch (Throwable $e) {
+            $order = null;
+        }
+        if ($order) {
+            $orderOrgId = (int)($order['org_id'] ?? 0);
+            if ($orderOrgId > 0) {
+                $_SESSION['org_active_org_id'] = $orderOrgId;
+                $orgId = $orderOrgId;
+            }
+            // Prefer the org-scoped loader so related fields match seller tools.
+            $scoped = org_sales_order($dbh, $orgId, $orderId);
+            if ($scoped) {
+                $order = $scoped;
+            }
+        }
+    } else {
+        $order = org_sales_order($dbh, $orgId, $orderId);
+    }
+}
+
 if (!$order) {
+    if ($adminOversight) {
+        header('Location: ../admin/Orders.php');
+        exit;
+    }
     if ($embed || $download) {
         http_response_code(404);
         echo 'Order not found.';
@@ -65,14 +148,50 @@ if ($buyerUserId > 0) {
 }
 
 $batchLines = org_shop_seller_order_batch($dbh, $orgId, $order);
-$batchGroups = org_shop_group_seller_customer_orders($batchLines);
+$checkoutCode = trim((string)($order['order_code'] ?? ''));
+$detailLines = [];
+foreach ($batchLines as $line) {
+    $lc = trim((string)($line['order_code'] ?? ''));
+    if ($checkoutCode !== '' && $lc === $checkoutCode) {
+        $detailLines[] = $line;
+    } elseif ($checkoutCode === '' && (int)($line['id'] ?? 0) === $orderId) {
+        $detailLines[] = $line;
+    }
+}
+if (!$detailLines) {
+    $detailLines = [$order];
+}
+$displayOrderCode = $checkoutCode !== ''
+    ? $checkoutCode
+    : ('ORD-' . str_pad((string)$orderId, 6, '0', STR_PAD_LEFT));
+
+$batchGroups = org_shop_group_seller_customer_orders($detailLines);
 $batch = $batchGroups[0] ?? null;
 
-$orderNum = $batch ? (int)$batch['order_num'] : 1;
-$quantityNum = $batch ? (int)$batch['quantity_num'] : max(1, (int)($order['quantity'] ?? 1));
-$totalLabel = $batch
-    ? (string)$batch['total_label']
-    : org_sales_money((int)($order['total_cents'] ?? 0), (string)($order['currency'] ?? 'USD'));
+$currency = (string)($order['currency'] ?? 'USD');
+$orderNum = count($detailLines);
+$quantityNum = 0;
+$subtotalCents = 0;
+$shippingCents = 0;
+$taxCents = 0;
+$discountCents = 0;
+$totalCents = 0;
+foreach ($detailLines as $line) {
+    $qty = max(1, (int)($line['quantity'] ?? 1));
+    $quantityNum += $qty;
+    $subtotalCents += (int)($line['unit_price_cents'] ?? 0) * $qty;
+    $shippingCents += (int)($line['shipping_fee_cents'] ?? 0);
+    $taxCents += (int)($line['tax_cents'] ?? 0);
+    $discountCents += (int)($line['discount_cents'] ?? 0);
+    $totalCents += (int)($line['total_cents'] ?? 0);
+}
+if ($totalCents <= 0) {
+    $totalCents = (int)($order['total_cents'] ?? 0);
+}
+$totalLabel = org_sales_money($totalCents, $currency);
+$subtotalLabel = org_sales_money($subtotalCents > 0 ? $subtotalCents : max(0, $totalCents - $shippingCents - $taxCents), $currency);
+$shippingLabel = $shippingCents <= 0 ? 'Free' : org_sales_money($shippingCents, $currency);
+$taxLabel = org_sales_money($taxCents, $currency);
 $products = $batch['products'] ?? [[
     'title' => (string)($order['product_title'] ?? 'Product'),
     'qty' => max(1, (int)($order['quantity'] ?? 1)),
@@ -85,7 +204,7 @@ if ($buyerName === '') {
 }
 $buyerEmail = trim((string)($batch['buyer_email'] ?? $order['buyer_email'] ?? ''));
 $buyerPhone = trim((string)($batch['buyer_phone'] ?? $order['buyer_phone'] ?? ''));
-$shipTo = trim((string)($batch['delivery_address'] ?? $order['delivery_address'] ?? ''));
+$shipTo = trim((string)($order['delivery_address'] ?? $batch['delivery_address'] ?? ''));
 $currency = (string)($order['currency'] ?? 'USD');
 $status = (string)($batch['status'] ?? $order['status'] ?? 'pending');
 $dateLabel = (string)($batch['date_label'] ?? ($order['created_at'] ?? ''));
@@ -107,6 +226,79 @@ $buyerNotes = trim((string)($order['buyer_notes'] ?? ''));
 $sellerNotes = trim((string)($order['seller_notes'] ?? ''));
 $isCancelled = strtolower((string)($order['status'] ?? '')) === 'cancelled';
 $messageUrl = $buyerUserId > 0 ? commerce_message_buyer_org_url((int)$order['id']) : '';
+
+$fmtWhen = static function (?string $raw): string {
+    $raw = trim((string)$raw);
+    if ($raw === '') {
+        return '';
+    }
+    $ts = strtotime($raw);
+    return $ts ? date('M j, Y, g:i A', $ts) : $raw;
+};
+$placedTs = strtotime((string)($order['created_at'] ?? '')) ?: 0;
+$placedFull = $placedTs ? date('M j, Y \a\t g:i A', $placedTs) : (string)$dateLabel;
+$placedStep = $fmtWhen((string)($order['created_at'] ?? ''));
+$paidStep = $fmtWhen((string)($order['paid_at'] ?? ''));
+$shippedStep = $fmtWhen((string)($order['shipped_at'] ?? ''));
+$deliveredRaw = (string)($order['delivered_at'] ?? '');
+if ($deliveredRaw === '' && strtolower((string)($order['status'] ?? '')) === 'delivered') {
+    $deliveredRaw = (string)($order['updated_at'] ?? '');
+}
+$deliveredStep = $fmtWhen($deliveredRaw);
+$statusRaw = strtolower((string)($order['status'] ?? $status));
+$statusBucket = match ($statusRaw) {
+    'delivered' => 'delivered',
+    'shipped' => 'shipped',
+    'cancelled', 'canceled' => 'cancelled',
+    default => 'processing',
+};
+$statusLab = match ($statusBucket) {
+    'delivered' => 'Delivered',
+    'shipped' => 'Shipped',
+    'cancelled' => 'Cancelled',
+    default => 'Processing',
+};
+$stepDone = [
+    'placed' => true,
+    'processing' => in_array($statusBucket, ['processing', 'shipped', 'delivered'], true) || $paidStep !== '',
+    'shipped' => in_array($statusBucket, ['shipped', 'delivered'], true),
+    'delivered' => $statusBucket === 'delivered',
+];
+if ($statusBucket === 'cancelled') {
+    $stepDone = ['placed' => true, 'processing' => $paidStep !== '', 'shipped' => false, 'delivered' => false];
+}
+$pm = strtolower(trim((string)($order['payment_method'] ?? '')));
+$pref = trim((string)($order['payment_reference'] ?? ''));
+$payLast4 = preg_match('/(\d{4})\s*$/', $pref, $pmatch) ? $pmatch[1] : '';
+if (str_contains($pm, 'visa')) {
+    $payBrand = 'VISA';
+} elseif (str_contains($pm, 'master')) {
+    $payBrand = 'Mastercard';
+} elseif (str_contains($pm, 'paypal')) {
+    $payBrand = 'PayPal';
+} elseif ($pm !== '') {
+    $payBrand = ucfirst($pm);
+} else {
+    $payBrand = 'Card';
+}
+$payStatus = in_array($statusRaw, ['paid', 'shipped', 'delivered'], true) ? 'Paid'
+    : ($statusBucket === 'cancelled' ? 'Cancelled' : 'Unpaid');
+$channelLabel = str_contains(strtolower((string)($order['order_type'] ?? '')), 'market') ? 'Marketplace' : 'Direct Store';
+$fm = strtolower((string)($order['fulfillment_method'] ?? 'fbm'));
+$fulfillLabel = $fm === 'fba' ? 'Platform fulfilled' : 'Seller Fulfilled';
+$deliveryMethod = $carrier !== '' ? $carrier : ucwords($deliveryOption);
+$coverUrl = static function (?string $path): string {
+    $path = trim((string)$path);
+    if ($path === '') {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $path) || strpos($path, '/') === 0) {
+        return $path;
+    }
+    return '../' . ltrim($path, '/');
+};
+$backHref = $fromSales ? 'sales_management.php#orders' : 'orders.php';
+$invoiceHref = 'order_invoice.php?id=' . $orderId;
 
 if ($download) {
     if (!function_exists('org_ecommerce_h')) {
@@ -138,7 +330,7 @@ if ($download) {
 </head>
 <body>
   <h1>Order details</h1>
-  <p class="muted"><?= $h($buyerName) ?> · <?= $h($dateLabel) ?> · <?= $h($status) ?></p>
+  <p class="muted"><?= $h($displayOrderCode) ?> · <?= $h($buyerName) ?> · <?= $h($placedFull) ?> · <?= $h($statusLab) ?></p>
   <table>
     <tr><th>Customer</th><td><?= $h($buyerName) ?></td></tr>
     <tr><th>Email</th><td><?= $buyerEmail !== '' ? $h($buyerEmail) : 'Not provided' ?></td></tr>
@@ -155,7 +347,7 @@ if ($download) {
       <tr><th>Product</th><th>Qty</th><th>Amount</th><th>Status</th><th>Code</th></tr>
     </thead>
     <tbody>
-      <?php foreach ($batchLines as $line): ?>
+      <?php foreach ($detailLines as $line): ?>
         <?php
           $lineQty = max(1, (int)($line['quantity'] ?? 1));
           $lineAmount = org_sales_money((int)($line['total_cents'] ?? 0), (string)($line['currency'] ?? $currency));
@@ -513,10 +705,10 @@ if ($embed) {
   <div class="od-wrap">
     <div class="od-hero">
       <div>
-        <h1><?= $h($buyerName) ?></h1>
-        <p><?= $h($dateLabel !== '' ? $dateLabel : 'Purchase date unavailable') ?></p>
+        <h1>Order Details</h1>
+        <p><strong><?= $h($displayOrderCode) ?></strong> · Placed on <?= $h($placedFull !== '' ? $placedFull : 'date unavailable') ?></p>
       </div>
-      <span class="od-status is-<?= $h(preg_replace('/[^a-z0-9_-]+/i', '', strtolower($status)) ?: 'pending') ?>"><?= $h($status) ?></span>
+      <span class="od-status is-<?= $h($statusBucket === 'cancelled' ? 'cancelled' : ($statusBucket === 'delivered' ? 'delivered' : ($statusBucket === 'shipped' ? 'confirmed' : 'pending'))) ?>"><?= $h($statusLab) ?></span>
     </div>
 
     <div class="od-stats">
@@ -563,7 +755,7 @@ if ($embed) {
 
     <section class="od-section">
       <h2>Ordered products</h2>
-      <?php foreach ($batchLines as $line): ?>
+      <?php foreach ($detailLines as $line): ?>
         <?php
           $lineQty = max(1, (int)($line['quantity'] ?? 1));
           $lineAmount = org_sales_money((int)($line['total_cents'] ?? 0), (string)($line['currency'] ?? $currency));
@@ -717,171 +909,277 @@ if ($embed) {
 }
 
 require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=14">');
+org_page_shell_open(
+    $pageTitle,
+    '<link rel="stylesheet" href="css/commerce-hub.css?v=14">'
+    . '<link rel="stylesheet" href="css/sales-azia.css?v=6">'
+);
 org_page_body_open('commerce-page');
+$h = static function (string $s): string {
+    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+};
+$fromQs = $fromSales ? '&from=sales' : '';
 ?>
-  <div class="mg-b-20">
-    <a href="orders.php" class="tx-12">&larr; Orders</a>
-    <h4 class="mg-b-0">Customer purchase · <?= (int)$orderNum ?> product<?= $orderNum === 1 ? '' : 's' ?></h4>
-    <p class="tx-color-03">
-      Product # = how many products from this brand. Quantity # = total units (same day purchase).
-    </p>
-  </div>
-
-  <div class="card shadow-base mg-b-20">
-    <div class="card-header"><h6 class="card-title tx-14 mg-b-0">Customer order summary</h6></div>
-    <div class="card-body pd-0 table-responsive">
-      <table class="table mg-b-0">
-        <thead>
-          <tr>
-            <th class="text-center">Product #</th>
-            <th class="text-center">Quantity #</th>
-            <th>Customer</th>
-            <th>Customer contact</th>
-            <th>Customer address</th>
-            <th>Status</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="text-center"><strong style="font-size:18px;"><?= (int)$orderNum ?></strong><div class="tx-11 tx-color-03">products</div></td>
-            <td class="text-center"><strong style="font-size:18px;"><?= (int)$quantityNum ?></strong><div class="tx-11 tx-color-03">units</div></td>
-            <td><?= org_ecommerce_h($buyerName) ?></td>
-            <td class="tx-12">
-              <?php if ($buyerEmail !== ''): ?>
-                <div>Email: <a href="mailto:<?= org_ecommerce_h($buyerEmail) ?>"><?= org_ecommerce_h($buyerEmail) ?></a></div>
-              <?php endif; ?>
-              <?php if ($buyerPhone !== ''): ?>
-                <div>Phone: <a href="tel:<?= org_ecommerce_h(preg_replace('/\s+/', '', $buyerPhone)) ?>"><?= org_ecommerce_h($buyerPhone) ?></a></div>
-              <?php endif; ?>
-              <?php if ($buyerEmail === '' && $buyerPhone === ''): ?>
-                <span class="tx-color-03">Not provided</span>
-              <?php endif; ?>
-            </td>
-            <td class="tx-12" style="white-space:pre-line;max-width:260px;">
-              <?= $shipTo !== '' ? org_ecommerce_h($shipTo) : '<span class="tx-color-03">Not provided</span>' ?>
-            </td>
-            <td><span class="badge <?= org_sales_status_badge($status) ?>"><?= org_ecommerce_h($status) ?></span></td>
-            <td class="tx-12"><?= org_ecommerce_h($dateLabel) ?></td>
-          </tr>
-        </tbody>
-      </table>
+<style>
+  .od-page{color:#0f172a;}
+  .od-page .od-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#2563eb;text-decoration:none;margin-bottom:8px;}
+  .od-page .od-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+  .od-page .od-head h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em;display:inline-flex;align-items:center;gap:10px;}
+  .od-page .od-code{margin:6px 0 0;font-size:14px;font-weight:800;}
+  .od-page .od-placed{margin:2px 0 0;font-size:13px;color:#64748b;font-weight:600;}
+  .od-page .od-badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;}
+  .od-page .od-badge.delivered{background:#dcfce7;color:#15803d;}
+  .od-page .od-badge.shipped{background:#f3e8ff;color:#6d28d9;}
+  .od-page .od-badge.processing{background:#ffedd5;color:#c2410c;}
+  .od-page .od-badge.cancelled{background:#fee2e2;color:#b91c1c;}
+  .od-page .od-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .od-page .od-btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;color:#0f172a;text-decoration:none;cursor:pointer;}
+  .od-page .od-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:14px 16px;margin-bottom:14px;}
+  .od-page .od-step{position:relative;padding-left:4px;}
+  .od-page .od-step strong{display:block;font-size:13px;font-weight:800;}
+  .od-page .od-step span{display:block;font-size:11px;color:#64748b;margin-top:2px;}
+  .od-page .od-dot{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;margin-bottom:6px;background:#e2e8f0;color:#64748b;}
+  .od-page .od-step.is-done .od-dot{background:#16a34a;color:#fff;}
+  .od-page .od-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr);gap:14px;align-items:start;}
+  .od-page .od-card{background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:16px;margin-bottom:14px;}
+  .od-page .od-card h2{margin:0 0 12px;font-size:15px;font-weight:800;}
+  .od-page .od-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f7;}
+  .od-page .od-item:last-of-type{border-bottom:0;}
+  .od-page .od-thumb{width:48px;height:48px;border-radius:10px;background:#f1f5f9;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#94a3b8;flex:0 0 auto;}
+  .od-page .od-thumb img{width:100%;height:100%;object-fit:cover;}
+  .od-page .od-item-main{flex:1 1 auto;min-width:0;}
+  .od-page .od-item-main strong{display:block;font-size:14px;}
+  .od-page .od-item-main span{display:block;font-size:12px;color:#64748b;margin-top:2px;}
+  .od-page .od-sum{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:4px 0;color:#475569;}
+  .od-page .od-sum.is-total{font-weight:800;color:#0f172a;border-top:1px solid #eef2f7;margin-top:8px;padding-top:10px;font-size:15px;}
+  .od-page .od-tl{display:flex;flex-direction:column;gap:14px;}
+  .od-page .od-tl-item{padding-left:18px;border-left:2px solid #bbf7d0;position:relative;}
+  .od-page .od-tl-item:before{content:"";width:10px;height:10px;border-radius:50%;background:#16a34a;position:absolute;left:-6px;top:4px;}
+  .od-page .od-tl-item strong{display:block;font-size:13px;}
+  .od-page .od-tl-item span,.od-page .od-tl-item p{display:block;font-size:12px;color:#64748b;margin:2px 0 0;}
+  .od-page .od-track{margin-top:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;}
+  .od-page .od-kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:8px 10px;font-size:13px;align-items:start;}
+  .od-page .od-kv dt{margin:0;color:#64748b;font-weight:700;}
+  .od-page .od-kv dd{margin:0;font-weight:600;word-break:break-word;}
+  .od-page .od-copy{border:0;background:none;color:#2563eb;cursor:pointer;font-weight:800;padding:0 0 0 6px;}
+  html.dark-auto .od-page{color:var(--msb-palette-text,#e2e8f0);}
+  html.dark-auto .od-page .od-card,html.dark-auto .od-page .od-steps{background:var(--msb-palette-bg,#171d24);border-color:rgba(148,163,184,.22);}
+  @media (max-width:980px){.od-page .od-grid,.od-page .od-steps{grid-template-columns:1fr;}}
+  @media print{.sh-header,.sh-sideleft-menu,.od-head-actions,.od-back{display:none !important;}}
+</style>
+<div class="od-page">
+  <a class="od-back" href="<?= $h($backHref) ?>">&larr; Back to Orders</a>
+  <div class="od-head">
+    <div>
+      <h1>
+        Order Details
+        <span class="od-badge <?= $h($statusBucket) ?>"><?= $h($statusLab) ?></span>
+      </h1>
+      <p class="od-code" id="odOrderCode"><?= $h($displayOrderCode) ?></p>
+      <p class="od-placed">Placed on <?= $h($placedFull !== '' ? $placedFull : 'date unavailable') ?></p>
+    </div>
+    <div class="od-head-actions">
+      <a class="od-btn" href="<?= $h($invoiceHref) ?>" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print</a>
+      <details>
+        <summary class="od-btn">More Actions</summary>
+        <div class="od-card" style="position:absolute;right:24px;z-index:8;min-width:200px;margin-top:6px;">
+          <a class="od-btn" href="<?= $h($invoiceHref) ?>" style="width:100%;margin-bottom:6px;">Invoice</a>
+          <?php if ($messageUrl !== ''): ?>
+            <a class="od-btn" href="<?= $h($messageUrl) ?>" style="width:100%;margin-bottom:6px;">Message buyer</a>
+          <?php endif; ?>
+          <a class="od-btn" href="<?= $h($backHref) ?>" style="width:100%;">Back to inbox</a>
+        </div>
+      </details>
     </div>
   </div>
 
-  <div class="row row-sm">
-    <div class="col-lg-8">
-      <div class="card shadow-base mg-b-20">
-        <div class="card-header"><h6 class="card-title tx-14 mg-b-0">Ordered products</h6></div>
-        <div class="card-body pd-0 table-responsive">
-          <table class="table mg-b-0">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th class="text-center">Qty</th>
-                <th>Amount</th>
-                <th>Line status</th>
-                <th>Code</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($batchLines as $line): ?>
-                <?php
-                  $lineQty = max(1, (int)($line['quantity'] ?? 1));
-                  $lineAmount = org_sales_money((int)($line['total_cents'] ?? 0), (string)($line['currency'] ?? $currency));
-                  $lineCode = trim((string)($line['order_code'] ?? ''));
-                  if ($lineCode === '') {
-                      $lineCode = '#' . (int)($line['id'] ?? 0);
-                  }
-                ?>
-                <tr>
-                  <td>
-                    <?= org_ecommerce_h((string)($line['product_title'] ?? 'Product')) ?>
-                    <?php if (!empty($line['sku'])): ?>
-                      <div class="tx-12 tx-color-03">SKU <?= org_ecommerce_h((string)$line['sku']) ?></div>
-                    <?php endif; ?>
-                  </td>
-                  <td class="text-center"><strong><?= $lineQty ?></strong></td>
-                  <td><?= org_ecommerce_h($lineAmount) ?></td>
-                  <td><span class="badge badge-light"><?= org_ecommerce_h((string)($line['status'] ?? '')) ?></span></td>
-                  <td class="tx-11"><code><?= org_ecommerce_h($lineCode) ?></code></td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
+  <div class="od-steps">
+    <div class="od-step <?= !empty($stepDone['placed']) ? 'is-done' : '' ?>">
+      <div class="od-dot"><?= !empty($stepDone['placed']) ? '✓' : '1' ?></div>
+      <strong>Order Placed</strong>
+      <span><?= $h($placedStep !== '' ? $placedStep : '—') ?></span>
+    </div>
+    <div class="od-step <?= !empty($stepDone['processing']) ? 'is-done' : '' ?>">
+      <div class="od-dot"><?= !empty($stepDone['processing']) ? '✓' : '2' ?></div>
+      <strong>Processing</strong>
+      <span><?= $h($paidStep !== '' ? $paidStep : ($stepDone['processing'] ? $placedStep : 'Pending')) ?></span>
+    </div>
+    <div class="od-step <?= !empty($stepDone['shipped']) ? 'is-done' : '' ?>">
+      <div class="od-dot"><?= !empty($stepDone['shipped']) ? '✓' : '3' ?></div>
+      <strong>Shipped</strong>
+      <span><?= $h($shippedStep !== '' ? $shippedStep : ($stepDone['shipped'] ? 'Shipped' : 'Pending')) ?></span>
+    </div>
+    <div class="od-step <?= !empty($stepDone['delivered']) ? 'is-done' : '' ?>">
+      <div class="od-dot"><?= !empty($stepDone['delivered']) ? '✓' : '4' ?></div>
+      <strong>Delivered</strong>
+      <span><?= $h($deliveredStep !== '' ? $deliveredStep : ($stepDone['delivered'] ? 'Delivered' : 'Pending')) ?></span>
+    </div>
+  </div>
+
+  <?php if ($fulfillFlashOk !== ''): ?><div class="alert alert-success"><?= $h($fulfillFlashOk) ?></div><?php endif; ?>
+  <?php if ($fulfillFlashErr !== ''): ?><div class="alert alert-danger"><?= $h($fulfillFlashErr) ?></div><?php endif; ?>
+
+  <div class="od-grid">
+    <div>
+      <div class="od-card">
+        <h2>Order Items</h2>
+        <?php foreach ($detailLines as $line):
+          $lineQty = max(1, (int)($line['quantity'] ?? 1));
+          $lineAmount = org_sales_money((int)($line['total_cents'] ?? 0), (string)($line['currency'] ?? $currency));
+          $cover = $coverUrl(isset($line['product_cover']) ? (string)$line['product_cover'] : '');
+          $attr = trim((string)($line['sku'] ?? ''));
+        ?>
+          <div class="od-item">
+            <div class="od-thumb">
+              <?php if ($cover !== ''): ?><img src="<?= $h($cover) ?>" alt=""><?php else: ?><i class="fa fa-cube"></i><?php endif; ?>
+            </div>
+            <div class="od-item-main">
+              <strong><?= $h((string)($line['product_title'] ?? 'Product')) ?></strong>
+              <span>x<?= $lineQty ?><?= $attr !== '' ? ' · ' . $h($attr) : '' ?></span>
+            </div>
+            <strong><?= $h($lineAmount) ?></strong>
+          </div>
+        <?php endforeach; ?>
+        <div class="od-sum"><span>Item Subtotal</span><span><?= $h($subtotalLabel) ?></span></div>
+        <div class="od-sum"><span>Shipping</span><span><?= $h($shippingLabel) ?></span></div>
+        <div class="od-sum"><span>Tax</span><span><?= $h($taxLabel) ?></span></div>
+        <div class="od-sum is-total"><span>Order Total</span><span><?= $h($totalLabel) ?></span></div>
       </div>
-      <div class="card shadow-base">
-        <div class="card-header"><h6 class="card-title tx-14 mg-b-0">Delivery and notes</h6></div>
-        <div class="card-body">
-          <p><strong>Fulfillment:</strong> <?= org_ecommerce_h(strtoupper((string)($order['fulfillment_method'] ?? 'fbm'))) ?> · <?= org_ecommerce_h($deliveryOption) ?></p>
-          <p><strong>Carrier:</strong> <?= org_ecommerce_h($carrier) ?> <strong class="mg-l-10">Tracking:</strong> <?= org_ecommerce_h($tracking) ?></p>
-          <p><strong>Customer address:</strong><br><?= $shipTo !== '' ? nl2br(org_ecommerce_h($shipTo)) : '<span class="tx-color-03">Not provided</span>' ?></p>
-          <p><strong>Buyer note:</strong><br><?= nl2br(org_ecommerce_h($buyerNotes)) ?></p>
+
+      <div class="od-card">
+        <h2>Order Timeline</h2>
+        <div class="od-tl">
+          <div class="od-tl-item">
+            <strong>Order Placed</strong>
+            <span><?= $h($placedStep !== '' ? $placedStep : '—') ?></span>
+            <p>The order has been placed.</p>
+          </div>
+          <?php if ($paidStep !== '' || !empty($stepDone['processing'])): ?>
+            <div class="od-tl-item">
+              <strong>Payment Confirmed</strong>
+              <span><?= $h($paidStep !== '' ? $paidStep : $placedStep) ?></span>
+              <p>Payment has been successfully authorized.</p>
+            </div>
+            <div class="od-tl-item">
+              <strong>Processing</strong>
+              <span><?= $h($paidStep !== '' ? $paidStep : $placedStep) ?></span>
+              <p>The order is being prepared.</p>
+            </div>
+          <?php endif; ?>
+          <?php if (!empty($stepDone['shipped'])): ?>
+            <div class="od-tl-item">
+              <strong>Shipped</strong>
+              <span><?= $h($shippedStep !== '' ? $shippedStep : '—') ?></span>
+              <p>Your order has been shipped<?= $carrier !== '' ? ' via ' . $h($carrier) : '' ?>.</p>
+              <?php if ($tracking !== ''): ?>
+                <div class="od-track">
+                  Tracking Number: <strong><?= $h($tracking) ?></strong>
+                  <?php if ($carrier !== ''): ?>
+                    · <span><?= $h($carrier) ?></span>
+                  <?php endif; ?>
+                </div>
+              <?php endif; ?>
+            </div>
+          <?php endif; ?>
+          <?php if (!empty($stepDone['delivered'])): ?>
+            <div class="od-tl-item">
+              <strong>Delivered</strong>
+              <span><?= $h($deliveredStep !== '' ? $deliveredStep : '—') ?></span>
+              <p>The order has been delivered to the customer.</p>
+            </div>
+          <?php endif; ?>
           <?php if ($isCancelled): ?>
-            <p class="tx-12 text-danger mg-b-0"><strong>Cancelled</strong> — this order was cancelled<?= stripos($buyerNotes . $sellerNotes, 'Cancelled by customer') !== false ? ' by the customer' : '' ?>. Status is already updated in your order inbox.</p>
+            <div class="od-tl-item">
+              <strong>Cancelled</strong>
+              <p>This order was cancelled<?= stripos($buyerNotes . $sellerNotes, 'Cancelled by customer') !== false ? ' by the customer' : '' ?>.</p>
+            </div>
           <?php endif; ?>
-          <p><strong>Seller note:</strong><br><?= nl2br(org_ecommerce_h($sellerNotes)) ?></p>
         </div>
       </div>
     </div>
-    <div class="col-lg-4">
-      <div class="commerce-panel">
-        <div class="commerce-panel-head">
-          <h2>Customer contact</h2>
-          <span class="badge <?= org_sales_status_badge($status) ?>"><?= org_ecommerce_h($status) ?></span>
-        </div>
-        <p><strong>Name:</strong> <?= org_ecommerce_h($buyerName) ?></p>
-        <p><strong>Email:</strong>
-          <?php if ($buyerEmail !== ''): ?>
-            <a href="mailto:<?= org_ecommerce_h($buyerEmail) ?>"><?= org_ecommerce_h($buyerEmail) ?></a>
-          <?php else: ?>
-            <span class="tx-color-03">Not provided</span>
-          <?php endif; ?>
-        </p>
-        <p><strong>Phone:</strong>
-          <?php if ($buyerPhone !== ''): ?>
-            <a href="tel:<?= org_ecommerce_h(preg_replace('/\s+/', '', $buyerPhone)) ?>"><?= org_ecommerce_h($buyerPhone) ?></a>
-          <?php else: ?>
-            <span class="tx-color-03">Not provided</span>
-          <?php endif; ?>
-        </p>
-        <p><strong>Product #:</strong> <?= (int)$orderNum ?> product<?= $orderNum === 1 ? '' : 's' ?></p>
-        <p><strong>Quantity #:</strong> <?= (int)$quantityNum ?> unit<?= $quantityNum === 1 ? '' : 's' ?></p>
-        <p><strong>Order total:</strong> <?= org_ecommerce_h($totalLabel) ?></p>
-        <p><strong>Payout:</strong> <?= org_ecommerce_h($payoutLabel) ?> · <?= org_ecommerce_h($payoutStatus) ?></p>
-        <?php if ($messageUrl !== ''): ?>
-          <a href="<?= org_ecommerce_h($messageUrl) ?>" class="btn btn-sm btn-primary mg-b-10">Message buyer</a>
-        <?php endif; ?>
-        <a href="orders.php?status=<?= org_ecommerce_h((string)$order['status']) ?>" class="btn btn-sm btn-outline-secondary">Update in order inbox</a>
+
+    <div>
+      <div class="od-card">
+        <h2>Customer Information</h2>
+        <dl class="od-kv">
+          <dt>Name</dt>
+          <dd>
+            <?= $h($buyerName) ?>
+            <?php if ($buyerUserId > 0): ?>
+              <a href="crm.php?q=<?= $h(rawurlencode($buyerName)) ?>" style="margin-left:8px;font-size:12px;">View Profile</a>
+            <?php endif; ?>
+          </dd>
+          <dt>Email</dt>
+          <dd><?= $buyerEmail !== '' ? '<a href="mailto:' . $h($buyerEmail) . '">' . $h($buyerEmail) . '</a>' : 'Not provided' ?></dd>
+          <dt>Phone</dt>
+          <dd><?= $buyerPhone !== '' ? '<a href="tel:' . $h(preg_replace('/\s+/', '', $buyerPhone) ?: '') . '">' . $h($buyerPhone) . '</a>' : 'Not provided' ?></dd>
+          <dt>Shipping Address</dt>
+          <dd>
+            <?php if ($statusBucket === 'delivered'): ?><span class="od-badge delivered" style="margin-bottom:6px;">Delivered</span><br><?php endif; ?>
+            <?= $shipTo !== '' ? nl2br($h($shipTo)) : 'Not provided' ?>
+          </dd>
+        </dl>
       </div>
-      <?php if ($buyerRel): ?>
-        <div class="commerce-panel mg-t-15">
-          <div class="commerce-panel-head"><h2>Buyer needs</h2></div>
-          <p class="tx-12 tx-color-03 mg-b-10">Shared by the customer so you can meet their preferences.</p>
-          <p><strong>Relationship:</strong> <?= org_ecommerce_h(buyer_seller_rel_type_label((string)($buyerRel['relationship_type'] ?? ''))) ?></p>
-          <?php if (trim((string)($buyerRel['interests'] ?? '')) !== ''): ?>
-            <p><strong>Interests:</strong> <?= org_ecommerce_h((string)$buyerRel['interests']) ?></p>
-          <?php endif; ?>
-          <p><strong>Preferred contact:</strong> <?= org_ecommerce_h(buyer_seller_rel_contact_label((string)($buyerRel['preferred_contact'] ?? ''))) ?></p>
-          <?php if (trim((string)($buyerRel['delivery_preference'] ?? '')) !== ''): ?>
-            <p><strong>Delivery:</strong> <?= org_ecommerce_h((string)$buyerRel['delivery_preference']) ?></p>
-          <?php endif; ?>
-          <?php if (trim((string)($buyerRel['budget_range'] ?? '')) !== ''): ?>
-            <p><strong>Budget:</strong> <?= org_ecommerce_h((string)$buyerRel['budget_range']) ?></p>
-          <?php endif; ?>
-          <?php if (trim((string)($buyerRel['needs_note'] ?? '')) !== ''): ?>
-            <p><strong>Note:</strong><br><?= nl2br(org_ecommerce_h((string)$buyerRel['needs_note'])) ?></p>
-          <?php endif; ?>
-        </div>
-      <?php elseif ($buyerUserId > 0): ?>
-        <div class="commerce-panel mg-t-15">
-          <div class="commerce-panel-head"><h2>Buyer needs</h2></div>
-          <p class="tx-12 tx-color-03">This buyer has not shared shopping preferences with your organization yet.</p>
-        </div>
-      <?php endif; ?>
+
+      <div class="od-card">
+        <h2>Order Summary</h2>
+        <dl class="od-kv">
+          <dt>Order ID</dt>
+          <dd>
+            <strong id="odSummaryCode"><?= $h($displayOrderCode) ?></strong>
+            <button type="button" class="od-copy" id="odCopyCode" title="Copy order ID">copy</button>
+          </dd>
+          <dt>Order Date</dt>
+          <dd><?= $h($placedFull !== '' ? $placedFull : '—') ?></dd>
+          <dt>Sales Channel</dt>
+          <dd><?= $h($channelLabel) ?></dd>
+          <dt>Payment Method</dt>
+          <dd><?= $h($payBrand) ?><?= $payLast4 !== '' ? ' · **** ' . $h($payLast4) : '' ?></dd>
+          <dt>Payment Status</dt>
+          <dd><span class="od-badge <?= $payStatus === 'Paid' ? 'delivered' : ($payStatus === 'Cancelled' ? 'cancelled' : 'processing') ?>"><?= $h($payStatus) ?></span></dd>
+          <dt>Fulfillment Method</dt>
+          <dd><?= $h($fulfillLabel) ?></dd>
+          <dt>Delivery Method</dt>
+          <dd><?= $h($deliveryMethod) ?></dd>
+          <dt>Delivery Date</dt>
+          <dd><?= $h($deliveredStep !== '' ? $deliveredStep : '—') ?></dd>
+        </dl>
+      </div>
+
+      <div class="od-card">
+        <h2>Notes</h2>
+        <?php if ($sellerNotes === '' && $buyerNotes === ''): ?>
+          <p class="od-placed" style="margin-bottom:10px;">No notes added yet.</p>
+        <?php else: ?>
+          <?php if ($buyerNotes !== ''): ?><p><strong>Buyer:</strong> <?= nl2br($h($buyerNotes)) ?></p><?php endif; ?>
+          <?php if ($sellerNotes !== ''): ?><p><strong>Seller:</strong> <?= nl2br($h($sellerNotes)) ?></p><?php endif; ?>
+        <?php endif; ?>
+        <form method="post" action="order_details.php?id=<?= (int)$orderId . $h($fromQs) ?>">
+          <input type="hidden" name="od_note_action" value="1">
+          <input type="hidden" name="order_id" value="<?= (int)$orderId ?>">
+          <?php if ($fromSales): ?><input type="hidden" name="from" value="sales"><?php endif; ?>
+          <textarea name="seller_notes" class="form-control" rows="3" placeholder="Add an internal note…"><?= $h($sellerNotes) ?></textarea>
+          <button type="submit" class="od-btn" style="margin-top:8px;"><i class="fa fa-pencil"></i> <?= $sellerNotes !== '' ? 'Update Note' : 'Add Note' ?></button>
+        </form>
+      </div>
     </div>
   </div>
 </div>
+<script>
+(function () {
+  var btn = document.getElementById('odCopyCode');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var text = (document.getElementById('odSummaryCode') || {}).textContent || '';
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text.trim());
+    }
+    btn.textContent = 'copied';
+    setTimeout(function () { btn.textContent = 'copy'; }, 1200);
+  });
+})();
+</script>
+</div>
 <?php org_page_shell_close(); ?>
+

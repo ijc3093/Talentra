@@ -105,7 +105,10 @@ org_admin_render_head('Shop Rent');
 ?>
 <?php
 require_once __DIR__ . '/includes/admin_chrome.php';
-admin_chrome_open('Shop Rent');
+admin_chrome_open(null, [
+    'title' => 'Shop Rent',
+    'description' => 'Monthly rent for seller shop organizations',
+]);
 ?>
 
 <div class="sh-mainpanel">

@@ -9,7 +9,12 @@ require_once __DIR__ . '/includes/org_ecommerce.php';
 require_once __DIR__ . '/includes/org_manager_guard.php';
 
 org_require_manager();
-org_require_commerce_seller();
+
+$adminOversight = function_exists('admin_linked_is_org_admin_oversight') && admin_linked_is_org_admin_oversight();
+if (!$adminOversight) {
+    org_require_commerce_seller();
+}
+
 org_ecommerce_ensure_schema($dbh);
 org_shop_ensure_schema($dbh);
 
@@ -23,9 +28,28 @@ if (!function_exists('h')) {
 $orgId = (int)orgActiveOrgId();
 $productId = (int)($_GET['id'] ?? 0);
 $fromSales = ((string)($_GET['from'] ?? '') === 'sales');
-$product = $productId > 0 ? org_shop_get_product($dbh, $productId, $orgId) : null;
+
+// Admin oversight: load any marketplace product by id, then bind org context to its seller.
+$product = null;
+if ($productId > 0) {
+    $product = $adminOversight
+        ? org_shop_get_product($dbh, $productId, 0)
+        : org_shop_get_product($dbh, $productId, $orgId);
+}
+
+if ($product && $adminOversight) {
+    $productOrgId = (int)($product['org_id'] ?? 0);
+    if ($productOrgId > 0) {
+        $_SESSION['org_active_org_id'] = $productOrgId;
+        $orgId = $productOrgId;
+    }
+}
 
 if (!$product) {
+    if ($adminOversight) {
+        header('Location: ../admin/inventory.php');
+        exit;
+    }
     header('Location: ' . ($fromSales ? 'sales_management.php#inventory' : 'product_table.php'));
     exit;
 }
@@ -86,10 +110,14 @@ foreach (org_shop_product_gallery_paths($dbh, $product) as $path) {
 }
 
 $sellerPublicInfo = org_shop_seller_pickup_display($dbh, $orgId);
-$backHref = $fromSales ? 'sales_management.php#inventory' : 'product_table.php';
-$editHref = $fromSales
-    ? ('sales_management.php?edit=' . $productId . '#products')
-    : ('products.php?edit=' . $productId);
+$backHref = $adminOversight
+    ? '../admin/inventory.php'
+    : ($fromSales ? 'sales_management.php#inventory' : 'product_table.php');
+$editHref = $adminOversight
+    ? ('../admin/inventory.php?id=' . $productId)
+    : ($fromSales
+        ? ('sales_management.php?edit=' . $productId . '#products')
+        : ('products.php?edit=' . $productId));
 $publicUrl = '../public_user/product_detail.php?id=' . $productId;
 
 $statusLabel = $status === 'sold_out' ? 'sold out' : $status;

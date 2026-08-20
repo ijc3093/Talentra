@@ -1774,6 +1774,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     } else if(!isOwner){
       html += '<button type="button" class="pcm-item pcm-report is-danger" role="menuitem" data-post-id="'+esc(String(postId))+'">'
         + '<i class="fa fa-flag" aria-hidden="true"></i><span>Report</span></button>';
+      html += '<div class="pcm-divider" role="separator"></div>';
       if(!STORY_DOOR_STAFF_READONLY && canInteract){
         html += '<button type="button" class="pcm-item pcm-tag" role="menuitem" data-post-id="'+esc(String(postId))+'">'
           + '<i class="fa fa-at" aria-hidden="true"></i><span>Tag</span></button>';

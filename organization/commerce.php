@@ -85,6 +85,13 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
           <a href="shop_settings.php" class="ch-btn-ghost"><i class="icon ion-gear-b"></i> Settings</a>
           <a href="seller_journey.php" class="commerce-quick-sub">Seller journey</a>
         </div>
+        <?php
+          $hubPublisherId = org_shop_publisher_user_id($dbh, $orgId);
+          if ($hubPublisherId > 0):
+        ?>
+        <a href="../public_user/profile.php?tab=shop&amp;id=<?= (int)$hubPublisherId ?>" class="ch-btn-ghost" target="_blank" rel="noopener"><i class="icon ion-ios-world"></i> Preview storefront</a>
+        <a href="../public_user/shop.php" class="commerce-quick-sub" target="_blank" rel="noopener">Marketplace</a>
+        <?php endif; ?>
         <?php if ($commerceBrand): ?>
         <a href="commerce_brand_select.php?switch=1" class="ch-btn-ghost"><i class="icon ion-shuffle"></i> Switch brand</a>
         <?php endif; ?>

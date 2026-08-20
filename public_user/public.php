@@ -17,6 +17,7 @@ require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/post_tags.php';
+require_once __DIR__ . '/includes/msb_feed_engagement.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
@@ -30,6 +31,7 @@ $controller = new Controller();
 $dbh = $controller->pdo();
 publisher_ensure_schema($dbh);
 device_profile_ensure_post_columns($dbh);
+msb_feed_engagement_ensure_schema($dbh);
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $isPublisherWorkspaceViewer = publisher_workspace_viewer($dbh, $meId);
@@ -382,7 +384,13 @@ if ($isForYouTab) {
     $where .= ' AND ' . publisher_feed_list_scope_sql_for($dbh, $meId);
     $params = array_merge($params, publisher_feed_list_scope_params_for($dbh, $meId));
 } else {
-    $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND p.visibility = 'public' AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
+    // Discover: public posts from the last 24h, plus the viewer's own public posts
+    // (so a fresh create without media/title still appears after publish).
+    $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND p.visibility = 'public' AND (
+        COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        OR p.user_id = :discoverMeOwn
+    )";
+    $params[':discoverMeOwn'] = $meId;
     if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
         $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
         $params[':fsBlockMe'] = $meId;
@@ -453,9 +461,22 @@ if (!$isForYouTab && $discoverTab === 'enterprise') {
     }
 }
 
-$publicOrderBy = $discoverTab === 'trending'
-    ? '(COALESCE(p.views_count,0) + (comment_count * 4) + (like_count * 3) + (love_count * 3) + (share_count * 5)) DESC, COALESCE(p.updated_at,p.created_at) DESC'
-    : 'COALESCE(p.updated_at,p.created_at) DESC';
+$publicOrderBy = 'COALESCE(p.updated_at,p.created_at) DESC, p.id DESC';
+if ($isForYouTab) {
+    // For You: newest first so a just-created post (incl. text-only) is always on top.
+    // Own posts from the last 48h stay ahead of everyone else's older cards.
+    $ownRecentExpr = '(CASE WHEN p.user_id = :meBoost AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 ELSE 0 END)';
+    $publicOrderBy = $ownRecentExpr . ' DESC, COALESCE(p.updated_at,p.created_at) DESC, p.id DESC';
+} elseif ($discoverTab === 'trending') {
+    $ownRecentExpr = '(CASE WHEN p.user_id = :meBoost AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 ELSE 0 END)';
+    $ownRecentTs = '(CASE WHEN p.user_id = :meBoost AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN UNIX_TIMESTAMP(COALESCE(p.updated_at,p.created_at)) ELSE 0 END)';
+    $ownRecentBoost = $ownRecentExpr . ' DESC, ' . $ownRecentTs . ' DESC, ';
+    if (msb_posts_has_attention_cols($dbh)) {
+        $publicOrderBy = $ownRecentBoost . msb_attention_score_sql('p') . ' DESC, COALESCE(p.updated_at,p.created_at) DESC, p.id DESC';
+    } else {
+        $publicOrderBy = $ownRecentBoost . '(COALESCE(p.views_count,0) + (comment_count * 4) + (like_count * 3) + (love_count * 3) + (share_count * 5)) DESC, COALESCE(p.updated_at,p.created_at) DESC, p.id DESC';
+    }
+}
 
 $layoutColumn = post_layout_column($dbh);
 $layoutSelect = post_layout_select_sql($dbh);
@@ -466,6 +487,9 @@ SELECT
   COALESCE(p.views_count,0) AS views_count, p.created_at, COALESCE(p.updated_at,p.created_at) AS updated_at,
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
   COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
+  COALESCE(p.sound_id,0) AS sound_id,
+  COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
+  COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
   COALESCE(p.is_archived,0) AS is_archived,
   LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) AS visibility,
   COALESCE(u.name, u.username, CONCAT('User ', u.id)) AS display_name, COALESCE(u.username,'') AS username, COALESCE(u.friend_code,'') AS friend_code,
@@ -489,23 +513,31 @@ $params[':me'] = $meId;
 $params[':me2'] = $meId;
 $params[':me3'] = $meId;
 $params[':meFollow'] = $meId;
+if (strpos($publicOrderBy, ':meBoost') !== false) {
+    $params[':meBoost'] = $meId;
+}
 
 $st = $dbh->prepare($sql);
 $st->execute($params);
 $posts = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-// After create-post redirect (?post= / ?story_post=), ensure that card is present
-// even if it would otherwise miss the rolling 24h / discover window.
+// After create-post redirect (?post= / ?story_post=), put that card at the top
+// even when it already matched the list query (attention order can bury it).
 $pinPublicId = $publicAlertPostId > 0 ? $publicAlertPostId : $publicStoryPostId;
 if ($pinPublicId > 0 && $meId > 0) {
-    $already = false;
-    foreach ($posts as $existing) {
+    $existingPinIdx = null;
+    $existingPinRow = null;
+    foreach ($posts as $existingIdx => $existing) {
         if ((int)($existing['id'] ?? 0) === $pinPublicId) {
-            $already = true;
+            $existingPinIdx = (int)$existingIdx;
+            $existingPinRow = $existing;
             break;
         }
     }
-    if (!$already) {
+    if (is_array($existingPinRow)) {
+        array_splice($posts, $existingPinIdx, 1);
+        array_unshift($posts, $existingPinRow);
+    } else {
         try {
             $pinSql = "
 SELECT
@@ -513,6 +545,9 @@ SELECT
   COALESCE(p.views_count,0) AS views_count, p.created_at, COALESCE(p.updated_at,p.created_at) AS updated_at,
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
   COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
+  COALESCE(p.sound_id,0) AS sound_id,
+  COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
+  COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
   COALESCE(p.is_archived,0) AS is_archived,
   LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) AS visibility,
   COALESCE(u.name, u.username, CONCAT('User ', u.id)) AS display_name, COALESCE(u.username,'') AS username, COALESCE(u.friend_code,'') AS friend_code,
@@ -532,38 +567,51 @@ JOIN users u ON u.id = p.user_id
 WHERE p.id = :pinId
   AND p.is_deleted = 0
   AND COALESCE(p.is_archived,0) = 0
-  " . ($isForYouTab ? '' : "AND p.visibility = 'public'\n  ") . "
+  " . ($isForYouTab ? '' : "AND (p.visibility = 'public' OR p.user_id = :pinOwnerMe)\n  ") . "
 LIMIT 1";
             $stPin = $dbh->prepare($pinSql);
-            $stPin->execute([
+            $pinParams = [
                 ':pinId' => $pinPublicId,
                 ':meFollowPin' => $meId,
                 ':mePin' => $meId,
                 ':me2Pin' => $meId,
                 ':me3Pin' => $meId,
-            ]);
+            ];
+            if (!$isForYouTab) {
+                $pinParams[':pinOwnerMe'] = $meId;
+            }
+            $stPin->execute($pinParams);
             $pinRow = $stPin->fetch(PDO::FETCH_ASSOC) ?: null;
+            $pinOwnerId = (int)($pinRow['user_id'] ?? 0);
+            $pinIsOwn = ($pinOwnerId > 0 && $pinOwnerId === $meId);
             $pinVisible = is_array($pinRow) && (
-                $isForYouTab
-                    ? publisher_can_view_post($dbh, $meId, $pinRow)
-                    : publisher_post_visible_on_public_surface($dbh, $meId, $pinRow)
+                $pinIsOwn
+                || (
+                    $isForYouTab
+                        ? publisher_can_view_post($dbh, $meId, $pinRow)
+                        : publisher_post_visible_on_public_surface($dbh, $meId, $pinRow)
+                )
             );
             if ($pinVisible) {
                 $authorKind = strtolower((string)($pinRow['account_kind'] ?? 'personal'));
                 $isPubAuthor = ($authorKind === 'publisher');
                 // Discover: personal viewers pin people; publishers pin publishers.
                 // news.php / category tabs: publisher posts.
-                $allowPin = true;
-                if ($isNewsSurface) {
-                    $allowPin = $isPubAuthor;
-                } elseif ($discoverTab === 'for-you') {
+                // Own freshly-created posts always pin on the destination tab.
+                $allowPin = $pinIsOwn;
+                if (!$allowPin) {
                     $allowPin = true;
-                } elseif ($discoverTab === 'public') {
-                    $allowPin = $isPublisherWorkspaceViewer ? $isPubAuthor : !$isPubAuthor;
-                } elseif ($discoverTab === 'enterprise' || isset($publisherCategoryTabs[$discoverTab])) {
-                    $allowPin = $isPubAuthor;
-                } elseif ($isPublisherWorkspaceViewer) {
-                    $allowPin = $isPubAuthor;
+                    if ($isNewsSurface) {
+                        $allowPin = $isPubAuthor;
+                    } elseif ($discoverTab === 'for-you') {
+                        $allowPin = true;
+                    } elseif ($discoverTab === 'public') {
+                        $allowPin = $isPublisherWorkspaceViewer ? $isPubAuthor : !$isPubAuthor;
+                    } elseif ($discoverTab === 'enterprise' || isset($publisherCategoryTabs[$discoverTab])) {
+                        $allowPin = $isPubAuthor;
+                    } elseif ($isPublisherWorkspaceViewer) {
+                        $allowPin = $isPubAuthor;
+                    }
                 }
                 if ($allowPin) {
                     array_unshift($posts, $pinRow);
@@ -635,6 +683,18 @@ if (function_exists('msb_post_tags_people_for_posts') && $posts !== []) {
         $postTag['me_tagged'] = $meTaggedFlag;
     }
     unset($postTag);
+}
+
+if (function_exists('msb_post_products_for_posts') && $posts !== []) {
+    $prodMapPublic = msb_post_products_for_posts($dbh, array_map(static function ($row) {
+        return (int)($row['id'] ?? 0);
+    }, $posts));
+    foreach ($posts as &$postProd) {
+        $pidProd = (int)($postProd['id'] ?? 0);
+        $postProd['products'] = ($pidProd > 0 && isset($prodMapPublic[$pidProd])) ? $prodMapPublic[$pidProd] : [];
+        $postProd['sound_id'] = (int)($postProd['sound_id'] ?? 0);
+    }
+    unset($postProd);
 }
 
 $storyPosts = [];
@@ -5006,6 +5066,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           var requestController = null;
           var tabHtmlCache = Object.create(null);
           var tabHtmlRequests = Object.create(null);
+          window.msbClearDiscoverTabCache = function(){
+            tabHtmlCache = Object.create(null);
+            tabHtmlRequests = Object.create(null);
+          };
           function tabKeyFromLink(link){
             try{
               return new URL(link.href, window.location.href).searchParams.get('tab') || 'for-you';
@@ -5579,6 +5643,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                     <?php endif; ?>
                   </div>
                 <?php endif; ?>
+                <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
               </div>
 
               <div class="standard-text-meta-bar" hidden aria-hidden="true">
@@ -5786,6 +5851,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                   <?php endif; ?>
                 </div>
               <?php endif; ?>
+              <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
               <div class="reel-inline-actions">
                 <div class="reel-inline-left">
                   <div class="reel-inline-row">
@@ -5951,7 +6017,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                         <h4 class="standard-media-subtitle"<?= $slide0Title === '' ? ' style="display:none"' : '' ?>><?= h($slide0Title) ?></h4>
                         <div class="standard-media-summary"<?= $slide0Body === '' ? ' style="display:none"' : '' ?>><?= post_slide_summary_html($slide0Body) ?></div>
                       <?php endif; ?>
+                      <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
                     </div>
+                  <?php endif; ?>
+                  <?php if (empty($displayTitle) && $caption === '' && !$slidePresentation): ?>
+                    <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
                   <?php endif; ?>
                   <div class="standard-media-actions">
                     <div class="standard-media-left">
@@ -9486,5 +9556,6 @@ include __DIR__ . '/includes/post_viewer_modal.js.php';
   }).observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['class']});
 })();
 </script>
+<?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
 </body>
 </html>

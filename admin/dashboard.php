@@ -1,488 +1,704 @@
 <?php
-// /Business_only3/admin/app/dashboard.php
+declare(strict_types=1);
 
+/**
+ * Admin — Dashboard (viewport-fit; matches Dashboard screenshot).
+ * Auth gates must remain at top (force password change / status).
+ */
 require_once __DIR__ . '/includes/session_admin.php';
 requireAdminLogin();
 
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', '1');
 
 require_once __DIR__ . '/controller.php';
 
 $controller = new Controller();
 $dbh = $controller->pdo();
 
-// ✅ Force password change gate (cannot be bypassed by typing dashboard URL)
+// Force password change gate (cannot be bypassed by typing dashboard URL)
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 if ($adminId <= 0) {
     clearAdminSession();
-    header("Location: index.php");
+    header('Location: index.php');
     exit;
 }
 
-$stForce = $dbh->prepare("SELECT force_password_change, status, fullname, username, email, image, role FROM admin WHERE idadmin = :id LIMIT 1");
+$stForce = $dbh->prepare('SELECT force_password_change, status, fullname, username, email, image, role FROM admin WHERE idadmin = :id LIMIT 1');
 $stForce->execute([':id' => $adminId]);
 $acc = $stForce->fetch(PDO::FETCH_ASSOC);
 
 if (!$acc || (int)$acc['status'] !== 1) {
     clearAdminSession();
-    header("Location: index.php");
+    header('Location: index.php');
     exit;
 }
 
 if ((int)$acc['force_password_change'] === 1) {
-    header("Location: change-password.php?force=1");
+    header('Location: change-password.php?force=1');
     exit;
 }
 
-// ✅ Admin identity (from session_admin.php login)
-$adminLogin = (string)($_SESSION['admin_login'] ?? '');
-$adminRole  = (int)($_SESSION['userRole'] ?? 0); // 1 Admin, 2 Manager, 3 Gospel, 4 Staff
-$isAdmin    = ($adminRole === 1);
+require_once __DIR__ . '/includes/org_admin_helpers_load.php';
+require_once __DIR__ . '/includes/admin_layout.php';
+require_once __DIR__ . '/includes/admin_chrome.php';
+require_once __DIR__ . '/includes/admin_platform_settings.php';
+require_once __DIR__ . '/includes/posts_admin_helpers.php';
+require_once __DIR__ . '/includes/msb_moderation_activity.php';
+require_once __DIR__ . '/includes/admin_overview_helpers.php';
+require_once __DIR__ . '/../public_user/includes/msb_reports.php';
 
-$roleLabels = [1 => 'Administrator', 2 => 'Manager', 3 => 'Gospel', 4 => 'Staff'];
-$roleLabel  = $roleLabels[$adminRole] ?? 'Admin';
-
-function dashboard_h(string $s): string
-{
-    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+$profile = admin_chrome_profile();
+$welcomeName = trim((string)($profile['firstName'] ?? ''));
+if ($welcomeName === '') {
+    $welcomeName = trim((string)($acc['fullname'] ?? ''));
+}
+if ($welcomeName === '') {
+    $welcomeName = trim((string)($acc['username'] ?? 'Admin'));
+}
+if ($welcomeName === '') {
+    $welcomeName = 'Admin';
 }
 
-function dashboard_initials(string $name): string
-{
-    $name = trim(preg_replace('/\s+/', ' ', $name) ?? $name);
-    if ($name === '') return 'AD';
-    $name = str_replace(['_', '.', '-', '@'], ' ', $name);
-    $parts = array_values(array_filter(explode(' ', $name), fn($p) => trim($p) !== ''));
-    if (!$parts) return 'AD';
-    $first = mb_strtoupper(mb_substr($parts[0], 0, 1));
-    $second = count($parts) > 1
-        ? mb_strtoupper(mb_substr($parts[count($parts) - 1], 0, 1))
-        : mb_strtoupper(mb_substr($parts[0], 1, 1));
-    $ini = trim($first . $second);
-    return $ini !== '' ? $ini : 'AD';
+$rangeDays = (int)($_GET['range'] ?? 7);
+if (!in_array($rangeDays, [7, 14, 30], true)) {
+    $rangeDays = 7;
 }
 
-// Counts & money totals for dashboard cards
-$userCount     = 0;
-$feedbackCount = 0;
-$notiCount     = 0;
-$deletedCount  = 0;
-$orgCount      = 0;
-$adminCount    = 0;
-$managerCount  = 0;
-$publisherRequestCount = 0;
-$serviceFeeCents = 0;
-$shopRentCents = 0;
-$membershipCents = 0;
+$dashKind = admin_overview_normalize_kind((string)($_GET['kind'] ?? 'personal'));
+$kindProfile = admin_overview_kind_profile($dashKind);
+$kindCounts = admin_overview_kind_counts($dbh);
 
-$dashboardTableExists = static function (PDO $dbh, string $table): bool {
-    static $cache = [];
-    $table = preg_replace('/[^a-z0-9_]/i', '', $table) ?? '';
-    if ($table === '') {
-        return false;
-    }
-    if (array_key_exists($table, $cache)) {
-        return $cache[$table];
-    }
-    try {
-        $st = $dbh->query('SHOW TABLES LIKE ' . $dbh->quote($table));
-        $cache[$table] = (bool)($st && $st->fetchColumn());
-    } catch (Throwable $e) {
-        $cache[$table] = false;
-    }
-    return $cache[$table];
-};
+$metrics = admin_overview_metric_bundle_for_kind($dbh, $dashKind);
+$engBundle = admin_overview_engagement_bundle_for_kind($dbh, $dashKind);
+$series = admin_overview_multi_activity_series_for_kind($dbh, $dashKind, $rangeDays);
 
-$dashboardColExists = static function (PDO $dbh, string $table, string $column) use ($dashboardTableExists): bool {
-    if (!$dashboardTableExists($dbh, $table)) {
-        return false;
-    }
-    try {
-        $st = $dbh->query('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ' . $dbh->quote($column));
-        return (bool)($st && $st->fetch(PDO::FETCH_ASSOC));
-    } catch (Throwable $e) {
-        return false;
-    }
-};
+$postStats = admin_overview_post_stats_for_kind($dbh, $dashKind);
+$contentStatus = admin_overview_content_status($postStats);
+$contentTotal = (int)($postStats['all']['value'] ?? 0);
+$donutBg = admin_overview_donut_bg($contentStatus);
 
+$health = admin_platform_settings_health_checks($dbh);
+$healthOk = true;
+foreach ($health as $hc) {
+    if (($hc['status'] ?? '') !== 'operational') {
+        $healthOk = false;
+        break;
+    }
+}
+
+$recentReports = [];
 try {
-    if ($isAdmin) {
-        if ($dashboardTableExists($dbh, 'users')) {
-            $stmt = $dbh->query('SELECT COUNT(*) FROM users');
-            $userCount = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardTableExists($dbh, 'deleteduser')) {
-            $stmt = $dbh->query('SELECT COUNT(*) FROM deleteduser');
-            $deletedCount = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardTableExists($dbh, 'organizations')) {
-            $stmt = $dbh->query('SELECT COUNT(*) FROM organizations');
-            $orgCount = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardTableExists($dbh, 'admin')) {
-            $stmt = $dbh->query('SELECT COUNT(*) FROM admin');
-            $adminCount = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardTableExists($dbh, 'managers')) {
-            $stmt = $dbh->query('SELECT COUNT(*) FROM managers');
-            $managerCount = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardTableExists($dbh, 'publisher_name_authority')) {
-            $stmt = $dbh->query("SELECT COUNT(*) FROM publisher_name_authority WHERE status = 'pending'");
-            $publisherRequestCount = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardColExists($dbh, 'org_orders', 'service_fee_cents')) {
-            $stmt = $dbh->query('SELECT COALESCE(SUM(COALESCE(service_fee_cents, 0)), 0) FROM org_orders');
-            $serviceFeeCents = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardTableExists($dbh, 'platform_payments')) {
-            $stmt = $dbh->query("SELECT COALESCE(SUM(amount_cents), 0) FROM platform_payments WHERE status = 'confirmed'");
-            $shopRentCents = (int)$stmt->fetchColumn();
-        }
-
-        if ($dashboardTableExists($dbh, 'buyer_membership_payments')) {
-            $stmt = $dbh->query("SELECT COALESCE(SUM(amount_cents), 0) FROM buyer_membership_payments WHERE status = 'confirmed'");
-            $membershipCents = (int)$stmt->fetchColumn();
-        }
+    if (function_exists('msb_reports_ensure_schema')) {
+        msb_reports_ensure_schema($dbh);
     }
-
-    if ($dashboardTableExists($dbh, 'feedback_admin')) {
-        $stmt = $dbh->prepare('SELECT COUNT(*) FROM feedback_admin WHERE receiver = :r');
-        $stmt->execute([':r' => 'Admin']);
-        $feedbackCount = (int)$stmt->fetchColumn();
-    }
-
-    if ($dashboardTableExists($dbh, 'notification')) {
-        $stmt = $dbh->prepare('SELECT COUNT(*) FROM notification WHERE notireceiver = :r');
-        $stmt->execute([':r' => 'Admin']);
-        $notiCount = (int)$stmt->fetchColumn();
-    }
-
-} catch (PDOException $e) {
-    $error = 'DB Error: ' . $e->getMessage();
+    $recentReports = msb_reports_list_for_admin($dbh, '', '', 6);
+} catch (Throwable $e) {
+    $recentReports = [];
 }
 
-$fmtMoney = static function (int $cents): string {
-    return '$' . number_format(max(0, $cents) / 100, 2);
+$topUsers = admin_overview_top_users_for_kind($dbh, $dashKind, 5);
+$topCountries = admin_overview_top_countries($dbh, 5);
+
+$settings = admin_platform_settings_load($dbh);
+$nextBackup = trim((string)($settings['system_next_backup_at'] ?? ''));
+$tasks = [
+    [
+        'label' => 'Auto-delete old drafts',
+        'when' => date('M j, Y \\a\\t g:i A', strtotime('tomorrow 2:00')),
+    ],
+    [
+        'label' => 'Database Backup',
+        'when' => $nextBackup !== ''
+            ? date('M j, Y \\a\\t g:i A', strtotime($nextBackup) ?: time())
+            : date('M j, Y \\a\\t g:i A', strtotime('sunday 3:00')),
+    ],
+    [
+        'label' => 'Generate Weekly Report',
+        'when' => date('M j, Y \\a\\t g:i A', strtotime('monday 5:00')),
+    ],
+];
+
+$lastUpdated = date('M j, Y \\a\\t g:i A');
+$dashUrl = static function (array $extra = []) use ($rangeDays, $dashKind): string {
+    $params = array_merge(['kind' => $dashKind, 'range' => $rangeDays], $extra);
+    if (($params['kind'] ?? 'personal') === 'personal') {
+        unset($params['kind']);
+    }
+    if ((int)($params['range'] ?? 7) === 7) {
+        unset($params['range']);
+    }
+    return 'dashboard.php' . ($params ? ('?' . http_build_query($params)) : '');
 };
 
-$displayName = trim((string)($acc['fullname'] ?? ''));
-if ($displayName === '') {
-    $displayName = trim((string)($acc['username'] ?? $adminLogin));
-}
-if ($displayName === '') {
-    $displayName = 'Admin';
-}
-
-$avatarWeb = '';
-if (!empty($acc['image'])) {
-    $imgPath = __DIR__ . '/images/' . $acc['image'];
-    if (is_file($imgPath)) {
-        $avatarWeb = 'images/' . $acc['image'];
-    }
-}
-$initials = dashboard_initials($displayName);
-
-$firstName = explode(' ', $displayName)[0] ?: $displayName;
-
-// Soft chart series scaled from live counts
-$u = max(2, $userCount);
-$o = max(2, $orgCount);
-
-$barOnline  = [];
-$barOffline = [];
-$barLabels  = [];
-for ($i = 0; $i < 7; $i++) {
-    $d = (new DateTimeImmutable('now'))->modify('-' . (6 - $i) . ' days');
-    $barLabels[] = $d->format('M d');
-    $wave = 0.6 + 0.4 * sin(($i + 1) * 0.8);
-    $barOnline[]  = (int)round($u * $wave * (0.8 + ($i % 3) * 0.1));
-    $barOffline[] = (int)round($o * $wave * (0.7 + ($i % 4) * 0.1));
-}
-
-// Recent activity rows for earnings-style table
-$recentRows = [];
-for ($i = 0; $i < 6; $i++) {
-    $d = (new DateTimeImmutable('now'))->modify('-' . $i . ' days');
-    $sales = max(1, (int)round(($u + $o) * (0.08 + (5 - $i) * 0.02)));
-    $earn  = $sales * 12.5;
-    $tax   = $earn * 0.08;
-    $recentRows[] = [
-        'date' => $d->format('M d, Y'),
-        'sales' => $sales,
-        'earnings' => $earn,
-        'tax' => $tax,
-    ];
-}
-
-$topRegions = [
-    ['name' => 'United States', 'code' => 'US', 'value' => max(100, $userCount * 18 + 420)],
-    ['name' => 'Netherlands', 'code' => 'NL', 'value' => max(80, $orgCount * 22 + 180)],
-    ['name' => 'United Kingdom', 'code' => 'GB', 'value' => max(60, $feedbackCount * 15 + 140)],
+$userMetricIcon = $dashKind === 'commerce' ? 'fa-shopping-bag' : ($dashKind === 'publisher' ? 'fa-bullhorn' : 'fa-users');
+$metricCards = [
+    [
+        'label' => (string)$kindProfile['user_label'],
+        'value' => (int)$metrics['users']['value'],
+        'delta' => (int)$metrics['users']['delta_pct'],
+        'icon' => $userMetricIcon,
+        'cls' => 'blue',
+        'href' => (string)$kindProfile['list_href'],
+    ],
+    [
+        'label' => 'Total Posts',
+        'value' => (int)$metrics['posts']['value'],
+        'delta' => (int)$metrics['posts']['delta_pct'],
+        'icon' => 'fa-file-text-o',
+        'cls' => 'green',
+        'href' => 'posts.php',
+    ],
+    [
+        'label' => 'Total Comments',
+        'value' => (int)$metrics['comments']['value'],
+        'delta' => (int)$metrics['comments']['delta_pct'],
+        'icon' => 'fa-comments',
+        'cls' => 'purple',
+        'href' => 'posts.php',
+    ],
+    [
+        'label' => 'Total Engagements',
+        'value' => (int)$engBundle['value'],
+        'delta' => (int)$engBundle['delta_pct'],
+        'icon' => 'fa-thumbs-up',
+        'cls' => 'orange',
+        'href' => 'posts.php',
+    ],
+    [
+        'label' => (string)$kindProfile['new_label'],
+        'value' => (int)$engBundle['new_users'],
+        'delta' => (int)$engBundle['new_users_delta'],
+        'icon' => 'fa-user-plus',
+        'cls' => 'red',
+        'href' => (string)$kindProfile['list_href'],
+    ],
 ];
+
+$quickActions = $kindProfile['quick'];
+
+$kindTabs = [
+    ['key' => 'personal', 'label' => 'Personal', 'icon' => 'fa-user', 'count' => (int)$kindCounts['personal']],
+    ['key' => 'publisher', 'label' => 'Publisher', 'icon' => 'fa-bullhorn', 'count' => (int)$kindCounts['publisher']],
+    ['key' => 'commerce', 'label' => 'Commerce', 'icon' => 'fa-shopping-bag', 'count' => (int)$kindCounts['commerce']],
+];
+
+org_admin_render_head('Dashboard');
+admin_chrome_open(null, [
+    'title' => 'Dashboard',
+    'description' => 'Welcome back, ' . $welcomeName . '! Use the left nav workspaces: Public_user, Publisher, and Commerce.',
+]);
 ?>
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Dashboard — Talentra Admin</title>
 
-    <link href="../lib/font-awesome/css/font-awesome.css" rel="stylesheet">
-    <link href="../lib/Ionicons/css/ionicons.css" rel="stylesheet">
-    <link href="../lib/perfect-scrollbar/css/perfect-scrollbar.css" rel="stylesheet">
-    <link href="../lib/jqvmap/jqvmap.css" rel="stylesheet">
-    <link rel="stylesheet" href="../css/shamcey.css">
-    <?php require_once __DIR__ . '/includes/admin_layout.php'; admin_layout_head_assets(); ?>
-    <link rel="stylesheet" href="css/dashboard-shamcey.css?v=10">
-  </head>
+<style>
+  html,body{height:100% !important;overflow:hidden !important;max-height:100dvh !important;}
+  body.azia-admin{overflow:hidden !important;}
+  .sh-mainpanel{
+    height:100vh !important;max-height:100dvh !important;
+    display:flex !important;flex-direction:column !important;overflow:hidden !important;
+  }
+  .sh-mainpanel > .sh-pagebody{
+    overflow:hidden !important;display:flex !important;flex-direction:column !important;min-height:0 !important;
+    padding:6px 10px 6px !important;margin:0 !important;flex:1 1 auto !important;background:#f4f6fb !important;
+  }
+  .ov-wrap{
+    flex:1 1 auto;min-height:0;height:100%;
+    display:flex;flex-direction:column;gap:8px;overflow:hidden;box-sizing:border-box;
+  }
+  .ov-metrics{
+    flex:0 0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;
+  }
+  a.ov-metric{
+    display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #eef2f7;border-radius:10px;
+    padding:10px 12px;box-shadow:0 1px 2px rgba(15,23,42,.04);text-decoration:none;color:inherit;min-width:0;
+  }
+  a.ov-metric:hover{border-color:#bfdbfe;text-decoration:none;}
+  .ov-metric .ico{
+    width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+    font-size:14px;flex:0 0 36px;
+  }
+  .ov-metric .ico.blue{background:#eff6ff;color:#2563eb;}
+  .ov-metric .ico.green{background:#dcfce7;color:#16a34a;}
+  .ov-metric .ico.purple{background:#f3e8ff;color:#7c3aed;}
+  .ov-metric .ico.orange{background:#ffedd5;color:#ea580c;}
+  .ov-metric .ico.red{background:#fee2e2;color:#dc2626;}
+  .ov-metric .body{min-width:0;flex:1 1 auto;}
+  .ov-metric .k{font-size:11px;font-weight:700;color:#64748b;}
+  .ov-metric .v{margin-top:2px;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-.02em;line-height:1.1;}
+  .ov-metric .d{margin-top:2px;font-size:10px;font-weight:700;}
+  .ov-metric .d.up{color:#16a34a;}
+  .ov-metric .d.down{color:#dc2626;}
+  .ov-metric .d.flat{color:#94a3b8;}
+  .ov-mid{
+    flex:1.05 1 0;min-height:0;
+    display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.85fr) minmax(200px,.55fr);gap:8px;align-items:stretch;
+  }
+  .ov-low{
+    flex:.9 1 0;min-height:0;
+    display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.9fr) minmax(0,.9fr) minmax(200px,.7fr);gap:8px;align-items:stretch;
+  }
+  .ov-card{
+    background:#fff;border:1px solid #eef2f7;border-radius:10px;box-shadow:0 1px 2px rgba(15,23,42,.04);
+    padding:8px 10px;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .ov-card-hd{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;}
+  .ov-card-hd h2{margin:0;font-size:12px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:5px;}
+  .ov-card-hd h2 .info{color:#94a3b8;font-size:11px;}
+  .ov-card-hd a.more{font-size:10px;font-weight:700;color:#2563eb;text-decoration:none;white-space:nowrap;}
+  .ov-card-hd a.more:hover{text-decoration:underline;}
+  .ov-select{
+    height:24px;border:1px solid #e2e8f0;border-radius:6px;padding:0 6px;font-size:10px;font-weight:700;
+    color:#475569;background:#fff;
+  }
+  .ov-chart-wrap{position:relative;flex:1 1 auto;min-height:0;}
+  .ov-chart-wrap canvas{width:100% !important;height:100% !important;}
+  .ov-legend{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:10px;margin-top:2px;font-size:10px;font-weight:700;color:#64748b;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-legend i{width:14px;height:2px;border-radius:2px;display:inline-block;}
+  .ov-donut-wrap{
+    flex:1 1 auto;min-height:0;display:flex;flex-direction:row;align-items:center;gap:12px;
+  }
+  .ov-donut{
+    width:96px;height:96px;border-radius:50%;position:relative;flex:0 0 96px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ov-donut:after{content:"";position:absolute;inset:22px;border-radius:50%;background:#fff;}
+  .ov-donut .center{position:relative;z-index:1;text-align:center;line-height:1.1;}
+  .ov-donut .center .n{font-size:13px;font-weight:800;color:#0f172a;}
+  .ov-donut .center .l{font-size:9px;font-weight:700;color:#94a3b8;margin-top:1px;}
+  .ov-clegend{list-style:none;margin:0;padding:0;flex:1 1 auto;min-width:0;}
+  .ov-clegend li{
+    display:flex;align-items:center;gap:6px;padding:2px 0;font-size:10px;font-weight:700;color:#334155;
+  }
+  .ov-clegend .dot{width:7px;height:7px;border-radius:999px;flex:0 0 7px;}
+  .ov-clegend .lab{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ov-clegend .pct{margin-left:auto;color:#64748b;font-weight:800;white-space:nowrap;}
+  .ov-side-stack{display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0;overflow:hidden;}
+  .ov-side-stack > .ov-card{flex:1 1 0;min-height:0;}
+  .ov-sys{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:2px 0;}
+  .ov-sys .badge-ok,.ov-sys .badge-bad{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#166534;
+  }
+  .ov-sys .badge-ok .chk,.ov-sys .badge-bad .chk{
+    width:18px;height:18px;border-radius:999px;background:#dcfce7;color:#16a34a;
+    display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex:0 0 18px;
+  }
+  .ov-sys .badge-bad{color:#b91c1c;}
+  .ov-sys .badge-bad .chk{background:#fee2e2;color:#dc2626;}
+  .ov-sys p{margin:0;font-size:10px;color:#64748b;font-weight:600;line-height:1.35;}
+  .ov-sys a{font-size:11px;font-weight:700;color:#2563eb;text-decoration:none;}
+  .ov-sys a:hover{text-decoration:underline;}
+  .ov-qa{list-style:none;margin:0;padding:0;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+  .ov-qa a{
+    display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;
+    text-decoration:none;color:#0f172a;font-size:11px;font-weight:700;flex:1 1 auto;
+  }
+  .ov-qa a:last-child{border-bottom:0;}
+  .ov-qa a:hover{color:#2563eb;text-decoration:none;}
+  .ov-qa .ico{
+    width:24px;height:24px;border-radius:7px;background:#eff6ff;color:#2563eb;
+    display:flex;align-items:center;justify-content:center;flex:0 0 24px;font-size:11px;
+  }
+  .ov-qa .ch{margin-left:auto;color:#94a3b8;font-size:10px;}
+  .ov-list{list-style:none;margin:0;padding:0;flex:1 1 auto;min-height:0;overflow:hidden;}
+  .ov-list li{
+    display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f5f9;min-height:0;
+  }
+  .ov-list li:last-child{border-bottom:0;}
+  .ov-list .ico{
+    width:24px;height:24px;border-radius:7px;background:#f8fafc;color:#64748b;
+    display:flex;align-items:center;justify-content:center;flex:0 0 24px;font-size:11px;
+  }
+  .ov-list .meta{flex:1 1 auto;min-width:0;}
+  .ov-list .t{font-size:11px;font-weight:800;color:#0f172a;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ov-list .s{font-size:10px;font-weight:600;color:#94a3b8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ov-pill{
+    display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;
+    font-size:9px;font-weight:800;flex:0 0 auto;white-space:nowrap;
+  }
+  .ov-pill.new{background:#fee2e2;color:#b91c1c;}
+  .ov-pill.review{background:#ffedd5;color:#c2410c;}
+  .ov-pill.pending{background:#fef3c7;color:#b45309;}
+  .ov-pill.resolved{background:#dcfce7;color:#166534;}
+  .ov-country .bar-wrap{flex:1 1 auto;min-width:0;}
+  .ov-country .bar-hd{display:flex;justify-content:space-between;gap:6px;font-size:11px;font-weight:700;color:#0f172a;}
+  .ov-country .bar-hd .pct{color:#64748b;font-weight:800;}
+  .ov-country .bar{margin-top:4px;height:5px;border-radius:999px;background:#f1f5f9;overflow:hidden;}
+  .ov-country .bar > span{display:block;height:100%;background:#2563eb;border-radius:999px;}
+  .ov-user .av{
+    width:24px;height:24px;border-radius:999px;flex:0 0 24px;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:9px;font-weight:800;
+  }
+  .ov-user .score{margin-left:auto;font-size:11px;font-weight:800;color:#0f172a;}
+  .ov-empty{padding:10px 4px;font-size:11px;font-weight:600;color:#94a3b8;text-align:center;line-height:1.35;}
+  .ov-task .when{font-size:10px;font-weight:700;color:#64748b;white-space:nowrap;}
+  .ov-help{
+    background:linear-gradient(180deg,#eff6ff 0%,#dbeafe 100%);border:1px solid #bfdbfe;flex:0 0 auto !important;
+  }
+  .ov-help .help-ico{
+    width:28px;height:28px;border-radius:8px;background:#fff;color:#2563eb;
+    display:flex;align-items:center;justify-content:center;font-size:13px;margin-bottom:4px;
+  }
+  .ov-help h2{margin:0 0 2px;font-size:12px;font-weight:800;color:#0f172a;}
+  .ov-help p{margin:0 0 6px;font-size:10px;color:#475569;font-weight:600;line-height:1.35;}
+  .ov-help a{font-size:11px;font-weight:700;color:#2563eb;text-decoration:none;}
+  .ov-help a:hover{text-decoration:underline;}
+  .ov-foot{
+    flex:0 0 auto;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#94a3b8;
+  }
+  .ov-foot a{color:#64748b;text-decoration:none;}
+  .ov-foot a:hover{color:#2563eb;}
+  .ov-card > a.more{flex:0 0 auto;margin-top:auto;padding-top:4px;font-size:10px;font-weight:700;color:#2563eb;text-decoration:none;}
+  .ov-card > a.more:hover{text-decoration:underline;}
+  .dash-tabs{
+    flex:0 0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  }
+  .dash-tabs a{
+    display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;
+    font-size:11px;font-weight:800;color:#64748b;background:#fff;border:1px solid #e2e8f0;text-decoration:none;
+  }
+  .dash-tabs a:hover{border-color:#93c5fd;color:#1e40af;text-decoration:none;}
+  .dash-tabs a.is-active{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .dash-tabs a .cnt{
+    display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:16px;padding:0 5px;
+    border-radius:999px;font-size:9px;font-weight:800;background:#f1f5f9;color:#475569;
+  }
+  .dash-tabs a.is-active .cnt{background:rgba(255,255,255,.22);color:#fff;}
+  .dash-kind-note{
+    flex:0 0 auto;display:flex;align-items:flex-start;gap:10px;padding:8px 10px;
+    background:#fff;border:1px solid #eef2f7;border-radius:10px;box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  .dash-kind-note .ico{
+    width:28px;height:28px;border-radius:8px;background:#eff6ff;color:#2563eb;
+    display:flex;align-items:center;justify-content:center;flex:0 0 28px;font-size:12px;
+  }
+  .dash-kind-note .ico.pub{background:#f3e8ff;color:#7c3aed;}
+  .dash-kind-note .ico.com{background:#ffedd5;color:#ea580c;}
+  .dash-kind-note .txt{min-width:0;flex:1 1 auto;}
+  .dash-kind-note .ttl{font-size:12px;font-weight:800;color:#0f172a;line-height:1.2;}
+  .dash-kind-note .sub{margin-top:2px;font-size:10px;font-weight:600;color:#64748b;line-height:1.35;}
+  .ov-focus{list-style:none;margin:0;padding:0;flex:1 1 auto;min-height:0;overflow:hidden;}
+  .ov-focus li{
+    display:flex;align-items:flex-start;gap:7px;padding:4px 0;border-bottom:1px solid #f1f5f9;
+    font-size:10px;font-weight:700;color:#334155;line-height:1.35;
+  }
+  .ov-focus li:last-child{border-bottom:0;}
+  .ov-focus .dot{
+    width:6px;height:6px;border-radius:999px;background:#2563eb;margin-top:4px;flex:0 0 6px;
+  }
+</style>
 
-  <body class="azia-admin">
-    <?php
-      require_once __DIR__ . '/includes/admin_chrome.php';
-      admin_chrome_open('Hi, welcome back!');
-    ?>
+<div class="sh-mainpanel">
+  <div class="sh-pagebody">
+    <div class="ov-wrap">
+      <div class="dash-tabs" role="tablist" aria-label="Audience type">
+        <?php foreach ($kindTabs as $tab): ?>
+          <?php
+          $isActive = $dashKind === $tab['key'];
+          $href = $dashUrl(['kind' => $tab['key']]);
+          ?>
+          <a class="<?= $isActive ? 'is-active' : '' ?>" href="<?= admin_overview_h($href) ?>" role="tab" aria-selected="<?= $isActive ? 'true' : 'false' ?>">
+            <i class="fa <?= admin_overview_h((string)$tab['icon']) ?>" aria-hidden="true"></i>
+            <?= admin_overview_h((string)$tab['label']) ?>
+            <span class="cnt"><?= number_format((int)$tab['count']) ?></span>
+          </a>
+        <?php endforeach; ?>
+      </div>
 
-    <div class="sh-mainpanel">
-      <div class="azia-pagebody">
-        <!-- Metric cards -->
-        <div class="row row-sm azia-metric-row">
-          <div class="col-6 col-md-4 col-xl-3">
-            <a class="azia-kpi azia-kpi-link" href="service_fees.php">
-              <span class="azia-kpi-icon fee"><i class="fa fa-usd"></i></span>
-              <span class="azia-kpi-label">Service Fee</span>
-              <h3><?= $isAdmin ? dashboard_h($fmtMoney($serviceFeeCents)) : '—' ?></h3>
-              <p class="azia-kpi-delta up">Collected from shop orders <span>view</span></p>
-            </a>
+      <div class="dash-kind-note">
+        <span class="ico<?= $dashKind === 'publisher' ? ' pub' : ($dashKind === 'commerce' ? ' com' : '') ?>" aria-hidden="true">
+          <i class="fa <?= admin_overview_h($userMetricIcon) ?>"></i>
+        </span>
+        <div class="txt">
+          <div class="ttl"><?= admin_overview_h((string)$kindProfile['label']) ?> · <?= admin_overview_h((string)$kindProfile['short']) ?></div>
+          <div class="sub"><?= admin_overview_h((string)$kindProfile['blurb']) ?></div>
+        </div>
+      </div>
+
+      <div class="ov-metrics" aria-label="Key metrics">
+        <?php foreach ($metricCards as $m): ?>
+          <?php
+          $delta = (int)$m['delta'];
+          $dir = $delta > 0 ? 'up' : ($delta < 0 ? 'down' : 'flat');
+          $arrow = $delta > 0 ? '↑' : ($delta < 0 ? '↓' : '•');
+          ?>
+          <a class="ov-metric" href="<?= admin_overview_h((string)$m['href']) ?>">
+            <span class="ico <?= admin_overview_h((string)$m['cls']) ?>" aria-hidden="true">
+              <i class="fa <?= admin_overview_h((string)$m['icon']) ?>"></i>
+            </span>
+            <div class="body">
+              <div class="k"><?= admin_overview_h((string)$m['label']) ?></div>
+              <div class="v"><?= number_format((int)$m['value']) ?></div>
+              <div class="d <?= $dir ?>"><?= $arrow ?> <?= abs($delta) ?>% vs last 7 days</div>
+            </div>
+          </a>
+        <?php endforeach; ?>
+      </div>
+
+      <div class="ov-mid">
+        <div class="ov-card">
+          <div class="ov-card-hd">
+            <h2>Activity Overview <i class="fa fa-info-circle info" title="Scoped to this audience type"></i></h2>
+            <form method="get" action="dashboard.php">
+              <input type="hidden" name="kind" value="<?= admin_overview_h($dashKind) ?>">
+              <select class="ov-select" name="range" onchange="this.form.submit()" aria-label="Activity range">
+                <option value="7"<?= $rangeDays === 7 ? ' selected' : '' ?>>Last 7 Days</option>
+                <option value="14"<?= $rangeDays === 14 ? ' selected' : '' ?>>Last 14 Days</option>
+                <option value="30"<?= $rangeDays === 30 ? ' selected' : '' ?>>Last 30 Days</option>
+              </select>
+            </form>
           </div>
-          <div class="col-6 col-md-4 col-xl-3">
-            <a class="azia-kpi azia-kpi-link" href="org_rent.php">
-              <span class="azia-kpi-icon rent"><i class="fa fa-home"></i></span>
-              <span class="azia-kpi-label">Shop Rent</span>
-              <h3><?= $isAdmin ? dashboard_h($fmtMoney($shopRentCents)) : '—' ?></h3>
-              <p class="azia-kpi-delta up">Confirmed rent payments <span>view</span></p>
-            </a>
+          <div class="ov-chart-wrap">
+            <canvas id="dashActivityChart" aria-label="Activity overview chart"></canvas>
           </div>
-          <div class="col-6 col-md-4 col-xl-3">
-            <a class="azia-kpi azia-kpi-link" href="customer_memberships.php">
-              <span class="azia-kpi-icon fee"><i class="fa fa-id-card-o"></i></span>
-              <span class="azia-kpi-label">Memberships</span>
-              <h3><?= $isAdmin ? dashboard_h($fmtMoney($membershipCents)) : '—' ?></h3>
-              <p class="azia-kpi-delta up">Customer Plus $10/mo <span>view</span></p>
-            </a>
-          </div>
-          <div class="col-6 col-md-4 col-xl-3 mg-t-15 mg-md-t-0">
-            <a class="azia-kpi azia-kpi-link" href="adminroles.php">
-              <span class="azia-kpi-icon roles"><i class="fa fa-shield"></i></span>
-              <span class="azia-kpi-label">Admin Roles</span>
-              <h3><?= $isAdmin ? number_format($adminCount) : '—' ?></h3>
-              <p class="azia-kpi-delta up">Admin accounts <span>view</span></p>
-            </a>
-          </div>
-          <div class="col-6 col-md-4 col-xl-3 mg-t-15 mg-xl-t-0">
-            <a class="azia-kpi azia-kpi-link" href="userlist.php">
-              <span class="azia-kpi-icon users"><i class="fa fa-users"></i></span>
-              <span class="azia-kpi-label">Users</span>
-              <h3><?= $isAdmin ? number_format($userCount) : '—' ?></h3>
-              <p class="azia-kpi-delta up"><?= $isAdmin ? ((int)$deletedCount . ' deleted') : 'Admin only' ?> <span>view</span></p>
-            </a>
-          </div>
-          <div class="col-6 col-md-4 col-xl-3 mg-t-15">
-            <a class="azia-kpi azia-kpi-link" href="publisher_requests.php">
-              <span class="azia-kpi-icon requests"><i class="fa fa-file-text-o"></i></span>
-              <span class="azia-kpi-label">Publisher Requests</span>
-              <h3><?= $isAdmin ? number_format($publisherRequestCount) : '—' ?></h3>
-              <p class="azia-kpi-delta <?= $publisherRequestCount > 0 ? 'down' : 'up' ?>">Pending approvals <span>view</span></p>
-            </a>
-          </div>
-          <div class="col-6 col-md-4 col-xl-3 mg-t-15">
-            <a class="azia-kpi azia-kpi-link" href="orglist.php">
-              <span class="azia-kpi-icon orgs"><i class="fa fa-building"></i></span>
-              <span class="azia-kpi-label">Organizations</span>
-              <h3><?= $isAdmin ? number_format($orgCount) : '—' ?></h3>
-              <p class="azia-kpi-delta up">Shops &amp; teams <span>view</span></p>
-            </a>
-          </div>
-          <div class="col-6 col-md-4 col-xl-3 mg-t-15">
-            <a class="azia-kpi azia-kpi-link" href="managerlist.php">
-              <span class="azia-kpi-icon managers"><i class="fa fa-user"></i></span>
-              <span class="azia-kpi-label">Managers</span>
-              <h3><?= $isAdmin ? number_format($managerCount) : '—' ?></h3>
-              <p class="azia-kpi-delta up">Org owner accounts <span>view</span></p>
-            </a>
+          <div class="ov-legend">
+            <span><i style="background:#2563eb;"></i> <?= admin_overview_h((string)$kindProfile['chart_user_label']) ?></span>
+            <span><i style="background:#22c55e;"></i> Posts</span>
+            <span><i style="background:#a855f7;"></i> Comments</span>
+            <span><i style="background:#f97316;"></i> Engagements</span>
           </div>
         </div>
 
-        <!-- Charts + map -->
-        <div class="row row-sm mg-t-20">
-          <div class="col-lg-7">
-            <div class="azia-card">
-              <div class="azia-card-head">
-                <h4>This Year's Total Activity</h4>
-                <ul class="azia-legend">
-                  <li><span class="dot online"></span> Users</li>
-                  <li><span class="dot offline"></span> Organizations</li>
-                </ul>
-              </div>
-              <canvas id="revenueBarChart" height="160"></canvas>
-            </div>
+        <div class="ov-card">
+          <div class="ov-card-hd">
+            <h2>Content Status <i class="fa fa-info-circle info" title="Post status mix"></i></h2>
+            <span class="ov-select" style="display:inline-flex;align-items:center;pointer-events:none;">Last 7 Days</span>
           </div>
-          <div class="col-lg-5 mg-t-20 mg-lg-t-0">
-            <div class="azia-card">
-              <div class="azia-card-head">
-                <h4>Activity By Region (USA)</h4>
+          <div class="ov-donut-wrap">
+            <div class="ov-donut" style="background:<?= admin_overview_h($donutBg) ?>;" aria-hidden="true">
+              <div class="center">
+                <div class="n"><?= number_format($contentTotal) ?></div>
+                <div class="l">Total</div>
               </div>
-              <div id="usaMap" class="azia-map"></div>
             </div>
+            <ul class="ov-clegend">
+              <?php foreach ($contentStatus as $cs): ?>
+                <li>
+                  <span class="dot" style="background:<?= admin_overview_h((string)$cs['color']) ?>;"></span>
+                  <span class="lab"><?= admin_overview_h((string)$cs['label']) ?></span>
+                  <span class="pct"><?= number_format((int)$cs['count']) ?> (<?= admin_overview_h((string)$cs['pct']) ?>%)</span>
+                </li>
+              <?php endforeach; ?>
+            </ul>
           </div>
         </div>
 
-        <!-- Table + top countries -->
-        <div class="row row-sm mg-t-20">
-          <div class="col-lg-8">
-            <div class="azia-card">
-              <div class="azia-card-head">
-                <h4>Your Most Recent Activity</h4>
+        <div class="ov-side-stack">
+          <div class="ov-card">
+            <div class="ov-card-hd"><h2>Admin Focus</h2></div>
+            <ul class="ov-focus">
+              <?php foreach ($kindProfile['focus'] as $focusItem): ?>
+                <li><span class="dot" aria-hidden="true"></span><span><?= admin_overview_h((string)$focusItem) ?></span></li>
+              <?php endforeach; ?>
+            </ul>
+            <div class="ov-sys" style="margin-top:6px;padding-top:6px;border-top:1px solid #f1f5f9;">
+              <div class="badge-<?= $healthOk ? 'ok' : 'bad' ?>" style="font-size:10px;">
+                <span class="chk"><i class="fa <?= $healthOk ? 'fa-check' : 'fa-exclamation' ?>"></i></span>
+                <?= $healthOk ? 'Systems OK' : 'Needs attention' ?>
               </div>
-              <div class="table-responsive">
-                <table class="table azia-table mg-b-0">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Activity Count</th>
-                      <th>Engagement</th>
-                      <th>Alerts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <?php foreach ($recentRows as $row): ?>
-                      <tr>
-                        <td><?= dashboard_h($row['date']) ?></td>
-                        <td><?= number_format((int)$row['sales']) ?></td>
-                        <td>$<?= number_format($row['earnings'], 2) ?></td>
-                        <td>$<?= number_format($row['tax'], 2) ?></td>
-                      </tr>
-                    <?php endforeach; ?>
-                  </tbody>
-                </table>
-              </div>
+              <a href="settings.php?section=system">System Health</a>
             </div>
           </div>
-          <div class="col-lg-4 mg-t-20 mg-lg-t-0">
-            <div class="azia-card">
-              <div class="azia-card-head">
-                <h4>Your Top Regions</h4>
-              </div>
-              <ul class="azia-countries">
-                <?php foreach ($topRegions as $region): ?>
-                  <li>
-                    <span class="flag flag-<?= dashboard_h(strtolower($region['code'])) ?>"><?= dashboard_h($region['code']) ?></span>
-                    <span class="name"><?= dashboard_h($region['name']) ?></span>
-                    <strong>$<?= number_format($region['value'], 2) ?></strong>
-                  </li>
-                <?php endforeach; ?>
-              </ul>
+          <div class="ov-card">
+            <div class="ov-card-hd"><h2>Quick Actions</h2></div>
+            <div class="ov-qa">
+              <?php foreach ($quickActions as $qa): ?>
+                <a href="<?= admin_overview_h((string)$qa[1]) ?>">
+                  <span class="ico" aria-hidden="true"><i class="fa <?= admin_overview_h((string)$qa[2]) ?>"></i></span>
+                  <span><?= admin_overview_h((string)$qa[0]) ?></span>
+                  <i class="fa fa-chevron-right ch"></i>
+                </a>
+              <?php endforeach; ?>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="sh-footer">
-        <div>Copyright &copy; <?= date('Y') ?>. All Rights Reserved. Talentra</div>
-        <div class="mg-t-10 mg-md-t-0">Admin Dashboard</div>
+      <div class="ov-low">
+        <div class="ov-card">
+          <div class="ov-card-hd">
+            <h2>Recent Reports</h2>
+            <a class="more" href="reports.php">View All</a>
+          </div>
+          <?php if ($recentReports === []): ?>
+            <div class="ov-empty">No reports yet.</div>
+          <?php else: ?>
+            <ul class="ov-list">
+              <?php foreach (array_slice($recentReports, 0, 5) as $rep): ?>
+                <?php
+                $rid = (int)($rep['id'] ?? 0);
+                $reason = admin_overview_reason_label((string)($rep['reason'] ?? 'other'));
+                $reporter = trim((string)($rep['reporter_username'] ?? ''));
+                if ($reporter === '') {
+                    $reporter = trim((string)($rep['reporter_name'] ?? ''));
+                }
+                if ($reporter === '') {
+                    $reporter = 'user';
+                }
+                $tt = strtolower(trim((string)($rep['target_type'] ?? 'post')));
+                $targetWord = $tt === 'user' ? 'User' : ($tt === 'org' ? 'Org' : 'Post');
+                $badge = admin_overview_report_badge((string)($rep['status'] ?? 'pending'));
+                $ago = admin_overview_relative_time((string)($rep['created_at'] ?? ''));
+                ?>
+                <li>
+                  <span class="ico" aria-hidden="true"><i class="fa fa-flag"></i></span>
+                  <div class="meta">
+                    <div class="t"><?= admin_overview_h($reason) ?></div>
+                    <div class="s"><?= admin_overview_h($targetWord) ?> reported by @<?= admin_overview_h($reporter) ?> · <?= admin_overview_h($ago) ?></div>
+                  </div>
+                  <a class="ov-pill <?= admin_overview_h($badge['cls']) ?>" href="report_detail.php?id=<?= $rid ?>">
+                    <?= admin_overview_h($badge['label']) ?>
+                  </a>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
+        </div>
+
+        <div class="ov-card">
+          <div class="ov-card-hd">
+            <h2>Top Countries <i class="fa fa-info-circle info" title="From publisher registration countries when available"></i></h2>
+            <span class="ov-select" style="display:inline-flex;align-items:center;pointer-events:none;">Last 7 Days</span>
+          </div>
+          <?php if ($topCountries === []): ?>
+            <div class="ov-empty">No country data yet.</div>
+            <a class="more" href="publisher_requests.php">View All Countries</a>
+          <?php else: ?>
+            <ul class="ov-list ov-country">
+              <?php foreach (array_slice($topCountries, 0, 5) as $c): ?>
+                <li>
+                  <span class="ico" style="background:transparent;font-size:14px;" aria-hidden="true"><?= admin_overview_h((string)$c['flag']) ?></span>
+                  <div class="bar-wrap">
+                    <div class="bar-hd">
+                      <span><?= admin_overview_h((string)$c['label']) ?></span>
+                      <span class="pct"><?= admin_overview_h((string)$c['pct']) ?>%</span>
+                    </div>
+                    <div class="bar" aria-hidden="true"><span style="width:<?= min(100, (float)$c['pct']) ?>%;"></span></div>
+                  </div>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+            <a class="more" href="publisher_requests.php">View All Countries</a>
+          <?php endif; ?>
+        </div>
+
+        <div class="ov-card">
+          <div class="ov-card-hd">
+            <h2>Top Active Users <i class="fa fa-info-circle info" title="Most posts in the last 30 days"></i></h2>
+            <span class="ov-select" style="display:inline-flex;align-items:center;pointer-events:none;">Last 7 Days</span>
+          </div>
+          <?php if ($topUsers === []): ?>
+            <div class="ov-empty">No recent <?= admin_overview_h(strtolower((string)$kindProfile['label'])) ?> post activity.</div>
+            <a class="more" href="<?= admin_overview_h((string)$kindProfile['list_href']) ?>">View All</a>
+          <?php else: ?>
+            <ul class="ov-list ov-user">
+              <?php foreach (array_slice($topUsers, 0, 5) as $u): ?>
+                <?php
+                $uname = trim((string)$u['username']);
+                $dname = trim((string)$u['name']);
+                $label = $uname !== '' ? $uname : ($dname !== '' ? $dname : ('User #' . (int)$u['id']));
+                $avKey = $uname !== '' ? $uname : $label;
+                ?>
+                <li>
+                  <span class="av" style="background:<?= admin_overview_h(posts_admin_avatar_color($avKey)) ?>;">
+                    <?= admin_overview_h(posts_admin_initials($dname !== '' ? $dname : $label)) ?>
+                  </span>
+                  <div class="meta">
+                    <a class="t" href="user_form.php?id=<?= (int)$u['id'] ?>" style="text-decoration:none;color:#0f172a;">
+                      @<?= admin_overview_h($label) ?>
+                    </a>
+                  </div>
+                  <span class="score"><?= number_format((int)$u['score']) ?></span>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+            <a class="more" href="<?= admin_overview_h((string)$kindProfile['list_href']) ?>">View All</a>
+          <?php endif; ?>
+        </div>
+
+        <div class="ov-side-stack">
+          <div class="ov-card">
+            <div class="ov-card-hd">
+              <h2>Next Scheduled Tasks</h2>
+              <a class="more" href="settings.php?section=system">View All</a>
+            </div>
+            <ul class="ov-list ov-task">
+              <?php foreach ($tasks as $t): ?>
+                <li>
+                  <span class="ico" style="background:#eff6ff;color:#2563eb;" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
+                  <div class="meta">
+                    <div class="t"><?= admin_overview_h((string)$t['label']) ?></div>
+                    <div class="when"><?= admin_overview_h((string)$t['when']) ?></div>
+                  </div>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+          <div class="ov-card ov-help">
+            <div class="help-ico" aria-hidden="true"><i class="fa fa-question"></i></div>
+            <h2>Need Help?</h2>
+            <p>Check our documentation or contact support.</p>
+            <a href="feedback.php?view=internal&amp;filter=unread"><i class="fa fa-external-link"></i> Visit Help Center</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="ov-foot">
+        <span>Last updated: <?= admin_overview_h($lastUpdated) ?></span>
+        <a href="<?= admin_overview_h($dashUrl()) ?>" title="Refresh"><i class="fa fa-refresh"></i></a>
       </div>
     </div>
+  </div>
+</div>
 
-    <script src="../lib/jquery/jquery.js"></script>
-    <script src="../lib/popper.js/popper.js"></script>
-    <script src="../lib/bootstrap/bootstrap.js"></script>
-    <script src="../lib/jquery-ui/jquery-ui.js"></script>
-    <script src="../lib/perfect-scrollbar/js/perfect-scrollbar.jquery.js"></script>
-    <script src="../lib/chart.js/Chart.js"></script>
-    <script src="../lib/jqvmap/jquery.vmap.js"></script>
-    <script src="../lib/jqvmap/maps/jquery.vmap.usa.js"></script>
-    <script src="../js/shamcey.js"></script>
-    <script>
-    (function ($) {
-      'use strict';
-
-      var barEl = document.getElementById('revenueBarChart');
-      if (barEl && window.Chart) {
-        new Chart(barEl.getContext('2d'), {
-          type: 'bar',
-          data: {
-            labels: <?= json_encode($barLabels) ?>,
-            datasets: [
-              {
-                label: 'Users',
-                data: <?= json_encode($barOnline) ?>,
-                backgroundColor: '#5b47fb',
-                barPercentage: 0.5,
-                categoryPercentage: 0.55
-              },
-              {
-                label: 'Organizations',
-                data: <?= json_encode($barOffline) ?>,
-                backgroundColor: '#00cccc',
-                barPercentage: 0.5,
-                categoryPercentage: 0.55
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            legend: { display: false },
-            tooltips: { mode: 'index', intersect: false },
-            scales: {
-              xAxes: [{
-                gridLines: { display: false },
-                ticks: { fontColor: '#8392a5', fontSize: 11 }
-              }],
-              yAxes: [{
-                gridLines: { color: 'rgba(0,0,0,0.05)', zeroLineColor: 'rgba(0,0,0,0.05)' },
-                ticks: { beginAtZero: true, fontColor: '#8392a5', fontSize: 11 }
-              }]
-            }
-          }
-        });
+<script src="../lib/chart.js/Chart.js"></script>
+<script>
+(function () {
+  var el = document.getElementById('dashActivityChart');
+  if (!el || !window.Chart) return;
+  var labels = <?= json_encode($series['labels'], JSON_UNESCAPED_UNICODE) ?>;
+  var mk = function (label, data, color) {
+    return {
+      label: label,
+      data: data,
+      borderColor: color,
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 2,
+      pointBackgroundColor: color,
+      fill: false,
+      lineTension: 0.35
+    };
+  };
+  new Chart(el.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        mk(<?= json_encode((string)$kindProfile['chart_user_label'], JSON_UNESCAPED_UNICODE) ?>, <?= json_encode($series['users'], JSON_UNESCAPED_UNICODE) ?>, '#2563eb'),
+        mk('Posts', <?= json_encode($series['posts'], JSON_UNESCAPED_UNICODE) ?>, '#22c55e'),
+        mk('Comments', <?= json_encode($series['comments'], JSON_UNESCAPED_UNICODE) ?>, '#a855f7'),
+        mk('Engagements', <?= json_encode($series['engagements'], JSON_UNESCAPED_UNICODE) ?>, '#f97316')
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      legend: { display: false },
+      tooltips: { mode: 'index', intersect: false },
+      scales: {
+        xAxes: [{
+          gridLines: { display: false },
+          ticks: { fontColor: '#94a3b8', fontSize: 9 }
+        }],
+        yAxes: [{
+          gridLines: { color: 'rgba(15,23,42,.06)', zeroLineColor: 'rgba(15,23,42,.06)' },
+          ticks: { beginAtZero: true, fontColor: '#94a3b8', fontSize: 9, precision: 0 }
+        }]
       }
+    }
+  });
+})();
+</script>
 
-      if ($.fn.vectorMap) {
-        $('#usaMap').vectorMap({
-          map: 'usa_en',
-          backgroundColor: 'transparent',
-          borderColor: '#fff',
-          borderOpacity: 0.9,
-          borderWidth: 1,
-          color: '#d4e4ff',
-          enableZoom: false,
-          hoverColor: '#5b47fb',
-          hoverOpacity: null,
-          normalizeFunction: 'linear',
-          selectedColor: '#00cccc',
-          showTooltip: true,
-          values: {
-            ca: 480, tx: 420, fl: 360, ny: 510, il: 290, pa: 250,
-            oh: 220, ga: 310, nc: 280, mi: 240, nj: 300, va: 260,
-            wa: 270, az: 230, ma: 290, tn: 200, in: 180, mo: 170,
-            md: 210, wi: 160, co: 250, mn: 190, sc: 175, al: 165
-          },
-          scaleColors: ['#c5d9ff', '#3366ff'],
-          onLabelShow: function (event, label, code) {
-            label.html(code.toUpperCase());
-          }
-        });
-      }
-    })(jQuery);
-    </script>
-  </body>
-</html>
+<?php org_admin_render_foot(); ?>

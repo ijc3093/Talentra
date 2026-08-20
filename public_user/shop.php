@@ -6,6 +6,7 @@ requireUserLogin();
 
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/org_shop.php';
+require_once __DIR__ . '/includes/org_cart.php';
 require_once __DIR__ . '/includes/stripe_shop.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
@@ -71,9 +72,16 @@ if ($shopHasFilters) {
         if ($shopFilterBrand !== '' && strcasecmp($brand, $shopFilterBrand) !== 0) {
             return false;
         }
-        // Brand group pages (cbrand=…) show the full brand catalog — don't hide items by radius.
-        // Location radius still applies on the general marketplace browse.
-        if ($shopLocationActive && $shopFilterCommerceBrand === '' && !shop_location_product_in_range($p, $shopBuyerLocation)) {
+        // Delivery listings are available beyond the buyer's local radius. Only
+        // pickup-only products must be close to the selected shop location.
+        // Brand group pages (cbrand=…) continue to show the full brand catalog.
+        $pickupOnly = !empty($p['pickup_enabled']) && empty($p['delivery_enabled']);
+        if (
+            $pickupOnly
+            && $shopLocationActive
+            && $shopFilterCommerceBrand === ''
+            && !shop_location_product_in_range($p, $shopBuyerLocation)
+        ) {
             return false;
         }
         if ($shopFilterType !== '') {
@@ -112,6 +120,20 @@ if ($shopHasFilters) {
     }));
 }
 $shopStripeEnabled = stripe_shop_is_configured();
+$shopCartItems = org_cart_list_items($dbh, $meId);
+$shopCartSubtotal = org_cart_subtotal_cents($shopCartItems);
+$shopCartCount = org_cart_count($dbh, $meId);
+$shopHeroProduct = $products[0] ?? ($shopAllProducts[0] ?? null);
+$shopProductsPerPage = 8;
+$shopProductTotal = count($products);
+$shopProductPageCount = max(1, (int)ceil($shopProductTotal / $shopProductsPerPage));
+$shopProductPage = max(1, (int)($_GET['page'] ?? 1));
+$shopProductPage = min($shopProductPage, $shopProductPageCount);
+$shopPagedProducts = array_slice(
+    $products,
+    ($shopProductPage - 1) * $shopProductsPerPage,
+    $shopProductsPerPage
+);
 if (!function_exists('h')) {
     function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 }
@@ -145,6 +167,7 @@ if (!function_exists('shop_price_parts')) {
   <link rel="stylesheet" href="assets/ui_best.css">
   <link rel="stylesheet" href="assets/layout-fixed.css">
   <link rel="stylesheet" href="./css/shop-page.css?v=10">
+    <link rel="stylesheet" href="./css/shop-storefront.css?v=39">
   <style><?php include __DIR__ . '/includes/feed_rails.css.php'; ?></style>
   <style><?php include __DIR__ . '/includes/feed_header_chrome.css.php'; ?></style>
   <script defer src="assets/layout-fixed.js"></script>
@@ -159,6 +182,49 @@ if (!function_exists('shop_price_parts')) {
       width:100%;
       max-width:100%;
       margin:16px 0 0;
+    }
+    .shop-product-pagination{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      position:static;
+      bottom:auto;
+      z-index:1;
+      flex:0 0 auto;
+      width:fit-content;
+      max-width:calc(100% - 16px);
+      margin:auto auto 0;
+      /* padding:7px 9px; */
+      border:1px solid var(--shop-border, var(--msb-palette-border, #d1d5db));
+      border-radius:10px;
+      background:var(--shop-card-bg, var(--msb-palette-bg, #fff));
+      box-shadow:0 4px 12px rgba(15,23,42,.10);
+    }
+    .shop-product-page-button{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:82px;
+      height:34px;
+      padding:0 13px;
+      border:1px solid var(--shop-border, var(--msb-palette-border, #d1d5db));
+      border-radius:8px;
+      background:var(--shop-card-bg, var(--msb-palette-bg, #fff));
+      color:var(--shop-text, var(--msb-palette-text, #111827));
+      font-size:12px;
+      font-weight:700;
+      text-decoration:none;
+      box-sizing:border-box;
+    }
+    .shop-product-page-button:hover{border-color:#2563eb;color:#2563eb;text-decoration:none;}
+    .shop-product-page-button.is-disabled{opacity:.42;pointer-events:none;}
+    .shop-product-page-status{
+      min-width:74px;
+      text-align:center;
+      color:var(--shop-text-muted, var(--msb-palette-text-muted, #64748b));
+      font-size:12px;
+      font-weight:700;
     }
     .shop-market-card{
       background:var(--shop-card-bg, var(--msb-palette-bg, #fff));
@@ -483,6 +549,46 @@ if (!function_exists('shop_price_parts')) {
     <?php endif; ?>
 
     <div class="shop-page-scroll">
+    <div class="shop-storefront-layout">
+      <main class="shop-storefront-main">
+        <section class="shop-promo-hero" aria-label="Featured shopping promotion">
+          <div class="shop-promo-copy">
+            <span class="shop-promo-kicker">DISCOVER SOMETHING NEW</span>
+            <h2>Great products.<br>Great stories.</h2>
+            <p>Shop trusted brands and independent sellers in one place.</p>
+            <a class="shop-promo-cta" href="<?= $shopHeroProduct ? h(shop_product_detail_url((int)$shopHeroProduct['id'])) : '#featuredProducts' ?>">Shop now</a>
+          </div>
+          <div class="shop-promo-art" aria-hidden="true">
+            <?php if ($shopHeroProduct && org_shop_cover_url((string)($shopHeroProduct['cover_image_path'] ?? '')) !== ''): ?>
+              <span class="shop-promo-orb"></span>
+              <img src="<?= h(org_shop_cover_url((string)$shopHeroProduct['cover_image_path'])) ?>" alt="">
+            <?php else: ?>
+              <span class="shop-promo-placeholder"><i class="icon ion-bag"></i></span>
+            <?php endif; ?>
+          </div>
+          <span class="shop-promo-dot is-active"></span><span class="shop-promo-dot"></span><span class="shop-promo-dot"></span>
+        </section>
+
+        <div class="shop-category-carousel">
+        <nav class="shop-category-strip" id="shopCategoryStrip" aria-label="Shop categories">
+          <?php
+            $shopCategoryIcons = ['ion-ios-monitor-outline','ion-tshirt-outline','ion-ios-home-outline','ion-ios-flower-outline','ion-ios-basketball-outline','ion-ios-game-controller-b-outline','ion-ios-book-outline'];
+            $shopCategoryItems = array_slice(array_values($shopFilterTypes ?? []), 0, 7);
+          ?>
+          <?php foreach ($shopCategoryItems as $shopCategoryIndex => $shopCategoryName): ?>
+            <a class="shop-category-tile" href="<?= h(shop_filter_build_url(['type' => $shopCategoryName])) ?>">
+              <span><i class="icon <?= h($shopCategoryIcons[$shopCategoryIndex] ?? 'ion-grid') ?>"></i></span>
+              <strong><?= h($shopCategoryName) ?></strong>
+            </a>
+          <?php endforeach; ?>
+          <a class="shop-category-tile" href="<?= h(shop_filter_build_url([], ['type'])) ?>">
+            <span><i class="icon ion-grid"></i></span><strong>View all</strong>
+          </a>
+        </nav>
+        </div>
+
+        <section class="shop-featured-section" id="featuredProducts">
+          <header class="shop-section-head"><h2>Featured Products</h2><a href="<?= h(shop_filter_build_url([], ['q','type','price','rating','brand','cbrand','pickup'])) ?>">View all</a></header>
     <?php if (!$products): ?>
       <div class="shop-market-empty">
         <i class="icon ion-bag" style="font-size:42px;display:block;margin-bottom:10px;"></i>
@@ -500,13 +606,13 @@ if (!function_exists('shop_price_parts')) {
       </div>
     <?php else: ?>
       <div class="shop-market-grid" id="shopMarketGrid">
-        <?php foreach ($products as $p): ?>
+        <?php foreach ($shopPagedProducts as $p): ?>
           <?php
             $cover = org_shop_cover_url((string)($p['cover_image_path'] ?? ''));
             $price = org_shop_format_price((int)($p['price_cents'] ?? 0), (string)($p['currency'] ?? 'USD'));
             $priceParts = shop_price_parts($price);
             $publisherId = (int)($p['publisher_user_id'] ?? 0);
-            $sellerLabel = trim((string)($p['publisher_name'] ?? '')) ?: trim((string)($p['publisher_username'] ?? '')) ?: trim((string)($p['seller_name'] ?? 'Shop'));
+            $sellerLabel = trim((string)($p['commerce_brand_name'] ?? '')) ?: trim((string)($p['publisher_name'] ?? '')) ?: trim((string)($p['publisher_username'] ?? '')) ?: trim((string)($p['seller_name'] ?? 'Shop'));
             $stock = $p['stock_qty'];
             $outOfStock = ($stock !== null && $stock !== '' && (int)$stock <= 0);
             $productId = (int)$p['id'];
@@ -622,7 +728,70 @@ if (!function_exists('shop_price_parts')) {
           </article>
         <?php endforeach; ?>
       </div>
+      <nav class="shop-product-pagination" aria-label="Featured product pages">
+        <?php if ($shopProductPage > 1): ?>
+          <a class="shop-product-page-button" href="<?= h(shop_filter_build_url(['page' => $shopProductPage - 1]) . '#featuredProducts') ?>" rel="prev">Previous</a>
+        <?php else: ?>
+          <span class="shop-product-page-button is-disabled" aria-disabled="true">Previous</span>
+        <?php endif; ?>
+        <span class="shop-product-page-status">Page <?= (int)$shopProductPage ?> of <?= (int)$shopProductPageCount ?></span>
+        <?php if ($shopProductPage < $shopProductPageCount): ?>
+          <a class="shop-product-page-button" href="<?= h(shop_filter_build_url(['page' => $shopProductPage + 1]) . '#featuredProducts') ?>" rel="next">Next</a>
+        <?php else: ?>
+          <span class="shop-product-page-button is-disabled" aria-disabled="true">Next</span>
+        <?php endif; ?>
+      </nav>
     <?php endif; ?>
+        </section>
+
+      </main>
+
+      <aside class="shop-storefront-aside" aria-label="Shopping summary">
+        <section class="shop-side-card shop-cart-preview">
+          <header><h2>Your Cart (<?= (int)$shopCartCount ?>)</h2><a href="cart.php">View Cart</a></header>
+          <?php if ($shopCartItems): ?>
+            <div class="shop-cart-preview-list">
+              <?php foreach (array_slice($shopCartItems, 0, 2) as $shopCartItem): ?>
+                <?php $shopCartCover = org_shop_cover_url((string)($shopCartItem['cover_image_path'] ?? '')); ?>
+                <a class="shop-cart-preview-item" href="<?= h(shop_product_detail_url((int)$shopCartItem['product_id'])) ?>">
+                  <span class="shop-cart-preview-thumb"><?php if ($shopCartCover !== ''): ?><img src="<?= h($shopCartCover) ?>" alt=""><?php else: ?><i class="icon ion-bag"></i><?php endif; ?></span>
+                  <span><strong><?= h((string)($shopCartItem['title'] ?? 'Product')) ?></strong><small>Qty <?= (int)($shopCartItem['quantity'] ?? 1) ?></small><b><?= h(org_shop_format_price((int)($shopCartItem['price_cents'] ?? 0), (string)($shopCartItem['currency'] ?? 'USD'))) ?></b></span>
+                </a>
+              <?php endforeach; ?>
+            </div>
+            <div class="shop-cart-preview-total"><span>Subtotal</span><strong><?= h(org_shop_format_price($shopCartSubtotal, 'USD')) ?></strong></div>
+            <a class="shop-cart-checkout" href="cart.php">Checkout</a>
+          <?php else: ?>
+            <div class="shop-cart-preview-empty"><i class="icon ion-ios-cart-outline"></i><p>Your cart is ready for something great.</p><a href="#featuredProducts">Start shopping</a></div>
+          <?php endif; ?>
+        </section>
+
+        <?php if ($shopHeroProduct): ?>
+          <?php $shopDealCover = org_shop_cover_url((string)($shopHeroProduct['cover_image_path'] ?? '')); ?>
+          <section class="shop-side-card shop-deal-card">
+            <header><h2>Today's Pick</h2><span>Limited offer</span></header>
+            <a href="<?= h(shop_product_detail_url((int)$shopHeroProduct['id'])) ?>">
+              <span class="shop-deal-thumb"><?php if ($shopDealCover !== ''): ?><img src="<?= h($shopDealCover) ?>" alt=""><?php else: ?><i class="icon ion-bag"></i><?php endif; ?></span>
+              <span><strong><?= h((string)$shopHeroProduct['title']) ?></strong><small>Featured from our marketplace</small><b><?= h(org_shop_format_price((int)($shopHeroProduct['price_cents'] ?? 0), (string)($shopHeroProduct['currency'] ?? 'USD'))) ?></b></span>
+            </a>
+          </section>
+        <?php endif; ?>
+
+        <section class="shop-side-card shop-confidence-card">
+          <h2>Shop with Confidence</h2>
+          <div><i class="icon ion-ios-locked-outline"></i><span><strong>Trusted Sellers</strong><small>Verified marketplace brands</small></span></div>
+          <div><i class="icon ion-shield"></i><span><strong>Secure &amp; Safe</strong><small>Your checkout is protected</small></span></div>
+          <div><i class="icon ion-ios-heart-outline"></i><span><strong>Buyer Protection</strong><small>Help with order issues</small></span></div>
+        </section>
+      </aside>
+
+      <section class="shop-service-strip" aria-label="Shopping benefits">
+        <div><i class="icon ion-android-car"></i><span><strong>Free Shipping</strong><small>On eligible orders</small></span></div>
+        <div><i class="icon ion-android-refresh"></i><span><strong>Easy Returns</strong><small>Simple return process</small></span></div>
+        <div><i class="icon ion-card"></i><span><strong>Secure Payments</strong><small>Protected checkout</small></span></div>
+        <div><i class="icon ion-help-buoy"></i><span><strong>Support</strong><small>We're here to help</small></span></div>
+      </section>
+    </div>
     </div>
     </div>
   </div>
@@ -644,7 +813,16 @@ if (!function_exists('shop_price_parts')) {
         body.set('quantity', '1');
         const res = await fetch('ajax/cart_action.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString(), credentials:'same-origin' });
         const data = await res.json();
-        const badge = document.getElementById('feedTopCartBadge');
+        let badge = document.getElementById('feedTopCartBadge');
+        if (!badge && data.count > 0) {
+          const cartLink = document.querySelector('.ig-top-cart');
+          if (cartLink) {
+            badge = document.createElement('span');
+            badge.className = 'ig-top-cart-badge';
+            badge.id = 'feedTopCartBadge';
+            cartLink.appendChild(badge);
+          }
+        }
         if (badge && data.count > 0) badge.textContent = String(data.count);
         window.alert(data.message || (data.ok ? 'Added to cart.' : 'Failed.'));
       } catch (e) {

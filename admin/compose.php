@@ -510,7 +510,7 @@ if (isset($_POST['send'])) {
 
           <div class="compose-actions">
             <button class="btn btn-primary" name="send" type="submit"><i class="fa fa-send"></i> Send</button>
-            <a class="btn btn-default" href="feedback.php?view=internal"><i class="fa fa-inbox"></i> Inbox</a>
+            <a class="btn btn-default" href="feedback.php?view=internal"><i class="fa fa-question-circle"></i> Help</a>
           </div>
 
         </form>

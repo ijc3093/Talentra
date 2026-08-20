@@ -13,6 +13,7 @@ require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/post_upload.php';
 require_once __DIR__ . '/includes/post_tags.php';
+require_once __DIR__ . '/includes/msb_feed_engagement.php';
 
 requireUserLogin();
 sendNoCacheHeadersUser();
@@ -20,6 +21,7 @@ sendNoCacheHeadersUser();
 $controller = new Controller();
 $dbh = $controller->pdo();
 device_profile_ensure_post_columns($dbh);
+msb_feed_engagement_ensure_schema($dbh);
 feedEnsurePostReactionsSchema($dbh);
 
 // DEBUG mode (only when you add ?debug=1)
@@ -420,7 +422,12 @@ try {
     $pageMode = strtolower(trim((string)($_GET['page'] ?? 'feed'))); // feed|public|news
     $excludeStories = (int)($_GET['exclude_stories'] ?? 0) === 1;
 
-    $order    = (string)($_GET['order'] ?? 'recent'); // recent|views
+    $order    = (string)($_GET['order'] ?? 'recent'); // recent|views|attention|created
+
+    // For You / feed default: attention when available (scope unchanged).
+    if ($order === 'recent' && $pageMode === 'feed' && msb_posts_has_attention_cols($dbh)) {
+      $order = 'attention';
+    }
 
     $where  = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0";
     $params = [];
@@ -482,6 +489,8 @@ try {
     } elseif ($order === 'views') {
       // top viewed
       $orderBy = "COALESCE(p.views_count,0) DESC, COALESCE(p.updated_at, p.created_at) DESC, p.id DESC";
+    } elseif ($order === 'attention' && msb_posts_has_attention_cols($dbh)) {
+      $orderBy = msb_attention_score_sql('p') . " DESC, COALESCE(p.updated_at, p.created_at) DESC, p.id DESC";
     }
 
     $mediaFilter = strtolower(trim((string)($_GET['media'] ?? ''))); // ''|video|image
@@ -520,6 +529,9 @@ try {
         COALESCE(p.device_viewport,'') AS device_viewport,
         COALESCE(p.music_title,'') AS music_title,
         COALESCE(p.music_artist,'') AS music_artist,
+        COALESCE(p.sound_id,0) AS sound_id,
+        COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
+        COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
         COALESCE(p.is_archived,0) AS is_archived,
         LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) AS visibility,
         LENGTH(TRIM(COALESCE(p.body,''))) AS body_len,
@@ -682,6 +694,25 @@ try {
       unset($rTag);
     }
 
+    if (function_exists('msb_post_products_for_posts')) {
+      $prodMap = msb_post_products_for_posts($dbh, array_map(static function ($row) {
+        return (int)($row['id'] ?? 0);
+      }, $rows));
+      foreach ($rows as &$rProd) {
+        $pidP = (int)($rProd['id'] ?? 0);
+        $rProd['products'] = ($pidP > 0 && isset($prodMap[$pidP])) ? $prodMap[$pidP] : [];
+        $rProd['sound_id'] = (int)($rProd['sound_id'] ?? 0);
+        $rProd['stitch_of_post_id'] = (int)($rProd['stitch_of_post_id'] ?? 0);
+        $rProd['duet_of_post_id'] = (int)($rProd['duet_of_post_id'] ?? 0);
+      }
+      unset($rProd);
+    } else {
+      foreach ($rows as &$rProd) {
+        $rProd['products'] = [];
+      }
+      unset($rProd);
+    }
+
     // ✅ unread_count for badge (overall)
     $unreadWhere = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND (r.last_seen_at IS NULL OR COALESCE(p.updated_at, p.created_at) > r.last_seen_at)";
     $unreadParams = [':meRead' => $meId];
@@ -709,6 +740,37 @@ try {
       'me_id' => $meId,
       'items' => $rows,
       'unread_count' => $unreadCount
+    ]);
+  }
+
+  // ---------------------------
+  // WATCH (attention signal)
+  // ---------------------------
+  if ($ajax === 'watch') {
+    $postId = (int)($_POST['post_id'] ?? $_GET['post_id'] ?? $_POST['id'] ?? $_GET['id'] ?? 0);
+    $watchMs = (int)($_POST['watch_ms'] ?? $_GET['watch_ms'] ?? 0);
+    $durationMs = (int)($_POST['duration_ms'] ?? $_GET['duration_ms'] ?? 0);
+    $source = strtolower(trim((string)($_POST['source'] ?? $_GET['source'] ?? 'feed')));
+    $completed = ((string)($_POST['completed'] ?? $_GET['completed'] ?? '') === '1');
+    $skipped = ((string)($_POST['skipped'] ?? $_GET['skipped'] ?? '') === '1');
+    $res = msb_record_watch_event($dbh, $postId, $meId, $watchMs, $durationMs, $source, $completed, $skipped);
+    jexit([
+      'ok' => !empty($res['ok']),
+      'error' => (string)($res['error'] ?? ''),
+      'me_id' => $meId,
+      'post_id' => $postId,
+    ]);
+  }
+
+  // ---------------------------
+  // SOUNDS SEARCH
+  // ---------------------------
+  if ($ajax === 'sounds_search') {
+    $qSound = trim((string)($_GET['q'] ?? $_POST['q'] ?? ''));
+    $limit = clamp_int($_GET['limit'] ?? $_POST['limit'] ?? 24, 1, 50, 24);
+    jexit([
+      'ok' => true,
+      'items' => msb_search_sounds($dbh, $qSound, $limit),
     ]);
   }
 

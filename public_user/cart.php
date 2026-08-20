@@ -426,7 +426,17 @@ if (!function_exists('h')) {
         if (dopt && dopt.value) body.set('delivery_option', dopt.value);
         const res = await fetch('ajax/cart_checkout.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString(), credentials:'same-origin' });
         const data = await res.json();
-        if (data.ok && data.checkout_url) { window.location.href = data.checkout_url; return; }
+        if (data.ok && data.checkout_url) {
+          var urls = Array.isArray(data.checkout_urls) ? data.checkout_urls.filter(Boolean) : [];
+          if (!urls.length && data.checkout_url) urls = [data.checkout_url];
+          if (urls.length > 1) {
+            try { sessionStorage.setItem('msb_cart_checkout_queue', JSON.stringify(urls.slice(1))); } catch (e) {}
+          } else {
+            try { sessionStorage.removeItem('msb_cart_checkout_queue'); } catch (e) {}
+          }
+          window.location.href = urls[0] || data.checkout_url;
+          return;
+        }
         if (data.ok) { window.location.href = 'my_orders.php'; return; }
         window.alert(data.message || 'Checkout failed.');
       } catch (e) {

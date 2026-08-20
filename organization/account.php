@@ -79,11 +79,14 @@ $balanceLabel = org_payroll_format_cents($balanceCents);
 $addr = org_member_address_get($dbh, $orgId, $memberId) ?: [];
 $addrText = $addr ? org_member_address_format($addr) : '';
 
-$pageTitle = 'Account';
-require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=17">');
+$accountEmbedded = !empty($accountEmbedded);
+if (!$accountEmbedded) {
+    $pageTitle = 'Account';
+    require_once __DIR__ . '/includes/org_page_shell.php';
+    org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=17">');
+    org_page_body_open('commerce-page');
+}
 ?>
-<?php org_page_body_open('commerce-page'); ?>
 <style>
   .acct-wrap{max-width:860px;}
   .acct-kicker{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.7;}
@@ -209,4 +212,4 @@ org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.c
   </div>
 </div>
 
-<?php org_page_shell_close(); ?>
+<?php if (!$accountEmbedded) { org_page_shell_close(); } ?>

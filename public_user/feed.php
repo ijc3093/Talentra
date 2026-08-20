@@ -9128,10 +9128,29 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var title = String((it && it.music_title) || '').trim();
           var artist = String((it && it.music_artist) || '').trim();
           if(!title && !artist) return '';
-          var html = '<div class="mf-music-row" aria-label="Music"><i class="fa fa-music mf-music-ic" aria-hidden="true"></i>';
+          var soundId = Number((it && it.sound_id) || 0);
+          var attrs = ' class="mf-music-row" aria-label="Music"';
+          if (soundId > 0) {
+            attrs += ' role="button" tabindex="0" data-sound-id="'+soundId+'" data-sound-title="'+esc(title)+'" data-sound-artist="'+esc(artist)+'" title="Use this sound"';
+          }
+          var html = '<div'+attrs+'><i class="fa fa-music mf-music-ic" aria-hidden="true"></i>';
           if(title) html += '<span class="mf-music-title">'+esc(title)+'</span>';
           if(title && artist) html += '<span class="mf-music-dot">&middot;</span>';
           if(artist) html += '<span class="mf-music-artist">'+esc(artist)+'</span>';
+          html += '</div>';
+          return html;
+        }
+
+        function mfProductsRowHtml(it){
+          var products = Array.isArray(it && it.products) ? it.products : [];
+          if (!products.length) return '';
+          var html = '<div class="mf-products-row" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px;">';
+          products.slice(0, 4).forEach(function(p){
+            var pid = Number(p.product_id || 0);
+            if (!pid) return;
+            var label = String(p.title || ('Product #'+pid)).trim();
+            html += '<button type="button" class="mf-product-buy-chip js-open-shop-buy-door" data-shop-buy="'+pid+'" data-product-id="'+pid+'" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:0;border-radius:999px;background:rgba(15,23,42,.08);color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;"><i class="fa fa-shopping-bag" aria-hidden="true"></i>'+esc(label)+'</button>';
+          });
           html += '</div>';
           return html;
         }
@@ -9401,6 +9420,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           if(hasBody){
             bodyHtml = mfBuildBodyHtml('mf-body', body, 3);
+          }
+          var productsHtml = mfProductsRowHtml(it);
+          if(productsHtml){
+            bodyHtml = (bodyHtml || '') + productsHtml;
           }
           if(hasSlideCap){
             slideHtml =
@@ -13742,7 +13765,16 @@ function feedGoToPost(){
   }
 
   function pauseIfNeeded(v){
-    try{ if(v && !v.paused) v.pause(); }catch(e){}
+    try{
+      if(v && !v.paused){
+        if (window.MSBWatchBeacon) {
+          var card = v.closest('[data-post-id], .mf-card, .ig-post-card');
+          var pid = Number((card && (card.getAttribute('data-post-id') || card.getAttribute('data-id'))) || v.getAttribute('data-post-id') || 0);
+          if (pid) window.MSBWatchBeacon.fromVideo(v, pid, v.classList.contains('js-mf-reel-video') ? 'reel' : 'feed');
+        }
+        v.pause();
+      }
+    }catch(e){}
   }
 
   document.addEventListener('play', function(e){
@@ -17872,5 +17904,6 @@ body.feed-insta-ui .mf-feed .mf-card.is-single-image-post{
 })();
 </script>
 
+<?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
 </body>
 </html>

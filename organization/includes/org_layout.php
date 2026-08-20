@@ -92,14 +92,14 @@ if (!function_exists('org_layout_footer_assets')) {
             || $currentPage === 'sales_management.php'
             || strpos($currentPage, 'sales_') === 0
             || in_array($currentPage, [
-                'orders.php', 'products.php', 'shop_settings.php', 'seller_journey.php', 'shop_rent.php',
+                'orders.php', 'products.php', 'product_catalog.php', 'product_table.php', 'inventory_detail.php', 'overview.php', 'transactions.php', 'shop_settings.php', 'seller_journey.php', 'shop_rent.php',
                 'quotations.php', 'invoices.php', 'payments.php', 'delivery.php',
                 'returns_refunds.php', 'discounts_promotions.php', 'commerce_brand_select.php',
                 'recent_orders.php', 'commerce_analytics.php',
             ], true)) {
-            echo '<link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css">' . "\n";
+            echo '<link rel="stylesheet" href="css/org-commerce-theme.css?v=7" id="org-commerce-theme-css">' . "\n";
         }
-        echo '<script src="js/org-nav.js?v=21" defer></script>' . "\n";
+        echo '<script src="js/org-nav.js?v=26" defer></script>' . "\n";
     }
 }
 
@@ -154,7 +154,10 @@ if (!function_exists('org_layout_nav_attrs')) {
             'sales_management.php',
             'commerce_brand_select.php',
             'products.php',
+            'product_catalog.php',
             'product_table.php',
+            'inventory_detail.php',
+            'overview.php',
             'orders.php',
             'order_details.php',
             'order_invoice.php',

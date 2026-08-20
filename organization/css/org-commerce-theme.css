@@ -85,3 +85,322 @@ html.dark-auto body.org-app .commerce-int-icon {
   background-color: #252f3d !important;
   color: #e8edf5 !important;
 }
+
+/* Sales Management custom screens must follow Profile > Appearance too. */
+html.dark-auto body.org-app.org-page-sales_management .store-dash,
+html.dark-auto body.org-app.org-page-sales_management .ss,
+html.dark-auto body.org-app.org-page-sales_management .pb,
+html.dark-auto body.org-app.org-page-sales_management .sp,
+html.dark-auto body.org-app.org-page-sales_management .txs,
+html.dark-auto body.org-app.org-page-sales_management .sn,
+html.dark-auto body.org-app.org-page-sales_management .stp,
+html.dark-auto body.org-app.org-page-sales_management .pol,
+html.dark-auto body.org-app.org-page-sales_management .dz {
+  --sd-card: #171d24;
+  --sd-text: #e8edf5;
+  --sd-muted: #b1bcce;
+  --sd-border: #334155;
+  --t: #e8edf5;
+  --m: #b1bcce;
+  --b: #334155;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management .store-dash .sd-kpi,
+html.dark-auto body.org-app.org-page-sales_management .store-dash .sd-card,
+html.dark-auto body.org-app.org-page-sales_management .store-dash .sd-perf-item,
+html.dark-auto body.org-app.org-page-sales_management .store-dash .sd-announce,
+html.dark-auto body.org-app.org-page-sales_management .store-dash .sd-preview-btn,
+html.dark-auto body.org-app.org-page-sales_management :is(.ss-nav,.ss-card,.pb-nav,.pb-card,.sp-nav,.sp-card,.txs-nav,.txs-card,.sn-nav,.sn-card,.stp-nav,.stp-card,.pol-nav,.pol-card,.dz-nav,.dz-card),
+html.dark-auto body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) input:not([type=checkbox]):not([type=radio]),
+html.dark-auto body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) select,
+html.dark-auto body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) textarea,
+html.dark-auto body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) button:not(.ss-save):not(.pb-save):not(.sp-save):not(.txs-save):not(.sn-save):not(.stp-save):not(.pol-save):not(.dz-save) {
+  background-color: #171d24 !important;
+  background-image: none !important;
+  border-color: #334155 !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management .store-dash :is(.sd-lab,.sd-sub,.sd-empty,.sd-order-date,.sd-product-sold,.sd-announce-body span),
+html.dark-auto body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) :is(p,small,label,th,td) {
+  color: #b1bcce !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management .store-dash :is(.sd-val,h3,strong),
+html.dark-auto body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) :is(h1,h2,h3,strong) {
+  color: #e8edf5 !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash,
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) {
+  --sd-card: var(--msb-palette-bg);
+  --sd-text: var(--msb-palette-text);
+  --sd-muted: var(--msb-palette-text-muted);
+  --sd-border: var(--msb-palette-border);
+  --t: var(--msb-palette-text);
+  --m: var(--msb-palette-text-muted);
+  --b: var(--msb-palette-border);
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash .sd-kpi,
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash .sd-card,
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash .sd-perf-item,
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash .sd-announce,
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash .sd-preview-btn,
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss-nav,.ss-card,.pb-nav,.pb-card,.sp-nav,.sp-card,.txs-nav,.txs-card,.sn-nav,.sn-card,.stp-nav,.stp-card,.pol-nav,.pol-card,.dz-nav,.dz-card),
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) input:not([type=checkbox]):not([type=radio]),
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) select,
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) textarea,
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) button:not(.ss-save):not(.pb-save):not(.sp-save):not(.txs-save):not(.sn-save):not(.stp-save):not(.pol-save):not(.dz-save) {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash :is(.sd-lab,.sd-sub,.sd-empty,.sd-order-date,.sd-product-sold,.sd-announce-body span),
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) :is(p,small,label,th,td) {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management .store-dash :is(.sd-val,h3,strong),
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.ss,.pb,.sp,.txs,.sn,.stp,.pol,.dz) :is(h1,h2,h3,strong) {
+  color: var(--msb-palette-text) !important;
+}
+
+/* All custom Sales Management screens created for the dashboard workflow. */
+html.dark-auto body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) {
+  --t: #e8edf5;
+  --m: #b1bcce;
+  --b: #334155;
+  --ink: #e8edf5;
+  --muted: #b1bcce;
+  --line: #334155;
+  --surface: #171d24;
+  --card: #171d24;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management :is(
+  .an-kpi,.an-card,.an-filter,
+  .mk-kpi,.mk-card,.mk-filter,
+  .cd-card,.cd-nav,
+  .pod-card,.pod-summary,.pod-nav,
+  .rfd-kpi,.rfd-card,.rfd-filter,.rfd-table-wrap,.rfd-menu,
+  .rd-card,.rd-summary,.rd-nav,
+  .rvw-kpi,.rvw-card,.rvw-filter,.rvw-table-wrap,.rvw-menu,
+  .txd-card,.txd-summary,.txd-nav,
+  .cus-kpi,.cus-card,.cus-filter,.cus-table-wrap,.cus-action-menu,
+  .pyo-kpi,.pyo-card,.pyo-filter,.pyo-table-wrap,.pyo-menu,
+  .ivd-card,.ivd-panel,.ivd-nav,
+  .de-card,.de-panel,.de-nav
+) {
+  background-color: #171d24 !important;
+  background-image: none !important;
+  border-color: #334155 !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) :is(input:not([type=checkbox]):not([type=radio]),select,textarea,button:not(.btn-primary)) {
+  background-color: #171d24 !important;
+  border-color: #334155 !important;
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) :is(h1,h2,h3,h4,strong,th,td) {
+  color: #e8edf5 !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) :is(p,small,label,.muted) {
+  color: #b1bcce !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) {
+  --t: var(--msb-palette-text);
+  --m: var(--msb-palette-text-muted);
+  --b: var(--msb-palette-border);
+  --ink: var(--msb-palette-text);
+  --muted: var(--msb-palette-text-muted);
+  --line: var(--msb-palette-border);
+  --surface: var(--msb-palette-bg);
+  --card: var(--msb-palette-bg);
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(
+  .an-kpi,.an-card,.an-filter,
+  .mk-kpi,.mk-card,.mk-filter,
+  .cd-card,.cd-nav,
+  .pod-card,.pod-summary,.pod-nav,
+  .rfd-kpi,.rfd-card,.rfd-filter,.rfd-table-wrap,.rfd-menu,
+  .rd-card,.rd-summary,.rd-nav,
+  .rvw-kpi,.rvw-card,.rvw-filter,.rvw-table-wrap,.rvw-menu,
+  .txd-card,.txd-summary,.txd-nav,
+  .cus-kpi,.cus-card,.cus-filter,.cus-table-wrap,.cus-action-menu,
+  .pyo-kpi,.pyo-card,.pyo-filter,.pyo-table-wrap,.pyo-menu,
+  .ivd-card,.ivd-panel,.ivd-nav,
+  .de-card,.de-panel,.de-nav
+) {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) :is(input:not([type=checkbox]):not([type=radio]),select,textarea,button:not(.btn-primary)) {
+  background-color: var(--msb-palette-bg) !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) :is(h1,h2,h3,h4,strong,th,td) {
+  color: var(--msb-palette-text) !important;
+}
+
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.an,.mk,.cd,.pod,.rfd,.rd,.rvw,.txd,.cus,.pyo,.ivd,.de) :is(p,small,label,.muted) {
+  color: var(--msb-palette-text-muted) !important;
+}
+
+html.dark-auto body.org-app.org-page-sales_management :is(.invd,.de-wrap) {
+  --ink: #e8edf5;
+  --muted: #b1bcce;
+  --line: #334155;
+  color: #e8edf5 !important;
+}
+html.dark-auto body.org-app.org-page-sales_management :is(.invd-card,.invd-modal-card,.de-panel,.de-readonly-banner) {
+  background-color: #171d24 !important;
+  background-image: none !important;
+  border-color: #334155 !important;
+  color: #e8edf5 !important;
+}
+html.dark-auto body.org-app.org-page-sales_management :is(.invd,.de-wrap) :is(h1,h2,h3,h4,strong,th,td) { color:#e8edf5 !important; }
+html.dark-auto body.org-app.org-page-sales_management :is(.invd,.de-wrap) :is(p,small,label) { color:#b1bcce !important; }
+
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.invd,.de-wrap) {
+  --ink: var(--msb-palette-text);
+  --muted: var(--msb-palette-text-muted);
+  --line: var(--msb-palette-border);
+  color: var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.invd-card,.invd-modal-card,.de-panel,.de-readonly-banner) {
+  background-color: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.invd,.de-wrap) :is(h1,h2,h3,h4,strong,th,td) { color:var(--msb-palette-text) !important; }
+html[data-msb-appearance] body.org-app.org-page-sales_management :is(.invd,.de-wrap) :is(p,small,label) { color:var(--msb-palette-text-muted) !important; }
+
+/* Eye-comfort accents: keep semantic colors, remove near-white glare on dark palettes. */
+html.dark-auto body.org-app .commerce-page :is(
+  [class$="-ico"],[class*="-ico "],
+  [class$="-icon"],[class*="-icon "],
+  .sd-perf-ico,.sd-payout-art,.nd-sum,.sn-stat,.pol-icon,.dz-icon,
+  .rvw-avatar,.rvw-thumb,.cus-avatar,.stp-avatar,.stp-role-row>i
+) {
+  background-color: color-mix(in srgb, currentColor 13%, #171d24) !important;
+  border-color: color-mix(in srgb, currentColor 24%, #334155) !important;
+  box-shadow: none !important;
+}
+
+html.dark-auto body.org-app .commerce-page :is(
+  [class*="status"],
+  .nd-on,.nd-off,.sn-ok,.pb-active,.sp-active,.txs-active,.txs-inactive,
+  .stp-active,.stp-role,.pol-status,.rfd-trend,.cus-trend,.rvw-trend
+) {
+  background-color: color-mix(in srgb, currentColor 14%, #171d24) !important;
+  border-color: color-mix(in srgb, currentColor 26%, #334155) !important;
+  filter: saturate(.82) brightness(.92);
+}
+
+html.dark-auto body.org-app .commerce-page :is(
+  .alert,.ov-alert,.dz-warning,.txs-info,.sn-info,.pb-info,.sp-info,
+  .sd-announce,.invd-alert,.de-readonly-banner
+) {
+  background-color: color-mix(in srgb, currentColor 7%, #171d24) !important;
+  background-image: none !important;
+  filter: saturate(.78) brightness(.94);
+  box-shadow: none !important;
+}
+
+html.dark-auto body.org-app .commerce-page :is(
+  .sn-stat,.nd-sum,.sd-perf-item,.stp-perm-nav>div:first-child,
+  .commerce-pill,.pyo-event:before
+) {
+  background-color: #202936 !important;
+  border-color: #3b4a5f !important;
+  color: #cbd5e1 !important;
+}
+
+/* The same comfort treatment for user-selected dark appearance colors. */
+html[data-msb-appearance]:not(.msb-palette-dark-fg) body.org-app .commerce-page :is(
+  [class$="-ico"],[class*="-ico "],
+  [class$="-icon"],[class*="-icon "],
+  .sd-perf-ico,.sd-payout-art,.nd-sum,.sn-stat,.pol-icon,.dz-icon,
+  .rvw-avatar,.rvw-thumb,.cus-avatar,.stp-avatar,.stp-role-row>i
+) {
+  background-color: color-mix(in srgb, currentColor 13%, var(--msb-palette-bg)) !important;
+  border-color: color-mix(in srgb, currentColor 24%, var(--msb-palette-border)) !important;
+  box-shadow: none !important;
+}
+
+html[data-msb-appearance]:not(.msb-palette-dark-fg) body.org-app .commerce-page :is(
+  [class*="status"],
+  .nd-on,.nd-off,.sn-ok,.pb-active,.sp-active,.txs-active,.txs-inactive,
+  .stp-active,.stp-role,.pol-status,.rfd-trend,.cus-trend,.rvw-trend
+) {
+  background-color: color-mix(in srgb, currentColor 14%, var(--msb-palette-bg)) !important;
+  border-color: color-mix(in srgb, currentColor 26%, var(--msb-palette-border)) !important;
+  filter: saturate(.82) brightness(.92);
+}
+
+html[data-msb-appearance]:not(.msb-palette-dark-fg) body.org-app .commerce-page :is(
+  .alert,.ov-alert,.dz-warning,.txs-info,.sn-info,.pb-info,.sp-info,
+  .sd-announce,.invd-alert,.de-readonly-banner
+) {
+  background-color: color-mix(in srgb, currentColor 7%, var(--msb-palette-bg)) !important;
+  background-image: none !important;
+  filter: saturate(.78) brightness(.94);
+  box-shadow: none !important;
+}
+
+/* Component-specific low-glare tiles shown in billing, notifications and marketing. */
+html.dark-auto body.org-app .commerce-page :is(
+  .pb-method>i,.pb-gateway>i,.pb-help,
+  .sn-channel>i:first-child,.sn-stat,
+  .nd-icon,.nd-pref>i,.nd-sum,.nd-tabs b,
+  .mk-table td>i
+) {
+  background-color: #252f3d !important;
+  background-image: none !important;
+  border-color: #3b4a5f !important;
+  color: #9fb3cc !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html.dark-auto body.org-app .commerce-page :is(.pb-help,.sn-info) {
+  background-color: #202936 !important;
+  color: #9fb3cc !important;
+}
+
+html[data-msb-appearance]:not(.msb-palette-dark-fg) body.org-app .commerce-page :is(
+  .pb-method>i,.pb-gateway>i,.pb-help,
+  .sn-channel>i:first-child,.sn-stat,
+  .nd-icon,.nd-pref>i,.nd-sum,.nd-tabs b,
+  .mk-table td>i
+) {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-input-bg, var(--msb-palette-bg))) !important;
+  background-image: none !important;
+  border-color: var(--msb-palette-border) !important;
+  color: var(--msb-palette-text-muted) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html[data-msb-appearance]:not(.msb-palette-dark-fg) body.org-app .commerce-page :is(.pb-help,.sn-info) {
+  background-color: var(--msb-palette-surface-2, var(--msb-palette-bg)) !important;
+  color: var(--msb-palette-text-muted) !important;
+}

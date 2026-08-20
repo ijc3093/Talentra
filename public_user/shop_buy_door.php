@@ -83,7 +83,7 @@ $shopStripeEnabled = stripe_shop_is_configured();
 /** @return list<array<string, mixed>> */
 function shop_buy_door_payment_methods(bool $stripeEnabled): array
 {
-    // Test pay first: customer types Cost $ and Place order — no real card/PayPal.
+    // Only list methods that can actually complete checkout today.
     $methods = [
         [
             'id' => 'test_cost',
@@ -92,51 +92,23 @@ function shop_buy_door_payment_methods(bool $stripeEnabled): array
             'logo_text' => 'Cost $',
             'sub' => 'Type the amount below. No real card charged — seller sees it on the dashboard.',
             'enabled' => true,
-            'default' => true,
+            'default' => !$stripeEnabled,
             'badge' => 'TEST',
-        ],
-        [
-            'id' => 'klarna',
-            'label' => 'Installments',
-            'logo' => 'klarna',
-            'logo_text' => 'Klarna',
-            'badge' => 'NEW',
-            'sub' => 'Buy now, pay later options available',
-            'enabled' => true,
-        ],
-        [
-            'id' => 'paypal',
-            'label' => 'PayPal',
-            'logo' => 'paypal',
-            'logo_text' => 'PayPal',
-            'enabled' => true,
-        ],
-        [
-            'id' => 'add_card',
-            'label' => 'Add new card',
-            'logo' => 'cards',
-            'logo_text' => '',
-            'enabled' => true,
-            'show_card_icons' => true,
-        ],
-        [
-            'id' => 'google_pay',
-            'label' => 'Google Pay',
-            'logo' => 'gpay',
-            'logo_text' => 'G Pay',
-            'enabled' => true,
-        ],
-        [
-            'id' => 'paypal_credit',
-            'label' => 'Special financing available.',
-            'logo' => 'paypal_credit',
-            'logo_text' => 'PayPal Credit',
-            'sub' => 'Apply now. See terms',
-            'enabled' => true,
         ],
     ];
 
-    if (!$stripeEnabled) {
+    if ($stripeEnabled) {
+        $methods[] = [
+            'id' => 'stripe',
+            'label' => 'Pay with card',
+            'logo' => 'cards',
+            'logo_text' => '',
+            'sub' => 'Secure checkout powered by Stripe.',
+            'enabled' => true,
+            'default' => true,
+            'show_card_icons' => true,
+        ];
+    } else {
         $methods[] = [
             'id' => 'manual',
             'label' => 'Pay seller directly',
@@ -153,16 +125,8 @@ function shop_buy_door_payment_methods(bool $stripeEnabled): array
 /** @return list<array<string, mixed>> */
 function shop_buy_door_initial_saved_cards(): array
 {
-    return [
-        [
-            'id' => 1,
-            'brand' => 'mastercard',
-            'last4' => '8180',
-            'name' => '',
-            'expiry' => '',
-            'cardType' => 'credit',
-        ],
-    ];
+    // No fake saved cards — wire real vaulted cards before showing any.
+    return [];
 }
 
 /** @param array<string, mixed> $card */
@@ -785,9 +749,9 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
             <span>Order total</span>
             <span id="sbdTotal">—</span>
           </div>
-          <div class="sbd-summary-promo" id="sbdPaymentPromo">
-            <span class="sbd-summary-promo-logo is-klarna" id="sbdPromoLogo" aria-hidden="true">Klarna</span>
-            <span id="sbdPromoText">From <strong id="sbdKlarnaMonthly">—</strong>/month, or 4 payments at 0% interest with Klarna <a href="#" onclick="return false;">Learn more</a></span>
+          <div class="sbd-summary-promo is-hidden" id="sbdPaymentPromo" hidden>
+            <span class="sbd-summary-promo-logo" id="sbdPromoLogo" aria-hidden="true"></span>
+            <span id="sbdPromoText"></span>
           </div>
         </section>
 
@@ -1429,40 +1393,13 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
 
     methodId = methodId || getSelectedPaymentMethodId();
 
-    if (methodId === 'manual' || methodId === 'test_cost' || methodId === 'add_card' || isSavedCardMethod(methodId)) {
+    if (methodId === 'manual' || methodId === 'test_cost' || methodId === 'stripe' || methodId === 'add_card' || isSavedCardMethod(methodId)) {
       promoEl.classList.add('is-hidden');
       return;
     }
 
-    promoEl.classList.remove('is-hidden');
-
-    if (methodId === 'paypal') {
-      promoLogo.className = 'sbd-summary-promo-logo is-paypal';
-      promoLogo.textContent = 'PayPal';
-      promoText.innerHTML = 'Pay in 4 interest-free payments with PayPal. <a href="#" onclick="return false;">Learn more</a>';
-      return;
-    }
-
-    if (methodId === 'google_pay') {
-      promoLogo.className = 'sbd-summary-promo-logo is-gpay';
-      promoLogo.textContent = 'G Pay';
-      promoText.innerHTML = 'Check out faster with Google Pay. Your payment info stays secure. <a href="#" onclick="return false;">Learn more</a>';
-      return;
-    }
-
-    if (methodId === 'paypal_credit') {
-      promoLogo.className = 'sbd-summary-promo-logo is-paypal_credit';
-      promoLogo.textContent = 'PayPal Credit';
-      promoText.innerHTML = 'Special financing available. Apply now. <a href="#" onclick="return false;">See terms</a>';
-      return;
-    }
-
-    promoLogo.className = 'sbd-summary-promo-logo is-klarna';
-    promoLogo.textContent = 'Klarna';
-    var monthlyCents = Math.max(100, Math.ceil(orderTotalCents / 6));
-    var monthly = formatMoney(monthlyCents);
-    promoText.innerHTML = 'From <strong id="sbdKlarnaMonthly">' + monthly + '</strong>/month, or 4 payments at 0% interest with Klarna <a href="#" onclick="return false;">Learn more</a>';
-    klarnaMonthlyEl = document.getElementById('sbdKlarnaMonthly');
+    // Stub BNPL / wallet methods are no longer listed; keep promo hidden.
+    promoEl.classList.add('is-hidden');
   }
 
   function selectPaymentMethod(methodId){

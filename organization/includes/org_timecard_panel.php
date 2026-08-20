@@ -359,12 +359,6 @@ foreach ($myEntries as $e) {
 </style>
 
 <div class="tc-wrap">
-  <div class="tc-head">
-    <p class="sales-management-kicker">Time card</p>
-    <h1>Track your hours</h1>
-    
-  </div>
-
   <?php if ($isManager): ?>
     <div class="tc-metrics">
       <div class="tc-metric"><strong><?= (int)($orgStats['on_clock'] ?? 0) ?></strong><span>On the clock now</span></div>
@@ -708,7 +702,7 @@ foreach ($myEntries as $e) {
       <div class="tc-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tcPendingModalTitle">
         <button type="button" class="tc-modal-close" data-close-tc-modal aria-label="Close">&times;</button>
         <h3 id="tcPendingModalTitle">Team time cards</h3>
-        <p>Review and approve time cards in <a href="sales_management.php#payroll" data-sales-nav="payroll">Payroll</a>. Approved earnings are deposited to each person’s <a href="account.php">Account</a> (staff and managers).</p>
+        <p>Review and approve time cards in <a href="sales_management.php#payroll" data-sales-nav="payroll">Payroll</a>. Approved earnings are deposited to each person’s <a href="sales_management.php#accounts" data-sales-nav="accounts">Account</a> (staff and managers).</p>
         <?php
           // Bucket every entry by status for the filter tabs.
           $tcBuckets = ['all' => [], 'on' => [], 'submitted' => [], 'approved' => [], 'rejected' => [], 'draft' => []];

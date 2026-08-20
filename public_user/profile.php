@@ -602,6 +602,25 @@ if ($profileIsPublisher) {
 $statSocialCount = $profileIsPublisher ? publisher_follower_count($dbh, $viewId) : $statFriends;
 $statSocialLabel = $profileIsPublisher ? publisher_social_stat_label($statSocialCount) : 'friends';
 
+require_once __DIR__ . '/includes/org_shop.php';
+$profileShopProducts = [];
+$profileHasShop = false;
+if ($profileIsPublisher && $viewId > 0) {
+  try {
+    if (function_exists('org_is_commerce_seller_publisher') && org_is_commerce_seller_publisher($dbh, $viewId)) {
+      $profileShopProducts = org_shop_products_for_publisher($dbh, $viewId, true);
+      $profileHasShop = true; // show tab even if empty / rent-hidden (empty state explains)
+      if (!platform_rent_shop_visible_for_publisher($dbh, $viewId) && !$profileShopProducts) {
+        // still show tab for owner; visitors see empty/hidden message
+        $profileHasShop = true;
+      }
+    }
+  } catch (Throwable $eShop) {
+    $profileShopProducts = [];
+    $profileHasShop = false;
+  }
+}
+
 if (!function_exists('h')) {
   function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 }
@@ -661,10 +680,13 @@ if ($galleryVisParam !== '' && $selectedTab !== 'gallery') {
   $selectedTab = 'gallery';
 }
 $profileContentTabs = ['gallery', 'posts', 'tags', 'about', 'preserve', 'gear'];
+if (!empty($profileHasShop)) {
+  array_splice($profileContentTabs, 3, 0, ['shop']); // after tags
+}
 if (!in_array($selectedTab, $profileContentTabs, true)) {
   $selectedTab = 'posts';
 }
-if ($liveVisitorMode && !in_array($selectedTab, ['gallery', 'posts', 'tags', 'about'], true)) {
+if ($liveVisitorMode && !in_array($selectedTab, ['gallery', 'posts', 'tags', 'about', 'shop'], true)) {
   $selectedTab = 'posts';
 }
 if (!$canManageProfilePrivate && in_array($selectedTab, ['gear', 'preserve'], true)) {
@@ -2356,6 +2378,25 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       pointer-events:none;
     }
     .ig-tab i{font-size:12px;line-height:1;}
+    .profile-shop-wrap{padding:12px 10px 24px;}
+    .profile-shop-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;}
+    .profile-shop-title{margin:0;font-size:16px;font-weight:800;}
+    .profile-shop-market-link{font-size:13px;font-weight:700;text-decoration:none;}
+    .profile-shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+    .profile-shop-card{border:1px solid var(--msb-palette-border, rgba(15,23,42,.12));border-radius:12px;overflow:hidden;background:var(--msb-palette-bg,#fff);display:flex;flex-direction:column;}
+    .profile-shop-cover{display:block;aspect-ratio:1;background:var(--msb-palette-surface-2,#f3f4f6);overflow:hidden;}
+    .profile-shop-cover img{width:100%;height:100%;object-fit:cover;display:block;}
+    .profile-shop-cover-fallback{display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;opacity:.45;}
+    .profile-shop-body{padding:10px;display:flex;flex-direction:column;gap:6px;flex:1;}
+    .profile-shop-name{margin:0;font-size:13px;font-weight:700;line-height:1.25;}
+    .profile-shop-name a{color:inherit;text-decoration:none;}
+    .profile-shop-price{font-size:14px;font-weight:800;}
+    .profile-shop-buy-btn{border:0;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;background:var(--msb-palette-btn-bg,#111827);color:var(--msb-palette-btn-text,#fff);}
+    .profile-shop-buy-btn:disabled{opacity:.55;cursor:not-allowed;}
+    .profile-shop-detail-link{font-size:12px;font-weight:650;text-decoration:none;}
+    .profile-shop-empty{text-align:center;padding:36px 16px;color:var(--msb-palette-text-muted,#6b7280);}
+    .profile-shop-empty i{font-size:36px;display:block;margin-bottom:10px;}
+    .profile-shop-empty p{margin:0 0 12px;}
     html.dark-auto .ig-tab:hover,
     html[data-theme="dark"] .ig-tab:hover,
     html.dark-auto .ig-tab:focus,
@@ -4176,6 +4217,11 @@ include __DIR__ . '/includes/header.php';
       <div class="ig-tab<?php echo $selectedTab === 'tags' ? ' active' : ''; ?>" data-panel="tags" role="tab" tabindex="<?php echo $selectedTab === 'tags' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'tags' ? 'true' : 'false'; ?>">
         <i class="icon ion-ios-pricetag"></i>Tags
       </div>
+      <?php if (!empty($profileHasShop)): ?>
+      <div class="ig-tab<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>" data-panel="shop" role="tab" tabindex="<?php echo $selectedTab === 'shop' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'shop' ? 'true' : 'false'; ?>">
+        <i class="icon ion-bag"></i>Shop
+      </div>
+      <?php endif; ?>
       <div class="ig-tab<?php echo $selectedTab === 'about' ? ' active' : ''; ?>" data-panel="about" role="tab" tabindex="<?php echo $selectedTab === 'about' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'about' ? 'true' : 'false'; ?>">
         <i class="icon ion-ios-person"></i>About
       </div>
@@ -4290,6 +4336,82 @@ include __DIR__ . '/includes/header.php';
         );
       ?>
     </div>
+
+    <?php if (!empty($profileHasShop)): ?>
+    <div id="panel-shop" class="profile-panel<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>">
+      <div class="profile-shop-wrap">
+        <?php
+          $shopRentVisible = function_exists('platform_rent_shop_visible_for_publisher')
+            ? platform_rent_shop_visible_for_publisher($dbh, $viewId)
+            : true;
+        ?>
+        <?php if (!$shopRentVisible && empty($profileShopProducts)): ?>
+          <div class="profile-shop-empty">
+            <i class="icon ion-bag" aria-hidden="true"></i>
+            <p><?= $canManageProfilePrivate ? 'Your storefront is hidden until shop rent is active.' : 'This shop is temporarily unavailable.' ?></p>
+            <?php if ($canManageProfilePrivate): ?>
+              <a class="profile-shop-market-link" href="../organization/shop_rent.php">Open shop rent</a>
+            <?php endif; ?>
+          </div>
+        <?php elseif (!$profileShopProducts): ?>
+          <div class="profile-shop-empty">
+            <i class="icon ion-bag" aria-hidden="true"></i>
+            <p><?= $canManageProfilePrivate ? 'No products listed yet. Add items in Sales management.' : 'No products listed yet.' ?></p>
+            <?php if ($canManageProfilePrivate): ?>
+              <a class="profile-shop-market-link" href="../organization/products.php">Add a product</a>
+            <?php else: ?>
+              <a class="profile-shop-market-link" href="shop.php">Browse marketplace</a>
+            <?php endif; ?>
+          </div>
+        <?php else: ?>
+          <div class="profile-shop-head">
+            <h2 class="profile-shop-title">Shop</h2>
+            <a class="profile-shop-market-link" href="shop.php">Open marketplace</a>
+          </div>
+          <div class="profile-shop-grid">
+            <?php foreach ($profileShopProducts as $sp): ?>
+              <?php
+                $spId = (int)($sp['id'] ?? 0);
+                if ($spId <= 0) continue;
+                $spTitle = trim((string)($sp['title'] ?? 'Product'));
+                $spPrice = org_shop_format_price((int)($sp['price_cents'] ?? 0), (string)($sp['currency'] ?? 'USD'));
+                $spCover = org_shop_cover_url((string)($sp['cover_image_path'] ?? ''));
+                $spStock = $sp['stock_qty'] ?? null;
+                $spOut = ($spStock !== null && $spStock !== '' && (int)$spStock <= 0);
+                $spUrl = 'product_detail.php?id=' . $spId;
+              ?>
+              <article class="profile-shop-card">
+                <a class="profile-shop-cover" href="<?= h($spUrl) ?>" aria-label="<?= h($spTitle) ?>">
+                  <?php if ($spCover !== ''): ?>
+                    <img src="<?= h($spCover) ?>" alt="">
+                  <?php else: ?>
+                    <span class="profile-shop-cover-fallback"><i class="icon ion-bag"></i></span>
+                  <?php endif; ?>
+                </a>
+                <div class="profile-shop-body">
+                  <h3 class="profile-shop-name"><a href="<?= h($spUrl) ?>"><?= h($spTitle) ?></a></h3>
+                  <div class="profile-shop-price"><?= h($spPrice) ?></div>
+                  <?php if ($spOut): ?>
+                    <button type="button" class="profile-shop-buy-btn" disabled>Out of stock</button>
+                  <?php else: ?>
+                    <button
+                      type="button"
+                      class="profile-shop-buy-btn js-open-shop-buy-door"
+                      data-shop-buy="<?= $spId ?>"
+                      data-shop-title="<?= h($spTitle) ?>"
+                      data-shop-price="<?= h($spPrice) ?>"
+                      data-shop-profile="<?= (int)$viewId ?>"
+                    >Buy now</button>
+                    <a class="profile-shop-detail-link" href="<?= h($spUrl) ?>">Details</a>
+                  <?php endif; ?>
+                </div>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <div id="panel-about" class="profile-panel<?php echo $selectedTab === 'about' ? ' active' : ''; ?>">
       <div class="about-wrap">
@@ -5576,9 +5698,9 @@ include __DIR__ . '/includes/header.php';
       panel.classList.toggle('active', panel.id === 'panel-' + panelName);
     });
     var filterWrap = document.querySelector('.ig-gallery-filter');
-    var contentTabs = ['gallery', 'posts', 'tags'];
+    var contentTabs = ['gallery', 'posts', 'tags', 'shop'];
     if (filterWrap) {
-      var showFilter = contentTabs.includes(panelName);
+      var showFilter = contentTabs.includes(panelName) && panelName !== 'shop';
       filterWrap.hidden = !showFilter;
       filterWrap.setAttribute('aria-hidden', showFilter ? 'false' : 'true');
       if (showFilter) {
@@ -5636,7 +5758,7 @@ include __DIR__ . '/includes/header.php';
       try {
         var url = new URL(window.location.href);
         var activeTab = String(url.searchParams.get('tab') || 'posts');
-        if (!['gallery', 'posts', 'tags'].includes(activeTab)) activeTab = 'posts';
+        if (!['gallery', 'posts', 'tags', 'shop', 'about'].includes(activeTab)) activeTab = 'posts';
         url.searchParams.set('tab', activeTab);
         if (String(galleryFilter.value || '0') === '0') url.searchParams.delete('gallery_category');
         else url.searchParams.set('gallery_category', String(galleryFilter.value || '0'));
@@ -6817,8 +6939,14 @@ function pvSyncMenu(post){
   if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.buildItems === 'function') {
     html = window.MSBPostCardMenu.buildItems(it, isOwner, pid, window.MSBProfileMenuHelpers || {}) || '';
   }
+  if (!html && !isOwner && pid > 0) {
+    html = '<button type="button" class="pcm-item pcm-report is-danger" role="menuitem" data-post-id="'+String(pid)+'"><i class="fa fa-flag" aria-hidden="true"></i><span>Report</span></button>';
+  }
   menu.innerHTML = html;
   wrap.style.display = '';
+  if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.hydrateReports === 'function') {
+    window.MSBPostCardMenu.hydrateReports(wrap);
+  }
   const dots = document.getElementById('pvDots');
   if (dots) dots.style.display = '';
 

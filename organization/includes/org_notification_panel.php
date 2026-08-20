@@ -307,13 +307,7 @@ try {
   }
 </style>
   <div class="card bd-0 shadow-base mg-b-20">
-    <div class="card-header d-flex align-items-center justify-content-between flex-wrap" style="gap:10px;">
-      <div>
-        <h6 class="card-title tx-uppercase tx-14 mg-b-0">Notification</h6>
-        <p class="mg-b-0 tx-12 tx-color-03">
-          Your order lifecycle hub — Pending → Paid → Shipping → Delivery. Cancel = you stopped the order; Cancellation = the customer cancelled.
-        </p>
-      </div>
+    <div class="card-header d-flex align-items-center justify-content-end flex-wrap" style="gap:10px;">
       <div class="d-flex align-items-center flex-wrap" style="gap:12px;">
         <a
           href="sales_management.php#table_cancel_orders"

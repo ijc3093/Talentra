@@ -75,6 +75,9 @@ try {
             WHERE channel = 'user_admin'
               AND receiver = 'Admin'
               AND is_read = 0
+              AND COALESCE(title, '') <> 'Content Report'
+              AND COALESCE(feedbackdata, '') NOT LIKE '[Report #%'
+              AND COALESCE(feedbackdata, '') NOT LIKE 'Reporter message:%'
         ");
         $st2->execute();
         $unread += (int)$st2->fetchColumn();

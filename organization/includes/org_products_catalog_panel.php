@@ -77,14 +77,7 @@ if (is_array($editProduct) && !empty($editProduct['id']) && isset($dbh) && $dbh 
 $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_product_images_max() : 12;
 ?>
   <div class="card bd-0 shadow-base">
-    <div class="card-header d-flex align-items-center justify-content-between flex-wrap">
-      <div>
-        <h6 class="card-title tx-uppercase tx-14 mg-b-0">Product catalog (PIM)</h6>
-        <p class="mg-b-0 tx-12 tx-color-03">
-          <?= $productCount ?> / <?= $maxProducts ?> on your plan
-          · <?= h($commerceBrandName) ?> system
-        </p>
-      </div>
+    <div class="card-header d-flex align-items-center justify-content-end flex-wrap">
       <div class="d-flex" style="gap:8px;">
         <a href="<?= h($pimHubHref) ?>" class="btn btn-sm btn-outline-secondary"><?= h($pimHubLabel) ?></a>
         <?php if (!$shopVisible): ?>
@@ -223,7 +216,11 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
           </div>
           <div class="col-md-3">
             <div class="form-group">
-              <?php $selectedStatus = strtolower(trim((string)($editProduct['status'] ?? ''))); ?>
+              <?php
+                // New products should be buyer-visible by default. Sellers can
+                // still explicitly choose Draft when they are not ready to list.
+                $selectedStatus = strtolower(trim((string)($editProduct['status'] ?? 'active')));
+              ?>
               <label for="pimStatus">Status <span class="pim-required-star">*</span></label>
               <select name="status" id="pimStatus" class="form-control" required>
                 <option value="">Select status</option>

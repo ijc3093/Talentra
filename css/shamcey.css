@@ -11856,7 +11856,7 @@ body {
 .sh-mainpanel {
   /* min-height: 100vh; */
   position: relative;
-  padding-top: 100px;
+  padding-top: 70px;
   margin-left: 0;
   transition: all 0.2s ease-in-out;
 }

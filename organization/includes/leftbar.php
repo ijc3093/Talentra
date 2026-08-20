@@ -18,7 +18,7 @@ $label = $isManager
     ? ($isCommerceSeller ? 'Seller workspace' : 'Publisher workspace')
     : 'Staff workspace';
 $currentOrgPage = org_layout_current_page();
-$isSalesManagementPage = ($currentOrgPage === 'sales_management.php');
+$isSalesManagementPage = in_array($currentOrgPage, ['sales_management.php', 'overview.php', 'transactions.php', 'refunds.php', 'reviews.php', 'analytics.php', 'marketing.php'], true);
 $salesAttention = [
     'total' => 0,
     'orders' => 0,
@@ -56,19 +56,26 @@ $salesManagementNav = [
     ['Quotations', 'quotations', 'ion-document-text', '', ''],
     ['Delivery / Shipping', 'delivery-shipping', 'ion-model-s', '', 'delivery'],
     ['Salespersons', 'salespersons', 'ion-person-stalker', '', ''],
+    ['Products', 'product-catalog', 'ion-ios-pricetags', '', 'products'],
     ['Create New Products', 'products', 'ion-ios-box', '', ''],
     ['Inventory', 'inventory', 'ion-grid', '', 'products'],
+    ['Transactions', 'transactions', 'ion-arrow-swap', '', ''],
+    ['Overview', 'overview', 'ion-ios-pie', '', ''],
     ['Orders', 'orders', 'ion-ios-list', '', 'orders'],
-    ['Returns & Refunds', 'returns-refunds', 'ion-reply', '', 'returns'],
+    ['Returns & Refunds', 'refunds', 'ion-reply', '', 'returns'],
     ['Notification', 'notification', 'ion-alert-circled', '', 'notification'],
     ['Messages', 'message', 'ion-chatboxes', '', 'messages'],
     ['Invoices', 'invoices', 'ion-card', '', ''],
     ['Discounts & Promotions', 'discounts-promotions', 'ion-pricetag', '', ''],
     ['Employee detail', 'detail_employee', 'ion-ios-person', '', ''],
     ['Customers', 'customers', 'ion-ios-people', '', 'customers'],
+    ['Reviews', 'reviews', 'ion-star', '', ''],
+    ['Analytics', 'analytics', 'ion-stats-bars', '', ''],
+    ['Marketing', 'marketing', 'ion-paper-airplane', '', ''],
+    ['Store Settings', 'settings', 'ion-gear-a', '', ''],
     ['Payments', 'payments', 'ion-cash', '', ''],
     ['Payroll', 'payroll', 'ion-ios-briefcase', '', ''],
-    ['Account', 'account', 'ion-ios-wallet', 'account.php', ''],
+    ['Account', 'accounts', 'ion-person org-account-nav-icon', '', ''],
     ['Time card', 'timecard', 'ion-ios-clock', '', ''],
     ['Sales reports', 'sales-reports', 'ion-stats-bars', '', ''],
 ];
@@ -175,6 +182,24 @@ $salesNavBadgeHtml = static function (int $count): string {
     background-color:transparent !important;
     box-shadow:none !important;
   }
+  .org-account-nav-icon{
+    position:relative;
+    overflow:visible !important;
+  }
+  .org-account-nav-icon::after{
+    content:"\f013";
+    position:absolute;
+    right:-7px;
+    bottom:-5px;
+    width:12px;
+    height:12px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    font:normal normal normal 10px/1 FontAwesome;
+    color:inherit;
+    background:var(--org-page-bg, var(--msb-palette-bg, #fff));
+  }
   .org-sideleft-nav .nav-link:hover,
   .org-sideleft-nav .nav-link:focus,
   body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
@@ -252,22 +277,34 @@ $salesNavBadgeHtml = static function (int $count): string {
         <?php foreach ($salesManagementNav as $item): ?>
           <?php
             $salesNavSlug = (string)($item[1] ?? '');
-            // Payroll & Payments are manager-only; staff never see them.
-            if (!$isManager && in_array($salesNavSlug, ['payroll', 'payments'], true)) {
+            // Payroll, payments, and store settings are manager-only.
+            if (!$isManager && in_array($salesNavSlug, ['payroll', 'payments', 'settings'], true)) {
                 continue;
             }
             $salesNavHref = trim((string)($item[3] ?? ''));
             $salesNavIsExternal = $salesNavHref !== '';
             $salesNavLink = $salesNavIsExternal ? $salesNavHref : ('sales_management.php#' . $salesNavSlug);
+            $salesStandalone = [
+                'overview.php' => 'overview',
+                'transactions.php' => 'transactions',
+                'refunds.php' => 'refunds',
+                'reviews.php' => 'reviews',
+                'analytics.php' => 'analytics',
+                'marketing.php' => 'marketing',
+            ];
+            if (isset($salesStandalone[$currentOrgPage]) && $salesNavSlug === $salesStandalone[$currentOrgPage]) {
+                $salesNavLink = $currentOrgPage;
+            }
             $salesNavCountKey = (string)($item[4] ?? '');
             $salesNavCount = ($salesNavCountKey !== '' && isset($salesAttention[$salesNavCountKey]))
                 ? (int)$salesAttention[$salesNavCountKey]
                 : 0;
+            $salesNavActive = isset($salesStandalone[$currentOrgPage]) && $salesNavSlug === $salesStandalone[$currentOrgPage];
           ?>
           <li class="nav-item">
             <a
               href="<?= h($salesNavLink) ?>"
-              class="nav-link sales-management-nav-link<?= $salesNavSlug === 'dashboard' ? ' active' : '' ?>"
+              class="nav-link sales-management-nav-link<?= $salesNavActive ? ' active' : '' ?>"
               <?php if (!$salesNavIsExternal): ?>data-sales-nav="<?= h($salesNavSlug) ?>"<?php endif; ?>
               <?php if ($salesNavCount > 0): ?>aria-label="<?= h((string)$item[0] . ' — ' . ($salesNavCount > 99 ? '99+' : (string)$salesNavCount) . ' need attention') ?>"<?php endif; ?>
             >
@@ -393,8 +430,8 @@ $salesNavBadgeHtml = static function (int $count): string {
 
       <?php if ($isCommerceSeller): ?>
       <li class="nav-item">
-        <a href="account.php#Account" class="nav-link"<?= org_layout_nav_attrs('account.php') ?>>
-          <i class="icon ion-ios-wallet"></i>
+        <a href="sales_management.php#accounts" class="nav-link" data-sales-nav="accounts">
+          <i class="icon ion-person org-account-nav-icon"></i>
           <span>Account</span>
         </a>
       </li>
@@ -452,4 +489,3 @@ $salesNavBadgeHtml = static function (int $count): string {
     </ul>
   </div>
 </div>
-

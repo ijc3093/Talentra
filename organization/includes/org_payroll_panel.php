@@ -270,11 +270,7 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
 </style>
 
 <div class="org-payroll-panel">
-  <div class="sales-management-detail-head">
-    <div>
-      <p class="sales-management-kicker">Payroll</p>
-      <h1>Pay employees</h1>
-    </div>
+  <div class="sales-management-detail-head" style="justify-content:flex-end;">
     <div>
       <a class="btn btn-outline-primary btn-sm" href="payroll.php"><i class="icon ion-cash"></i> View pay rates</a>
     </div>
@@ -316,7 +312,7 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
       <p class="org-payroll-help">
         When a staff member or manager taps <strong>Submit</strong> on the <a href="sales_management.php#timecard">Time card</a>, their hours land here as
         <strong>Pending</strong>, grouped by person and by day (Regular, Break, and other types for the same day stay together).
-        Each employee is in a separate block so reviews stay clear. Approve them and those hours flow into Gross Pay (and their <a href="account.php">Account</a>);
+        Each employee is in a separate block so reviews stay clear. Approve them and those hours flow into Gross Pay (and their <a href="sales_management.php#accounts" data-sales-nav="accounts">Account</a>);
         the Time card status turns <strong>Approved</strong>. Their name then appears under Employee below.
         Rejected entries go back to fix and resubmit.
       </p>

@@ -402,4 +402,238 @@ function admin_linked_try_bootstrap_org(?PDO $dbh = null): bool
     return admin_linked_start_org_session($dbh, $intent['admin_id']);
 }
 
+/**
+ * Platform admin (role 1) may open organization pages without a separate org login.
+ * Used for marketplace oversight (e.g. inventory → products_detail).
+ *
+ * @return array{admin_id:int,role:int}|null
+ */
+function admin_linked_platform_admin_snapshot(): ?array
+{
+    return admin_linked_with_admin_session(static function (): ?array {
+        $adminId = (int)($_SESSION['admin_id'] ?? 0);
+        $role = (int)($_SESSION['userRole'] ?? 0);
+        if ($adminId <= 0 || $role !== 1) {
+            return null;
+        }
+        if (trim((string)($_SESSION['admin_login'] ?? '')) === '') {
+            return null;
+        }
+        return ['admin_id' => $adminId, 'role' => $role];
+    });
+}
+
+function admin_linked_mark_org_admin_oversight(int $adminId): void
+{
+    if ($adminId <= 0) {
+        return;
+    }
+    $_SESSION['admin_product_oversight'] = 1;
+    $_SESSION['admin_product_oversight_admin_id'] = $adminId;
+}
+
+function admin_linked_is_org_admin_oversight(): bool
+{
+    return !empty($_SESSION['admin_product_oversight'])
+        && (int)($_SESSION['admin_product_oversight_admin_id'] ?? 0) > 0;
+}
+
+/**
+ * Admin Inventory link → open product detail with admin authority (no org login).
+ */
+function admin_linked_product_oversight_enter_url(int $adminId, int $productId, string $from = 'sales'): string
+{
+    $productId = max(0, $productId);
+    if ($productId <= 0) {
+        return admin_linked_absolute_app_url('admin/inventory.php');
+    }
+
+    $from = strtolower(trim($from)) !== '' ? strtolower(trim($from)) : 'sales';
+
+    return admin_linked_absolute_app_url('admin/open_product_detail.php')
+        . '?' . http_build_query([
+            'id' => $productId,
+            'from' => $from,
+        ]);
+}
+
+/**
+ * @return array{admin_id:int,product_id:int}|null
+ */
+function admin_linked_verify_product_oversight_handoff(): ?array
+{
+    $adminId = (int)($_GET['aid'] ?? 0);
+    $productId = (int)($_GET['pid'] ?? 0);
+    $ts = (int)($_GET['ts'] ?? 0);
+    $sig = (string)($_GET['sig'] ?? '');
+
+    if ($adminId <= 0 || $productId <= 0 || $ts <= 0 || $sig === '') {
+        return null;
+    }
+    if ($ts + 900 < time()) {
+        return null;
+    }
+
+    $payload = $adminId . '|product_oversight|' . $productId . '|' . $ts;
+    $expected = hash_hmac('sha256', $payload, admin_linked_signing_key());
+    if (!hash_equals($expected, $sig)) {
+        return null;
+    }
+
+    return ['admin_id' => $adminId, 'product_id' => $productId];
+}
+
+/**
+ * Establish org PHPSESSID for platform-admin product oversight (no org login form).
+ */
+function admin_linked_establish_org_product_oversight(PDO $dbh, int $adminId, int $productId): bool
+{
+    if ($adminId <= 0 || $productId <= 0) {
+        return false;
+    }
+
+    $productOrgId = 0;
+    try {
+        $st = $dbh->prepare('
+            SELECT org_id
+            FROM org_products
+            WHERE id = :id AND COALESCE(is_deleted, 0) = 0
+            LIMIT 1
+        ');
+        $st->execute([':id' => $productId]);
+        $productOrgId = (int)($st->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        $productOrgId = 0;
+    }
+
+    return admin_linked_establish_org_oversight_session($dbh, $adminId, $productOrgId);
+}
+
+/**
+ * Establish org PHPSESSID for platform-admin order oversight (no org login form).
+ */
+function admin_linked_establish_org_order_oversight(PDO $dbh, int $adminId, int $orderId): bool
+{
+    if ($adminId <= 0 || $orderId <= 0) {
+        return false;
+    }
+
+    $orderOrgId = 0;
+    try {
+        $st = $dbh->prepare('
+            SELECT org_id
+            FROM org_orders
+            WHERE id = :id
+            LIMIT 1
+        ');
+        $st->execute([':id' => $orderId]);
+        $orderOrgId = (int)($st->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        $orderOrgId = 0;
+    }
+
+    return admin_linked_establish_org_oversight_session($dbh, $adminId, $orderOrgId);
+}
+
+/**
+ * Shared org-session bootstrap for admin marketplace oversight.
+ */
+function admin_linked_establish_org_oversight_session(PDO $dbh, int $adminId, int $orgId = 0): bool
+{
+    if ($adminId <= 0) {
+        return false;
+    }
+
+    require_once __DIR__ . '/admin_linked_portal_load.php';
+    require_once __DIR__ . '/admin_linked_accounts_load.php';
+
+    admin_linked_ensure_provisioned($dbh, $adminId);
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    admin_linked_apply_session_cookie_path();
+    session_name('PHPSESSID');
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+
+    $managerId = admin_linked_manager_id($dbh, $adminId);
+    if ($managerId > 0) {
+        $_SESSION['org_auth'] = 1;
+        $_SESSION['org_account_type'] = 'manager';
+        $_SESSION['org_account_id'] = $managerId;
+        unset($_SESSION['org_publisher_user_id'], $_SESSION['org_member_id'], $_SESSION['org_role_id']);
+        try {
+            require_once dirname(__DIR__, 2) . '/organization/includes/org_publisher_access.php';
+            if (function_exists('org_manager_is_registered_publisher')
+                && org_manager_is_registered_publisher($dbh, $managerId)
+                && function_exists('org_manager_apply_registered_publisher_login')) {
+                org_manager_apply_registered_publisher_login($dbh, $managerId);
+                if (function_exists('publisher_session_establish_for_manager')) {
+                    publisher_session_establish_for_manager($dbh, $managerId);
+                }
+            }
+        } catch (Throwable $e) {
+            // Non-fatal for oversight.
+        }
+    } else {
+        $_SESSION['org_auth'] = 1;
+        $_SESSION['org_account_type'] = 'manager';
+        $_SESSION['org_account_id'] = max(1, $adminId);
+        unset($_SESSION['org_publisher_user_id'], $_SESSION['org_member_id'], $_SESSION['org_role_id']);
+    }
+
+    if ($orgId > 0) {
+        $_SESSION['org_active_org_id'] = $orgId;
+    }
+
+    admin_linked_mark_org_admin_oversight($adminId);
+
+    if (function_exists('app_session_login_mark')) {
+        app_session_login_mark();
+    }
+
+    return !empty($_SESSION['org_auth']) && !empty($_SESSION['org_account_id']);
+}
+
+/**
+ * If a platform admin is logged in, start (or reuse) an org manager session for oversight.
+ */
+function admin_linked_try_bootstrap_org_admin_oversight(?PDO $dbh = null): bool
+{
+    $snap = admin_linked_platform_admin_snapshot();
+    if (!$snap) {
+        return false;
+    }
+
+    require_once __DIR__ . '/admin_linked_portal_load.php';
+    require_once __DIR__ . '/admin_linked_accounts_load.php';
+
+    if (!$dbh instanceof PDO) {
+        require_once dirname(__DIR__) . '/controller.php';
+        $dbh = (new Controller())->pdo();
+    }
+
+    $adminId = (int)$snap['admin_id'];
+    admin_linked_ensure_provisioned($dbh, $adminId);
+
+    if (empty($_SESSION['org_auth']) || empty($_SESSION['org_account_id'])) {
+        if (!admin_linked_start_org_session($dbh, $adminId)) {
+            // Still allow platform admin oversight without a linked manager row.
+            $_SESSION['org_auth'] = 1;
+            $_SESSION['org_account_type'] = 'manager';
+            $_SESSION['org_account_id'] = max(1, admin_linked_manager_id($dbh, $adminId) ?: $adminId);
+            unset($_SESSION['org_publisher_user_id']);
+        }
+    }
+
+    if (empty($_SESSION['org_auth']) || empty($_SESSION['org_account_id'])) {
+        return false;
+    }
+
+    admin_linked_mark_org_admin_oversight($adminId);
+    return true;
+}
+
 }

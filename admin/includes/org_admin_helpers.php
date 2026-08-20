@@ -367,8 +367,8 @@ function org_admin_render_head(string $title): void
       display:flex;
       flex-direction:column;
       background:var(--bg);
-      margin-left:28px!important;
-      margin-right:28px!important;
+      margin-left:12px!important;
+      margin-right:12px!important;
     }
     .admin-card{
       flex:1 1 auto;
@@ -729,4 +729,313 @@ function org_admin_render_public_user_link(int $userId, string $label = '', stri
         . org_admin_h($label)
         . '</a> '
         . '<a class="btn-mini" href="' . $profileHref . '" target="_blank" rel="noopener" title="Open public_user profile (requires public login)">Public profile</a>';
+}
+
+/**
+ * Resolve a publisher public_user by id, username, email, or friend code.
+ *
+ * @return array<string,mixed>|null
+ */
+function org_admin_find_publisher_user(PDO $dbh, string $query): ?array
+{
+    $query = trim($query);
+    if ($query === '' || !org_admin_table_exists($dbh, 'users')) {
+        return null;
+    }
+
+    $hasKind = false;
+    try {
+        $chk = $dbh->query("
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'users'
+              AND COLUMN_NAME = 'account_kind'
+            LIMIT 1
+        ");
+        $hasKind = (bool)($chk && $chk->fetchColumn());
+    } catch (Throwable $e) {
+        $hasKind = false;
+    }
+
+    $cols = 'id, username, email, friend_code, name, status, role';
+    if ($hasKind) {
+        $cols .= ', account_kind, publisher_category';
+    }
+
+    $row = null;
+    try {
+        if (ctype_digit($query)) {
+            $st = $dbh->prepare("SELECT {$cols} FROM users WHERE id = :id LIMIT 1");
+            $st->execute([':id' => (int)$query]);
+            $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+        if (!$row) {
+            $st = $dbh->prepare("
+                SELECT {$cols}
+                FROM users
+                WHERE username = :q OR email = :q OR friend_code = :q
+                ORDER BY id DESC
+                LIMIT 1
+            ");
+            $st->execute([':q' => $query]);
+            $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+    } catch (Throwable $e) {
+        return null;
+    }
+
+    if (!$row) {
+        return null;
+    }
+
+    if ($hasKind) {
+        $kind = strtolower(trim((string)($row['account_kind'] ?? '')));
+        if ($kind !== '' && $kind !== 'publisher') {
+            return null;
+        }
+    }
+
+    return $row;
+}
+
+/**
+ * Attach (or replace) the public publisher user on an organization + owner manager.
+ *
+ * @return array{ok:bool,error?:string,user?:array}
+ */
+function org_admin_set_org_publisher_link(PDO $dbh, int $orgId, int $publisherUserId): array
+{
+    if ($orgId <= 0 || $publisherUserId <= 0) {
+        return ['ok' => false, 'error' => 'Organization and publisher user are required.'];
+    }
+    if (!org_admin_table_exists($dbh, 'organizations') || !org_admin_table_exists($dbh, 'users')) {
+        return ['ok' => false, 'error' => 'Missing tables.'];
+    }
+
+    $user = org_admin_find_publisher_user($dbh, (string)$publisherUserId);
+    if (!$user) {
+        return ['ok' => false, 'error' => 'Publisher user not found (must be a publisher account).'];
+    }
+    if ((int)($user['status'] ?? 0) !== 1) {
+        return ['ok' => false, 'error' => 'Publisher user is disabled.'];
+    }
+
+    $category = trim((string)($user['publisher_category'] ?? ''));
+
+    try {
+        require_once __DIR__ . '/../../public_user/includes/publisher_organization_bridge.php';
+        if (function_exists('publisher_org_ensure_schema')) {
+            publisher_org_ensure_schema($dbh);
+        }
+
+        $sql = '
+            UPDATE organizations
+            SET publisher_user_id = :uid,
+                is_publisher_org = 1,
+                updated_at = NOW()
+        ';
+        $params = [':uid' => $publisherUserId, ':id' => $orgId];
+        if ($category !== '') {
+            $sql .= ', publisher_category = :cat';
+            $params[':cat'] = $category;
+        }
+        $sql .= ' WHERE id = :id LIMIT 1';
+        $st = $dbh->prepare($sql);
+        $st->execute($params);
+        if ($st->rowCount() < 1) {
+            // Still ok if values were already identical.
+            $check = $dbh->prepare('SELECT id FROM organizations WHERE id = :id LIMIT 1');
+            $check->execute([':id' => $orgId]);
+            if (!$check->fetchColumn()) {
+                return ['ok' => false, 'error' => 'Organization not found.'];
+            }
+        }
+
+        $ownerSt = $dbh->prepare('SELECT owner_manager_id FROM organizations WHERE id = :id LIMIT 1');
+        $ownerSt->execute([':id' => $orgId]);
+        $managerId = (int)($ownerSt->fetchColumn() ?: 0);
+        if ($managerId > 0 && function_exists('publisher_org_db_column_exists')
+            && publisher_org_db_column_exists($dbh, 'managers', 'publisher_user_id')) {
+            $dbh->prepare('
+                UPDATE managers
+                SET publisher_user_id = :uid
+                WHERE id = :mid
+                LIMIT 1
+            ')->execute([':uid' => $publisherUserId, ':mid' => $managerId]);
+        }
+
+        return ['ok' => true, 'user' => $user];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not link publisher user.'];
+    }
+}
+
+/**
+ * Clear the public publisher user link on an organization (keeps org + Connect data).
+ *
+ * @return array{ok:bool,error?:string}
+ */
+function org_admin_clear_org_publisher_link(PDO $dbh, int $orgId): array
+{
+    if ($orgId <= 0 || !org_admin_table_exists($dbh, 'organizations')) {
+        return ['ok' => false, 'error' => 'Invalid organization.'];
+    }
+
+    try {
+        require_once __DIR__ . '/../../public_user/includes/publisher_organization_bridge.php';
+        if (function_exists('publisher_org_ensure_schema')) {
+            publisher_org_ensure_schema($dbh);
+        }
+
+        $st = $dbh->prepare('
+            SELECT publisher_user_id, owner_manager_id
+            FROM organizations
+            WHERE id = :id
+            LIMIT 1
+        ');
+        $st->execute([':id' => $orgId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return ['ok' => false, 'error' => 'Organization not found.'];
+        }
+
+        $prevUid = (int)($row['publisher_user_id'] ?? 0);
+        $managerId = (int)($row['owner_manager_id'] ?? 0);
+
+        $dbh->prepare('
+            UPDATE organizations
+            SET publisher_user_id = NULL, updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ')->execute([':id' => $orgId]);
+
+        if ($prevUid > 0 && $managerId > 0
+            && function_exists('publisher_org_db_column_exists')
+            && publisher_org_db_column_exists($dbh, 'managers', 'publisher_user_id')) {
+            $dbh->prepare('
+                UPDATE managers
+                SET publisher_user_id = NULL
+                WHERE id = :mid
+                  AND publisher_user_id = :uid
+                LIMIT 1
+            ')->execute([':mid' => $managerId, ':uid' => $prevUid]);
+        }
+
+        return ['ok' => true];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not unlink publisher user.'];
+    }
+}
+
+/**
+ * List seller/publisher orgs with Stripe Connect status for admin oversight.
+ *
+ * @return list<array<string,mixed>>
+ */
+function org_admin_list_connect_orgs(PDO $dbh, string $filter = 'all', string $search = ''): array
+{
+    if (!org_admin_table_exists($dbh, 'organizations')) {
+        return [];
+    }
+
+    require_once __DIR__ . '/../../public_user/includes/org_shop_connect.php';
+    org_shop_connect_ensure_schema($dbh);
+
+    $where = ["(o.is_publisher_org = 1 OR o.org_kind = 'shop' OR COALESCE(o.commerce_brand_id, 0) > 0 OR LOWER(TRIM(COALESCE(o.publisher_category,''))) = 'commerce')"];
+    $params = [];
+
+    $filter = strtolower(trim($filter));
+    if ($filter === 'linked') {
+        $where[] = "COALESCE(NULLIF(TRIM(o.stripe_connect_account_id), ''), '') <> ''";
+    } elseif ($filter === 'ready') {
+        $where[] = 'COALESCE(o.stripe_connect_payouts_enabled, 0) = 1';
+    } elseif ($filter === 'incomplete') {
+        $where[] = "COALESCE(NULLIF(TRIM(o.stripe_connect_account_id), ''), '') <> ''";
+        $where[] = 'COALESCE(o.stripe_connect_payouts_enabled, 0) = 0';
+    } elseif ($filter === 'missing') {
+        $where[] = "COALESCE(NULLIF(TRIM(o.stripe_connect_account_id), ''), '') = ''";
+    }
+
+    $search = trim($search);
+    if ($search !== '') {
+        $where[] = '(o.name LIKE :q OR o.org_code LIKE :q OR m.username LIKE :q OR u.username LIKE :q OR o.stripe_connect_account_id LIKE :q)';
+        $params[':q'] = '%' . $search . '%';
+    }
+
+    $sql = '
+        SELECT
+            o.id, o.org_code, o.name, o.status, o.org_kind, o.is_publisher_org,
+            o.publisher_category, o.publisher_user_id,
+            COALESCE(o.stripe_connect_account_id, \'\') AS stripe_connect_account_id,
+            COALESCE(o.stripe_connect_charges_enabled, 0) AS stripe_connect_charges_enabled,
+            COALESCE(o.stripe_connect_payouts_enabled, 0) AS stripe_connect_payouts_enabled,
+            COALESCE(o.stripe_connect_details_submitted, 0) AS stripe_connect_details_submitted,
+            m.username AS manager_username,
+            u.id AS pub_user_id, u.username AS pub_username, u.friend_code AS pub_code
+        FROM organizations o
+        JOIN managers m ON m.id = o.owner_manager_id
+        LEFT JOIN users u ON u.id = o.publisher_user_id
+        WHERE ' . implode(' AND ', $where) . '
+        ORDER BY
+            CASE WHEN COALESCE(NULLIF(TRIM(o.stripe_connect_account_id), \'\'), \'\') <> \'\' THEN 0 ELSE 1 END,
+            COALESCE(o.stripe_connect_payouts_enabled, 0) ASC,
+            o.id DESC
+    ';
+
+    try {
+        $st = $dbh->prepare($sql);
+        $st->execute($params);
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * Clear local Stripe Connect account fields for an org (does not delete the Stripe Express account).
+ *
+ * @return array{ok:bool,error?:string}
+ */
+function org_admin_clear_org_connect(PDO $dbh, int $orgId): array
+{
+    if ($orgId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid organization.'];
+    }
+    require_once __DIR__ . '/../../public_user/includes/org_shop_connect.php';
+    org_shop_connect_ensure_schema($dbh);
+    try {
+        $dbh->prepare('
+            UPDATE organizations
+            SET stripe_connect_account_id = NULL,
+                stripe_connect_charges_enabled = 0,
+                stripe_connect_payouts_enabled = 0,
+                stripe_connect_details_submitted = 0,
+                updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ')->execute([':id' => $orgId]);
+        return ['ok' => true];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not clear Connect link.'];
+    }
+}
+
+function org_admin_connect_incomplete_count(PDO $dbh): int
+{
+    if (!org_admin_table_exists($dbh, 'organizations')) {
+        return 0;
+    }
+    try {
+        require_once __DIR__ . '/../../public_user/includes/org_shop_connect.php';
+        org_shop_connect_ensure_schema($dbh);
+        $st = $dbh->query("
+            SELECT COUNT(*)
+            FROM organizations
+            WHERE COALESCE(NULLIF(TRIM(stripe_connect_account_id), ''), '') <> ''
+              AND COALESCE(stripe_connect_payouts_enabled, 0) = 0
+        ");
+        return (int)($st ? $st->fetchColumn() : 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
 }

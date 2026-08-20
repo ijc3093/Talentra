@@ -37,87 +37,72 @@ body.azia-admin .sh-navicon {
   color: var(--azia-muted);
 }
 
-/* ----- Sidebar (narrow icon rail) ----- */
+/* ----- Sidebar (labeled grouped nav) ----- */
 body.azia-admin .sh-sideleft-menu {
-  background: #fff !important;
-  border-right: 1px solid rgba(28, 39, 60, 0.06);
-  width: 64px !important;
+  background: #0b1220 !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
+  width: 248px !important;
 }
 
 body.azia-admin .sh-logopanel {
-  width: 64px !important;
+  width: 248px !important;
+  background: #0b1220 !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 body.azia-admin .azia-brand {
-  justify-content: center;
+  justify-content: flex-start;
   width: 100%;
+  color: #f8fafc !important;
 }
 
 body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link {
-  color: #596882;
+  color: #cbd5e1;
   font-size: 13px;
   font-weight: 500;
-  padding: 14px 0 !important;
-  border-left: 3px solid transparent;
-  justify-content: center;
+  padding: 9px 12px !important;
+  border: 0 !important;
+  border-left: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  justify-content: flex-start;
   margin: 0 !important;
-  border-radius: 0 !important;
+  border-radius: 10px !important;
+}
+
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link:focus-visible,
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
 }
 
 body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link > span:not(.admin-nav-badge) {
-  display: none !important;
-}
-
-body.azia-admin .sh-sideleft-menu,
-body.azia-admin .sh-sideleft-menu .nav,
-body.azia-admin .sh-sideleft-menu .nav > .nav-item,
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link {
-  overflow: visible !important;
-}
-
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link .admin-nav-badge,
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link b.admin-nav-badge {
-  position: absolute !important;
-  top: -2px !important;
-  right: 2px !important;
-  min-width: 18px !important;
-  height: 18px !important;
-  padding: 0 5px !important;
-  border-radius: 999px !important;
-  background: #ef4444 !important;
-  color: #0f172a !important;
-  font-size: 11px !important;
-  font-weight: 800 !important;
-  font-style: normal !important;
-  line-height: 18px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border: 2px solid #fff !important;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18) !important;
-  z-index: 30 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
+  display: inline !important;
 }
 
 body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link i {
-  color: var(--azia-purple);
+  color: #e2e8f0;
   margin: 0 !important;
-  width: auto !important;
+  width: 18px !important;
   text-align: center;
-  opacity: 0.85;
-  font-size: 20px;
+  opacity: 0.9;
+  font-size: 16px;
 }
 
 body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link:hover {
-  background: rgba(91, 71, 251, 0.05);
-  color: var(--azia-purple);
+  background: rgba(148, 163, 184, 0.12);
+  color: #f8fafc;
 }
 
 body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link.active {
-  background: rgba(91, 71, 251, 0.08);
-  color: var(--azia-purple);
-  border-left-color: var(--azia-purple);
+  background: rgba(37, 99, 235, 0.22);
+  color: #f8fafc;
+  border: 0 !important;
+  border-left: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
   font-weight: 600;
 }
 
@@ -153,8 +138,8 @@ body.azia-admin .azia-head-right {
 
 body.azia-admin .azia-welcome-in-header h2 {
   margin: 0 0 2px;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 18px !important;
+  font-weight: 700 !important;
   color: var(--azia-text);
   line-height: 1.2;
   white-space: nowrap;
@@ -165,7 +150,8 @@ body.azia-admin .azia-welcome-in-header h2 {
 body.azia-admin .azia-welcome-in-header p {
   margin: 0;
   color: var(--azia-muted);
-  font-size: 12px;
+  font-size: 12px !important;
+  font-weight: 400 !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -185,7 +171,7 @@ body.azia-admin .azia-search .fa-search {
   top: 50%;
   transform: translateY(-50%);
   color: var(--azia-muted);
-  font-size: 13px;
+  font-size: 13px !important;
   pointer-events: none;
 }
 
@@ -195,7 +181,7 @@ body.azia-admin .azia-search input {
   background: #f1f2f9;
   border-radius: 4px;
   padding: 10px 14px 10px 38px;
-  font-size: 13px;
+  font-size: 13px !important;
   color: var(--azia-text);
   outline: none;
 }
@@ -207,21 +193,49 @@ body.azia-admin .azia-search input:focus {
 
 body.azia-admin .azia-icon-btn {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 40px !important;
+  height: 40px !important;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #596882;
-  font-size: 20px;
+  font-size: 20px !important;
   text-decoration: none;
+}
+
+body.azia-admin .azia-icon-btn .icon,
+body.azia-admin .azia-icon-btn i,
+body.azia-admin .azia-icon-btn .fa {
+  font-size: 20px !important;
+  line-height: 1 !important;
+}
+
+body.azia-admin .azia-icon-btn.azia-icon-admin-roles .azia-icon-admin-roles-key {
+  font-size: 11px !important;
 }
 
 body.azia-admin .azia-icon-btn:hover {
   background: #f1f2f9;
   color: var(--azia-purple);
   text-decoration: none;
+}
+
+body.azia-admin .azia-icon-btn .azia-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  border: 1px solid #fff;
 }
 
 body.azia-admin .azia-dot {
@@ -364,11 +378,12 @@ body.azia-admin .azia-filter > .fa:first-child {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  font-size: 14px;
 }
 
 body.azia-admin .azia-filter .lbl {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--azia-muted);
   margin-bottom: 2px;
 }
@@ -390,9 +405,9 @@ body.azia-admin .azia-kpi {
   background: #fff;
   border-radius: var(--azia-radius);
   box-shadow: var(--azia-shadow);
-  padding: 18px 18px 16px;
+  padding: 16px 16px 14px;
   border: 1px solid rgba(28, 39, 60, 0.04);
-  min-height: 120px;
+  min-height: 110px;
   display: block;
   height: 100%;
   position: relative;
@@ -418,15 +433,15 @@ body.azia-admin .azia-metric-row > [class*="col-"] {
 
 body.azia-admin .azia-kpi-icon {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 40px;
-  height: 40px;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
@@ -467,26 +482,29 @@ body.azia-admin .azia-kpi-icon.managers {
 
 body.azia-admin .azia-kpi-label {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--azia-muted);
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 6px;
-  padding-right: 48px;
+  padding-right: 44px;
+  line-height: 1.3;
 }
 
 body.azia-admin .azia-kpi h3 {
   margin: 0 0 4px;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--azia-text);
-  padding-right: 48px;
+  padding-right: 44px;
+  line-height: 1.2;
 }
 
 body.azia-admin .azia-kpi-delta {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.35;
 }
 
 body.azia-admin .azia-kpi-delta span {
@@ -528,10 +546,10 @@ body.azia-admin .azia-card-head {
 body.azia-admin .azia-card-head h4,
 body.azia-admin .azia-card > h4 {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: -0.01em;
   color: var(--azia-text);
 }
 
@@ -541,7 +559,7 @@ body.azia-admin .azia-legend {
   padding: 0;
   display: flex;
   gap: 14px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--azia-muted);
 }
 
@@ -580,10 +598,10 @@ body.azia-admin .azia-table thead th {
   border-top: 0;
   border-bottom: 1px solid rgba(28, 39, 60, 0.08);
   color: var(--azia-muted);
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  font-weight: 600;
+  font-weight: 700;
   padding: 10px 8px;
 }
 
@@ -651,7 +669,7 @@ body.azia-admin .azia-pill {
   display: inline-block;
   background: rgba(91, 71, 251, 0.1);
   color: var(--azia-purple);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 20px;
@@ -682,12 +700,12 @@ body.azia-admin .azia-shortcut:hover {
 }
 
 body.azia-admin .azia-shortcut i {
-  font-size: 26px;
+  font-size: 22px;
   color: var(--azia-purple);
 }
 
 body.azia-admin .azia-shortcut span {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 

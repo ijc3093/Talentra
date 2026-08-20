@@ -64,7 +64,8 @@ if (function_exists('org_product_type_platform_selling_labels')) {
 
 $shopFacetOrgIds = [];
 foreach ($shopAllProducts as $shopFacetRow) {
-    $shopFacetBrand = trim((string)($shopFacetRow['publisher_name'] ?? ''))
+    $shopFacetBrand = trim((string)($shopFacetRow['commerce_brand_name'] ?? ''))
+        ?: trim((string)($shopFacetRow['publisher_name'] ?? ''))
         ?: trim((string)($shopFacetRow['publisher_username'] ?? ''))
         ?: trim((string)($shopFacetRow['seller_name'] ?? ''));
     if ($shopFacetBrand !== '') {
@@ -152,7 +153,8 @@ if (!function_exists('shop_product_rating')) {
 if (!function_exists('shop_product_brand')) {
     function shop_product_brand(array $product): string
     {
-        return trim((string)($product['publisher_name'] ?? ''))
+        return trim((string)($product['commerce_brand_name'] ?? ''))
+            ?: trim((string)($product['publisher_name'] ?? ''))
             ?: trim((string)($product['publisher_username'] ?? ''))
             ?: trim((string)($product['seller_name'] ?? ''));
     }

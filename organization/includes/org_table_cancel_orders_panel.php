@@ -22,13 +22,7 @@ $cancelCount = count($cancelGroups);
 $cancelCountLabel = $cancelCount === 1 ? '1 cancelled purchase' : $cancelCount . ' cancelled purchases';
 ?>
   <div class="card bd-0 shadow-base mg-b-0">
-    <div class="card-header d-flex align-items-center justify-content-between flex-wrap" style="gap:10px;">
-      <div>
-        <h6 class="card-title tx-uppercase tx-14 mg-b-0">Cancel orders table · <?= h($cancelCountLabel) ?></h6>
-        <p class="mg-b-0 tx-12 tx-color-03">
-          Seller <strong>Cancel</strong> (you stopped the order) and customer <strong>Cancellation</strong> (buyer cancelled). Same customer = one row.
-        </p>
-      </div>
+    <div class="card-header d-flex align-items-center justify-content-end flex-wrap" style="gap:10px;">
       <a href="sales_management.php#notification" class="tx-12" data-sales-nav="notification">&larr; Back to Notification</a>
     </div>
     <div class="card-body">

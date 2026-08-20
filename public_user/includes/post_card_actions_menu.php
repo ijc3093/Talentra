@@ -209,11 +209,9 @@ function post_card_actions_common_menu_items_html(array $ctx): string
     $isStranger = !$isOwner && $friendStatus !== 'friends' && $friendStatus !== 'self';
     $items = [];
 
+    // Discover / Reels strangers: Mention only — no Tag (incl. Add to Tags).
+    // Report is added by the parent non-owner menu (first fries action).
     if (!$isOwner) {
-        $items[] = post_card_actions_button_item('pcm-report is-danger', 'Report', 'fa fa-flag', [
-            'data-post-id' => (string)$postId,
-        ]);
-        // Discover / Reels strangers: Mention only — no Tag (incl. Add to Tags).
         $allowTag = !($isDiscoverOrReel && $isStranger);
         if ($allowTag && ($canSelfTag || $meTagged)) {
             $items[] = post_card_actions_button_item(
@@ -338,11 +336,25 @@ function post_card_actions_menu_items_html(array $ctx): string
         : '';
 
     $items = [];
+
+    // Report FIRST on every non-own fries so For You / Discover / Profile always show it.
+    if ($postId > 0 && !$isOwner) {
+        $items[] = post_card_actions_button_item('pcm-report is-danger', 'Report', 'fa fa-flag', [
+            'data-post-id' => (string)$postId,
+        ]);
+        $items[] = '<div class="pcm-divider" role="separator"></div>';
+    }
+
     if ($viewPostItem !== '') {
         $items[] = $viewPostItem;
     }
 
     if (($isOwner || ($feedSurface && $friendStatus === 'self')) && !$staffReadonly) {
+        // Rebuild owner path without the Report block above.
+        $items = [];
+        if ($viewPostItem !== '') {
+            $items[] = $viewPostItem;
+        }
         if ($ownerItems !== '') {
             if ($items) {
                 $items[] = '<div class="pcm-divider" role="separator"></div>';
@@ -411,7 +423,14 @@ function post_card_actions_menu_shell_html(array $ctx, string $wrapClass = ''): 
     $wrapClass = trim('post-card-menu-wrap mf-menu-wrap ' . $wrapClass);
     $items = post_card_actions_menu_items_html($ctx);
     if ($items === '' && (int)($ctx['post_id'] ?? 0) > 0) {
-        $items = post_card_actions_common_menu_items_html($ctx);
+        $fallback = '';
+        if (empty($ctx['is_owner'])) {
+            $fallback = post_card_actions_button_item('pcm-report is-danger', 'Report', 'fa fa-flag', [
+                'data-post-id' => (string)(int)$ctx['post_id'],
+            ]);
+            $fallback .= '<div class="pcm-divider" role="separator"></div>';
+        }
+        $items = $fallback . post_card_actions_common_menu_items_html($ctx);
     }
     if ($items === '') {
         return '';
@@ -811,8 +830,10 @@ function post_card_actions_menu_render_js(array $opts = []): void
     }
     define('MSB_POST_CARD_MENU_JS', true);
     $optsJson = json_encode($opts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    require_once __DIR__ . '/msb_report_client.js.php';
     echo '<script>window.MSBPostCardMenuOpts = ' . $optsJson . ';</script>';
-    echo '<script>';
+    // Cache-bust note for operators: report fries v2
+    echo '<script data-msb-pcm="report-v2">';
     include __DIR__ . '/post_card_actions_menu.js.php';
     echo '</script>';
 }

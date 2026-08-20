@@ -193,16 +193,21 @@ require_once __DIR__ . '/admin_chrome.php';
 $pageLabel = preg_replace('/\.php$/i', '', admin_layout_current_page()) ?: 'Admin';
 $pageLabel = ucwords(str_replace(['-', '_'], ' ', (string)$pageLabel));
 $chromeLabels = [
+    'overview' => 'Overview',
+    'device_activity' => 'Device Activity',
+    'login_activity' => 'Login Activity',
+    'audience' => 'Audience',
+    'trends' => 'Trends',
     'userlist' => 'User List',
     'adminroles' => 'Roles & Accounts',
     'publisher_requests' => 'Publisher Requests',
     'security-log' => 'Security Logs',
-    'feedback' => 'Inbox',
+    'feedback' => 'Help',
     'notification' => 'Notifications',
     'change-password' => 'Change Password',
     'mailbox' => 'Mailbox',
     'register' => 'Register',
-    'roleslist' => 'Roles',
+    'roleslist' => 'Roles & Permissions',
     'compose' => 'Compose',
 ];
 $key = strtolower(str_replace('.php', '', admin_layout_current_page()));
@@ -211,7 +216,10 @@ if (isset($chromeLabels[$key])) {
 }
 
 admin_chrome_logo();
-admin_chrome_header($pageLabel);
+$adminChromePageIntro = (isset($adminChromePageIntro) && is_array($adminChromePageIntro))
+    ? $adminChromePageIntro
+    : null;
+admin_chrome_header($pageLabel, $adminChromePageIntro);
 ?>
 <script>
 document.body && document.body.classList.add('azia-admin');

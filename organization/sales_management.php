@@ -89,14 +89,9 @@ if ($sellerBuyerMsgPeerId > 0 && $sellerMsgPublisherId > 0
 $omsErr = '';
 $omsOk = '';
 $statusFilter = strtolower(trim((string)($_GET['status'] ?? 'all')));
-$allowedFilters = ['all', 'pending', 'confirmed', 'paid', 'cancelled', 'history'];
+$allowedFilters = ['all', 'processing', 'shipped', 'delivered', 'cancelled', 'pending', 'confirmed', 'paid', 'history'];
 if (!in_array($statusFilter, $allowedFilters, true)) {
-    // Legacy shipped/delivered tabs now live under History Order.
-    if (in_array($statusFilter, ['shipped', 'delivered'], true)) {
-        $statusFilter = 'history';
-    } else {
-        $statusFilter = 'all';
-    }
+    $statusFilter = 'all';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oms_cancel_action'])) {
@@ -113,8 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oms_cancel_action']))
     }
     $_SESSION['oms_flash_ok'] = $omsOk;
     $_SESSION['oms_flash_err'] = $omsErr;
+    $returnTo = strtolower(trim((string)($_POST['return_to'] ?? 'notification')));
+    $hash = $returnTo === 'orders' ? '#orders' : '#notification';
     $redirQs = $statusFilter !== 'all' ? ('?status=' . rawurlencode($statusFilter)) : '';
-    header('Location: sales_management.php' . $redirQs . '#notification');
+    header('Location: sales_management.php' . $redirQs . $hash);
     exit;
 }
 
@@ -156,8 +153,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oms_action'])) {
 
     $_SESSION['oms_flash_ok'] = $omsOk;
     $_SESSION['oms_flash_err'] = $omsErr;
-    if ($omsErr === '' && in_array($newStatus, ['shipped', 'delivered'], true)) {
-        $redirQs = '?status=history';
+    if ($omsErr === '' && $newStatus === 'shipped') {
+        $redirQs = '?status=shipped';
+    } elseif ($omsErr === '' && $newStatus === 'delivered') {
+        $redirQs = '?status=delivered';
     } elseif ($omsErr === '' && $newStatus === 'cancelled') {
         $redirQs = '?status=cancelled';
     } else {
@@ -175,6 +174,73 @@ if (!empty($_SESSION['oms_flash_ok']) || !empty($_SESSION['oms_flash_err'])) {
 
 $ptErr = '';
 $ptOk = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['invd_stock'])) {
+    $stockPid = (int)($_POST['product_id'] ?? 0);
+    $qty = max(0, (int)($_POST['stock_qty'] ?? 0));
+    if ($stockPid > 0 && org_shop_set_product_stock($dbh, $orgId, $stockPid, $qty)) {
+        $_SESSION['pt_flash_ok'] = 'Stock updated.';
+        $_SESSION['pt_flash_err'] = '';
+    } else {
+        $_SESSION['pt_flash_ok'] = '';
+        $_SESSION['pt_flash_err'] = 'Could not update stock.';
+    }
+    header('Location: sales_management.php?inv_product=' . $stockPid . '#inventory-detail');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['inv_action'])) {
+    $invRun = org_shop_run_catalog_row_action(
+        $dbh,
+        $orgId,
+        trim((string)($_POST['action'] ?? '')),
+        (int)($_POST['product_id'] ?? 0)
+    );
+    if (!empty($invRun['ok'])) {
+        $_SESSION['pt_flash_ok'] = (string)($invRun['message'] ?? 'Saved.');
+        $_SESSION['pt_flash_err'] = '';
+    } else {
+        $_SESSION['pt_flash_ok'] = '';
+        $_SESSION['pt_flash_err'] = (string)($invRun['error'] ?? 'Could not update inventory.');
+    }
+    $invTabRet = strtolower(trim((string)($_POST['inv_tab'] ?? 'all')));
+    if (!in_array($invTabRet, ['all', 'low', 'out'], true)) {
+        $invTabRet = 'all';
+    }
+    $invActionName = trim((string)($_POST['action'] ?? ''));
+    $invPid = (int)($_POST['product_id'] ?? 0);
+    $fromInvDetail = ((string)($_POST['from_view'] ?? '') === 'inventory-detail');
+    if ($fromInvDetail && $invActionName !== 'delete' && $invPid > 0) {
+        header('Location: sales_management.php?inv_product=' . $invPid . '#inventory-detail');
+        exit;
+    }
+    $invQs = $invTabRet !== 'all' ? ('?inv=' . rawurlencode($invTabRet)) : '';
+    header('Location: sales_management.php' . $invQs . '#inventory');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pd_action'])) {
+    $pdRun = org_shop_run_catalog_row_action(
+        $dbh,
+        $orgId,
+        trim((string)($_POST['action'] ?? '')),
+        (int)($_POST['product_id'] ?? 0)
+    );
+    if (!empty($pdRun['ok'])) {
+        $_SESSION['pt_flash_ok'] = (string)($pdRun['message'] ?? 'Saved.');
+        $_SESSION['pt_flash_err'] = '';
+    } else {
+        $_SESSION['pt_flash_ok'] = '';
+        $_SESSION['pt_flash_err'] = (string)($pdRun['error'] ?? 'Could not update product.');
+    }
+    $pdTabRet = strtolower(trim((string)($_POST['pd_tab'] ?? 'all')));
+    if (!in_array($pdTabRet, ['all', 'active', 'out', 'low', 'draft'], true)) {
+        $pdTabRet = 'all';
+    }
+    $pdQs = $pdTabRet !== 'all' ? ('?tab=' . rawurlencode($pdTabRet)) : '';
+    header('Location: sales_management.php' . $pdQs . '#product-catalog');
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pt_action'])) {
     $action = trim((string)($_POST['action'] ?? ''));
@@ -796,7 +862,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pim_action'])) {
         'stock_qty' => (string)($_POST['stock_qty'] ?? ''),
         'category' => (string)($_POST['category'] ?? ''),
         'selling_type' => (string)($_POST['selling_type'] ?? ''),
-        'status' => (string)($_POST['status'] ?? 'draft'),
+        'status' => (string)($_POST['status'] ?? 'active'),
         'sku' => (string)($_POST['sku'] ?? ''),
         'offer_type' => (string)($_POST['offer_type'] ?? 'physical'),
         'pricing_model' => (string)($_POST['pricing_model'] ?? 'one_time'),
@@ -905,13 +971,12 @@ $salesPanels = [
         'columns' => ['Salesperson', 'Role', 'Orders', 'Performance'],
         'rows' => [['Publisher Manager', 'Owner', '8', 'On target'], ['Staff account', 'Sales support', '0', 'Needs assignment'], ['Team queue', 'Shared', '2', 'Follow up']],
     ],
-    'returns-refunds' => [
+    'refunds' => [
         'kicker' => 'Returns & Refunds',
-        'title' => 'Return requests',
-        'summary' => 'Process returned products, issue refunds, and protect stock notes.',
-        'metrics' => [['Open returns', '0'], ['Refunds pending', '0'], ['Eligible orders', '8']],
-        'columns' => ['Request', 'Order', 'Reason', 'Status'],
-        'rows' => [['RET-001', 'ORD-27-1A3EBC9D', 'No request', 'Closed'], ['RET-002', 'ORD-26-004521FD', 'No request', 'Closed'], ['RET-003', 'ORD-28-C880D6B6', 'No request', 'Closed']],
+        'title' => 'Refunds',
+        'summary' => 'Track and manage all refunds issued to buyers.',
+        'metrics' => [], 'columns' => [], 'rows' => [],
+        'is_refunds_panel' => true,
     ],
     'invoices' => [
         'kicker' => 'Invoices',
@@ -940,19 +1005,77 @@ $salesPanels = [
     ],
     'customers' => [
         'kicker' => 'Customers',
-        'title' => 'Buyer CRM',
-        'summary' => 'Manage buyer profiles, lifecycle stages, contacts, and purchase history.',
-        'metrics' => [['Customers', (string)(int)$crmStats['customers']], ['CRM contacts', (string)(int)$crmStats['contacts']], ['Repeat buyers', '0']],
-        'columns' => ['Customer', 'Segment', 'Orders', 'Status'],
-        'rows' => [['Maka Ori', 'Retail', '10', 'Active'], ['Wholesale buyer', 'Wholesale', '0', 'Lead'], ['VIP customer', 'VIP', '0', 'Follow up']],
+        'title' => 'Customers',
+        'summary' => 'Manage and view all your customers and their purchase activity.',
+        'metrics' => [], 'columns' => [], 'rows' => [],
+        'is_customers_panel' => true,
+    ],
+    'reviews' => [
+        'kicker' => 'Reviews', 'title' => 'Reviews',
+        'summary' => 'See what your customers are saying about your products and store.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_reviews_panel' => true,
+    ],
+    'analytics' => [
+        'kicker' => 'Analytics', 'title' => 'Analytics',
+        'summary' => 'Track your store performance and key metrics.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_analytics_panel' => true,
+    ],
+    'marketing' => [
+        'kicker' => 'Marketing', 'title' => 'Marketing',
+        'summary' => 'Create, manage and track your marketing campaigns.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_marketing_panel' => true,
+    ],
+    'settings' => [
+        'kicker' => 'Store Settings', 'title' => 'Store Settings',
+        'summary' => 'Manage your store information, preferences and account settings.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_settings_panel' => true,
+    ],
+    'payment-billing' => [
+        'kicker' => 'Payment & Billing', 'title' => 'Payment & Billing',
+        'summary' => 'Manage payout methods, billing information and invoices.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_payment_billing_panel' => true,
+    ],
+    'shipping-settings' => [
+        'kicker' => 'Shipping Settings', 'title' => 'Shipping Settings',
+        'summary' => 'Configure shipping origins, zones, rates and delivery options.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_shipping_settings_panel' => true,
+    ],
+    'tax-settings' => [
+        'kicker' => 'Tax Settings', 'title' => 'Tax Settings',
+        'summary' => 'Configure how taxes are calculated, collected and displayed.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_tax_settings_panel' => true,
+    ],
+    'settings-notifications' => [
+        'kicker' => 'Notifications', 'title' => 'Notifications',
+        'summary' => 'Manage how you receive notifications about your store.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_settings_notifications_panel' => true,
+    ],
+    'staff-permissions' => [
+        'kicker' => 'Staff & Permissions', 'title' => 'Staff & Permissions',
+        'summary' => 'Manage staff members and control access to store resources.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_staff_permissions_panel' => true,
+    ],
+    'policies' => [
+        'kicker' => 'Policies', 'title' => 'Policies',
+        'summary' => 'Create and manage the policies for your store.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_policies_panel' => true,
+    ],
+    'danger-zone' => [
+        'kicker' => 'Danger Zone', 'title' => 'Danger Zone',
+        'summary' => 'Irreversible actions that can affect your store and data.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_danger_zone_panel' => true,
+    ],
+    'accounts' => [
+        'kicker' => 'Account', 'title' => 'Account',
+        'summary' => 'View your earnings balance, account activity, and profile information.',
+        'metrics' => [], 'columns' => [], 'rows' => [], 'is_account_panel' => true,
     ],
     'payments' => [
-        'kicker' => 'Payments',
-        'title' => 'Payment tracking',
-        'summary' => 'Record payments, track outstanding balances, and monitor payout readiness.',
-        'metrics' => [['Outstanding', org_sales_money((int)$payments['outstanding_cents'])], ['Paid MTD', org_sales_money((int)$payments['paid_cents'])], ['Open invoices', (string)(int)$payments['open_invoices']]],
-        'columns' => ['Payment', 'Order', 'Amount', 'Status'],
-        'rows' => [['PAY-001', 'ORD-27-1A3EBC9D', '$15.98', 'Pending'], ['PAY-002', 'ORD-26-004521FD', '$99.99', 'Pending'], ['PAY-003', 'ORD-28-C880D6B6', '$10.00', 'Pending']],
+        'kicker' => 'Payouts',
+        'title' => 'Payouts',
+        'summary' => 'Track and manage all payouts from your sales.',
+        'metrics' => [], 'columns' => [], 'rows' => [],
+        'is_payments_panel' => true,
     ],
     'payroll' => [
         'kicker' => 'Payroll',
@@ -975,17 +1098,79 @@ $salesPanels = [
 
 // Staff can use Sales Management but must not see Payroll or Payments.
 if (!$isManager) {
-    unset($salesPanels['payroll'], $salesPanels['payments']);
+    unset($salesPanels['payroll'], $salesPanels['payments'], $salesPanels['settings'], $salesPanels['payment-billing'], $salesPanels['shipping-settings'], $salesPanels['tax-settings'], $salesPanels['settings-notifications'], $salesPanels['staff-permissions'], $salesPanels['policies'], $salesPanels['danger-zone']);
 }
 
 $salesViewSlugs = array_values(array_unique(array_merge(
-    ['dashboard', 'orders', 'notification', 'message', 'support-center', 'table_cancel_orders', 'inventory', 'products', 'timecard'],
+    ['dashboard', 'orders', 'notification', 'message', 'support-center', 'table_cancel_orders', 'inventory', 'inventory-detail', 'overview', 'transactions', 'products', 'product-catalog', 'timecard'],
     array_keys($salesPanels)
 )));
 
+$salesHeaderCopy = [
+    'dashboard' => [
+        'title' => 'Welcome back!',
+        'sub' => "Here's what's happening with your store today.",
+    ],
+    'orders' => [
+        'title' => 'Orders',
+        'sub' => 'Manage and fulfill orders from your customers.',
+    ],
+    'notification' => [
+        'title' => 'Notification',
+        'sub' => 'Order lifecycle hub — Pending, Paid, Shipping, Delivery, and cancellations.',
+    ],
+    'message' => [
+        'title' => 'Customer chat',
+        'sub' => 'Receive and reply to customer questions about products, orders, pickup, and delivery.',
+    ],
+    'support-center' => [
+        'title' => 'Chat with Admin',
+        'sub' => 'Ask Admin for seller help with orders, store settings, payouts, or account issues.',
+    ],
+    'table_cancel_orders' => [
+        'title' => 'Cancelled orders',
+        'sub' => 'Seller cancel and customer cancellation in one table. Same customer = one row.',
+    ],
+    'product-catalog' => [
+        'title' => 'Products',
+        'sub' => 'Manage your product listings, inventory and status.',
+    ],
+    'inventory' => [
+        'title' => 'Inventory',
+        'sub' => 'Overview of your inventory across all products and variants.',
+    ],
+    'overview' => [
+        'title' => 'Overview',
+        'sub' => 'Real-time overview of your inventory performance and stock status.',
+    ],
+    'transactions' => [
+        'title' => 'Transactions',
+        'sub' => 'Track all inventory transactions and stock movements.',
+    ],
+    'inventory-detail' => [
+        'title' => 'Inventory',
+        'sub' => 'Track and manage your stock across all products and variants.',
+    ],
+    'products' => [
+        'title' => 'Create new products',
+        'sub' => 'Add listings, photos, and selling details for your catalog.',
+    ],
+    'timecard' => [
+        'title' => 'Track your hours',
+        'sub' => 'Clock in and submit hours so payroll can pay you.',
+    ],
+];
+foreach ($salesPanels as $slug => $panel) {
+    $salesHeaderCopy[$slug] = [
+        'title' => (string)($panel['title'] ?? $panel['kicker'] ?? $slug),
+        'sub' => (string)($panel['summary'] ?? ''),
+    ];
+}
+$GLOBALS['salesHeaderCopy'] = $salesHeaderCopy;
+
 $pageTitle = 'Sales Management';
 
-/* ---- Azia sales monitoring metrics (dashboard view) ---- */
+/* ---- Store dashboard metrics (#dashboard) ---- */
 $aziaMoney = static function (int $cents): string {
     if (function_exists('org_sales_money')) {
         return org_sales_money($cents);
@@ -993,159 +1178,219 @@ $aziaMoney = static function (int $cents): string {
     return '$' . number_format(max(0, $cents) / 100, 2);
 };
 
-$aziaQty = 0;
-$aziaCostCents = 0;
-$aziaRevenueCents = (int)($stats['revenue_mtd_cents'] ?? 0);
-$aziaOrdersMtd = (int)($stats['orders_mtd'] ?? 0);
-$aziaOnlineCents = $aziaRevenueCents;
-$aziaOfflineCents = (int)($payments['outstanding_cents'] ?? 0);
+$dashPct = static function (int $cur, int $prev): array {
+    if ($prev <= 0) {
+        return [$cur > 0 ? 100.0 : 0.0, $cur >= $prev];
+    }
+    $pct = (($cur - $prev) / $prev) * 100;
+    return [round($pct, 1), $pct >= 0];
+};
 
+$dashNotiCount = 0;
+foreach ($alerts as $a) {
+    $dashNotiCount += max(0, (int)($a['count'] ?? 0));
+}
+$dashMsgCount = (int)$sellerBuyerMsgUnread;
+$dashPublisherId = (int)($_SESSION['org_publisher_user_id'] ?? $sellerMsgPublisherId ?? 0);
+$dashStorePreview = $dashPublisherId > 0
+    ? ('../public_user/profile.php?tab=shop&id=' . $dashPublisherId)
+    : '../public_user/shop.php';
+
+$dashSales7 = 0;
+$dashOrders7 = 0;
+$dashSalesPrev7 = 0;
+$dashOrdersPrev7 = 0;
+$dashRefunds7 = 0;
+$dashRefundsPrev7 = 0;
+$dashFee7 = 0;
 try {
-    $stAzia = $dbh->prepare("
+    $st = $dbh->prepare("
         SELECT
-          COALESCE(SUM(GREATEST(COALESCE(quantity, 1), 1)), 0) AS qty,
-          COALESCE(SUM(
-            GREATEST(
-              (COALESCE(unit_price_cents, 0) * GREATEST(COALESCE(quantity, 1), 1))
-              - COALESCE(discount_cents, 0),
-              0
-            ) * 0.60
-          ), 0) AS cost_est,
-          COALESCE(SUM(total_cents), 0) AS rev
+          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN total_cents ELSE 0 END), 0) AS sales7,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END), 0) AS orders7,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                             AND created_at < DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN total_cents ELSE 0 END), 0) AS sales_prev,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                             AND created_at < DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END), 0) AS orders_prev,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                             THEN COALESCE(service_fee_cents, 0) ELSE 0 END), 0) AS fee7
         FROM org_orders
         WHERE org_id = :org
-          AND status IN ('paid','shipped','delivered')
-          AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')
+          AND status IN ('paid','shipped','delivered','confirmed')
+          AND created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
     ");
-    $stAzia->execute([':org' => $orgId]);
-    $aziaRow = $stAzia->fetch(PDO::FETCH_ASSOC) ?: [];
-    $aziaQty = (int)($aziaRow['qty'] ?? 0);
-    $aziaCostCents = (int)round((float)($aziaRow['cost_est'] ?? 0));
-    if (!empty($aziaRow['rev'])) {
-        $aziaRevenueCents = (int)$aziaRow['rev'];
-        $aziaOnlineCents = $aziaRevenueCents;
-    }
+    $st->execute([':org' => $orgId]);
+    $r = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+    $dashSales7 = (int)($r['sales7'] ?? 0);
+    $dashOrders7 = (int)($r['orders7'] ?? 0);
+    $dashSalesPrev7 = (int)($r['sales_prev'] ?? 0);
+    $dashOrdersPrev7 = (int)($r['orders_prev'] ?? 0);
+    $dashFee7 = (int)($r['fee7'] ?? 0);
 } catch (Throwable $e) {
-    // keep defaults from $stats
+    $dashSales7 = (int)($stats['revenue_mtd_cents'] ?? 0);
+    $dashOrders7 = (int)($stats['orders_mtd'] ?? 0);
 }
 
-$aziaProfitCents = max(0, $aziaRevenueCents - $aziaCostCents);
+try {
+    $st = $dbh->prepare("
+        SELECT
+          COALESCE(SUM(CASE WHEN r.updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                             OR r.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                        THEN COALESCE(o.total_cents, 0) ELSE 0 END), 0) AS ref7,
+          COALESCE(SUM(CASE WHEN (r.updated_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+                                  OR r.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY))
+                                 AND (r.updated_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+                                  AND (r.created_at IS NULL OR r.created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)))
+                        THEN COALESCE(o.total_cents, 0) ELSE 0 END), 0) AS ref_prev
+        FROM org_order_returns r
+        INNER JOIN org_orders o ON o.id = r.order_id
+        WHERE o.org_id = :org
+          AND r.status IN ('refunded','approved')
+    ");
+    $st->execute([':org' => $orgId]);
+    $rr = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+    $dashRefunds7 = (int)($rr['ref7'] ?? 0);
+    $dashRefundsPrev7 = (int)($rr['ref_prev'] ?? 0);
+} catch (Throwable $e) {
+    $dashRefunds7 = 0;
+    $dashRefundsPrev7 = 0;
+}
 
-$aziaBarLabels = [];
-$aziaBarOnline = [];
-$aziaBarOffline = [];
-$aziaDayMap = [];
+$payoutTotals = org_sales_payout_totals($dbh, $orgId);
+$dashPendingPayout = (int)($payoutTotals['pending_cents'] ?? 0) + (int)($payoutTotals['scheduled_cents'] ?? 0);
+$dashPendingPayoutOrders = (int)($payoutTotals['pending_count'] ?? 0) + (int)($payoutTotals['scheduled_count'] ?? 0);
+$dashNetEarnings = max(0, $dashSales7 - $dashFee7 - $dashRefunds7);
+
+[$dashSalesPct, $dashSalesUp] = $dashPct($dashSales7, $dashSalesPrev7);
+[$dashOrdersPct, $dashOrdersUp] = $dashPct($dashOrders7, $dashOrdersPrev7);
+[$dashNetPct, $dashNetUp] = $dashPct($dashNetEarnings, max(0, $dashSalesPrev7 - $dashRefundsPrev7));
+[$dashRefundPct, $dashRefundUp] = $dashPct($dashRefunds7, $dashRefundsPrev7);
+
+$dashRangeLabel = (new DateTimeImmutable('today'))->modify('-6 days')->format('M j, Y')
+    . ' - ' . (new DateTimeImmutable('today'))->format('M j, Y');
+
+$dashLineLabels = [];
+$dashLineSales = [];
+$dashDayMap = [];
 try {
     $stDays = $dbh->prepare("
         SELECT DATE(created_at) AS d, COALESCE(SUM(total_cents), 0) AS rev
         FROM org_orders
         WHERE org_id = :org
-          AND status IN ('paid','shipped','delivered')
-          AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+          AND status IN ('paid','shipped','delivered','confirmed')
+          AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
         GROUP BY DATE(created_at)
     ");
     $stDays->execute([':org' => $orgId]);
     foreach ($stDays->fetchAll(PDO::FETCH_ASSOC) ?: [] as $drow) {
-        $aziaDayMap[(string)($drow['d'] ?? '')] = (int)($drow['rev'] ?? 0);
+        $dashDayMap[(string)($drow['d'] ?? '')] = (int)($drow['rev'] ?? 0);
     }
 } catch (Throwable $e) {
-    $aziaDayMap = [];
+    $dashDayMap = [];
 }
-for ($i = 13; $i >= 0; $i--) {
+for ($i = 6; $i >= 0; $i--) {
     $d = (new DateTimeImmutable('today'))->modify('-' . $i . ' days');
     $key = $d->format('Y-m-d');
-    $aziaBarLabels[] = $d->format('M d');
-    $onlineCents = (int)($aziaDayMap[$key] ?? 0);
-    if ($onlineCents <= 0 && $aziaRevenueCents > 0) {
-        // Gentle demo wave when a day has no sales yet
-        $onlineCents = (int)round($aziaRevenueCents / 10 * (0.45 + (($i % 5) * 0.12)));
-    }
-    $offlineCents = (int)round(max(0, $aziaOfflineCents) / 10 * (0.4 + (($i % 4) * 0.14)));
-    // Chart values in whole dollars for clean Azia-style bars
-    $aziaBarOnline[] = (int)round($onlineCents / 100);
-    $aziaBarOffline[] = (int)round($offlineCents / 100);
+    $dashLineLabels[] = $d->format('M j');
+    $dashLineSales[] = round(((int)($dashDayMap[$key] ?? 0)) / 100, 2);
 }
 
-$aziaSpark = static function (int $base): array {
-    $base = max(8, $base);
-    $out = [];
-    for ($i = 0; $i < 16; $i++) {
-        $wave = 0.52 + 0.48 * sin(($i + 1) * 0.55);
-        $bump = 0.72 + (($i % 5) * 0.07);
-        $out[] = (int)round($base * $wave * $bump);
-    }
-    return $out;
-};
+$dashChannelMarketplace = (int)round($dashSales7 * 0.717);
+$dashChannelDirect = (int)round($dashSales7 * 0.215);
+$dashChannelSocial = max(0, $dashSales7 - $dashChannelMarketplace - $dashChannelDirect);
+if ($dashSales7 <= 0) {
+    $dashChannelMarketplace = 0;
+    $dashChannelDirect = 0;
+    $dashChannelSocial = 0;
+}
+$dashChannelTotal = max(1, $dashSales7);
 
-/** Build an Azia-like SVG sparkline path from numeric points. */
-$aziaSparkSvg = static function (array $data, string $stroke): string {
-    $n = count($data);
-    if ($n < 2) {
-        $data = [12, 18, 14, 22, 16, 24, 19, 26];
-        $n = count($data);
-    }
-    $w = 160;
-    $h = 36;
-    $pad = 3;
-    $min = min($data);
-    $max = max($data);
-    $span = max(1, $max - $min);
-    $pts = [];
-    foreach ($data as $i => $v) {
-        $x = $pad + ($n === 1 ? 0 : ($i / ($n - 1)) * ($w - 2 * $pad));
-        $y = $h - $pad - (($v - $min) / $span) * ($h - 2 * $pad);
-        $pts[] = [round($x, 2), round($y, 2)];
-    }
-    $d = 'M' . $pts[0][0] . ' ' . $pts[0][1];
-    for ($i = 1; $i < count($pts); $i++) {
-        $prev = $pts[$i - 1];
-        $cur = $pts[$i];
-        $cx = ($prev[0] + $cur[0]) / 2;
-        $d .= ' C' . $cx . ' ' . $prev[1] . ', ' . $cx . ' ' . $cur[1] . ', ' . $cur[0] . ' ' . $cur[1];
-    }
-    $fillD = $d . ' L' . $pts[$n - 1][0] . ' ' . $h . ' L' . $pts[0][0] . ' ' . $h . ' Z';
-    $strokeEsc = htmlspecialchars($stroke, ENT_QUOTES, 'UTF-8');
-    return '<svg class="sa-spark-svg" viewBox="0 0 ' . $w . ' ' . $h . '" preserveAspectRatio="none" aria-hidden="true">'
-        . '<path class="sa-spark-fill" d="' . htmlspecialchars($fillD, ENT_QUOTES, 'UTF-8') . '" fill="' . $strokeEsc . '"></path>'
-        . '<path class="sa-spark-line" d="' . htmlspecialchars($d, ENT_QUOTES, 'UTF-8') . '" fill="none" stroke="' . $strokeEsc . '"></path>'
-        . '</svg>';
-};
-
-$sparkQty = $aziaSpark(max(12, $aziaQty * 6));
-$sparkCost = $aziaSpark(max(12, (int)round($aziaCostCents / 100)));
-$sparkRev = $aziaSpark(max(12, (int)round($aziaRevenueCents / 100)));
-$sparkProfit = $aziaSpark(max(12, (int)round($aziaProfitCents / 100)));
-
-$sparkQtySvg = $aziaSparkSvg($sparkQty, '#5b47fb');
-$sparkCostSvg = $aziaSparkSvg($sparkCost, '#f10075');
-$sparkRevSvg = $aziaSparkSvg($sparkRev, '#00cccc');
-$sparkProfitSvg = $aziaSparkSvg($sparkProfit, '#3bb001');
-$aziaRecentOrders = [];
+$dashRecentOrders = [];
 try {
     $stRecent = $dbh->prepare("
-        SELECT id, order_code, product_title, status, total_cents, quantity, created_at, buyer_name
-        FROM org_orders
-        WHERE org_id = :org
-        ORDER BY created_at DESC, id DESC
-        LIMIT 8
+        SELECT o.id, o.order_code, o.product_title, o.status, o.total_cents, o.quantity, o.created_at,
+               p.cover_image_path AS product_cover
+        FROM org_orders o
+        LEFT JOIN org_products p ON p.id = o.product_id
+        WHERE o.org_id = :org
+        ORDER BY o.created_at DESC, o.id DESC
+        LIMIT 5
     ");
     $stRecent->execute([':org' => $orgId]);
-    $aziaRecentOrders = $stRecent->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $dashRecentOrders = $stRecent->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
-    $aziaRecentOrders = [];
+    try {
+        $stRecent = $dbh->prepare("
+            SELECT id, order_code, product_title, status, total_cents, quantity, created_at, NULL AS product_cover
+            FROM org_orders WHERE org_id = :org
+            ORDER BY created_at DESC, id DESC LIMIT 5
+        ");
+        $stRecent->execute([':org' => $orgId]);
+        $dashRecentOrders = $stRecent->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e2) {
+        $dashRecentOrders = [];
+    }
 }
 
-$aziaTopRegions = [
-    ['name' => 'United States', 'code' => 'US', 'value' => max(50, $aziaRevenueCents / 100 * 0.42 + 120)],
-    ['name' => 'Canada', 'code' => 'CA', 'value' => max(30, $aziaRevenueCents / 100 * 0.18 + 60)],
-    ['name' => 'United Kingdom', 'code' => 'GB', 'value' => max(20, $aziaOfflineCents / 100 * 0.22 + 45)],
-];
+$dashTopProducts = [];
+try {
+    $stTop = $dbh->prepare("
+        SELECT o.product_id, o.product_title,
+               COALESCE(SUM(GREATEST(COALESCE(o.quantity, 1), 1)), 0) AS sold_qty,
+               COALESCE(SUM(o.total_cents), 0) AS revenue_cents,
+               MAX(p.cover_image_path) AS product_cover
+        FROM org_orders o
+        LEFT JOIN org_products p ON p.id = o.product_id
+        WHERE o.org_id = :org AND o.status NOT IN ('cancelled')
+        GROUP BY o.product_id, o.product_title
+        ORDER BY revenue_cents DESC, sold_qty DESC
+        LIMIT 5
+    ");
+    $stTop->execute([':org' => $orgId]);
+    $dashTopProducts = $stTop->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {
+    $dashTopProducts = org_ecommerce_top_products($dbh, $orgId, 5);
+}
+
+$dashStatusUi = static function (string $st): array {
+    $st = strtolower(trim($st));
+    return match ($st) {
+        'delivered' => ['Delivered', 'delivered'],
+        'shipped' => ['Shipped', 'shipped'],
+        'paid', 'confirmed' => ['Processing', 'processing'],
+        'cancelled' => ['Canceled', 'canceled'],
+        default => ['Pending', 'pending'],
+    };
+};
+
+$dashCoverUrl = static function (?string $path): string {
+    $path = trim((string)$path);
+    if ($path === '') {
+        return '';
+    }
+    if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0 || strpos($path, '/') === 0) {
+        return $path;
+    }
+    return '../' . ltrim($path, '/');
+};
+
+$dashViews = max(120, $dashOrders7 * 28 + (int)($stats['products_active'] ?? 0) * 12);
+$dashViewsPrev = max(80, $dashOrdersPrev7 * 28 + 40);
+[$dashViewsPct, $dashViewsUp] = $dashPct($dashViews, $dashViewsPrev);
+$dashConv = $dashViews > 0 ? round(($dashOrders7 / $dashViews) * 100, 1) : 0.0;
+$dashConvPrev = $dashViewsPrev > 0 ? round(($dashOrdersPrev7 / $dashViewsPrev) * 100, 1) : 0.0;
+[$dashConvPct, $dashConvUp] = $dashPct((int)round($dashConv * 10), (int)round($dashConvPrev * 10));
+$dashReviews = min(99, 88 + min(10, $dashOrders7));
+$dashRepeat = min(45, 18 + min(20, (int)floor($dashOrders7 / 2)));
 
 $salesViewBootScript = '<script>(function(){'
     . 'var d="dashboard",h=String(location.hash||"").replace(/^#/,"").trim();'
     . 'if(h==="order-cancel-table")h="notification";'
-    . 'if(h==="settings")h="detail_employee";'
     . 'if(h==="product-table")h="inventory";'
+    . 'if(h==="Products"||h==="products-list")h="product-catalog";'
+    . 'if(h==="messages")h="message";'
+    . 'if(h==="payouts")h="payments";'
+    . 'if(h==="returns-refunds")h="refunds";'
     . 'var v=' . json_encode($salesViewSlugs, JSON_UNESCAPED_SLASHES) . ';'
     . 'document.documentElement.setAttribute("data-sales-initial-view",h&&v.indexOf(h)!==-1?h:d);'
     . 'document.documentElement.setAttribute("data-sales-active-view",h&&v.indexOf(h)!==-1?h:d);'
@@ -1154,15 +1399,36 @@ require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open(
     $pageTitle,
     '<link rel="stylesheet" href="css/commerce-hub.css?v=17">'
-    . '<link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css">'
-    . '<link rel="stylesheet" href="css/product-table.css?v=10">'
+    . '<link rel="stylesheet" href="css/org-commerce-theme.css?v=7" id="org-commerce-theme-css">'
+    . '<link rel="stylesheet" href="css/product-table.css?v=12">'
     . '<link rel="stylesheet" href="../lib/jqvmap/jqvmap.css">'
-    . '<link rel="stylesheet" href="css/sales-azia.css?v=3">'
+    . '<link rel="stylesheet" href="css/sales-azia.css?v=6">'
     . $salesViewBootScript
 );
 ?>
 <?php org_page_body_open('commerce-page'); ?>
   <style>
+    html,
+    body.org-app.org-page-sales_management{
+      max-width:100%;
+      overflow-x:hidden !important;
+    }
+    body.org-app.org-page-sales_management .sh-mainpanel,
+    body.org-app.org-page-sales_management .sh-pagebody,
+    body.org-app.org-page-sales_management .sales-management-view,
+    body.org-app.org-page-sales_management .product-table-page,
+    body.org-app.org-page-sales_management .pt-layout,
+    body.org-app.org-page-sales_management .pt-card-main{
+      box-sizing:border-box;
+      min-width:0;
+      max-width:100%;
+    }
+    @media (min-width:1200px){
+      body.org-app.org-page-sales_management .sh-mainpanel{
+        width:auto !important;
+        max-width:calc(100vw - 240px) !important;
+      }
+    }
     .sales-management-view{ display:none; }
     .sales-management-view.is-active{ display:block; }
     .sales-management-view[data-sales-view="detail_employee"].is-active,
@@ -1197,8 +1463,52 @@ org_page_shell_open(
       padding-top: 0;
       margin-top: 0;
     }
-    .sales-management-view[data-sales-view="dashboard"] .sales-azia{
+    .sales-management-view[data-sales-view="dashboard"].is-active,
+    html[data-sales-initial-view="dashboard"] .sales-management-view[data-sales-view="dashboard"],
+    html[data-sales-active-view="dashboard"] .sales-management-view[data-sales-view="dashboard"]{
+      display: flex !important;
+      flex-direction: column;
+      min-height: 0;
+      height: calc(100vh - var(--org-header-h, 48px) - 20px);
+      max-height: calc(100vh - var(--org-header-h, 48px) - 20px);
+      overflow: hidden;
+    }
+    .sales-management-view[data-sales-view="dashboard"] .store-dash{
       margin-top: 0;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+    /* Non-dashboard hash panels must win once active */
+    .sales-management-view.is-active:not([data-sales-view="dashboard"]){
+      display: block !important;
+    }
+    html[data-sales-active-view]:not([data-sales-active-view="dashboard"]) .sales-management-view[data-sales-view="dashboard"]{
+      display: none !important;
+    }
+    /* Create Products is a long form: let the document and content panel scroll. */
+    html[data-sales-initial-view="products"],
+    html[data-sales-active-view="products"],
+    html[data-sales-initial-view="products"] body.org-app,
+    html[data-sales-active-view="products"] body.org-app{
+      height:auto !important;
+      min-height:100% !important;
+      max-height:none !important;
+      overflow-x:hidden !important;
+      overflow-y:auto !important;
+    }
+    html[data-sales-initial-view="products"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="products"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="products"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="products"] body.org-app .sh-pagebody,
+    .sales-management-view[data-sales-view="products"].is-active{
+      height:auto !important;
+      min-height:0 !important;
+      max-height:none !important;
+      overflow:visible !important;
+    }
+    .sales-management-view[data-sales-view="products"]{
+      padding-bottom:36px;
     }
     .sales-management-detail-head{
       display:flex;
@@ -1407,161 +1717,230 @@ org_page_shell_open(
     }
   </style>
   <section class="sales-management-view" data-sales-view="dashboard">
-  <div class="sales-azia">
-    <div class="sa-kpi-row">
-      <div class="sa-kpi">
-        <span class="sa-kpi-label">Total Quantity</span>
-        <h3><?= number_format($aziaQty) ?></h3>
-        <p class="sa-kpi-delta up"><?= (int)$stats['orders_mtd'] ?> orders <span>(MTD)</span></p>
-        <div class="sa-spark"><?= $sparkQtySvg ?></div>
-      </div>
-      <div class="sa-kpi">
-        <span class="sa-kpi-label">Total Cost</span>
-        <h3><?= org_ecommerce_h($aziaMoney($aziaCostCents)) ?></h3>
-        <p class="sa-kpi-delta down">Est. COGS ~60% <span>(MTD)</span></p>
-        <div class="sa-spark"><?= $sparkCostSvg ?></div>
-      </div>
-      <div class="sa-kpi">
-        <span class="sa-kpi-label">Total Revenue</span>
-        <h3><?= org_ecommerce_h($aziaMoney($aziaRevenueCents)) ?></h3>
-        <p class="sa-kpi-delta up"><?= (int)$stats['orders_open'] ?> open <span>(MTD)</span></p>
-        <div class="sa-spark"><?= $sparkRevSvg ?></div>
-      </div>
-      <div class="sa-kpi">
-        <span class="sa-kpi-label">Total Profit</span>
-        <h3><?= org_ecommerce_h($aziaMoney($aziaProfitCents)) ?></h3>
-        <p class="sa-kpi-delta <?= $aziaProfitCents >= $aziaCostCents ? 'up' : 'down' ?>">Revenue − est. cost <span>(MTD)</span></p>
-        <div class="sa-spark"><?= $sparkProfitSvg ?></div>
+  <div class="store-dash">
+    <div class="sd-hero">
+      <div class="sd-hero-actions">
+        <a class="sd-icon-btn" href="sales_notifications.php" title="Notifications" aria-label="Notifications">
+          <i class="fa fa-bell-o"></i>
+          <?php if ($dashNotiCount > 0): ?><span class="sd-badge"><?= (int)min(99, $dashNotiCount) ?></span><?php endif; ?>
+        </a>
+        <a class="sd-icon-btn" href="#message" data-sales-nav="message" title="Messages" aria-label="Messages">
+          <i class="fa fa-commenting-o"></i>
+          <?php if ($dashMsgCount > 0): ?><span class="sd-badge"><?= (int)min(99, $dashMsgCount) ?></span><?php endif; ?>
+        </a>
+        <a class="sd-preview-btn" href="<?= org_ecommerce_h($dashStorePreview) ?>" target="_blank" rel="noopener">
+          <i class="fa fa-external-link"></i> Store Preview
+        </a>
       </div>
     </div>
 
-    <div class="row row-sm">
-      <div class="col-lg-7">
-        <div class="sa-card">
-          <div class="sa-card-head">
-            <div>
-              <h4>This Month's Total Revenue</h4>
-              <p>Sales performance for paid orders vs outstanding invoices</p>
-            </div>
-            <ul class="sa-legend">
-              <li><span class="dot online"></span> Online sales</li>
-              <li><span class="dot offline"></span> Outstanding</li>
-            </ul>
-          </div>
-          <div class="sa-chart-wrap">
-            <canvas id="saRevenueBarChart"></canvas>
-          </div>
+    <div class="sd-kpis">
+      <div class="sd-kpi">
+        <div class="sd-kpi-top">
+          <div class="sd-ico blue"><i class="fa fa-shopping-bag"></i></div>
+          <div class="sd-delta <?= $dashSalesUp ? 'up' : 'down' ?>"><?= $dashSalesUp ? '+' : '' ?><?= number_format($dashSalesPct, 1) ?>% vs last 7 days</div>
         </div>
+        <div class="sd-lab">Total Sales</div>
+        <div class="sd-val"><?= org_ecommerce_h($aziaMoney($dashSales7)) ?></div>
       </div>
-      <div class="col-lg-5 mg-t-20 mg-lg-t-0">
-        <div class="sa-card">
-          <div class="sa-card-head">
-            <div>
-              <h4>Sales Revenue by Region (USA)</h4>
-              <p>Relative share of store activity</p>
-            </div>
-          </div>
-          <div id="saUsaMap" class="sa-map"></div>
+      <div class="sd-kpi">
+        <div class="sd-kpi-top">
+          <div class="sd-ico green"><i class="fa fa-shopping-cart"></i></div>
+          <div class="sd-delta <?= $dashOrdersUp ? 'up' : 'down' ?>"><?= $dashOrdersUp ? '+' : '' ?><?= number_format($dashOrdersPct, 1) ?>% vs last 7 days</div>
         </div>
+        <div class="sd-lab">Total Orders</div>
+        <div class="sd-val"><?= number_format($dashOrders7) ?></div>
+      </div>
+      <div class="sd-kpi">
+        <div class="sd-kpi-top">
+          <div class="sd-ico purple"><i class="fa fa-money"></i></div>
+          <div class="sd-delta <?= $dashNetUp ? 'up' : 'down' ?>"><?= $dashNetUp ? '+' : '' ?><?= number_format($dashNetPct, 1) ?>% vs last 7 days</div>
+        </div>
+        <div class="sd-lab">Net Earnings</div>
+        <div class="sd-val"><?= org_ecommerce_h($aziaMoney($dashNetEarnings)) ?></div>
+      </div>
+      <div class="sd-kpi">
+        <div class="sd-kpi-top">
+          <div class="sd-ico yellow"><i class="fa fa-refresh"></i></div>
+          <div class="sd-delta muted">Open</div>
+        </div>
+        <div class="sd-lab">Pending Payout</div>
+        <div class="sd-val"><?= org_ecommerce_h($aziaMoney($dashPendingPayout)) ?></div>
+        <div class="sd-sub">From <?= number_format($dashPendingPayoutOrders) ?> orders</div>
+      </div>
+      <div class="sd-kpi">
+        <div class="sd-kpi-top">
+          <div class="sd-ico red"><i class="fa fa-bullseye"></i></div>
+          <div class="sd-delta <?= $dashRefundUp ? 'down' : 'up' ?>"><?= $dashRefundUp ? '+' : '−' ?><?= number_format(abs($dashRefundPct), 1) ?>% vs last 7 days</div>
+        </div>
+        <div class="sd-lab">Refunds</div>
+        <div class="sd-val"><?= org_ecommerce_h($aziaMoney($dashRefunds7)) ?></div>
       </div>
     </div>
 
-    <div class="row row-sm mg-t-20">
-      <div class="col-lg-8">
-        <div class="sa-card">
-          <div class="sa-card-head">
-            <div>
-              <h4>Your Most Recent Orders</h4>
-              <p>Latest shop activity for this organization</p>
-            </div>
-            <a href="#orders" data-sales-nav="orders" style="font-size:12px;font-weight:600;color:#5b47fb;text-decoration:none;">View all</a>
-          </div>
-          <div class="table-responsive">
-            <table class="table sa-table mg-b-0">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Order</th>
-                  <th>Qty</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (!$aziaRecentOrders): ?>
-                  <tr><td colspan="5" style="color:#8392a5;">No orders yet.</td></tr>
-                <?php else: ?>
-                  <?php foreach ($aziaRecentOrders as $ord): ?>
-                    <?php
-                      $ots = strtotime((string)($ord['created_at'] ?? ''));
-                      $odate = $ots ? date('M d, Y', $ots) : '—';
-                    ?>
-                    <tr>
-                      <td><?= org_ecommerce_h($odate) ?></td>
-                      <td>
-                        <strong><?= org_ecommerce_h((string)($ord['order_code'] ?? ('#' . (int)($ord['id'] ?? 0)))) ?></strong>
-                        <div style="font-size:11px;color:#8392a5;"><?= org_ecommerce_h((string)($ord['product_title'] ?? '')) ?></div>
-                      </td>
-                      <td><?= (int)($ord['quantity'] ?? 1) ?></td>
-                      <td><?= org_ecommerce_h($aziaMoney((int)($ord['total_cents'] ?? 0))) ?></td>
-                      <td><?= org_ecommerce_h(ucfirst((string)($ord['status'] ?? ''))) ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
+    <div class="sd-grid-main">
+      <div class="sd-card sd-sales-overview">
+        <div class="sd-card-head">
+          <h3>Sales Overview</h3>
+          <div class="sd-range"><i class="fa fa-calendar"></i> <?= org_ecommerce_h($dashRangeLabel) ?></div>
+        </div>
+        <div class="sd-overview-metric">
+          <div class="sd-lab">Total Sales</div>
+          <div class="sd-val"><?= org_ecommerce_h($aziaMoney($dashSales7)) ?></div>
+        </div>
+        <div class="sd-chart-line">
+          <canvas id="sdSalesLineChart"></canvas>
         </div>
       </div>
-      <div class="col-lg-4 mg-t-20 mg-lg-t-0">
-        <div class="sa-card">
-          <div class="sa-card-head">
-            <div>
-              <h4>Your Top Regions</h4>
-              <p>Estimated share of revenue</p>
-            </div>
-          </div>
-          <ul class="sa-countries">
-            <?php foreach ($aziaTopRegions as $region): ?>
-              <li>
-                <span class="flag"><?= org_ecommerce_h($region['code']) ?></span>
-                <span class="name"><?= org_ecommerce_h($region['name']) ?></span>
-                <strong>$<?= number_format((float)$region['value'], 2) ?></strong>
-              </li>
+
+      <div class="sd-card sd-recent">
+        <div class="sd-card-head">
+          <h3>Recent Orders</h3>
+          <a href="#orders" data-sales-nav="orders">View all orders</a>
+        </div>
+        <div class="sd-list">
+          <?php if (!$dashRecentOrders): ?>
+            <div class="sd-empty">No orders yet.</div>
+          <?php else: ?>
+            <?php foreach ($dashRecentOrders as $ord):
+              [$stLab, $stCls] = $dashStatusUi((string)($ord['status'] ?? ''));
+              $ots = strtotime((string)($ord['created_at'] ?? ''));
+              $odate = $ots ? date('M j, Y · g:i A', $ots) : '—';
+              $ocode = trim((string)($ord['order_code'] ?? ''));
+              if ($ocode === '') {
+                  $ocode = 'ORD-' . str_pad((string)(int)($ord['id'] ?? 0), 6, '0', STR_PAD_LEFT);
+              }
+              $cover = $dashCoverUrl($ord['product_cover'] ?? null);
+            ?>
+              <a class="sd-order-row" href="order_details.php?id=<?= (int)($ord['id'] ?? 0) ?>">
+                <div class="sd-thumb">
+                  <?php if ($cover !== ''): ?>
+                    <img src="<?= org_ecommerce_h($cover) ?>" alt="">
+                  <?php else: ?>
+                    <i class="fa fa-cube"></i>
+                  <?php endif; ?>
+                </div>
+                <div class="sd-order-meta">
+                  <div class="sd-order-id"><?= org_ecommerce_h($ocode) ?></div>
+                  <div class="sd-order-date"><?= org_ecommerce_h($odate) ?></div>
+                </div>
+                <span class="sd-status <?= org_ecommerce_h($stCls) ?>"><?= org_ecommerce_h($stLab) ?></span>
+                <div class="sd-order-amt"><?= org_ecommerce_h($aziaMoney((int)($ord['total_cents'] ?? 0))) ?></div>
+              </a>
             <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+
+    <div class="sd-grid-bottom">
+      <div class="sd-card sd-channel">
+        <div class="sd-card-head"><h3>Sales by Channel</h3></div>
+        <div class="sd-channel-body">
+          <div class="sd-donut-wrap">
+            <canvas id="sdChannelDonut"></canvas>
+          </div>
+          <ul class="sd-channel-legend">
+            <li><span class="swatch marketplace"></span><div><strong>Marketplace</strong><span><?= org_ecommerce_h($aziaMoney($dashChannelMarketplace)) ?> · <?= number_format($dashChannelMarketplace / $dashChannelTotal * 100, 1) ?>%</span></div></li>
+            <li><span class="swatch direct"></span><div><strong>Direct Store</strong><span><?= org_ecommerce_h($aziaMoney($dashChannelDirect)) ?> · <?= number_format($dashChannelDirect / $dashChannelTotal * 100, 1) ?>%</span></div></li>
+            <li><span class="swatch social"></span><div><strong>Social Media</strong><span><?= org_ecommerce_h($aziaMoney($dashChannelSocial)) ?> · <?= number_format($dashChannelSocial / $dashChannelTotal * 100, 1) ?>%</span></div></li>
           </ul>
         </div>
       </div>
-    </div>
 
-    <?php if ($alerts): ?>
-    <div class="sa-alerts">
-      <div class="sa-card">
-        <div class="sa-card-head">
-          <div>
-            <h4>Seller alerts</h4>
-            <p>Items that need attention</p>
-          </div>
-          <a href="sales_notifications.php" style="font-size:12px;font-weight:600;color:#5b47fb;text-decoration:none;">View all</a>
+      <div class="sd-card sd-top">
+        <div class="sd-card-head">
+          <h3>Top Products</h3>
+          <a href="#product-catalog" data-sales-nav="product-catalog">View all products</a>
         </div>
-        <div class="commerce-int-grid">
-          <?php foreach ($alerts as $alert): ?>
-            <?php $badgeCount = max(0, (int)($alert['count'] ?? 0)); $badgeLabel = $badgeCount > 99 ? '99+' : (string)$badgeCount; ?>
-            <a href="<?= org_ecommerce_h($alert['action']) ?>" class="commerce-action-tile org-notif-alert-tile" style="position:relative;">
-              <i class="icon ion-alert-circled"></i>
-              <strong style="display:flex;align-items:center;gap:8px;">
-                <?= org_ecommerce_h($alert['type']) ?>
-                <?php if ($badgeCount > 0): ?>
-                  <b class="org-notif-card-badge" style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:#dc3545!important;color:#ffffff!important;font-size:14px!important;font-weight:800!important;"><?= org_ecommerce_h($badgeLabel) ?></b>
-                <?php endif; ?>
-              </strong>
-              <span><?= org_ecommerce_h($alert['message']) ?></span>
-            </a>
-          <?php endforeach; ?>
+        <div class="sd-list">
+          <?php if (!$dashTopProducts): ?>
+            <div class="sd-empty">No product sales yet.</div>
+          <?php else: ?>
+            <?php foreach ($dashTopProducts as $i => $p):
+              $cover = $dashCoverUrl($p['product_cover'] ?? null);
+              $sold = (int)($p['sold_qty'] ?? $p['order_count'] ?? 0);
+              $rev = (int)($p['revenue_cents'] ?? 0);
+            ?>
+              <div class="sd-product-row">
+                <span class="sd-rank"><?= (int)($i + 1) ?></span>
+                <div class="sd-thumb">
+                  <?php if ($cover !== ''): ?>
+                    <img src="<?= org_ecommerce_h($cover) ?>" alt="">
+                  <?php else: ?>
+                    <i class="fa fa-cube"></i>
+                  <?php endif; ?>
+                </div>
+                <div class="sd-product-meta">
+                  <div class="sd-product-name"><?= org_ecommerce_h((string)($p['product_title'] ?? 'Product')) ?></div>
+                  <div class="sd-product-sold"><?= number_format($sold) ?> sold</div>
+                </div>
+                <div class="sd-product-rev"><?= org_ecommerce_h($aziaMoney($rev)) ?></div>
+              </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="sd-side-stack">
+        <div class="sd-card sd-payout">
+          <div class="sd-card-head">
+            <h3>Payout Overview</h3>
+            <a href="payments.php">View all payouts</a>
+          </div>
+          <div class="sd-payout-body">
+            <div>
+              <div class="sd-lab">Available for Payout</div>
+              <div class="sd-val"><?= org_ecommerce_h($aziaMoney($dashPendingPayout)) ?></div>
+              <a class="sd-btn-primary" href="payments.php">Request Payout</a>
+            </div>
+            <div class="sd-payout-art"><i class="fa fa-credit-card"></i></div>
+          </div>
+        </div>
+
+        <div class="sd-card sd-perf">
+          <div class="sd-card-head">
+            <h3>Store Performance</h3>
+            <a href="commerce_analytics.php">View analytics</a>
+          </div>
+          <div class="sd-perf-grid">
+            <div class="sd-perf-item">
+              <div class="sd-perf-ico blue"><i class="fa fa-eye"></i></div>
+              <div class="sd-lab">Store Views</div>
+              <div class="sd-perf-val"><?= number_format($dashViews) ?></div>
+              <div class="sd-delta <?= $dashViewsUp ? 'up' : 'down' ?>"><?= $dashViewsUp ? '+' : '' ?><?= number_format($dashViewsPct, 1) ?>%</div>
+            </div>
+            <div class="sd-perf-item">
+              <div class="sd-perf-ico green"><i class="fa fa-users"></i></div>
+              <div class="sd-lab">Conversion Rate</div>
+              <div class="sd-perf-val"><?= number_format($dashConv, 1) ?>%</div>
+              <div class="sd-delta <?= $dashConvUp ? 'up' : 'down' ?>"><?= $dashConvUp ? '+' : '' ?><?= number_format($dashConvPct, 1) ?>%</div>
+            </div>
+            <div class="sd-perf-item">
+              <div class="sd-perf-ico yellow"><i class="fa fa-star"></i></div>
+              <div class="sd-lab">Positive Reviews</div>
+              <div class="sd-perf-val"><?= (int)$dashReviews ?>%</div>
+              <div class="sd-delta up">+2.1%</div>
+            </div>
+            <div class="sd-perf-item">
+              <div class="sd-perf-ico pink"><i class="fa fa-heart"></i></div>
+              <div class="sd-lab">Repeat Customers</div>
+              <div class="sd-perf-val"><?= (int)$dashRepeat ?>%</div>
+              <div class="sd-delta up">+6.3%</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <?php endif; ?>
+
+    <div class="sd-announce" id="sdAnnounce">
+      <div class="sd-announce-ico"><i class="fa fa-bullhorn"></i></div>
+      <div class="sd-announce-body">
+        <strong>New Feature: Bulk Inventory Update</strong>
+        <span>You can now update prices and quantities for multiple products at once. <a href="#inventory" data-sales-nav="inventory">Learn more</a></span>
+      </div>
+      <button type="button" class="sd-announce-close" aria-label="Dismiss" onclick="document.getElementById('sdAnnounce')?.remove()">&times;</button>
+    </div>
   </div>
   </section>
 
@@ -1572,12 +1951,16 @@ org_page_shell_open(
       $omsBaseUrl = 'sales_management.php';
       $omsHash = '#orders';
       $omsShowCommerceHub = false;
+      $omsShowStoreToolbar = true;
+      $omsNotiCount = (int)($dashNotiCount ?? 0);
+      $omsMsgCount = (int)($dashMsgCount ?? 0);
+      $omsStorePreview = (string)($dashStorePreview ?? '');
       require __DIR__ . '/includes/org_oms_orders_panel.php';
     ?>
   </section>
 
   <section class="sales-management-view" data-sales-view="notification">
-    <?php require __DIR__ . '/includes/org_notification_panel.php'; ?>
+    <?php require __DIR__ . '/includes/org_notifications_dashboard_panel.php'; ?>
   </section>
 
   <section class="sales-management-view" data-sales-view="message">
@@ -1585,14 +1968,6 @@ org_page_shell_open(
   </section>
 
   <section class="sales-management-view" data-sales-view="support-center">
-    <div class="sales-management-detail-head">
-      <div>
-        <p class="sales-management-kicker">Support Center</p>
-        <h1>Chat with Admin</h1>
-        <p>Ask Admin for seller help with orders, store settings, payouts, or account issues. Messages go to Admin — not to customers.</p>
-      </div>
-    </div>
-
     <div class="seller-admin-support" id="sellerAdminSupportRoot" data-endpoint="ajax/admin_support_chat.php">
       <div class="seller-admin-support-guide">
         <h3>How to get Admin help</h3>
@@ -1608,7 +1983,7 @@ org_page_shell_open(
         <div class="seller-admin-support-head">Admin support chat</div>
         <div class="seller-admin-support-topics" role="group" aria-label="Support topic">
           <button type="button" class="seller-admin-topic is-active" data-topic="seller_help">Seller help</button>
-          <button type="button" class="seller-admin-topic" data-topic="orders">Orders &amp; fulfillment</button>
+          <button type="button" class="seller-admin-topic" data-topic="orders">Order dispute</button>
           <button type="button" class="seller-admin-topic" data-topic="account">Store &amp; account</button>
         </div>
         <div class="seller-admin-support-thread" id="sellerAdminSupportThread" aria-live="polite"></div>
@@ -1628,22 +2003,115 @@ org_page_shell_open(
     <?php require __DIR__ . '/includes/org_table_cancel_orders_panel.php'; ?>
   </section>
 
-  <section class="sales-management-view product-table-page" data-sales-view="inventory">
+  <section class="sales-management-view" data-sales-view="product-catalog">
+    <?php
+      $err = $ptErr ?? '';
+      $ok = $ptOk ?? '';
+      $pdBaseUrl = 'sales_management.php';
+      $pdHash = '#product-catalog';
+      $pdAddHref = '#products';
+      $pdAddAttr = ' data-sales-nav="products"';
+      $pdEditBase = 'sales_management.php?edit=';
+      $pdEditHash = '#products';
+      $pdDetailBase = 'products_detail.php?id=';
+      $pdShowStoreToolbar = true;
+      $pdNotiCount = (int)($dashNotiCount ?? 0);
+      $pdMsgCount = (int)($dashMsgCount ?? 0);
+      $pdStorePreview = (string)($dashStorePreview ?? '');
+      $pdTab = strtolower(trim((string)($_GET['tab'] ?? 'all')));
+      $pdFormAction = 'sales_management.php';
+      $pdInventoryHref = '#inventory';
+      $pdInventoryAttr = ' data-sales-nav="inventory"';
+      require __DIR__ . '/includes/org_products_dashboard_panel.php';
+    ?>
+  </section>
+
+  <section class="sales-management-view" data-sales-view="inventory">
     <?php
       $err = $ptErr;
       $ok = $ptOk;
-      $ptBackHref = 'sales_management.php#dashboard';
-      $ptBackLabel = 'Sales management';
       $ptFormAction = 'sales_management.php';
-      $ptShowBack = true;
-      $ptTitle = 'Inventory';
       $ptAddHref = '#products';
       $ptAddAttr = ' data-sales-nav="products"';
       $ptEditBase = 'sales_management.php?edit=';
       $ptEditHash = '#products';
-      $ptDetailBase = 'products_detail.php?id=';
-      $ptDetailSuffix = '&from=sales';
+      $ptDetailBase = 'sales_management.php?inv_product=';
+      $ptDetailSuffix = '#inventory-detail';
+      $ptShowStoreToolbar = true;
+      $ptNotiCount = (int)($dashNotiCount ?? 0);
+      $ptMsgCount = (int)($dashMsgCount ?? 0);
+      $ptBaseUrl = 'sales_management.php';
+      $ptHash = '#inventory';
+      $invTab = strtolower(trim((string)($_GET['inv'] ?? 'all')));
       require __DIR__ . '/includes/org_product_table_panel.php';
+    ?>
+  </section>
+
+  <section class="sales-management-view" data-sales-view="overview">
+    <?php
+      $ovInSalesHub = true;
+      $ovShowPageHead = false;
+      $ovInventoryHref = '#inventory';
+      $ovInventoryAttr = ' data-sales-nav="inventory"';
+      $ovLowHref = 'sales_management.php?inv=low#inventory';
+      $ovNotiCount = (int)($dashNotiCount ?? 0);
+      $ovMsgCount = (int)($dashMsgCount ?? 0);
+      $ovNotiHref = 'sales_notifications.php';
+      $ovMsgHref = '#message';
+      $ovMsgAttr = ' data-sales-nav="message"';
+      $panelFile = __DIR__ . '/includes/org_inventory_overview_panel.php';
+      if (is_file($panelFile)) {
+          require $panelFile;
+      } else {
+          echo '<p class="tx-color-03">Overview panel is missing on the server. Upload organization/includes/org_inventory_overview_panel.php.</p>';
+      }
+    ?>
+  </section>
+
+  <section class="sales-management-view" data-sales-view="transactions">
+    <?php
+      $txnInSalesHub = true;
+      $txnShowPageHead = false;
+      $txnInventoryHref = '#inventory';
+      $txnInventoryAttr = ' data-sales-nav="inventory"';
+      $txnProductBase = 'sales_management.php?inv_product=';
+      $txnProductSuffix = '#inventory-detail';
+      $txnNotiCount = (int)($dashNotiCount ?? 0);
+      $txnMsgCount = (int)($dashMsgCount ?? 0);
+      $txnNotiHref = 'sales_notifications.php';
+      $txnMsgHref = '#message';
+      $txnMsgAttr = ' data-sales-nav="message"';
+      $panelFile = __DIR__ . '/includes/org_inventory_transactions_panel.php';
+      if (is_file($panelFile)) {
+          require $panelFile;
+      } else {
+          echo '<p class="tx-color-03">Transactions panel is missing on the server. Upload organization/includes/org_inventory_transactions_panel.php.</p>';
+      }
+    ?>
+  </section>
+
+  <section class="sales-management-view" data-sales-view="inventory-detail">
+    <?php
+      $invDetailId = (int)($_GET['inv_product'] ?? 0);
+      $invDetailProduct = ($invDetailId > 0) ? org_shop_get_product($dbh, $invDetailId, $orgId) : null;
+      if (!$invDetailProduct) {
+          echo '<p class="tx-color-03">Select a product from Inventory.</p>';
+          echo '<p><a href="#inventory" data-sales-nav="inventory">&larr; Back to Inventory</a></p>';
+      } else {
+          $err = $ptErr;
+          $ok = $ptOk;
+          $product = $invDetailProduct;
+          $productId = $invDetailId;
+          $fromSales = true;
+          $backHref = 'sales_management.php#inventory';
+          $invdFormAction = 'sales_management.php?inv_product=' . $invDetailId;
+          $panelFile = __DIR__ . '/includes/org_inventory_detail_panel.php';
+          if (is_file($panelFile)) {
+              require $panelFile;
+          } else {
+              echo '<p class="tx-color-03">Inventory detail panel is missing on the server. Upload organization/includes/org_inventory_detail_panel.php.</p>';
+          }
+      }
     ?>
   </section>
 
@@ -1678,15 +2146,6 @@ org_page_shell_open(
           require __DIR__ . '/includes/org_detail_employee_panel.php';
         ?>
       <?php else: ?>
-      <?php if (empty($panel['is_payroll_panel'])): ?>
-      <div class="sales-management-detail-head">
-        <div>
-          <p class="sales-management-kicker"><?= org_ecommerce_h((string)$panel['kicker']) ?></p>
-          <h1><?= org_ecommerce_h((string)$panel['title']) ?></h1>
-          <p><?= org_ecommerce_h((string)$panel['summary']) ?></p>
-        </div>
-      </div>
-      <?php endif; ?>
       <?php if (!empty($panel['is_seller_profile'])): ?>
         <?php
           $sellerProfileFormAction = 'sales_management.php';
@@ -1698,6 +2157,36 @@ org_page_shell_open(
           $payrollFormAction = 'sales_management.php';
           require __DIR__ . '/includes/org_payroll_panel.php';
         ?>
+      <?php elseif (!empty($panel['is_payments_panel'])): ?>
+        <?php require __DIR__ . '/includes/org_sales_payouts_panel.php'; ?>
+      <?php elseif (!empty($panel['is_refunds_panel'])): ?>
+        <?php $refundsEmbedded = true; require __DIR__ . '/refunds.php'; ?>
+      <?php elseif (!empty($panel['is_customers_panel'])): ?>
+        <?php require __DIR__ . '/includes/org_sales_customers_panel.php'; ?>
+      <?php elseif (!empty($panel['is_reviews_panel'])): ?>
+        <?php $reviewsEmbedded = true; require __DIR__ . '/reviews.php'; ?>
+      <?php elseif (!empty($panel['is_analytics_panel'])): ?>
+        <?php $analyticsEmbedded = true; require __DIR__ . '/analytics.php'; ?>
+      <?php elseif (!empty($panel['is_marketing_panel'])): ?>
+        <?php $marketingEmbedded = true; require __DIR__ . '/marketing.php'; ?>
+      <?php elseif (!empty($panel['is_settings_panel'])): ?>
+        <?php $salesSettingsEmbedded = true; require __DIR__ . '/settings.php'; ?>
+      <?php elseif (!empty($panel['is_payment_billing_panel'])): ?>
+        <?php $paymentBillingEmbedded = true; require __DIR__ . '/payment_billing.php'; ?>
+      <?php elseif (!empty($panel['is_shipping_settings_panel'])): ?>
+        <?php $shippingSettingsEmbedded = true; require __DIR__ . '/shipping_settings.php'; ?>
+      <?php elseif (!empty($panel['is_tax_settings_panel'])): ?>
+        <?php $taxSettingsEmbedded = true; require __DIR__ . '/tax_settings.php'; ?>
+      <?php elseif (!empty($panel['is_settings_notifications_panel'])): ?>
+        <?php $settingsNotificationsEmbedded = true; require __DIR__ . '/settings_notifications.php'; ?>
+      <?php elseif (!empty($panel['is_staff_permissions_panel'])): ?>
+        <?php $staffPermissionsEmbedded = true; require __DIR__ . '/staff_permissions.php'; ?>
+      <?php elseif (!empty($panel['is_policies_panel'])): ?>
+        <?php $policiesEmbedded = true; require __DIR__ . '/policies.php'; ?>
+      <?php elseif (!empty($panel['is_danger_zone_panel'])): ?>
+        <?php $dangerZoneEmbedded = true; require __DIR__ . '/danger_zone.php'; ?>
+      <?php elseif (!empty($panel['is_account_panel'])): ?>
+        <?php $accountEmbedded = true; require __DIR__ . '/account.php'; ?>
       <?php else: ?>
         <div class="sales-management-metrics">
           <?php foreach ($panel['metrics'] as $metric): ?>
@@ -1739,41 +2228,98 @@ org_page_shell_open(
       var defaultView = 'dashboard';
       var views = Array.prototype.slice.call(document.querySelectorAll('[data-sales-view]'));
       var links = Array.prototype.slice.call(document.querySelectorAll('[data-sales-nav]'));
+      var knownSlugs = {};
+      views.forEach(function(view){
+        var key = String(view.getAttribute('data-sales-view') || '').trim();
+        if (key) knownSlugs[key] = true;
+      });
 
       function normalize(hash) {
         var slug = String(hash || '').replace(/^#/, '').trim();
+        try { slug = decodeURIComponent(slug); } catch (e) {}
         if (slug === 'order-cancel-table') slug = 'notification';
-        if (slug === 'settings') slug = 'detail_employee';
         if (slug === 'product-table') slug = 'inventory';
+        if (slug === 'Products' || slug === 'products-list') slug = 'product-catalog';
+        if (slug === 'messages') slug = 'message';
+        if (slug === 'payouts') slug = 'payments';
+        if (slug === 'returns-refunds') slug = 'refunds';
         if (!slug) return defaultView;
-        return views.some(function(view){ return view.getAttribute('data-sales-view') === slug; }) ? slug : defaultView;
+        return knownSlugs[slug] ? slug : defaultView;
+      }
+
+      function syncNavActive(slug) {
+        links = Array.prototype.slice.call(document.querySelectorAll('[data-sales-nav]'));
+        links.forEach(function(link){
+          var linkSlug = String(link.getAttribute('data-sales-nav') || '').trim();
+          link.classList.toggle('active', linkSlug === slug || (slug === 'inventory-detail' && linkSlug === 'inventory'));
+        });
       }
 
       function showSalesView(hash) {
+        views = Array.prototype.slice.call(document.querySelectorAll('[data-sales-view]'));
         var slug = normalize(hash);
         views.forEach(function(view){
-          view.classList.toggle('is-active', view.getAttribute('data-sales-view') === slug);
+          var key = String(view.getAttribute('data-sales-view') || '').trim();
+          var match = key === slug;
+          view.classList.toggle('is-active', match);
+          // Force paint with !important so dashboard flex CSS cannot stick open
+          if (match) {
+            var flex = (key === 'dashboard' || key === 'detail_employee');
+            view.style.setProperty('display', flex ? 'flex' : 'block', 'important');
+          } else {
+            view.style.setProperty('display', 'none', 'important');
+          }
         });
         document.documentElement.removeAttribute('data-sales-initial-view');
         document.documentElement.setAttribute('data-sales-active-view', slug);
-        links.forEach(function(link){
-          link.classList.toggle('active', link.getAttribute('data-sales-nav') === slug);
-        });
+        syncNavActive(slug);
+        if (typeof window.__salesSyncHeader === 'function') {
+          window.__salesSyncHeader(slug);
+        }
+        try {
+          window.dispatchEvent(new CustomEvent('sales-view-change', { detail: { slug: slug } }));
+        } catch (e) {}
       }
 
-      window.addEventListener('hashchange', function(){ showSalesView(window.location.hash); });
-      document.addEventListener('click', function(event){
-        var link = event.target.closest('[data-sales-nav]');
-        if (!link) return;
-        event.preventDefault();
-        var slug = link.getAttribute('data-sales-nav') || defaultView;
-        if (window.history && window.history.pushState) {
-          window.history.pushState(null, '', '#' + slug);
+      function setHash(slug, push) {
+        slug = normalize(slug);
+        var next;
+        try {
+          next = new URL('#' + slug, window.location.href.split('#')[0]).href;
+        } catch (e) {
+          next = window.location.pathname + window.location.search + '#' + slug;
+        }
+        if (push !== false && window.history && window.history.pushState) {
+          window.history.pushState({ salesView: slug }, '', next);
+        } else if (window.history && window.history.replaceState) {
+          window.history.replaceState({ salesView: slug }, '', next);
         } else {
           window.location.hash = slug;
         }
         showSalesView(slug);
+      }
+
+      window.addEventListener('hashchange', function(){
+        showSalesView(window.location.hash);
       });
+      window.addEventListener('popstate', function(){
+        showSalesView(window.location.hash);
+      });
+
+      document.addEventListener('click', function(event){
+        var link = event.target.closest('[data-sales-nav]');
+        if (!link) return;
+        if (event.defaultPrevented) return;
+        if (event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setHash(link.getAttribute('data-sales-nav') || defaultView, true);
+      }, true);
+
+      window.__salesShowView = showSalesView;
+      window.__salesSetHash = setHash;
+
       showSalesView(window.location.hash);
     })();
 
@@ -1792,7 +2338,8 @@ org_page_shell_open(
       var polling = false;
       var placeholders = {
         seller_help: 'Describe what you need Admin help with…',
-        orders: 'Describe the order or fulfillment issue…',
+        orders: 'Describe the order dispute for Admin…',
+        account: 'Describe the store or account issue…',
         account: 'Describe the store or account issue…'
       };
 
@@ -1903,111 +2450,130 @@ org_page_shell_open(
 </div>
 <?php org_page_shell_close(); ?>
 <script src="../lib/chart.js/Chart.js"></script>
-<script src="../lib/jqvmap/jquery.vmap.js"></script>
-<script src="../lib/jqvmap/maps/jquery.vmap.usa.js"></script>
 <script>
 (function ($) {
   'use strict';
   if (!$ || !window.Chart) return;
 
-  var barChart = null;
-  var barBuilt = false;
-  var barLabels = <?= json_encode($aziaBarLabels) ?>;
-  var barOnline = <?= json_encode($aziaBarOnline) ?>;
-  var barOffline = <?= json_encode($aziaBarOffline) ?>;
+  var lineChart = null;
+  var donutChart = null;
+  var chartsBuilt = false;
+  var lineLabels = <?= json_encode($dashLineLabels, JSON_UNESCAPED_SLASHES) ?>;
+  var lineSales = <?= json_encode($dashLineSales, JSON_UNESCAPED_SLASHES) ?>;
+  var channelData = [
+    <?= (float)round($dashChannelMarketplace / 100, 2) ?>,
+    <?= (float)round($dashChannelDirect / 100, 2) ?>,
+    <?= (float)round($dashChannelSocial / 100, 2) ?>
+  ];
 
-  function buildBarChart() {
-    var barEl = document.getElementById('saRevenueBarChart');
-    if (!barEl || barBuilt) return;
-    // Avoid Chart.js zero-size render while dashboard view is hidden
-    if (barEl.offsetParent === null && barEl.getBoundingClientRect().width < 40) return;
+  function buildCharts() {
+    if (chartsBuilt) return;
+    var lineEl = document.getElementById('sdSalesLineChart');
+    var donutEl = document.getElementById('sdChannelDonut');
+    if (!lineEl && !donutEl) return;
+    if (lineEl && lineEl.offsetParent === null && lineEl.getBoundingClientRect().width < 40) return;
 
-    barBuilt = true;
-    barChart = new Chart(barEl.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: barLabels,
-        datasets: [
-          {
-            label: 'Online sales',
-            data: barOnline,
-            backgroundColor: '#5b47fb',
-            hoverBackgroundColor: '#4a38e0',
-            borderWidth: 0,
-            barPercentage: 0.65,
-            categoryPercentage: 0.7
-          },
-          {
-            label: 'Outstanding',
-            data: barOffline,
-            backgroundColor: '#00cccc',
-            hoverBackgroundColor: '#00b3b3',
-            borderWidth: 0,
-            barPercentage: 0.65,
-            categoryPercentage: 0.7
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        legend: { display: false },
-        tooltips: {
-          mode: 'index',
-          intersect: false,
-          callbacks: {
-            label: function (tip, data) {
-              var ds = data.datasets[tip.datasetIndex] || {};
-              var val = tip.yLabel || 0;
-              return (ds.label || '') + ': $' + Number(val).toLocaleString();
-            }
-          }
-        },
-        scales: {
-          xAxes: [{
-            gridLines: { display: false, drawBorder: false },
-            ticks: {
-              fontColor: '#8392a5',
-              fontSize: 11,
-              maxRotation: 0,
-              autoSkip: true,
-              maxTicksLimit: 8
-            }
-          }],
-          yAxes: [{
-            gridLines: {
-              color: 'rgba(28,39,60,0.06)',
-              zeroLineColor: 'rgba(28,39,60,0.08)',
-              drawBorder: false
-            },
-            ticks: {
-              beginAtZero: true,
-              fontColor: '#8392a5',
-              fontSize: 11,
-              padding: 8,
-              callback: function (v) {
-                if (v >= 1000) return '$' + (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1) + 'k';
-                return '$' + v;
-              }
-            }
+    chartsBuilt = true;
+
+    if (lineEl) {
+      var ctx = lineEl.getContext('2d');
+      var grad = ctx.createLinearGradient(0, 0, 0, 220);
+      grad.addColorStop(0, 'rgba(37,99,235,0.28)');
+      grad.addColorStop(1, 'rgba(37,99,235,0.02)');
+      lineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: lineLabels,
+          datasets: [{
+            label: 'Sales',
+            data: lineSales,
+            borderColor: '#2563eb',
+            backgroundColor: grad,
+            pointBackgroundColor: '#2563eb',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1,
+            pointRadius: 2,
+            pointHoverRadius: 3,
+            borderWidth: 2,
+            lineTension: 0.35
           }]
         },
-        layout: { padding: { top: 8, right: 8, bottom: 0, left: 0 } }
-      }
-    });
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          legend: { display: false },
+          tooltips: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function (tip) {
+                return 'Sales: $' + Number(tip.yLabel || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              }
+            }
+          },
+          scales: {
+            xAxes: [{
+              gridLines: { display: false, drawBorder: false },
+              ticks: { fontColor: '#94a3b8', fontSize: 9, maxRotation: 0 }
+            }],
+            yAxes: [{
+              gridLines: { color: 'rgba(148,163,184,0.18)', zeroLineColor: 'rgba(148,163,184,0.25)', drawBorder: false },
+              ticks: {
+                beginAtZero: true,
+                fontColor: '#94a3b8',
+                fontSize: 9,
+                callback: function (v) {
+                  if (v >= 1000) return '$' + (v / 1000).toFixed(1) + 'K';
+                  return '$' + v;
+                }
+              }
+            }]
+          },
+          layout: { padding: { top: 4, right: 4, bottom: 0, left: 0 } }
+        }
+      });
+    }
+
+    if (donutEl) {
+      donutChart = new Chart(donutEl.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Marketplace', 'Direct Store', 'Social Media'],
+          datasets: [{
+            data: channelData,
+            backgroundColor: ['#2563eb', '#0d9488', '#7c3aed'],
+            borderWidth: 0,
+            hoverBorderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutoutPercentage: 68,
+          legend: { display: false },
+          tooltips: {
+            callbacks: {
+              label: function (tip, data) {
+                var label = (data.labels && data.labels[tip.index]) || '';
+                var val = (data.datasets[0].data[tip.index] || 0);
+                return label + ': $' + Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              }
+            }
+          }
+        }
+      });
+    }
   }
 
-  function refreshBarChart() {
-    if (!barBuilt) {
-      buildBarChart();
+  function refreshCharts() {
+    if (!chartsBuilt) {
+      buildCharts();
       return;
     }
-    if (barChart) {
-      try { barChart.resize(); } catch (e) {}
-    }
+    try { if (lineChart) lineChart.resize(); } catch (e) {}
+    try { if (donutChart) donutChart.resize(); } catch (e) {}
   }
 
-  // Build once dashboard is actually visible
   function whenDashboardVisible(fn) {
     var dash = document.querySelector('.sales-management-view[data-sales-view="dashboard"]');
     if (!dash) return;
@@ -2026,51 +2592,19 @@ org_page_shell_open(
   }
 
   whenDashboardVisible(function () {
-    setTimeout(refreshBarChart, 30);
+    setTimeout(refreshCharts, 30);
   });
 
   window.addEventListener('hashchange', function () {
     var slug = String(location.hash || '').replace(/^#/, '');
     if (!slug || slug === 'dashboard') {
-      setTimeout(refreshBarChart, 50);
+      setTimeout(refreshCharts, 50);
     }
   });
 
   document.addEventListener('click', function (e) {
     var link = e.target.closest('[data-sales-nav="dashboard"]');
-    if (link) setTimeout(refreshBarChart, 50);
+    if (link) setTimeout(refreshCharts, 50);
   });
-
-  if ($.fn && $.fn.vectorMap && document.getElementById('saUsaMap')) {
-    whenDashboardVisible(function () {
-      var mapEl = document.getElementById('saUsaMap');
-      if (!mapEl || mapEl.getAttribute('data-ready') === '1') return;
-      mapEl.setAttribute('data-ready', '1');
-      var base = Math.max(20, Math.round(<?= (int)$aziaRevenueCents ?> / 100));
-      $('#saUsaMap').vectorMap({
-        map: 'usa_en',
-        backgroundColor: 'transparent',
-        borderColor: '#fff',
-        borderOpacity: 0.35,
-        color: '#e8ecf3',
-        hoverColor: '#5b47fb',
-        selectedColor: '#00cccc',
-        enableZoom: true,
-        showTooltip: true,
-        values: {
-          ca: base * 0.9,
-          tx: base * 0.75,
-          ny: base * 0.7,
-          fl: base * 0.55,
-          wa: base * 0.4,
-          il: base * 0.45,
-          pa: base * 0.35,
-          oh: base * 0.3
-        },
-        scaleColors: ['#d7d2ff', '#5b47fb'],
-        normalizeFunction: 'polynomial'
-      });
-    });
-  }
 })(window.jQuery);
 </script>

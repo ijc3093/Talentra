@@ -46,6 +46,40 @@ function orgRoleId(): int      { return (int)($_SESSION['org_role_id'] ?? 0); }
    ========================= */
 function ensureOrgSelected(PDO $dbh): void {
     $orgId = orgActiveOrgId();
+    $cur = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $adminOversight = function_exists('admin_linked_is_org_admin_oversight') && admin_linked_is_org_admin_oversight();
+
+    // Platform admin opening a product/order: bind active org to that record's seller org.
+    if ($adminOversight && in_array($cur, ['products_detail.php', 'inventory_detail.php', 'order_details.php'], true)) {
+        $lookupId = (int)($_GET['id'] ?? 0);
+        if ($lookupId > 0) {
+            try {
+                if ($cur === 'order_details.php') {
+                    $stProd = $dbh->prepare('
+                        SELECT org_id
+                        FROM org_orders
+                        WHERE id = :id
+                        LIMIT 1
+                    ');
+                } else {
+                    $stProd = $dbh->prepare('
+                        SELECT org_id
+                        FROM org_products
+                        WHERE id = :id AND COALESCE(is_deleted, 0) = 0
+                        LIMIT 1
+                    ');
+                }
+                $stProd->execute([':id' => $lookupId]);
+                $productOrgId = (int)($stProd->fetchColumn() ?: 0);
+                if ($productOrgId > 0) {
+                    $_SESSION['org_active_org_id'] = $productOrgId;
+                    $orgId = $productOrgId;
+                }
+            } catch (Throwable $e) {
+                // Non-fatal — fall through to normal selection rules.
+            }
+        }
+    }
 
     // pages allowed without org selected
     $allowedNoOrg = [
@@ -55,7 +89,6 @@ function ensureOrgSelected(PDO $dbh): void {
         'switch_org.php',
         'logout.php'
     ];
-    $cur = basename($_SERVER['SCRIPT_NAME'] ?? '');
 
     if ($orgId <= 0) {
         if (isOrgManager()) {
@@ -69,6 +102,10 @@ function ensureOrgSelected(PDO $dbh): void {
             }
 
             if (in_array($cur, $allowedNoOrg, true)) {
+                return;
+            }
+            // Admin oversight on product/order detail: don't force select_org.
+            if ($adminOversight && in_array($cur, ['products_detail.php', 'inventory_detail.php', 'order_details.php'], true)) {
                 return;
             }
             header("Location: select_org.php");
@@ -86,6 +123,9 @@ function ensureOrgSelected(PDO $dbh): void {
     $row = $st->fetch(PDO::FETCH_ASSOC);
 
     if (!$row || (int)$row['status'] !== 1) {
+        if ($adminOversight && in_array($cur, ['products_detail.php', 'inventory_detail.php', 'order_details.php'], true)) {
+            return;
+        }
         clearOrgSession();
         header("Location: login.php?e=org_disabled");
         exit;
@@ -150,6 +190,15 @@ function ensureOrganizationUsersRow(
    Ensure org membership
    ========================= */
 function ensureOrgMembership(PDO $dbh): void {
+    // Platform admin may view any seller product without belonging to that org.
+    if (function_exists('admin_linked_is_org_admin_oversight') && admin_linked_is_org_admin_oversight()) {
+        if (orgMemberId() <= 0) {
+            $_SESSION['org_member_id'] = 0;
+            $_SESSION['org_role_id'] = 0;
+        }
+        return;
+    }
+
     if (orgMemberId() > 0 && orgRoleId() > 0) {
         return;
     }

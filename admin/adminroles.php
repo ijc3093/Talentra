@@ -1,17 +1,9 @@
 <?php
 /**
  * admin/adminroles.php
- * ✅ Admin-only
- * ✅ Fixed page (no body scroll)
- * ✅ Only table rows scroll (vertical + horizontal when needed)
- * ✅ Header row stays sticky (NOT scrolling away)
- * ✅ Horizontal scroll enabled so right columns are never clipped
- * ✅ DataTables search/length moved to top tools
- * ✅ Avatar fallback always 2 letters
- * ✅ Tooltips show full Email/FriendCode/Username
- * ✅ Header alignment stays correct on resize
+ * Admin accounts & roles — viewport-fit UI matching userlist.php.
+ * Preserves delete one/all, block/unblock, fries menu, DataTables search.
  */
-
 require_once __DIR__ . '/includes/session_admin.php';
 requireAdminLogin();
 error_reporting(E_ALL);
@@ -68,7 +60,7 @@ if (isset($_POST['set_status'])) {
 }
 
 $sql = "
-    SELECT 
+    SELECT
         a.idadmin,
         a.fullname,
         a.username,
@@ -99,308 +91,419 @@ function fmt_created($dt): string {
 function initials2(string $name): string {
     $name = trim((string)$name);
     if ($name === '') return '??';
-
     $name = str_replace(['_', '.', '-', '@'], ' ', $name);
     $name = trim(preg_replace('/\s+/', ' ', $name) ?? $name);
     if ($name === '') return '??';
-
     $parts = array_values(array_filter(explode(' ', $name), fn($p)=>trim($p) !== ''));
     if (!$parts) return '??';
-
     $first = mb_strtoupper(mb_substr($parts[0], 0, 1));
     $second = '';
-
     if (count($parts) > 1) $second = mb_strtoupper(mb_substr($parts[count($parts)-1], 0, 1));
     else $second = mb_strtoupper(mb_substr($parts[0], 1, 1));
-
     $ini = trim($first . $second);
     return $ini !== '' ? $ini : '??';
 }
+
+function avatarColor(string $key): string {
+    $key = strtolower(trim($key));
+    $hash = crc32($key);
+    $palette = ['#2563eb','#7c3aed','#db2777','#ea580c','#16a34a','#0f766e','#0891b2','#475569'];
+    return $palette[$hash % count($palette)];
+}
+
+function role_slug(string $roleName): string {
+    $rk = strtolower(trim($roleName));
+    if ($rk === '') return 'unknown';
+    $rk = preg_replace('/[^a-z0-9]+/', '-', $rk) ?? $rk;
+    return trim($rk, '-') ?: 'unknown';
+}
+
+function role_badge_class(string $slug): string {
+    if ($slug === 'admin') return 'admin';
+    if ($slug === 'manager') return 'manager';
+    if ($slug === 'gospel') return 'gospel';
+    if ($slug === 'staff') return 'staff';
+    return 'unknown';
+}
+
+$totalAdmins = count($rows);
+$activeAdmins = 0;
+$blockedAdmins = 0;
+$roleCounts = [];
+$new30d = 0;
+$cutoff30 = strtotime('-30 days');
+foreach ($rows as $r) {
+    $st = (int)($r->status ?? 0);
+    if ($st === 1) {
+        $activeAdmins++;
+    } else {
+        $blockedAdmins++;
+    }
+    $slug = role_slug((string)($r->role_name ?? 'Unknown'));
+    $label = trim((string)($r->role_name ?? '')) !== '' ? (string)$r->role_name : 'Unknown';
+    if (!isset($roleCounts[$slug])) {
+        $roleCounts[$slug] = ['label' => $label, 'count' => 0];
+    }
+    $roleCounts[$slug]['count']++;
+    $cts = strtotime((string)($r->created_at ?? ''));
+    if ($cts && $cts >= $cutoff30) {
+        $new30d++;
+    }
+}
+
+// Prefer a stable order for known roles, then the rest
+$roleOrder = ['admin', 'manager', 'staff', 'gospel'];
+$orderedRoles = [];
+foreach ($roleOrder as $k) {
+    if (isset($roleCounts[$k])) {
+        $orderedRoles[$k] = $roleCounts[$k];
+        unset($roleCounts[$k]);
+    }
+}
+foreach ($roleCounts as $k => $v) {
+    $orderedRoles[$k] = $v;
+}
+
+$listRole = strtolower(trim((string)($_GET['role'] ?? 'all')));
+if ($listRole !== 'all' && !isset($orderedRoles[$listRole])) {
+    $listRole = 'all';
+}
+
+$visibleSeed = $listRole === 'all'
+    ? $totalAdmins
+    : (int)($orderedRoles[$listRole]['count'] ?? 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>Admin Accounts & Roles</title>
-
+  <title>Roles &amp; Accounts</title>
   <link href="../lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="../lib/Ionicons/css/ionicons.css" rel="stylesheet">
   <link href="../lib/perfect-scrollbar/css/perfect-scrollbar.css" rel="stylesheet">
   <link href="../lib/datatables/jquery.dataTables.css" rel="stylesheet">
-  <link href="../lib/datatables-responsive/dataTables.responsive.css" rel="stylesheet">
   <link href="../lib/select2/css/select2.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
   <link rel="stylesheet" href="css/admin-tables-shamcey.css?v=6">
-
   <style>
-    :root{
-      --bg:#f4f6fb; --card:#fff; --border: rgba(17,24,39,.10);
-      --text:#0f172a; --muted: rgba(17,24,39,.62);
-      --shadow: 0 14px 44px rgba(15,23,42,.10);
-      --shadow2: 0 10px 26px rgba(15,23,42,.08);
-      --radius: 16px; --brand:#2563eb; --brand2:#1e40af;
+    html,body{height:100%;overflow:hidden;}
+    .sh-mainpanel{height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+    .sh-mainpanel > .sh-pagebody{
+      overflow:hidden !important;display:flex !important;flex-direction:column !important;min-height:0 !important;
+      padding-top:8px !important;padding-bottom:8px !important;flex:1 1 auto;background:#f4f6fb;
     }
-
-    html,body{ height:100%; overflow:hidden; }
-
-    .sh-mainpanel{
-      height:100vh;
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
+    .ar-wrap{
+      flex:1 1 auto;min-height:0;width:100%;max-width:100%;
+      display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:0 2px;box-sizing:border-box;
     }
-    .sh-pagetitle{ flex:0 0 auto; }
-    .sh-pagebody{
-      flex:1 1 auto;
-      overflow:hidden;
-      padding-bottom:0!important;
-      display:flex;
-      flex-direction:column;
-      background: var(--bg);
-      margin-left: 28px !important;
-      margin-right: 28px !important;
+    .ar-top{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0;}
+    .ar-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+    .ar-btn{
+      height:30px;padding:0 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;
+      font-size:11px;font-weight:700;color:#334155;display:inline-flex;align-items:center;gap:5px;
+      text-decoration:none;cursor:pointer;white-space:nowrap;
     }
+    .ar-btn:hover{background:#f8fafc;text-decoration:none;color:#0f172a;}
+    .ar-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff;}
+    .ar-btn.primary:hover{background:#1d4ed8;color:#fff;}
+    .ar-btn.danger{background:#fff;border-color:#fecaca;color:#b91c1c;}
+    .ar-btn.danger:hover{background:#fef2f2;}
+    .ar-btn:disabled{opacity:.45;pointer-events:none;}
 
-    .accounts-card{
-      flex:1 1 auto;
-      min-height:0;
-      display:flex;
-      flex-direction:column;
-      border:1px solid var(--border);
-      /* border-radius: var(--radius); */
-      box-shadow: var(--shadow);
-      overflow:hidden;
-      background: var(--card);
+    .ar-cards{
+      flex:0 0 auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;
     }
-
-    .card-header.pro{
-      background: linear-gradient(135deg, var(--brand2), var(--brand));
-      color:#fff;
-      padding:16px 18px;
-      flex:0 0 auto;
-      border-bottom:1px solid rgba(255,255,255,.18);
-      font-weight:900;
+    .ar-card{
+      background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;
+      box-shadow:0 1px 2px rgba(15,23,42,.04);min-width:0;
     }
-    .card-header.pro .sub{
-      font-size:12px; opacity:.92; margin-top:4px; font-weight:700;
+    .ar-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
+    .ar-card-top .lab{font-size:11px;font-weight:700;color:#64748b;}
+    .ar-card-top .delta{font-size:10px;font-weight:800;color:#94a3b8;}
+    .ar-ico{
+      width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 auto;
     }
+    .ar-ico.purple{background:#f5f3ff;color:#7c3aed;}
+    .ar-ico.green{background:#f0fdf4;color:#16a34a;}
+    .ar-ico.blue{background:#dbeafe;color:#2563eb;}
+    .ar-ico.orange{background:#fff7ed;color:#ea580c;}
+    .ar-ico.red{background:#fef2f2;color:#dc2626;}
+    .ar-ico.cyan{background:#ecfeff;color:#0891b2;}
+    .ar-card .val{font-size:20px;font-weight:800;color:#0f172a;line-height:1;}
+    .ar-card .sub{font-size:10px;color:#94a3b8;font-weight:600;margin-top:4px;}
+    .ar-card.is-kind{cursor:pointer;transition:border-color .15s, box-shadow .15s;}
+    .ar-card.is-kind:hover{border-color:#bfdbfe;}
+    .ar-card.is-kind.is-active{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb inset;}
 
-    .pro-tools{
-      flex:0 0 auto;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      padding:14px 18px;
-      border-bottom:1px solid rgba(17,24,39,.06);
-      background: rgba(248,250,252,.92);
+    .ar-kinds{
+      flex:0 0 auto;display:flex;gap:0;background:#fff;border:1px solid #eef2f7;border-radius:10px;
+      padding:0 4px;overflow:hidden;min-width:0;
     }
-    .pro-tools .hint{ color: var(--muted); font-size:12px; font-weight:700; }
-    .pro-tools .btn{ border-radius:14px; font-weight:900; }
-
-    .card-body-fixed{
-      flex:1 1 auto;
-      min-height:0;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
+    .ar-kinds a{
+      flex:0 0 auto;padding:8px 14px;font-size:12px;font-weight:800;color:#64748b;text-decoration:none;
+      border-bottom:2px solid transparent;white-space:nowrap;
     }
+    .ar-kinds a .cnt{font-weight:700;color:#94a3b8;margin-left:4px;}
+    .ar-kinds a.is-active{color:#2563eb;border-bottom-color:#2563eb;}
+    .ar-kinds a:hover{color:#0f172a;text-decoration:none;}
 
-    /* ✅ scroll area: vertical only — table fits container width */
-    .table-scroll{
-      flex:1 1 auto;
-      min-height:0;
-      overflow-x:hidden;
-      overflow-y:auto;
-      background:#fff;
-      position:relative;
-      -webkit-overflow-scrolling:touch;
-      max-width:100%;
+    .ar-main{
+      flex:1 1 auto;min-height:0;min-width:0;
+      background:#fff;border:1px solid #eef2f7;border-radius:12px;overflow:hidden;
+      box-shadow:0 1px 2px rgba(15,23,42,.04);
+      display:flex;flex-direction:column;
     }
-
-    #datatable1,
-    table.dataTable{
-      width:100% !important;
-      max-width:100% !important;
-      min-width:0 !important;
-      table-layout:fixed !important;
-      border-collapse: collapse !important;
-      border-spacing: 0;
+    .ar-filters{
+      flex:0 0 auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center;
+      padding:10px 12px;border-bottom:1px solid #eef2f7;background:#fafbfc;
     }
-
-    /* sticky header — bordered cells come from admin-tables-shamcey.css */
-    #datatable1 thead th{
-      position: sticky;
-      top: 0;
-      z-index: 30;
+    .ar-search{position:relative;flex:1 1 180px;min-width:140px;max-width:280px;}
+    .ar-search i{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;}
+    .ar-search input,.ar-filters select{
+      height:30px;border:1px solid #e2e8f0;border-radius:8px;padding:0 9px;font-size:11px;background:#fff;color:#0f172a;
     }
+    .ar-search input{width:100%;padding-left:28px;}
+    .ar-clear{font-size:11px;font-weight:700;color:#2563eb;text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-left:auto;}
+    .ar-clear:hover{text-decoration:underline;}
 
-    table.dataTable tbody td{
-      vertical-align: middle;
-      overflow:hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .ar-table-wrap{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;}
+    .ar-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;min-width:0;}
+    .ar-table th{
+      text-align:left;font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+      color:#64748b;padding:8px 6px;border-bottom:1px solid #eef2f7;background:#fff;
+      position:sticky;top:0;z-index:3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
-
-    /* Avatar */
-    .avatarWrap{ display:flex; align-items:center; gap:12px; min-width:0; }
-    .avatar{ width:42px;height:42px;border-radius:999px;object-fit:cover;border:1px solid rgba(17,24,39,.10);box-shadow:var(--shadow2);background:#fff;flex:0 0 auto; }
-    .avatarFallback{
-      width:42px;height:42px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
-      background: rgba(37,99,235,.12); color: rgba(30,64,175,1);
-      border:1px solid rgba(37,99,235,.18); font-weight:900; box-shadow:var(--shadow2); flex:0 0 auto; letter-spacing:.5px;
+    .ar-table td{
+      padding:8px 6px;border-bottom:1px solid #f1f5f9;vertical-align:middle;font-size:11px;color:#0f172a;overflow:hidden;
     }
-    .nameBlock{ min-width:0; }
-    .nameBlock .full{
-      font-weight:900; color:var(--text); line-height:1.15;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      max-width: 160px;
+    .ar-table tr:hover td{background:#f8fafc;}
+    .ar-table th:nth-child(1),.ar-table td:nth-child(1){width:28px;}
+    .ar-table th:nth-child(2),.ar-table td:nth-child(2){width:56px;}
+    .ar-table th:nth-child(3),.ar-table td:nth-child(3){width:22%;}
+    .ar-table th:nth-child(4),.ar-table td:nth-child(4){width:18%;}
+    .ar-table th:nth-child(5),.ar-table td:nth-child(5){width:12%;}
+    .ar-table th:nth-child(6),.ar-table td:nth-child(6){width:90px;}
+    .ar-table th:nth-child(7),.ar-table td:nth-child(7){width:90px;}
+    .ar-table th:nth-child(8),.ar-table td:nth-child(8){width:14%;}
+    .ar-table th:nth-child(9),.ar-table td:nth-child(9){width:40px;}
+
+    .ar-id{color:#2563eb;font-weight:800;text-decoration:none;white-space:nowrap;}
+    .ar-id:hover{text-decoration:underline;}
+    .ar-user{display:flex;align-items:center;gap:8px;min-width:0;}
+    .ar-av{
+      width:28px;height:28px;border-radius:999px;color:#fff;font-size:10px;font-weight:800;
+      display:flex;align-items:center;justify-content:center;flex:0 0 28px;object-fit:cover;
     }
-    .nameBlock .small{
-      color: var(--muted); font-size:12px; font-weight:700;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      max-width: 160px;
+    .ar-user .nm{font-weight:800;font-size:11px;color:#0f172a;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ar-user .un{font-size:10px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ar-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#334155;}
+    .ar-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ar-role,.ar-status{
+      display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;
     }
-
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius:999px;
-      border:1px solid rgba(17,24,39,.10); background: rgba(17,24,39,.04);
-      font-weight:900; font-size:12px; white-space:nowrap;
+    .ar-role.admin{background:#dbeafe;color:#1d4ed8;}
+    .ar-role.manager{background:#dcfce7;color:#15803d;}
+    .ar-role.gospel{background:#cffafe;color:#0e7490;}
+    .ar-role.staff{background:#ffedd5;color:#c2410c;}
+    .ar-role.unknown{background:#f1f5f9;color:#475569;}
+    .ar-status.active{background:#dcfce7;color:#15803d;}
+    .ar-status.blocked{background:#fee2e2;color:#b91c1c;}
+    .ar-status .dot{width:6px;height:6px;border-radius:999px;background:currentColor;}
+    .ar-when{font-size:10px;color:#475569;line-height:1.25;}
+    .ar-alert{flex:0 0 auto;padding:7px 9px;border-radius:8px;font-size:12px;font-weight:700;}
+    .ar-alert.ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
+    .ar-alert.bad{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;}
+    .ar-foot{
+      flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+      padding:10px 12px;border-top:1px solid #eef2f7;background:#fff;
     }
-    .pill.role-admin{ background: rgba(37,99,235,.10); border-color: rgba(37,99,235,.18); color: rgba(30,64,175,1); }
-    .pill.role-manager{ background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.18); color: rgba(22,101,52,1); }
-    .pill.role-gospel{ background: rgba(6,182,212,.10); border-color: rgba(6,182,212,.18); color: rgba(14,116,144,1); }
-    .pill.role-staff{ background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.22); color: rgba(146,64,14,1); }
-    .pill.role-unknown{ background: rgba(148,163,184,.15); border-color: rgba(148,163,184,.25); color: rgba(51,65,85,1); }
-
-    .pill.ok{ background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.18); color: rgba(22,101,52,1); }
-    .pill.bad{ background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.18); color: rgba(153,27,27,1); }
-
-    .icon-btn{
-      width:38px;height:38px;
-      border-radius: 12px;
-      border:1px solid rgba(17,24,39,.10);
-      background:#fff;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      cursor:pointer;
-      transition: transform .05s ease, background .15s ease;
-      box-shadow: 0 10px 26px rgba(15,23,42,.08);
-      color:inherit;
-      text-decoration:none;
+    .ar-foot .muted{font-size:11px;color:#64748b;font-weight:600;}
+    .dataTables_wrapper .dataTables_paginate{float:none;text-align:center;padding:0;}
+    .dataTables_wrapper .dataTables_paginate .paginate_button{
+      min-width:28px !important;height:28px !important;padding:0 7px !important;margin:0 2px !important;
+      border-radius:7px !important;border:1px solid #e2e8f0 !important;background:#fff !important;
+      font-size:11px !important;font-weight:700 !important;line-height:26px !important;box-sizing:border-box;
     }
-    .icon-btn:hover{ background: rgba(37,99,235,.08); text-decoration:none; color:inherit; }
-    .icon-btn:active{ transform: translateY(1px); }
-    .icon-btn.primary:hover{ background: rgba(37,99,235,.12); }
-    .icon-btn.primary i{ color: #2563eb; }
-    .icon-btn.danger:hover{ background: rgba(239,68,68,.10); }
-    .icon-btn.danger i{ color: #ef4444; }
-
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; font-size:12px; }
-
-    .dt-tools{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .dt-tools .dt-length, .dt-tools .dt-search{ display:flex; align-items:center; gap:8px; }
-    .dt-tools label{ margin:0; font-weight:800; font-size:12px; color: rgba(17,24,39,.72); }
-
-    .dataTables_wrapper{ width:100%; min-width:0; overflow:visible; }
-    .dataTables_wrapper .dataTables_filter input,
-    .dataTables_wrapper .dataTables_length select{
-      border-radius:14px !important;
-      border:1px solid var(--border) !important;
-      height:40px;
-      box-shadow:none !important;
-      background:#fff;
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current{
+      background:#2563eb !important;border-color:#2563eb !important;color:#fff !important;
     }
-
-    /* ✅ Make tooltip text visible on hover via native title */
-    .cell-ellip{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dataTables_wrapper .dataTables_info{display:none;}
+    .dataTables_wrapper .dataTables_length,.dataTables_wrapper .dataTables_filter{display:none !important;}
+    .dataTables_wrapper .top,.dataTables_wrapper .bottom{display:none;}
+    #datatable1_wrapper{display:contents;}
+    #datatable1{width:100% !important;margin:0 !important;}
+    @media (max-width:1100px){
+      .ar-wrap{overflow:auto;}
+      .ar-cards{grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
   </style>
 </head>
-
 <body>
-
-<?php include('includes/leftbar.php'); ?>
-<?php include('includes/header.php'); ?>
+<?php
+$adminChromePageIntro = [
+    'title' => 'Roles & Accounts',
+    'description' => 'Manage admin-side accounts, assign roles, and control sign-in access.',
+];
+include('includes/leftbar.php');
+include('includes/header.php');
+?>
 
 <div class="sh-mainpanel">
-
-  <!-- <div class="sh-pagetitle">
-    <div class="input-group"></div>
-    <div class="sh-pagetitle-left">
-      <div class="sh-pagetitle-icon"><i class="icon ion-ios-people"></i></div>
-      <div class="sh-pagetitle-title">
-        <span>Admin</span>
-        <h2>Accounts & Roles</h2>
-      </div>
-    </div>
-  </div> -->
-
   <div class="sh-pagebody">
+    <div class="ar-wrap">
 
-    <?php if ($error): ?>
-      <div class="alert alert-danger" style="margin:0 0 10px 0;"><?php echo h($error); ?></div>
-    <?php elseif ($msg): ?>
-      <div class="alert alert-success" style="margin:0 0 10px 0;">
-        <?php echo h($msg); ?>
-        <?php if ($createdFriendCode !== ''): ?>
-          <span class="mono" style="margin-left:8px;">Friend code: <b><?php echo h($createdFriendCode); ?></b></span>
+      <?php if ($error): ?>
+        <div class="ar-alert bad"><?php echo h($error); ?></div>
+      <?php elseif ($msg): ?>
+        <div class="ar-alert ok">
+          <?php echo h($msg); ?>
+          <?php if ($createdFriendCode !== ''): ?>
+            <span style="margin-left:8px;">Friend code: <b><?php echo h($createdFriendCode); ?></b></span>
+          <?php endif; ?>
+        </div>
+      <?php endif; ?>
+
+      <div class="ar-top">
+        <div class="ar-actions">
+          <button type="button" class="ar-btn" title="Export coming soon"><i class="fa fa-download"></i> Export</button>
+          <button type="button" class="ar-btn" onclick="document.getElementById('arFilters').scrollIntoView({behavior:'smooth',block:'center'})"><i class="fa fa-sliders"></i> Filters</button>
+          <a class="ar-btn" href="roleslist.php"><i class="fa fa-id-badge"></i> Roles &amp; Permissions</a>
+          <a class="ar-btn primary" href="admin_form.php"><i class="fa fa-plus"></i> Add Admin</a>
+          <button type="button" class="ar-btn danger" <?php echo ($totalAdmins <= 1) ? 'disabled' : ''; ?> data-toggle="modal" data-target="#deleteAllModal"><i class="fa fa-trash"></i> Delete All</button>
+        </div>
+      </div>
+
+      <div class="ar-cards">
+        <div class="ar-card is-kind<?php echo $listRole === 'all' ? ' is-active' : ''; ?>" data-role="all" role="button" tabindex="0">
+          <div class="ar-card-top">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="ar-ico purple"><i class="fa fa-users"></i></div>
+              <div class="lab">Total Admins</div>
+            </div>
+            <div class="delta">• all</div>
+          </div>
+          <div class="val"><?php echo number_format($totalAdmins); ?></div>
+          <div class="sub">All roles</div>
+        </div>
+        <div class="ar-card">
+          <div class="ar-card-top">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="ar-ico green"><i class="fa fa-user-plus"></i></div>
+              <div class="lab">New (30d)</div>
+            </div>
+            <div class="delta">↑ 30d</div>
+          </div>
+          <div class="val"><?php echo number_format($new30d); ?></div>
+          <div class="sub">Created recently</div>
+        </div>
+        <div class="ar-card">
+          <div class="ar-card-top">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="ar-ico blue"><i class="fa fa-check-circle"></i></div>
+              <div class="lab">Active</div>
+            </div>
+            <div class="delta">• live</div>
+          </div>
+          <div class="val"><?php echo number_format($activeAdmins); ?></div>
+          <div class="sub">Can sign in</div>
+        </div>
+        <div class="ar-card">
+          <div class="ar-card-top">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="ar-ico red"><i class="fa fa-ban"></i></div>
+              <div class="lab">Blocked</div>
+            </div>
+            <div class="delta">• status</div>
+          </div>
+          <div class="val"><?php echo number_format($blockedAdmins); ?></div>
+          <div class="sub">Cannot sign in</div>
+        </div>
+        <?php
+          $cardRoles = array_slice($orderedRoles, 0, 2, true);
+          $cardIcons = ['admin' => 'blue', 'manager' => 'green', 'staff' => 'orange', 'gospel' => 'cyan', 'unknown' => 'purple'];
+          $cardFa = ['admin' => 'fa-shield', 'manager' => 'fa-briefcase', 'staff' => 'fa-id-badge', 'gospel' => 'fa-book', 'unknown' => 'fa-user'];
+          foreach ($cardRoles as $slug => $info):
+            $ico = $cardIcons[$slug] ?? 'purple';
+            $fa = $cardFa[$slug] ?? 'fa-user';
+        ?>
+          <div class="ar-card is-kind<?php echo $listRole === $slug ? ' is-active' : ''; ?>" data-role="<?php echo h($slug); ?>" role="button" tabindex="0">
+            <div class="ar-card-top">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="ar-ico <?php echo h($ico); ?>"><i class="fa <?php echo h($fa); ?>"></i></div>
+                <div class="lab"><?php echo h((string)$info['label']); ?></div>
+              </div>
+              <div class="delta">• role</div>
+            </div>
+            <div class="val"><?php echo number_format((int)$info['count']); ?></div>
+            <div class="sub">Filter by role</div>
+          </div>
+        <?php endforeach; ?>
+        <?php if (count($cardRoles) < 2): ?>
+          <div class="ar-card">
+            <div class="ar-card-top">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="ar-ico purple"><i class="fa fa-id-badge"></i></div>
+                <div class="lab">Roles</div>
+              </div>
+              <div class="delta">• defs</div>
+            </div>
+            <div class="val"><?php echo number_format(count($orderedRoles)); ?></div>
+            <div class="sub"><a href="roleslist.php" style="color:#2563eb;text-decoration:none;font-weight:700;">Manage roles</a></div>
+          </div>
         <?php endif; ?>
       </div>
-    <?php endif; ?>
 
-    <div class="card accounts-card sh-admin-table-card">
-      <div class="card-header">List Roles & Accounts</div>
-      <!-- <div class="card-header pro">
-        <div style="font-size:16px;">List Roles & Accounts</div>
-        <div class="sub">All admin-side accounts with photo, role, status, and created date.</div>
-      </div> -->
-
-      <div class="pro-tools">
-        <div class="hint">
-          <b>Total Admins:</b> <?php echo (int)count($rows); ?>
-          <span style="opacity:.6;">•</span>
-          Search by name, username, email, or friend code.
-        </div>
-
-        <div class="dt-tools">
-          <div class="dt-length" id="dtLen"></div>
-          <div class="dt-search" id="dtSearch"></div>
-
-          <a href="roleslist.php" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-id-badge mg-r-6"></i> Manage Roles
+      <nav class="ar-kinds" id="arRoleTabs" aria-label="Admin role">
+        <a href="?role=all" data-role="all" class="<?php echo $listRole === 'all' ? 'is-active' : ''; ?>">All <span class="cnt">(<?php echo (int)$totalAdmins; ?>)</span></a>
+        <?php foreach ($orderedRoles as $slug => $info): ?>
+          <a href="?role=<?php echo rawurlencode($slug); ?>" data-role="<?php echo h($slug); ?>" class="<?php echo $listRole === $slug ? 'is-active' : ''; ?>">
+            <?php echo h((string)$info['label']); ?> <span class="cnt">(<?php echo (int)$info['count']; ?>)</span>
           </a>
-          <button type="button"
-                  class="btn btn-primary btn-sm"
-                  onclick="window.location.href='admin_form.php';">
-            <i class="fa fa-plus"></i> Add Admin
-          </button>
-          <button type="button"
-                  class="btn btn-danger btn-sm"
-                  <?php echo (count($rows) <= 1) ? 'disabled' : ''; ?>
-                  data-toggle="modal"
-                  data-target="#deleteAllModal">
-            <i class="fa fa-trash"></i> Delete All
-          </button>
-        </div>
-      </div>
+        <?php endforeach; ?>
+      </nav>
 
-      <div class="card-body-fixed">
-        <div class="table-scroll" id="tableScroll">
-          <table id="datatable1" class="table table-bordered table-hover display mg-b-0" style="width:100%;">
+      <div class="ar-main">
+        <div class="ar-filters" id="arFilters">
+          <div class="ar-search">
+            <i class="fa fa-search"></i>
+            <input type="search" id="arSearchInput" placeholder="Search name, username, email, friend code..." autocomplete="off">
+          </div>
+          <select id="arStatusFilter" aria-label="Status">
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="blocked">Blocked</option>
+          </select>
+          <select id="arRoleFilter" aria-label="Role">
+            <option value="all"<?php echo $listRole === 'all' ? ' selected' : ''; ?>>All Roles (<?php echo (int)$totalAdmins; ?>)</option>
+            <?php foreach ($orderedRoles as $slug => $info): ?>
+              <option value="<?php echo h($slug); ?>"<?php echo $listRole === $slug ? ' selected' : ''; ?>>
+                <?php echo h((string)$info['label']); ?> (<?php echo (int)$info['count']; ?>)
+              </option>
+            <?php endforeach; ?>
+          </select>
+          <select id="arPageLen" aria-label="Per page">
+            <option value="10" selected>10 / page</option>
+            <option value="25">25 / page</option>
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+          </select>
+          <a href="#" class="ar-clear" id="arClearFilters"><i class="fa fa-refresh"></i> Clear Filters</a>
+        </div>
+
+        <div class="ar-table-wrap">
+          <table id="datatable1" class="ar-table display" style="width:100%;">
             <thead>
               <tr>
-                <th style="width:56px;">ID</th>
+                <th><input type="checkbox" disabled title="Bulk select coming soon"></th>
+                <th>Admin ID</th>
                 <th>Account</th>
                 <th>Email</th>
-                <th style="width:120px;">Friend Code</th>
-                <th style="width:110px;">Role</th>
-                <th style="width:90px;">Status</th>
-                <th style="width:140px;">Created</th>
-                <th style="width:64px;">Actions</th>
+                <th>Friend Code</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -411,76 +514,47 @@ function initials2(string $name): string {
                 $uname = (string)($row->username ?? '');
                 $email = (string)($row->email ?? '');
                 $fcode = (string)($row->friend_code ?? '');
-                $roleName = (string)($row->role_name ?? 'Unknown');
+                $roleName = trim((string)($row->role_name ?? '')) !== '' ? (string)$row->role_name : 'Unknown';
+                $slug = role_slug($roleName);
+                $badge = role_badge_class($slug);
                 $status = (int)($row->status ?? 0);
                 $isActive = ($status === 1);
-                $statusText = $isActive ? 'Active' : 'Inactive';
                 $isSelf = ($currentAdminId > 0 && $aid === $currentAdminId);
-
-                $rk = strtolower(trim($roleName));
-                $roleClass = 'pill role-unknown';
-                if ($rk === 'admin') $roleClass = 'pill role-admin';
-                elseif ($rk === 'manager') $roleClass = 'pill role-manager';
-                elseif ($rk === 'gospel') $roleClass = 'pill role-gospel';
-                elseif ($rk === 'staff') $roleClass = 'pill role-staff';
-
-                $statusClass = $isActive ? 'pill ok' : 'pill bad';
-
                 $imgPath = $img !== '' ? 'images/' . $img : '';
-                $ini = initials2($full !== '' ? $full : ($uname !== '' ? $uname : 'Admin'));
+                $labelForIni = $full !== '' ? $full : ($uname !== '' ? $uname : 'Admin');
+                $ini = initials2($labelForIni);
+                $bg = avatarColor($email !== '' ? $email : ($full !== '' ? $full : (string)$aid));
+                $statusKey = $isActive ? 'active' : 'blocked';
               ?>
-              <tr>
-                <td class="mono"><span class="cell-ellip" title="<?php echo h((string)$row->idadmin); ?>"><?php echo (int)$row->idadmin; ?></span></td>
-
+              <tr data-role="<?php echo h($slug); ?>" data-status="<?php echo h($statusKey); ?>">
+                <td><input type="checkbox" disabled></td>
+                <td><a class="ar-id" href="admin_form.php?admin_id=<?php echo $aid; ?>">#<?php echo $aid; ?></a></td>
                 <td>
-                  <div class="avatarWrap">
+                  <div class="ar-user">
                     <?php if ($imgPath !== ''): ?>
-                      <img class="avatar"
-                           src="<?php echo h($imgPath); ?>"
-                           alt="avatar"
-                           onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
-                      <span class="avatarFallback" style="display:none;"><?php echo h($ini); ?></span>
+                      <img class="ar-av" src="<?php echo h($imgPath); ?>" alt=""
+                           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                      <span class="ar-av" style="display:none;background:<?php echo h($bg); ?>;"><?php echo h($ini); ?></span>
                     <?php else: ?>
-                      <span class="avatarFallback"><?php echo h($ini); ?></span>
+                      <span class="ar-av" style="background:<?php echo h($bg); ?>;"><?php echo h($ini); ?></span>
                     <?php endif; ?>
-
-                    <div class="nameBlock">
-                      <div class="full" title="<?php echo h($full !== '' ? $full : $uname); ?>">
-                        <?php echo h($full !== '' ? $full : $uname); ?>
-                      </div>
-                      <div class="small">
-                        <span class="mono" title="<?php echo h('@'.$uname); ?>">@<?php echo h($uname); ?></span>
-                      </div>
+                    <div style="min-width:0;">
+                      <div class="nm"><?php echo h($full !== '' ? $full : '—'); ?><?php if ($isSelf): ?> <span style="color:#2563eb;font-size:9px;">(you)</span><?php endif; ?></div>
+                      <div class="un"><?php echo h($uname !== '' ? '@' . $uname : '—'); ?></div>
                     </div>
                   </div>
                 </td>
-
-                <td class="mono">
-                  <span class="cell-ellip" title="<?php echo h($email); ?>"><?php echo h($email); ?></span>
-                </td>
-
-                <td class="mono">
-                  <span class="cell-ellip" title="<?php echo h($fcode); ?>"><?php echo h($fcode); ?></span>
-                </td>
-
+                <td><div class="ar-email" title="<?php echo h($email); ?>"><?php echo h($email); ?></div></td>
+                <td><div class="ar-mono" title="<?php echo h($fcode); ?>"><?php echo h($fcode !== '' ? $fcode : '—'); ?></div></td>
+                <td><span class="ar-role <?php echo h($badge); ?>"><i class="fa fa-shield"></i> <?php echo h($roleName); ?></span></td>
                 <td>
-                  <span class="<?php echo h($roleClass); ?>" title="<?php echo h($roleName); ?>">
-                    <i class="fa fa-shield"></i> <?php echo h($roleName); ?>
-                  </span>
+                  <?php if ($isActive): ?>
+                    <span class="ar-status active"><span class="dot"></span> Active</span>
+                  <?php else: ?>
+                    <span class="ar-status blocked"><span class="dot"></span> Blocked</span>
+                  <?php endif; ?>
                 </td>
-
-                <td>
-                  <span class="<?php echo h($statusClass); ?>" title="<?php echo h($statusText); ?>">
-                    <i class="fa fa-circle"></i> <?php echo h($statusText); ?>
-                  </span>
-                </td>
-
-                <td class="mono">
-                  <span class="cell-ellip" title="<?php echo h(fmt_created($row->created_at ?? '')); ?>">
-                    <?php echo h(fmt_created($row->created_at ?? '')); ?>
-                  </span>
-                </td>
-
+                <td><div class="ar-when"><?php echo h(fmt_created($row->created_at ?? '')); ?></div></td>
                 <td>
                   <div class="fries-menu">
                     <button type="button" class="fries-toggle" title="Actions" aria-label="Actions" aria-haspopup="true">
@@ -507,7 +581,6 @@ function initials2(string $name): string {
                               role="menuitem"
                               data-id="<?php echo $aid; ?>"
                               data-email="<?php echo h($email); ?>"
-                              data-username="<?php echo h($uname); ?>"
                               data-name="<?php echo h($full !== '' ? $full : $uname); ?>"
                               <?php echo $isSelf ? 'disabled' : ''; ?>
                               onclick="openDeleteModal(this);">
@@ -520,18 +593,18 @@ function initials2(string $name): string {
               <?php endforeach; ?>
             </tbody>
           </table>
+        </div>
 
-          <?php if (count($rows) === 0): ?>
-            <div class="alert alert-info" style="margin-top:12px;">No admin accounts found.</div>
-          <?php endif; ?>
+        <div class="ar-foot">
+          <div class="muted" id="arShowing">Showing 0 admins</div>
+          <div id="arPagerHost"></div>
+          <div class="muted"><span id="visibleAdminCount"><?php echo (int)$visibleSeed; ?></span> in this view</div>
         </div>
       </div>
 
     </div>
-
   </div>
 
-  <!-- Delete ONE modal -->
   <div class="modal fade" id="deleteAdminModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
       <div class="modal-content" style="border-radius:16px;overflow:hidden;">
@@ -545,7 +618,7 @@ function initials2(string $name): string {
           <div class="modal-body">
             <p style="margin-bottom:6px;">Delete this admin account permanently?</p>
             <p style="margin:0;"><b id="delAdminName"></b></p>
-            <p class="mono" style="opacity:.75;margin-top:6px;" id="delAdminEmail"></p>
+            <p class="ar-mono" style="opacity:.75;margin-top:6px;" id="delAdminEmail"></p>
             <input type="hidden" name="delete_id" id="delAdminId" value="">
           </div>
           <div class="modal-footer" style="border-top:1px solid rgba(17,24,39,.10);">
@@ -559,7 +632,6 @@ function initials2(string $name): string {
     </div>
   </div>
 
-  <!-- Delete ALL modal -->
   <div class="modal fade" id="deleteAllModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
       <div class="modal-content" style="border-radius:16px;overflow:hidden;">
@@ -585,7 +657,6 @@ function initials2(string $name): string {
     </div>
   </div>
 
-  <!-- Block/Unblock modal -->
   <div class="modal fade" id="statusModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
       <div class="modal-content" style="border-radius:16px;overflow:hidden;">
@@ -596,7 +667,7 @@ function initials2(string $name): string {
           </div>
           <div class="modal-body">
             <p id="statusModalText" style="margin:0;"></p>
-            <p class="mono" style="opacity:.75;margin-top:6px;" id="statusModalEmail"></p>
+            <p class="ar-mono" style="opacity:.75;margin-top:6px;" id="statusModalEmail"></p>
             <input type="hidden" name="status_id" id="statusAdminId" value="">
             <input type="hidden" name="status_value" id="statusValue" value="">
           </div>
@@ -609,10 +680,6 @@ function initials2(string $name): string {
     </div>
   </div>
 
-  <div class="sh-footer">
-    <div>Copyright &copy; 2017. All Rights Reserved.</div>
-    <div class="mg-t-10 mg-md-t-0">Designed by ThemePixels</div>
-  </div>
 </div>
 
 <script src="../lib/jquery/jquery.js"></script>
@@ -620,7 +687,6 @@ function initials2(string $name): string {
 <script src="../lib/bootstrap/bootstrap.js"></script>
 <script src="../lib/perfect-scrollbar/js/perfect-scrollbar.jquery.js"></script>
 <script src="../lib/datatables/jquery.dataTables.js"></script>
-<script src="../lib/datatables-responsive/dataTables.responsive.js"></script>
 <script src="../lib/select2/js/select2.min.js"></script>
 <script src="../js/shamcey.js"></script>
 
@@ -629,11 +695,9 @@ function initials2(string $name): string {
     var id = btn.getAttribute('data-id');
     var email = btn.getAttribute('data-email') || '';
     var name = btn.getAttribute('data-name') || 'Admin';
-
     document.getElementById('delAdminName').textContent = name;
     document.getElementById('delAdminEmail').textContent = email;
     document.getElementById('delAdminId').value = id;
-
     $('#deleteAdminModal').modal('show');
   }
 
@@ -642,10 +706,8 @@ function initials2(string $name): string {
     var email = btn.getAttribute('data-email') || '';
     var name = btn.getAttribute('data-name') || 'Admin';
     var st = btn.getAttribute('data-status');
-
     document.getElementById('statusAdminId').value = id;
     document.getElementById('statusValue').value = st;
-
     if (st === '1') {
       document.getElementById('statusModalTitle').textContent = 'Unblock Account';
       document.getElementById('statusModalText').textContent = 'Allow sign-in again for: ' + name + '?';
@@ -657,45 +719,122 @@ function initials2(string $name): string {
       document.getElementById('statusGoBtn').className = 'btn btn-warning';
       document.getElementById('statusGoBtn').textContent = 'Block';
     }
-
     document.getElementById('statusModalEmail').textContent = email;
     $('#statusModal').modal('show');
   }
 
   $(function() {
     'use strict';
+    var activeRole = <?php echo json_encode($listRole, JSON_UNESCAPED_SLASHES); ?>;
+    var activeStatus = 'all';
+
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+      if (settings.nTable.id !== 'datatable1') return true;
+      var row = settings.aoData[dataIndex].nTr;
+      if (!row) return true;
+      if (activeRole !== 'all' && row.getAttribute('data-role') !== activeRole) return false;
+      if (activeStatus !== 'all' && row.getAttribute('data-status') !== activeStatus) return false;
+      return true;
+    });
 
     var dt = $('#datatable1').DataTable({
-      paging: false,
-      info: false,
+      paging: true,
+      pageLength: 10,
+      lengthChange: false,
+      info: true,
       responsive: false,
       autoWidth: false,
       scrollX: false,
-      ordering: true,
+      order: [[1, 'desc']],
+      columnDefs: [
+        { orderable: false, targets: [0, 8] }
+      ],
+      dom: 'tp',
       language: {
-        searchPlaceholder: 'Search name, username, email, friend code...',
+        searchPlaceholder: 'Search...',
         sSearch: '',
-        lengthMenu: '_MENU_',
+        paginate: { previous: '‹', next: '›' }
+      },
+      drawCallback: function() {
+        var api = this.api();
+        var info = api.page.info();
+        var from = info.recordsDisplay === 0 ? 0 : (info.start + 1);
+        var to = info.end;
+        $('#arShowing').text('Showing ' + from + ' to ' + to + ' of ' + info.recordsDisplay + ' admins.');
+        $('#visibleAdminCount').text(info.recordsDisplay);
+        var $pag = $(api.table().container()).find('.dataTables_paginate');
+        if ($pag.length) {
+          $('#arPagerHost').empty().append($pag);
+        }
       }
     });
 
-    // Move DT controls into pro-tools
-    $('#dtLen').append($('#datatable1_length'));
-    $('#dtSearch').append($('#datatable1_filter'));
-    $('.dataTables_length select').select2({ minimumResultsForSearch: Infinity });
+    setTimeout(function() {
+      var $pag = $('#datatable1_paginate');
+      if ($pag.length) $('#arPagerHost').empty().append($pag);
+    }, 0);
 
-    // ✅ Keep header aligned after DataTables finishes
-    setTimeout(function(){ dt.columns.adjust().draw(false); }, 50);
+    function syncRoleUi() {
+      $('#arRoleFilter').val(activeRole);
+      $('#arRoleTabs a').each(function() {
+        $(this).toggleClass('is-active', $(this).attr('data-role') === activeRole);
+      });
+      $('.ar-card.is-kind').each(function() {
+        $(this).toggleClass('is-active', $(this).attr('data-role') === activeRole);
+      });
+    }
 
-    // ✅ Keep header aligned on resize
-    $(window).on('resize', function(){
-      dt.columns.adjust();
+    function setRole(role) {
+      if (!role) return;
+      activeRole = role;
+      applyFilters();
+    }
+
+    function applyFilters() {
+      dt.draw();
+      var url = new URL(window.location.href);
+      if (activeRole === 'all') url.searchParams.delete('role');
+      else url.searchParams.set('role', activeRole);
+      window.history.replaceState({}, '', url.toString());
+      syncRoleUi();
+    }
+
+    $('#arSearchInput').on('input', function() {
+      dt.search(this.value).draw();
+    });
+    $('#arStatusFilter').on('change', function() {
+      activeStatus = this.value;
+      applyFilters();
+    });
+    $('#arRoleFilter').on('change', function() {
+      setRole(this.value);
+    });
+    $('#arRoleTabs').on('click', 'a', function(e) {
+      e.preventDefault();
+      setRole($(this).attr('data-role'));
+    });
+    $('.ar-card.is-kind').on('click', function() {
+      setRole($(this).attr('data-role'));
+    }).on('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setRole($(this).attr('data-role'));
+      }
+    });
+    $('#arPageLen').on('change', function() {
+      dt.page.len(parseInt(this.value, 10) || 10).draw();
+    });
+    $('#arClearFilters').on('click', function(e) {
+      e.preventDefault();
+      activeStatus = 'all';
+      $('#arStatusFilter').val('all');
+      $('#arSearchInput').val('');
+      dt.search('');
+      applyFilters();
     });
 
-    // ✅ If scroll container size changes, re-adjust (safe)
-    $('#tableScroll').on('scroll', function(){ /* no-op; keeps sticky stable */ });
+    applyFilters();
   });
 </script>
-
 </body>
 </html>

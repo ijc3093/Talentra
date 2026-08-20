@@ -7250,6 +7250,29 @@ span.msb-rx-face svg{
     close: closeCreatePostModal
   };
 
+  /* Use this sound → open create post with sound_id */
+  document.addEventListener('click', function(e){
+    var row = e.target && e.target.closest ? e.target.closest('.mf-music-row[data-sound-id], .reel-music[data-sound-id]') : null;
+    if (!row) return;
+    var sid = Number(row.getAttribute('data-sound-id') || 0);
+    if (!sid) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var src = 'dashboard.php?modal=1&sound_id=' + encodeURIComponent(String(sid));
+    var title = String(row.getAttribute('data-sound-title') || '').trim();
+    var artist = String(row.getAttribute('data-sound-artist') || '').trim();
+    if (title) src += '&music_title=' + encodeURIComponent(title);
+    if (artist) src += '&music_artist=' + encodeURIComponent(artist);
+    openCreatePostModal(src);
+  }, true);
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var row = e.target && e.target.closest ? e.target.closest('.mf-music-row[data-sound-id], .reel-music[data-sound-id]') : null;
+    if (!row) return;
+    e.preventDefault();
+    row.click();
+  }, true);
+
   window.addEventListener('resize', function(){
     if (createPostModal && createPostModal.classList.contains('is-open')) {
       syncCreatePostDropGeometry();
@@ -7268,6 +7291,11 @@ span.msb-rx-face svg{
     }
     if (!data || data.type !== 'msb-create-post-done') return;
     try { closeCreatePostModal(); } catch (err) {}
+    // Soft tab swaps cache center HTML; drop it so For You / Discover refetch after publish.
+    try {
+      if (window.msbClearDiscoverTabCache) window.msbClearDiscoverTabCache();
+      sessionStorage.removeItem('msbDiscoverTabsScroll');
+    } catch (_cacheClear) {}
     var postId = Number(data.postId || 0);
     var redirect = String(data.redirect || '');
     var visibility = String(data.visibility || '').toLowerCase();
@@ -7315,10 +7343,10 @@ span.msb-rx-face svg{
     } else if (visibility === 'private') {
       redirectPath = 'profile.php';
       redirect = 'profile.php?tab=gallery&gallery_vis=private&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
-    } else if (visibility === 'public' && !/home\.php$/i.test(redirectPath) && !/public\.php$/i.test(redirectPath) && !/news\.php$/i.test(redirectPath)) {
+    } else if (visibility === 'public') {
       redirectPath = 'home.php';
       redirect = 'home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
-    } else if (visibility === 'friends' && !/home\.php$/i.test(redirectPath) && !/feed\.php$/i.test(redirectPath)) {
+    } else if (visibility === 'friends') {
       redirectPath = 'home.php';
       redirect = 'home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     }

@@ -117,7 +117,46 @@ ensurePostCategorySchema($dbh);
 device_profile_ensure_post_columns($dbh);
 post_layout_ensure_column($dbh);
 publisher_ensure_schema($dbh);
+require_once __DIR__ . '/includes/msb_feed_engagement.php';
+msb_feed_engagement_ensure_schema($dbh);
 $isPublisherAccount = publisher_account_is($dbh, $meId);
+
+$composerSoundId = (int)($_GET['sound_id'] ?? 0);
+$composerStitchOf = (int)($_GET['stitch'] ?? 0);
+$composerDuetOf = (int)($_GET['duet'] ?? 0);
+$composerSoundTitlePrefill = '';
+$composerSoundArtistPrefill = '';
+if ($composerSoundId > 0) {
+    try {
+        $stSnd = $dbh->prepare('SELECT title, artist FROM public_sounds WHERE id = :id LIMIT 1');
+        $stSnd->execute([':id' => $composerSoundId]);
+        $sndRow = $stSnd->fetch(PDO::FETCH_ASSOC) ?: [];
+        $composerSoundTitlePrefill = (string)($sndRow['title'] ?? '');
+        $composerSoundArtistPrefill = (string)($sndRow['artist'] ?? '');
+    } catch (Throwable $eSnd) {}
+}
+$composerCommerceOrgId = 0;
+$composerProducts = [];
+if ($isPublisherAccount && is_file(__DIR__ . '/includes/org_shop.php')) {
+    require_once __DIR__ . '/includes/org_shop.php';
+    if (function_exists('org_shop_org_id_for_publisher')) {
+        try {
+            $composerCommerceOrgId = (int)org_shop_org_id_for_publisher($dbh, $meId);
+            if ($composerCommerceOrgId > 0) {
+                $stProd = $dbh->prepare("
+                    SELECT id, title FROM org_products
+                    WHERE org_id = :org AND COALESCE(is_deleted,0) = 0 AND LOWER(COALESCE(status,'')) IN ('','active','published','on')
+                    ORDER BY updated_at DESC, id DESC
+                    LIMIT 40
+                ");
+                $stProd->execute([':org' => $composerCommerceOrgId]);
+                $composerProducts = $stProd->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
+        } catch (Throwable $eOrg) {
+            $composerProducts = [];
+        }
+    }
+}
 
 $categoryFlash = (string)($_GET['cat'] ?? '');
 
@@ -2043,6 +2082,10 @@ body.dashboard-page .progress{
                   <input type="hidden" name="device_label" value="">
                   <input type="hidden" name="device_viewport" value="">
                   <input type="hidden" name="return_to" id="createPostReturnTo" value="feed.php">
+                  <input type="hidden" name="sound_id" id="createPostSoundId" value="<?= (int)$composerSoundId ?>">
+                  <input type="hidden" name="stitch_of_post_id" id="createPostStitchOf" value="<?= (int)$composerStitchOf ?>">
+                  <input type="hidden" name="duet_of_post_id" id="createPostDuetOf" value="<?= (int)$composerDuetOf ?>">
+                  <input type="hidden" name="commerce_org_id" value="<?= (int)$composerCommerceOrgId ?>">
                   <div id="pendingUploadTokens"></div>
                   <div id="removedAttachmentIds"></div>
                   <?php if ($isPublisherAccount): ?>
@@ -2094,10 +2137,13 @@ body.dashboard-page .progress{
                     $titleVal = (string)($editPost['title'] ?? '');
                     $musicTitleVal = (string)($editPost['music_title'] ?? '');
                     $musicArtistVal = (string)($editPost['music_artist'] ?? '');
+                    if ($musicTitleVal === '' && $composerSoundTitlePrefill !== '') $musicTitleVal = $composerSoundTitlePrefill;
+                    if ($musicArtistVal === '' && $composerSoundArtistPrefill !== '') $musicArtistVal = $composerSoundArtistPrefill;
                     $hasTitlePanel = $titleVal !== '';
-                    $hasMusicPanel = ($musicTitleVal !== '' || $musicArtistVal !== '');
+                    $hasMusicPanel = ($musicTitleVal !== '' || $musicArtistVal !== '' || $composerSoundId > 0);
                     $hasTagPanel = !empty($editTaggedUsers);
                     $hasMediaPanel = !empty($editAttachments);
+                    $hasProductPanel = !empty($composerProducts);
                   ?>
 
                   <div class="msb-composer-panel<?= ($isModalCreate && !$hasTitlePanel) ? '' : ' is-open' ?>" data-panel="title"<?= ($isModalCreate && !$hasTitlePanel) ? ' hidden' : '' ?>>
@@ -2133,19 +2179,45 @@ body.dashboard-page .progress{
                       <strong>Music</strong>
                       <?php if ($isModalCreate): ?><button type="button" class="msb-composer-panel-close" data-close-panel="music" aria-label="Hide music">&times;</button><?php endif; ?>
                     </div>
+                    <?php if ($composerStitchOf > 0 || $composerDuetOf > 0): ?>
+                    <div class="alert alert-light py-2 px-3 mb-2" style="font-size:12px;">
+                      <?= $composerStitchOf > 0 ? ('Stitch of post #' . (int)$composerStitchOf) : ('Duet with post #' . (int)$composerDuetOf) ?>
+                    </div>
+                    <?php endif; ?>
+                    <div class="form-group mb-2">
+                      <input type="search" id="msbSoundSearch" class="form-control form-control-sm" placeholder="Search sounds…" autocomplete="off">
+                      <div id="msbSoundSearchResults" class="mt-1" style="max-height:120px;overflow:auto;font-size:12px;"></div>
+                    </div>
                     <div class="form-row">
                       <div class="form-group col-md-6">
                         <?php if (!$isModalCreate): ?><label>Music title (optional)</label><?php endif; ?>
-                        <input type="text" name="music_title" class="form-control" maxlength="120"
+                        <input type="text" name="music_title" id="createPostMusicTitle" class="form-control" maxlength="120"
                           value="<?= h($musicTitleVal) ?>" placeholder="Music title (optional)">
                       </div>
                       <div class="form-group col-md-6 mb-0">
                         <?php if (!$isModalCreate): ?><label>Music artist (optional)</label><?php endif; ?>
-                        <input type="text" name="music_artist" class="form-control" maxlength="120"
+                        <input type="text" name="music_artist" id="createPostMusicArtist" class="form-control" maxlength="120"
                           value="<?= h($musicArtistVal) ?>" placeholder="Artist (optional)">
                       </div>
                     </div>
                   </div>
+
+                  <?php if ($isModalCreate && !empty($composerProducts)): ?>
+                  <div class="msb-composer-panel" data-panel="product" hidden>
+                    <div class="msb-composer-panel-head">
+                      <strong>Tag products</strong>
+                      <button type="button" class="msb-composer-panel-close" data-close-panel="product" aria-label="Hide products">&times;</button>
+                    </div>
+                    <div class="msb-composer-product-list" style="max-height:140px;overflow:auto;font-size:13px;">
+                      <?php foreach ($composerProducts as $cp): ?>
+                        <label class="d-flex align-items-center mb-1" style="gap:8px;cursor:pointer;">
+                          <input type="checkbox" name="product_ids[]" value="<?= (int)($cp['id'] ?? 0) ?>">
+                          <span><?= h((string)($cp['title'] ?? ('Product #' . (int)($cp['id'] ?? 0)))) ?></span>
+                        </label>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
+                  <?php endif; ?>
 
                   <?php if (!$isStoryCreate): ?>
                   <div class="form-group" hidden aria-hidden="true">
@@ -2267,6 +2339,9 @@ body.dashboard-page .progress{
                       <button type="button" class="msb-composer-tool" data-open-panel="media" title="Photo / video" aria-label="Photo or video"><i class="fa fa-image" aria-hidden="true"></i></button>
                       <button type="button" class="msb-composer-tool" data-open-panel="tag" title="Tag people" aria-label="Tag people"><i class="fa fa-user-plus" aria-hidden="true"></i></button>
                       <button type="button" class="msb-composer-tool" data-open-panel="music" title="Music" aria-label="Music"><i class="fa fa-music" aria-hidden="true"></i></button>
+                      <?php if (!empty($composerProducts)): ?>
+                      <button type="button" class="msb-composer-tool" data-open-panel="product" title="Tag product" aria-label="Tag product" style="color:#0f766e;"><i class="fa fa-shopping-bag" aria-hidden="true"></i></button>
+                      <?php endif; ?>
                       <button type="button" class="msb-composer-tool" data-open-panel="title" title="Title" aria-label="Title"><span class="msb-composer-aa">Aa</span></button>
                     </div>
                   </div>
@@ -2441,9 +2516,9 @@ document.addEventListener('DOMContentLoaded', function(){
       return;
     }
     if (vis === 'public') {
-      returnToInput.value = isStoryCreateForm ? 'public.php?story=1' : 'public.php';
+      returnToInput.value = isStoryCreateForm ? 'home.php?tab=discover&story=1' : 'home.php?tab=discover';
     } else {
-      returnToInput.value = isStoryCreateForm ? 'feed.php?story=1' : 'feed.php';
+      returnToInput.value = isStoryCreateForm ? 'home.php?tab=for-you&story=1' : 'home.php?tab=for-you';
     }
   }
   syncReturnToFromVisibility();
@@ -3070,7 +3145,7 @@ document.addEventListener('DOMContentLoaded', function(){
               postId: postId,
               redirect: target,
               story: !!(data.story),
-              visibility: String(data.visibility || (returnToInput && returnToInput.value === 'public.php' ? 'public' : 'friends')),
+              visibility: String(data.visibility || ((returnToInput && /tab=discover/i.test(String(returnToInput.value || ''))) ? 'public' : 'friends')),
               surface: String(data.surface || '')
             }, '*');
             // If parent handled it, this iframe is torn down. Otherwise hard-navigate.
@@ -3499,6 +3574,47 @@ document.addEventListener('DOMContentLoaded', function(){
 
   syncTools();
   setTimeout(fitParent, 80);
+
+  /* Sound search → fill music fields + sound_id */
+  (function(){
+    var search = document.getElementById('msbSoundSearch');
+    var results = document.getElementById('msbSoundSearchResults');
+    var soundIdEl = document.getElementById('createPostSoundId');
+    var titleEl = document.getElementById('createPostMusicTitle');
+    var artistEl = document.getElementById('createPostMusicArtist');
+    if (!search || !results) return;
+    var t = null;
+    function render(items){
+      if (!items || !items.length) {
+        results.innerHTML = '<div class="text-muted px-1 py-1">No sounds found</div>';
+        return;
+      }
+      results.innerHTML = items.map(function(it){
+        return '<button type="button" class="btn btn-link btn-sm text-left d-block w-100 msb-sound-pick" data-id="'+String(it.id||0)+'" data-title="'+String(it.title||'').replace(/"/g,'&quot;')+'" data-artist="'+String(it.artist||'').replace(/"/g,'&quot;')+'">'+(it.title||'Sound')+(it.artist ? (' · '+it.artist) : '')+' <span class="text-muted">('+String(it.use_count||0)+')</span></button>';
+      }).join('');
+    }
+    function run(q){
+      fetch('feed_api.php?ajax=sounds_search&q='+encodeURIComponent(q||'')+'&limit=20', { credentials:'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(j){ render((j && j.items) || []); })
+        .catch(function(){ results.innerHTML = ''; });
+    }
+    search.addEventListener('input', function(){
+      clearTimeout(t);
+      t = setTimeout(function(){ run(search.value || ''); }, 220);
+    });
+    search.addEventListener('focus', function(){ if (!results.childElementCount) run(''); });
+    results.addEventListener('click', function(ev){
+      var btn = ev.target.closest('.msb-sound-pick');
+      if (!btn) return;
+      ev.preventDefault();
+      if (soundIdEl) soundIdEl.value = btn.getAttribute('data-id') || '0';
+      if (titleEl) titleEl.value = btn.getAttribute('data-title') || '';
+      if (artistEl) artistEl.value = btn.getAttribute('data-artist') || '';
+      results.innerHTML = '';
+      search.value = '';
+    });
+  })();
 })();
 </script>
 <script>

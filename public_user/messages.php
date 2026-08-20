@@ -1575,6 +1575,7 @@ if (!empty($messages)) {
   <script src="./lib/bootstrap/bootstrap.js"></script>
   <script src="./lib/perfect-scrollbar/js/perfect-scrollbar.jquery.js"></script>
   <script src="./js/shamcey.js"></script>
+  <?php require_once __DIR__ . '/includes/msb_report_client.js.php'; ?>
   <style>
     :root{
       --bg:#f4f6fb;
@@ -9887,7 +9888,39 @@ img, video, iframe { max-width: 100% !important; }
     }
 
     if(action === 'report'){
-      alert('Report feature coming soon');
+      if(!peer){
+        alert('Missing user to report');
+        return;
+      }
+      if(typeof window.msbSubmitReport === 'function'){
+        window.msbSubmitReport({
+          target_type: 'message',
+          target_id: peer,
+          endpoint: 'ajax/report_action.php'
+        });
+      } else {
+        // Fallback inline submit
+        const reasonRaw = window.prompt('Why are you reporting this user?\nspam / harassment / scam / other', 'spam');
+        if(reasonRaw === null) return;
+        const details = window.prompt('Optional details:', '') || '';
+        try{
+          const body = new URLSearchParams();
+          body.set('target_type', 'message');
+          body.set('target_id', String(peer));
+          body.set('reason', String(reasonRaw || 'other'));
+          body.set('details', String(details));
+          const res = await fetch('ajax/report_action.php', {
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+            credentials:'same-origin',
+            body
+          });
+          const data = await res.json();
+          alert((data && data.message) ? data.message : ((data && data.error) ? data.error : 'Report submitted.'));
+        }catch(_err){
+          alert('Could not submit report');
+        }
+      }
     }
   }
 

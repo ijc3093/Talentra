@@ -132,7 +132,7 @@ $dash = static function (string $v): string {
   }
   .de-panel-top{
     flex:0 0 auto;
-    display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px;
     padding:0 0 12px;margin-bottom:0;
     position:relative;z-index:20;
     background:var(--bg-main, var(--org-surface, var(--msb-palette-bg, #171d24)));
@@ -223,27 +223,43 @@ $dash = static function (string $v): string {
   @media (max-width:980px){
     .de-layout,.de-pay-grid,.de-addr-grid{grid-template-columns:1fr;}
   }
+  @media (min-width:981px){
+    html[data-sales-active-view="detail_employee"],html[data-sales-active-view="detail_employee"] body.org-app,html[data-sales-active-view="detail_employee"] body.org-app .sh-mainpanel,html[data-sales-active-view="detail_employee"] body.org-app .sh-pagebody{overflow:hidden!important;}
+    .de-panel-wrap{max-width:none!important;height:100%!important;max-height:100%!important;overflow:hidden;}
+    .de-panel-top{padding:0 0 7px;min-height:36px;}
+    .de-panel-scroll{overflow:hidden!important;padding:7px 0 4px;}
+    .de-layout{height:100%;min-height:0;grid-template-columns:270px minmax(0,1fr);gap:10px;align-items:stretch;}
+    .de-side{height:100%;padding:11px 13px;overflow:hidden;}
+    .de-avatar{width:62px;height:62px;margin-bottom:5px;font-size:22px;}
+    .de-name{font-size:17px;}.de-role{font-size:11px;margin-bottom:6px;}
+    .de-sec-title{font-size:9px;margin:6px 0 3px;padding-top:5px;}
+    .de-row{grid-template-columns:21px 1fr;gap:5px;padding:3px 0;font-size:10px;}
+    .de-row i{font-size:12px;}.de-row label{font-size:8px;}.de-row strong{line-height:1.15;}
+    .de-toggle{font-size:9px;gap:5px}.de-toggle-pill{width:32px;height:17px}.de-toggle-pill::after{width:13px;height:13px}.de-toggle-pill.on::after{left:17px}
+    .de-main{height:100%;min-height:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);grid-template-rows:minmax(0,1fr) auto;gap:8px;overflow:hidden;}
+    .de-main>.de-card{margin:0;min-height:0;overflow:hidden;}
+    .de-main>.de-card:first-child{grid-column:1;grid-row:1/3;}
+    .de-main>.de-card:nth-child(2){grid-column:2;grid-row:1;}
+    .de-main>.de-card:nth-child(3){grid-column:2;grid-row:2;}
+    .de-card-head{padding:10px 12px 5px;}.de-card-head h5{font-size:13px;}.de-card-head p{font-size:9px;margin-top:2px;line-height:1.25;}
+    .de-card-body{padding:5px 12px 9px;}.de-pay-grid{gap:10px;}.de-pay-big{font-size:19px;margin-bottom:6px}.de-pay-big .unit{font-size:10px}.de-pay-note{font-size:9px;margin-top:6px;line-height:1.25;}
+    .de-table{font-size:10px}.de-table th,.de-table td{padding:6px}.de-table th{font-size:8px}
+    .de-addr-summary{font-size:10px;line-height:1.25;margin:0;}
+    .de-readonly-banner{font-size:10px;padding:5px 8px;margin-bottom:6px;}
+  }
 </style>
 
 <div class="de-panel-wrap">
   <div class="de-panel-top">
-    <div>
-      <h4><?= $isManagerMember ? 'Manager detail' : 'Employee detail' ?></h4>
-      <p><?= $canEditFull
-        ? ($isManagerMember
-          ? 'Your manager profile and pay setup. Use Edit details to change fields. Approved time cards feed Payroll the same way as staff.'
-          : 'Your profile and pay setup. Use Edit details to change fields, or manage staff from Team.')
-        : 'View-only profile maintained by your manager. You may update your home address below.' ?></p>
-    </div>
     <div class="de-panel-actions">
       <?php if ($canEditFull): ?>
         <a class="btn btn-primary btn-sm" href="detail_employee.php?id=<?= (int)$memberId ?>&edit=1">Edit details</a>
-        <a class="btn btn-outline-secondary btn-sm" href="account.php">Account</a>
+        <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#accounts" data-sales-nav="accounts">Account</a>
         <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#timecard" data-sales-nav="timecard">Time card</a>
         <a class="btn btn-outline-secondary btn-sm" href="members.php?tab=<?= $isManagerMember ? 'managers' : 'staff' ?>">Team</a>
         <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#payroll" data-sales-nav="payroll">Payroll</a>
       <?php else: ?>
-        <a class="btn btn-outline-secondary btn-sm" href="account.php">Account</a>
+        <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#accounts" data-sales-nav="accounts">Account</a>
         <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#timecard" data-sales-nav="timecard">Time card</a>
       <?php endif; ?>
     </div>
@@ -291,7 +307,7 @@ $dash = static function (string $v): string {
       </div>
     </aside>
 
-    <div>
+    <div class="de-main">
       <div class="de-card">
         <div class="de-card-head">
           <h5>Salary Details</h5>

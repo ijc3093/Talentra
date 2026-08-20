@@ -7,6 +7,7 @@ requireUserLogin();
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/org_shop.php';
 require_once __DIR__ . '/includes/stripe_shop.php';
+require_once __DIR__ . '/includes/org_wishlist.php';
 require_once __DIR__ . '/includes/commerce_messaging.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
@@ -30,6 +31,9 @@ if (!function_exists('h')) {
 
 $shopStripeEnabled = stripe_shop_is_configured();
 $notFound = ($product === null);
+$wishlistSaved = (!$notFound && $meId > 0 && $productId > 0)
+    ? org_wishlist_has($dbh, $meId, $productId)
+    : false;
 
 if (!$notFound) {
     $cover = org_shop_cover_url((string)($product['cover_image_path'] ?? ''));
@@ -511,6 +515,8 @@ if (!$notFound && !$galleryImages && $cover !== '') {
       padding:0;
       white-space:nowrap;
     }
+    .pd-wishlist.is-saved{color:#be123c;}
+    .pd-wishlist.is-saved .fa{color:#be123c;}
     .pd-wishlist:hover{color:var(--shop-text,var(--msb-palette-text,#374151));}
     .pd-wishlist .fa{margin-right:4px;}
     .pd-price{
@@ -871,7 +877,10 @@ if (!$notFound && !$galleryImages && $cover !== '') {
                     <span>Based on <?= (int)$reviewCount ?> review<?= (int)$reviewCount === 1 ? '' : 's' ?></span>
                   </div>
                 </div>
-                <button type="button" class="pd-wishlist" id="pdWishlistBtn" title="Save for later"><i class="fa fa-heart-o" aria-hidden="true"></i> Add to Wishlist</button>
+                <button type="button" class="pd-wishlist<?= !empty($wishlistSaved) ? ' is-saved' : '' ?>" id="pdWishlistBtn" title="<?= !empty($wishlistSaved) ? 'Remove from wishlist' : 'Save for later' ?>" data-product-id="<?= (int)$productId ?>" data-saved="<?= !empty($wishlistSaved) ? '1' : '0' ?>"><i class="fa <?= !empty($wishlistSaved) ? 'fa-heart' : 'fa-heart-o' ?>" aria-hidden="true"></i> <span class="pd-wishlist-label"><?= !empty($wishlistSaved) ? 'Saved' : 'Add to Wishlist' ?></span></button>
+                <?php if ($meId > 0): ?>
+                  <button type="button" class="pd-wishlist" id="pdReportBtn" title="Report this product" data-product-id="<?= (int)$productId ?>" style="margin-left:8px;"><i class="fa fa-flag" aria-hidden="true"></i> <span class="pd-wishlist-label">Report</span></button>
+                <?php endif; ?>
               </div>
 
               <div class="pd-price" id="pdPrice" data-unit-cents="<?= (int)$priceCents ?>" data-currency="<?= h(strtoupper($currency)) ?>"><?= h($priceDisplay) ?></div>
@@ -1268,8 +1277,42 @@ if (!$notFound && !$galleryImages && $cover !== '') {
 
   const wishlistBtn = document.getElementById('pdWishlistBtn');
   if (wishlistBtn) {
-    wishlistBtn.addEventListener('click', function(){
-      showToast('Wishlist saved for later.');
+    wishlistBtn.addEventListener('click', async function(){
+      const productId = parseInt(wishlistBtn.getAttribute('data-product-id') || '0', 10);
+      if (!productId) return;
+      wishlistBtn.disabled = true;
+      try {
+        const body = new URLSearchParams();
+        body.set('action', 'toggle');
+        body.set('product_id', String(productId));
+        const res = await fetch('ajax/wishlist_action.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+          credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!data || !data.ok) {
+          showToast((data && data.message) || 'Could not update wishlist.');
+          return;
+        }
+        const saved = !!data.saved;
+        wishlistBtn.setAttribute('data-saved', saved ? '1' : '0');
+        wishlistBtn.classList.toggle('is-saved', saved);
+        wishlistBtn.title = saved ? 'Remove from wishlist' : 'Save for later';
+        const icon = wishlistBtn.querySelector('.fa');
+        if (icon) {
+          icon.classList.toggle('fa-heart', saved);
+          icon.classList.toggle('fa-heart-o', !saved);
+        }
+        const label = wishlistBtn.querySelector('.pd-wishlist-label');
+        if (label) label.textContent = saved ? 'Saved' : 'Add to Wishlist';
+        showToast(data.message || (saved ? 'Saved to wishlist.' : 'Removed from wishlist.'));
+      } catch (e) {
+        showToast('Could not update wishlist.');
+      } finally {
+        wishlistBtn.disabled = false;
+      }
     });
   }
 
@@ -1382,6 +1425,24 @@ if (!$notFound && !$galleryImages && $cover !== '') {
 
 <script src="./lib/jquery/jquery.js"></script>
 <script src="./js/shamcey.js"></script>
+<?php if (!$notFound && $meId > 0): ?>
+<?php require_once __DIR__ . '/includes/msb_report_client.js.php'; ?>
+<script>
+(function(){
+  var reportBtn = document.getElementById('pdReportBtn');
+  if (!reportBtn || typeof window.msbSubmitReport !== 'function') return;
+  reportBtn.addEventListener('click', function(){
+    var productId = parseInt(reportBtn.getAttribute('data-product-id') || '0', 10);
+    if (!productId) return;
+    window.msbSubmitReport({
+      target_type: 'product',
+      target_id: productId,
+      endpoint: 'ajax/report_action.php'
+    });
+  });
+})();
+</script>
+<?php endif; ?>
 <script>
 (function(){
   const scrollMain = document.querySelector('.product-detail-page .pd-tab-scroll');
