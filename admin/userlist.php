@@ -351,6 +351,15 @@ foreach ($results as $r) {
     }
 }
 $userIds = array_values(array_unique($userIds));
+$accountEventsByUser = [];
+if ($userIds) {
+    try {
+        require_once dirname(__DIR__) . '/public_user/includes/account_admin_events.php';
+        $accountEventsByUser = account_admin_events_latest_by_users($dbh, $userIds);
+    } catch (Throwable $e) {
+        $accountEventsByUser = [];
+    }
+}
 if ($userIds && function_exists('org_admin_table_exists')) {
     $chunk = array_chunk($userIds, 400);
     try {
@@ -598,6 +607,7 @@ if ($listKind === 'commerce') {
     .ul-kinds a:hover{color:#0f172a;text-decoration:none;}
     .ul-status.active{background:#dcfce7;color:#15803d;}
     .ul-status.suspended{background:#ffedd5;color:#c2410c;}
+    .ul-status.left{background:#fee2e2;color:#991b1b;}
     .ul-status .dot{width:6px;height:6px;border-radius:999px;background:currentColor;}
     .ul-when{font-size:10px;color:#475569;line-height:1.25;}
     .ul-when span{display:block;color:#94a3b8;font-size:9px;}
@@ -821,6 +831,10 @@ include('includes/header.php');
                 $rel = userlist_rel_age($created);
                 $statusKey = $isActive ? 'active' : 'suspended';
                 $createdTs = strtotime($created) ?: 0;
+                $latestAccountEv = $accountEventsByUser[$uid] ?? null;
+                $latestAccountType = (string)($latestAccountEv['event_type'] ?? '');
+                $latestAccountTitle = trim((string)($latestAccountEv['title'] ?? ''));
+                $latestAccountNext = trim((string)($latestAccountEv['admin_next'] ?? ''));
               ?>
               <tr
                 data-account-kind="<?php echo h($rowKind); ?>"
@@ -851,10 +865,15 @@ include('includes/header.php');
                   <?php endif; ?>
                 </td>
                 <td>
-                  <?php if ($isActive): ?>
+                  <?php if (!$isActive && in_array($latestAccountType, ['deactivate', 'delete'], true)): ?>
+                    <span class="ul-status left" title="<?php echo h($latestAccountNext !== '' ? $latestAccountNext : $latestAccountTitle); ?>"><span class="dot"></span> Left / deactivated</span>
+                  <?php elseif ($isActive): ?>
                     <span class="ul-status active"><span class="dot"></span> Active</span>
                   <?php else: ?>
                     <span class="ul-status suspended"><span class="dot"></span> Suspended</span>
+                  <?php endif; ?>
+                  <?php if ($latestAccountTitle !== '' && $isActive): ?>
+                    <div class="ul-when"><span><?php echo h($latestAccountTitle); ?></span></div>
                   <?php endif; ?>
                 </td>
                 <td>

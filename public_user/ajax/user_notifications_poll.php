@@ -77,8 +77,9 @@ try {
         $postId = 0;
         $commentId = 0;
         $isStory = false;
+        $profileUserId = 0;
 
-        while (preg_match('/\s\[(live|r|p|c|story):([^\]]+)\]\s*$/', $type, $m)) {
+        while (preg_match('/\s\[(live|r|p|c|story|u):([^\]]+)\]\s*$/', $type, $m)) {
             $key = trim((string)($m[1] ?? ''));
             $value = trim((string)($m[2] ?? ''));
             if ($key === 'live') {
@@ -91,8 +92,10 @@ try {
                 $commentId = (int)$value;
             } elseif ($key === 'story') {
                 $isStory = ((int)$value === 1) || strtolower($value) === '1';
+            } elseif ($key === 'u') {
+                $profileUserId = (int)$value;
             }
-            $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story):[^\]]+\]\s*$/', '', $type, 1));
+            $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story|u):[^\]]+\]\s*$/', '', $type, 1));
         }
         if (!$isStory && stripos($type, ' in a story') !== false) {
             $isStory = true;
@@ -124,6 +127,10 @@ try {
                 $params['hide_nav'] = 1;
             }
             $url = $page . '?' . http_build_query($params);
+        } elseif ($profileUserId > 0) {
+            $url = 'profile.php?tab=about&id=' . $profileUserId;
+        } elseif ($route === 'pf') {
+            $url = 'profile.php?tab=about';
         }
         $items[] = [
             'id' => (int)($row['id'] ?? 0),

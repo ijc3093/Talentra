@@ -1,0 +1,91 @@
+/* ===============================
+   GLOBAL PAGE TITLE (FIXED)
+   - sh-pagetitle covers left sidebar area
+   - leftbar stays UNDER header
+   - menu button toggles leftbar
+================================= */
+
+:root{ --sh-pagetitle-h: 70px; }
+
+/* FIXED TOP HEADER */
+.sh-pagetitle{
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--sh-pagetitle-h);
+  z-index: 2000;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* push page content below fixed header */
+body{ padding-top: 0px !important; }
+
+/* LEFT SIDEBAR UNDER HEADER */
+.sh-sideleft,
+.leftbar{
+  position: fixed !important;
+  top: var(--sh-pagetitle-h) !important;
+  left: 0;
+  bottom: 0;
+  z-index: 1500;
+  transition: transform .25s ease;
+  will-change: transform;
+}
+
+/* CLOSED STATE */
+body.menu-collapsed .sh-sideleft,
+body.menu-collapsed .leftbar{ transform: translateX(-100%); }
+
+/* OPEN STATE */
+body:not(.menu-collapsed) .sh-sideleft,
+body:not(.menu-collapsed) .leftbar{ transform: translateX(0); }
+
+/* keep main panel from adding extra top gap */
+/* =========================================
+   MAINPANEL MUST BE FULL WIDTH (sidebar under it)
+   ========================================= */
+.sh-mainpanel{
+  margin-left: 0 !important;   /* remove reserved sidebar space */
+  width: 100% !important;
+}
+
+/* =========================================
+   TOP BAR (HEADER) FIX
+
+   feed.php uses this layout-fixed.css.
+   Shamcey sets .sh-headpanel { left:340px; right:0 } on desktop (>=1200px)
+   so the header naturally becomes (100% - 340px) wide.
+
+   This file previously forced width:100%, and when combined with left:340px
+   it pushed the right side of the header off-screen — hiding the top-right
+   icons (messages / notifications / profile) on desktop.
+
+   ✅ Fix: full width on mobile/tablet, but on desktop match the logo-panel
+   offset (340px) so the right icons stay visible.
+   ========================================= */
+
+/* Mobile/Tablet: full width */
+@media (max-width: 1199.98px){
+  .sh-headpanel{
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
+}
+
+/* Desktop/Laptop: leave room for the logo panel */
+@media (min-width: 1200px){
+  .sh-headpanel{
+    left: 340px !important;
+    right: 0 !important;
+    width: calc(100% - 340px) !important;
+  }
+}
+
+/* keep sidebar overlaying on top of content when opened */
+.sh-sideleft,
+.leftbar{
+  z-index: 2500 !important; /* higher than mainpanel */
+}

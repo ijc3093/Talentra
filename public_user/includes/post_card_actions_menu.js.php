@@ -1264,7 +1264,7 @@
     html += buttonItem(
       'pcm-bookmark' + (isSaved ? ' is-active' : ''),
       isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o',
-      'Bookmark',
+      'Favorite',
       ' data-post-id="'+esc(String(pid))+'" data-saved="'+(isSaved ? '1' : '0')+'"'
     );
     html += buttonItem('pcm-share', 'fa fa-share', 'Share', ' data-post-id="'+esc(String(pid))+'"');
@@ -2688,8 +2688,8 @@
         }
         var saved = Number(res.state && res.state.saved != null ? res.state.saved : 0) === 1;
         pcmToast(saved
-          ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
-          : 'Removed from Bookmarks.');
+          ? 'Added to Favorites. Find it in Settings → Favorites.'
+          : 'Removed from Favorites.');
       }, { fromStory: fromStory });
       return true;
     }

@@ -12,6 +12,7 @@ $GLOBALS['msb_menu_door_included'] = true;
   z-index:997 !important;
   display:flex !important;
   flex-direction:column !important;
+  align-items:center !important;
   overflow:hidden !important;
   min-height:0 !important;
   box-shadow:18px 0 48px rgba(0,0,0,.32);
@@ -19,6 +20,11 @@ $GLOBALS['msb_menu_door_included'] = true;
   opacity:0;
   pointer-events:none;
   transition:transform .18s ease, opacity .18s ease;
+}
+#ttLeftbarOverlays .tt-menu-head{
+  align-self:stretch !important;
+  width:100% !important;
+  box-sizing:border-box !important;
 }
 #ttLeftbarOverlays .tt-menu-wrap.is-open{
   transform:translateX(0);
@@ -60,7 +66,7 @@ $GLOBALS['msb_menu_door_included'] = true;
   max-width:calc(100% - 56px);
   height:min(340px, calc(100vh - 280px));
   max-height:min(340px, calc(100vh - 220px));
-  margin:clamp(12px, 10vh, 120px) 0 24px 40px;
+  margin:clamp(12px, 10vh, 120px) auto 24px;
   overflow:hidden;
   box-sizing:border-box;
 }
@@ -221,7 +227,7 @@ $GLOBALS['msb_menu_door_included'] = true;
   .tt-menu-panel{
     width:min(236px, calc(100% - 32px));
     max-width:calc(100% - 32px);
-    margin-left:16px;
+    margin-left:auto;
     margin-right:auto;
     height:min(340px, calc(100vh - 200px));
     max-height:min(340px, calc(100vh - 160px));

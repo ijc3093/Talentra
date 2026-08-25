@@ -1,0 +1,764 @@
+/* Shop page — Gear appearance palette + dark-auto contrast */
+
+body.shop-page {
+  --shop-surface: var(--msb-palette-bg, var(--bg-main, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))));
+  --shop-card-bg: var(--msb-palette-bg, var(--bg-card, #ffffff));
+  --shop-card-raised: var(--msb-palette-surface-2, var(--msb-palette-bg, var(--bg-card, #ffffff)));
+  --shop-text: var(--msb-palette-text, var(--text-primary, #111827));
+  --shop-text-muted: var(--msb-palette-text-muted, var(--text-muted, #6b7280));
+  --shop-text-soft: var(--msb-palette-text-muted, var(--text-secondary, #374151));
+  --shop-border: var(--msb-palette-border, var(--border-color, #e5e7eb));
+  --shop-border-strong: var(--msb-palette-border-strong, var(--msb-palette-border, var(--border-color, #e5e7eb)));
+  --shop-input-bg: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg, var(--bg-card, #ffffff))));
+  --shop-link: var(--msb-palette-link, var(--msb-palette-action, #2563eb));
+  --shop-btn-filled-bg: var(--msb-palette-btn-bg, var(--msb-palette-action, #111827));
+  --shop-btn-filled-text: var(--msb-palette-btn-text, #ffffff);
+  --shop-btn-outline-bg: var(--msb-palette-surface-2, var(--msb-palette-bg, var(--bg-card, #ffffff)));
+  --shop-btn-outline-text: var(--msb-palette-text, var(--text-primary, #111827));
+  --shop-btn-outline-border: var(--msb-palette-border-strong, var(--msb-palette-text, var(--text-primary, #111827)));
+  --shop-hover-bg: var(--msb-palette-hover-bg, rgba(15, 23, 42, 0.05));
+  /* Align feed chrome tokens with Gear appearance on shop */
+  --feed-page-bg: var(--shop-surface);
+  --feed-topbar-bg: var(--shop-surface);
+  --feed-surface: var(--shop-surface);
+  --feed-surface-alt: var(--shop-surface);
+  --feed-surface-strong: var(--shop-surface);
+  --feed-control-bg: var(--shop-surface);
+  --feed-control-soft: var(--shop-surface);
+  --feed-text: var(--shop-text);
+  --feed-muted: var(--shop-text-muted);
+  --feed-soft-text: var(--shop-text-muted);
+  --feed-border: var(--shop-border);
+  --feed-border-strong: var(--shop-border-strong);
+  --feed-control-border: var(--shop-border-strong);
+  --feed-control-placeholder: var(--shop-text-muted);
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page,
+html[data-msb-appearance] body.shop-page,
+html.dark-auto[data-msb-appearance] body.shop-page {
+  background-color: var(--shop-surface) !important;
+  color: var(--shop-text) !important;
+}
+
+/* Left rail panel — brands + filters use appearance surface (not grey surface-2) */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-nav,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html[data-msb-appearance] body.shop-page .feed-left-rail,
+html[data-msb-appearance] body.shop-page .feed-left-nav,
+html[data-msb-appearance] body.shop-page .shop-nav-filters,
+html[data-msb-appearance] body.shop-page .shop-brand-nav,
+html.dark-auto[data-msb-appearance] body.shop-page .feed-left-rail,
+html.dark-auto[data-msb-appearance] body.shop-page .feed-left-nav,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-nav-filters,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav {
+  background-color: var(--shop-surface) !important;
+  background-image: none !important;
+  color: var(--shop-text) !important;
+  border-color: var(--shop-border) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-toggle,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filter-toggle,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-toggle {
+  background-color: transparent !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-panel,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filter-panel,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-panel {
+  background-color: transparent !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .sh-mainpanel,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .sh-pagebody,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .sh-mainpanel,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .sh-pagebody,
+html[data-msb-appearance] body.shop-page .sh-mainpanel,
+html[data-msb-appearance] body.shop-page .sh-pagebody,
+html[data-msb-appearance] body.shop-page .shop-page-shell,
+html[data-msb-appearance] body.shop-page .feed-left-rail,
+html[data-msb-appearance] body.shop-page .feed-left-rail-page-head,
+html.dark-auto[data-msb-appearance] body.shop-page .ig-feed-header,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-header,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-header,
+html[data-msb-appearance] body.shop-page .ig-feed-header {
+  background-color: var(--shop-surface) !important;
+  background-image: none !important;
+  color: var(--shop-text) !important;
+  border-color: var(--shop-border) !important;
+}
+
+/* Top user name strip ("Maka Ori") — transparent button, contrasted text */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-top-lead,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-top-lead,
+html[data-msb-appearance] body.shop-page .ig-feed-top-lead,
+html.dark-auto[data-msb-appearance] body.shop-page .ig-feed-top-lead {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-user-name,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-user-name,
+html[data-msb-appearance] body.shop-page .ig-feed-user-name,
+html.dark-auto[data-msb-appearance] body.shop-page .ig-feed-user-name {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--shop-text) !important;
+  -webkit-text-fill-color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-user-name:hover,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-user-name:focus,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-user-name:hover,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-user-name:focus,
+html[data-msb-appearance] body.shop-page .ig-feed-user-name:hover,
+html[data-msb-appearance] body.shop-page .ig-feed-user-name:focus {
+  color: var(--shop-link) !important;
+  -webkit-text-fill-color: var(--shop-link) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-feed-account-badge,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-feed-account-badge,
+html[data-msb-appearance] body.shop-page .ig-feed-account-badge {
+  background-color: var(--msb-palette-action-soft, var(--shop-hover-bg)) !important;
+  border: 1px solid var(--shop-border) !important;
+  color: var(--shop-text) !important;
+}
+
+/* Shop header search + view toggles */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-header-search,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-header-search .feed-top-search-input,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-header-search .feed-top-search-input,
+html[data-msb-appearance] body.shop-page .shop-header-search,
+html[data-msb-appearance] body.shop-page .shop-header-search .feed-top-search-input {
+  background-color: var(--shop-input-bg) !important;
+  color: var(--shop-text) !important;
+  border-color: var(--shop-border-strong) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-header-search .feed-top-search-input::placeholder,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-header-search .feed-top-search-input::placeholder,
+html[data-msb-appearance] body.shop-page .shop-header-search .feed-top-search-input::placeholder {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-shop-view-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-shop-view-btn,
+html[data-msb-appearance] body.shop-page .ig-shop-view-btn {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .ig-shop-view-btn.is-active,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .ig-shop-view-btn.is-active,
+html[data-msb-appearance] body.shop-page .ig-shop-view-btn.is-active,
+html[data-msb-appearance] body.shop-page .ig-shop-view-btn.is-active .ig-shop-view-label {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-card,
+html[data-msb-appearance] body.shop-page .shop-market-card,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-card {
+  background-color: var(--shop-card-bg) !important;
+  border-color: var(--shop-border) !important;
+  color: var(--shop-text) !important;
+  box-shadow: none !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-cover,
+html[data-msb-appearance] body.shop-page .shop-market-cover,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-cover {
+  background-color: var(--shop-card-raised) !important;
+  border-color: var(--shop-border) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-title,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-title a,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-price,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-trust,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-trust-foot,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-seller,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-seller a,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-fit-link,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-page-title,
+html[data-msb-appearance] body.shop-page .shop-market-title,
+html[data-msb-appearance] body.shop-page .shop-market-title a,
+html[data-msb-appearance] body.shop-page .shop-market-price,
+html[data-msb-appearance] body.shop-page .shop-market-trust,
+html[data-msb-appearance] body.shop-page .shop-market-trust-foot,
+html[data-msb-appearance] body.shop-page .shop-market-seller,
+html[data-msb-appearance] body.shop-page .shop-market-seller a,
+html[data-msb-appearance] body.shop-page .shop-market-fit-link,
+html[data-msb-appearance] body.shop-page .shop-page-title,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-title,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-title a,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-price {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-fulfill,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-fulfill-ic,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-page-sub,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-empty,
+html[data-msb-appearance] body.shop-page .shop-market-fulfill,
+html[data-msb-appearance] body.shop-page .shop-market-fulfill-ic,
+html[data-msb-appearance] body.shop-page .shop-page-sub,
+html[data-msb-appearance] body.shop-page .shop-market-empty,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-fulfill,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-page-sub,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-empty {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-cover-fallback,
+html[data-msb-appearance] body.shop-page .shop-market-cover-fallback {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-add-cart,
+html[data-msb-appearance] body.shop-page .shop-market-add-cart,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-add-cart,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-submit,
+html[data-msb-appearance] body.shop-page .shop-buy-submit {
+  background-color: var(--shop-btn-filled-bg) !important;
+  border: 1px solid var(--shop-border, var(--shop-text-muted, rgba(177, 188, 206, 0.55))) !important;
+  color: var(--shop-btn-filled-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-add-cart:hover,
+html[data-msb-appearance] body.shop-page .shop-market-add-cart:hover,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-submit:hover,
+html[data-msb-appearance] body.shop-page .shop-buy-submit:hover {
+  background-color: var(--msb-palette-btn-hover-bg, var(--shop-btn-filled-bg)) !important;
+  border-color: var(--shop-border, var(--shop-text-muted, rgba(177, 188, 206, 0.55))) !important;
+  color: var(--shop-btn-filled-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-buy-now,
+html[data-msb-appearance] body.shop-page .shop-market-buy-now,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-buy-now {
+  background-color: var(--shop-btn-outline-bg) !important;
+  border-color: var(--shop-btn-outline-border) !important;
+  color: var(--shop-btn-outline-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-buy-now:hover,
+html[data-msb-appearance] body.shop-page .shop-market-buy-now:hover {
+  background-color: var(--shop-hover-bg) !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-card,
+html[data-msb-appearance] body.shop-page .shop-buy-card {
+  background-color: var(--shop-card-bg) !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-head,
+html[data-msb-appearance] body.shop-page .shop-buy-head {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-sub,
+html[data-msb-appearance] body.shop-page .shop-buy-sub {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-body input,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-body textarea,
+html[data-msb-appearance] body.shop-page .shop-buy-body input,
+html[data-msb-appearance] body.shop-page .shop-buy-body textarea {
+  background-color: var(--shop-input-bg) !important;
+  color: var(--shop-text) !important;
+  border-color: var(--shop-border-strong) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-buy-cancel,
+html[data-msb-appearance] body.shop-page .shop-buy-cancel {
+  background-color: var(--shop-card-raised) !important;
+  color: var(--shop-text) !important;
+}
+
+/* Left rail — brands, filters, nav */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-title,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-toggle,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter.is-active .shop-nav-filter-label,
+html[data-msb-appearance] body.shop-page .feed-left-rail-page-title,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-toggle,
+html[data-msb-appearance] body.shop-page .shop-nav-filter.is-active .shop-nav-filter-label,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav-text strong {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-sub,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-option,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-empty,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-head,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text span,
+html[data-msb-appearance] body.shop-page .feed-left-rail-page-sub,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-option,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-empty,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-head,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-text span,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav-text span {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text strong,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-text strong,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav-text strong {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-clear,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-clear,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-banner-clear,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-clear,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-clear,
+html[data-msb-appearance] body.shop-page .shop-brand-banner-clear {
+  color: var(--shop-link) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-option:hover,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-option:hover {
+  background-color: var(--shop-hover-bg) !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-option.is-active,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-option.is-active {
+  background-color: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.1)) !important;
+  color: var(--shop-link) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-item:hover,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav-item.is-active,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-item:hover,
+html[data-msb-appearance] body.shop-page .shop-brand-nav-item.is-active {
+  background-color: var(--msb-palette-action-soft, var(--shop-hover-bg)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-banner,
+html[data-msb-appearance] body.shop-page .shop-brand-banner {
+  background: var(--shop-card-bg) !important;
+  background-image: none !important;
+  border-color: var(--shop-border) !important;
+  color: var(--shop-text) !important;
+  box-shadow: none !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-banner-text strong,
+html[data-msb-appearance] body.shop-page .shop-brand-banner-text strong {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-banner-text span,
+html[data-msb-appearance] body.shop-page .shop-brand-banner-text span {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-brand-pill,
+html[data-msb-appearance] body.shop-page .shop-market-brand-pill {
+  background-color: var(--msb-palette-action-soft, var(--shop-hover-bg)) !important;
+  border-color: var(--shop-border) !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html[data-msb-appearance] body.shop-page .shop-nav-filter,
+html[data-msb-appearance] body.shop-page .shop-brand-nav {
+  border-color: var(--shop-border) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav-item,
+html[data-msb-appearance] body.shop-page .feed-left-nav-item {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav-item.is-active,
+html[data-msb-appearance] body.shop-page .feed-left-nav-item.is-active {
+  background-color: var(--msb-palette-nav-active-bg, var(--shop-hover-bg)) !important;
+  color: var(--msb-palette-nav-active-text, var(--shop-text)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav-item:hover,
+html[data-msb-appearance] body.shop-page .feed-left-nav-item:hover {
+  background-color: var(--msb-palette-nav-hover, var(--shop-hover-bg)) !important;
+  color: var(--msb-palette-text-on-nav-hover, var(--shop-text)) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-toggle:hover,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-toggle:hover {
+  background-color: var(--shop-hover-bg) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filter-chevron,
+html[data-msb-appearance] body.shop-page .shop-nav-filter-chevron {
+  border-color: var(--shop-text-muted) !important;
+}
+
+/* Built-in Dark / Dark auto — left rail icons + brand nav on shop */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav-ic,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav-label,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-nav-ic,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-nav-label,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text strong,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text span,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filter-toggle {
+  color: var(--shop-text) !important;
+}
+
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav-text span,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav-head,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-sub,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filter-option {
+  color: var(--shop-text-muted) !important;
+}
+
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-market-card,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-market-cover,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-buy-card {
+  background-color: var(--shop-card-bg) !important;
+  border-color: var(--shop-border) !important;
+  color: var(--shop-text) !important;
+}
+
+/* cart.php — Gear appearance + contrast */
+body.shop-page.cart-page {
+  --cart-remove-text: #dc2626;
+  --cart-remove-border: rgba(220, 38, 38, 0.4);
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page,
+html[data-msb-appearance] body.shop-page.cart-page,
+html.dark-auto[data-msb-appearance] body.shop-page.cart-page {
+  --cart-remove-text: #f87171;
+  --cart-remove-border: rgba(248, 113, 113, 0.45);
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-row,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-row,
+html[data-msb-appearance] body.shop-page.cart-page .cart-row,
+html.dark-auto[data-msb-appearance] body.shop-page.cart-page .cart-row {
+  background-color: var(--shop-card-bg) !important;
+  border-color: var(--shop-border) !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-title,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-name,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-name a,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-price,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-line-total,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-page-subtotal,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-title,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-name,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-name a,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-price,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-line-total,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-page-subtotal,
+html[data-msb-appearance] body.shop-page.cart-page .cart-title,
+html[data-msb-appearance] body.shop-page.cart-page .cart-name,
+html[data-msb-appearance] body.shop-page.cart-page .cart-name a,
+html[data-msb-appearance] body.shop-page.cart-page .cart-price,
+html[data-msb-appearance] body.shop-page.cart-page .cart-line-total,
+html[data-msb-appearance] body.shop-page.cart-page .cart-page-subtotal {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-sub,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-seller,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-empty,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-qty label,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-sub,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-seller,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-empty,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-qty label,
+html[data-msb-appearance] body.shop-page.cart-page .cart-sub,
+html[data-msb-appearance] body.shop-page.cart-page .cart-seller,
+html[data-msb-appearance] body.shop-page.cart-page .cart-empty,
+html[data-msb-appearance] body.shop-page.cart-page .cart-qty label {
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-back,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-back,
+html[data-msb-appearance] body.shop-page.cart-page .cart-back {
+  color: var(--shop-link) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-thumb,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-thumb,
+html[data-msb-appearance] body.shop-page.cart-page .cart-thumb {
+  background-color: var(--shop-card-raised) !important;
+  color: var(--shop-text-muted) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-qty input,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-qty input,
+html[data-msb-appearance] body.shop-page.cart-page .cart-qty input {
+  background-color: var(--shop-input-bg) !important;
+  border: 1px solid var(--shop-border-strong) !important;
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-remove,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-remove,
+html[data-msb-appearance] body.shop-page.cart-page .cart-remove {
+  color: var(--cart-remove-text) !important;
+  border-color: var(--cart-remove-border) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-checkout-btn,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page.cart-page .cart-checkout-btn,
+html[data-msb-appearance] body.shop-page.cart-page .cart-checkout-btn {
+  background-color: var(--shop-btn-outline-bg) !important;
+  border-color: var(--shop-btn-outline-border) !important;
+  color: var(--shop-btn-outline-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-page-intro,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-page-scroll,
+html.dark-auto:not([data-msb-appearance]) body.shop-page.cart-page .cart-page-footer,
+html[data-msb-appearance] body.shop-page.cart-page .cart-page-intro,
+html[data-msb-appearance] body.shop-page.cart-page .cart-page-scroll,
+html[data-msb-appearance] body.shop-page.cart-page .cart-page-footer {
+  background-color: transparent !important;
+  color: var(--shop-text) !important;
+}
+
+/* product_detail.php — appearance contrast */
+html.dark-auto:not([data-msb-appearance]) body.product-detail-page .pd-page,
+html[data-msb-appearance] body.product-detail-page .pd-page,
+html.dark-auto[data-msb-appearance] body.product-detail-page .pd-page {
+  color: var(--shop-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.product-detail-page .pd-add-cart,
+html[data-msb-appearance] body.product-detail-page .pd-add-cart {
+  background-color: var(--shop-btn-filled-bg) !important;
+  border: 1px solid var(--shop-border, rgba(177, 188, 206, 0.55)) !important;
+  color: var(--shop-btn-filled-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.product-detail-page .pd-buy-now,
+html[data-msb-appearance] body.product-detail-page .pd-buy-now {
+  background-color: var(--shop-btn-outline-bg) !important;
+  border-color: var(--shop-btn-outline-border) !important;
+  color: var(--shop-btn-outline-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.product-detail-page .pd-gallery-thumb,
+html[data-msb-appearance] body.product-detail-page .pd-gallery-thumb {
+  background-color: var(--shop-card-bg) !important;
+  border-color: var(--shop-border) !important;
+}
+
+body.product-detail-page .pd-gallery-thumbs {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+body.product-detail-page .pd-gallery-thumb {
+  flex: 0 0 72px !important;
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.product-detail-page .pd-qty,
+html.dark-auto:not([data-msb-appearance]) body.product-detail-page .pd-qty-input,
+html[data-msb-appearance] body.product-detail-page .pd-qty,
+html[data-msb-appearance] body.product-detail-page .pd-qty-input {
+  background-color: var(--shop-input-bg) !important;
+  border-color: var(--shop-border-strong) !important;
+  color: var(--shop-text) !important;
+}
+
+/* Shop location filter + change-location modal */
+.shop-nav-location-link{
+  display:block;
+  width:100%;
+  text-align:left;
+  border:0;
+  background:transparent;
+  color:var(--shop-link, var(--msb-palette-link, #60a5fa));
+  font-size:13px;
+  font-weight:600;
+  line-height:1.35;
+  padding:4px 0 2px;
+  cursor:pointer;
+}
+.shop-nav-location-link:hover{text-decoration:underline;}
+.shop-nav-location-hint{
+  margin:0 0 4px;
+  font-size:11px;
+  color:var(--shop-text-muted, var(--msb-palette-text-muted, #94a3b8));
+  line-height:1.3;
+}
+
+.shop-loc-modal{
+  position:fixed;
+  inset:0;
+  z-index:22000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(8,12,20,.72);
+}
+.shop-loc-modal.is-open{display:flex;}
+.shop-loc-modal-card{
+  width:min(520px,100%);
+  max-height:min(92vh,760px);
+  overflow:auto;
+  border-radius:14px;
+  background:var(--shop-card-bg, var(--msb-palette-bg, #1e2733));
+  color:var(--shop-text, var(--msb-palette-text, #e8edf5));
+  border:1px solid var(--shop-border, var(--msb-palette-border, rgba(177,188,206,.22)));
+  box-shadow:0 24px 60px rgba(0,0,0,.4);
+  padding:18px 18px 16px;
+  box-sizing:border-box;
+}
+.shop-loc-modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  margin-bottom:8px;
+}
+.shop-loc-modal-title{
+  margin:0;
+  font-size:18px;
+  font-weight:700;
+  text-align:center;
+}
+.shop-loc-modal-close{
+  position:absolute;
+  right:0;
+  top:50%;
+  transform:translateY(-50%);
+  width:36px;
+  height:36px;
+  border:0;
+  border-radius:50%;
+  background:rgba(148,163,184,.18);
+  color:inherit;
+  font-size:22px;
+  line-height:1;
+  cursor:pointer;
+}
+.shop-loc-modal-hint{
+  margin:0 0 12px;
+  font-size:13px;
+  color:var(--shop-text-muted, #94a3b8);
+}
+.shop-loc-search-wrap{
+  display:flex;
+  gap:8px;
+  margin-bottom:8px;
+}
+.shop-loc-search-input{
+  flex:1 1 auto;
+  min-width:0;
+  border:1px solid var(--shop-border, rgba(177,188,206,.28));
+  border-radius:10px;
+  background:var(--shop-input-bg, rgba(15,23,42,.35));
+  color:inherit;
+  padding:10px 12px;
+  font-size:14px;
+}
+.shop-loc-search-btn{
+  flex:0 0 auto;
+  border:0;
+  border-radius:10px;
+  background:var(--shop-btn-filled-bg, #2563eb);
+  color:var(--shop-btn-filled-text, #fff);
+  font-weight:700;
+  padding:0 14px;
+  cursor:pointer;
+}
+.shop-loc-search-msg{
+  margin:0 0 10px;
+  font-size:12px;
+  color:var(--shop-text-muted, #94a3b8);
+}
+.shop-loc-search-msg.is-error{color:#f87171;}
+.shop-loc-sr{
+  position:absolute;
+  width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);
+}
+.shop-loc-fields{display:grid;gap:10px;margin:12px 0;}
+.shop-loc-field{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  border:1px solid var(--shop-border, rgba(177,188,206,.28));
+  border-radius:12px;
+  padding:10px 12px;
+  background:var(--shop-input-bg, rgba(15,23,42,.28));
+}
+.shop-loc-field-ic{color:var(--shop-text-muted, #94a3b8);font-size:16px;width:18px;text-align:center;}
+.shop-loc-field-body{flex:1 1 auto;min-width:0;}
+.shop-loc-field-label{
+  display:block;
+  font-size:11px;
+  font-weight:600;
+  color:var(--shop-text-muted, #94a3b8);
+  margin-bottom:2px;
+}
+.shop-loc-field-value{font-size:14px;font-weight:600;}
+.shop-loc-radius-select{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font-size:14px;
+  font-weight:600;
+  padding:0;
+  appearance:none;
+  -webkit-appearance:none;
+  cursor:pointer;
+}
+.shop-loc-field-chevron{
+  width:0;height:0;
+  border-left:5px solid transparent;
+  border-right:5px solid transparent;
+  border-top:6px solid var(--shop-text-muted, #94a3b8);
+}
+.shop-loc-map{
+  width:100%;
+  height:240px;
+  border-radius:12px;
+  overflow:hidden;
+  border:1px solid var(--shop-border, rgba(177,188,206,.22));
+  background:#0f172a;
+  margin:4px 0 14px;
+}
+.shop-loc-modal-foot{display:flex;justify-content:flex-end;}
+.shop-loc-apply{
+  border:0;
+  border-radius:10px;
+  background:#2563eb;
+  color:#fff;
+  font-weight:700;
+  font-size:14px;
+  padding:10px 22px;
+  cursor:pointer;
+}
+.shop-loc-apply:disabled{opacity:.6;cursor:default;}
+.shop-loc-apply:hover:not(:disabled){filter:brightness(1.06);}

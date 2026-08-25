@@ -520,7 +520,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   min-height:0 !important;
   overflow-y:auto !important;
   padding:12px 20px 20px;
-  font-size:14px;
+  font-size:12px;
   line-height:1.5;
   word-break:break-word;
   color:var(--tt-text);

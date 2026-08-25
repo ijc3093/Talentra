@@ -57,6 +57,9 @@ if (!function_exists('admin_notif_classify_type')) {
         if (preg_match('/\b(report|flag|abuse|complaint)\b/', $t)) {
             return 'user_report';
         }
+        if (preg_match('/\[account\]|deactivat|delete requested|exported data|reset settings|switched account|removed access|linked another|no longer using/', $t)) {
+            return 'security';
+        }
         if (preg_match('/\b(login|password|2fa|lockout|failed|security|auth)\b/', $t)) {
             return 'security';
         }
@@ -177,6 +180,28 @@ if (!function_exists('admin_notif_normalize_row')) {
             $priority = admin_notif_classify_priority($notitype, $type);
         }
         $isRead = (int)($row['is_read'] ?? 0) === 1;
+        $relatedHref = (string)($row['related_href'] ?? '');
+        if ($relatedHref === '' && preg_match('/(?:u|user_id)=(\d+)/', $notitype, $m)) {
+            $relatedHref = 'user_form.php?user_id=' . (int)$m[1];
+        }
+        $body = (string)($row['body'] ?? admin_notif_body($notiuser, $notitype));
+        if (stripos($notitype, '[account]') !== false || stripos($notitype, 'no longer using') !== false) {
+            if (stripos($notitype, 'Deactivated') !== false) {
+                $body = 'User stopped using this account. Leave it paused unless they ask to return.';
+            } elseif (stripos($notitype, 'Delete requested') !== false) {
+                $body = 'User wants the account gone. Follow your delete policy; deactivate if still live.';
+            } elseif (stripos($notitype, 'Exported data') !== false) {
+                $body = 'They downloaded their data. Watch for deactivate or delete next.';
+            } elseif (stripos($notitype, 'Reset settings') !== false) {
+                $body = 'Gear was reset. Help them set privacy/theme again if they ask.';
+            } elseif (stripos($notitype, 'Removed access') !== false) {
+                $body = 'Other devices were signed out. They can sign in again on a trusted device.';
+            } elseif (stripos($notitype, 'Switched account') !== false) {
+                $body = 'They switched to a linked account. Still on the platform — not churn.';
+            } elseif (stripos($notitype, 'Linked another') !== false) {
+                $body = 'They added another account. Keep both rows.';
+            }
+        }
         return [
             'id' => (int)($row['id'] ?? 0),
             'virtual' => $virtual || !empty($row['virtual']),
@@ -191,9 +216,9 @@ if (!function_exists('admin_notif_normalize_row')) {
             'type_label' => admin_notif_type_label($type),
             'priority' => $priority,
             'title' => (string)($row['title'] ?? admin_notif_title($notitype)),
-            'body' => (string)($row['body'] ?? admin_notif_body($notiuser, $notitype)),
+            'body' => $body,
             'related' => (string)($row['related'] ?? ($notiuser !== '' ? $notiuser : '—')),
-            'related_href' => (string)($row['related_href'] ?? ''),
+            'related_href' => $relatedHref,
             'icon' => admin_notif_icon_class($type),
         ];
     }

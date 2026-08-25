@@ -1,0 +1,89 @@
+/* Thin light-grey structural lines (home, profile, messages, shop, …).
+   Does not restyle accent/error/avatar rings. */
+:root{
+  --msb-hairline:#d3d3d3;
+}
+html.dark-auto,
+html[data-theme="dark"]{
+  --msb-hairline:rgba(211,211,211,.28);
+}
+html,
+html[data-msb-appearance],
+html.msb-palette-active{
+  --msb-palette-border:var(--msb-hairline) !important;
+  --msb-palette-border-strong:var(--msb-hairline) !important;
+  --border:var(--msb-hairline) !important;
+  --border-color:var(--msb-hairline) !important;
+  --line:var(--msb-hairline) !important;
+  --feed-border:var(--msb-hairline) !important;
+  --feed-border-strong:var(--msb-hairline) !important;
+  --feed-post-divider:var(--msb-hairline) !important;
+  --feed-post-column-border:var(--msb-hairline) !important;
+  --feed-control-border:var(--msb-hairline) !important;
+  --public-border:var(--msb-hairline) !important;
+  --public-border-strong:var(--msb-hairline) !important;
+  --public-control-border:var(--msb-hairline) !important;
+  --public-post-card-border:var(--msb-hairline) !important;
+  --shop-border:var(--msb-hairline) !important;
+  --shop-border-strong:var(--msb-hairline) !important;
+  --msb-dd-border:var(--msb-hairline) !important;
+  --msb-dd-divider:var(--msb-hairline) !important;
+  --msb-rx-border:var(--msb-hairline) !important;
+}
+
+.sh-sideleft,
+.sh-sideleft-menu,
+.feed-left-rail,
+.feed-left-nav,
+.feed-ig-rail,
+.ig-feed-header,
+.ig-stories-bar,
+.ig-search-wrap,
+.mf-search,
+.yt-search,
+.yt-search-shell,
+.search-input,
+.search-btn,
+.feed-top-search,
+.feed-desktop-center,
+.post:not(.public-post-card),
+.mf-card,
+.standard-text-card,
+.gear-shell,
+.gear-sidebar,
+.gear-main,
+.gear-detail-panel,
+.gear-control,
+.form-control,
+select.form-control,
+textarea.form-control,
+.msg-pane,
+.msg-thread,
+.msg-composer,
+.x-rail,
+.pcm-share-dialog,
+.auth-field{
+  border-width:1px !important;
+}
+
+.sh-sideleft,
+.sh-sideleft-menu,
+.feed-left-rail,
+.feed-left-nav,
+.feed-ig-rail,
+.ig-feed-header,
+.ig-stories-bar,
+.feed-top-search,
+.feed-desktop-center,
+.post:not(.public-post-card),
+.mf-card,
+.standard-text-card,
+.gear-shell,
+.gear-sidebar,
+.gear-main,
+.gear-detail-panel,
+.form-control,
+select.form-control,
+textarea.form-control{
+  border-color:var(--msb-hairline) !important;
+}

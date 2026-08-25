@@ -52,7 +52,10 @@ function external_news_http_get(string $url, int $timeout = 12, string $userAgen
 
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
-        curl_setopt_array($ch, [
+        if ($ch === false) {
+            return '';
+        }
+        $opts = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 4,
@@ -60,9 +63,21 @@ function external_news_http_get(string $url, int $timeout = 12, string $userAgen
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_USERAGENT => $userAgent,
             CURLOPT_HTTPHEADER => ['Accept: application/rss+xml, application/xml, application/json, text/xml, */*'],
-        ]);
+            CURLOPT_ENCODING => '',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ];
+        // Hostinger shared hosting often has broken IPv6 routes; force IPv4.
+        if (defined('CURL_IPRESOLVE_V4')) {
+            $opts[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+        }
+        curl_setopt_array($ch, $opts);
         $body = (string)curl_exec($ch);
-        unset($ch);
+        $errno = (int)curl_errno($ch);
+        curl_close($ch);
+        if ($errno !== 0 || $body === '') {
+            return '';
+        }
         return $body;
     }
 

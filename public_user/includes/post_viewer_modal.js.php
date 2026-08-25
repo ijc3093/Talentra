@@ -729,6 +729,11 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       if (pv.love) pv.love.setAttribute('data-post-id', String(postId));
       if (pv.share) pv.share.setAttribute('data-post-id', String(postId));
       if (pv.save) pv.save.setAttribute('data-post-id', String(postId));
+      if (pv.ov) pv.ov.setAttribute('data-post-id', String(postId));
+      ['pvLoveN','pvLikeN','pvShareN','pvSaveN'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.setAttribute('data-post-id', String(postId));
+      });
       pvBindLovePicker();
     } catch (e) {
       if (seq !== pvLoadSeq) return;
@@ -783,6 +788,11 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     if (pv.love) pv.love.setAttribute('data-post-id', String(postId));
     if (pv.share) pv.share.setAttribute('data-post-id', String(postId));
     if (pv.save) pv.save.setAttribute('data-post-id', String(postId));
+    if (pv.ov) pv.ov.setAttribute('data-post-id', String(postId));
+    ['pvLoveN','pvLikeN','pvShareN','pvSaveN'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.setAttribute('data-post-id', String(postId));
+    });
     pvBindLovePicker();
     pvLoad(postId);
     return true;

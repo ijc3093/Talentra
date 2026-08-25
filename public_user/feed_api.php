@@ -112,6 +112,7 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
     return [
       'comment_notifications' => 1,
       'reaction_notifications' => 1,
+      'share_notifications' => 1,
     ];
   }
   if (isset($cache[$userId])) return $cache[$userId];
@@ -119,11 +120,12 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
   $prefs = [
     'comment_notifications' => 1,
     'reaction_notifications' => 1,
+    'share_notifications' => 1,
   ];
 
   try {
     $st = $dbh->prepare("
-      SELECT comment_notifications, reaction_notifications
+      SELECT comment_notifications, reaction_notifications, share_notifications
       FROM user_profile_settings
       WHERE user_id = :uid
       LIMIT 1
@@ -133,8 +135,24 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
     if ($row) {
       $prefs['comment_notifications'] = (int)($row['comment_notifications'] ?? 1);
       $prefs['reaction_notifications'] = (int)($row['reaction_notifications'] ?? 1);
+      $prefs['share_notifications'] = (int)($row['share_notifications'] ?? 1);
     }
-  } catch (Throwable $e) {}
+  } catch (Throwable $e) {
+    try {
+      $st = $dbh->prepare("
+        SELECT comment_notifications, reaction_notifications
+        FROM user_profile_settings
+        WHERE user_id = :uid
+        LIMIT 1
+      ");
+      $st->execute([':uid' => $userId]);
+      $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+      if ($row) {
+        $prefs['comment_notifications'] = (int)($row['comment_notifications'] ?? 1);
+        $prefs['reaction_notifications'] = (int)($row['reaction_notifications'] ?? 1);
+      }
+    } catch (Throwable $e2) {}
+  }
 
   $cache[$userId] = $prefs;
   return $prefs;
@@ -249,6 +267,9 @@ function feedAllowsNotification(PDO $dbh, int $receiverId, string $kind): bool {
   }
   if ($kind === 'comment') {
     return (int)($prefs['comment_notifications'] ?? 1) === 1;
+  }
+  if ($kind === 'share' || $kind === 'save') {
+    return (int)($prefs['share_notifications'] ?? 1) === 1;
   }
   return true;
 }
@@ -1212,11 +1233,13 @@ try {
       $st->execute([':pid'=>$postId, ':uid'=>$meId]);
       $exists = (bool)$st->fetchColumn();
 
+      $didShareInsert = false;
       $shareAction = strtolower(trim((string)($_POST['share_action'] ?? 'toggle')));
       if ($shareAction === 'add' || $shareAction === 'once') {
         if (!$exists) {
           $st = $dbh->prepare("INSERT INTO public_post_shares (post_id, user_id, shared_at) VALUES (:pid,:uid,NOW())");
           $st->execute([':pid'=>$postId, ':uid'=>$meId]);
+          $didShareInsert = true;
         }
       } elseif ($exists) {
         $st = $dbh->prepare("DELETE FROM public_post_shares WHERE post_id = :pid AND user_id = :uid LIMIT 1");
@@ -1224,6 +1247,23 @@ try {
       } else {
         $st = $dbh->prepare("INSERT INTO public_post_shares (post_id, user_id, shared_at) VALUES (:pid,:uid,NOW())");
         $st->execute([':pid'=>$postId, ':uid'=>$meId]);
+        $didShareInsert = true;
+      }
+
+      if ($didShareInsert) {
+        $postOwnerId = (int)($accessRow['user_id'] ?? 0);
+        $postVisibility = trim((string)($accessRow['visibility'] ?? 'friends')) ?: 'friends';
+        feedAddNotification(
+          $dbh,
+          $meId,
+          $postOwnerId,
+          'shared your post',
+          'share',
+          [
+            'route' => feedRouteForPostOwner($postOwnerId, $postOwnerId, $postVisibility),
+            'post_id' => $postId,
+          ]
+        );
       }
     } catch (Throwable $e) {
       jexit(['ok'=>false,'error'=>'Missing table public_post_shares (run SQL)', 'me_id'=>$meId]);
@@ -1284,7 +1324,14 @@ try {
       $st->execute([':pid'=>$postId, ':uid'=>$meId]);
       $exists = (bool)$st->fetchColumn();
 
-      if ($exists) {
+      $didSaveInsert = false;
+      $saveAction = strtolower(trim((string)($_POST['save_action'] ?? 'toggle')));
+      if ($saveAction === 'remove' || $saveAction === 'delete') {
+        if ($exists) {
+          $st = $dbh->prepare("DELETE FROM public_post_saves WHERE post_id = :pid AND user_id = :uid LIMIT 1");
+          $st->execute([':pid'=>$postId, ':uid'=>$meId]);
+        }
+      } elseif ($exists) {
         $st = $dbh->prepare("DELETE FROM public_post_saves WHERE post_id = :pid AND user_id = :uid LIMIT 1");
         $st->execute([':pid'=>$postId, ':uid'=>$meId]);
       } else {
@@ -1292,10 +1339,28 @@ try {
         try {
           $st = $dbh->prepare("INSERT INTO public_post_saves (post_id, user_id, saved_at, saved_as_story) VALUES (:pid,:uid,NOW(),:story)");
           $st->execute([':pid'=>$postId, ':uid'=>$meId, ':story'=>$asStory]);
+          $didSaveInsert = true;
         } catch (Throwable $eInsert) {
           $st = $dbh->prepare("INSERT INTO public_post_saves (post_id, user_id, saved_at) VALUES (:pid,:uid,NOW())");
           $st->execute([':pid'=>$postId, ':uid'=>$meId]);
+          $didSaveInsert = true;
         }
+      }
+
+      if ($didSaveInsert) {
+        $postOwnerId = (int)($accessRow['user_id'] ?? 0);
+        $postVisibility = trim((string)($accessRow['visibility'] ?? 'friends')) ?: 'friends';
+        feedAddNotification(
+          $dbh,
+          $meId,
+          $postOwnerId,
+          'saved your post',
+          'save',
+          [
+            'route' => feedRouteForPostOwner($postOwnerId, $postOwnerId, $postVisibility),
+            'post_id' => $postId,
+          ]
+        );
       }
     } catch (Throwable $e) {
       jexit(['ok'=>false,'error'=>'Missing table public_post_saves (run SQL)', 'me_id'=>$meId]);

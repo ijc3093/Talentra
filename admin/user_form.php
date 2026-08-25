@@ -100,6 +100,7 @@ $warnings = 0;
 $suspensions = 0;
 $recentPosts = [];
 $timeline = [];
+$accountAdminEvents = [];
 $reportStatusCounts = ['pending' => 0, 'reviewed' => 0, 'resolved' => 0, 'dismissed' => 0];
 $reportReasonCounts = [];
 $postEngagement = [];
@@ -143,6 +144,13 @@ if ($isEdit && $userId > 0) {
     $suspensions = ((int)($form['status'] ?? 1) !== 1) ? 1 : 0;
     $recentPosts = msb_mod_user_recent_posts_full($dbh, $userId, 3, false);
     $timeline = msb_mod_user_timeline($dbh, $userId, 6);
+    $accountAdminEvents = [];
+    try {
+        require_once dirname(__DIR__) . '/public_user/includes/account_admin_events.php';
+        $accountAdminEvents = account_admin_events_for_user($dbh, $userId, 12);
+    } catch (Throwable $e) {
+        $accountAdminEvents = [];
+    }
 
     $postIds = array_values(array_filter(array_map(static fn($p) => (int)($p['id'] ?? 0), $recentPosts)));
     if ($postIds) {
@@ -470,6 +478,12 @@ $renderAccountFields = static function (array $form, array $roles, array $gender
   .uf-act-row .lab{color:#64748b;font-weight:700;}
   .uf-act-row .val{font-weight:800;color:#0f172a;display:inline-flex;align-items:center;gap:5px;}
   .uf-chg{font-size:8px;font-weight:800;padding:1px 4px;border-radius:999px;}
+  .uf-ev{padding:6px 0;border-bottom:1px solid #f1f5f9;}
+  .uf-ev:last-child{border-bottom:0;}
+  .uf-ev .t{font-size:11px;font-weight:800;color:#0f172a;line-height:1.3;}
+  .uf-ev .d{font-size:10px;color:#475569;margin-top:2px;line-height:1.35;}
+  .uf-ev .n{font-size:10px;color:#9a3412;margin-top:3px;line-height:1.35;font-weight:700;}
+  .uf-ev .when{font-size:9px;color:#94a3b8;margin-top:2px;}
   .uf-chg.up{background:#fee2e2;color:#b91c1c;}
   .uf-chg.down{background:#dcfce7;color:#15803d;}
   .uf-chg.flat{background:#f1f5f9;color:#64748b;}
@@ -715,6 +729,24 @@ $renderAccountFields = static function (array $form, array $roles, array $gender
                   </span>
                 </div>
               <?php endforeach; ?>
+            </div>
+          </section>
+
+          <section class="uf-card flex">
+            <div class="uf-card-hd"><h2>Account actions (what to do)</h2></div>
+            <div class="uf-card-bd scroll">
+              <?php if (!$accountAdminEvents): ?>
+                <div class="uf-empty">No deactivate, delete, switch, export, reset, or access-removal events yet.</div>
+              <?php else: ?>
+                <?php foreach ($accountAdminEvents as $ev): ?>
+                  <div class="uf-ev">
+                    <div class="t"><?= org_admin_h((string)($ev['title'] ?? '')) ?></div>
+                    <div class="d"><?= org_admin_h((string)($ev['detail'] ?? '')) ?></div>
+                    <div class="n">Admin: <?= org_admin_h((string)($ev['admin_next'] ?? '')) ?></div>
+                    <div class="when"><?= org_admin_h((string)($ev['created_at'] ?? '')) ?> · <?= !empty($ev['still_using']) ? 'Still using platform' : 'No longer using this account' ?></div>
+                  </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
             </div>
           </section>
 

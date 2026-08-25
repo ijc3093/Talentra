@@ -13,11 +13,14 @@ $dbh = $controller->pdo();
 if (!function_exists('h')) {
     function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 }
+if (!function_exists('normalize_spaces')) {
 function normalize_spaces(string $s): string {
     $s = trim($s);
     $s = preg_replace('/\s+/', ' ', $s);
     return $s ?? '';
 }
+}
+if (!function_exists('initials_from_name')) {
 function initials_from_name(string $nameOrCode): string {
     $s = normalize_spaces($nameOrCode);
     if ($s === '') return '?';
@@ -37,6 +40,8 @@ function initials_from_name(string $nameOrCode): string {
     }
     return $out !== '' ? $out : '?';
 }
+}
+if (!function_exists('color_from_key')) {
 function color_from_key(string $key): array {
     $k = normalize_spaces($key);
     if ($k === '') $k = '?';
@@ -60,6 +65,8 @@ function color_from_key(string $key): array {
     $B = (int)round(($b + $m) * 255);
     return [$R, $G, $B];
 }
+}
+if (!function_exists('svg_avatar')) {
 function svg_avatar(string $initials, string $key, int $size): string {
     [$R, $G, $B] = color_from_key($key);
     $bg = sprintf('#%02X%02X%02X', $R, $G, $B);
@@ -75,6 +82,8 @@ function svg_avatar(string $initials, string $key, int $size): string {
         . '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif" font-weight="700" font-size="' . $fontSize . '" fill="#FFFFFF">' . h($txt) . '</text>'
         . '</svg>';
 }
+}
+if (!function_exists('resolve_avatar_file')) {
 function resolve_avatar_file(string $rawPath): string {
     $cleanPath = ltrim(str_replace('\\', '/', trim($rawPath)), '/');
     if ($cleanPath === '') return '';
@@ -93,11 +102,16 @@ function resolve_avatar_file(string $rawPath): string {
     }
     return '';
 }
+}
+if (!function_exists('output_file')) {
 function output_file(string $abs): void {
-    $mime = function_exists('mime_content_type') ? (string)@mime_content_type($abs) : '';
-    if ($mime === '') {
-        $ext = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
-        $mimeMap = ['jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png','gif'=>'image/gif','webp'=>'image/webp','svg'=>'image/svg+xml'];
+    $ext = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+    $mimeMap = ['jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png','gif'=>'image/gif','webp'=>'image/webp','svg'=>'image/svg+xml'];
+    $mime = $mimeMap[$ext] ?? '';
+    if ($mime === '' && function_exists('mime_content_type')) {
+        $mime = (string)@mime_content_type($abs);
+    }
+    if ($mime === '' || $mime === 'application/octet-stream' || $mime === 'text/plain') {
         $mime = $mimeMap[$ext] ?? 'application/octet-stream';
     }
     header('Content-Type: ' . $mime);
@@ -105,11 +119,13 @@ function output_file(string $abs): void {
     readfile($abs);
     exit;
 }
+}
 
+try {
 $email = trim((string)($_GET['email'] ?? ''));
 $name  = trim((string)($_GET['name']  ?? ''));
 $key   = trim((string)($_GET['key']   ?? ''));
-$userId = (int)($_GET['u'] ?? ($_GET['user_id'] ?? 0));
+$userId = (int)($_GET['u'] ?? ($_GET['user_id'] ?? ($_GET['id'] ?? 0)));
 $friendCode = strtoupper(trim((string)($_GET['friend_code'] ?? ($_GET['code'] ?? ''))));
 $username = trim((string)($_GET['username'] ?? ''));
 $size  = (int)($_GET['s'] ?? 96);
@@ -126,23 +142,36 @@ if ($userId <= 0 && $email === '' && $friendCode === '' && $username === '') {
 
 $userRow = [];
 try {
+    $userCols = 'id, email, username, friend_code, name, image';
+    try {
+        $colSt = $dbh->query("SHOW COLUMNS FROM users");
+        $have = [];
+        foreach ($colSt ? ($colSt->fetchAll(PDO::FETCH_COLUMN) ?: []) : [] as $colName) {
+            $have[strtolower((string)$colName)] = true;
+        }
+        if (isset($have['fullname'])) {
+            $userCols .= ', fullname';
+        }
+    } catch (Throwable $e) {
+        // keep the conservative column list
+    }
     if ($userId > 0) {
-        $st = $dbh->prepare("SELECT id, email, username, friend_code, fullname, name, image, image_blob, image_type FROM users WHERE id = :id LIMIT 1");
+        $st = $dbh->prepare("SELECT {$userCols} FROM users WHERE id = :id LIMIT 1");
         $st->execute([':id' => $userId]);
         $userRow = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     }
     if (!$userRow && $friendCode !== '') {
-        $st = $dbh->prepare("SELECT id, email, username, friend_code, fullname, name, image, image_blob, image_type FROM users WHERE UPPER(TRIM(COALESCE(friend_code,''))) = :fc LIMIT 1");
+        $st = $dbh->prepare("SELECT {$userCols} FROM users WHERE UPPER(TRIM(COALESCE(friend_code,''))) = :fc LIMIT 1");
         $st->execute([':fc' => $friendCode]);
         $userRow = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     }
     if (!$userRow && $username !== '') {
-        $st = $dbh->prepare("SELECT id, email, username, friend_code, fullname, name, image, image_blob, image_type FROM users WHERE TRIM(COALESCE(username,'')) = :u LIMIT 1");
+        $st = $dbh->prepare("SELECT {$userCols} FROM users WHERE TRIM(COALESCE(username,'')) = :u LIMIT 1");
         $st->execute([':u' => $username]);
         $userRow = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     }
     if (!$userRow && $email !== '') {
-        $st = $dbh->prepare("SELECT id, email, username, friend_code, fullname, name, image, image_blob, image_type FROM users WHERE email = :e LIMIT 1");
+        $st = $dbh->prepare("SELECT {$userCols} FROM users WHERE email = :e LIMIT 1");
         $st->execute([':e' => $email]);
         $userRow = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     }
@@ -207,9 +236,25 @@ if ($legacyImage !== '' && strtolower($legacyImage) !== 'default.jpg' && strtolo
     }
 }
 
-$imageBlob = (string)($userRow['image_blob'] ?? '');
-$imageType = (string)($userRow['image_type'] ?? 'image/jpeg');
-if ($imageBlob !== '') {
+$imageBlob = '';
+$imageType = 'image/jpeg';
+try {
+    $blobSt = $dbh->query("SHOW COLUMNS FROM users LIKE 'image_blob'");
+    if ($blobSt && $blobSt->fetchColumn()) {
+        $blobRow = [];
+        if ($userId > 0) {
+            $st = $dbh->prepare('SELECT image_blob, image_type FROM users WHERE id = :id AND LENGTH(image_blob) BETWEEN 32 AND 400000 LIMIT 1');
+            $st->execute([':id' => $userId]);
+            $blobRow = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+        }
+        $imageBlob = (string)($blobRow['image_blob'] ?? '');
+        $imageType = (string)($blobRow['image_type'] ?? 'image/jpeg');
+    }
+} catch (Throwable $e) {
+    $imageBlob = '';
+}
+$blobLooksHtml = $imageBlob !== '' && preg_match('/^\s*</', $imageBlob) === 1;
+if ($imageBlob !== '' && strlen($imageBlob) > 24 && !$blobLooksHtml) {
     header('Content-Type: ' . ($imageType !== '' ? $imageType : 'image/jpeg'));
     echo $imageBlob;
     exit;
@@ -224,3 +269,15 @@ $colorKey = $key !== '' ? $key : $initials;
 header('Content-Type: image/svg+xml; charset=UTF-8');
 echo svg_avatar($initials, $colorKey, $size);
 exit;
+} catch (Throwable $e) {
+    $fallbackName = trim((string)($_GET['name'] ?? $_GET['username'] ?? $_GET['friend_code'] ?? 'U'));
+    $fallbackSize = (int)($_GET['s'] ?? 96);
+    if ($fallbackSize < 32) $fallbackSize = 32;
+    if ($fallbackSize > 512) $fallbackSize = 512;
+    if (!headers_sent()) {
+        header('Content-Type: image/svg+xml; charset=UTF-8');
+        http_response_code(200);
+    }
+    echo svg_avatar(initials_from_name($fallbackName !== '' ? $fallbackName : 'U'), $fallbackName !== '' ? $fallbackName : 'U', $fallbackSize);
+    exit;
+}

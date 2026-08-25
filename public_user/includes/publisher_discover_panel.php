@@ -15,10 +15,11 @@ if (!function_exists('user_avatar_url')) {
     function user_avatar_url(array $user, int $size = 96): string
     {
         $img = trim((string)($user['image'] ?? ''));
-        if ($img !== '' && $img !== 'default.jpg') {
+        if ($img !== '' && $img !== 'default.jpg' && $img !== 'default.png'
+            && is_file(__DIR__ . '/../' . ltrim(str_replace('\\', '/', $img), '/'))) {
             return $img;
         }
-        return 'avatar.php?id=' . (int)($user['id'] ?? 0) . '&s=' . $size;
+        return 'avatar.php?u=' . (int)($user['id'] ?? $user['user_id'] ?? 0) . '&s=' . $size;
     }
 }
 

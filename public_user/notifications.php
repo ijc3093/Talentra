@@ -64,8 +64,9 @@ function notifications_parse_meta(string $type): array {
     $postId = 0;
     $commentId = 0;
     $isStory = false;
+    $profileUserId = 0;
 
-    while (preg_match('/\s\[(live|r|p|c|story):([^\]]+)\]\s*$/', $type, $m)) {
+    while (preg_match('/\s\[(live|r|p|c|story|u):([^\]]+)\]\s*$/', $type, $m)) {
         $key = trim((string)($m[1] ?? ''));
         $value = trim((string)($m[2] ?? ''));
         if ($key === 'live') {
@@ -78,8 +79,10 @@ function notifications_parse_meta(string $type): array {
             $commentId = (int)$value;
         } elseif ($key === 'story') {
             $isStory = ((int)$value === 1) || strtolower($value) === '1';
+        } elseif ($key === 'u') {
+            $profileUserId = (int)$value;
         }
-        $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story):[^\]]+\]\s*$/', '', $type, 1));
+        $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story|u):[^\]]+\]\s*$/', '', $type, 1));
     }
     if (!$isStory && stripos($type, ' in a story') !== false) {
         $isStory = true;
@@ -115,6 +118,10 @@ function notifications_parse_meta(string $type): array {
             $params['hide_nav'] = 1;
         }
         $url = $page . '?' . http_build_query($params);
+    } elseif ($profileUserId > 0) {
+        $url = 'profile.php?tab=about&id=' . $profileUserId;
+    } elseif ($route === 'pf') {
+        $url = 'profile.php?tab=about';
     }
 
     return [
@@ -153,7 +160,7 @@ function notifications_date_label(?string $dt): string {
     return date('M j', $ts);
 }
 
-/** Tab bucket: all | mentions | tags | reacts | whats-up */
+/** Tab bucket: all | mentions | tags | reacts | shares | saves | whats-up */
 function notifications_tab(string $text): string {
     $text = strtolower(trim($text));
     // Tags first — "tagged you" must not fall into Mentions.
@@ -165,6 +172,15 @@ function notifications_tab(string $text): string {
       || strpos($text, 'mentioned') !== false
       || (strpos($text, '@') !== false && strpos($text, 'tagged') === false)) {
         return 'mentions';
+    }
+    // Saves / shares of *your* post — before What’s up (“shared a new post”).
+    if (preg_match('/\b(saved|bookmarked)\s+your\b/', $text)
+      || (preg_match('/\b(saved|bookmarked)\b/', $text) && strpos($text, 'your post') !== false)) {
+        return 'saves';
+    }
+    if (preg_match('/\b(shared|reposted)\s+your\b/', $text)
+      || (preg_match('/\b(shared|reposted)\b/', $text) && strpos($text, 'your post') !== false)) {
+        return 'shares';
     }
     if (strpos($text, 'posted an update') !== false
       || strpos($text, 'shared a new post') !== false
@@ -225,16 +241,16 @@ function notifications_icon(string $text, int $liveId = 0): array {
     if (preg_match('/\b(comment|commented|reply|replied)\b/', $t) && strpos($t, 'mentioned') === false && strpos($t, 'tagged') === false) {
         return ['pact', 'comment', 'is-comment'];
     }
+    if (strpos($t, 'posted an update') !== false
+      || strpos($t, 'shared a new post') !== false
+      || preg_match('/\bposted (something|a (new )?post)\b/', $t)) {
+        return ['fa', 'fa-bolt', 'is-whats-up'];
+    }
     if (preg_match('/\b(share|shared|repost|reposted)\b/', $t)) {
         return ['pact', 'share', 'is-share'];
     }
     if (preg_match('/\b(save|saved|bookmark|bookmarked)\b/', $t)) {
         return ['pact', 'bookmark', 'is-save'];
-    }
-    if (strpos($t, 'posted an update') !== false
-      || strpos($t, 'shared a new post') !== false
-      || preg_match('/\bposted (something|a (new )?post)\b/', $t)) {
-        return ['fa', 'fa-bolt', 'is-whats-up'];
     }
     if (strpos($t, 'tagged you') !== false || preg_match('/\btagged\b/', $t)) {
         return ['fa', 'fa-tag', 'is-tag'];
@@ -351,7 +367,7 @@ if (empty($error) && !empty($receivers)) {
 }
 
 $activeTab = strtolower(trim((string)($_GET['tab'] ?? 'all')));
-$allowedTabs = ['all', 'mentions', 'tags', 'reacts', 'whats-up'];
+$allowedTabs = ['all', 'mentions', 'tags', 'reacts', 'shares', 'saves', 'whats-up'];
 if (!in_array($activeTab, $allowedTabs, true)) {
     $activeTab = 'all';
 }
@@ -426,6 +442,110 @@ try {
 } catch (Throwable $eWu) {
     // Keep regular notifications if What’s up query fails.
 }
+
+// Shares / Saves — people who shared or saved this user's posts.
+$shareSaveSeen = [];
+foreach ($notifications as $row) {
+    $metaEarly = notifications_parse_meta((string)($row['notitype'] ?? ''));
+    $pidEarly = (int)($metaEarly['post_id'] ?? 0);
+    $textEarly = (string)($metaEarly['text'] ?? '');
+    $tabEarly = notifications_tab($textEarly);
+    $senderEarly = strtolower(trim((string)($row['notiuser'] ?? '')));
+    if ($pidEarly > 0 && $senderEarly !== '' && ($tabEarly === 'shares' || $tabEarly === 'saves')) {
+        $shareSaveSeen[$tabEarly . '|' . $senderEarly . '|' . $pidEarly] = true;
+    }
+}
+$blockSqlShareSave = function_exists('fs_block_exclude_author_sql')
+    ? (' AND ' . fs_block_exclude_author_sql('u.id', ':ssBlockMe', ':ssBlockMe2'))
+    : '';
+try {
+    $ssSt = $dbh->prepare("
+      SELECT
+        s.post_id,
+        s.shared_at AS acted_at,
+        COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(u.username), ''), CONCAT('User ', u.id)) AS actor_name
+      FROM public_post_shares s
+      INNER JOIN public_posts p ON p.id = s.post_id AND p.is_deleted = 0
+      INNER JOIN users u ON u.id = s.user_id
+      WHERE p.user_id = :me AND s.user_id <> :me2
+        {$blockSqlShareSave}
+      ORDER BY s.shared_at DESC
+      LIMIT 80
+    ");
+    $ssParams = [':me' => $meId, ':me2' => $meId];
+    if ($blockSqlShareSave !== '') {
+        $ssParams[':ssBlockMe'] = $meId;
+        $ssParams[':ssBlockMe2'] = $meId;
+    }
+    $ssSt->execute($ssParams);
+    foreach (($ssSt->fetchAll(PDO::FETCH_ASSOC) ?: []) as $ss) {
+        $pid = (int)($ss['post_id'] ?? 0);
+        $actor = trim((string)($ss['actor_name'] ?? 'Someone'));
+        $key = 'shares|' . strtolower($actor) . '|' . $pid;
+        if ($pid <= 0 || isset($shareSaveSeen[$key])) {
+            continue;
+        }
+        $shareSaveSeen[$key] = true;
+        $notifications[] = [
+            'id' => 0,
+            'notiuser' => $actor,
+            'notitype' => 'shared your post [p:' . $pid . ']',
+            'created_at' => (string)($ss['acted_at'] ?? ''),
+            'is_read' => 1,
+            '_synthetic' => 1,
+        ];
+    }
+} catch (Throwable $eSs) {
+    // Keep regular notifications if shares query fails.
+}
+try {
+    $svSt = $dbh->prepare("
+      SELECT
+        s.post_id,
+        s.saved_at AS acted_at,
+        COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(u.username), ''), CONCAT('User ', u.id)) AS actor_name
+      FROM public_post_saves s
+      INNER JOIN public_posts p ON p.id = s.post_id AND p.is_deleted = 0
+      INNER JOIN users u ON u.id = s.user_id
+      WHERE p.user_id = :me AND s.user_id <> :me2
+        {$blockSqlShareSave}
+      ORDER BY s.saved_at DESC
+      LIMIT 80
+    ");
+    $svParams = [':me' => $meId, ':me2' => $meId];
+    if ($blockSqlShareSave !== '') {
+        $svParams[':ssBlockMe'] = $meId;
+        $svParams[':ssBlockMe2'] = $meId;
+    }
+    $svSt->execute($svParams);
+    foreach (($svSt->fetchAll(PDO::FETCH_ASSOC) ?: []) as $sv) {
+        $pid = (int)($sv['post_id'] ?? 0);
+        $actor = trim((string)($sv['actor_name'] ?? 'Someone'));
+        $key = 'saves|' . strtolower($actor) . '|' . $pid;
+        if ($pid <= 0 || isset($shareSaveSeen[$key])) {
+            continue;
+        }
+        $shareSaveSeen[$key] = true;
+        $notifications[] = [
+            'id' => 0,
+            'notiuser' => $actor,
+            'notitype' => 'saved your post [p:' . $pid . ']',
+            'created_at' => (string)($sv['acted_at'] ?? ''),
+            'is_read' => 1,
+            '_synthetic' => 1,
+        ];
+    }
+} catch (Throwable $eSv) {
+    // Keep regular notifications if saves query fails.
+}
+usort($notifications, static function ($a, $b) {
+    $ta = strtotime((string)($a['created_at'] ?? '')) ?: 0;
+    $tb = strtotime((string)($b['created_at'] ?? '')) ?: 0;
+    if ($ta === $tb) {
+        return ((int)($b['id'] ?? 0)) <=> ((int)($a['id'] ?? 0));
+    }
+    return $tb <=> $ta;
+});
 
 // What’s happening — recent public posts from publishers
 $happeningItems = [];
@@ -1281,6 +1401,8 @@ try {
               <button type="button" class="x-tab<?= $activeTab === 'mentions' ? ' is-active' : '' ?>" data-noti-tab="mentions"<?= $activeTab === 'mentions' ? ' aria-current="page"' : '' ?>>Mentions</button>
               <button type="button" class="x-tab<?= $activeTab === 'tags' ? ' is-active' : '' ?>" data-noti-tab="tags"<?= $activeTab === 'tags' ? ' aria-current="page"' : '' ?>>Tags</button>
               <button type="button" class="x-tab<?= $activeTab === 'reacts' ? ' is-active' : '' ?>" data-noti-tab="reacts"<?= $activeTab === 'reacts' ? ' aria-current="page"' : '' ?>>Reacts</button>
+              <button type="button" class="x-tab<?= $activeTab === 'shares' ? ' is-active' : '' ?>" data-noti-tab="shares"<?= $activeTab === 'shares' ? ' aria-current="page"' : '' ?>>Shares</button>
+              <button type="button" class="x-tab<?= $activeTab === 'saves' ? ' is-active' : '' ?>" data-noti-tab="saves"<?= $activeTab === 'saves' ? ' aria-current="page"' : '' ?>>Saves</button>
             </nav>
           </div>
           <?php if ($error): ?><div class="alert alert-danger"><?= h($error) ?></div><?php endif; ?>
@@ -1393,6 +1515,14 @@ try {
               <h3>Nothing in What’s up</h3>
               <p>When publishers you follow post, it’ll show up here.</p>
             </div>
+            <div class="x-empty" id="notiEmptyShares" hidden>
+              <h3>Nothing in Shares</h3>
+              <p>When someone shares your post with others, it’ll show up here.</p>
+            </div>
+            <div class="x-empty" id="notiEmptySaves" hidden>
+              <h3>Nothing in Saves</h3>
+              <p>When someone saves your post to their account, it’ll show up here.</p>
+            </div>
           <?php endif; ?>
         </div>
       </div>
@@ -1476,9 +1606,11 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
     mentions: document.getElementById('notiEmptyMentions'),
     tags: document.getElementById('notiEmptyTags'),
     reacts: document.getElementById('notiEmptyReacts'),
-    'whats-up': document.getElementById('notiEmptyWhatsUp')
+    'whats-up': document.getElementById('notiEmptyWhatsUp'),
+    shares: document.getElementById('notiEmptyShares'),
+    saves: document.getElementById('notiEmptySaves')
   };
-  var allowed = { all:1, mentions:1, tags:1, reacts:1, 'whats-up':1 };
+  var allowed = { all:1, mentions:1, tags:1, reacts:1, 'whats-up':1, shares:1, saves:1 };
   if (!tabs.length) return;
 
   function syncEmpty(mode){

@@ -281,8 +281,6 @@ html[data-msb-appearance] span.gear-chip {
 
 html[data-msb-appearance] body.profile-page .gear-tag,
 html[data-msb-appearance] span.gear-tag,
-html[data-msb-appearance] span.profile-account-badge,
-html[data-msb-appearance] .profile-account-badge,
 html[data-msb-appearance] span.badge,
 html[data-msb-appearance] .badge,
 html[data-msb-appearance] .badge-light,
@@ -1437,6 +1435,7 @@ body.dark-auto:not([data-msb-appearance]) {
   --msb-palette-text: #b1bcce;
   --msb-palette-text-muted: #b1bcce;
   --msb-palette-icon: #b1bcce;
+  --msb-fries: #ffffff;
   --msb-palette-link: #b1bcce;
   --text-primary: #b1bcce;
   --text-secondary: #b1bcce;
@@ -1927,6 +1926,8 @@ html[data-msb-appearance] body.profile-page .sh-pagebody,
 html[data-msb-appearance] body.profile-page .ig-card,
 html[data-msb-appearance] body.profile-page .ig-profile-shell,
 html[data-msb-appearance] body.profile-page .ig-profile-head,
+html[data-msb-appearance] body.profile-page .ig-profile-rail,
+html[data-msb-appearance] body.profile-page .ig-rail-card,
 html[data-msb-appearance] body.profile-page .ig-profile-scroll,
 html[data-msb-appearance] body.profile-page .ig-highlights,
 html[data-msb-appearance] body.profile-page .ig-tabs,
@@ -1941,6 +1942,8 @@ html.msb-palette-active body.profile-page .sh-pagebody,
 html.msb-palette-active body.profile-page .ig-card,
 html.msb-palette-active body.profile-page .ig-profile-shell,
 html.msb-palette-active body.profile-page .ig-profile-head,
+html.msb-palette-active body.profile-page .ig-profile-rail,
+html.msb-palette-active body.profile-page .ig-rail-card,
 html.msb-palette-active body.profile-page .ig-profile-scroll,
 html.msb-palette-active body.profile-page .ig-tabs,
 html.msb-palette-active body.profile-page .profile-panel,
@@ -2042,5 +2045,64 @@ html.msb-palette-active body.profile-page .ig-tab.active {
 html[data-msb-appearance] body.profile-page .ig-tab.active i,
 html.msb-palette-active body.profile-page .ig-tab.active i {
   color: inherit !important;
+}
+
+/* Post card description only — keep titles bold. Home, profile Posts, reels, feed. */
+html body .mf-card > .mf-body,
+html body .mf-card > .mf-video-body,
+html body .mf-card > .mf-reel-body,
+html body .mf-card > .mf-body .mf-body-formatted,
+html body .mf-card > .mf-body .post-card-paragraph,
+html body .mf-card > .mf-body p,
+html body .mf-feed .mf-card > .mf-body,
+html body .mf-feed .mf-card > .mf-video-body,
+html body #profilePostsFeed .mf-card > .mf-body,
+html body #profilePostsFeed .mf-card > .mf-body .mf-body-formatted,
+html body #profilePostsFeed .mf-card > .mf-body .post-card-paragraph,
+html body .post.public-post-card .standard-text-caption,
+html body .post.public-post-card .standard-media-caption,
+html body .post.public-post-card .standard-text-caption .post-card-paragraph,
+html body .post.public-post-card .standard-media-caption .post-card-paragraph,
+html body .post.public-post-card .standard-text-caption .post-card-caption-formatted,
+html body .post.public-post-card .standard-media-caption .post-card-caption-formatted,
+html body .post.public-post-card .standard-media-summary,
+html body .post.public-post-card .reel-caption,
+html body .post.public-post-card .reel-caption-text,
+html body.reel-page .reel-caption,
+html body.reel-page .reel-card-main > .reel-caption {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+}
+html body .mf-card > .mf-body .mf-readmore,
+html body #profilePostsFeed .mf-card > .mf-body .mf-readmore,
+html body .post.public-post-card .open-inline,
+html body .post.public-post-card .js-open-readmore,
+html body.reel-page .reel-caption .see-more {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+.ig-item .cap .cap-desc,
+.ig-item .txtcap .d {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Post viewer door — description only */
+#pvOverlay .pv-text-card-body,
+#pvOverlay .pv-media-text,
+#pvOverlay .pv-cap-desc,
+#pvOverlay .pv-cap-summary,
+#pvOverlay .pv-text-card-body .pv-rich-p,
+#pvOverlay .pv-cap-desc .pv-rich-p,
+#pvOverlay .pv-media-text .pv-rich-p {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+}
+#pvOverlay .pv-readmore {
+  font-size: 12px !important;
+  font-weight: 700 !important;
 }
 

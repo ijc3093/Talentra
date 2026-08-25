@@ -4,6 +4,7 @@ require_once __DIR__ . '/includes/session_user.php';
 require_once __DIR__ . '/includes/deleted_user_registry.php';
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
+require_once __DIR__ . '/includes/account_switch.php';
 require_once __DIR__ . '/../admin/includes/admin_linked_accounts_load.php';
 
 error_reporting(E_ALL);
@@ -28,6 +29,8 @@ $accountType = strtolower(trim((string)($_GET['account_type'] ?? 'personal')));
 if (!in_array($accountType, ['personal', 'publisher', 'commerce'], true)) {
     $accountType = 'personal';
 }
+$addingAccount = account_switch_is_add_request();
+$accountSwitchFromId = $addingAccount ? account_switch_pending_owner_id() : 0;
 
 function login_user_is_publisher(array $user): bool
 {
@@ -104,7 +107,7 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['user_login'])) {
     }
 }
 
-if (!empty($_SESSION['user_login']) && !empty($_SESSION['user_id'])) {
+if (!$addingAccount && !empty($_SESSION['user_login']) && !empty($_SESSION['user_id'])) {
     try {
         $controller = new Controller();
         $uid = (int)($_SESSION['user_id'] ?? 0);
@@ -157,12 +160,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 $isPublisherLogin = in_array($accountType, ['publisher', 'commerce'], true);
 
                 if ($user && $isPublisherLogin && !login_user_is_publisher($user)) {
-                    $error = 'This is a personal account. Switch to Personal User on the left to sign in.';
+                    $error = 'This is a personal account. Switch to Personal User to sign in.';
                 } elseif ($user && !$isPublisherLogin && login_user_is_publisher($user)) {
-                    $error = 'This is a publisher account. Switch to Publisher on the left to sign in.';
+                    $error = 'This is a publisher account. Switch to Publisher to sign in.';
                 } elseif ($user) {
                     setUserSession($user);
                     login_bump_last_seen($controller);
+                    if ($accountSwitchFromId > 0) {
+                        account_switch_complete_after_auth(
+                            $controller->pdo(),
+                            $accountSwitchFromId,
+                            (int)($user['id'] ?? 0)
+                        );
+                    }
                     header('Location: entry.php');
                     exit;
                 } elseif ($isPublisherLogin) {
@@ -192,6 +202,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                             if ($linkedUser) {
                                 setUserSession($linkedUser);
                                 login_bump_last_seen($controller);
+                                if ($accountSwitchFromId > 0) {
+                                    account_switch_complete_after_auth(
+                                        $controller->pdo(),
+                                        $accountSwitchFromId,
+                                        (int)($linkedUser['id'] ?? 0)
+                                    );
+                                }
                                 header('Location: entry.php');
                                 exit;
                             }
@@ -252,556 +269,21 @@ try {
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta name="robots" content="noindex,nofollow">
   <title>Talentra — Sign in</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
-  <style>
-    :root{
-      --ink:#05090f;
-      --ink-2:#0b1622;
-      --gold:#e8c98a;
-      --gold-deep:#b8924a;
-      --mustard:#c9a227;
-      --mustard-deep:#a88412;
-      --mist:#9fd6c8;
-      --paper:#edf6fa;
-      --ink-text:#0f172a;
-      --muted:#64748b;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%;height:100%}
-    body{
-      font-family:"Manrope",system-ui,-apple-system,sans-serif;
-      color:var(--ink-text);
-      background:#d7ebea;
-      display:grid;
-      place-items:center;
-      padding:28px 16px;
-    }
-    .auth-shell{
-      width:min(1080px,100%);
-      min-height:min(640px,92vh);
-      height:min(640px,92vh);
-      display:grid;
-      grid-template-columns:1.35fr .95fr;
-      align-items:stretch;
-      border-radius:10px;
-      overflow:hidden;
-      background:var(--paper);
-      box-shadow:
-        0 24px 60px rgba(15,23,42,.12),
-        0 0 0 1px rgba(15,23,42,.08);
-    }
-    .auth-left{
-      position:relative;
-      color:#fff;
-      padding:22px 22px 52px;
-      background: linear-gradient(145deg, rgb(13 65 66 / 94%) 0%, rgb(21 53 60 / 90%) 48%, rgb(13 108 104) 100%), radial-gradient(700px 420px at 80% 70%, rgb(255 255 255 / 14%), transparent 55%);
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      align-items:flex-start;
-      gap:0;
-      isolation:isolate;
-      overflow:hidden;
-      min-height:0;
-      height:100%;
-      border-right:0;
-    }
-    .auth-left::after{
-      content:"";
-      position:absolute;inset:0;z-index:0;pointer-events:none;
-      background:
-        radial-gradient(420px 280px at 85% 80%, rgba(5,9,15,.18), transparent 60%),
-        linear-gradient(180deg, transparent 55%, rgba(5,9,15,.12));
-      opacity:.9;
-    }
-    .auth-left > .auth-brand{
-      position:absolute;
-      left:50%;
-      top:120px;
-      transform:translateX(-50%);
-      z-index:2;
-      font-family:"Cormorant Garamond",Georgia,serif;
-      font-size:1.85rem;
-      font-weight:600;
-      letter-spacing:.02em;
-      margin:0;
-      color:#fff;
-      text-shadow:0 8px 24px rgba(0,0,0,.18);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:14px;
-      text-align:center;
-    }
-    .auth-brand-orb{
-      display:inline-grid;place-items:center;
-      width:120px;height:120px;flex:0 0 120px;
-      border-radius:50%;
-      background:
-        radial-gradient(circle at 35% 30%, rgba(255,255,255,.16), transparent 55%),
-        linear-gradient(165deg,#05090f,#0b1622);
-      box-shadow:
-        0 0 0 2px rgba(255,255,255,.38),
-        0 18px 40px rgba(5,9,15,.34);
-    }
-    .auth-brand-mark{
-      font-family:"Cormorant Garamond",Georgia,serif;font-weight:700;font-size:3.5rem;line-height:1;
-      background:linear-gradient(180deg,#f8e7c2 0%,#e8c98a 42%,#b8924a 100%);
-      -webkit-background-clip:text;background-clip:text;color:transparent;
-    }
-    .auth-brand-name{
-      display:block;
-      line-height:1.1;
-    }
-    .auth-left-nav{
-      position:relative;
-      text-align:left;
-      width:max-content;
-    }
-    .auth-nav-title{
-      margin:0 0 10px;
-      font-family:"Cormorant Garamond",Georgia,serif;
-      font-size:1.15rem;
-      font-weight:600;
-      line-height:1;
-      text-align:left;
-      color:#fff;
-    }
-    .auth-type-list{
-      list-style:none;margin:0;padding:0;
-      display:flex;flex-direction:column;gap:6px;
-      align-items:flex-start;
-    }
-    .auth-type-option{
-      display:flex;align-items:center;gap:8px;
-      margin:0;padding:2px 0;
-      color:rgba(255,255,255,.72);
-      font:inherit;font-size:13px;font-weight:600;letter-spacing:.01em;
-      cursor:pointer;
-      transition:color .2s ease;
-      text-align:left;
-    }
-    .auth-type-option:hover{color:#fff}
-    .auth-type-option:has(input:checked){color:#fff}
-    .auth-type-option input[type="radio"]{
-      appearance:auto;-webkit-appearance:radio;
-      width:14px;height:14px;min-width:14px;margin:0;padding:0;
-      flex:0 0 14px;accent-color:#fff;cursor:pointer;
-    }
-    .auth-type-hint{
-      position:absolute;
-      left:0;
-      top:100%;
-      margin:10px 0 0;
-      width:280px;
-      min-height:2.7em;
-      font-size:12px;
-      line-height:1.35;
-      color:rgba(255,255,255,.82);
-      font-weight:500;
-      text-align:left;
-      pointer-events:none;
-    }
-    .auth-left > .auth-left-foot{
-      position:absolute;
-      left:22px;
-      bottom:18px;
-      z-index:2;
-      margin:0;
-      font-size:10px;
-      color:rgba(255,255,255,.7);
-      letter-spacing:.04em;
-      text-transform:uppercase;
-      font-weight:700;
-    }
-    .auth-left > .auth-left-main{
-      position:absolute;
-      left:50%;
-      top:58%;
-      transform:translate(-50%, -50%);
-      right:auto;
-      z-index:1;
-      display:flex;
-      flex-direction:column;
-      gap:0;
-      width:max-content;
-      max-width:min(320px, calc(100% - 44px));
-      margin:0;
-      text-align:left;
-    }
-    .auth-right{
-      background:var(--paper);
-      color:var(--ink-text);
-      padding:20px 22px 52px;
-      display:block;
-      min-width:0;
-      min-height:0;
-      height:100%;
-      font-size:13px;
-      position:relative;
-    }
-    .auth-right-main{
-      position:absolute;
-      inset:0 0 48px;
-      width:auto;
-      min-width:0;
-      margin:0;
-      overflow:hidden;
-    }
-    .auth-right-head{
-      position:absolute;
-      left:50%;
-      top:36px;
-      transform:translateX(-50%);
-      width:min(320px, calc(100% - 44px));
-      margin:0;
-      text-align:center;
-      z-index:2;
-    }
-    body[data-auth-view="login"] .auth-right-head{
-      top:160px;
-    }
-    .auth-right-body{
-      position:absolute;
-      left:50%;
-      top:118px;
-      bottom:12px;
-      transform:translateX(-50%);
-      width:min(320px, calc(100% - 44px));
-      overflow:auto;
-      z-index:1;
-    }
-    body[data-auth-view="login"] .auth-right-body{
-      top:58%;
-      bottom:auto;
-      transform:translate(-50%, -50%);
-      max-height:calc(100% - 170px);
-    }
-    .auth-kicker{
-      margin:0 0 2px;
-      font-size:10px;
-      font-weight:700;
-      letter-spacing:.1em;
-      text-transform:uppercase;
-      color:var(--muted);
-    }
-    .auth-title{
-      margin:0;
-      font-family:"Cormorant Garamond",Georgia,serif;
-      font-size:1.35rem;
-      font-weight:600;
-      color:var(--ink-text);
-      line-height:1.15;
-    }
-    .auth-sub{
-      margin:4px 0 0;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:500;
-      line-height:1.35;
-    }
-    .auth-alert{
-      margin:0 0 10px;
-      padding:7px 9px;
-      border-radius:8px;
-      background:#fef2f2;
-      border:1px solid #fecaca;
-      color:#991b1b;
-      font-size:11.5px;
-      font-weight:600;
-      line-height:1.35;
-    }
-    .auth-panels{position:relative}
-    .auth-panel{display:none}
-    .auth-panel.is-active{display:block}
-    .auth-field{
-      display:flex;align-items:center;gap:6px;
-      padding:5px 2px 5px;
-      border-bottom:1px solid #dbe3ee;
-      margin-bottom:7px;
-    }
-    .auth-field i,
-    .auth-field .fa{
-      width:12px;flex:0 0 12px;text-align:center;color:#94a3b8;
-      font-size:11px !important;line-height:1;
-    }
-    .auth-field input,
-    .auth-field select{
-      flex:1;min-width:0;border:0;outline:none;background:transparent;
-      font-family:inherit;font-size:12.5px;font-weight:500;color:var(--ink-text);
-      padding:1px 0;line-height:1.3;
-      -webkit-appearance:none;appearance:none;
-    }
-    .auth-field select{
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2394a3b8' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
-      background-repeat:no-repeat;background-position:right 2px center;padding-right:14px;
-    }
-    .auth-field input::placeholder{color:#94a3b8;font-weight:500;font-size:12.5px}
-    .auth-field-row{
-      display:grid;grid-template-columns:1fr 1fr;gap:8px;
-    }
-    .auth-field-stack{margin-bottom:7px}
-    .auth-field-label{
-      display:block;margin:0 0 4px;
-      font-size:10px;font-weight:700;letter-spacing:.05em;
-      text-transform:uppercase;color:var(--muted);
-    }
-    .auth-birthday{
-      display:grid;grid-template-columns:1.2fr .7fr .9fr;gap:5px;
-    }
-    .auth-birthday select{
-      width:100%;border:1px solid #dbe3ee;border-radius:6px;
-      padding:5px 6px;background:#f8fafc;font-family:inherit;font-size:12px;font-weight:500;
-      color:var(--ink-text);
-    }
-    .auth-check{
-      display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:6px;
-      margin:2px 0 8px;font-size:12px;line-height:1.35;color:#334155;font-weight:500;text-align:left;
-    }
-    .auth-check input[type="checkbox"]{
-      appearance:auto;-webkit-appearance:checkbox;
-      flex:0 0 12px;width:12px;height:12px;min-width:12px;
-      margin:2px 0 0;padding:0;align-self:flex-start;accent-color:#0f172a;
-    }
-    .auth-policy{
-      max-height:72px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;
-      padding:6px 8px;background:#f8fafc;margin-bottom:6px;
-      font-size:11px;line-height:1.35;color:#475569;
-    }
-    .auth-policy h6{margin:0 0 2px;font-size:10px;color:#0f172a;text-transform:uppercase;letter-spacing:.04em}
-    .auth-policy p{margin:0 0 5px}
-    .auth-policy-choice{
-      display:flex;gap:10px;margin-bottom:8px;font-size:12px;font-weight:600;
-      align-items:center;justify-content:flex-start;
-    }
-    .auth-policy-choice label{
-      display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;
-    }
-    .auth-policy-choice input[type="radio"]{
-      width:12px;height:12px;margin:0;accent-color:#0f172a;
-    }
-    .auth-link-row{
-      display:flex;justify-content:flex-end;margin:-2px 0 10px;
-    }
-    .auth-link-row a{
-      color:var(--muted);font-size:12px;font-weight:600;text-decoration:none;
-    }
-    .auth-link-row a:hover{color:var(--gold-deep)}
-    .auth-continue{
-      width:100%;appearance:none;border:0;cursor:pointer;
-      border-radius:999px;padding:7px 12px;
-      background:linear-gradient(180deg,#111827,#0f172a);
-      color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;
-      display:inline-flex;align-items:center;justify-content:center;gap:6px;
-      box-shadow:0 6px 14px rgba(15,23,42,.12);
-      transition:transform .18s ease, box-shadow .18s ease;
-    }
-    .auth-continue:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,23,42,.16)}
-    .auth-continue i,
-    .auth-continue .fa{font-size:10px !important;line-height:1}
-    .auth-divider{
-      display:flex;align-items:center;gap:8px;margin:10px 0 8px;
-      color:#94a3b8;font-size:10px;font-weight:700;letter-spacing:.1em;
-    }
-    .auth-divider::before,.auth-divider::after{
-      content:"";flex:1;height:1px;background:#e2e8f0;
-    }
-    .auth-switch{
-      position:absolute;
-      left:22px;
-      right:22px;
-      bottom:16px;
-      padding-top:0;text-align:center;
-      font-size:12px;color:var(--muted);font-weight:500;
-    }
-    .auth-switch button{
-      appearance:none;border:0;background:none;padding:0;margin:0;
-      color:var(--ink-text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
-      text-decoration:underline;text-underline-offset:2px;
-    }
-    .auth-switch button:hover{color:var(--gold-deep)}
-    .auth-pro-card{
-      border:1px solid #e2e8f0;border-radius:10px;padding:10px;
-      background:#f8fafc;margin-bottom:10px;
-    }
-    .auth-pro-card p{margin:0 0 10px;font-size:12px;line-height:1.35;color:#475569;font-weight:500}
-    .auth-mode-block[hidden]{display:none !important}
-    .auth-register-scroll{
-      max-height:min(58vh,520px);
-      overflow:auto;
-      padding-right:4px;
-      margin-bottom:4px;
-    }
-    .auth-name-row{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
-      gap:6px;
-      align-items:end;
-      margin-bottom:7px;
-    }
-    .auth-name-row .auth-field{margin-bottom:0}
-    .auth-add-name-btn{
-      appearance:none;border:1px solid #dbe3ee;background:#f8fafc;color:#0f172a;
-      border-radius:999px;padding:4px 8px;font-family:inherit;font-size:11px;font-weight:600;
-      cursor:pointer;white-space:nowrap;height:26px;line-height:1;
-    }
-    .auth-add-name-btn:hover{background:#eef2f7;border-color:#cbd5e1}
-    .auth-add-note{
-      margin:0 0 7px;font-size:11px;line-height:1.35;color:#64748b;font-weight:500;
-    }
-    .auth-custom-chosen{
-      display:none;margin:0 0 7px;padding:7px 9px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;
-    }
-    .auth-custom-chosen.is-visible{display:block}
-    .auth-custom-chosen-label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:3px}
-    .auth-custom-chosen-name{font-size:12.5px;font-weight:700;color:#0f172a}
-    .auth-custom-status{margin-top:4px;font-size:11px;font-weight:600;color:#475569}
-    .auth-custom-status.is-pending{color:#b45309}
-    .auth-custom-status.is-approved{color:#047857}
-    .auth-custom-status.is-rejected{color:#b91c1c}
-    .auth-modal-backdrop{
-      position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;
-      padding:16px;background:rgba(5,9,15,.55);
-    }
-    .auth-modal-backdrop[hidden]{display:none !important}
-    .auth-modal{
-      width:min(400px,100%);max-height:min(86vh,620px);overflow:auto;
-      background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.35);padding:14px 14px 12px;
-    }
-    .auth-modal h3{margin:0 0 3px;font-size:13px;font-weight:700;line-height:1.25}
-    .auth-modal > p{margin:0 0 8px;font-size:11px;line-height:1.35;color:#64748b}
-    .auth-modal .auth-modal-field > label{
-      display:block;margin:0 0 2px;font-size:10px;font-weight:700;color:#475569;
-    }
-    .auth-modal .auth-modal-field{margin-bottom:7px}
-    .auth-modal input[type="text"],
-    .auth-modal input[type="email"],
-    .auth-modal select,
-    .auth-modal textarea{
-      width:100%;border:1px solid #dbe3ee;border-radius:7px;padding:5px 7px;
-      font-family:inherit;font-size:12px;font-weight:500;background:#f8fafc;color:#0f172a;
-      line-height:1.3;box-sizing:border-box;
-    }
-    .auth-modal textarea{resize:vertical;min-height:42px}
-    .auth-modal-confirm{
-      display:flex !important;
-      flex-direction:row;
-      align-items:flex-start;
-      justify-content:flex-start;
-      gap:6px;
-      width:100%;
-      margin:2px 0 8px;
-      padding:0;
-      border:0;
-      background:transparent;
-      font-size:11px;
-      line-height:1.3;
-      color:#334155;
-      font-weight:500;
-      text-align:left;
-      cursor:pointer;
-    }
-    .auth-modal-confirm input[type="checkbox"]{
-      appearance:auto;
-      -webkit-appearance:checkbox;
-      position:static;
-      flex:0 0 12px;
-      width:12px;
-      height:12px;
-      min-width:12px;
-      margin:2px 0 0;
-      padding:0;
-      float:none;
-      align-self:flex-start;
-      accent-color:#0f172a;
-      cursor:pointer;
-    }
-    .auth-modal-confirm > span{
-      flex:1 1 auto;
-      min-width:0;
-      text-align:left;
-    }
-    .auth-modal-error{min-height:12px;margin:0 0 6px;font-size:11px;font-weight:600;color:#b91c1c}
-    .auth-modal-actions{display:flex;justify-content:flex-end;gap:6px}
-    .auth-modal-actions button{
-      appearance:none;border:0;border-radius:999px;padding:5px 10px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;
-    }
-    .auth-modal-cancel{background:#e2e8f0;color:#0f172a}
-    .auth-modal-save{background:#0f172a;color:#fff}
-    .sr-only{
-      position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-      clip:rect(0,0,0,0);white-space:nowrap;border:0;
-    }
-    @media (max-width:860px){
-      body{padding:14px;align-items:stretch}
-      .auth-shell{
-        grid-template-columns:1fr;
-        height:auto;
-        min-height:auto;
-        border-radius:22px;
-      }
-      .auth-left{
-        padding:20px 18px 44px;gap:0;min-height:auto;height:auto;
-        justify-content:flex-start;
-      }
-      .auth-left > .auth-brand{
-        position:static;
-        transform:none;
-        left:auto;top:auto;
-        margin:0 auto 14px;
-      }
-      .auth-left > .auth-left-main{
-        position:static;
-        transform:none;
-        left:auto;right:auto;top:auto;
-        max-width:none;
-        width:100%;
-      }
-      .auth-left > .auth-left-foot{left:18px;bottom:14px}
-      .auth-nav-title{font-size:1.2rem}
-      .auth-brand-orb{width:72px;height:72px;flex-basis:72px}
-      .auth-brand-mark{font-size:2.1rem}
-      .auth-left > .auth-brand{font-size:1.4rem;gap:8px}
-      .auth-type-list{flex-direction:column;flex-wrap:nowrap;gap:6px;justify-content:flex-start;align-items:flex-start}
-      .auth-type-option{font-size:.8rem;gap:6px}
-      .auth-type-hint{display:none}
-      .auth-right{
-        padding:20px 18px 48px;height:auto;
-      }
-      .auth-right-main{
-        position:static;
-        inset:auto;
-        width:100%;
-        overflow:visible;
-      }
-      .auth-right-head,
-      .auth-right-body{
-        position:static;
-        transform:none;
-        left:auto;top:auto;
-        width:100%;
-        max-height:none;
-        overflow:visible;
-        margin-bottom:12px;
-      }
-      .auth-switch{left:18px;right:18px;bottom:14px}
-      .auth-field-row,.auth-birthday{grid-template-columns:1fr}
-    }
-  </style>
+  <link href="./css/auth-gate.css?v=16" rel="stylesheet">
+
 </head>
-<body data-auth-view="<?= htmlspecialchars($authView, ENT_QUOTES, 'UTF-8') ?>" data-login-mode="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>">
+<body class="ig-auth" data-auth-view="<?= htmlspecialchars($authView, ENT_QUOTES, 'UTF-8') ?>" data-login-mode="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>">
   <?php require __DIR__ . '/includes/register_welcome_modal.php'; ?>
 
-  <div class="auth-shell" id="authShell" role="dialog" aria-label="Talentra sign in">
-    <aside class="auth-left" aria-label="Account type">
-      <h1 class="auth-brand">
-        <span class="auth-brand-orb" aria-hidden="true"><span class="auth-brand-mark">t</span></span>
-        <span class="auth-brand-name">Talentra</span>
-      </h1>
+  <div class="auth-page">
+  <div class="auth-gear-wrap">
+    <button type="button" class="auth-gear" id="authSettingsBtn" aria-label="Settings" aria-haspopup="true" aria-expanded="false" aria-controls="authSettingsMenu">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96c-.5-.39-1.04-.7-1.63-.94l-.36-2.54A.5.5 0 0014.4 2h-4.8a.5.5 0 00-.5.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 00-.6.22L1.7 8.48a.5.5 0 00.12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L1.82 14.16a.5.5 0 00-.12.64l1.92 3.32c.14.23.4.32.64.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.05.24.26.42.5.42h4.8c.24 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.24.1.51 0 .64-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/>
+      </svg>
+    </button>
+    <div class="auth-gear-menu" id="authSettingsMenu" hidden role="dialog" aria-labelledby="authSettingsBtn">
       <div class="auth-left-main">
         <div class="auth-left-nav">
           <h2 class="auth-nav-title">Account</h2>
@@ -822,48 +304,91 @@ try {
           <p class="auth-type-hint" id="authTypeHint">Friends &amp; family — your personal story space.</p>
         </div>
       </div>
-      <div class="auth-left-foot">Sign in · Create account</div>
+    </div>
+  </div>
+  <div class="auth-shell" id="authShell" aria-label="Talentra sign in">
+    <aside class="auth-left" aria-label="Talentra">
+      <a class="ig-logo" href="index.php">
+        <span class="auth-brand-orb" aria-hidden="true"><span class="auth-brand-mark">t</span></span>
+        <span class="ig-logo-word">Talentra</span>
+      </a>
+      <h2 class="ig-headline" id="igHeadline">See everyday moments from your <span id="igHeadlineAccent">close friends.</span></h2>
+      <div class="ig-phones" aria-hidden="true">
+        <span class="ig-heart">♥</span>
+        <div class="ig-phone">
+          <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
+        </div>
+        <div class="ig-phone">
+          <img src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
+        </div>
+        <div class="ig-phone">
+          <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
+        </div>
+        <div class="ig-phone">
+          <img src="https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
+        </div>
+      </div>
     </aside>
+
+    <div class="auth-divider-col" aria-hidden="true"></div>
 
     <section class="auth-right">
       <div class="auth-right-main">
       <div class="auth-right-head">
-        <p class="auth-kicker" id="authKicker"><?= $authView === 'register' ? 'New member' : 'Existing member' ?></p>
-        <h2 class="auth-title" id="authTitle">Welcome Back!</h2>
+        <p class="auth-kicker" id="authKicker"><?php
+          if ($addingAccount) {
+              echo $authView === 'register' ? 'Create another account' : 'Add another account';
+          } else {
+              echo $authView === 'register' ? 'Create an account' : 'Log into Talentra';
+          }
+        ?></p>
+        <h2 class="auth-title sr-only" id="authTitle"><?= $authView === 'register' ? 'Join Talentra' : 'Log into Talentra' ?></h2>
         <p class="auth-sub" id="authSub">Sign in to your personal account.</p>
       </div>
 
+      <div class="auth-right-spacer" aria-hidden="true"></div>
+
+      <div class="auth-right-stack">
       <div class="auth-right-body">
       <?php if ($error !== ''): ?>
         <div class="auth-alert" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
+      <?php elseif ($addingAccount): ?>
+        <div class="auth-alert" role="status">Sign in or create another account. It will be linked so you can switch later.</div>
       <?php endif; ?>
 
       <div class="auth-panels">
         <div class="auth-panel<?= $authView === 'login' ? ' is-active' : '' ?>" id="authLoginPanel" data-panel="login">
           <form method="post" autocomplete="off" id="authLoginForm">
             <?= csrfInput() ?>
+            <?php if ($addingAccount): ?>
+            <input type="hidden" name="add_account" value="1">
+            <?php endif; ?>
             <input type="hidden" name="account_type" id="loginAccountType" value="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>">
             <div class="auth-field">
-              <i class="fa fa-envelope-o" aria-hidden="true"></i>
               <input type="text" name="username" id="loginUsernameInput" value="<?= htmlspecialchars($usernameValue, ENT_QUOTES, 'UTF-8') ?>" placeholder="Username or email" required>
             </div>
             <div class="auth-field">
-              <i class="fa fa-lock" aria-hidden="true"></i>
-              <input type="password" name="password" placeholder="Enter password" required>
+              <input type="password" name="password" placeholder="Password" required>
             </div>
+            <button class="auth-continue" name="login" type="submit" value="1" id="loginSubmitBtn">
+              <span id="loginSubmitLabel">Log in</span>
+            </button>
             <div class="auth-link-row">
               <a href="forget.php">Forgot password?</a>
             </div>
-            <button class="auth-continue" name="login" type="submit" value="1" id="loginSubmitBtn">
-              <span id="loginSubmitLabel">Continue</span>
-              <i class="fa fa-arrow-right" aria-hidden="true"></i>
-            </button>
           </form>
         </div>
 
         <div class="auth-panel<?= $authView === 'register' ? ' is-active' : '' ?>" id="authRegisterPanel" data-panel="register">
           <form method="post" action="register.php" autocomplete="off" id="authRegisterForm">
             <?= csrfInput() ?>
+            <?php if ($addingAccount): ?>
+            <input type="hidden" name="add_account" value="1">
+            <?php endif; ?>
             <input type="hidden" name="account_type" id="registerAccountType" value="<?= $accountType === 'personal' ? 'personal' : 'publisher' ?>">
             <input type="hidden" name="publisher_mode" id="registerPublisherMode" value="<?= $accountType === 'commerce' ? 'commerce' : 'media' ?>"<?= $accountType === 'personal' ? ' disabled' : '' ?>>
 
@@ -1034,13 +559,27 @@ try {
         </div>
       </div>
       </div>
-      </div>
 
       <div class="auth-switch" id="authSwitch">
-        <span id="authSwitchLead">Don't have account?</span>
-        <button type="button" id="authSwitchBtn">Register Now</button>
+        <span id="authSwitchLead">Don't have an account?</span>
+        <button type="button" id="authSwitchBtn">Create new account</button>
+      </div>
+      <div class="auth-meta-mark" aria-hidden="true">Talentra</div>
+      </div>
       </div>
     </section>
+  </div>
+  <footer class="auth-page-foot">
+    <nav aria-label="About">
+      <a href="index.php">About</a>
+      <a href="index.php">Help</a>
+      <a href="index.php">Privacy</a>
+      <a href="index.php">Terms</a>
+      <a href="index.php">Locations</a>
+      <a href="shop.php">Shop</a>
+    </nav>
+    <p class="auth-page-copy">English · © <?= (int)date('Y') ?> Talentra</p>
+  </footer>
   </div>
 
   <div class="auth-modal-backdrop" id="authPublisherAddModal" hidden>
@@ -1147,6 +686,7 @@ try {
   (function () {
     var mode = <?= $accountTypeJson ?: '"personal"' ?>;
     var view = <?= $authViewJson ?: '"login"' ?>;
+    var addingAccount = <?= $addingAccount ? 'true' : 'false' ?>;
     var typeBtns = document.querySelectorAll('.js-auth-type');
     var hint = document.getElementById('authTypeHint');
     var kicker = document.getElementById('authKicker');
@@ -1165,30 +705,39 @@ try {
     var registerPublisherMode = document.getElementById('registerPublisherMode');
     var registerSubmitLabel = document.getElementById('registerSubmitLabel');
 
+    var igHeadline = document.getElementById('igHeadline');
+    var igHeadlineAccent = document.getElementById('igHeadlineAccent');
+
     var copy = {
       personal: {
         hint: 'Friends & family — your personal story space.',
         loginSub: 'Sign in to your personal account.',
         registerSub: 'Create your personal Talentra account.',
-        placeholder: 'Username or email',
-        continueLabel: 'Continue',
-        registerCta: 'Create personal account'
+        placeholder: 'Mobile number, username or email',
+        continueLabel: 'Log in',
+        registerCta: 'Create personal account',
+        headline: 'See everyday moments from your ',
+        accent: 'close friends.'
       },
       publisher: {
         hint: 'News & media brands — CNN, Fox, and more.',
         loginSub: 'Sign in as a publisher brand or staff.',
         registerSub: 'Start your publisher brand account.',
         placeholder: 'Publisher username, email, or staff login',
-        continueLabel: 'Continue as Publisher',
-        registerCta: 'Create publisher account'
+        continueLabel: 'Log in',
+        registerCta: 'Create publisher account',
+        headline: 'Share the story as it happens with your ',
+        accent: 'audience.'
       },
       commerce: {
         hint: 'Brand stores and seller accounts',
         loginSub: 'Sign in to your commerce seller account.',
         registerSub: 'Start your commerce seller access.',
         placeholder: 'Commerce username or email',
-        continueLabel: 'Continue as Commerce',
-        registerCta: 'Create commerce account'
+        continueLabel: 'Log in',
+        registerCta: 'Create commerce account',
+        headline: 'Bring your shop into everyday ',
+        accent: 'moments.'
       }
     };
 
@@ -1197,10 +746,13 @@ try {
       document.body.setAttribute('data-auth-view', view);
       if (loginPanel) loginPanel.classList.toggle('is-active', view === 'login');
       if (registerPanel) registerPanel.classList.toggle('is-active', view === 'register');
-      if (kicker) kicker.textContent = view === 'register' ? 'New member' : 'Existing member';
-      if (title) title.textContent = view === 'register' ? 'Join Talentra' : 'Welcome Back!';
-      if (switchLead) switchLead.textContent = view === 'register' ? 'Already a member?' : "Don't have account?";
-      if (switchBtn) switchBtn.textContent = view === 'register' ? 'Sign In' : 'Register Now';
+      if (kicker) {
+        if (addingAccount) kicker.textContent = view === 'register' ? 'Create another account' : 'Add another account';
+        else kicker.textContent = view === 'register' ? 'Create an account' : 'Log into Talentra';
+      }
+      if (title) title.textContent = view === 'register' ? 'Create an account' : 'Log into Talentra';
+      if (switchLead) switchLead.textContent = view === 'register' ? 'Already have an account?' : "Don't have an account?";
+      if (switchBtn) switchBtn.textContent = view === 'register' ? 'Log in' : 'Create new account';
       syncMode();
       try {
         var u = new URL(window.location.href);
@@ -1219,6 +771,10 @@ try {
       });
       if (hint) hint.textContent = cfg.hint;
       if (sub) sub.textContent = view === 'register' ? cfg.registerSub : cfg.loginSub;
+      if (igHeadline && igHeadlineAccent) {
+        igHeadline.innerHTML = (cfg.headline || '') + '<span id="igHeadlineAccent">' + (cfg.accent || '') + '</span>';
+        igHeadlineAccent = document.getElementById('igHeadlineAccent');
+      }
       if (loginType) loginType.value = mode;
       if (usernameInput) usernameInput.placeholder = cfg.placeholder;
       if (loginLabel) loginLabel.textContent = cfg.continueLabel;
@@ -1685,6 +1241,26 @@ try {
     }
 
     setView(view);
+
+    var gearBtn = document.getElementById('authSettingsBtn');
+    var gearMenu = document.getElementById('authSettingsMenu');
+    if (gearBtn && gearMenu) {
+      function closeGear() {
+        gearMenu.hidden = true;
+        gearBtn.setAttribute('aria-expanded', 'false');
+      }
+      gearBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var open = gearMenu.hidden;
+        gearMenu.hidden = !open;
+        gearBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function () { closeGear(); });
+      gearMenu.addEventListener('click', function (ev) { ev.stopPropagation(); });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') closeGear();
+      });
+    }
   })();
   </script>
   <?php require __DIR__ . '/includes/entry_bridge_handoff.php'; ?>

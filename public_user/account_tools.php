@@ -59,6 +59,11 @@ if ($action === 'download') {
     header('Content-Type: application/json; charset=utf-8');
     header('Content-Disposition: attachment; filename="talentra-data-' . $meId . '.json"');
     echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    try {
+      require_once __DIR__ . '/includes/account_admin_events.php';
+      account_admin_event_notify($dbh, $meId, 'export_data');
+    } catch (Throwable $eNotify) {
+    }
     exit;
   }
 }
@@ -75,6 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       try {
         $st = $dbh->prepare("UPDATE users SET status = 0 WHERE id = :uid LIMIT 1");
         $st->execute([':uid' => $meId]);
+        try {
+          require_once __DIR__ . '/includes/account_admin_events.php';
+          account_admin_event_notify($dbh, $meId, 'deactivate');
+        } catch (Throwable $eNotify) {
+        }
         session_unset(); session_destroy();
         header('Location: index.php?deactivated=1');
         exit;
@@ -87,6 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $error = 'Type DELETE to confirm.';
     } else {
       $error = 'Protected delete flow is not completed yet in this project schema. Keep using Deactivate account for now.';
+      try {
+        require_once __DIR__ . '/includes/account_admin_events.php';
+        account_admin_event_notify($dbh, $meId, 'delete');
+      } catch (Throwable $eNotify) {
+      }
     }
   } elseif ($postAction === 'logout_all') {
     if (!$settings['allow_logout_all_devices']) {
@@ -97,8 +112,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Session table is not installed yet. Run sql_user_sessions.sql first, then try again.';
       } elseif ($affected > 0) {
         $message = 'Logged out ' . $affected . ' other device session' . ($affected === 1 ? '' : 's') . '. Your current device stays signed in.';
+        try {
+          require_once __DIR__ . '/includes/account_admin_events.php';
+          account_admin_event_notify($dbh, $meId, 'remove_access', ['sessions' => $affected]);
+        } catch (Throwable $eNotify) {
+        }
       } else {
         $message = 'No other active device sessions were found right now.';
+      }
+    }
+  } elseif ($postAction === 'reset_settings') {
+    if (strcasecmp($confirm, 'RESET') !== 0) {
+      $error = 'Type RESET to confirm.';
+    } else {
+      $defaults = [
+        'profile_visibility' => 'public',
+        'about_visibility' => 'friends',
+        'gallery_visibility' => 'friends',
+        'comment_permission' => 'friends',
+        'friend_request_permission' => 'public',
+        'message_permission' => 'friends',
+        'timeline_visit_approval' => 1,
+        'show_tags_tab' => 1,
+        'show_about_tab' => 1,
+        'show_saved_tab' => 0,
+        'auto_show_timeline' => 1,
+        'resurface_old_memories' => 1,
+        'show_timeline_reactions' => 1,
+        'show_timeline_comments' => 1,
+        'archive_memory_enabled' => 0,
+        'pin_memory_enabled' => 0,
+        'email_notifications' => 1,
+        'friend_request_notifications' => 1,
+        'comment_notifications' => 1,
+        'reaction_notifications' => 1,
+        'share_notifications' => 1,
+        'blocked_users_enabled' => 1,
+        'hidden_users_enabled' => 1,
+        'mute_users_enabled' => 1,
+        'report_history_enabled' => 1,
+        'appearance_mode' => 'system',
+        'theme_auto_enabled' => 1,
+        'gallery_grid_size' => 'medium',
+        'autoplay_videos' => 1,
+        'sound_enabled' => 1,
+        'app_language' => 'English',
+        'date_format' => 'F j, Y',
+        'theme_color' => 'indigo',
+      ];
+      try {
+        $cols = [];
+        $colSt = $dbh->query('SHOW COLUMNS FROM user_profile_settings');
+        foreach ($colSt as $col) {
+          $name = (string)($col['Field'] ?? '');
+          if ($name !== '' && $name !== 'user_id' && array_key_exists($name, $defaults)) {
+            $cols[] = $name;
+          }
+        }
+        if ($cols === []) {
+          $error = 'No resettable Gear columns were found.';
+        } else {
+          $sets = [];
+          $params = [':uid' => $meId];
+          foreach ($cols as $col) {
+            $sets[] = '`' . str_replace('`', '', $col) . '` = :' . $col;
+            $params[':' . $col] = $defaults[$col];
+          }
+          $sql = 'UPDATE user_profile_settings SET ' . implode(', ', $sets) . ' WHERE user_id = :uid LIMIT 1';
+          $up = $dbh->prepare($sql);
+          $up->execute($params);
+          if ($up->rowCount() === 0) {
+            $ins = $dbh->prepare('INSERT INTO user_profile_settings (user_id) VALUES (:uid)');
+            $ins->execute([':uid' => $meId]);
+            $up->execute($params);
+          }
+          $message = 'Account settings were reset to defaults. Posts, friends, and media were not changed.';
+          try {
+            require_once __DIR__ . '/includes/account_admin_events.php';
+            account_admin_event_notify($dbh, $meId, 'reset_settings');
+          } catch (Throwable $eNotify) {
+          }
+        }
+      } catch (Throwable $e) {
+        $error = $e->getMessage();
       }
     }
   }
@@ -138,6 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="tool"><strong>Delete account</strong>Protected placeholder flow with a hard warning until your schema has a full irreversible delete plan.<br><br><a class="btn danger" href="account_tools.php?action=delete">Open</a></div>
       <div class="tool"><strong>Logout all devices</strong>Signs out every other browser session using the shared SQL session table while keeping this current device signed in.<br><br><a class="btn alt" href="account_tools.php?action=logout_all">Open</a></div>
       <div class="tool"><strong>Manage devices</strong>See current and recent device sessions, last active time, IP, browser, and revoke one device at a time.<br><br><a class="btn alt" href="manage_devices.php">Open</a></div>
+      <div class="tool"><strong>Reset account settings</strong>Restores Gear privacy, notifications, and appearance defaults. Does not delete posts or friends.<br><br><a class="btn alt" href="account_tools.php?action=reset_settings">Open</a></div>
     </div>
   </div>
 
@@ -166,6 +263,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="title" style="font-size:22px">Logout all devices</div>
       <div class="note">This tool now uses the shared <code>user_sessions</code> SQL table. When you continue, every other active browser session for this account is revoked immediately, while this current device stays signed in.</div>
       <form class="form" method="post"><input type="hidden" name="action" value="logout_all"><button class="btn" type="submit">Logout all other devices now</button></form><div class="top-actions"><a class="btn alt" href="logout.php">Logout this device now</a></div>
+    </div>
+  <?php elseif ($action === 'reset_settings'): ?>
+    <div class="card">
+      <div class="title" style="font-size:22px">Reset account settings</div>
+      <div class="note">Type <b>RESET</b> below. This restores Gear privacy, notifications, and appearance to defaults. Posts, friends, and media are not deleted.</div>
+      <form class="form" method="post">
+        <input type="hidden" name="action" value="reset_settings">
+        <input class="input" type="text" name="confirm_text" placeholder="Type RESET">
+        <button class="btn" type="submit">Reset settings now</button>
+      </form>
     </div>
   <?php endif; ?>
 </div>

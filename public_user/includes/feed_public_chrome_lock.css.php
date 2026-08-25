@@ -480,3 +480,127 @@ body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-im
     margin-right:auto !important;
   }
 }
+
+/* Home / public: header bottom border spans to the icon-rail vertical line. */
+@media (min-width:1025px){
+  body.public-page.feed-insta-ui .sh-mainpanel,
+  body.home-page.feed-insta-ui .sh-mainpanel{
+    margin-left:0 !important;
+    width:100% !important;
+    max-width:100% !important;
+  }
+  body.public-page.feed-insta-ui .ig-feed-header,
+  body.home-page.feed-insta-ui .ig-feed-header{
+    width:100% !important;
+    margin:0 !important;
+    padding:16px 16px 14px calc(var(--feedRailW, 84px) + 16px) !important;
+    box-sizing:border-box !important;
+    border-bottom:1px solid var(--msb-palette-border-strong, #d1d5db) !important;
+  }
+  body.public-page.feed-insta-ui .ig-feed-top-lead,
+  body.home-page.feed-insta-ui .ig-feed-top-lead{
+    left:calc(var(--feedRailW, 84px) + 16px) !important;
+  }
+  body.public-page.feed-insta-ui .feed-desktop-layout,
+  body.home-page.feed-insta-ui .feed-desktop-layout{
+    margin-left:var(--feedRailW, 84px) !important;
+    width:calc(100% - var(--feedRailW, 84px)) !important;
+    max-width:calc(100% - var(--feedRailW, 84px)) !important;
+  }
+  /* Center Entertainment…Sign Out in the column between icon rail and feed. */
+  body.feed-insta-ui{
+    --feed-left-column-w:max(
+      var(--feed-center-left, calc(8px + var(--feed-left-nav-w, 236px) + var(--feed-side-gap, 28px))),
+      calc((100vw - var(--feed-mainpanel-left, var(--feedRailW, 84px)) - var(--feed-center-w, 614px)) / 2)
+    );
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail{
+    left:calc(var(--feedRailW, 84px) + 6px) !important;
+    top:var(--feed-left-rail-top, 88px) !important;
+    width:var(--feed-left-column-w) !important;
+    max-width:var(--feed-left-column-w) !important;
+    height:calc(100vh - var(--feed-left-rail-top, 88px) - 16px) !important;
+    max-height:calc(100vh - var(--feed-left-rail-top, 88px) - 16px) !important;
+    padding-top:0 !important;
+    padding-bottom:8px !important;
+    overflow:hidden !important;
+    z-index:90 !important;
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail-head{
+    position:relative !important;
+    flex:0 0 auto !important;
+    align-self:flex-start !important;
+    left:auto !important;
+    top:auto !important;
+    width:auto !important;
+    max-width:260px !important;
+    min-height:48px !important;
+    display:flex !important;
+    align-items:center !important;
+    z-index:3 !important;
+    margin:0 !important;
+    background:var(--msb-palette-bg, var(--public-surface, #fff)) !important;
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail-head .feed-left-nav-add-program{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    color:var(--msb-palette-text, var(--msb-fries, #f3f6fb)) !important;
+    width:auto !important;
+    max-width:260px !important;
+    border:0 !important;
+    background:transparent !important;
+    cursor:pointer !important;
+    padding:10px 12px !important;
+    gap:12px !important;
+    min-height:48px !important;
+    font-size:16px !important;
+    font-weight:600 !important;
+    line-height:1.2 !important;
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail-head .feed-left-nav-add-program .feed-left-nav-ic{
+    width:24px !important;
+    height:24px !important;
+    flex:0 0 24px !important;
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail-head .feed-left-nav-add-program .feed-left-nav-ic svg{
+    width:22px !important;
+    height:22px !important;
+    max-width:22px !important;
+    max-height:22px !important;
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail-head .feed-left-nav-add-program .feed-left-nav-label{
+    font-size:16px !important;
+    font-weight:600 !important;
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail > .feed-left-nav{
+    position:relative !important;
+    z-index:1 !important;
+    width:var(--feed-left-nav-w, 236px) !important;
+    max-width:100% !important;
+    margin-left:auto !important;
+    margin-right:auto !important;
+    padding-top:0 !important;
+  }
+  body.feed-insta-ui:not(.shop-page) .feed-left-rail-footer{
+    flex:0 0 auto !important;
+    align-self:flex-start !important;
+    margin-top:auto !important;
+    width:auto !important;
+  }
+  body.feed-insta-ui #ttLeftbarOverlays{
+    width:var(--feed-left-column-w) !important;
+  }
+  body.feed-insta-ui #ttLeftbarOverlays .tt-menu-wrap{
+    align-items:center !important;
+  }
+  body.feed-insta-ui #ttLeftbarOverlays .tt-menu-head{
+    align-self:stretch !important;
+    width:100% !important;
+    box-sizing:border-box !important;
+  }
+  body.feed-insta-ui #ttLeftbarOverlays .tt-menu-panel{
+    margin-left:auto !important;
+    margin-right:auto !important;
+  }
+}

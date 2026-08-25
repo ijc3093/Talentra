@@ -22,14 +22,6 @@ if (!function_exists('h')) {
 if (!function_exists('sfy_avatar_url')) {
     function sfy_avatar_url(array $user, int $size = 96): string
     {
-        $img = trim((string)($user['image'] ?? ''));
-        if ($img !== '' && $img !== 'default.jpg' && $img !== 'default.png') {
-            if (preg_match('~^(https?:)?//~i', $img) || $img[0] === '/') {
-                return $img;
-            }
-            return './' . ltrim($img, './');
-        }
-
         $params = [];
         $userId = (int)($user['user_id'] ?? $user['id'] ?? 0);
         $email = trim((string)($user['email'] ?? ''));
@@ -112,7 +104,7 @@ if (!function_exists('sfy_friend_rows')) {
             return [];
         }
         require_once __DIR__ . '/publisher_accounts.php';
-        if (publisher_workspace_viewer($dbh, $meId)) {
+        if (publisher_workspace_viewer($dbh, $meId) && empty($GLOBALS['suggestedForYouIncludePeople'])) {
             return [];
         }
         $limit = max(1, min($limit, 100));
@@ -133,27 +125,22 @@ if (!function_exists('sfy_friend_rows')) {
                 ':qCode' => '%' . strtoupper($query) . '%',
             ];
         }
-        try {
-            $st = $dbh->prepare("
-                SELECT
-                  u.id, u.name, u.username, u.email, u.image, u.friend_code,
+        $selectCols = 'u.id, u.name, u.username, u.email, u.image, u.friend_code';
+        $orderLimit = " ORDER BY u.id DESC LIMIT {$limit}";
+        $attempts = [
+            [
+                'sql' => "
+                SELECT {$selectCols},
                   (
-                    SELECT COALESCE(
-                      NULLIF(TRIM(fc.display_name), ''),
-                      NULLIF(TRIM(mu.name), ''),
-                      NULLIF(TRIM(mu.username), ''),
-                      mu.friend_code
-                    )
+                    SELECT COUNT(*)
                     FROM user_contacts fc
                     INNER JOIN user_contacts mf
                       ON mf.owner_user_id = fc.friend_user_id
-                    INNER JOIN users mu ON mu.id = fc.friend_user_id
+                     AND mf.friend_user_id = u.id
                     WHERE fc.owner_user_id = :meMut
-                      AND mf.friend_user_id = u.id
-                    LIMIT 1
-                  ) AS mutual_via_name
+                  ) AS mutual_count
                 FROM users u
-                WHERE u.status = 1
+                WHERE COALESCE(u.status, 1) = 1
                   AND u.id <> :me
                   AND COALESCE(NULLIF(TRIM(u.account_kind), ''), 'personal') = 'personal'
                   AND UPPER(COALESCE(u.friend_code, '')) NOT LIKE 'PUB-%'
@@ -173,20 +160,63 @@ if (!function_exists('sfy_friend_rows')) {
                         OR (cr.from_user_id = u.id AND cr.to_user_id = :meD)
                       )
                   ){$searchSql}
-                ORDER BY mutual_via_name IS NOT NULL DESC, u.id DESC
-                LIMIT {$limit}
-            ");
-            $st->execute(array_merge([
-                ':me' => $meId,
-                ':meMut' => $meId,
-                ':meA' => $meId,
-                ':meB' => $meId,
-                ':meC' => $meId,
-                ':meD' => $meId,
-            ], $searchParams));
-            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        } catch (Throwable $e) {
-            return [];
+                ORDER BY mutual_count DESC, u.id DESC
+                LIMIT {$limit}",
+                'params' => array_merge([
+                    ':me' => $meId, ':meMut' => $meId, ':meA' => $meId, ':meB' => $meId, ':meC' => $meId, ':meD' => $meId,
+                ], $searchParams),
+            ],
+            [
+                'sql' => "
+                SELECT {$selectCols}
+                FROM users u
+                WHERE COALESCE(u.status, 1) = 1
+                  AND u.id <> :me
+                  AND COALESCE(NULLIF(TRIM(u.account_kind), ''), 'personal') = 'personal'
+                  AND UPPER(COALESCE(u.friend_code, '')) NOT LIKE 'PUB-%'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM user_contacts uc
+                    WHERE uc.owner_user_id = :meA AND uc.friend_user_id = u.id
+                  ){$searchSql}{$orderLimit}",
+                'params' => array_merge([':me' => $meId, ':meA' => $meId], $searchParams),
+            ],
+            [
+                'sql' => "
+                SELECT {$selectCols}
+                FROM users u
+                WHERE COALESCE(u.status, 1) = 1
+                  AND u.id <> :me
+                  AND UPPER(COALESCE(u.friend_code, '')) NOT LIKE 'PUB-%'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM user_contacts uc
+                    WHERE uc.owner_user_id = :meA AND uc.friend_user_id = u.id
+                  ){$searchSql}{$orderLimit}",
+                'params' => array_merge([':me' => $meId, ':meA' => $meId], $searchParams),
+            ],
+            [
+                'sql' => "
+                SELECT {$selectCols}
+                FROM users u
+                WHERE COALESCE(u.status, 1) = 1
+                  AND u.id <> :me
+                  AND UPPER(COALESCE(u.friend_code, '')) NOT LIKE 'PUB-%'
+                  {$searchSql}{$orderLimit}",
+                'params' => array_merge([':me' => $meId], $searchParams),
+            ],
+        ];
+
+        $rows = [];
+        foreach ($attempts as $attempt) {
+            try {
+                $st = $dbh->prepare($attempt['sql']);
+                $st->execute($attempt['params']);
+                $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                if ($rows) {
+                    break;
+                }
+            } catch (Throwable $e) {
+                $rows = [];
+            }
         }
 
         $out = [];
@@ -194,9 +224,13 @@ if (!function_exists('sfy_friend_rows')) {
             if ((int)($row['id'] ?? 0) <= 0) {
                 continue;
             }
-            $mutual = trim((string)($row['mutual_via_name'] ?? ''));
-            $subtitle = $mutual !== '' ? ('Followed by ' . $mutual) : ($query !== '' ? 'People' : 'Suggested friend');
-            $out[] = sfy_user_row($row, 'friend', $subtitle, '+');
+            $mutualCount = (int)($row['mutual_count'] ?? 0);
+            if ($mutualCount > 0) {
+                $subtitle = $mutualCount . ' mutual friend' . ($mutualCount === 1 ? '' : 's');
+            } else {
+                $subtitle = $query !== '' ? 'People' : 'Suggested friend';
+            }
+            $out[] = sfy_user_row($row, 'friend', $subtitle, 'Add Friend');
         }
         return $out;
     }
@@ -282,7 +316,29 @@ if (!function_exists('sfy_publisher_rows')) {
             $st->execute([':me' => $meId, ':meSelf' => $meId]);
             $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable $e) {
-            return [];
+            try {
+                $st = $dbh->prepare("
+                    SELECT u.id, u.name, u.username, u.email, u.friend_code, u.image,
+                           u.publisher_category, u.publisher_tagline
+                    FROM users u
+                    WHERE COALESCE(u.status, 1) = 1
+                      AND u.id <> :meSelf
+                      AND (
+                        COALESCE(u.account_kind, 'personal') = 'publisher'
+                        OR UPPER(COALESCE(u.friend_code, '')) LIKE 'PUB-%'
+                      )
+                      AND NOT EXISTS (
+                        SELECT 1 FROM public_follows pf
+                        WHERE pf.follower_id = :me AND pf.following_id = u.id
+                      ){$excludeSql}
+                    ORDER BY u.name ASC
+                    LIMIT {$limit}
+                ");
+                $st->execute([':me' => $meId, ':meSelf' => $meId]);
+                $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            } catch (Throwable $e2) {
+                $rows = [];
+            }
         }
 
         $cats = publisher_categories();
@@ -432,16 +488,19 @@ if (!function_exists('sfy_render_row')) {
         ?>
         <li class="sfy-row" data-sfy-kind="<?= h($kind) ?>" data-sfy-id="<?= $rowId ?>" data-sfy-hay="<?= h($haystack) ?>">
           <a class="sfy-avatar" href="<?= h($profileHref) ?>" title="<?= h('Open ' . (string)($row['name'] ?? 'profile')) ?>" aria-label="<?= h('Open ' . (string)($row['name'] ?? 'profile')) ?>">
-            <img src="<?= h(sfy_avatar_url($avatarUser, 96)) ?>" alt="" loading="lazy" width="44" height="44">
+            <img src="<?= h(sfy_avatar_url($avatarUser, 64)) ?>" alt="" loading="lazy" width="28" height="28"
+              data-name="<?= h((string)($row['name'] ?? 'User')) ?>"
+              onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.getAttribute('data-name')||'U')+'&amp;s=64';">
           </a>
           <div class="sfy-meta">
             <a class="sfy-name" href="<?= h($profileHref) ?>" title="<?= h('Open ' . (string)($row['name'] ?? 'profile')) ?>"><?= h((string)($row['name'] ?? '')) ?></a>
             <div class="sfy-sub"><?= h((string)($row['subtitle'] ?? '')) ?></div>
           </div>
           <?php if ($kind === 'friend'): ?>
-            <button type="button" class="sfy-action friend-btn primary" data-peer-id="<?= $rowId ?>" data-status="none">
-              <?= h((string)($row['action_label'] ?? '+')) ?>
+            <button type="button" class="sfy-action friend-btn primary" data-peer-id="<?= $rowId ?>" data-status="none" aria-label="Add Friend">
+              +
             </button>
+            <button type="button" class="sfy-dismiss" data-sfy-dismiss="<?= $rowId ?>" aria-label="Dismiss suggestion">×</button>
           <?php else: ?>
             <button type="button" class="sfy-action publisher-follow-btn" data-publisher-id="<?= $rowId ?>">
               <?= h((string)($row['action_label'] ?? 'Follow')) ?>
@@ -469,9 +528,9 @@ if (!isset($suggestedForYouStaffReadonly) && !isset($feedRightRailStaffReadonly)
     }
 }
 
-$sfyCap = $sfyModeIsPage ? 100 : 8;
-$sfyMaxFriends = max(0, min($sfyCap, (int)($suggestedForYouMaxFriends ?? ($sfyModeIsPage ? 100 : 3))));
-$sfyMaxFollow = max(0, min($sfyCap, (int)($suggestedForYouMaxFollow ?? ($sfyModeIsPage ? 30 : 3))));
+$sfyCap = $sfyModeIsPage ? 100 : 20;
+$sfyMaxFriends = max(0, min($sfyCap, (int)($suggestedForYouMaxFriends ?? ($sfyModeIsPage ? 100 : 12))));
+$sfyMaxFollow = max(0, min($sfyCap, (int)($suggestedForYouMaxFollow ?? ($sfyModeIsPage ? 30 : 12))));
 $sfyMaxAdvertise = max(0, min($sfyCap, (int)($suggestedForYouMaxAdvertise ?? ($sfyModeIsPage ? 30 : 3))));
 $sfySearchQ = trim((string)($suggestedForYouSearchQ ?? $_GET['q'] ?? ''));
 $sfySearchActive = ($sfyModeIsPage && $sfySearchQ !== '');
@@ -492,7 +551,10 @@ if ($sfyDbh instanceof PDO && $sfyMeId > 0) {
     }
 }
 
-$sfyCanShowPersonal = !$sfyIsPublisherWorkspace && !$sfyStaffReadonly && $sfyMaxFriends > 0;
+$sfyCanShowPersonal = $sfyMaxFriends > 0 && (
+    !empty($GLOBALS['suggestedForYouIncludePeople'])
+    || (!$sfyIsPublisherWorkspace && !$sfyStaffReadonly)
+);
 
 $sfyPageTab = 'people';
 if ($sfyModeIsPage) {
@@ -556,6 +618,9 @@ if ($sfyDbh instanceof PDO && $sfyMeId > 0) {
         if ($sfyCanBrowsePublishers && $sfyMaxFollow > 0) {
             $sfyFollow = sfy_publisher_rows($sfyDbh, $sfyMeId, $sfyMaxFollow);
         }
+        if (!$sfyFriends && $sfyFollow) {
+            $sfyFriends = $sfyFollow;
+        }
         $excludeIds = array_merge(
             array_column($sfyFollow, 'id'),
             array_column($sfyFriends, 'id')
@@ -573,8 +638,9 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   body.feed-insta-ui .feed-right-rail .sfy-panel{
     margin:0;padding:0;
     display:flex;flex-direction:column;
-    height:min(360px, calc(100vh - 400px));
-    max-height:min(360px, calc(100vh - 400px));
+    flex:0 0 auto;
+    height:auto !important;
+    max-height:none !important;
     min-height:0;
   }
   body.feed-insta-ui .feed-right-rail .sfy-panel-head{
@@ -582,14 +648,15 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   }
   body.feed-insta-ui .feed-right-rail .sfy-panel-head .sfy-head{margin:0;}
   body.feed-insta-ui .feed-right-rail .sfy-panel-body{
-    flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto;overflow-x:hidden;
+    flex:0 1 auto !important;
+    min-height:0;
+    max-height:148px !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
-    touch-action:pan-y;
-    padding-right:12px;
-    scrollbar-gutter:stable;
     scrollbar-width:thin;
-    scrollbar-color:rgba(0,0,0,.18) transparent;
+    padding-right:2px;
   }
   body.feed-insta-ui .feed-right-rail .sfy-panel-body::-webkit-scrollbar{width:6px;}
   body.feed-insta-ui .feed-right-rail .sfy-panel-body::-webkit-scrollbar-track{background:transparent;margin:2px 0;}
@@ -617,6 +684,67 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:hover,
   body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:focus{background:#0f172a;outline:none;}
   body.feed-insta-ui .feed-right-rail .sfy-scroll-btn:disabled{opacity:.35;cursor:default;box-shadow:none;}
+  body.feed-insta-ui .feed-right-rail{
+    display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;
+    overscroll-behavior:contain;
+    scrollbar-width:thin;
+  }
+  body.feed-insta-ui .feed-right-rail .sfy-panel,
+  body.feed-insta-ui .feed-right-rail .home-right-card{
+    flex:0 0 auto;
+    display:flex;flex-direction:column;min-height:0;
+    background:var(--msb-palette-bg, #fff);
+    border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));
+    border-radius:12px;
+    padding:10px 10px 8px;
+    box-sizing:border-box;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-card-scroll{
+    flex:0 1 auto;min-height:0;max-height:148px;
+    overflow-x:hidden;overflow-y:auto;
+    overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;padding-right:2px;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-card-scroll::-webkit-scrollbar{width:6px;}
+  body.feed-insta-ui .feed-right-rail .home-right-card-scroll::-webkit-scrollbar-track{background:transparent;}
+  body.feed-insta-ui .feed-right-rail .home-right-card-scroll::-webkit-scrollbar-thumb{
+    background:rgba(0,0,0,.18);border-radius:999px;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-card-head{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-card-title,
+  body.feed-insta-ui .feed-right-rail .sfy-title{
+    margin:0;font-size:13px;font-weight:700;line-height:1.2;color:var(--msb-palette-text,#0f172a);
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-card-see{
+    font-size:11px;font-weight:700;color:#7c3aed;text-decoration:none;white-space:nowrap;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-card-see:hover{text-decoration:underline;}
+  body.feed-insta-ui .feed-right-rail .home-right-empty{margin:0;font-size:11px;color:#737373;}
+  body.feed-insta-ui .feed-right-rail .home-trend-list,
+  body.feed-insta-ui .feed-right-rail .home-event-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  body.feed-insta-ui .feed-right-rail .home-trend-row{display:flex;align-items:flex-start;gap:8px;}
+  body.feed-insta-ui .feed-right-rail .home-trend-num{flex:0 0 14px;padding-top:1px;font-size:11px;color:#94a3b8;font-weight:600;}
+  body.feed-insta-ui .feed-right-rail .home-trend-body{min-width:0;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:1px;}
+  body.feed-insta-ui .feed-right-rail .home-trend-body strong{font-size:12px;font-weight:700;color:#0f172a;}
+  body.feed-insta-ui .feed-right-rail .home-trend-body span{font-size:10px;color:#737373;}
+  body.feed-insta-ui .feed-right-rail .home-event-row{display:flex;align-items:flex-start;gap:8px;text-decoration:none;color:inherit;}
+  body.feed-insta-ui .feed-right-rail button.home-event-row{
+    width:100%;border:0;background:transparent;padding:0;margin:0;text-align:left;cursor:pointer;font:inherit;
+  }
+  body.feed-insta-ui .feed-right-rail .home-event-bday .home-event-date{border-color:#f9a8d4;background:#fff1f2;}
+  body.feed-insta-ui .feed-right-rail .home-event-bday .home-event-date em{color:#db2777;}
+  body.feed-insta-ui .feed-right-rail .home-event-date{
+    flex:0 0 36px;width:36px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 0 5px;box-sizing:border-box;
+  }
+  body.feed-insta-ui .feed-right-rail .home-event-date em{font-style:normal;font-size:8px;font-weight:800;letter-spacing:.04em;color:#dc2626;}
+  body.feed-insta-ui .feed-right-rail .home-event-date strong{font-size:14px;line-height:1;font-weight:800;color:#0f172a;}
+  body.feed-insta-ui .feed-right-rail .home-event-meta{min-width:0;display:flex;flex-direction:column;gap:1px;padding-top:1px;}
+  body.feed-insta-ui .feed-right-rail .home-event-meta strong{font-size:12px;font-weight:700;color:#0f172a;line-height:1.25;}
+  body.feed-insta-ui .feed-right-rail .home-event-meta span{font-size:10px;color:#737373;line-height:1.3;}
   <?php else: ?>
   body.sfy-page .sh-pagebody{padding-top:12px;height:calc(100vh - 120px);overflow:hidden;box-sizing:border-box;}
   body.sfy-page .sfy-page-main{
@@ -689,19 +817,46 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <?= $sfyScope ?> .sfy-search-icon:hover,<?= $sfyScope ?> .sfy-search-icon:focus{color:#0095f6;outline:none;}
   <?= $sfyScope ?> .sfy-search-empty{display:none;margin:0;padding:8px 0 4px;font-size:13px;color:#737373;}
   <?= $sfyScope ?> .sfy-search-empty.is-visible{display:block;}
-  <?= $sfyScope ?> .sfy-see{flex:0 0 auto;font-size:12px;font-weight:800;line-height:1.2;color:var(--msb-palette-text-on-nav,#0d0d0d);text-decoration:none;white-space:nowrap;}
+  <?= $sfyScope ?> .sfy-see{flex:0 0 auto;font-size:13px;font-weight:700;line-height:1.2;color:#7c3aed;text-decoration:none;white-space:nowrap;}
   <?= $sfyScope ?> .sfy-see:hover,<?= $sfyScope ?> .sfy-see:focus{text-decoration:underline;outline:none;}
-  <?= $sfyScope ?> .sfy-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
-  <?= $sfyScope ?> .sfy-row{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 0;}
-  <?= $sfyScope ?> .sfy-avatar{flex:0 0 30px;width:30px;height:30px;border-radius:50%;overflow:hidden;background:#eef2f7;display:block;text-decoration:none;cursor:pointer;position:relative;z-index:1;}
+  <?= $sfyScope ?> .sfy-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  <?= $sfyScope ?> .sfy-row{display:flex;align-items:center;gap:10px;min-height:52px;padding:4px 0;}
+  <?= $sfyScope ?> .sfy-avatar{flex:0 0 44px;width:44px;height:44px;border-radius:50%;overflow:hidden;background:#eef2f7;display:block;text-decoration:none;cursor:pointer;position:relative;z-index:1;}
   <?= $sfyScope ?> .sfy-avatar img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;}
   <?= $sfyScope ?> .sfy-avatar:hover,<?= $sfyScope ?> .sfy-avatar:focus{outline:none;box-shadow:0 0 0 2px rgba(0,149,246,.35);}
   <?= $sfyScope ?> .sfy-meta{flex:1 1 auto;min-width:0;}
   <?= $sfyScope ?> .sfy-name{display:block;font-size:14px;font-weight:700;line-height:1.25;color:var(--msb-palette-text-on-nav,#0d0d0d);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;position:relative;z-index:1;}
   <?= $sfyScope ?> .sfy-name:hover,<?= $sfyScope ?> .sfy-name:focus{text-decoration:underline;outline:none;color:#0095f6;}
   <?= $sfyScope ?> .sfy-sub{margin-top:2px;font-size:12px;font-weight:400;line-height:1.3;color:#737373;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  <?= $sfyScope ?> .sfy-action{flex:0 0 auto;border:0;background:transparent;padding:0 4px;font-size:12px;font-weight:800;line-height:1.2;color:#0095f6;cursor:pointer;white-space:nowrap;}
-  <?= $sfyScope ?> .sfy-action:hover,<?= $sfyScope ?> .sfy-action:focus{color:#1877f2;outline:none;}
+  <?= $sfyScope ?> .sfy-action{flex:0 0 auto;border:0;background:#f3e8ff;padding:7px 10px;border-radius:10px;font-size:12px;font-weight:700;line-height:1.2;color:#7c3aed;cursor:pointer;white-space:nowrap;}
+  <?= $sfyScope ?> .sfy-action:hover,<?= $sfyScope ?> .sfy-action:focus{color:#6d28d9;outline:none;background:#ede9fe;}
+  <?= $sfyScope ?> .sfy-dismiss{
+    flex:0 0 auto;width:22px;height:22px;margin:0;padding:0;border:0;background:transparent;
+    color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;border-radius:50%;
+  }
+  <?= $sfyScope ?> .sfy-dismiss:hover,<?= $sfyScope ?> .sfy-dismiss:focus{color:#475569;background:#f1f5f9;outline:none;}
+  <?= $sfyScope ?> .sfy-row.is-dismissed{display:none !important;}
+  body.feed-insta-ui .feed-right-rail .sfy-head{margin:0 0 8px;gap:8px;}
+  body.feed-insta-ui .feed-right-rail .sfy-see{font-size:11px;}
+  body.feed-insta-ui .feed-right-rail .sfy-list{gap:4px;}
+  body.feed-insta-ui .feed-right-rail .sfy-row{min-height:0;padding:3px 0;gap:8px;}
+  body.feed-insta-ui .feed-right-rail .sfy-avatar{
+    flex:0 0 28px !important;width:28px !important;height:28px !important;
+    min-width:28px !important;min-height:28px !important;
+  }
+  body.feed-insta-ui .feed-right-rail .sfy-name{font-size:12px !important;font-weight:650;line-height:1.2;}
+  body.feed-insta-ui .feed-right-rail .sfy-sub{margin-top:1px;font-size:10px !important;line-height:1.2;}
+  body.feed-insta-ui .feed-right-rail .sfy-action{
+    min-width:24px;height:24px;padding:0 8px;border-radius:7px;
+    font-size:11px !important;font-weight:700;line-height:1;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  body.feed-insta-ui .feed-right-rail .sfy-action.friend-btn{
+    width:24px;min-width:24px;padding:0;font-size:15px !important;font-weight:500;
+  }
+  body.feed-insta-ui .feed-right-rail .sfy-dismiss{width:18px;height:18px;font-size:14px;}
+  body.feed-insta-ui .feed-right-rail .sfy-empty{margin:0;padding:2px 0;font-size:11px;}
+  body.feed-insta-ui .feed-right-rail .sfy-panel-body .sfy-block + .sfy-block{margin-top:8px;padding-top:8px;}
   <?= $sfyScope ?> .sfy-action.is-following,<?= $sfyScope ?> .sfy-action.is-pending,<?= $sfyScope ?> .sfy-action.is-friends,<?= $sfyScope ?> .sfy-action:disabled{color:#737373;cursor:default;}
   <?= $sfyScope ?> .sfy-action.friend-btn,<?= $sfyScope ?> .sfy-action.publisher-follow-btn{font:inherit;}
   html.dark-auto:not([data-msb-appearance]) <?= $sfyScope ?> .sfy-action.friend-btn,
@@ -788,11 +943,11 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <div class="sfy-panel sfy-page-panel">
   <div class="sfy-panel-body js-sfy-panel-scroll">
 <?php else: ?>
-<aside class="feed-right-rail" aria-label="Suggested for you">
+<aside class="feed-right-rail" aria-label="Explore">
   <div class="sfy-panel">
     <div class="sfy-panel-head">
       <header class="sfy-head">
-        <h2 class="sfy-title">Suggested for you</h2>
+        <h2 class="sfy-title">People You May Know</h2>
         <a class="sfy-see" href="suggested_for_you.php?tab=<?= $sfyIsPublisherWorkspace ? 'publishers' : 'people' ?>">See all</a>
       </header>
     </div>
@@ -844,38 +999,21 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
       </section>
       <?php endif; ?>
       <?php endif; ?>
-    <?php elseif ($sfyFriends || $sfyFollow || $sfyAdvertise): ?>
-      <section class="sfy-block" aria-label="Suggested for you">
+    <?php elseif (!$sfyModeIsPage): ?>
+      <section class="sfy-block" aria-label="People You May Know">
+        <?php if ($sfyFriends): ?>
         <ul class="sfy-list">
-          <?php if ($sfyCanShowPersonal): ?>
           <?php foreach ($sfyFriends as $row): ?>
             <?php sfy_render_row($row); ?>
           <?php endforeach; ?>
-          <?php endif; ?>
-          <?php foreach ($sfyFollow as $row): ?>
-            <?php sfy_render_row($row); ?>
-          <?php endforeach; ?>
         </ul>
+        <?php else: ?>
+        <p class="sfy-empty">No people to suggest right now.</p>
+        <?php endif; ?>
       </section>
     <?php else: ?>
       <section class="sfy-block" aria-label="Suggested for you">
         <p class="sfy-empty">No suggestions available right now.</p>
-      </section>
-    <?php endif; ?>
-
-    <?php if (!$sfyModeIsPage && ($sfyAdvertise) && !$sfySearchActive): ?>
-      <section class="sfy-block" id="advertise" aria-label="Advertise">
-        <header class="sfy-head">
-          <h2 class="sfy-title">Advertise</h2>
-          <a class="sfy-see" href="suggested_for_you.php?tab=publishers#advertise">See all</a>
-        </header>
-        <?php if ($sfyAdvertise): ?>
-        <ul class="sfy-list">
-          <?php foreach ($sfyAdvertise as $row): ?>
-            <?php sfy_render_row($row); ?>
-          <?php endforeach; ?>
-        </ul>
-        <?php endif; ?>
       </section>
     <?php endif; ?>
   <?php if ($sfyModeIsPage): ?>
@@ -890,9 +1028,11 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   </div>
   <?php elseif (!$sfyModeIsPage): ?>
   </div>
-  <?php endif; ?>
   </div>
+  <?php include __DIR__ . '/home_right_rail_widgets.php'; ?>
+  <?php endif; ?>
 <?php if ($sfyModeIsPage): ?>
+  </div>
 </main>
 <?php else: ?>
 </aside>
@@ -935,6 +1075,12 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
       try{ new ResizeObserver(sync).observe(body); }catch(e){}
     }
     sync();
+  });
+  document.querySelectorAll('.sfy-dismiss').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var row = btn.closest('.sfy-row');
+      if(row) row.classList.add('is-dismissed');
+    });
   });
 })();
 </script>

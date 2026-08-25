@@ -11,6 +11,8 @@ require_once __DIR__ . '/includes/profile_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/user_phone.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
+require_once __DIR__ . '/includes/user_backgrounds.php';
+require_once __DIR__ . '/includes/profile_people_tags.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
 
@@ -109,10 +111,7 @@ $form = [
     'education_history' => '',
     'work_details' => '',
     'hobbies' => '',
-    'social_facebook' => '',
-    'social_instagram' => '',
-    'social_x' => '',
-    'social_linkedin' => '',
+    'profile_link' => '',
     'about_text' => '',
 ];
 
@@ -145,23 +144,29 @@ try {
 
 if ($hasBackgroundTable) {
     try {
-        $st = $dbh->prepare('SELECT * FROM user_backgrounds WHERE user_id = :uid LIMIT 1');
-        $st->execute([':uid' => $meId]);
-        $bg = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-        if ($bg) {
-            $accountFields = ['full_name', 'username', 'email', 'mobile', 'friend_code', 'gender', 'designation'];
-            foreach ($form as $k => $v) {
-                if (in_array($k, $accountFields, true)) {
-                    continue;
-                }
-                if (array_key_exists($k, $bg)) {
-                    $form[$k] = trim((string)$bg[$k]);
-                }
+        $bg = user_background_load($dbh, $meId);
+        foreach ($bg as $k => $v) {
+            $form[$k] = $v;
+        }
+        if (trim($form['birthday']) === '' && isset($user['birthday'])) {
+            $fromUser = trim((string)$user['birthday']);
+            if ($fromUser !== '' && !str_starts_with($fromUser, '0000-00-00')) {
+                $form['birthday'] = $fromUser;
             }
         }
     } catch (Throwable $e) {
         $errors[] = 'Could not load your background details.';
     }
+}
+
+profile_people_tags_ensure_table($dbh);
+$peopleRelationship = profile_people_tags_get_relationship($dbh, $meId);
+$peopleFamily = profile_people_tags_list_family($dbh, $meId);
+if ($peopleRelationship) {
+    $form['relationship_status'] = profile_people_tags_format_relationship($peopleRelationship, (string)$form['relationship_status']);
+}
+if ($peopleFamily !== []) {
+    $form['family_details'] = profile_people_tags_format_family($peopleFamily, (string)$form['family_details']);
 }
 
 $ajaxAction = trim((string)($_REQUEST['ajax'] ?? ''));
@@ -177,7 +182,7 @@ if ($ajaxAction === 'save_about' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (in_array($key, ['family_details', 'education_history', 'work_details', 'hobbies', 'about_text'], true)) {
             $form[$key] = clean_multiline($_POST[$key] ?? '');
         } else {
-            $limit = in_array($key, ['social_facebook', 'social_instagram', 'social_x', 'social_linkedin', 'email'], true) ? 255 : 150;
+            $limit = in_array($key, ['profile_link', 'email'], true) ? 255 : 150;
             if ($key === 'full_name') $limit = 120;
             if ($key === 'username') $limit = 60;
             if ($key === 'friend_code') $limit = 30;
@@ -260,27 +265,12 @@ if ($ajaxAction === 'save_about' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($hasBackgroundTable) {
-            $bgFields = [
-                'pronouns','born_in','lives_in','birthday','relationship_status','languages',
-                'family_details','education_history','work_details','hobbies',
-                'social_facebook','social_instagram','social_x','social_linkedin','about_text'
-            ];
-            $insertCols = ['user_id'];
-            $insertPlaceholders = [':user_id'];
-            $updateCols = [];
-            $bgParams = [':user_id' => $meId];
-            foreach ($bgFields as $field) {
-                if (!isset($bgCols[$field])) continue;
-                $insertCols[] = $field;
-                $insertPlaceholders[] = ':' . $field;
-                $updateCols[] = "{$field} = VALUES({$field})";
-                $bgParams[':' . $field] = $form[$field];
+            $bgPosted = user_background_from_post($_POST, 'clean_text', 'clean_multiline');
+            foreach ($bgPosted as $k => $v) {
+                $form[$k] = $v;
             }
-            if (count($insertCols) > 1) {
-                $sql = 'INSERT INTO user_backgrounds (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ') ON DUPLICATE KEY UPDATE ' . implode(', ', $updateCols);
-                $st = $dbh->prepare($sql);
-                $st->execute($bgParams);
-            }
+            user_background_save($dbh, $meId, $form);
+            user_background_sync_users_birthday($dbh, $meId, $form['birthday'], $usersCols);
         }
 
         $dbh->commit();
@@ -308,7 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (in_array($key, ['family_details', 'education_history', 'work_details', 'hobbies', 'about_text'], true)) {
             $form[$key] = clean_multiline($_POST[$key] ?? '');
         } else {
-            $limit = in_array($key, ['social_facebook', 'social_instagram', 'social_x', 'social_linkedin', 'email'], true) ? 255 : 150;
+            $limit = in_array($key, ['profile_link', 'email'], true) ? 255 : 150;
             if ($key === 'full_name') $limit = 120;
             if ($key === 'username') $limit = 60;
             if ($key === 'friend_code') $limit = 30;
@@ -383,27 +373,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($hasBackgroundTable) {
-                $bgFields = [
-                    'pronouns','born_in','lives_in','birthday','relationship_status','languages',
-                    'family_details','education_history','work_details','hobbies',
-                    'social_facebook','social_instagram','social_x','social_linkedin','about_text'
-                ];
-                $insertCols = ['user_id'];
-                $insertPlaceholders = [':user_id'];
-                $updateCols = [];
-                $bgParams = [':user_id' => $meId];
-                foreach ($bgFields as $field) {
-                    if (!isset($bgCols[$field])) continue;
-                    $insertCols[] = $field;
-                    $insertPlaceholders[] = ':' . $field;
-                    $updateCols[] = "{$field} = VALUES({$field})";
-                    $bgParams[':' . $field] = $form[$field];
+                $bgPosted = user_background_from_post($_POST, 'clean_text', 'clean_multiline');
+                foreach ($bgPosted as $k => $v) {
+                    $form[$k] = $v;
                 }
-                if (count($insertCols) > 1) {
-                    $sql = 'INSERT INTO user_backgrounds (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ') ON DUPLICATE KEY UPDATE ' . implode(', ', $updateCols);
-                    $st = $dbh->prepare($sql);
-                    $st->execute($bgParams);
-                }
+                user_background_save($dbh, $meId, $form);
+                user_background_sync_users_birthday($dbh, $meId, $form['birthday'], $usersCols);
             }
 
             $dbh->commit();
@@ -457,6 +432,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .alert.note{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
     .avatar-line{display:flex;align-items:center;gap:12px;margin-top:8px;}
     .avatar-line img{width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid rgba(15,23,42,.08);background:#f1f5f9;}
+    .about-people{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-width:420px;}
+    .about-people-row,.about-people-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+    .about-people-role,.about-people-mention{height:38px;border-radius:10px;border:1px solid var(--msb-palette-border,#dbe1ea);background:#fff;font-size:13px;font-weight:700;padding:0 10px;}
+    .about-people-mention{flex:1;min-width:160px;}
+    .about-people-tag-row{position:relative;width:100%;}
+    .about-people-ac{position:absolute;left:0;right:0;top:100%;z-index:40;margin-top:4px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 24px rgba(15,23,42,.16);max-height:220px;overflow:auto;padding:4px;}
+    .about-people-ac-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;border:0;background:transparent;cursor:pointer;text-align:left;padding:8px 10px;border-radius:10px;}
+    .about-people-ac-item:hover{background:#f1f5f9;}
+    .about-people-ac-user{font-size:13px;font-weight:800;}
+    .about-people-ac-name{font-size:12px;opacity:.7;}
+    .about-people-ac-empty{padding:10px 12px;font-size:12px;opacity:.7;}
+    .about-people-picked{font-size:12px;font-weight:700;color:#64748b;}
+    .about-people-save{height:36px;padding:0 14px;border:0;border-radius:10px;cursor:pointer;background:#111827;color:#fff;font-size:12px;font-weight:800;}
+    .about-people-msg{font-size:12px;font-weight:700;color:#b42318;}
+    .about-people-msg.is-ok{color:#067647;}
+    .about-people-chips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+    .about-people-chips li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:#f8fafc;font-size:13px;font-weight:700;}
+    .about-people-remove{border:0;background:transparent;cursor:pointer;font-size:18px;}
+    .field .v{font-size:14px;font-weight:700;margin-bottom:4px;}
     @media (max-width: 800px){.grid{grid-template-columns:1fr;}.edit-head{padding:18px 16px 10px;}.edit-body{padding:16px;}.btnx{width:100%;}}
   </style>
 </head>
@@ -550,17 +544,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <label for="birthday">Birthday date</label>
               <input id="birthday" name="birthday" type="text" value="<?php echo h($form['birthday']); ?>" placeholder="May 14">
             </div>
-            <div class="field">
-              <label for="relationship_status">Relationship</label>
-              <input id="relationship_status" name="relationship_status" type="text" value="<?php echo h($form['relationship_status']); ?>" placeholder="Single, Married, In a relationship">
+            <div class="field full">
+              <label>Relationship</label>
+              <input type="hidden" id="relationship_status" name="relationship_status" value="<?php echo h($form['relationship_status']); ?>">
+              <div class="v" data-people-value><?php echo $peopleRelationship ? profile_people_tags_relationship_html($peopleRelationship, (string)$form['relationship_status']) : h((string)$form['relationship_status']); ?></div>
+              <?php profile_people_tags_render_relationship_editor($peopleRelationship ?? null); ?>
+              <div class="muted">Type @username to tag someone. They get a notification.</div>
             </div>
             <div class="field">
               <label for="languages">Languages</label>
               <input id="languages" name="languages" type="text" value="<?php echo h($form['languages']); ?>" placeholder="English, French, Spanish">
             </div>
             <div class="field full">
-              <label for="family_details">Family</label>
-              <textarea id="family_details" name="family_details"><?php echo h($form['family_details']); ?></textarea>
+              <label>Family</label>
+              <input type="hidden" id="family_details" name="family_details" value="<?php echo h($form['family_details']); ?>">
+              <div class="v" data-people-value><?php echo $peopleFamily ? profile_people_tags_family_html($peopleFamily, (string)$form['family_details']) : nl2br(h((string)$form['family_details'])); ?></div>
+              <?php profile_people_tags_render_family_editor($peopleFamily ?? []); ?>
+              <div class="muted">Tag father, mother, brother, sister, and others with @username.</div>
             </div>
             <div class="field full">
               <label for="education_history">Education</label>
@@ -578,23 +578,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="section">
-          <h3>Social media</h3>
+          <h3>Link</h3>
           <div class="grid">
-            <div class="field">
-              <label for="social_facebook">Facebook</label>
-              <input id="social_facebook" name="social_facebook" type="text" value="<?php echo h($form['social_facebook']); ?>">
-            </div>
-            <div class="field">
-              <label for="social_instagram">Instagram</label>
-              <input id="social_instagram" name="social_instagram" type="text" value="<?php echo h($form['social_instagram']); ?>">
-            </div>
-            <div class="field">
-              <label for="social_x">X / Twitter</label>
-              <input id="social_x" name="social_x" type="text" value="<?php echo h($form['social_x']); ?>">
-            </div>
-            <div class="field">
-              <label for="social_linkedin">LinkedIn</label>
-              <input id="social_linkedin" name="social_linkedin" type="text" value="<?php echo h($form['social_linkedin']); ?>">
+            <div class="field full">
+              <label for="profile_link">Website or profile link</label>
+              <input id="profile_link" name="profile_link" type="text" inputmode="url" autocomplete="url" value="<?php echo h($form['profile_link']); ?>" placeholder="https://example.com/your-page">
             </div>
             <div class="field full">
               <label for="about_text">About me</label>
@@ -606,5 +594,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 </div>
+<?php include __DIR__ . '/includes/mention_autocomplete.js.php'; ?>
+<?php include __DIR__ . '/includes/profile_people_tags.js.php'; ?>
 </body>
 </html>

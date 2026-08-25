@@ -124,11 +124,44 @@ $shopCartItems = org_cart_list_items($dbh, $meId);
 $shopCartSubtotal = org_cart_subtotal_cents($shopCartItems);
 $shopCartCount = org_cart_count($dbh, $meId);
 $shopHeroProduct = $products[0] ?? ($shopAllProducts[0] ?? null);
-$shopProductsPerPage = 8;
+$shopPromoCovers = [];
+foreach (array_merge($products, $shopAllProducts) as $shopPromoCandidate) {
+    $shopPromoCover = org_shop_cover_url((string)($shopPromoCandidate['cover_image_path'] ?? ''));
+    if ($shopPromoCover === '' || in_array($shopPromoCover, $shopPromoCovers, true)) {
+        continue;
+    }
+    $shopPromoCovers[] = $shopPromoCover;
+    if (count($shopPromoCovers) >= 4) {
+        break;
+    }
+}
+while (count($shopPromoCovers) > 0 && count($shopPromoCovers) < 4) {
+    $shopPromoCovers[] = $shopPromoCovers[count($shopPromoCovers) - 1];
+}
+$shopPromoSlides = [
+    ['kicker' => 'SHOP DAILY', 'title' => 'Deals worth opening.', 'sub' => 'Handpicked items with secure checkout.'],
+    ['kicker' => 'NEW COLLECTION', 'title' => 'Style for every moment.', 'sub' => 'Discover top picks loved by thousands.'],
+    ['kicker' => 'FEATURED PICKS', 'title' => 'Great products. Great stories.', 'sub' => 'Shop trusted brands and independent sellers in one place.'],
+    ['kicker' => 'JUST IN', 'title' => 'Find your next favorite.', 'sub' => 'Fresh listings from sellers you can trust.'],
+];
+$shopPerPageOptions = [12, 24, 36, 48, 60];
+$shopProductsPerPage = (int)($_GET['per_page'] ?? 12);
+if (!in_array($shopProductsPerPage, $shopPerPageOptions, true)) {
+    $shopProductsPerPage = 12;
+}
 $shopProductTotal = count($products);
 $shopProductPageCount = max(1, (int)ceil($shopProductTotal / $shopProductsPerPage));
 $shopProductPage = max(1, (int)($_GET['page'] ?? 1));
 $shopProductPage = min($shopProductPage, $shopProductPageCount);
+$shopPageWindow = 9;
+if ($shopProductPageCount <= $shopPageWindow) {
+    $shopVisiblePages = range(1, $shopProductPageCount);
+} else {
+    $shopPageStart = max(1, $shopProductPage - (int)floor($shopPageWindow / 2));
+    $shopPageEnd = min($shopProductPageCount, $shopPageStart + $shopPageWindow - 1);
+    $shopPageStart = max(1, $shopPageEnd - $shopPageWindow + 1);
+    $shopVisiblePages = range($shopPageStart, $shopPageEnd);
+}
 $shopPagedProducts = array_slice(
     $products,
     ($shopProductPage - 1) * $shopProductsPerPage,
@@ -153,6 +186,63 @@ if (!function_exists('shop_price_parts')) {
         return ['symbol' => '', 'main' => $formatted, 'cents' => ''];
     }
 }
+
+if (!function_exists('shop_card_spec_bits')) {
+    /**
+     * Compact card facts. Size dumps with many options or duplicate tokens are omitted.
+     *
+     * @param list<array{key?:string,label?:string,value?:string}> $highlight
+     * @return list<string>
+     */
+    function shop_card_spec_bits(array $highlight): array
+    {
+        $bits = [];
+        $seenKeys = [];
+        foreach ($highlight as $specRow) {
+            $key = strtolower(trim((string)($specRow['key'] ?? '')));
+            $label = trim((string)($specRow['label'] ?? ''));
+            $value = trim((string)($specRow['value'] ?? ''));
+            if ($label === '' || $value === '') {
+                continue;
+            }
+            if ($key !== '' && isset($seenKeys[$key])) {
+                continue;
+            }
+            $isSize = $key === 'size'
+                || $key === 'size_unit'
+                || preg_match('/\bsize\b/i', $label) === 1;
+            if ($isSize) {
+                $tokens = preg_split('/\s*[,;\/|]+\s*/', $value) ?: [];
+                $unique = [];
+                foreach ($tokens as $token) {
+                    $token = trim((string)$token);
+                    if ($token === '') {
+                        continue;
+                    }
+                    $norm = function_exists('mb_strtolower') ? mb_strtolower($token) : strtolower($token);
+                    if (!isset($unique[$norm])) {
+                        $unique[$norm] = $token;
+                    }
+                }
+                $uniqueList = array_values($unique);
+                if (count($uniqueList) > 3 || (count($tokens) >= 5 && count($uniqueList) < count($tokens))) {
+                    if ($key !== '') {
+                        $seenKeys[$key] = true;
+                    }
+                    continue;
+                }
+                if ($uniqueList) {
+                    $value = implode(', ', $uniqueList);
+                }
+            }
+            if ($key !== '') {
+                $seenKeys[$key] = true;
+            }
+            $bits[] = $label . ': ' . $value;
+        }
+        return $bits;
+    }
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -167,7 +257,7 @@ if (!function_exists('shop_price_parts')) {
   <link rel="stylesheet" href="assets/ui_best.css">
   <link rel="stylesheet" href="assets/layout-fixed.css">
   <link rel="stylesheet" href="./css/shop-page.css?v=10">
-    <link rel="stylesheet" href="./css/shop-storefront.css?v=39">
+    <link rel="stylesheet" href="./css/shop-storefront.css?v=86">
   <style><?php include __DIR__ . '/includes/feed_rails.css.php'; ?></style>
   <style><?php include __DIR__ . '/includes/feed_header_chrome.css.php'; ?></style>
   <script defer src="assets/layout-fixed.js"></script>
@@ -187,79 +277,153 @@ if (!function_exists('shop_price_parts')) {
       display:flex;
       align-items:center;
       justify-content:center;
-      gap:8px;
-      position:static;
-      bottom:auto;
+      position:relative;
       z-index:1;
       flex:0 0 auto;
-      width:fit-content;
-      max-width:calc(100% - 16px);
-      margin:auto auto 0;
-      /* padding:7px 9px; */
-      border:1px solid var(--shop-border, var(--msb-palette-border, #d1d5db));
-      border-radius:10px;
-      background:var(--shop-card-bg, var(--msb-palette-bg, #fff));
-      box-shadow:0 4px 12px rgba(15,23,42,.10);
+      width:100%;
+      max-width:100%;
+      margin:8px 0 0;
+      padding:8px 0 4px;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      gap:0;
     }
-    .shop-product-page-button{
+    .shop-product-pagination-pages{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+    }
+    .shop-product-page-arrow{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-width:82px;
-      height:34px;
-      padding:0 13px;
-      border:1px solid var(--shop-border, var(--msb-palette-border, #d1d5db));
-      border-radius:8px;
-      background:var(--shop-card-bg, var(--msb-palette-bg, #fff));
-      color:var(--shop-text, var(--msb-palette-text, #111827));
-      font-size:12px;
-      font-weight:700;
+      width:32px;
+      height:32px;
+      min-width:32px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:#eceff3;
+      color:#111827;
+      font-size:16px;
+      line-height:1;
       text-decoration:none;
       box-sizing:border-box;
     }
-    .shop-product-page-button:hover{border-color:#2563eb;color:#2563eb;text-decoration:none;}
-    .shop-product-page-button.is-disabled{opacity:.42;pointer-events:none;}
-    .shop-product-page-status{
-      min-width:74px;
-      text-align:center;
-      color:var(--shop-text-muted, var(--msb-palette-text-muted, #64748b));
-      font-size:12px;
-      font-weight:700;
+    .shop-product-page-arrow:hover{background:#e2e6ec;color:#111827;text-decoration:none;}
+    .shop-product-page-arrow.is-disabled{color:#c5cad3;background:#f3f4f6;pointer-events:none;}
+    .shop-product-page-num{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:22px;
+      height:28px;
+      padding:0 6px;
+      border:0;
+      border-bottom:2px solid transparent;
+      background:transparent;
+      color:#9ca3af;
+      font-size:14px;
+      font-weight:500;
+      line-height:1;
+      text-decoration:none;
+      box-sizing:border-box;
     }
-    .shop-market-card{
+    .shop-product-page-num:hover{color:#111827;text-decoration:none;}
+    .shop-product-page-num.is-active{
+      color:#111827;
+      font-weight:800;
+      border-bottom-color:#111827;
+    }
+    .shop-product-per-page{
+      position:absolute;
+      right:0;
+      top:50%;
+      transform:translateY(-50%);
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin:0;
+    }
+    .shop-product-per-page label{
+      margin:0;
+      color:#6b7280;
+      font-size:13px;
+      font-weight:500;
+      white-space:nowrap;
+    }
+    .shop-product-per-page select{
+      height:32px;
+      min-width:64px;
+      padding:0 28px 0 12px;
+      border:1px solid #d1d5db;
+      border-radius:8px;
+      background:var(--shop-card-bg, #fff) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center;
+      color:#111827;
+      font-size:13px;
+      font-weight:600;
+      appearance:none;
+      -webkit-appearance:none;
+      cursor:pointer;
+    }
+    @media (max-width:720px){
+      .shop-product-pagination{flex-direction:column;gap:10px;padding-bottom:8px;}
+      .shop-product-per-page{position:static;transform:none;}
+    }
+    figure.shop-market-card{
+      margin:0;
+      width:100%;
+      height:270px;
       background:var(--shop-card-bg, var(--msb-palette-bg, #fff));
       border:1px solid var(--shop-border, var(--msb-palette-border, #e5e7eb));
       border-radius:4px;
       overflow:hidden;
-      display:flex;
-      flex-direction:column;
+      display:grid;
+      grid-template-rows:48% 52%;
       box-shadow:0 1px 2px rgba(15,23,42,.04);
       min-width:0;
       color:var(--shop-text, var(--msb-palette-text, #111827));
     }
     .shop-market-cover{
-      aspect-ratio:1/1;
+      display:block;
       width:100%;
+      height:48%;
       background:var(--shop-card-raised, var(--msb-palette-surface-2, var(--msb-palette-bg, #fff)));
-      display:flex;
-      align-items:center;
-      justify-content:center;
       text-decoration:none;
       color:inherit;
-      padding:8px;
+      padding:0;
       box-sizing:border-box;
-      border-bottom:1px solid var(--shop-border, var(--msb-palette-border, #f3f4f6));
+      overflow:hidden;
     }
-    .shop-market-cover img{
+    .shop-market-cover img,
+    .shop-market-cover .shop-market-cover-fallback{
+      display:block;
       width:100%;
       height:100%;
       max-width:100%;
       max-height:100%;
-      object-fit:contain;
+      object-fit:cover;
       object-position:center;
     }
+    .shop-market-cover-fallback{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
     .shop-market-cover-fallback{font-size:48px;color:var(--shop-text-muted, var(--msb-palette-text-muted, #d1d5db));}
-    .shop-market-body{padding:12px 14px 14px;display:flex;flex-direction:column;flex:1;min-width:0;}
+    figcaption.shop-market-body{
+      display:flex;
+      flex-direction:column;
+      width:100%;
+      height:52%;
+      padding:4% 5% 5%;
+      box-sizing:border-box;
+      min-width:0;
+      min-height:0;
+    }
     .shop-market-title{
       margin:0 0 5px;
       font-size:14px;
@@ -340,17 +504,24 @@ if (!function_exists('shop_price_parts')) {
       font-weight:600;
     }
     .shop-market-warranty-ic{
-      width:16px;
-      height:16px;
+      width:14px;
+      height:14px;
+      min-width:14px;
+      min-height:14px;
+      max-width:14px;
+      max-height:14px;
       border-radius:3px;
       background:#f97316;
       color:#fff;
-      font-size:9px;
+      font-size:10px;
+      line-height:1;
       font-weight:800;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      flex-shrink:0;
+      flex:0 0 14px;
+      overflow:hidden;
+      box-sizing:border-box;
     }
     .shop-market-seller{font-size:11px;color:var(--shop-text-soft, var(--msb-palette-text-muted, #374151));min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .shop-market-seller a{color:var(--shop-text, var(--msb-palette-text, #111827));text-decoration:underline;font-weight:600;}
@@ -458,20 +629,23 @@ if (!function_exists('shop_price_parts')) {
       gap:12px;
     }
     .shop-market-grid.is-list-view .shop-market-card{
+      display:flex;
       flex-direction:row;
       align-items:stretch;
+      height:auto;
     }
     .shop-market-grid.is-list-view .shop-market-cover{
-      width:148px;
-      max-width:148px;
-      aspect-ratio:auto;
+      width:22%;
+      max-width:22%;
       height:auto;
       min-height:148px;
       border-bottom:0;
       border-right:1px solid var(--shop-border, var(--msb-palette-border, #f3f4f6));
     }
     .shop-market-grid.is-list-view .shop-market-body{
-      padding:12px 14px;
+      width:78%;
+      height:auto;
+      padding:3% 4%;
     }
     .shop-market-grid.is-list-view .shop-market-actions-wrap{
       align-items:center;
@@ -483,10 +657,14 @@ if (!function_exists('shop_price_parts')) {
       .shop-market-grid.is-list-view .shop-market-cover{
         width:100%;
         max-width:100%;
+        height:48%;
         min-height:0;
-        aspect-ratio:1/1;
         border-right:0;
         border-bottom:1px solid var(--shop-border, var(--msb-palette-border, #f3f4f6));
+      }
+      .shop-market-grid.is-list-view .shop-market-body{
+        width:100%;
+        height:52%;
       }
     }
     .shop-market-empty{text-align:center;padding:48px 16px;color:var(--shop-text-muted, var(--msb-palette-text-muted, #6b7280));}
@@ -551,22 +729,32 @@ if (!function_exists('shop_price_parts')) {
     <div class="shop-page-scroll">
     <div class="shop-storefront-layout">
       <main class="shop-storefront-main">
-        <section class="shop-promo-hero" aria-label="Featured shopping promotion">
-          <div class="shop-promo-copy">
-            <span class="shop-promo-kicker">DISCOVER SOMETHING NEW</span>
-            <h2>Great products.<br>Great stories.</h2>
-            <p>Shop trusted brands and independent sellers in one place.</p>
-            <a class="shop-promo-cta" href="<?= $shopHeroProduct ? h(shop_product_detail_url((int)$shopHeroProduct['id'])) : '#featuredProducts' ?>">Shop now</a>
+        <section class="shop-promo-hero" id="shopPromoHero" aria-label="Featured shopping promotion">
+          <div class="shop-promo-slides">
+            <?php foreach ($shopPromoSlides as $shopPromoIndex => $shopPromoSlide): ?>
+              <article class="shop-promo-slide<?= $shopPromoIndex === 0 ? ' is-active' : '' ?>" data-shop-promo-slide="<?= (int)$shopPromoIndex ?>">
+                <div class="shop-promo-copy">
+                  <span class="shop-promo-kicker"><?= h($shopPromoSlide['kicker']) ?></span>
+                  <h2><?= h($shopPromoSlide['title']) ?></h2>
+                  <p><?= h($shopPromoSlide['sub']) ?></p>
+                  <a class="shop-promo-cta" href="<?= $shopHeroProduct ? h(shop_product_detail_url((int)$shopHeroProduct['id'])) : '#featuredProducts' ?>">Shop Now</a>
+                </div>
+                <figure class="shop-promo-art">
+                  <?php $shopPromoHeroSrc = $shopPromoCovers[$shopPromoIndex % max(1, count($shopPromoCovers))] ?? ''; ?>
+                  <?php if ($shopPromoHeroSrc !== ''): ?>
+                    <img class="shop-promo-hero-img" src="<?= h($shopPromoHeroSrc) ?>" alt="">
+                  <?php else: ?>
+                    <span class="shop-promo-placeholder"><i class="icon ion-bag"></i></span>
+                  <?php endif; ?>
+                </figure>
+              </article>
+            <?php endforeach; ?>
           </div>
-          <div class="shop-promo-art" aria-hidden="true">
-            <?php if ($shopHeroProduct && org_shop_cover_url((string)($shopHeroProduct['cover_image_path'] ?? '')) !== ''): ?>
-              <span class="shop-promo-orb"></span>
-              <img src="<?= h(org_shop_cover_url((string)$shopHeroProduct['cover_image_path'])) ?>" alt="">
-            <?php else: ?>
-              <span class="shop-promo-placeholder"><i class="icon ion-bag"></i></span>
-            <?php endif; ?>
+          <div class="shop-promo-dots" role="tablist" aria-label="Promotion slides">
+            <?php foreach ($shopPromoSlides as $shopPromoIndex => $_slide): ?>
+              <button type="button" class="shop-promo-dot<?= $shopPromoIndex === 0 ? ' is-active' : '' ?>" data-shop-promo-dot="<?= (int)$shopPromoIndex ?>" aria-label="Go to slide <?= (int)$shopPromoIndex + 1 ?>"></button>
+            <?php endforeach; ?>
           </div>
-          <span class="shop-promo-dot is-active"></span><span class="shop-promo-dot"></span><span class="shop-promo-dot"></span>
         </section>
 
         <div class="shop-category-carousel">
@@ -626,10 +814,7 @@ if (!function_exists('shop_price_parts')) {
             );
             $cardTypeLabel = $productFacts['type_label'] !== '' ? $productFacts['type_label'] : $sellingType;
             $cardCondition = $productFacts['condition'];
-            $cardSpecBits = [];
-            foreach ($productFacts['highlight'] as $specRow) {
-                $cardSpecBits[] = $specRow['label'] . ': ' . $specRow['value'];
-            }
+            $cardSpecBits = shop_card_spec_bits($productFacts['highlight']);
             $deliveryBy = (new DateTimeImmutable('now'))->modify('+3 days')->format('F j');
             $cBrandName = trim((string)($p['commerce_brand_name'] ?? ''));
             $cBrandSlug = trim((string)($p['commerce_brand_slug'] ?? ''));
@@ -637,7 +822,7 @@ if (!function_exists('shop_price_parts')) {
             $cBrandIcon = trim((string)($p['commerce_brand_icon'] ?? ($cBrandName !== '' ? mb_substr($cBrandName, 0, 1) : '')));
             $productUrl = shop_product_detail_url($productId);
           ?>
-          <article class="shop-market-card">
+          <figure class="shop-market-card">
             <a href="<?= h($productUrl) ?>" class="shop-market-cover">
               <?php if ($cover !== ''): ?>
                 <img src="<?= h($cover) ?>" alt="<?= h((string)$p['title']) ?>">
@@ -645,7 +830,7 @@ if (!function_exists('shop_price_parts')) {
                 <span class="shop-market-cover-fallback"><i class="icon ion-bag"></i></span>
               <?php endif; ?>
             </a>
-            <div class="shop-market-body">
+            <figcaption class="shop-market-body">
               <!-- <?php if ($cBrandName !== '' && $cBrandSlug !== ''): ?>
                 <a href="<?= h(org_commerce_brands_shop_url($cBrandSlug)) ?>" class="shop-market-brand-pill" style="--shop-brand-accent: <?= h($cBrandColor) ?>">
                   <span class="shop-market-brand-pill-icon" aria-hidden="true"><?= h($cBrandIcon) ?></span>
@@ -724,25 +909,55 @@ if (!function_exists('shop_price_parts')) {
               <?php else: ?>
                 <button type="button" class="shop-market-add-cart" disabled>Out of stock</button>
               <?php endif; ?>
-            </div>
-          </article>
+            </figcaption>
+          </figure>
         <?php endforeach; ?>
       </div>
-      <nav class="shop-product-pagination" aria-label="Featured product pages">
-        <?php if ($shopProductPage > 1): ?>
-          <a class="shop-product-page-button" href="<?= h(shop_filter_build_url(['page' => $shopProductPage - 1]) . '#featuredProducts') ?>" rel="prev">Previous</a>
-        <?php else: ?>
-          <span class="shop-product-page-button is-disabled" aria-disabled="true">Previous</span>
-        <?php endif; ?>
-        <span class="shop-product-page-status">Page <?= (int)$shopProductPage ?> of <?= (int)$shopProductPageCount ?></span>
-        <?php if ($shopProductPage < $shopProductPageCount): ?>
-          <a class="shop-product-page-button" href="<?= h(shop_filter_build_url(['page' => $shopProductPage + 1]) . '#featuredProducts') ?>" rel="next">Next</a>
-        <?php else: ?>
-          <span class="shop-product-page-button is-disabled" aria-disabled="true">Next</span>
-        <?php endif; ?>
-      </nav>
     <?php endif; ?>
         </section>
+        <?php if ($products): ?>
+      <nav class="shop-product-pagination" aria-label="Featured product pages">
+        <div class="shop-product-pagination-pages">
+          <?php if ($shopProductPage > 1): ?>
+            <a class="shop-product-page-arrow" href="<?= h(shop_filter_build_url(['page' => $shopProductPage - 1]) . '#featuredProducts') ?>" rel="prev" aria-label="Previous page">‹</a>
+          <?php else: ?>
+            <span class="shop-product-page-arrow is-disabled" aria-disabled="true" aria-label="Previous page">‹</span>
+          <?php endif; ?>
+          <?php foreach ($shopVisiblePages as $shopPageNum): ?>
+            <?php if ((int)$shopPageNum === (int)$shopProductPage): ?>
+              <span class="shop-product-page-num is-active" aria-current="page"><?= (int)$shopPageNum ?></span>
+            <?php else: ?>
+              <a class="shop-product-page-num" href="<?= h(shop_filter_build_url(['page' => (int)$shopPageNum]) . '#featuredProducts') ?>"><?= (int)$shopPageNum ?></a>
+            <?php endif; ?>
+          <?php endforeach; ?>
+          <?php if ($shopProductPage < $shopProductPageCount): ?>
+            <a class="shop-product-page-arrow" href="<?= h(shop_filter_build_url(['page' => $shopProductPage + 1]) . '#featuredProducts') ?>" rel="next" aria-label="Next page">›</a>
+          <?php else: ?>
+            <span class="shop-product-page-arrow is-disabled" aria-disabled="true" aria-label="Next page">›</span>
+          <?php endif; ?>
+        </div>
+        <form class="shop-product-per-page" method="get" action="shop.php">
+          <?php foreach (['q','pickup','brand','cbrand','price','rating','type'] as $shopKeepKey): ?>
+            <?php $shopKeepVal = trim((string)($_GET[$shopKeepKey] ?? '')); ?>
+            <?php if ($shopKeepVal !== ''): ?>
+              <input type="hidden" name="<?= h($shopKeepKey) ?>" value="<?= h($shopKeepVal) ?>">
+            <?php endif; ?>
+          <?php endforeach; ?>
+          <label for="shopPerPage">Items Per Page</label>
+          <select id="shopPerPage" name="per_page" onchange="this.form.submit()">
+            <?php foreach ($shopPerPageOptions as $shopPerPageOpt): ?>
+              <option value="<?= (int)$shopPerPageOpt ?>"<?= (int)$shopPerPageOpt === (int)$shopProductsPerPage ? ' selected' : '' ?>><?= (int)$shopPerPageOpt ?></option>
+            <?php endforeach; ?>
+          </select>
+        </form>
+      </nav>
+        <?php endif; ?>
+      <section class="shop-service-strip" aria-label="Shopping benefits">
+        <div><i class="icon ion-android-car"></i><span><strong>Free Shipping</strong><small>On eligible orders</small></span></div>
+        <div><i class="icon ion-android-refresh"></i><span><strong>Easy Returns</strong><small>Simple return process</small></span></div>
+        <div><i class="icon ion-card"></i><span><strong>Secure Payments</strong><small>Protected checkout</small></span></div>
+        <div><i class="icon ion-help-buoy"></i><span><strong>Support</strong><small>We're here to help</small></span></div>
+      </section>
 
       </main>
 
@@ -784,13 +999,6 @@ if (!function_exists('shop_price_parts')) {
           <div><i class="icon ion-ios-heart-outline"></i><span><strong>Buyer Protection</strong><small>Help with order issues</small></span></div>
         </section>
       </aside>
-
-      <section class="shop-service-strip" aria-label="Shopping benefits">
-        <div><i class="icon ion-android-car"></i><span><strong>Free Shipping</strong><small>On eligible orders</small></span></div>
-        <div><i class="icon ion-android-refresh"></i><span><strong>Easy Returns</strong><small>Simple return process</small></span></div>
-        <div><i class="icon ion-card"></i><span><strong>Secure Payments</strong><small>Protected checkout</small></span></div>
-        <div><i class="icon ion-help-buoy"></i><span><strong>Support</strong><small>We're here to help</small></span></div>
-      </section>
     </div>
     </div>
     </div>
@@ -877,6 +1085,47 @@ if (!function_exists('shop_price_parts')) {
       panel.hidden = !isOpen;
     });
   });
+})();
+
+(function(){
+  const hero = document.getElementById('shopPromoHero');
+  if (!hero) return;
+  const slides = Array.from(hero.querySelectorAll('[data-shop-promo-slide]'));
+  const dots = Array.from(hero.querySelectorAll('[data-shop-promo-dot]'));
+  if (!slides.length) return;
+  let index = 0;
+  let timer = null;
+  const delay = 4500;
+  function show(next){
+    index = (next + slides.length) % slides.length;
+    slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
+    dots.forEach((dot, i) => dot.classList.toggle('is-active', i === index));
+  }
+  function stop(){
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+  function start(){
+    stop();
+    if (slides.length < 2) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    timer = setInterval(function(){ show(index + 1); }, delay);
+  }
+  dots.forEach(dot => {
+    dot.addEventListener('click', function(){
+      show(parseInt(dot.getAttribute('data-shop-promo-dot') || '0', 10));
+      start();
+    });
+  });
+  hero.addEventListener('mouseenter', stop);
+  hero.addEventListener('mouseleave', start);
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) stop();
+    else start();
+  });
+  start();
 })();
 </script>
 </body>

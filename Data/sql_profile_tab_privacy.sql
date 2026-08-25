@@ -1,0 +1,4 @@
+-- Profile Tags / About / Saved tab privacy.
+-- Already on live (show_tags_tab, show_about_tab, show_saved_tab).
+-- Do not run ADD COLUMN here: Hostinger returns #1060 duplicate column.
+-- PHP also adds these columns if they are missing. Nothing to import.

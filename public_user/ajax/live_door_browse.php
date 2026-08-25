@@ -15,26 +15,48 @@ $meId = (int)($_SESSION['user_id'] ?? 0);
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
 }
-$hubSurface = live_browse_hub_surface($_GET['hub_surface'] ?? null);
-$hubDoor = strtolower(trim((string)($_GET['hub_door'] ?? '')));
-if (!in_array($hubDoor, ['left', 'right'], true)) {
-    $hubDoor = '';
-}
-$payload = live_browse_hub_payload($dbh, $meId, 50, $hubSurface, $hubDoor !== '' ? $hubDoor : null);
 
-echo json_encode([
+$empty = [
     'ok' => true,
-    'lives' => $payload['lives'],
-    'public_lives' => $payload['public_lives'],
-    'friend_lives' => $payload['friend_lives'],
-    'browse_lives' => $payload['browse_lives'],
-    'chat_lives' => $payload['chat_lives'],
-    'featured' => $payload['featured'],
-    'own_live_id' => $payload['own_live_id'],
-    'hub_surface' => $payload['hub_surface'],
-    'fingerprint' => $payload['fingerprint'],
-    'public_fingerprint' => $payload['public_fingerprint'],
-    'friend_fingerprint' => $payload['friend_fingerprint'],
-    'browse_fingerprint' => $payload['browse_fingerprint'],
-    'chat_fingerprint' => $payload['chat_fingerprint'],
-], JSON_UNESCAPED_SLASHES);
+    'lives' => [],
+    'public_lives' => [],
+    'friend_lives' => [],
+    'browse_lives' => [],
+    'chat_lives' => [],
+    'featured' => null,
+    'own_live_id' => 0,
+    'hub_surface' => 'public',
+    'fingerprint' => '',
+    'public_fingerprint' => '',
+    'friend_fingerprint' => '',
+    'browse_fingerprint' => '',
+    'chat_fingerprint' => '',
+];
+
+try {
+    $hubSurface = live_browse_hub_surface($_GET['hub_surface'] ?? null);
+    $hubDoor = strtolower(trim((string)($_GET['hub_door'] ?? '')));
+    if (!in_array($hubDoor, ['left', 'right'], true)) {
+        $hubDoor = '';
+    }
+    $payload = live_browse_hub_payload($dbh, $meId, 50, $hubSurface, $hubDoor !== '' ? $hubDoor : null);
+    echo json_encode([
+        'ok' => true,
+        'lives' => $payload['lives'],
+        'public_lives' => $payload['public_lives'],
+        'friend_lives' => $payload['friend_lives'],
+        'browse_lives' => $payload['browse_lives'],
+        'chat_lives' => $payload['chat_lives'],
+        'featured' => $payload['featured'],
+        'own_live_id' => $payload['own_live_id'],
+        'hub_surface' => $payload['hub_surface'],
+        'fingerprint' => $payload['fingerprint'],
+        'public_fingerprint' => $payload['public_fingerprint'],
+        'friend_fingerprint' => $payload['friend_fingerprint'],
+        'browse_fingerprint' => $payload['browse_fingerprint'],
+        'chat_fingerprint' => $payload['chat_fingerprint'],
+    ], JSON_UNESCAPED_SLASHES);
+} catch (Throwable $e) {
+    $empty['ok'] = false;
+    echo json_encode($empty, JSON_UNESCAPED_SLASHES);
+}

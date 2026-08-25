@@ -328,7 +328,8 @@ $iconFries = post_card_menu_fries_icon_html();
       z-index:5;
       color:#fff !important;
       -webkit-text-fill-color:#fff !important;
-      font-size:14px;
+      font-size:12px;
+      font-weight:400;
       line-height:1.4;
       text-shadow:0 1px 3px rgba(0,0,0,.75), 0 0 1px rgba(0,0,0,.5);
       pointer-events:auto;
@@ -472,6 +473,12 @@ $iconFries = post_card_menu_fries_icon_html();
       text-shadow:var(--msb-pact-contrast-text-shadow, 0 0 2px rgba(255,255,255,.95), 0 1px 2px rgba(0,0,0,.5));
       min-height:13px;
       text-align:center;
+    }
+    .reel-act-count.js-open-reactors,
+    .reel-act-count[data-count="love"],
+    .reel-act-count[data-count="share"],
+    .reel-act-count[data-count="save"]{
+      cursor:pointer;
     }
 
     .reel-jump{
@@ -1632,12 +1639,10 @@ $iconFries = post_card_menu_fries_icon_html();
             '</div>'+
           '</div>'+
           '<div class="reel-right" aria-label="Reel actions">'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="love" aria-label="Love">'+ICON.heart+'</button><span class="reel-act-count" data-count="love">0</span></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="love" aria-label="Love">'+ICON.heart+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="love" data-count="love" role="button" tabindex="0" aria-label="See who reacted">0</span></div>'+
             '<div class="reel-act-wrap"><button type="button" class="reel-act js-open-comments" data-act="comment" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Comment">'+ICON.comment+'</button><span class="reel-act-count" data-count="comment">0</span></div>'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="share" aria-label="Share">'+ICON.share+'</button><span class="reel-act-count" data-count="share">0</span></div>'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="save" aria-label="Save">'+ICON.bookmark+'</button><span class="reel-act-count" data-count="save">0</span></div>'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="stitch" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Stitch" title="Stitch">St</button></div>'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="duet" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Duet" title="Duet">Du</button></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="share" aria-label="Share">'+ICON.share+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="share" data-count="share" role="button" tabindex="0" aria-label="See who shared">0</span></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="save" aria-label="Favorite">'+ICON.bookmark+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="save" data-count="save" role="button" tabindex="0" aria-label="See who favorited">0</span></div>'+
           '</div>'+
         '</div>';
 
@@ -1898,6 +1903,7 @@ $iconFries = post_card_menu_fries_icon_html();
         return;
       }
       if(t.closest('.js-open-readmore, .see-more')) return;
+      if(t.closest('.js-open-reactors, .reel-act-count[data-count="love"], .reel-act-count[data-count="share"], .reel-act-count[data-count="save"]')) return;
       var actBtn = t.closest('[data-act]');
       if(actBtn){
         var act = actBtn.getAttribute('data-act');
@@ -2033,8 +2039,8 @@ $iconFries = post_card_menu_fries_icon_html();
                 var savedNow = Number(it.my_saved || 0) === 1;
                 if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
                   window.MSBPostCardMenu.toast(savedNow
-                    ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
-                    : 'Removed from Bookmarks.');
+                    ? 'Added to Favorites. Find it in Settings → Favorites.'
+                    : 'Removed from Favorites.');
                 }
               }catch(_toastErr){}
             }).catch(function(){
@@ -2204,29 +2210,64 @@ $iconFries = post_card_menu_fries_icon_html();
     fetch(API + '?ajax=list&filter=all&page=public&limit=80&exclude_stories=1&order=created&media=video', { credentials:'same-origin' })
       .then(function(r){ return r.json(); })
       .then(function(res){
-        loadingEl.hidden = true;
         var list = (res && res.ok && Array.isArray(res.items)) ? res.items : [];
         items = sortNewestVideosFirst(list.filter(isVideoItem));
         if (viewerIsPublisher) {
-          // Publishers only watch other publishers' reels — never personal-user videos.
           items = items.filter(function(it){
             return Number(it.is_publisher || 0) === 1
               || String(it.account_kind || '').toLowerCase() === 'publisher';
           });
         }
-        if(!items.length){
-          loadingEl.hidden = false;
-          loadingEl.textContent = 'No videos yet';
+        var want = 0;
+        try{ want = Number((new URL(window.location.href)).searchParams.get('post') || 0); }catch(eW){ want = 0; }
+        function startTheater(){
+          loadingEl.hidden = true;
+          if(!items.length){
+            loadingEl.hidden = false;
+            loadingEl.textContent = 'No videos yet';
+            return;
+          }
+          rebuildSlides(resolveStartIndex());
+          try{
+            var nextUrl = new URL(window.location.href);
+            if(nextUrl.searchParams.has('post')){
+              nextUrl.searchParams.delete('post');
+              history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
+            }
+          }catch(eClear){}
+        }
+        function mapViewItem(resView){
+          var post = (resView && resView.post) ? resView.post : null;
+          if(!post) return null;
+          var atts = Array.isArray(resView.attachments) ? resView.attachments : [];
+          var video = null;
+          for(var i = 0; i < atts.length; i += 1){
+            if(String(atts[i].type || '').toLowerCase() === 'video'){ video = atts[i]; break; }
+          }
+          if(!video) return null;
+          var vType = String(video.type || '').toLowerCase();
+          var vPath = String(video.file_path || post.preview_path || '').replace(/^public_user\//, '');
+          if(vType === 'image' || vType === 'gif' || vType === 'file') return null;
+          if(vType !== 'video' && !/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(vPath)) return null;
+          post.preview_path = vPath;
+          post.preview_type = 'video';
+          return post;
+        }
+        var already = items.some(function(it){ return Number(it.id || 0) === want; });
+        if(want > 0 && !already){
+          fetch(API + '?ajax=view&id=' + encodeURIComponent(String(want)), { credentials:'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(one){
+              var mapped = (one && one.ok) ? mapViewItem(one) : null;
+              if(mapped && isVideoItem(mapped)){
+                items = [mapped].concat(items.filter(function(it){ return Number(it.id || 0) !== Number(mapped.id || 0); }));
+              }
+              startTheater();
+            })
+            .catch(startTheater);
           return;
         }
-        rebuildSlides(resolveStartIndex());
-        try{
-          var nextUrl = new URL(window.location.href);
-          if(nextUrl.searchParams.has('post')){
-            nextUrl.searchParams.delete('post');
-            history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
-          }
-        }catch(eClear){}
+        startTheater();
       })
       .catch(function(){
         loadingEl.hidden = false;

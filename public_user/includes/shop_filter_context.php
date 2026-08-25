@@ -164,7 +164,7 @@ if (!function_exists('shop_filter_build_url')) {
     function shop_filter_build_url(array $overrides = [], array $remove = []): string
     {
         global $shopSearchQ, $shopFilterPickup, $shopFilterBrand, $shopFilterCommerceBrand;
-        global $shopFilterPrice, $shopFilterRating, $shopFilterType;
+        global $shopFilterPrice, $shopFilterRating, $shopFilterType, $shopProductsPerPage;
 
         $params = [
             'q' => $shopSearchQ ?? '',
@@ -174,6 +174,7 @@ if (!function_exists('shop_filter_build_url')) {
             'price' => (string)($shopFilterPrice ?? ''),
             'rating' => (string)($shopFilterRating ?? ''),
             'type' => (string)($shopFilterType ?? ''),
+            'per_page' => (string)($shopProductsPerPage ?? ''),
         ];
 
         foreach ($remove as $key) {

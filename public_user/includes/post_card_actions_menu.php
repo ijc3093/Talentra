@@ -235,7 +235,7 @@ function post_card_actions_common_menu_items_html(array $ctx): string
 
     $items[] = post_card_actions_button_item(
         'pcm-bookmark' . ($isSaved ? ' is-active' : ''),
-        'Bookmark',
+        'Favorite',
         $isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o',
         [
             'data-post-id' => (string)$postId,

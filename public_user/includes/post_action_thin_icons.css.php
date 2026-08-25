@@ -192,6 +192,7 @@ body.profile-page #profilePostsFeed .mf-act .mf-num,
 .post.public-post-card .action-btn .action-count,
 .post.public-post-card .reel-inline-btn .action-count,
 .post.public-post-card .public-live-action-btn .action-count,
+.post.public-post-card .msb-react-cluster .action-count,
 body.reel-page .reel-act-count{
   text-shadow:var(--msb-pact-contrast-text-shadow) !important;
 }
@@ -204,6 +205,7 @@ html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act:not(.is-lo
 html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted),
 html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .msb-pact,
 html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .standard-text-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .action-count,
+html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .msb-react-cluster .action-count,
 html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted),
 html[data-msb-appearance] .post.public-post-card:not(.is-reel-post) .action-btn:not(.is-love):not(.is-like):not(.is-save):not(.is-share):not(.is-reacted) .msb-pact{
   color:var(--msb-palette-text, #0f172a) !important;

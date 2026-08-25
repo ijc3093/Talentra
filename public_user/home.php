@@ -25,6 +25,9 @@ if (!defined('MSB_HOME_BOOTSTRAP')) {
 if (!defined('MSB_HOME_TAB')) {
     define('MSB_HOME_TAB', $internalTab);
 }
+if (!defined('MSB_HOME_PAGE')) {
+    define('MSB_HOME_PAGE', true);
+}
 
 $entry = home_entry_script($internalTab);
 // All home tabs (including For You) render through public.php so tab clicks can

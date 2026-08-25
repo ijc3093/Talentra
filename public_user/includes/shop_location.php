@@ -250,14 +250,19 @@ if (!function_exists('shop_location_geocode_query')) {
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
             if ($ch !== false) {
-                curl_setopt_array($ch, [
+                $opts = [
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT => 6,
+                    CURLOPT_CONNECTTIMEOUT => 5,
                     CURLOPT_HTTPHEADER => [
                         'Accept: application/json',
                         'User-Agent: myStoryBook-ShopLocation/1.0',
                     ],
-                ]);
+                ];
+                if (defined('CURL_IPRESOLVE_V4')) {
+                    $opts[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+                }
+                curl_setopt_array($ch, $opts);
                 $raw = curl_exec($ch);
                 curl_close($ch);
                 if (is_string($raw) && $raw !== '') {

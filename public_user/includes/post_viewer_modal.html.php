@@ -40,12 +40,21 @@ if (!function_exists('post_action_thin_icon')) {
 
       <div class="pv-actions">
         <div class="pv-actrow">
-          <button type="button" class="pv-act pv-act-love js-react-love" id="pvLove" title="Love" aria-label="Love"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('heart') : '<i class="icon ion-heart"></i>' ?><span class="pv-n" id="pvLoveN">0</span></button>
-          <button type="button" class="pv-act pv-act-like" id="pvLike" title="Like" aria-label="Like" hidden><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('thumb') : '<i class="icon ion-thumbsup"></i>' ?><span class="pv-n" id="pvLikeN">0</span></button>
+          <span class="msb-react-cluster">
+            <button type="button" class="pv-act pv-act-love js-react-love" id="pvLove" title="Love" aria-label="Love"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('heart') : '<i class="icon ion-heart"></i>' ?></button>
+            <span class="pv-n js-open-reactors" id="pvLoveN" data-rx-tab="love" role="button" tabindex="0" aria-label="See who reacted">0</span>
+          </span>
+          <button type="button" class="pv-act pv-act-like" id="pvLike" title="Like" aria-label="Like" hidden><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('thumb') : '<i class="icon ion-thumbsup"></i>' ?><span class="pv-n js-open-reactors" id="pvLikeN" data-rx-tab="like">0</span></button>
           <button type="button" class="pv-act pv-act-comment" id="pvComment" title="Comment" aria-label="Comment"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('comment') : '<i class="icon ion-chatbubble"></i>' ?><span class="pv-n" id="pvComN">0</span></button>
-          <button type="button" class="pv-act pv-act-share js-share-post" id="pvShare" title="Share" aria-label="Share"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('share') : '<i class="icon ion-forward"></i>' ?><span class="pv-n" id="pvShareN">0</span></button>
+          <span class="msb-react-cluster">
+            <button type="button" class="pv-act pv-act-share js-share-post" id="pvShare" title="Share" aria-label="Share"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('share') : '<i class="icon ion-forward"></i>' ?></button>
+            <span class="pv-n js-open-reactors" id="pvShareN" data-rx-tab="share" role="button" tabindex="0" aria-label="See who shared">0</span>
+          </span>
           <div class="pv-sp"></div>
-          <button type="button" class="pv-act pv-act-save js-save-post" id="pvSave" title="Save" aria-label="Save"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('bookmark') : '<i class="icon ion-bookmark"></i>' ?><span class="pv-n" id="pvSaveN">0</span></button>
+          <span class="msb-react-cluster">
+            <button type="button" class="pv-act pv-act-save js-save-post" id="pvSave" title="Favorite" aria-label="Favorite"><?= function_exists('post_action_thin_icon') ? post_action_thin_icon('bookmark') : '<i class="icon ion-bookmark"></i>' ?></button>
+            <span class="pv-n js-open-reactors" id="pvSaveN" data-rx-tab="save" role="button" tabindex="0" aria-label="See who favorited">0</span>
+          </span>
         </div>
         <div class="pv-counts" hidden aria-hidden="true">
           <span class="pv-c" title="Views"><i class="icon ion-eye"></i> <b id="pvViewN">0</b></span>
@@ -161,16 +170,16 @@ if (!function_exists('post_action_thin_icon')) {
   .pv-caption{border-bottom:1px solid rgba(15,23,42,.08);padding:10px 14px;max-height:140px;overflow:auto;}
   .pv-cap{font-size:13px;line-height:1.35;color:#0f172a;word-break:break-word;}
   .pv-cap-title{font-size:14px;font-weight:700;line-height:1.25;margin-bottom:6px;}
-  .pv-cap-desc{font-size:13px;line-height:1.45;}
+  .pv-cap-desc{font-size:12px;font-weight:400;line-height:1.45;}
   .pv-cap-subtitle{font-size:13px;font-weight:700;line-height:1.3;margin:10px 0 6px;color:inherit;}
-  .pv-cap-summary{font-size:13px;line-height:1.45;opacity:.95;}
+  .pv-cap-summary{font-size:12px;font-weight:400;line-height:1.45;opacity:.95;}
   .pv-cap-summary .post-slide-summary-p{margin:0}
   .pv-cap-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
   .pv-cap-summary .post-slide-summary-list li{margin:0 0 .35em}
   .pv-cap-short,.pv-cap-full{white-space:normal;word-break:break-word;}
   .pv-cap[data-expanded="1"] .pv-cap-desc{max-height:220px;overflow:auto;padding-right:6px;}
   .pv-cap b{font-weight:800;}
-  .pv-media-text{white-space:normal;word-break:break-word;}
+  .pv-media-text{white-space:normal;word-break:break-word;font-size:12px;font-weight:400;line-height:1.45;}
   .pv-media-text[data-expanded="1"]{max-height:min(58vh, 420px);overflow:auto;padding-right:8px;}
   .pv-readmore{margin-left:6px;font-weight:800;color:var(--msb-palette-text, #0b1220);cursor:pointer;white-space:nowrap;}
   .pv-readmore:hover{text-decoration:underline;}
@@ -194,10 +203,13 @@ if (!function_exists('post_action_thin_icon')) {
   .pv-com .m .pv-toggle-replies::before{content:"";position:absolute;left:0;top:50%;width:22px;height:1px;background:var(--pv-thread);transform:translateY(-50%);}
   .pv-actions{border-top:1px solid rgba(15,23,42,.08);padding:10px 12px 12px;}
   .pv-actrow{display:flex;align-items:center;gap:14px;}
+  .pv-actrow .msb-react-cluster{display:inline-flex;align-items:center;gap:6px;}
   .pv-act{border:0;background:transparent;display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;cursor:pointer;color:#111827;padding:0;}
   .pv-act i{font-size:16px;line-height:1;}
   .pv-act .msb-pact{width:16px;height:16px;flex:0 0 auto;}
-  .pv-act .pv-n{font-size:12px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;}
+  .pv-act .pv-n,
+  .pv-actrow .pv-n{font-size:12px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;cursor:default;}
+  .pv-actrow .pv-n.js-open-reactors{cursor:pointer;}
   .pv-sp{flex:1;}
   .pv-counts{display:none !important;}
   .pv-act.is-love{color:var(--msb-love-color, #ff4d6d);}

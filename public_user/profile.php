@@ -29,8 +29,14 @@ require_once __DIR__ . '/includes/user_phone.php';
 require_once __DIR__ . '/includes/publisher_authority.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_tags.php';
+require_once __DIR__ . '/includes/device_profile.php';
+require_once __DIR__ . '/includes/bookmark_posts.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
+require_once __DIR__ . '/includes/user_backgrounds.php';
+require_once __DIR__ . '/includes/profile_people_tags.php';
+require_once __DIR__ . '/includes/account_switch.php';
+require_once __DIR__ . '/includes/profile_cover_slides.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
 ensurePostCategorySchema($dbh);
@@ -136,7 +142,7 @@ if (!function_exists('profile_format_registration_birthday')) {
   function profile_format_registration_birthday(string $birthdayIso): string
   {
     $birthdayIso = trim($birthdayIso);
-    if ($birthdayIso === '') {
+    if ($birthdayIso === '' || str_starts_with($birthdayIso, '0000-00-00')) {
       return '';
     }
 
@@ -396,9 +402,203 @@ if (!function_exists('profile_gear_row_value_label')) {
   }
 }
 
-if (!function_exists('profile_gear_render_detail_action')) {
-  function profile_gear_render_detail_action(array $row, array $profileSettings, string $themeAutoDefault): void
+if (!function_exists('profile_gear_render_danger_zone')) {
+  function profile_gear_render_danger_zone(array $profileSettings, bool $isPublisher): void
   {
+    $allowDownload = !empty($profileSettings['allow_download_data']);
+    $allowDeactivate = !empty($profileSettings['allow_deactivate_account']);
+    $allowDelete = !empty($profileSettings['allow_delete_account']);
+    $allowLogoutAll = !empty($profileSettings['allow_logout_all_devices']);
+    $staffHref = $isPublisher ? 'publisher_org_portal.php' : 'manage_devices.php';
+    $staffTitle = $isPublisher ? 'Remove staff access' : 'Remove device access';
+    $staffDesc = $isPublisher
+      ? 'Permanently remove a staff member\'s access to this publisher workspace.'
+      : 'Revoke other browsers and devices so they can no longer use this account.';
+    $staffBullets = $isPublisher
+      ? ['They will no longer open this publisher workspace', 'Their own personal account is not deleted', 'You can invite them again later']
+      : ['Other sessions are signed out immediately', 'This device can stay signed in', 'You can sign in again from any device'];
+    $staffBtn = $isPublisher ? 'Manage staff access' : 'Manage devices';
+    ?>
+    <div class="dz-wrap">
+      <p class="dz-lead">Irreversible or high-impact actions for this account. Proceed with caution.</p>
+
+      <article class="dz-card">
+        <div class="dz-ico" aria-hidden="true"><i class="icon ion-trash-a"></i></div>
+        <div class="dz-copy">
+          <h4>Delete account</h4>
+          <p>Permanently remove this account and its data. This cannot be undone.</p>
+          <ul>
+            <li>Your profile, About Me, and settings</li>
+            <li>Posts, comments, friends, and messages tied to this account</li>
+            <li>Shop orders and publisher workspace links, if you have them</li>
+          </ul>
+        </div>
+        <div class="dz-actions">
+          <?php if ($allowDelete): ?>
+            <a class="dz-btn" href="account_tools.php?action=delete">Delete account</a>
+            <span class="dz-hint">Type DELETE on the next page to confirm</span>
+          <?php else: ?>
+            <span class="dz-off">Turned off in Account</span>
+          <?php endif; ?>
+        </div>
+      </article>
+
+      <article class="dz-card">
+        <div class="dz-ico" aria-hidden="true"><i class="icon ion-person"></i></div>
+        <div class="dz-copy">
+          <h4><?php echo h($staffTitle); ?></h4>
+          <p><?php echo h($staffDesc); ?></p>
+          <ul>
+            <?php foreach ($staffBullets as $b): ?><li><?php echo h($b); ?></li><?php endforeach; ?>
+          </ul>
+        </div>
+        <div class="dz-actions">
+          <?php if ($isPublisher || $allowLogoutAll): ?>
+            <a class="dz-btn" href="<?php echo h($staffHref); ?>"><?php echo h($staffBtn); ?></a>
+            <?php if (!$isPublisher): ?>
+              <a class="dz-btn dz-btn-ghost" href="account_tools.php?action=logout_all">Logout all devices</a>
+            <?php endif; ?>
+          <?php else: ?>
+            <span class="dz-off">Turned off in Account</span>
+          <?php endif; ?>
+        </div>
+      </article>
+
+      <article class="dz-card">
+        <div class="dz-ico" aria-hidden="true"><i class="icon ion-archive"></i></div>
+        <div class="dz-copy">
+          <h4>Export account data</h4>
+          <p>Download a copy of your profile, About details, settings, and post summary as JSON.</p>
+          <ul>
+            <li>Includes profile, About Me, Gear settings, and posts</li>
+            <li>File is ready in the browser as soon as you click</li>
+            <li>Keep a backup before you deactivate or delete</li>
+          </ul>
+        </div>
+        <div class="dz-actions">
+          <?php if ($allowDownload): ?>
+            <a class="dz-btn" href="account_tools.php?action=download">Export data</a>
+          <?php else: ?>
+            <span class="dz-off">Turned off in Account</span>
+          <?php endif; ?>
+        </div>
+      </article>
+
+      <article class="dz-card">
+        <div class="dz-ico" aria-hidden="true"><i class="icon ion-refresh"></i></div>
+        <div class="dz-copy">
+          <h4>Reset account settings</h4>
+          <p>Reset Gear privacy, notifications, and appearance to defaults. Posts and friends are not deleted.</p>
+          <ul>
+            <li>Privacy, tabs, notifications, and appearance return to defaults</li>
+            <li>Your posts, friends, and media stay</li>
+            <li>You will need to set Appearance and privacy again</li>
+          </ul>
+        </div>
+        <div class="dz-actions">
+          <a class="dz-btn" href="account_tools.php?action=reset_settings">Reset settings</a>
+          <span class="dz-hint">Type RESET on the next page to confirm</span>
+        </div>
+      </article>
+
+      <article class="dz-card">
+        <div class="dz-ico" aria-hidden="true"><i class="icon ion-close-circled"></i></div>
+        <div class="dz-copy">
+          <h4>Deactivate account</h4>
+          <p>Temporarily close this account. You will be signed out. Log in later to reopen it with admin help if needed.</p>
+          <ul>
+            <li>The profile is paused and hidden from normal use</li>
+            <li>Posts and data are kept</li>
+            <li>You can return after support reactivates you, or by signing in if status is restored</li>
+          </ul>
+        </div>
+        <div class="dz-actions">
+          <?php if ($allowDeactivate): ?>
+            <a class="dz-btn" href="account_tools.php?action=deactivate">Deactivate account</a>
+            <span class="dz-hint">Type DEACTIVATE on the next page to confirm</span>
+          <?php else: ?>
+            <span class="dz-off">Turned off in Account</span>
+          <?php endif; ?>
+        </div>
+      </article>
+
+      <div class="dz-foot" role="note">
+        <i class="icon ion-alert-circled" aria-hidden="true"></i>
+        <span>These actions can lock you out or remove data. Export a copy first if you need a backup.</span>
+      </div>
+    </div>
+    <?php
+  }
+}
+
+if (!function_exists('profile_gear_render_account_switch')) {
+  function profile_gear_render_account_switch(array $row): void
+  {
+    $accounts = (array)($row['accounts'] ?? []);
+    $staffBlocked = !empty($row['staff_blocked']);
+    $csrf = csrfToken();
+    if ($staffBlocked) {
+      ?>
+      <p class="as-lead">You are in a staff publisher session. Switch accounts from a personal or owner login.</p>
+      <?php
+      return;
+    }
+    ?>
+    <div class="as-wrap">
+      <p class="as-lead">Keep more than one account on this device — personal, publisher, or commerce — and switch without signing the others out of the list.</p>
+      <?php if (empty($accounts)): ?>
+        <p class="as-empty">This account is ready. Add another login to switch between them.</p>
+      <?php endif; ?>
+      <ul class="as-list">
+        <?php foreach ($accounts as $acc): ?>
+          <?php
+            $aid = (int)($acc['id'] ?? 0);
+            $aname = trim((string)($acc['name'] ?? ''));
+            $auser = trim((string)($acc['username'] ?? ''));
+            $akind = trim((string)($acc['kind'] ?? 'Personal'));
+            $current = !empty($acc['current']);
+            $av = 'avatar.php?u=' . $aid . '&name=' . rawurlencode($aname !== '' ? $aname : $auser);
+          ?>
+          <li class="as-row<?php echo $current ? ' is-current' : ''; ?>">
+            <img class="as-avatar" src="<?php echo h($av); ?>" alt="" width="40" height="40">
+            <div class="as-copy">
+              <div class="as-name"><?php echo h($aname !== '' ? $aname : $auser); ?></div>
+              <div class="as-meta"><?php echo h($akind); ?><?php echo $auser !== '' ? ' · @' . h($auser) : ''; ?></div>
+            </div>
+            <?php if ($current): ?>
+              <span class="as-using">Using now</span>
+            <?php else: ?>
+              <button type="button" class="as-btn js-account-switch" data-user-id="<?php echo (int)$aid; ?>" data-csrf="<?php echo h($csrf); ?>">Switch</button>
+            <?php endif; ?>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+      <div class="as-add">
+        <div class="as-add-title">Add another account</div>
+        <p class="as-add-copy">Sign in or create a second account. It stays linked on this device so you can switch later.</p>
+        <div class="as-add-row">
+          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;account_type=personal">Add personal</a>
+          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;account_type=publisher">Add publisher</a>
+          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;account_type=commerce">Add commerce</a>
+          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;view=register&amp;account_type=personal">Create new</a>
+        </div>
+      </div>
+    </div>
+    <?php
+  }
+}
+
+if (!function_exists('profile_gear_render_detail_action')) {
+  function profile_gear_render_detail_action(array $row, array $profileSettings, string $themeAutoDefault, bool $isPublisher = false): void
+  {
+    if (trim((string)($row['layout'] ?? '')) === 'danger_zone') {
+      profile_gear_render_danger_zone($profileSettings, $isPublisher);
+      return;
+    }
+    if (trim((string)($row['layout'] ?? '')) === 'account_switch') {
+      profile_gear_render_account_switch($row);
+      return;
+    }
     $href = trim((string)($row['href'] ?? ''));
     $isLink = $href !== '';
     $field = trim((string)($row['field'] ?? ''));
@@ -532,14 +732,14 @@ if (!function_exists('profile_load_user_mobile')) {
 $profileUserRow = [];
 try {
   $row = [];
-  if ($reqFriendCode !== '') {
+  if ($reqId > 0) {
+    $row = profileFetchUserRow($dbh, "id = :id", [':id' => $reqId]);
+  }
+  if (!$row && $reqFriendCode !== '') {
     $row = profileFetchUserRow($dbh, "UPPER(TRIM(COALESCE(friend_code, ''))) = :friend_code", [':friend_code' => $reqFriendCode]);
   }
   if (!$row && $reqUsername !== '') {
-    $row = profileFetchUserRow($dbh, "TRIM(COALESCE(username, '')) = :username", [':username' => $reqUsername]);
-  }
-  if (!$row && $reqId > 0) {
-    $row = profileFetchUserRow($dbh, "id = :id", [':id' => $reqId]);
+    $row = profileFetchUserRow($dbh, "LOWER(TRIM(COALESCE(username, ''))) = LOWER(:username)", [':username' => $reqUsername]);
   }
   if (!$row && !$requestedPeer && $meId > 0) {
     $row = profileFetchUserRow($dbh, "id = :id", [':id' => $meId]);
@@ -668,283 +868,10 @@ $canViewProfilePrivateContact = !$profileIsPublisher || $canManageProfilePrivate
 $fromLivePublic = (string)($_GET['from_live_public'] ?? '') === '1';
 $restrictedLiveView = (string)($_GET['restricted_live_view'] ?? '') === '1';
 $liveVisitorMode = (!$isOwnProfile && $fromLivePublic && $restrictedLiveView && $friendStatus !== 'friends');
-$selectedTab = strtolower(trim((string)($_GET['tab'] ?? 'posts')));
-if ($selectedTab === 'tagged') {
-  $selectedTab = 'tags';
-}
-$galleryVisParam = strtolower(trim((string)($_GET['gallery_vis'] ?? '')));
-if (!in_array($galleryVisParam, ['private', 'friends', 'public'], true)) {
-  $galleryVisParam = '';
-}
-if ($galleryVisParam !== '' && $selectedTab !== 'gallery') {
-  $selectedTab = 'gallery';
-}
-$profileContentTabs = ['gallery', 'posts', 'tags', 'about', 'preserve', 'gear'];
-if (!empty($profileHasShop)) {
-  array_splice($profileContentTabs, 3, 0, ['shop']); // after tags
-}
-if (!in_array($selectedTab, $profileContentTabs, true)) {
-  $selectedTab = 'posts';
-}
-if ($liveVisitorMode && !in_array($selectedTab, ['gallery', 'posts', 'tags', 'about', 'shop'], true)) {
-  $selectedTab = 'posts';
-}
-if (!$canManageProfilePrivate && in_array($selectedTab, ['gear', 'preserve'], true)) {
-  $selectedTab = 'posts';
-}
-$showUpdated = isset($_GET['updated']) && (string)$_GET['updated'] === '1';
-$showPeerNotFound = ($requestedPeer && !$peerFound);
-$displayName = trim($me['name']) !== '' ? $me['name'] : ($me['username'] !== '' ? $me['username'] : ($isOwnProfile ? 'My Profile' : 'Profile'));
-require_once __DIR__ . '/includes/account_display_helpers.php';
-$profileNameParts = account_display_name_parts($displayName, $profileIsPublisher, $dbh);
-$profileDisplayName = (string)$profileNameParts['display_name'];
-$profileAccountBadge = (string)$profileNameParts['badge'];
-$username    = trim($me['username']);
-$avatarUrl = 'avatar.php?u=' . (int)$viewId . '&name=' . rawurlencode($displayName);
-if ($canViewProfilePrivateContact) {
-  $avatarUrl .= '&email=' . rawurlencode($me['email']) . '&friend_code=' . rawurlencode($me['friend_code']);
-}
-$profileHandleLabel = $username !== ''
-  ? ('@' . $username)
-  : ($canViewProfilePrivateContact && trim($me['friend_code']) !== '' ? trim($me['friend_code']) : 'Profile');
-
-$joinedLabel = '—';
-if (trim($me['created_at']) !== '') {
-  $t = strtotime($me['created_at']);
-  if ($t) $joinedLabel = date('F Y', $t);
-}
-
-$about = [
-  'pronouns' => '',
-  'born_in' => '',
-  'lives_in' => '',
-  'birthday' => '',
-  'relationship_status' => '',
-  'languages' => '',
-  'family_details' => '',
-  'education_history' => '',
-  'work_details' => '',
-  'hobbies' => '',
-  'social_facebook' => '',
-  'social_instagram' => '',
-  'social_x' => '',
-  'social_linkedin' => '',
-  'about_text' => '',
-];
-$hasBackgroundTable = false;
-try {
-  $chk = $dbh->query("SHOW TABLES LIKE 'user_backgrounds'");
-  $hasBackgroundTable = (bool)($chk && $chk->fetchColumn());
-} catch (Throwable $e) {
-  $hasBackgroundTable = false;
-}
-if ($hasBackgroundTable && $viewId > 0) {
-  try {
-    $st = $dbh->prepare("SELECT pronouns, born_in, lives_in, birthday, relationship_status, languages, family_details, education_history, work_details, hobbies, social_facebook, social_instagram, social_x, social_linkedin, about_text FROM user_backgrounds WHERE user_id = :uid LIMIT 1");
-    $st->execute([':uid' => $viewId]);
-    $bg = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-    foreach ($about as $k => $v) {
-      if (array_key_exists($k, $bg)) $about[$k] = trim((string)$bg[$k]);
-    }
-  } catch (Throwable $e) {}
-}
-
-$profileRegistration = ($viewId > 0)
-  ? profile_load_registration_fields($dbh, $viewId)
-  : ['birthday' => '', 'mobile' => '', 'policy_label' => '', 'age_label' => '', 'policy_agreed' => false, 'age_confirmed' => false];
-$profileBirthdayValue = !$profileIsPublisher && trim((string)$profileRegistration['birthday']) !== ''
-  ? trim((string)$profileRegistration['birthday'])
-  : trim((string)$about['birthday']);
-$profileShowRegistrationAbout = $canManageProfilePrivate && $viewId > 0;
-$profilePublisherApproval = ($profileIsPublisher && $viewId > 0)
-  ? profile_load_publisher_approval_fields($dbh, $displayName)
-  : null;
-$profileRegistrationAboutCards = $profileShowRegistrationAbout
-  ? profile_build_registration_about_cards($profileRegistration, !$profileIsPublisher, $profilePublisherApproval)
-  : [];
-$profilePhoneNeedsFix = false;
-if ($canManageProfilePrivate && !$profileIsPublisher && $viewId > 0 && user_phone_repair_invalid_mobile($dbh, $viewId, $profileUserRow)) {
-  $profileUserRow['mobile'] = '';
-  $me['mobile'] = '';
-  $profileRegistration = profile_load_registration_fields($dbh, $viewId);
-  $profilePublisherApproval = $profileIsPublisher
-    ? profile_load_publisher_approval_fields($dbh, $displayName)
-    : null;
-  $profileRegistrationAboutCards = profile_build_registration_about_cards($profileRegistration, !$profileIsPublisher, $profilePublisherApproval);
-  $profilePhoneNeedsFix = true;
-}
-$profilePhoneValue = trim((string)($profileRegistration['mobile'] ?? ''));
-if ($profilePhoneValue === '') {
-  $profilePhoneValue = profile_load_user_mobile($dbh, $viewId);
-}
-$profilePhoneEmptyText = $profilePhoneNeedsFix
-  ? 'Add a valid phone number in Edit background'
-  : 'No phone number added yet';
-
-$aboutCards = [
-  [
-    'icon' => 'ion-person',
-    'label' => 'Full name',
-    'value' => $displayName,
-  ],
-  [
-    'icon' => 'ion-ios-telephone',
-    'label' => 'Phone number',
-    'value' => $profilePhoneValue,
-    'empty_text' => $profilePhoneEmptyText,
-  ],
-  [
-    'icon' => 'ion-android-mail',
-    'label' => 'Email address',
-    'value' => trim($me['email']),
-  ],
-  [
-    'icon' => 'ion-ios-people',
-    'label' => 'Friend code',
-    'value' => trim($me['friend_code']),
-  ],
-  [
-    'icon' => 'ion-transgender',
-    'label' => 'Pronouns',
-    'value' => $about['pronouns'],
-  ],
-  [
-    'icon' => 'ion-android-calendar',
-    'label' => 'When born',
-    'value' => $about['born_in'],
-  ],
-  [
-    'icon' => 'ion-location',
-    'label' => 'Where you live',
-    'value' => $about['lives_in'],
-  ],
-  [
-    'icon' => 'ion-ios-calendar-outline',
-    'label' => 'Birthday date',
-    'value' => $profileBirthdayValue,
-  ],
-  [
-    'icon' => 'ion-heart',
-    'label' => 'Relationship',
-    'value' => $about['relationship_status'],
-  ],
-  [
-    'icon' => 'ion-chatbubbles',
-    'label' => 'Language',
-    'value' => $about['languages'],
-  ],
-  [
-    'icon' => 'ion-male',
-    'label' => 'Gender',
-    'value' => trim($me['gender']),
-  ],
-  [
-    'icon' => 'ion-home',
-    'label' => 'Family',
-    'value' => $about['family_details'],
-  ],
-  [
-    'icon' => 'ion-university',
-    'label' => 'Education',
-    'value' => $about['education_history'],
-  ],
-  [
-    'icon' => 'ion-briefcase',
-    'label' => 'Work',
-    'value' => $about['work_details'] !== '' ? $about['work_details'] : trim($me['designation']),
-  ],
-  [
-    'icon' => 'ion-happy',
-    'label' => 'Hobby',
-    'value' => $about['hobbies'],
-  ],
-  [
-    'icon' => 'ion-social-facebook',
-    'label' => 'Facebook',
-    'value' => $about['social_facebook'],
-  ],
-  [
-    'icon' => 'ion-social-instagram',
-    'label' => 'Instagram',
-    'value' => $about['social_instagram'],
-  ],
-  [
-    'icon' => 'ion-at',
-    'label' => 'X / Twitter',
-    'value' => $about['social_x'],
-  ],
-  [
-    'icon' => 'ion-social-linkedin',
-    'label' => 'LinkedIn',
-    'value' => $about['social_linkedin'],
-  ],
-];
-if ($profileShowRegistrationAbout && $profileRegistrationAboutCards !== []) {
-  $insertAt = null;
-  foreach ($aboutCards as $index => $card) {
-    if (trim((string)($card['label'] ?? '')) === 'Birthday date') {
-      $insertAt = $index + 1;
-      break;
-    }
-  }
-  if ($insertAt === null) {
-    foreach ($aboutCards as $index => $card) {
-      if (trim((string)($card['label'] ?? '')) === 'Friend code') {
-        $insertAt = $index + 1;
-        break;
-      }
-    }
-  }
-  if ($insertAt === null) {
-    $insertAt = count($aboutCards);
-  }
-
-  array_splice($aboutCards, $insertAt, 0, $profileRegistrationAboutCards);
-}
-if (!$canViewProfilePrivateContact) {
-  $aboutCards = array_values(array_filter($aboutCards, static function (array $card): bool {
-    $label = trim((string)($card['label'] ?? ''));
-    return !in_array($label, ['Phone number', 'Email address', 'Friend code'], true);
-  }));
-}
-
-if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about') {
-  header('Content-Type: application/json; charset=utf-8');
-  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-  header('Pragma: no-cache');
-
-  $items = [];
-  foreach ($aboutCards as $card) {
-    $label = trim((string)($card['label'] ?? ''));
-    if ($label === '') continue;
-    $items[] = [
-      'icon' => trim((string)($card['icon'] ?? '')),
-      'label' => $label,
-      'value' => trim((string)($card['value'] ?? '')),
-      'empty_text' => trim((string)($card['empty_text'] ?? 'No background added yet')),
-    ];
-  }
-
-  echo json_encode([
-    'ok' => true,
-    'tab' => 'about',
-    'user' => [
-      'id' => $viewId,
-      'display_name' => $displayName,
-      'username' => $username,
-      'handle' => $profileHandleLabel,
-      'friend_code' => $canViewProfilePrivateContact ? trim((string)($me['friend_code'] ?? '')) : '',
-      'avatar_url' => $avatarUrl,
-      'joined_label' => $joinedLabel,
-    ],
-    'items' => $items,
-  ], JSON_UNESCAPED_SLASHES);
-  exit;
-}
-
-
 
 $profileSettings = [
+  'avatar_image_path' => '',
+  'cover_image_path' => '',
   'avatar_image_path' => '',
   'cover_image_path' => '',
   'profile_visibility' => 'public',
@@ -954,6 +881,9 @@ $profileSettings = [
   'friend_request_permission' => 'public',
   'message_permission' => 'friends',
   'timeline_visit_approval' => 1,
+  'show_tags_tab' => 1,
+  'show_about_tab' => 1,
+  'show_saved_tab' => 0,
   'auto_show_timeline' => 1,
   'resurface_old_memories' => 1,
   'show_timeline_reactions' => 1,
@@ -989,6 +919,9 @@ try {
 } catch (Throwable $e) {
   $hasProfileSettingsTable = false;
 }
+if ($hasProfileSettingsTable) {
+  profile_settings_ensure_tab_privacy_columns($dbh);
+}
 if ($hasProfileSettingsTable && $viewId > 0) {
   $settingsUserId = $canManageProfilePrivate ? $sessionOwnerId : $viewId;
   try {
@@ -1003,9 +936,383 @@ if ($hasProfileSettingsTable && $viewId > 0) {
   } catch (Throwable $e) {}
 }
 
-$coverUrl = trim((string)($profileSettings['cover_image_path'] ?? ''));
+$profileShowTagsTab = $canManageProfilePrivate || profile_setting_is_on($profileSettings, 'show_tags_tab', 1);
+$profileShowAboutTab = $canManageProfilePrivate || profile_setting_is_on($profileSettings, 'show_about_tab', 1);
+$profileShowSavedTab = $canManageProfilePrivate || (!$liveVisitorMode && profile_setting_is_on($profileSettings, 'show_saved_tab', 0));
+$profileShowGearTab = !$liveVisitorMode && $canManageProfilePrivate;
+
+$selectedTab = strtolower(trim((string)($_GET['tab'] ?? 'posts')));
+if ($selectedTab === 'tagged') {
+  $selectedTab = 'tags';
+}
+if ($selectedTab === 'preserve') {
+  $selectedTab = 'saved';
+}
+$galleryVisParam = strtolower(trim((string)($_GET['gallery_vis'] ?? '')));
+if (!in_array($galleryVisParam, ['private', 'friends', 'public'], true)) {
+  $galleryVisParam = '';
+}
+if ($galleryVisParam !== '' && $selectedTab !== 'gallery') {
+  $selectedTab = 'gallery';
+}
+$profileContentTabs = ['gallery', 'posts', 'tags', 'about', 'saved', 'gear'];
+if (!empty($profileHasShop)) {
+  array_splice($profileContentTabs, 3, 0, ['shop']); // after tags
+}
+if (!in_array($selectedTab, $profileContentTabs, true)) {
+  $selectedTab = 'posts';
+}
+if ($liveVisitorMode && !in_array($selectedTab, ['gallery', 'posts', 'tags', 'about', 'shop'], true)) {
+  $selectedTab = 'posts';
+}
+if ($selectedTab === 'tags' && !$profileShowTagsTab) {
+  $selectedTab = 'posts';
+}
+if ($selectedTab === 'about' && !$profileShowAboutTab) {
+  $selectedTab = 'posts';
+}
+if ($selectedTab === 'saved' && !$profileShowSavedTab) {
+  $selectedTab = 'posts';
+}
+if ($selectedTab === 'gear' && !$profileShowGearTab) {
+  $selectedTab = 'posts';
+}
+$showUpdated = isset($_GET['updated']) && (string)$_GET['updated'] === '1';
+$showPeerNotFound = ($requestedPeer && !$peerFound);
+$displayName = trim($me['name']) !== '' ? $me['name'] : ($me['username'] !== '' ? $me['username'] : ($isOwnProfile ? 'My Profile' : 'Profile'));
+require_once __DIR__ . '/includes/account_display_helpers.php';
+$profileNameParts = account_display_name_parts($displayName, $profileIsPublisher, $dbh);
+$profileDisplayName = (string)$profileNameParts['display_name'];
+$profileAccountBadge = (string)$profileNameParts['badge'];
+$username    = trim($me['username']);
+$avatarUrl = 'avatar.php?u=' . (int)$viewId . '&name=' . rawurlencode($displayName);
+if ($canViewProfilePrivateContact) {
+  $avatarUrl .= '&email=' . rawurlencode($me['email']) . '&friend_code=' . rawurlencode($me['friend_code']);
+}
+$profileHandleLabel = $username !== ''
+  ? ('@' . $username)
+  : ($canViewProfilePrivateContact && trim($me['friend_code']) !== '' ? trim($me['friend_code']) : 'Profile');
+
+$joinedLabel = '—';
+if (trim($me['created_at']) !== '') {
+  $t = strtotime($me['created_at']);
+  if ($t) $joinedLabel = date('F Y', $t);
+}
+
+$about = user_background_logical_defaults();
+$hasBackgroundTable = user_background_table_exists($dbh);
+if ($hasBackgroundTable && $viewId > 0) {
+  $about = user_background_load($dbh, $viewId);
+}
+profile_people_tags_ensure_table($dbh);
+$peopleRelationship = $viewId > 0 ? profile_people_tags_get_relationship($dbh, (int)$viewId) : null;
+$peopleFamily = $viewId > 0 ? profile_people_tags_list_family($dbh, (int)$viewId) : [];
+if ($peopleRelationship) {
+  $about['relationship_status'] = profile_people_tags_format_relationship($peopleRelationship, (string)$about['relationship_status']);
+}
+if ($peopleFamily !== []) {
+  $about['family_details'] = profile_people_tags_format_family($peopleFamily, (string)$about['family_details']);
+}
+
+$profileRegistration = ($viewId > 0)
+  ? profile_load_registration_fields($dbh, $viewId)
+  : ['birthday' => '', 'mobile' => '', 'policy_label' => '', 'age_label' => '', 'policy_agreed' => false, 'age_confirmed' => false];
+$profileBirthdayValue = trim((string)$about['birthday']);
+if ($profileBirthdayValue === '' && !$profileIsPublisher) {
+  $profileBirthdayValue = trim((string)$profileRegistration['birthday']);
+}
+$profileShowRegistrationAbout = $canManageProfilePrivate && $viewId > 0;
+$profilePublisherApproval = ($profileIsPublisher && $viewId > 0)
+  ? profile_load_publisher_approval_fields($dbh, $displayName)
+  : null;
+$profileRegistrationAboutCards = $profileShowRegistrationAbout
+  ? profile_build_registration_about_cards($profileRegistration, !$profileIsPublisher, $profilePublisherApproval)
+  : [];
+$profilePhoneNeedsFix = false;
+if ($canManageProfilePrivate && !$profileIsPublisher && $viewId > 0 && user_phone_repair_invalid_mobile($dbh, $viewId, $profileUserRow)) {
+  $profileUserRow['mobile'] = '';
+  $me['mobile'] = '';
+  $profileRegistration = profile_load_registration_fields($dbh, $viewId);
+  $profilePublisherApproval = $profileIsPublisher
+    ? profile_load_publisher_approval_fields($dbh, $displayName)
+    : null;
+  $profileRegistrationAboutCards = profile_build_registration_about_cards($profileRegistration, !$profileIsPublisher, $profilePublisherApproval);
+  $profilePhoneNeedsFix = true;
+}
+$profilePhoneValue = trim((string)($profileRegistration['mobile'] ?? ''));
+if ($profilePhoneValue === '') {
+  $profilePhoneValue = profile_load_user_mobile($dbh, $viewId);
+}
+$profilePhoneEmptyText = $profilePhoneNeedsFix
+  ? 'Add a valid phone number in Edit background'
+  : 'No phone number added yet';
+
+$aboutCards = [
+  [
+    'key' => 'full_name',
+    'icon' => 'ion-person',
+    'label' => 'Full name',
+    'value' => $displayName,
+  ],
+  [
+    'key' => 'phone',
+    'icon' => 'ion-ios-telephone',
+    'label' => 'Phone number',
+    'value' => $profilePhoneValue,
+    'empty_text' => $profilePhoneEmptyText,
+  ],
+  [
+    'key' => 'email',
+    'icon' => 'ion-android-mail',
+    'label' => 'Email address',
+    'value' => trim($me['email']),
+  ],
+  [
+    'key' => 'friend_code',
+    'icon' => 'ion-ios-people',
+    'label' => 'Friend code',
+    'value' => trim($me['friend_code']),
+  ],
+  [
+    'key' => 'pronouns',
+    'icon' => 'ion-transgender',
+    'label' => 'Pronouns',
+    'value' => $about['pronouns'],
+  ],
+  [
+    'key' => 'born_in',
+    'icon' => 'ion-android-calendar',
+    'label' => 'When born',
+    'value' => $about['born_in'],
+  ],
+  [
+    'key' => 'lives_in',
+    'icon' => 'ion-location',
+    'label' => 'Where you live',
+    'value' => $about['lives_in'],
+  ],
+  [
+    'key' => 'birthday',
+    'icon' => 'ion-ios-calendar-outline',
+    'label' => 'Birthday date',
+    'value' => $profileBirthdayValue,
+  ],
+  [
+    'key' => 'relationship',
+    'icon' => 'ion-heart',
+    'label' => 'Relationship',
+    'value' => $about['relationship_status'],
+  ],
+  [
+    'key' => 'languages',
+    'icon' => 'ion-chatbubbles',
+    'label' => 'Language',
+    'value' => $about['languages'],
+  ],
+  [
+    'key' => 'gender',
+    'icon' => 'ion-male',
+    'label' => 'Gender',
+    'value' => trim($me['gender']),
+  ],
+  [
+    'key' => 'work',
+    'icon' => 'ion-briefcase',
+    'label' => 'Work / designation',
+    'value' => trim((string)($me['designation'] ?? '')) !== ''
+      ? trim((string)$me['designation'])
+      : trim((string)($about['work_details'] ?? '')),
+  ],
+  [
+    'key' => 'family',
+    'icon' => 'ion-home',
+    'label' => 'Family',
+    'value' => $about['family_details'],
+  ],
+  [
+    'key' => 'education',
+    'icon' => 'ion-university',
+    'label' => 'Education',
+    'value' => $about['education_history'],
+  ],
+  [
+    'key' => 'hobby',
+    'icon' => 'ion-happy',
+    'label' => 'Hobby',
+    'value' => $about['hobbies'],
+  ],
+  [
+    'key' => 'link',
+    'icon' => 'ion-link',
+    'label' => 'Link',
+    'value' => $about['profile_link'],
+    'is_link' => true,
+  ],
+  [
+    'key' => 'about_me',
+    'icon' => 'ion-ios-book',
+    'label' => 'About me',
+    'value' => $about['about_text'],
+  ],
+];
+if ($profileShowRegistrationAbout && $profileRegistrationAboutCards !== []) {
+  $insertAt = null;
+  foreach ($aboutCards as $index => $card) {
+    if (trim((string)($card['label'] ?? '')) === 'Birthday date') {
+      $insertAt = $index + 1;
+      break;
+    }
+  }
+  if ($insertAt === null) {
+    foreach ($aboutCards as $index => $card) {
+      if (trim((string)($card['label'] ?? '')) === 'Friend code') {
+        $insertAt = $index + 1;
+        break;
+      }
+    }
+  }
+  if ($insertAt === null) {
+    $insertAt = count($aboutCards);
+  }
+
+  array_splice($aboutCards, $insertAt, 0, $profileRegistrationAboutCards);
+}
+if (!$canViewProfilePrivateContact) {
+  $aboutCards = array_values(array_filter($aboutCards, static function (array $card): bool {
+    $label = trim((string)($card['label'] ?? ''));
+    return !in_array($label, ['Phone number', 'Email address', 'Friend code'], true);
+  }));
+}
+
+$aboutSidebarPins = user_background_load_sidebar_pins($dbh, (int)$viewId);
+$aboutSidebarPinSet = array_fill_keys($aboutSidebarPins, true);
+
+if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about_pin') {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$canManageProfilePrivate) {
+    echo json_encode(['ok' => false, 'error' => 'Not allowed']);
+    exit;
+  }
+  $pinKey = trim((string)($_POST['field'] ?? ''));
+  $pinOn = ((string)($_POST['on'] ?? '')) === '1';
+  $aboutSidebarPins = user_background_toggle_sidebar_pin($dbh, (int)$viewId, $pinKey, $pinOn);
+  echo json_encode([
+    'ok' => true,
+    'field' => $pinKey,
+    'on' => $pinOn,
+    'pins' => $aboutSidebarPins,
+  ], JSON_UNESCAPED_SLASHES);
+  exit;
+}
+
+if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about_people') {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$canManageProfilePrivate) {
+    echo json_encode(['ok' => false, 'error' => 'Not allowed']);
+    exit;
+  }
+  $action = trim((string)($_POST['action'] ?? ''));
+  $role = trim((string)($_POST['role'] ?? ''));
+  $taggedId = (int)($_POST['user_id'] ?? 0);
+  $username = trim((string)($_POST['username'] ?? ''));
+  $tagId = (int)($_POST['tag_id'] ?? 0);
+  if ($action === 'save_relationship') {
+    $result = profile_people_tags_save_relationship($dbh, (int)$viewId, $role, $taggedId, $username);
+  } elseif ($action === 'add_family') {
+    $result = profile_people_tags_add_family($dbh, (int)$viewId, $role, $taggedId, $username);
+  } elseif ($action === 'remove') {
+    $result = profile_people_tags_remove($dbh, (int)$viewId, $tagId);
+  } else {
+    $result = ['ok' => false, 'error' => 'Unknown action'];
+  }
+  echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  exit;
+}
+
+$aboutSidebarItems = [];
+$aboutSidebarWorkItem = null;
+foreach ($aboutCards as $card) {
+  $pinKey = trim((string)($card['key'] ?? ''));
+  if ($pinKey === '' || $pinKey === 'full_name' || $pinKey === 'pronouns' || empty($aboutSidebarPinSet[$pinKey])) {
+    continue;
+  }
+  $pinVal = trim((string)($card['value'] ?? ''));
+  if ($pinVal === '') {
+    continue;
+  }
+  $item = [
+    'key' => $pinKey,
+    'label' => trim((string)($card['label'] ?? '')),
+    'icon' => trim((string)($card['icon'] ?? 'ion-ios-information')),
+    'value' => $pinVal,
+    'is_link' => !empty($card['is_link']),
+    'html' => '',
+  ];
+  if ($pinKey === 'relationship') {
+    $item['html'] = profile_people_tags_relationship_html($peopleRelationship ?? null, $pinVal);
+  } elseif ($pinKey === 'family') {
+    $item['html'] = profile_people_tags_family_html($peopleFamily ?? [], $pinVal);
+  }
+  if ($pinKey === 'work') {
+    $aboutSidebarWorkItem = $item;
+    continue;
+  }
+  $aboutSidebarItems[] = $item;
+}
+if ($aboutSidebarWorkItem) {
+  array_unshift($aboutSidebarItems, $aboutSidebarWorkItem);
+}
+
+if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about') {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
+  if (!$profileShowAboutTab) {
+    echo json_encode(['ok' => false, 'error' => 'private']);
+    exit;
+  }
+
+  $items = [];
+  foreach ($aboutCards as $card) {
+    $label = trim((string)($card['label'] ?? ''));
+    if ($label === '') continue;
+    $items[] = [
+      'icon' => trim((string)($card['icon'] ?? '')),
+      'label' => $label,
+      'value' => trim((string)($card['value'] ?? '')),
+      'is_link' => !empty($card['is_link']),
+      'empty_text' => trim((string)($card['empty_text'] ?? 'No background added yet')),
+    ];
+  }
+
+  echo json_encode([
+    'ok' => true,
+    'tab' => 'about',
+    'user' => [
+      'id' => $viewId,
+      'display_name' => $displayName,
+      'username' => $username,
+      'handle' => $profileHandleLabel,
+      'friend_code' => $canViewProfilePrivateContact ? trim((string)($me['friend_code'] ?? '')) : '',
+      'avatar_url' => $avatarUrl,
+      'joined_label' => $joinedLabel,
+    ],
+    'items' => $items,
+  ], JSON_UNESCAPED_SLASHES);
+  exit;
+}
+
+
+
+$coverUrl = trim((string)($profileSettings['cover_image_path'] ?? $profileSettings['cover_image_path'] ?? ''));
 if ($coverUrl !== '') {
   $coverUrl = ltrim(str_replace('\\', '/', $coverUrl), '/');
+}
+$coverSlides = profile_cover_slides_for_user($dbh, (int)$viewId, $coverUrl);
+if ($coverUrl === '' && $coverSlides) {
+  $coverUrl = (string)($coverSlides[0]['url'] ?? '');
 }
 
 $privacyOptions = [
@@ -1067,6 +1374,12 @@ $themeAutoDefault = appearance_bridge_theme_auto_enabled(
 ) ? '1' : '0';
 $manualAppearanceDefault = $storedAppearanceMode;
 
+$accountSwitchStaffBlocked = account_switch_is_staff_session();
+$accountSwitchAccounts = [];
+if ($canManageProfilePrivate && $meId > 0 && !$accountSwitchStaffBlocked) {
+  $accountSwitchAccounts = account_switch_list($dbh, $meId);
+}
+
 $gearGroups = [
   [
     'title' => 'Profile settings',
@@ -1090,7 +1403,7 @@ $gearGroups = [
       ],
       [
         'label' => 'Change cover / background image',
-        'meta' => 'Upload a story cover that appears at the top of your profile.',
+        'meta' => 'Add photos to the profile banner slideshow. Visitors can use next/prev or watch it play by itself.',
         'icon' => 'ion-image',
         'tag'  => 'Upload',
         'media_kind' => 'cover',
@@ -1123,12 +1436,15 @@ $gearGroups = [
     'title' => 'Privacy controls',
     'nav_label' => 'Privacy',
     'icon' => 'ion-locked',
-    'desc' => 'Control who can view your profile, About, Gallery, comments, friend requests, messages, and timeline visits.',
+    'desc' => 'Control who can view your profile, About Me, Gallery, comments, friend requests, messages, and timeline visits.',
     'chips' => ['Public', 'Friends', 'Only me', 'Approved visitors'],
     'rows' => [
       ['label' => 'Who can view profile', 'meta' => 'Choose Public, Friends, Only me, or Approved visitors.', 'icon' => 'ion-person-stalker', 'tag' => 'Live', 'field' => 'profile_visibility', 'options' => $privacyOptions],
-      ['label' => 'Who can view About', 'meta' => 'Protect your life details and contact information.', 'icon' => 'ion-ios-person', 'tag' => 'Live', 'field' => 'about_visibility', 'options' => $privacyOptions],
+      ['label' => 'Who can view About Me', 'meta' => 'Protect your life details and contact information.', 'icon' => 'ion-ios-person', 'tag' => 'Live', 'field' => 'about_visibility', 'options' => $privacyOptions],
       ['label' => 'Who can view Gallery', 'meta' => 'Control who can see your photo and video grids.', 'icon' => 'ion-images', 'tag' => 'Live', 'field' => 'gallery_visibility', 'options' => $privacyOptions],
+      ['label' => 'Tags tab for others', 'meta' => 'On lets other people open your Tags tab. Off keeps it private to you.', 'icon' => 'ion-ios-pricetag', 'tag' => 'Live', 'field' => 'show_tags_tab', 'options' => $themeAutoOptions],
+      ['label' => 'About Me tab for others', 'meta' => 'On lets other people open your About Me tab. Off keeps it private to you.', 'icon' => 'ion-ios-person', 'tag' => 'Live', 'field' => 'show_about_tab', 'options' => $themeAutoOptions],
+      ['label' => 'Favorites tab for others', 'meta' => 'On lets other people open your Favorites tab. Off keeps favorites private.', 'icon' => 'ion-bookmark', 'tag' => 'Live', 'field' => 'show_saved_tab', 'options' => $themeAutoOptions],
       ['label' => 'Who can comment on posts', 'meta' => 'Limit comments to friends or approved visitors when you are ready.', 'icon' => 'ion-chatbubbles', 'tag' => 'Live', 'field' => 'comment_permission', 'options' => $privacyOptions],
       ['label' => 'Who can send friend request', 'meta' => 'Choose who is allowed to connect with you.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_permission', 'options' => $privacyOptions],
       ['label' => 'Who can message me', 'meta' => 'Control DM access before private chat opens.', 'icon' => 'ion-email', 'tag' => 'Live', 'field' => 'message_permission', 'options' => $privacyOptions],
@@ -1142,7 +1458,7 @@ $gearGroups = [
     'desc' => 'Shape how memories appear, resurface, and stay meaningful on your life timeline.',
     'rows' => [
       ['label' => 'Archived posts', 'meta' => 'Open the private list of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-      ['label' => 'Bookmarks', 'meta' => 'Open posts and stories you saved from For You, Discover, Reels, or Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
+      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited from For You, Discover, Reels, or Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Auto-show posts in timeline', 'meta' => 'Yes / No control for moving Dashboard posts into the life timeline automatically.', 'icon' => 'ion-ios-albums', 'tag' => 'Live', 'field' => 'auto_show_timeline', 'options' => $yesNoOptions],
       ['label' => 'Allow old memories to resurface', 'meta' => 'Bring older moments back later as meaningful memories.', 'icon' => 'ion-refresh', 'tag' => 'Live', 'field' => 'resurface_old_memories', 'options' => $yesNoOptions],
       ['label' => 'Show reactions in timeline', 'meta' => 'Decide whether likes and love appear on your life timeline.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'show_timeline_reactions', 'options' => $yesNoOptions],
@@ -1161,12 +1477,12 @@ $gearGroups = [
     ],
   ],
   [
-    'title' => 'Bookmarks',
-    'nav_label' => 'Bookmarks',
+    'title' => 'Favorites',
+    'nav_label' => 'Favorites',
     'icon' => 'ion-ios-bookmarks',
-    'desc' => 'Posts and stories you saved from For You, Discover, Reels, or Profile. Only you can open this list.',
+    'desc' => 'Posts and stories you favorited from For You, Discover, Reels, or Profile. Only you can open this list.',
     'rows' => [
-      ['label' => 'Open bookmarks', 'meta' => 'Review and remove saved posts and stories.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
+      ['label' => 'Open favorites', 'meta' => 'Review and remove favorited posts and stories.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
     ],
   ],
   [
@@ -1215,13 +1531,30 @@ $gearGroups = [
     ],
   ],
   [
+    'title' => 'Switch accounts',
+    'nav_label' => 'Switch accounts',
+    'icon' => 'ion-loop',
+    'desc' => 'Use more than one account on this device and switch between them.',
+    'rows' => [
+      [
+        'label' => 'Switch accounts',
+        'meta' => 'Add a personal, publisher, or commerce account, then switch without losing the linked set.',
+        'icon' => 'ion-loop',
+        'tag' => 'Open',
+        'layout' => 'account_switch',
+        'accounts' => $accountSwitchAccounts,
+        'staff_blocked' => $accountSwitchStaffBlocked,
+      ],
+    ],
+  ],
+  [
     'title' => 'Account tools',
     'nav_label' => 'Account',
     'icon' => 'ion-android-settings',
-    'desc' => 'Big account actions should stay visible, but separate from your About details.',
+    'desc' => 'Big account actions should stay visible, but separate from your About Me details.',
     'rows' => [
       ['label' => 'Archived posts', 'meta' => 'Open the private archive of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-      ['label' => 'Bookmarks', 'meta' => 'Open posts and stories you saved across For You, Discover, Reels, and Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
+      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited across For You, Discover, Reels, and Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Allow download my data', 'meta' => 'Keep export tools available for your account.', 'icon' => 'ion-archive', 'tag' => 'Live', 'field' => 'allow_download_data', 'options' => $yesNoOptions],
       ['label' => 'Allow deactivate account', 'meta' => 'Control whether deactivation tools are available in your account center.', 'icon' => 'ion-pause', 'tag' => 'Live', 'field' => 'allow_deactivate_account', 'options' => $yesNoOptions],
       ['label' => 'Allow delete account', 'meta' => 'Show or hide the protected delete-account flow.', 'icon' => 'ion-trash-a', 'tag' => 'Live', 'field' => 'allow_delete_account', 'options' => $yesNoOptions],
@@ -1234,6 +1567,21 @@ $gearGroups = [
       ['label' => 'Logout now', 'meta' => 'Sign out of the current session immediately.', 'href' => 'logout.php', 'icon' => 'ion-power', 'tag' => 'Open'],
     ],
   ],
+  [
+    'title' => 'Danger Zone',
+    'nav_label' => 'Danger Zone',
+    'icon' => 'ion-alert-circled',
+    'desc' => 'Irreversible or high-impact actions for this account. Not store tools — account, devices, export, reset, and deactivate.',
+    'rows' => [
+      [
+        'label' => 'Danger Zone',
+        'meta' => 'Delete, remove access, export data, reset settings, and deactivate this account.',
+        'icon' => 'ion-alert-circled',
+        'tag' => 'Caution',
+        'layout' => 'danger_zone',
+      ],
+    ],
+  ],
 ];
 
 $gearQuickLinks = [
@@ -1241,13 +1589,15 @@ $gearQuickLinks = [
   ['label' => 'Privacy', 'icon' => 'ion-locked', 'href' => '#gear-privacy-controls'],
   ['label' => 'Timeline Settings', 'icon' => 'ion-ios-book', 'href' => '#gear-timeline-memory-controls'],
   ['label' => 'Archived posts', 'icon' => 'ion-ios-box', 'href' => 'archive.php'],
-  ['label' => 'Bookmarks', 'icon' => 'ion-ios-bookmarks', 'href' => 'bookmark.php'],
+  ['label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'href' => 'bookmark.php'],
   ['label' => 'Notifications', 'icon' => 'ion-android-notifications', 'href' => '#gear-notifications'],
   ['label' => 'Security', 'icon' => 'ion-shield', 'href' => '#gear-security-and-safety'],
   ['label' => 'Blocked Users', 'icon' => 'ion-close-circled', 'href' => '#gear-security-and-safety'],
   ['label' => 'Manage Devices', 'icon' => 'ion-iphone', 'href' => 'manage_devices.php'],
   ['label' => 'Appearance', 'icon' => 'ion-android-color-palette', 'href' => '#gear-appearance-and-app-preferences'],
+  ['label' => 'Switch accounts', 'icon' => 'ion-loop', 'href' => '#gear-switch-accounts'],
   ['label' => 'Account', 'icon' => 'ion-android-settings', 'href' => '#gear-account-tools'],
+  ['label' => 'Danger Zone', 'icon' => 'ion-alert-circled', 'href' => '#gear-danger-zone'],
 ];
 
 if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gear') {
@@ -1312,13 +1662,14 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gear') {
     ['key' => 'privacy', 'label' => 'Privacy', 'icon' => 'ion-locked', 'group' => 'Privacy controls'],
     ['key' => 'timeline', 'label' => 'Timeline Settings', 'icon' => 'ion-ios-book', 'group' => 'Timeline / memory controls'],
     ['key' => 'archived_posts', 'label' => 'Archived posts', 'icon' => 'ion-ios-box', 'group' => 'Archived posts'],
-    ['key' => 'bookmarks', 'label' => 'Bookmarks', 'icon' => 'ion-ios-bookmarks', 'group' => 'Bookmarks'],
+    ['key' => 'bookmarks', 'label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'group' => 'Favorites'],
     ['key' => 'security', 'label' => 'Security', 'icon' => 'ion-shield', 'group' => 'Security and safety'],
     ['key' => 'devices', 'label' => 'Manage Devices', 'icon' => 'ion-iphone', 'group' => 'Security and safety'],
     ['key' => 'account_settings', 'label' => 'Account Settings', 'icon' => 'ion-ios-person', 'group' => 'Profile settings'],
     ['key' => 'notifications', 'label' => 'Notification', 'icon' => 'ion-android-notifications', 'group' => 'Notifications'],
     ['key' => 'blocked_users', 'label' => 'Blocked Users', 'icon' => 'ion-close-circled', 'group' => 'Security and safety'],
     ['key' => 'appearance', 'label' => 'Appearance', 'icon' => 'ion-android-color-palette', 'group' => 'Appearance and app preferences'],
+    ['key' => 'switch_accounts', 'label' => 'Switch accounts', 'icon' => 'ion-loop', 'group' => 'Switch accounts'],
     ['key' => 'account', 'label' => 'Account', 'icon' => 'ion-android-settings', 'group' => 'Account tools'],
   ];
 
@@ -1707,6 +2058,84 @@ $galleryGrid = array_values(array_filter($gridFeedSource, static function (array
   return profile_item_has_gallery_content($it);
 }));
 
+if (!function_exists('profile_rail_compact_count')) {
+  function profile_rail_compact_count(int $n): string {
+    if ($n >= 1000000) {
+      return rtrim(rtrim(number_format($n / 1000000, 1), '0'), '.') . 'M';
+    }
+    if ($n >= 1000) {
+      return rtrim(rtrim(number_format($n / 1000, 1), '0'), '.') . 'K';
+    }
+    return (string)$n;
+  }
+}
+
+$statLikes = 0;
+try {
+  $stLikes = $dbh->prepare("
+    SELECT COUNT(*)
+    FROM public_post_reactions r
+    INNER JOIN public_posts p ON p.id = r.post_id
+    WHERE p.user_id = :me
+      AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
+      AND COALESCE(p.is_archived,0) = 0
+  ");
+  $stLikes->execute([':me' => $viewId]);
+  $statLikes = (int)$stLikes->fetchColumn();
+} catch (Throwable $e) {}
+
+$profileRailBio = trim((string)($about['about_text'] ?? ''));
+$profileRailHobbies = [];
+foreach (preg_split('/\r\n|\n|\r/', (string)($about['hobbies'] ?? '')) ?: [] as $hobbyLine) {
+  $hobbyLine = trim((string)$hobbyLine);
+  if ($hobbyLine !== '') {
+    $profileRailHobbies[] = $hobbyLine;
+  }
+}
+$profileRailLink = trim((string)($about['profile_link'] ?? ''));
+$profileRailLinkLabel = $profileRailLink;
+if ($profileRailLink !== '') {
+  $profileRailLinkLabel = (string)preg_replace('#^https?://#i', '', $profileRailLink);
+  $profileRailLinkLabel = (string)preg_replace('#^www\.#i', '', $profileRailLinkLabel);
+  $profileRailLinkLabel = rtrim($profileRailLinkLabel, '/');
+}
+
+$profileTopVideos = [];
+foreach ($gridFeedSource as $it) {
+  $atype = strtolower(trim((string)($it['atype'] ?? '')));
+  $filePath = trim((string)($it['file_path'] ?? ''));
+  if ($atype !== 'video' || $filePath === '' || !is_video_path($filePath)) {
+    continue;
+  }
+  $title = trim((string)($it['title'] ?? ''));
+  if ($title === '') {
+    $title = trim((string)($it['descr'] ?? ''));
+  }
+  if ($title === '') {
+    $title = 'Video';
+  }
+  $thumb = trim((string)($it['thumb'] ?? ''));
+  $profileTopVideos[] = [
+    'post_id' => (int)($it['post_id'] ?? 0),
+    'title' => $title,
+    'thumb' => $thumb !== '' ? $thumb : $filePath,
+    'views' => (int)($it['views_count'] ?? 0),
+  ];
+}
+usort($profileTopVideos, static function (array $a, array $b): int {
+  return $b['views'] <=> $a['views'];
+});
+$profileTopVideos = array_slice($profileTopVideos, 0, 4);
+
+$profileRailViewAll = 'profile.php?tab=gallery';
+if ($reqId > 0) {
+  $profileRailViewAll = 'profile.php?id=' . (int)$reqId . '&tab=gallery';
+} elseif ($reqUsername !== '') {
+  $profileRailViewAll = 'profile.php?username=' . rawurlencode($reqUsername) . '&tab=gallery';
+} elseif ($reqFriendCode !== '') {
+  $profileRailViewAll = 'profile.php?friend_code=' . rawurlencode($reqFriendCode) . '&tab=gallery';
+}
+
 // Tags tab = posts where this profile user was @tagged / people-tagged (Instagram-style).
 $tagsGrid = [];
 try {
@@ -1827,6 +2256,43 @@ foreach ($tagsGrid as $it) {
   }
 }
 
+$savedGrid = [];
+$savedGridIds = [];
+if ($profileShowSavedTab) {
+  foreach (msb_bookmark_fetch_posts($dbh, (int)$viewId, 200) as $savedPost) {
+    $pid = (int)($savedPost['id'] ?? 0);
+    if ($pid <= 0) {
+      continue;
+    }
+    $thumbType = strtolower(trim((string)($savedPost['thumb_type'] ?? '')));
+    $filePath = trim((string)($savedPost['preview_src'] ?? ''));
+    if ($filePath === '') {
+      $filePath = function_exists('msb_bookmark_media_src')
+        ? msb_bookmark_media_src((string)($savedPost['thumb_file'] ?? ''))
+        : trim((string)($savedPost['thumb_file'] ?? ''));
+    }
+    $thumb = trim((string)($savedPost['thumb_path'] ?? ''));
+    if ($thumb !== '' && function_exists('msb_bookmark_media_src')) {
+      $thumb = msb_bookmark_media_src($thumb);
+    }
+    $savedGrid[] = [
+      'post_id' => $pid,
+      'title' => (string)($savedPost['title'] ?? ''),
+      'descr' => (string)($savedPost['description'] ?? ''),
+      'body' => (string)($savedPost['body'] ?? ''),
+      'atype' => $thumbType,
+      'thumb' => $thumb,
+      'file_path' => $filePath,
+      'views_count' => 0,
+      'comment_count' => 0,
+      'love_count' => 0,
+      'visibility' => 'public',
+      'category_name' => '',
+    ];
+    $savedGridIds[] = $pid;
+  }
+}
+
 if (!function_exists('profile_render_gallery_filter')) {
   function profile_render_gallery_filter(
     string $tab,
@@ -1875,7 +2341,7 @@ if (!function_exists('profile_tab_empty_html')) {
 }
 
 if (!function_exists('profile_render_post_grid_items')) {
-  function profile_render_post_grid_items(array $items, bool $isMobile, bool $showTagPill = false): void {
+  function profile_render_post_grid_items(array $items, bool $isMobile, bool $showTagPill = false, bool $canUnsave = false): void {
     $gridIndex = 0;
     foreach ($items as $it) {
       $pid = (int)($it['post_id'] ?? 0);
@@ -1915,6 +2381,7 @@ if (!function_exists('profile_render_post_grid_items')) {
       }
       $noMedia = (!$showVideo && !$showThumb);
       ?>
+      <?php if ($canUnsave): ?><div class="ig-item-wrap is-saved-tile"><?php endif; ?>
       <a class="ig-item<?php echo $noMedia ? ' no-media' : ''; ?>"
          data-post-id="<?php echo $pid; ?>"
          data-index="<?php echo $gridIndex; ?>"
@@ -1963,6 +2430,12 @@ if (!function_exists('profile_render_post_grid_items')) {
           <div class="react-btn" title="Views"><i class="icon ion-eye"></i> <span class="vnum"><?php echo $viewsC; ?></span></div>
         </div>
       </a>
+      <?php if ($canUnsave): ?>
+        <button type="button" class="ig-saved-remove" data-unsave-post="<?php echo $pid; ?>" title="Remove from Favorites" aria-label="Remove from Favorites">
+          <i class="icon ion-close" aria-hidden="true"></i>
+        </button>
+      </div>
+      <?php endif; ?>
       <?php
       $gridIndex++;
     }
@@ -1973,7 +2446,7 @@ if (!function_exists('profile_render_post_grid')) {
   function profile_render_post_grid(array $items, bool $showPeerNotFound, bool $isMobile, string $emptyTitle, string $emptyIcon = 'ion-ios-paper-outline', bool $showTagPill = false, string $gridScope = 'all'): void {
     if (!empty($items) && !$showPeerNotFound) {
       echo '<div class="ig-grid" data-grid-scope="' . h($gridScope) . '">';
-      profile_render_post_grid_items($items, $isMobile, $showTagPill);
+      profile_render_post_grid_items($items, $isMobile, $showTagPill, $gridScope === 'saved');
       echo '</div>';
       return;
     }
@@ -2099,8 +2572,11 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   <script defer src="assets/ui_best.js"></script>
 
   <style>
-    .ig-wrap{max-width:980px;width:100%;margin:0 auto;}
-    .ig-card{background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, #c0c2c4);}
+    .ig-wrap{max-width:720px;width:100%;margin:0 auto;overflow:visible;}
+    .ig-card{background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, #c0c2c4);overflow:visible;}
+    html{
+      --profile-cover-h: 450px;
+    }
     body.profile-page{
       overflow:hidden !important;
       height:100vh;
@@ -2108,54 +2584,91 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color:var(--msb-palette-text, #0b1220);
     }
     body.profile-page::after{
-      content:"";
-      position:fixed;
-      left:var(--feedRailW, 84px);
-      right:0;
-      top:var(--profile-header-divider-top, -10px);
-      height:1px;
-      background:var(--msb-palette-border, rgba(15,23,42,.08));
-      pointer-events:none;
-      z-index:1210;
+      content:none;
+      display:none;
     }
     body.profile-page .sh-mainpanel{
       height:100vh !important;
       max-height:100vh !important;
-      overflow:hidden !important;
+      margin-left:var(--feedRailW, 84px) !important;
+      width:calc(100% - var(--feedRailW, 84px)) !important;
+      max-width:calc(100% - var(--feedRailW, 84px)) !important;
+      overflow:visible !important;
       background-color:var(--msb-palette-bg, #f5f7fb) !important;
     }
     body.profile-page .sh-pagebody{
       display:flex !important;
       flex-direction:column !important;
       flex:1 1 auto !important;
+      align-items:stretch !important;
+      width:100% !important;
+      min-width:100% !important;
+      max-width:none !important;
       min-height:0 !important;
       height:100% !important;
       max-height:100% !important;
-      overflow:hidden !important;
+      overflow:visible !important;
       box-sizing:border-box;
       background-color:var(--msb-palette-bg, #f5f7fb) !important;
     }
     body.profile-page .ig-wrap{
       flex:1 1 auto;
       min-height:0;
+      width:min(720px, 100%);
+      max-width:720px;
+      margin-left:auto;
+      margin-right:auto;
+      align-self:center;
       display:flex;
       flex-direction:column;
+      overflow:visible;
+      position:relative;
+      z-index:2;
+    }
+    body.profile-page .sh-pagebody > .profile-cover{
+      position:relative !important;
+      flex:0 0 var(--profile-cover-h, 450px) !important;
+      align-self:stretch !important;
+      top:auto !important;
+      right:auto !important;
+      bottom:auto !important;
+      left:0 !important;
+      z-index:1;
+      box-sizing:border-box;
+      width:100% !important;
+      min-width:100% !important;
+      max-width:none !important;
+      height:var(--profile-cover-h, 450px) !important;
+      margin:0 !important;
+      border-radius:0 !important;
+      overflow:hidden;
+      background:linear-gradient(135deg,#0f172a,#4338ca 55%,#7c3aed) !important;
+    }
+    body.profile-page .sh-pagebody > .profile-cover img,
+    body.profile-page .sh-pagebody > .profile-cover #profileCoverPreview,
+    body.profile-page .sh-pagebody > .profile-cover .profile-cover-slide{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
     }
     body.profile-page .ig-profile-shell{
       display:flex;
       flex-direction:column;
       flex:1 1 auto;
       min-height:0;
-      overflow:hidden;
+      overflow:visible;
       border:0;
       background-color:var(--msb-palette-bg, #f5f7fb);
     }
     .ig-profile-head{
       flex:0 0 auto;
-      z-index:40;
-      background:var(--msb-palette-bg, #f5f7fb);
+      z-index:80;
+      position:relative;
+      overflow:visible;
+      background:transparent;
       border-bottom:0;
-      box-shadow:0 4px 14px rgba(15,23,42,.04);
+      box-shadow:none;
     }
     .ig-profile-scroll{
       flex:1 1 auto;
@@ -2169,9 +2682,547 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       overscroll-behavior:contain;
       background-color:var(--msb-palette-bg, #f5f7fb);
     }
-    .ig-top{display:flex;gap:46px;align-items:flex-start;padding:26px 26px 16px;}
-    .ig-avatar{width:150px;height:150px;border-radius:50%;border:3px solid rgba(15,23,42,.08);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f3f4f6;flex:0 0 auto;}
+    .ig-top{
+      display:block;
+      position:relative;
+      padding:0;
+      height:0;
+      min-height:0;
+      overflow:visible;
+    }
+    body.profile-page .profile-cover::after{content:none;}
+    .ig-profile-head .profile-cover-badge{display:none;}
+    body.profile-page .profile-cover-cam,
+    body.profile-page .profile-cover-del{
+      position:absolute;
+      top:auto;
+      bottom:14px;
+      z-index:7;
+      box-sizing:border-box;
+      width:36px !important;
+      height:36px !important;
+      min-width:36px !important;
+      min-height:36px !important;
+      max-width:36px !important;
+      max-height:36px !important;
+      margin:0;
+      padding:0 !important;
+      border:0 !important;
+      border-radius:50%;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      line-height:1;
+      background:rgba(15,23,42,.72);
+      color:#fff !important;
+      text-decoration:none;
+      cursor:pointer;
+    }
+    body.profile-page .profile-cover-cam{right:14px;left:auto;}
+    body.profile-page .profile-cover-del{right:56px;left:auto;}
+    body.profile-page .profile-cover-cam i,
+    body.profile-page .profile-cover-del i{
+      margin:0 !important;
+      font-size:16px !important;
+      line-height:1 !important;
+      width:16px;
+      height:16px;
+    }
+    .cover-del-dialog{
+      position:fixed;
+      inset:0;
+      z-index:24000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:rgba(8,12,20,.62);
+    }
+    .cover-del-dialog[hidden]{display:none !important;}
+    .cover-del-card{
+      width:min(560px,100%);
+      max-height:min(86vh,720px);
+      overflow:auto;
+      border-radius:16px;
+      background:var(--msb-palette-bg,#fff);
+      color:var(--msb-palette-text,#111827);
+      padding:18px 18px 16px;
+      box-shadow:0 24px 60px rgba(0,0,0,.28);
+    }
+    .cover-del-card h3{margin:0 0 6px;font-size:18px;font-weight:800;}
+    .cover-del-card p{margin:0 0 14px;font-size:13px;color:var(--msb-palette-text-muted,#667085);}
+    .cover-del-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(108px,1fr));
+      gap:10px;
+      margin:0 0 16px;
+    }
+    .cover-del-tile{
+      position:relative;
+      display:block;
+      margin:0;
+      border:2px solid transparent;
+      border-radius:10px;
+      overflow:hidden;
+      cursor:pointer;
+      background:#e5e7eb;
+      aspect-ratio:1.4/1;
+    }
+    .cover-del-tile.is-on{border-color:#4338ca;}
+    .cover-del-tile img{width:100%;height:100%;object-fit:cover;display:block;}
+    .cover-del-tile input{position:absolute;left:8px;top:8px;margin:0;width:16px;height:16px;z-index:1;}
+    .cover-del-actions{display:flex;justify-content:flex-end;gap:8px;}
+    .cover-del-cancel,.cover-del-confirm{
+      height:38px;padding:0 14px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;
+    }
+    .cover-del-cancel{border:1px solid var(--msb-palette-border,#d1d5db);background:transparent;color:inherit;}
+    .cover-del-confirm{border:0;background:#b91c1c;color:#fff;}
+    .cover-del-confirm:disabled{opacity:.45;cursor:not-allowed;}
+    body.profile-page .profile-cover-file{
+      position:absolute;
+      width:1px;
+      height:1px;
+      opacity:0;
+      overflow:hidden;
+      pointer-events:none;
+    }
+    body.profile-page .profile-cover-slides{
+      position:absolute;
+      inset:0;
+    }
+    body.profile-page .profile-cover-slide{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      opacity:0;
+      transition:opacity .45s ease;
+      pointer-events:none;
+    }
+    body.profile-page .profile-cover-slide.is-active{
+      opacity:1;
+      z-index:1;
+    }
+    body.profile-page .profile-cover-empty{
+      position:absolute;
+      inset:0;
+    }
+    body.profile-page .profile-cover-nav{
+      position:absolute;
+      top:50%;
+      transform:translateY(-50%);
+      z-index:7;
+      width:40px;
+      height:40px;
+      border:0 !important;
+      border-radius:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      outline:0 !important;
+      color:#fff !important;
+      font-size:36px;
+      font-weight:300;
+      line-height:1;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-shadow:0 1px 8px rgba(0,0,0,.65);
+      -webkit-appearance:none;
+      appearance:none;
+    }
+    body.profile-page .profile-cover-nav:hover,
+    body.profile-page .profile-cover-nav:focus{
+      background:transparent !important;
+      border:0 !important;
+      color:#fff !important;
+    }
+    body.profile-page .profile-cover-prev{left:12px;}
+    body.profile-page .profile-cover-next{right:12px;}
+    body.profile-page .profile-cover-dots{
+      position:absolute;
+      left:50%;
+      bottom:12px;
+      transform:translateX(-50%);
+      z-index:7;
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:6px;
+      max-width:72%;
+    }
+    body.profile-page .profile-cover-dots button{
+      width:7px;
+      height:7px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:rgba(255,255,255,.45);
+      cursor:pointer;
+    }
+    body.profile-page .profile-cover-dots button.is-active{
+      width:16px;
+      border-radius:999px;
+      background:#fff;
+    }
+    .ig-main{
+      position:relative;
+      z-index:2;
+      height:0;
+      min-height:0;
+      padding:0;
+      pointer-events:none;
+    }
+    .ig-main .gear-search-wrap,
+    .ig-main a,
+    .ig-main button,
+    .ig-main input{
+      pointer-events:auto;
+    }
+    .ig-avatar-col{
+      position:absolute;
+      left:max(-300px, calc((100% - (100vw - var(--feedRailW, 84px))) / 2 + 18px));
+      top:-88px;
+      bottom:auto;
+      z-index:90;
+      width:max-content;
+      min-width:150px;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+    }
+    .ig-avatar{
+      position:relative;
+      left:auto;
+      bottom:auto;
+      width:150px;
+      height:150px;
+      border-radius:50%;
+      border:3px solid var(--msb-palette-bg, #f5f7fb);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      background:#f3f4f6;
+      flex:0 0 auto;
+      box-shadow:0 0 0 1px rgba(15,23,42,.08);
+    }
     .ig-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+    .ig-avatar-col .ig-name-line{
+      margin:10px 0 0;
+      max-width:none;
+      flex-wrap:wrap;
+      gap:6px 8px;
+      align-items:baseline;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    }
+    .ig-avatar-col .ig-badge-sep{
+      flex:0 0 auto;
+      font-size:15px;
+      font-weight:400;
+      line-height:1.25;
+      color:var(--msb-palette-text-muted, #737373);
+    }
+    .ig-avatar-col .profile-account-badge{
+      margin:0;
+      padding:0;
+      font-size:13px;
+      font-weight:600;
+      letter-spacing:.01em;
+      line-height:1.25;
+      white-space:nowrap;
+      color:var(--msb-palette-text-muted, #737373);
+      background:transparent;
+      background-color:transparent;
+      border:0;
+      box-shadow:none;
+    }
+    .ig-avatar-col .ig-fullname-name{
+      margin:0;
+      width:auto;
+      font-size:17px;
+      font-weight:700;
+      line-height:1.25;
+      letter-spacing:-.01em;
+      text-align:left;
+      color:var(--msb-palette-text, #111111);
+      white-space:nowrap;
+      overflow:visible;
+      text-overflow:clip;
+    }
+    .ig-avatar-col .ig-pronouns{
+      font-size:15px;
+      font-weight:400;
+      line-height:1.25;
+      color:var(--msb-palette-text-muted, #737373);
+      white-space:nowrap;
+    }
+    .ig-avatar-col .ig-handle{display:none;}
+    .ig-avatar-col .ig-name-sep{display:none;}
+    .ig-avatar-col .ig-row1{
+      margin-top:10px;
+      justify-content:flex-start;
+      gap:8px;
+    }
+    .ig-avatar-col .ig-id-stats{
+      display:flex;
+      align-items:baseline;
+      gap:20px;
+      margin:6px 0 0;
+      flex-wrap:nowrap;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    }
+    .ig-avatar-col .ig-id-stats .ig-stat{
+      margin:0;
+      font-size:15px;
+      font-weight:400;
+      line-height:1.35;
+      text-align:left;
+      white-space:nowrap;
+      color:var(--msb-palette-text, #111111);
+    }
+    .ig-avatar-col .ig-id-stats .ig-stat b{
+      font-weight:700;
+      color:var(--msb-palette-text, #111111);
+    }
+    .ig-avatar-col .ig-joined{display:none;}
+    .ig-avatar-col .ig-about-pins{
+      margin:10px 0 0;
+      max-width:220px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      text-align:left;
+    }
+    .ig-avatar-col .ig-pin-item{
+      min-width:0;
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+    }
+    .ig-avatar-col .ig-pin-ico{
+      flex:0 0 auto;
+      width:16px;
+      margin-top:1px;
+      color:var(--msb-palette-icon, var(--msb-palette-text-muted, #667085));
+      font-size:15px;
+      line-height:1.2;
+      text-align:center;
+    }
+    .ig-avatar-col .ig-pin-ico .icon{font-size:15px;}
+    .ig-avatar-col .ig-pin-item .ig-pin-value{flex:1;min-width:0;}
+    .ig-avatar-col .ig-pin-label{display:none;}
+    .ig-avatar-col .ig-pin-value,
+    .ig-avatar-col .ig-work-line{
+      margin:0;
+      font-size:13px;
+      font-weight:500;
+      line-height:1.4;
+      text-align:left;
+      color:var(--msb-palette-text-muted, #667085);
+      word-break:break-word;
+    }
+    .ig-avatar-col .ig-pin-item.is-work .ig-pin-value{
+      font-weight:600;
+    }
+    .ig-avatar-col .ig-pin-value .about-link,
+    .ig-avatar-col .ig-pin-value .people-tag-link{
+      color:var(--msb-palette-link, #4f46e5);
+      font-weight:700;
+      text-decoration:none;
+    }
+    .ig-avatar-col .ig-pin-value .about-link:hover,
+    .ig-avatar-col .ig-pin-value .people-tag-link:hover{
+      text-decoration:underline;
+    }
+    .ig-avatar-col a.ig-pin-value{color:var(--msb-palette-link, #4f46e5);text-decoration:none;}
+    .ig-avatar-col a.ig-pin-value:hover{text-decoration:underline;}
+    .ig-profile-rail{
+      position:absolute;
+      right:max(-312px, calc((100% - (100vw - var(--feedRailW, 84px))) / 2 + 16px));
+      top:8px;
+      width:280px;
+      max-height:min(78vh, calc(100vh - 96px));
+      overflow-y:auto;
+      overflow-x:hidden;
+      z-index:85;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      padding:0 2px 18px;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:thin;
+      pointer-events:auto;
+      background:transparent;
+    }
+    .ig-rail-card{
+      background:var(--msb-palette-bg, #f5f7fb);
+      border:1px solid var(--msb-palette-border, #c0c2c4);
+      border-radius:18px;
+      padding:16px 16px 14px;
+      color:var(--msb-palette-text, #0b1220);
+    }
+    .ig-rail-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin:0 0 12px;
+    }
+    .ig-rail-title{
+      margin:0;
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:-.02em;
+      color:var(--msb-palette-text, #0b1220);
+    }
+    .ig-rail-viewall{
+      font-size:13px;
+      font-weight:700;
+      color:var(--msb-palette-action, var(--msb-palette-link, #a78bfa));
+      text-decoration:none;
+      white-space:nowrap;
+    }
+    .ig-rail-viewall:hover{text-decoration:underline;}
+    .ig-rail-bio{
+      margin:0;
+      font-size:14px;
+      line-height:1.45;
+      color:var(--msb-palette-text, #0b1220);
+      white-space:pre-wrap;
+    }
+    .ig-rail-bio.is-empty,
+    .ig-rail-empty{
+      color:var(--msb-palette-text-muted, #98a2b3);
+    }
+    .ig-rail-bullets{
+      list-style:none;
+      margin:10px 0 0;
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .ig-rail-bullets li{
+      font-size:13px;
+      line-height:1.4;
+      color:var(--msb-palette-text, #0b1220);
+    }
+    .ig-rail-link{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      margin-top:12px;
+      font-size:13px;
+      font-weight:700;
+      color:var(--msb-palette-action, var(--msb-palette-link, #a78bfa));
+      text-decoration:none;
+    }
+    .ig-rail-link:hover{text-decoration:underline;}
+    .ig-rail-link i{font-size:15px;}
+    .ig-rail-stats{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:0;
+    }
+    .ig-rail-stat{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      text-align:center;
+      padding:2px 4px 0;
+      position:relative;
+    }
+    .ig-rail-stat + .ig-rail-stat::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:10px;
+      bottom:10px;
+      width:1px;
+      background:var(--msb-palette-border, rgba(255,255,255,.1));
+    }
+    .ig-rail-stat i{
+      font-size:18px;
+      line-height:1;
+      margin-bottom:8px;
+    }
+    .ig-rail-stat-posts i{color:#a78bfa;}
+    .ig-rail-stat-followers i{color:#34d399;}
+    .ig-rail-stat-following i{color:#60a5fa;}
+    .ig-rail-stat-likes i{color:#c4b5fd;}
+      .ig-rail-stat b{
+      font-size:16px;
+      font-weight:800;
+      color:var(--msb-palette-text, #0b1220);
+      line-height:1.2;
+    }
+    .ig-rail-stat span{
+      margin-top:2px;
+      font-size:11px;
+      font-weight:600;
+      color:var(--msb-palette-text-muted, #98a2b3);
+    }
+    .ig-rail-videos{display:flex;flex-direction:column;gap:12px;}
+    .ig-rail-video{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      text-decoration:none;
+      color:inherit;
+      min-width:0;
+    }
+    .ig-rail-thumb{
+      position:relative;
+      flex:0 0 58px;
+      width:58px;
+      height:58px;
+      border-radius:12px;
+      overflow:hidden;
+      background:#111;
+    }
+    .ig-rail-thumb img,
+    .ig-rail-thumb video{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+    .ig-rail-thumb-fallback{
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      background:linear-gradient(135deg,#312e81,#6d28d9);
+    }
+    .ig-rail-video-meta{min-width:0;flex:1 1 auto;}
+    .ig-rail-video-title{
+      font-size:13px;
+      font-weight:700;
+      line-height:1.3;
+      color:var(--msb-palette-text, #0b1220);
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .ig-rail-video-views{
+      margin-top:4px;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      font-size:12px;
+      font-weight:600;
+      color:var(--msb-palette-text-muted, #98a2b3);
+    }
+    .ig-rail-video-views i{font-size:12px;}
+    @media (max-width: 1399.98px){
+      .ig-profile-rail{display:none;}
+    }
     .ig-main{flex:1 1 auto;min-width:0;}
     .ig-row1{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
     .ig-name-line{
@@ -2233,11 +3284,11 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color:var(--msb-palette-text, #0b1220);
     }
 
-    .ig-highlights{display:flex;align-items:flex-start;padding:0 26px 14px;overflow:hidden;}
+    .ig-highlights{display:flex;align-items:center;padding:8px 26px 12px;overflow:hidden;}
     .ig-stories-track{
       display:flex;
-      align-items:flex-start;
-      gap:18px;
+      align-items:center;
+      gap:14px;
       flex:1;
       min-width:0;
       overflow-x:auto;
@@ -2250,7 +3301,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .ig-stories-track::-webkit-scrollbar{display:none;}
     .ig-story-item{
       flex:0 0 auto;
-      width:72px;
+      width:54px;
       text-align:center;
       cursor:pointer;
       user-select:none;
@@ -2262,9 +3313,9 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       text-decoration:none;
     }
     .ig-story-ring{
-      width:66px;
-      height:66px;
-      margin:0 auto 6px;
+      width:48px;
+      height:48px;
+      margin:0 auto 5px;
       padding:2px;
       border-radius:50%;
       background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af,#515bd4);
@@ -2304,8 +3355,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     .ig-story-name{
       display:block;
-      max-width:72px;
-      font-size:12px;
+      max-width:54px;
+      font-size:11px;
       line-height:1.2;
       color:#344054;
       white-space:nowrap;
@@ -2324,7 +3375,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       justify-content:center;
     }
     .ig-story-create .ig-story-ring i{
-      font-size:24px;
+      font-size:18px;
       color:#667085;
     }
 
@@ -2522,6 +3573,102 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       .ig-grid-heads{padding:8px 18px 0;gap:8px;}
     }
 
+    .ig-item-wrap{
+      position:relative;
+      width:100%;
+      aspect-ratio:1/1;
+    }
+    .ig-item-wrap .ig-item{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      aspect-ratio:auto;
+    }
+    .ig-saved-remove{
+      position:absolute;
+      top:8px;
+      right:8px;
+      z-index:14;
+      width:32px;
+      height:32px;
+      padding:0;
+      border:0;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      color:#fff;
+      background:rgba(15,23,42,.72);
+      box-shadow:0 1px 4px rgba(0,0,0,.28);
+    }
+    .ig-saved-remove:hover,
+    .ig-saved-remove:focus-visible{
+      background:#b42318;
+      outline:0;
+    }
+    .ig-saved-remove:disabled{opacity:.55;cursor:wait;}
+    .ig-saved-remove i{font-size:16px;line-height:1;margin:0;}
+    html body dialog#savedRemoveDialog.saved-remove-dialog{
+      position:fixed !important;inset:0 !important;z-index:2147483647 !important;
+      display:none !important;width:min(430px,calc(100vw - 32px)) !important;
+      min-width:0 !important;max-width:430px !important;height:max-content !important;
+      min-height:0 !important;max-height:calc(100dvh - 32px) !important;
+      margin:auto !important;padding:30px !important;overflow:auto !important;
+      border:1px solid var(--msb-palette-border,rgba(148,163,184,.28)) !important;
+      border-radius:22px !important;background:var(--msb-palette-surface,#fff) !important;
+      color:var(--msb-palette-text,#111827) !important;box-shadow:0 28px 80px rgba(0,0,0,.38) !important;
+      text-align:center !important;box-sizing:border-box !important;transform:none !important;
+    }
+    html body dialog#savedRemoveDialog.saved-remove-dialog[open]{display:block !important}
+    html body dialog#savedRemoveDialog.saved-remove-dialog::backdrop{
+      background:rgba(15,23,42,.62) !important;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)
+    }
+    #savedRemoveDialog .saved-remove-dialog-close{
+      position:absolute !important;top:12px !important;right:14px !important;left:auto !important;
+      width:34px !important;height:34px !important;margin:0 !important;padding:0 !important;border:0 !important;
+      border-radius:50% !important;background:transparent !important;color:var(--msb-palette-muted,#64748b) !important;
+      font-size:27px !important;font-weight:400 !important;line-height:32px !important;cursor:pointer
+    }
+    #savedRemoveDialog .saved-remove-dialog-close:hover{
+      background:var(--msb-palette-surface-2,rgba(148,163,184,.14)) !important;
+      color:var(--msb-palette-text,#111827) !important
+    }
+    #savedRemoveDialog .saved-remove-dialog-icon{
+      position:static !important;display:grid !important;place-items:center !important;
+      width:58px !important;height:58px !important;margin:0 auto 16px !important;padding:0 !important;
+      border-radius:50% !important;background:rgba(239,68,68,.12) !important;color:#dc2626 !important;font-size:23px !important
+    }
+    #savedRemoveDialog h2{
+      display:block !important;margin:0 30px 9px !important;padding:0 !important;color:inherit !important;
+      font-size:21px !important;font-weight:800 !important;line-height:1.25 !important
+    }
+    #savedRemoveDialog p{
+      display:block !important;margin:0 !important;padding:0 !important;
+      color:var(--msb-palette-muted,#64748b) !important;font-size:14px !important;font-weight:400 !important;line-height:1.55 !important
+    }
+    #savedRemoveDialog .saved-remove-dialog-actions{
+      position:static !important;display:flex !important;gap:10px !important;width:100% !important;
+      margin:24px 0 0 !important;padding:0 !important
+    }
+    #savedRemoveDialog .saved-remove-dialog-actions button{
+      position:static !important;display:block !important;flex:1 1 0 !important;width:auto !important;
+      height:44px !important;margin:0 !important;padding:0 18px !important;border-radius:999px !important;
+      font-size:14px !important;font-weight:800 !important;line-height:42px !important;cursor:pointer
+    }
+    #savedRemoveDialog .saved-remove-dialog-cancel{
+      border:1px solid var(--msb-palette-border,rgba(148,163,184,.38)) !important;
+      background:transparent !important;color:var(--msb-palette-text,#111827) !important
+    }
+    #savedRemoveDialog .saved-remove-dialog-confirm{
+      border:1px solid #dc2626 !important;background:#dc2626 !important;color:#fff !important
+    }
+    #savedRemoveDialog .saved-remove-dialog-confirm:disabled{opacity:.65 !important;cursor:wait !important}
+    @media(max-width:575.98px){
+      html body dialog#savedRemoveDialog.saved-remove-dialog{padding:28px 22px 22px !important}
+      #savedRemoveDialog h2{font-size:19px !important}
+    }
     .ig-item{position:relative;width:100%;aspect-ratio:1/1;background:#eef2f7;overflow:hidden;border:1px solid rgba(15,23,42,.06);text-decoration:none;}
     .ig-item .ph{position:absolute;inset:0;background-size:cover;background-position:center;}
     .ig-item video.ig-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;}
@@ -2602,7 +3749,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .cap .cap-desc{
-      font-size:7px;font-weight:700;opacity:.95;
+      font-size:11px;font-weight:400;opacity:.92;
       display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
     }
     .ig-item[data-mobile="0"] .cap .cap-desc{-webkit-line-clamp:2;}
@@ -2673,11 +3820,45 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .txtcap .d{
-      font-size:12px;font-weight:700;opacity:.95;
+      font-size:11px;font-weight:400;opacity:.92;
       display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
     }
     .ig-item[data-mobile="0"] .txtcap .d{-webkit-line-clamp:3;}
     .ig-item[data-mobile="1"] .txtcap .d{-webkit-line-clamp:2;}
+
+    /* Gallery text tiles: solid card color only. Title and description have no boxes. */
+    #panel-gallery .ig-item.no-media .txtdesc{
+      background:var(--msb-palette-bg, #0b1220);
+      background-image:none;
+      border-color:var(--msb-palette-border, rgba(15,23,42,.12));
+      box-shadow:none;
+    }
+    #panel-gallery .ig-item.no-media .txtdesc:after{
+      display:none;
+    }
+    #panel-gallery .ig-item.no-media .txtdesc:before{
+      background:var(--msb-palette-action, #4f46e5);
+    }
+    #panel-gallery .ig-item.no-media .txtcap{
+      background:transparent;
+      backdrop-filter:none;
+      padding:0;
+      color:var(--msb-palette-text, #f8fafc);
+    }
+    #panel-gallery .ig-item.no-media .txtcap .t,
+    #panel-gallery .ig-item.no-media .txtcap .d{
+      background:none;
+      padding:0;
+      border-radius:0;
+      text-shadow:none;
+      color:inherit;
+      opacity:1;
+    }
+    html.dark-auto #panel-gallery .ig-item.no-media .txtdesc,
+    html[data-theme="dark"] #panel-gallery .ig-item.no-media .txtdesc{
+      background:var(--msb-palette-bg, #111827);
+      background-image:none;
+    }
 
     .ig-empty{padding:22px 26px 26px;color:#667085;font-weight:700;font-size:13px;}
     .mf-feed-empty{
@@ -2706,7 +3887,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       letter-spacing:-0.01em;
     }
     #panel-gallery .mf-feed-empty,
-    #panel-tags .mf-feed-empty{
+    #panel-tags .mf-feed-empty,
+    #panel-saved .mf-feed-empty{
       min-height:min(360px, calc(100vh - 420px));
     }
 
@@ -2729,14 +3911,19 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
         max-height:100% !important;
         padding-bottom:0 !important;
       }
-      .profile-cover{top:100px;height:190px;margin:-18px -18px 18px;}
-      .ig-top{gap:16px;padding:18px;}
+      .ig-top{padding:0;height:0;min-height:0;}
+      .ig-main{height:0;min-height:0;padding:0;}
+      .profile-cover{top:auto;height:var(--profile-cover-h, 250px);margin:0;}
+      .ig-avatar-col{left:12px;top:-56px;bottom:auto;min-width:92px;}
       .ig-avatar{width:92px;height:92px;}
+      .ig-avatar-col .ig-fullname-name{font-size:16px;}
+      .ig-avatar-col .ig-pronouns{font-size:13px;}
+      .ig-avatar-col .ig-id-stats{gap:14px;}
+      .ig-avatar-col .ig-id-stats .ig-stat{font-size:13px;}
       .ig-stats{gap:16px;margin-top:10px;}
-      .ig-highlights{gap:14px;overflow:auto;padding:0 18px 14px;}
-      .ig-highlights{padding:0 16px 12px}
-      .ig-story-ring{width:58px;height:58px}
-      .ig-story-item{width:64px}
+      .ig-highlights{gap:12px;overflow:auto;padding:8px 16px 10px;}
+      .ig-story-ring{width:44px;height:44px}
+      .ig-story-item{width:50px}
       .ig-grid{gap:6px;padding:12px 18px 18px;}
       .ig-gallery-filter{padding:0 18px 12px;justify-content:stretch;}
       .ig-gallery-search,.ig-gallery-right{width:100%;}
@@ -2753,7 +3940,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     @media (max-width: 991px){
       .cap .cap-desc,
       .txtcap .d{
-        font-size:7px !important;
+        font-size:10px !important;
+        font-weight:400 !important;
       }
     }
 
@@ -2769,7 +3957,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       /* Grid description */
       .cap .cap-desc,
       .txtcap .d{
-        font-size:6px !important;
+        font-size:10px !important;
+        font-weight:400 !important;
       }
     }
 
@@ -2778,7 +3967,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       border-bottom:0;
       position:relative;
       overflow:visible;
-      padding-top:22px;
+      padding-top:10px;
       background-color:var(--msb-palette-bg, #f5f7fb);
     }
     .ig-story-item:focus-visible{
@@ -3153,7 +4342,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     #profilePostsFeed .mf-slide-summary .post-slide-summary-p{margin:0;}
     #profilePostsFeed .mf-slide-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
     #profilePostsFeed .mf-slide-summary .post-slide-summary-list li{margin:0 0 .35em}
-    #profilePostsFeed .mf-body{padding:0;font-size:14px;line-height:1.55;color:var(--msb-palette-text-muted, #344054);word-break:break-word;text-align:left;background:var(--msb-palette-bg, transparent);}
+    #profilePostsFeed .mf-body{padding:0;font-size:12px;font-weight:400;line-height:1.45;color:var(--msb-palette-text-muted, #344054);word-break:break-word;text-align:left;background:var(--msb-palette-bg, transparent);}
     #profilePostsFeed .mf-body .mf-body-formatted{text-align:left;}
     #profilePostsFeed .mf-body .post-card-paragraph{margin:0 0 12px;text-align:left;white-space:normal;word-break:break-word;display:block;}
     #profilePostsFeed .mf-body .post-card-paragraph:last-child{margin-bottom:0;}
@@ -3223,7 +4412,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       #profilePostsFeed .mf-avatar{width:35px;height:35px;flex:0 0 35px;}
       #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;color:#111827;}
       #profilePostsFeed .mf-title{padding:0 0 10px;font-size:14px;line-height:1.25;font-weight:700;}
-      #profilePostsFeed .mf-body{font-size:13px;}
+      #profilePostsFeed .mf-body{font-size:12px;font-weight:400;}
     }
     @media (max-width:767px){
       #profilePostsFeed.mf-feed{padding:10px 10px 80px;}
@@ -3238,7 +4427,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       }
       #profilePostsFeed .mf-name{font-size:13px;color:#101828;}
       #profilePostsFeed .mf-title{padding:0 0 10px;font-size:14px;line-height:1.3;}
-      #profilePostsFeed .mf-body{font-size:13px;line-height:1.55;}
+      #profilePostsFeed .mf-body{font-size:12px;font-weight:400;line-height:1.45;}
     }
     @media (min-width:768px) and (max-width:1024px){
       #profilePostsFeed .mf-card.mf-card-text-only:not(.mf-card-phone-shot){
@@ -3267,12 +4456,88 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       letter-spacing:.02em;
       text-transform:uppercase;
     }
-    .about-card{display:flex;gap:12px;align-items:flex-start;padding:14px 15px;border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));background:var(--msb-palette-bg, #f5f7fb);min-height:88px;}
+    .about-card{display:flex;gap:12px;align-items:flex-start;position:relative;padding:14px 62px 14px 15px;border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));background:var(--msb-palette-bg, #f5f7fb);min-height:88px;}
     .about-ico{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--msb-palette-hover-bg, #eef2ff);color:var(--msb-palette-link, #4f46e5);flex:0 0 42px;}
     .about-ico i{font-size:20px;}
     .about-card .k{font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:900;color:var(--msb-palette-text-muted, #667085);margin-bottom:6px;}
     .about-card .v{font-size:14px;line-height:1.45;color:var(--msb-palette-text, #0b1220);font-weight:700;word-break:break-word;}
     .about-card .v.empty{color:var(--msb-palette-text-muted, #98a2b3);font-weight:700;font-style:italic;}
+    .about-card .about-link{color:var(--msb-palette-link, #4f46e5);font-weight:700;text-decoration:none;word-break:break-all;}
+    .about-card .about-link:hover{text-decoration:underline;}
+    .about-switch{
+      position:absolute;
+      top:12px;
+      right:12px;
+      width:44px;
+      height:24px;
+      padding:0;
+      border:0;
+      border-radius:999px;
+      background:#cbd5e1;
+      cursor:pointer;
+      flex:0 0 auto;
+    }
+    .about-switch[aria-checked="true"]{background:#22c55e;}
+    .about-switch .knob{
+      display:block;
+      width:20px;
+      height:20px;
+      margin:2px;
+      border-radius:50%;
+      background:#fff;
+      box-shadow:0 1px 2px rgba(15,23,42,.2);
+      transition:transform .16s ease;
+    }
+    .about-switch[aria-checked="true"] .knob{transform:translateX(20px);}
+    .about-switch:focus{outline:2px solid rgba(79,70,229,.45);outline-offset:2px;}
+    .about-card .about-link{color:var(--msb-palette-link,#4f46e5);font-weight:800;text-decoration:none;}
+    .about-card .about-link:hover{text-decoration:underline;}
+    .about-card .people-tag-link,
+    .about-card .v a.about-link{
+      position:relative;
+      z-index:3;
+      cursor:pointer;
+    }
+    .about-people{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-width:320px;}
+    .about-people-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+    .about-people-role,.about-people-mention{
+      height:34px;border-radius:10px;border:1px solid var(--msb-palette-border,rgba(15,23,42,.12));
+      background:var(--msb-palette-bg,#fff);color:var(--msb-palette-text,#0f172a);
+      font-size:13px;font-weight:700;padding:0 10px;
+    }
+    .about-people-mention{flex:1;min-width:140px;}
+    .about-people-tag-row{position:relative;}
+    .about-people-ac{
+      position:absolute;left:0;right:0;top:100%;z-index:40;margin-top:4px;
+      background:var(--msb-palette-bg,#fff);color:var(--msb-palette-text,#0f172a);
+      border:1px solid var(--msb-palette-border,rgba(15,23,42,.12));border-radius:12px;
+      box-shadow:0 10px 24px rgba(15,23,42,.16);max-height:220px;overflow:auto;padding:4px;
+    }
+    .about-people-ac-item{
+      display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+      border:0;background:transparent;cursor:pointer;text-align:left;padding:8px 10px;border-radius:10px;
+      color:inherit;font:inherit;
+    }
+    .about-people-ac-item:hover{background:var(--msb-palette-hover-bg,rgba(15,23,42,.06));}
+    .about-people-ac-user{font-size:13px;font-weight:800;}
+    .about-people-ac-name{font-size:12px;opacity:.7;}
+    .about-people-ac-empty{padding:10px 12px;font-size:12px;opacity:.7;}
+    .about-people-picked{font-size:12px;font-weight:700;color:var(--msb-palette-text-muted,#64748b);}
+    .about-people-save{
+      height:32px;padding:0 12px;border:0;border-radius:9px;cursor:pointer;
+      background:var(--msb-palette-action,#4338ca);color:#fff;font-size:12px;font-weight:800;
+    }
+    .about-people-msg{font-size:12px;font-weight:700;color:#b42318;}
+    .about-people-msg.is-ok{color:#067647;}
+    .about-people-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+    .about-people-chips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+    .about-people-chips li{
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+      padding:6px 8px;border-radius:10px;background:var(--msb-palette-hover-bg,rgba(15,23,42,.05));
+      font-size:12px;font-weight:700;
+    }
+    .about-people-remove{border:0;background:transparent;cursor:pointer;font-size:16px;line-height:1;opacity:.7;color:inherit;}
+    .about-people-remove:hover{opacity:1;}
     .about-note{margin-top:16px;padding:12px 14px;border:1px dashed var(--msb-palette-border-strong, rgba(79,70,229,.28));background:var(--msb-palette-surface-2, #f8faff);color:var(--msb-palette-link, #4338ca);font-size:13px;font-weight:700;}
     .about-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
     .about-title{font-size:15px;font-weight:900;color:var(--msb-palette-text, #0b1220);letter-spacing:.02em;}
@@ -3330,7 +4595,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-search-wrap{display:none;margin-left:auto;flex:1 1 240px;max-width:min(360px, 42vw);min-width:180px;}
     body.profile-page.profile-gear-mode .gear-search-wrap{display:block;}
     .gear-search--head{width:100%;}
-    .gear-nav{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(79,70,229,.35) transparent;}
+    .gear-nav{flex:1 1 0;min-height:0;max-height:min(480px, 52vh);overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(79,70,229,.35) transparent;}
     .gear-nav::-webkit-scrollbar{width:8px;}
     .gear-nav::-webkit-scrollbar-thumb{background:rgba(79,70,229,.28);border-radius:999px;}
     .gear-nav::-webkit-scrollbar-track{background:transparent;}
@@ -3368,6 +4633,107 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-detail-chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;}
     .gear-chip{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;background:var(--msb-palette-hover-bg, #eef2ff);color:var(--msb-palette-link, #4338ca);font-size:11px;font-weight:900;letter-spacing:.02em;}
     .gear-detail-body{max-width:640px;}
+    .gear-detail-panel:has(.dz-wrap) .gear-detail-body{
+      max-width:none;
+      width:100%;
+      min-width:0;
+    }
+    .gear-detail-panel:has(.dz-wrap){
+      container-type:inline-size;
+      container-name:dzpane;
+    }
+    .dz-wrap{display:flex;flex-direction:column;gap:10px;width:100%;min-width:0;overflow:hidden;}
+    .dz-lead{margin:0 0 4px;font-size:13px;line-height:1.5;color:var(--msb-palette-text-muted,#667085);}
+    .dz-card{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      gap:14px 16px;
+      width:100%;
+      min-width:0;
+      box-sizing:border-box;
+      padding:14px 16px;
+      border:1px solid rgba(185,28,28,.28);
+      border-radius:14px;
+      background:var(--msb-palette-bg,transparent);
+    }
+    .dz-ico{
+      width:48px;height:48px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(185,28,28,.12);color:#b91c1c;font-size:22px;
+      flex:0 0 48px;
+    }
+    .dz-copy{
+      flex:1 1 220px;
+      min-width:0;
+      width:auto;
+      max-width:none;
+    }
+    .dz-copy h4{margin:0 0 6px;font-size:15px;font-weight:800;color:#b91c1c;line-height:1.3;}
+    .dz-copy p,.dz-copy li{
+      margin:0;
+      font-size:13px;
+      line-height:1.5;
+      color:var(--msb-palette-text,#0b1220);
+      white-space:normal;
+      overflow-wrap:break-word;
+      word-break:normal;
+    }
+    .dz-copy p{margin:0 0 8px;}
+    .dz-copy ul{margin:0;padding-left:1.15em;font-size:13px;line-height:1.55;color:var(--msb-palette-text-muted,#667085);}
+    .dz-actions{
+      display:flex;flex-direction:column;align-items:stretch;gap:8px;
+      flex:0 1 168px;
+      min-width:140px;
+      max-width:100%;
+    }
+    .dz-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      padding:9px 12px;border-radius:10px;border:1px solid #b91c1c;
+      color:#b91c1c;background:transparent;font-weight:800;font-size:13px;text-decoration:none;text-align:center;
+      white-space:normal;
+    }
+    .dz-btn:hover{background:rgba(185,28,28,.08);}
+    .dz-btn-ghost{border-color:var(--msb-palette-border,#c0c2c4);color:var(--msb-palette-text,#0b1220);}
+    .dz-hint,.dz-off{font-size:12px;line-height:1.4;color:var(--msb-palette-text-muted,#667085);}
+    .dz-foot{
+      display:flex;gap:10px;align-items:flex-start;
+      padding:12px 14px;border-radius:14px;
+      border:1px solid rgba(185,28,28,.28);background:rgba(185,28,28,.08);
+      color:#991b1b;font-size:13px;line-height:1.5;
+    }
+    .gear-detail-panel:has(.as-wrap) .gear-detail-body{max-width:760px;}
+    .as-wrap{display:flex;flex-direction:column;gap:14px;}
+    .as-lead,.as-empty,.as-add-copy{margin:0;font-size:13px;line-height:1.45;color:var(--msb-palette-text-muted,#667085);}
+    .as-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+    .as-row{
+      display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;
+      padding:10px 12px;border-radius:14px;border:1px solid var(--msb-palette-border,#c0c2c4);
+      background:var(--msb-palette-bg,transparent);
+    }
+    .as-row.is-current{border-color:var(--msb-palette-link,#4338ca);}
+    .as-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--msb-palette-hover-bg,#eef2ff);}
+    .as-name{font-size:14px;font-weight:800;color:var(--msb-palette-text,#0b1220);}
+    .as-meta{font-size:12px;color:var(--msb-palette-text-muted,#667085);}
+    .as-using{font-size:11px;font-weight:800;color:var(--msb-palette-link,#4338ca);}
+    .as-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      padding:8px 12px;border-radius:12px;border:1px solid var(--msb-palette-link,#4338ca);
+      color:var(--msb-palette-link,#4338ca);background:transparent;font-weight:800;font-size:13px;
+      text-decoration:none;cursor:pointer;
+    }
+    .as-btn:hover{background:var(--msb-palette-hover-bg,#eef2ff);}
+    .as-btn-ghost{border-color:var(--msb-palette-border,#c0c2c4);color:var(--msb-palette-text,#0b1220);}
+    .as-add{padding-top:6px;border-top:1px solid var(--msb-palette-border,#c0c2c4);}
+    .as-add-title{font-size:14px;font-weight:800;margin:0 0 4px;color:var(--msb-palette-text,#0b1220);}
+    .as-add-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+    .dz-foot .icon{font-size:18px;flex:0 0 auto;}
+    @container dzpane (max-width: 560px){
+      .dz-actions{flex:1 1 100%;min-width:0;max-width:220px;}
+    }
+    @media (max-width:900px){
+      .dz-actions{flex:1 1 100%;max-width:220px;}
+    }
     .gear-detail-control-label{display:block;font-size:12px;font-weight:900;color:var(--msb-palette-text-muted, #667085);margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;}
     .gear-detail-open-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:12px;background:var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));color:var(--msb-palette-btn-text,#ffffff);border:1px solid var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));text-decoration:none;font-size:14px;font-weight:900;-webkit-text-fill-color:var(--msb-palette-btn-text,#ffffff);}
     .gear-detail-open-btn:hover,.gear-detail-open-btn:focus{text-decoration:none;background:var(--msb-palette-btn-hover-bg,var(--msb-palette-action-strong,#3730a3));color:var(--msb-palette-btn-text,#ffffff);border-color:var(--msb-palette-btn-hover-bg,var(--msb-palette-action-strong,#3730a3));-webkit-text-fill-color:var(--msb-palette-btn-text,#ffffff);}
@@ -3583,21 +4949,33 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       .gear-main{padding:18px 16px 24px;}
     }
 
-    body.profile-page.profile-gear-mode .ig-profile-scroll{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+    body.profile-page.profile-gear-mode .ig-wrap,
+    body.profile-page.profile-gear-mode .ig-profile-shell{
+      min-height:0;
+      overflow:hidden;
+    }
+    body.profile-page.profile-gear-mode .ig-profile-scroll{display:flex;flex-direction:column;min-height:0;overflow:hidden;overscroll-behavior:none;}
     body.profile-page.profile-gear-mode .ig-tabs{flex:0 0 auto;}
     body.profile-page.profile-gear-mode .ig-gallery-filter[hidden]{display:none !important;}
     body.profile-page.profile-gear-mode #panel-gear.active{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
-    body.profile-page.profile-gear-mode #panel-gear.active .gear-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
-    body.profile-page.profile-gear-mode #panel-gear.active .gear-shell{flex:1 1 auto;min-height:0;height:auto;max-height:none;}
-    body.profile-page.profile-gear-mode #panel-gear.active .gear-sidebar{min-height:0;height:auto;}
-    body.profile-page.profile-gear-mode #panel-gear.active .gear-main{min-height:0;}
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-shell{flex:1 1 auto;min-height:0;height:100%;max-height:100%;overflow:hidden;}
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-sidebar{min-height:0;overflow:hidden;}
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-main{
+      flex:1 1 auto;
+      min-height:0;
+      overflow-y:auto;
+      overflow-x:hidden;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
     @media (max-width: 575px){
       .gear-nav-items{padding-left:12px;}
       .gear-search-wrap{flex:1 1 100%;max-width:none;min-width:0;order:10;margin-left:0;margin-top:8px;}
       body.profile-page.profile-gear-mode .ig-row1{align-items:stretch;}
     }
 
-    .profile-cover{position:sticky;top:0px;z-index:4;height:230px;border-radius:28px 28px 0 0;overflow:hidden;background:linear-gradient(135deg,#0f172a,#4338ca 55%,#7c3aed);margin:-28px -28px 24px;}
+    body:not(.profile-page) .profile-cover{position:sticky;top:0px;z-index:4;height:230px;border-radius:28px 28px 0 0;overflow:hidden;background:linear-gradient(135deg,#0f172a,#4338ca 55%,#7c3aed);margin:-28px -28px 24px;}
     .profile-cover img{width:100%;height:100%;object-fit:cover;display:block;}
     .profile-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,23,42,.12),rgba(15,23,42,.34));pointer-events:none;}
     .profile-cover-badge{position:absolute;left:20px;bottom:18px;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.88);backdrop-filter:blur(10px);color:#0f172a;font-size:12px;font-weight:900;box-shadow:0 10px 24px rgba(15,23,42,.16);}
@@ -3714,8 +5092,9 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
 
     html.dark-auto .profile-cover,
-    html[data-theme="dark"] .profile-cover {
-      background: linear-gradient(135deg,#0b1220,#312e81 55%,#581c87);
+    html[data-theme="dark"] .profile-cover,
+    html[data-msb-appearance] body.profile-page .profile-cover {
+      background: linear-gradient(135deg,#0f172a,#4338ca 55%,#7c3aed) !important;
     }
 
     html.dark-auto:not([data-msb-appearance]) .ig-avatar,
@@ -3904,6 +5283,13 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       border-color: rgba(255,255,255,.10);
       box-shadow: 0 8px 18px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.04);
     }
+    html.dark-auto #panel-gallery .ig-item.no-media .txtdesc,
+    html[data-theme="dark"] #panel-gallery .ig-item.no-media .txtdesc,
+    html[data-msb-appearance] #panel-gallery .ig-item.no-media .txtdesc{
+      background: var(--msb-palette-bg, #111827) !important;
+      background-image: none !important;
+      box-shadow: none;
+    }
 
 </style>
 
@@ -4068,40 +5454,85 @@ $forceFeedRail = true;
 $skipHeaderThemeBootstrap = true;
 include __DIR__ . '/includes/header.php';
 ?>
+<style id="profile-account-badge-plain">
+html body.profile-page .profile-account-badge,
+html[data-msb-appearance] body.profile-page .profile-account-badge,
+html[data-msb-appearance] body.profile-page span.profile-account-badge,
+html.msb-palette-active body.profile-page .profile-account-badge,
+html.dark-auto body.profile-page .profile-account-badge,
+html[data-theme="dark"] body.profile-page .profile-account-badge{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  padding:0!important;
+}
+</style>
 
 <div class="sh-mainpanel">
   <div class="sh-pagebody">
 
+  <div class="profile-cover" data-cover-slideshow="1"<?php if ($isOwnProfile && $canManageProfilePrivate): ?> data-cover-edit="1"<?php endif; ?>>
+    <div class="profile-cover-slides" id="profileCoverSlides">
+      <?php if ($coverSlides): ?>
+        <?php foreach ($coverSlides as $slideIndex => $slide): ?>
+          <img src="<?php echo h((string)$slide['url']); ?>?v=<?php echo time(); ?>" alt="Cover photo <?php echo (int)$slideIndex + 1; ?>" class="profile-cover-slide<?php echo $slideIndex === 0 ? ' is-active' : ''; ?>"<?php echo $slideIndex === 0 ? ' id="profileCoverPreview"' : ''; ?> data-slide-id="<?php echo (int)$slide['id']; ?>">
+        <?php endforeach; ?>
+      <?php else: ?>
+        <div id="profileCoverPreview" class="profile-cover-empty"></div>
+      <?php endif; ?>
+    </div>
+    <button type="button" class="profile-cover-nav profile-cover-prev" aria-label="Previous photo" hidden>‹</button>
+    <button type="button" class="profile-cover-nav profile-cover-next" aria-label="Next photo" hidden>›</button>
+    <div class="profile-cover-dots" id="profileCoverDots" hidden></div>
+    <?php if ($isOwnProfile && $canManageProfilePrivate): ?>
+      <input type="file" name="media" accept="image/*" multiple id="profileCoverUploadInput" class="profile-cover-file">
+      <label class="profile-cover-cam" for="profileCoverUploadInput" title="Add slideshow photos"><i class="icon ion-camera"></i></label>
+      <button type="button" class="profile-cover-del" id="profileCoverDelete" title="Remove slideshow photos" hidden><i class="icon ion-trash-a"></i></button>
+    <?php endif; ?>
+  </div>
+  <?php if ($isOwnProfile && $canManageProfilePrivate): ?>
+  <div class="cover-del-dialog" id="coverSlideDeleteDialog" hidden>
+    <div class="cover-del-card" role="dialog" aria-labelledby="coverSlideDeleteTitle">
+      <h3 id="coverSlideDeleteTitle">Which photos should be removed?</h3>
+      <p>Select one or more slideshow photos, then delete.</p>
+      <div class="cover-del-grid" id="coverSlideDeleteGrid"></div>
+      <div class="cover-del-actions">
+        <button type="button" class="cover-del-cancel" id="coverSlideDeleteCancel">Cancel</button>
+        <button type="button" class="cover-del-confirm" id="coverSlideDeleteConfirm">Delete selected</button>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+
 <div class="ig-wrap">
   <div class="ig-card ig-profile-shell">
-    <!-- <div class="profile-cover">
-      <?php if ($coverUrl !== ''): ?>
-        <img src="<?php echo h($coverUrl); ?>?v=<?php echo time(); ?>" alt="Cover image" id="profileCoverPreview">
-      <?php else: ?>
-        <div id="profileCoverPreview"></div>
-      <?php endif; ?>
-      <div class="profile-cover-badge"><i class="icon ion-image"></i> Talentra cover</div>
-    </div> -->
-
     <div class="ig-top ig-profile-head">
-      <div class="ig-avatar"><img src="<?php echo h($avatarUrl); ?>" data-live-avatar="1" data-avatar-base="<?php echo h($avatarUrl); ?>" alt="Avatar"></div>
-
-      <div class="ig-main">
+      <div class="ig-avatar-col">
+        <div class="ig-avatar"><img src="<?php echo h($avatarUrl); ?>" data-live-avatar="1" data-avatar-base="<?php echo h($avatarUrl); ?>" alt="Avatar"></div>
+        <div class="ig-name-line">
+          <h2 class="ig-fullname-name"><?php echo h($profileDisplayName); ?></h2>
+          <?php if ($profileAccountBadge !== ''): ?>
+            <span class="ig-badge-sep" aria-hidden="true">|</span>
+            <span class="profile-account-badge"><?php echo h($profileAccountBadge); ?></span>
+          <?php endif; ?>
+          <?php if (trim((string)($about['pronouns'] ?? '')) !== ''): ?>
+            <span class="ig-pronouns"><?php echo h(trim((string)$about['pronouns'])); ?></span>
+          <?php endif; ?>
+        </div>
+        <div class="ig-id-stats">
+          <div class="ig-stat ig-stat-posts" data-profile-stat="posts"><b><?php echo (int)$statPosts; ?></b> posts</div>
+          <div class="ig-stat ig-stat-social"><b><?php echo (int)$statSocialCount; ?></b> <?php echo h($profileIsPublisher ? (($statSocialCount === 1) ? 'follower' : 'followers') : $statSocialLabel); ?></div>
+          <div class="ig-stat ig-stat-following"><b><?php echo (int)$statFollowing; ?></b> following</div>
+        </div>
         <div class="ig-row1">
-          <div class="ig-name-line">
-            <h2 class="ig-fullname-name"><?php echo h($profileDisplayName); ?></h2>
-            <?php if ($username !== ''): ?>
-              <span class="ig-name-sep" aria-hidden="true"></span>
-              <span class="ig-handle"><?php echo h($username); ?></span>
-            <?php endif; ?>
-          </div>
-
           <a class="ig-btn back" href="#" onclick="if(window.history.length > 1){ history.back(); return false; } window.location.href='home.php?tab=for-you'; return false;"><i class="icon ion-arrow-left-c"></i>&nbsp;Back</a>
           <?php if ($isOwnProfile): ?>
             <a class="ig-btn edit" href="user_edit.php?return=<?php echo rawurlencode('profile.php'); ?>"><i class="icon ion-edit"></i>&nbsp;Edit</a>
             <a class="ig-btn icon" href="messages.php" title="Messages"><i class="icon ion-chatboxes"></i></a>
             <a class="ig-btn icon" href="contacts.php" title="Friends"><i class="icon ion-person-stalker"></i></a>
-            <a class="ig-btn" href="contact_requests.php"><i class="icon ion-person-add"></i>&nbsp;Friend Requests</a>
+            <a class="ig-btn" href="contact_requests.php"><i class="icon ion-person-add"></i>&nbsp;</a>
           <?php elseif ($isViewedPublisher && $canFollowPublishers): ?>
             <button type="button" class="ig-btn publisher-follow-btn<?= $isFollowingPublisher ? ' is-following' : '' ?>" data-publisher-id="<?= (int)$viewId ?>">
               <?= $isFollowingPublisher ? 'Following' : 'Follow' ?>
@@ -4126,13 +5557,127 @@ include __DIR__ . '/includes/header.php';
               <a class="ig-btn" href="add_contact.php?friend=<?php echo rawurlencode($me['friend_code'] !== '' ? strtoupper($me['friend_code']) : ($username !== '' ? $username : (string)$viewId)); ?>"><i class="icon ion-person-add"></i>&nbsp;Add Friend</a>
             <?php endif; ?>
           <?php endif; ?>
+        </div>
+        <?php
+          $profileWorkLine = trim((string)($about['work_details'] ?? ''));
+          if ($profileWorkLine === '') {
+            $profileWorkLine = trim((string)($me['designation'] ?? ''));
+          }
+        ?>
+        <div class="ig-about-pins" id="igAboutPins">
+          <?php if ($profileShowAboutTab): ?>
+          <?php foreach ($aboutSidebarItems as $pin): ?>
+            <div class="ig-pin-item<?php echo $pin['key'] === 'work' ? ' is-work' : ''; ?>" data-pin-key="<?php echo h($pin['key']); ?>">
+              <span class="ig-pin-ico" aria-hidden="true"><i class="icon <?php echo h((string)($pin['icon'] ?? 'ion-ios-information')); ?>"></i></span>
+              <?php if (!empty($pin['html'])): ?>
+                <div class="ig-pin-value"><?php echo $pin['html']; ?></div>
+              <?php elseif (!empty($pin['is_link'])): ?>
+                <a class="ig-pin-value" href="<?php echo h($pin['value']); ?>" target="_blank" rel="noopener noreferrer"><?php echo h($pin['value']); ?></a>
+              <?php else: ?>
+                <div class="ig-pin-value"><?php echo h($pin['value']); ?></div>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <aside class="ig-profile-rail" aria-label="Profile highlights">
+        <?php if ($profileShowAboutTab): ?>
+        <section class="ig-rail-card">
+          <div class="ig-rail-head">
+            <h3 class="ig-rail-title">About me</h3>
+          </div>
+          <?php if ($profileRailBio !== ''): ?>
+            <p class="ig-rail-bio"><?php echo nl2br(h($profileRailBio)); ?></p>
+          <?php else: ?>
+            <p class="ig-rail-bio is-empty">No about added yet.</p>
+          <?php endif; ?>
+          <?php if ($profileRailHobbies): ?>
+            <ul class="ig-rail-bullets">
+              <?php foreach ($profileRailHobbies as $hobbyLine): ?>
+                <li><?php echo h($hobbyLine); ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
+          <?php if ($profileRailLink !== ''): ?>
+            <a class="ig-rail-link" href="<?php echo h($profileRailLink); ?>" target="_blank" rel="noopener noreferrer">
+              <i class="icon ion-link" aria-hidden="true"></i><?php echo h($profileRailLinkLabel); ?>
+            </a>
+          <?php endif; ?>
+        </section>
+        <?php endif; ?>
+
+        <section class="ig-rail-card">
+          <div class="ig-rail-head">
+            <h3 class="ig-rail-title">Stats</h3>
+          </div>
+          <div class="ig-rail-stats">
+            <div class="ig-rail-stat ig-rail-stat-posts">
+              <i class="icon ion-grid" aria-hidden="true"></i>
+              <b><?php echo h(profile_rail_compact_count((int)$statPosts)); ?></b>
+              <span>Posts</span>
+            </div>
+            <div class="ig-rail-stat ig-rail-stat-followers">
+              <i class="icon ion-ios-people" aria-hidden="true"></i>
+              <b><?php echo h(profile_rail_compact_count((int)$statSocialCount)); ?></b>
+              <span><?php echo $profileIsPublisher ? 'Followers' : 'Friends'; ?></span>
+            </div>
+            <div class="ig-rail-stat ig-rail-stat-following">
+              <i class="icon ion-person-stalker" aria-hidden="true"></i>
+              <b><?php echo h(profile_rail_compact_count((int)$statFollowing)); ?></b>
+              <span>Following</span>
+            </div>
+            <div class="ig-rail-stat ig-rail-stat-likes">
+              <i class="icon ion-ios-heart-outline" aria-hidden="true"></i>
+              <b><?php echo h(profile_rail_compact_count((int)$statLikes)); ?></b>
+              <span>Likes</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="ig-rail-card">
+          <div class="ig-rail-head">
+            <h3 class="ig-rail-title">Top Videos</h3>
+            <a class="ig-rail-viewall" href="<?php echo h($profileRailViewAll); ?>">View all</a>
+          </div>
+          <?php if ($profileTopVideos): ?>
+            <div class="ig-rail-videos">
+              <?php foreach ($profileTopVideos as $vid): ?>
+                <?php
+                  $vidId = (int)($vid['post_id'] ?? 0);
+                  $vidTitle = trim((string)($vid['title'] ?? 'Video'));
+                  $vidThumb = trim((string)($vid['thumb'] ?? ''));
+                  $vidHref = $vidId > 0 ? ($profileRailViewAll . '&open_post=' . $vidId) : $profileRailViewAll;
+                ?>
+                <a class="ig-rail-video" href="<?php echo h($vidHref); ?>" data-post-id="<?php echo $vidId; ?>">
+                  <span class="ig-rail-thumb">
+                    <?php if ($vidThumb !== ''): ?>
+                      <img src="<?php echo h($vidThumb); ?>" alt="">
+                    <?php else: ?>
+                      <span class="ig-rail-thumb-fallback"><i class="icon ion-play" aria-hidden="true"></i></span>
+                    <?php endif; ?>
+                  </span>
+                  <span class="ig-rail-video-meta">
+                    <span class="ig-rail-video-title"><?php echo h($vidTitle); ?></span>
+                    <span class="ig-rail-video-views"><i class="icon ion-play" aria-hidden="true"></i><?php echo h(profile_rail_compact_count((int)($vid['views'] ?? 0))); ?></span>
+                  </span>
+                </a>
+              <?php endforeach; ?>
+            </div>
+          <?php else: ?>
+            <p class="ig-rail-empty">No videos yet.</p>
+          <?php endif; ?>
+        </section>
+      </aside>
+
+      <div class="ig-main">
           <?php if (!$liveVisitorMode && $canManageProfilePrivate): ?>
             <div class="gear-search-wrap" id="gearSearchWrap">
               <label class="sr-only" for="gearSearchInput">Search settings</label>
               <input type="search" class="gear-search gear-search--head" id="gearSearchInput" placeholder="Search settings" autocomplete="off">
             </div>
           <?php endif; ?>
-        </div>
 
         <?php if ($showPeerNotFound): ?>
           <div style="margin:16px 0 10px;padding:14px 16px;border-radius:10px;background:#fff3cd;color:#7a5a00;border:1px solid rgba(122,90,0,.18);font-weight:700;">
@@ -4140,18 +5685,7 @@ include __DIR__ . '/includes/header.php';
           </div>
         <?php endif; ?>
 
-        <div class="ig-stats">
-          <div class="ig-stat" data-profile-stat="posts"><b><?php echo (int)$statPosts; ?></b> posts</div>
-          <div class="ig-stat"><b><?php echo (int)$statSocialCount; ?></b> <?php echo h($statSocialLabel); ?></div>
-          <div class="ig-stat"><b><?php echo (int)$statFollowing; ?></b> following</div>
-        </div>
-
         <div class="ig-bio">
-          <?php if ($profileAccountBadge !== ''): ?><span class="profile-account-badge"><?php echo h($profileAccountBadge); ?></span><br><?php endif; ?>
-          <?php if (trim($me['designation']) !== ''): ?><span class="muted"><?php echo h($me['designation']); ?></span><br><?php endif; ?>
-          <!-- <?php if (trim($me['role']) !== ''): ?><span class="muted"><?php echo h($me['role']); ?></span><br><?php endif; ?>
-          <?php if (trim($me['status']) !== ''): ?><?php echo h($me['status']); ?><br><?php endif; ?> -->
-          <span class="muted">Joined <?php echo h($joinedLabel); ?></span>
         </div>
       </div>
     </div>
@@ -4214,21 +5748,27 @@ include __DIR__ . '/includes/header.php';
       <div class="ig-tab<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>" data-panel="posts" role="tab" tabindex="<?php echo $selectedTab === 'posts' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'posts' ? 'true' : 'false'; ?>">
         <i class="icon ion-grid"></i>Posts
       </div>
+      <?php if ($profileShowTagsTab): ?>
       <div class="ig-tab<?php echo $selectedTab === 'tags' ? ' active' : ''; ?>" data-panel="tags" role="tab" tabindex="<?php echo $selectedTab === 'tags' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'tags' ? 'true' : 'false'; ?>">
         <i class="icon ion-ios-pricetag"></i>Tags
       </div>
+      <?php endif; ?>
       <?php if (!empty($profileHasShop)): ?>
       <div class="ig-tab<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>" data-panel="shop" role="tab" tabindex="<?php echo $selectedTab === 'shop' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'shop' ? 'true' : 'false'; ?>">
         <i class="icon ion-bag"></i>Shop
       </div>
       <?php endif; ?>
+      <?php if ($profileShowAboutTab): ?>
       <div class="ig-tab<?php echo $selectedTab === 'about' ? ' active' : ''; ?>" data-panel="about" role="tab" tabindex="<?php echo $selectedTab === 'about' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'about' ? 'true' : 'false'; ?>">
-        <i class="icon ion-ios-person"></i>About
+        <i class="icon ion-ios-person"></i>About Me
       </div>
-      <?php if (!$liveVisitorMode && $canManageProfilePrivate): ?>
-        <div class="ig-tab<?php echo $selectedTab === 'preserve' ? ' active' : ''; ?>" data-panel="preserve" role="tab" tabindex="<?php echo $selectedTab === 'preserve' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'preserve' ? 'true' : 'false'; ?>">
-          <i class="icon ion-ios-book"></i>Preserve
+      <?php endif; ?>
+      <?php if ($profileShowSavedTab): ?>
+        <div class="ig-tab<?php echo $selectedTab === 'saved' ? ' active' : ''; ?>" data-panel="saved" role="tab" tabindex="<?php echo $selectedTab === 'saved' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'saved' ? 'true' : 'false'; ?>">
+          <i class="icon ion-bookmark"></i>Favorites
         </div>
+      <?php endif; ?>
+      <?php if ($profileShowGearTab): ?>
         <div class="ig-tab<?php echo $selectedTab === 'gear' ? ' active' : ''; ?>" data-panel="gear" role="tab" tabindex="<?php echo $selectedTab === 'gear' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'gear' ? 'true' : 'false'; ?>">
           <i class="icon ion-ios-gear"></i>Gear
         </div>
@@ -4323,6 +5863,7 @@ include __DIR__ . '/includes/header.php';
       <div id="profilePostsFeed" class="mf-feed" aria-live="polite"></div>
     </div>
 
+    <?php if ($profileShowTagsTab): ?>
     <div id="panel-tags" class="profile-panel<?php echo $selectedTab === 'tags' ? ' active' : ''; ?>">
       <?php
         profile_render_post_grid(
@@ -4336,6 +5877,7 @@ include __DIR__ . '/includes/header.php';
         );
       ?>
     </div>
+    <?php endif; ?>
 
     <?php if (!empty($profileHasShop)): ?>
     <div id="panel-shop" class="profile-panel<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>">
@@ -4413,10 +5955,11 @@ include __DIR__ . '/includes/header.php';
     </div>
     <?php endif; ?>
 
+    <?php if ($profileShowAboutTab): ?>
     <div id="panel-about" class="profile-panel<?php echo $selectedTab === 'about' ? ' active' : ''; ?>">
       <div class="about-wrap">
         <div class="about-topbar">
-          <div class="about-title">About details</div>
+          <div class="about-title">About Me</div>
           <div class="about-actions">
             <?php if ($showUpdated): ?>
               <div class="about-flash"><i class="icon ion-checkmark-circled"></i> Background details updated successfully.</div>
@@ -4449,12 +5992,43 @@ include __DIR__ . '/includes/header.php';
               <div class="about-registration-head">Registration at signup</div>
             <?php endif; ?>
             <?php $val = trim((string)($card['value'] ?? '')); ?>
-            <div class="about-card">
+            <?php $pinKey = trim((string)($card['key'] ?? '')); ?>
+            <?php
+              $peopleValueHtml = '';
+              if ($pinKey === 'relationship') {
+                $peopleValueHtml = profile_people_tags_relationship_html($peopleRelationship ?? null, $val);
+              } elseif ($pinKey === 'family') {
+                $peopleValueHtml = profile_people_tags_family_html($peopleFamily ?? [], $val);
+              }
+            ?>
+            <div class="about-card"<?php echo $pinKey !== '' ? ' data-pin-key="' . h($pinKey) . '"' : ''; ?> data-pin-label="<?php echo h($label); ?>" data-pin-value="<?php echo h($val); ?>" data-pin-icon="<?php echo h((string)($card['icon'] ?? '')); ?>" data-pin-link="<?php echo !empty($card['is_link']) ? '1' : '0'; ?>">
               <div class="about-ico"><i class="icon <?php echo h((string)$card['icon']); ?>"></i></div>
               <div>
                 <div class="k"><?php echo h($label); ?></div>
-                <div class="v<?php echo $val === '' ? ' empty' : ''; ?>"><?php echo $val !== '' ? nl2br(h($val)) : h(trim((string)($card['empty_text'] ?? 'No background added yet'))); ?></div>
+                <?php if ($peopleValueHtml !== ''): ?>
+                  <div class="v<?php echo $val === '' ? ' empty' : ''; ?>" data-people-value><?php echo $peopleValueHtml; ?></div>
+                <?php elseif ($val !== '' && !empty($card['is_link'])): ?>
+                  <div class="v"><a class="about-link" href="<?php echo h($val); ?>" target="_blank" rel="noopener noreferrer"><?php echo h($val); ?></a></div>
+                <?php else: ?>
+                  <div class="v<?php echo $val === '' ? ' empty' : ''; ?>"<?php echo in_array($pinKey, ['relationship', 'family'], true) ? ' data-people-value' : ''; ?>><?php echo $val !== '' ? nl2br(h($val)) : h(trim((string)($card['empty_text'] ?? 'No background added yet'))); ?></div>
+                <?php endif; ?>
+                <?php if ($canManageProfilePrivate && $pinKey === 'relationship'): ?>
+                  <?php profile_people_tags_render_relationship_editor($peopleRelationship ?? null); ?>
+                <?php elseif ($canManageProfilePrivate && $pinKey === 'family'): ?>
+                  <?php profile_people_tags_render_family_editor($peopleFamily ?? []); ?>
+                <?php endif; ?>
               </div>
+              <?php if ($canManageProfilePrivate && $pinKey !== '' && !in_array($pinKey, ['full_name', 'pronouns'], true)): ?>
+                <?php $pinOn = !empty($aboutSidebarPinSet[$pinKey]); ?>
+                <button
+                  type="button"
+                  class="about-switch"
+                  role="switch"
+                  aria-checked="<?php echo $pinOn ? 'true' : 'false'; ?>"
+                  aria-label="<?php echo h(($pinOn ? 'Hide ' : 'Show ') . $label . ' under profile photo'); ?>"
+                  data-pin-key="<?php echo h($pinKey); ?>"
+                ><span class="knob"></span></button>
+              <?php endif; ?>
             </div>
           <?php endforeach; ?>
         </div>
@@ -4466,14 +6040,38 @@ include __DIR__ . '/includes/header.php';
         <?php endif; ?>
       </div>
     </div>
+    <?php endif; ?>
 
-    <?php if (!$liveVisitorMode && $canManageProfilePrivate): ?>
-      <div id="panel-preserve" class="profile-panel<?php echo $selectedTab === 'preserve' ? ' active' : ''; ?>">
-        <div class="coming-wrap">
-          <div class="coming-card">Preserve section is ready for your next update.</div>
-        </div>
+    <?php if ($profileShowSavedTab): ?>
+      <div id="panel-saved" class="profile-panel<?php echo $selectedTab === 'saved' ? ' active' : ''; ?>">
+        <?php
+          profile_render_post_grid(
+            $savedGrid,
+            $showPeerNotFound,
+            $isMobile,
+            'No saved posts yet',
+            'ion-bookmark',
+            false,
+            $canManageProfilePrivate ? 'saved' : 'saved-view'
+          );
+        ?>
       </div>
 
+      <?php if ($canManageProfilePrivate): ?>
+<dialog class="saved-remove-dialog" id="savedRemoveDialog" aria-labelledby="savedRemoveDialogTitle">
+  <button type="button" class="saved-remove-dialog-close" id="savedRemoveDialogClose" aria-label="Close">&times;</button>
+  <div class="saved-remove-dialog-icon" aria-hidden="true"><i class="fa fa-trash"></i></div>
+  <h2 id="savedRemoveDialogTitle">Delete this post?</h2>
+  <p>This action cannot be undone. The post will be permanently removed from Favorites.</p>
+  <div class="saved-remove-dialog-actions">
+    <button type="button" class="saved-remove-dialog-cancel" id="savedRemoveDialogCancel">Cancel</button>
+    <button type="button" class="saved-remove-dialog-confirm" id="savedRemoveDialogConfirm">Delete</button>
+  </div>
+</dialog>
+      <?php endif; ?>
+    <?php endif; ?>
+
+    <?php if ($profileShowGearTab): ?>
       <div id="panel-gear" class="profile-panel<?php echo $selectedTab === 'gear' ? ' active' : ''; ?>">
         <div class="gear-wrap">
           <?php
@@ -4582,7 +6180,7 @@ include __DIR__ . '/includes/header.php';
 
                     <div class="gear-detail-body">
                       <?php
-                        profile_gear_render_detail_action($row, $profileSettings, $themeAutoDefault);
+                        profile_gear_render_detail_action($row, $profileSettings, $themeAutoDefault, !empty($profileIsPublisher));
                       ?>
                     </div>
                   </section>
@@ -4590,7 +6188,7 @@ include __DIR__ . '/includes/header.php';
               <?php endforeach; ?>
 
               <div class="gear-note">
-                Gear live-saves privacy, timeline, notifications, security, appearance, and account settings from this tab. Links such as <b>Edit Profile</b>, <b>Change password</b>, and <b>Logout</b> still open their own pages.
+                Gear live-saves privacy, timeline, notifications, security, appearance, and account settings from this tab. <b>Danger Zone</b> uses confirmation pages for delete, export, reset, and deactivate.
               </div>
             </main>
           </div>
@@ -4643,16 +6241,18 @@ include __DIR__ . '/includes/header.php';
 
       <div class="pv-actions">
         <div class="pv-actrow">
-          <button type="button" class="pv-act pv-act-love" id="pvLove" title="Love" aria-label="Love">
-            <i class="msb-pact msb-pact-heart" id="pvLoveIcon" aria-hidden="true"></i>
-            <span class="pv-n" id="pvLoveN">0</span>
-          </button>
+          <span class="msb-react-cluster">
+            <button type="button" class="pv-act pv-act-love" id="pvLove" title="Love" aria-label="Love">
+              <i class="msb-pact msb-pact-heart" id="pvLoveIcon" aria-hidden="true"></i>
+            </button>
+            <span class="pv-n js-open-reactors" id="pvLoveN" data-rx-tab="love" role="button" tabindex="0" aria-label="See who reacted">0</span>
+          </span>
           <button type="button" class="pv-act pv-act-like" id="pvLike" title="Like" aria-label="Like" hidden>
             <svg class="pv-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
               <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
             </svg>
-            <span class="pv-n" id="pvLikeN">0</span>
+            <span class="pv-n js-open-reactors" id="pvLikeN" data-rx-tab="like" role="button" tabindex="0" aria-label="See who liked">0</span>
           </button>
           <button type="button" class="pv-act pv-act-comment" id="pvComment" title="Comment" aria-label="Comment">
             <svg class="pv-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -4660,21 +6260,25 @@ include __DIR__ . '/includes/header.php';
             </svg>
             <span class="pv-n" id="pvComN">0</span>
           </button>
-          <button type="button" class="pv-act pv-act-share" id="pvShare" title="Share" aria-label="Share">
-            <svg class="pv-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
-              <polyline points="16 7 12 3 8 7"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <span class="pv-n" id="pvShareN">0</span>
-          </button>
+          <span class="msb-react-cluster">
+            <button type="button" class="pv-act pv-act-share" id="pvShare" title="Share" aria-label="Share">
+              <svg class="pv-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
+                <polyline points="16 7 12 3 8 7"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </button>
+            <span class="pv-n js-open-reactors" id="pvShareN" data-rx-tab="share" role="button" tabindex="0" aria-label="See who shared">0</span>
+          </span>
           <div class="pv-sp"></div>
-          <button type="button" class="pv-act pv-act-save" id="pvSave" title="Save" aria-label="Save">
-            <svg class="pv-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-            </svg>
-            <span class="pv-n" id="pvSaveN">0</span>
-          </button>
+          <span class="msb-react-cluster">
+            <button type="button" class="pv-act pv-act-save" id="pvSave" title="Favorite" aria-label="Favorite">
+              <svg class="pv-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
+            <span class="pv-n js-open-reactors" id="pvSaveN" data-rx-tab="save" role="button" tabindex="0" aria-label="See who favorited">0</span>
+          </span>
         </div>
         <div class="pv-replybar" id="pvReplyBar" style="display:none;">
           <span><span id="pvReplyLead">Replying to</span> <b id="pvReplyName">—</b></span>
@@ -5039,9 +6643,9 @@ include __DIR__ . '/includes/header.php';
   }
   .pv-text-card-body{
     margin:0;
-    font-size:15px;
-    line-height:1.55;
-    font-weight:500;
+    font-size:12px;
+    line-height:1.45;
+    font-weight:400;
     white-space:normal;
     word-break:break-word;
     color:var(--msb-palette-text, #0f172a);
@@ -5176,9 +6780,9 @@ include __DIR__ . '/includes/header.php';
   .pv-mid .pv-caption{border-bottom:0;max-height:none !important;overflow-y:auto !important;}
   .pv-cap{font-size:13px;line-height:1.35;color:#0f172a;word-break:break-word;}
   .pv-cap-title{font-size:15px;font-weight:800;line-height:1.25;margin:0 0 10px;color:var(--msb-palette-text, #0f172a);}
-  .pv-cap-desc{font-size:13px;line-height:1.45;color:var(--msb-palette-text, #0f172a);}
+  .pv-cap-desc{font-size:12px;font-weight:400;line-height:1.45;color:var(--msb-palette-text, #0f172a);}
   .pv-cap-subtitle{font-size:14px;font-weight:700;line-height:1.3;margin:12px 0 6px;color:var(--msb-palette-text, #1f2937);}
-  .pv-cap-summary{font-size:13px;line-height:1.45;color:var(--msb-palette-text-muted, #4b5563);}
+  .pv-cap-summary{font-size:12px;font-weight:400;line-height:1.45;color:var(--msb-palette-text-muted, #4b5563);}
   .pv-cap-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
   .pv-cap-summary .post-slide-summary-list li{margin:0 0 .35em}
   .pv-cap-short,.pv-cap-full{white-space:normal;word-break:break-word;}
@@ -5314,7 +6918,10 @@ include __DIR__ . '/includes/header.php';
   html[data-msb-appearance] .pv-likebar{color:var(--msb-palette-text, #f3f6fb);}
   html.dark-auto .pv-act .pv-n,
   html[data-theme="dark"] .pv-act .pv-n,
-  html[data-msb-appearance] .pv-act .pv-n{color:var(--msb-palette-text, #f3f6fb);}
+  html[data-msb-appearance] .pv-act .pv-n,
+  html.dark-auto .pv-actrow .pv-n,
+  html[data-theme="dark"] .pv-actrow .pv-n,
+  html[data-msb-appearance] .pv-actrow .pv-n{color:var(--msb-palette-text, #f3f6fb);}
   html.dark-auto .pv-meta,
   html[data-theme="dark"] .pv-meta,
   html[data-msb-appearance] .pv-meta,
@@ -5373,6 +6980,16 @@ include __DIR__ . '/includes/header.php';
 
   .pv-actions{border-top:1px solid var(--msb-palette-border, rgba(15,23,42,.08));padding:12px 14px 12px;}
   .pv-actrow{display:flex;align-items:center;gap:16px;min-height:28px;}
+  .pv-actrow .msb-react-cluster{display:inline-flex;align-items:center;gap:6px;}
+  .pv-actrow .pv-n{
+    font-size:14px;
+    font-weight:600;
+    line-height:1;
+    color:var(--msb-palette-text, #111827);
+    min-width:0;
+    font-variant-numeric:tabular-nums;
+  }
+  .pv-actrow .pv-n.js-open-reactors{cursor:pointer;border:0;background:none;padding:0;outline:none;box-shadow:none;}
   .pv-act{
     border:0;
     background:transparent;
@@ -5789,11 +7406,13 @@ document.addEventListener('click', (e) => {
 const GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $gridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
 const GALLERY_GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $galleryGridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
 const TAGS_GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $tagsGridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
+const SAVED_GRID_IDS = <?php echo json_encode(array_values(array_map('intval', $savedGridIds ?? [])), JSON_UNESCAPED_SLASHES); ?>;
 let pvActiveGridIds = GRID_IDS;
 try {
   window.GRID_IDS = GRID_IDS;
   window.GALLERY_GRID_IDS = GALLERY_GRID_IDS;
   window.TAGS_GRID_IDS = TAGS_GRID_IDS;
+  window.SAVED_GRID_IDS = SAVED_GRID_IDS;
   Object.defineProperty(window, 'pvActiveGridIds', {
     configurable: true,
     get: function(){ return pvActiveGridIds; },
@@ -6134,6 +7753,7 @@ function pvGridIdsForElement(el){
     return GALLERY_GRID_IDS;
   }
   if (scope === 'tags') return TAGS_GRID_IDS;
+  if (scope === 'saved') return SAVED_GRID_IDS;
   return GRID_IDS;
 }
 
@@ -6143,6 +7763,7 @@ function pvFindGridContext(postId){
   const lists = [
     { ids: GALLERY_GRID_IDS, scope: 'gallery' },
     { ids: TAGS_GRID_IDS, scope: 'tags' },
+    { ids: SAVED_GRID_IDS, scope: 'saved' },
     { ids: GRID_IDS, scope: 'all' },
   ];
   for (const row of lists) {
@@ -6315,6 +7936,7 @@ window.MSBClosePostViewer = function(postId){
     prune(GRID_IDS);
     prune(GALLERY_GRID_IDS);
     prune(TAGS_GRID_IDS);
+    prune(SAVED_GRID_IDS);
     prune(pvActiveGridIds);
   }
   try {
@@ -7091,7 +8713,13 @@ async function pvApplyView(view, { animate } = {}){
 
 async function pvLoad(postId){
   postId = Number(postId || 0);
+  pvPostId = postId;
+  try { window.pvPostId = pvPostId; } catch (ePid) {}
   const seq = ++pvLoadSeq;
+  if (pv.ov) pv.ov.setAttribute('data-post-id', String(postId || 0));
+  [pv.loveN, pv.likeN, pv.shareN, pv.saveN].forEach(function(el){
+    if (el) el.setAttribute('data-post-id', String(postId || 0));
+  });
   const alreadyOpen = !!(pv.ov && pv.ov.classList.contains('show'));
   const hadContent = !!(pv.media && pv.media.childElementCount && !pv.media.querySelector('.pv-loading-only'));
   const switching = alreadyOpen && hadContent;
@@ -7276,6 +8904,156 @@ document.querySelectorAll('.ig-grid .ig-item').forEach(a => {
     pvOpenInGrid(postId, pvGridIdsForElement(a), pvGridScopeForElement(a));
   });
 });
+
+window.MSBProfileRemoveFromSaved = function(postId){
+  postId = Number(postId || 0);
+  if (!postId) return;
+  var panel = document.getElementById('panel-saved');
+  if (!panel) return;
+  var item = panel.querySelector('.ig-item[data-post-id="'+String(postId)+'"]');
+  var wrap = item && item.closest ? item.closest('.ig-item-wrap') : null;
+  var tile = wrap || item;
+  if (tile && tile.parentNode) tile.parentNode.removeChild(tile);
+  function prune(list){
+    if (!Array.isArray(list)) return;
+    for (var i = list.length - 1; i >= 0; i--) {
+      if (Number(list[i] || 0) === postId) list.splice(i, 1);
+    }
+  }
+  prune(SAVED_GRID_IDS);
+  prune(pvActiveGridIds);
+  if (pvActiveGridScope === 'saved' && pvPostId === postId && typeof pvClose === 'function') {
+    try { pvClose(); } catch (eClose) {}
+  }
+  if (!panel.querySelector('.ig-item')) {
+    var grid = panel.querySelector('.ig-grid');
+    if (grid) grid.remove();
+    if (!panel.querySelector('.mf-feed-empty')) {
+      panel.insertAdjacentHTML('beforeend',
+        '<div class="mf-feed-empty" role="status">'
+        + '<i class="icon ion-bookmark" aria-hidden="true"></i>'
+        + '<div class="mf-feed-empty-title">No saved posts yet</div>'
+        + '</div>'
+      );
+    }
+  }
+};
+
+(function(){
+  var panel = document.getElementById('panel-saved');
+  var dialog = document.getElementById('savedRemoveDialog');
+  var cancelBtn = document.getElementById('savedRemoveDialogCancel');
+  var closeBtn = document.getElementById('savedRemoveDialogClose');
+  var confirmBtn = document.getElementById('savedRemoveDialogConfirm');
+  var pendingPostId = 0;
+  var pendingBtn = null;
+  var removing = false;
+  if (!panel) return;
+
+  function closeDialog(){
+    if (dialog && dialog.open) dialog.close();
+    pendingPostId = 0;
+    if (pendingBtn) pendingBtn.disabled = false;
+    pendingBtn = null;
+    removing = false;
+    if (confirmBtn) confirmBtn.disabled = false;
+  }
+
+  function openDialog(postId, triggerBtn){
+    dialog = document.getElementById('savedRemoveDialog');
+    cancelBtn = document.getElementById('savedRemoveDialogCancel');
+    closeBtn = document.getElementById('savedRemoveDialogClose');
+    confirmBtn = document.getElementById('savedRemoveDialogConfirm');
+    pendingPostId = Number(postId || 0);
+    pendingBtn = triggerBtn || null;
+    removing = false;
+    if (confirmBtn) confirmBtn.disabled = false;
+    if (!dialog || !pendingPostId) return;
+    if (dialog.parentNode !== document.body) document.body.appendChild(dialog);
+    setTimeout(function(){
+      if (!dialog || !pendingPostId) return;
+      if (typeof dialog.showModal === 'function') {
+        if (!dialog.open) dialog.showModal();
+      } else {
+        dialog.setAttribute('open', '');
+      }
+      try { if (confirmBtn) confirmBtn.focus(); } catch (eFocus) {}
+    }, 0);
+  }
+
+  function confirmRemoveNow(){
+    var postId = pendingPostId;
+    var triggerBtn = pendingBtn;
+    if (!postId || removing) return;
+    removing = true;
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (triggerBtn) triggerBtn.disabled = true;
+    var body = new URLSearchParams({ ajax:'save', post_id:String(postId), save_action:'remove' });
+    fetch('feed_api.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      credentials:'same-origin',
+      body: body
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if (!res || res.ok === false) {
+        removing = false;
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (triggerBtn) triggerBtn.disabled = false;
+        return;
+      }
+      var stillSaved = Number(res.state && res.state.saved != null ? res.state.saved : 0) === 1;
+      if (stillSaved) {
+        removing = false;
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (triggerBtn) triggerBtn.disabled = false;
+        return;
+      }
+      pendingBtn = null;
+      closeDialog();
+      window.MSBProfileRemoveFromSaved(postId);
+      try {
+        if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function') {
+          window.MSBPostCardMenu.toast('Removed from Favorites.');
+        }
+      } catch (eToast) {}
+    }).catch(function(){
+      removing = false;
+      if (confirmBtn) confirmBtn.disabled = false;
+      if (triggerBtn) triggerBtn.disabled = false;
+    });
+  }
+
+  panel.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('.ig-saved-remove') : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var postId = Number(btn.getAttribute('data-unsave-post') || 0);
+    if (!postId || btn.disabled) return;
+    openDialog(postId, btn);
+  });
+
+  if (cancelBtn) cancelBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    closeDialog();
+  });
+  if (closeBtn) closeBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    closeDialog();
+  });
+  if (confirmBtn) confirmBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    confirmRemoveNow();
+  });
+  if (dialog) {
+    dialog.addEventListener('cancel', function(){
+      closeDialog();
+    });
+  }
+})();
 
 // Close by clicking outside
 pv.ov.addEventListener('mousedown', (e) => {
@@ -7496,10 +9274,13 @@ pv.save.addEventListener('click', async () => {
     if (window.MSBPostEngagement) window.MSBPostEngagement.publishFromTrack(pvPostId, res, { source: 'profile-modal' });
     try{
       var savedNow = !!(res && res.state && Number(res.state.saved || 0) === 1);
+      if(!savedNow && typeof window.MSBProfileRemoveFromSaved === 'function'){
+        window.MSBProfileRemoveFromSaved(pvPostId);
+      }
       if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
         window.MSBPostCardMenu.toast(savedNow
-          ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
-          : 'Removed from Bookmarks.');
+          ? 'Added to Favorites. Find it in Settings → Favorites.'
+          : 'Removed from Favorites.');
       }
     }catch(_eToast){}
   } catch (e) {}
@@ -8514,47 +10295,63 @@ pv.text.addEventListener('keydown', (e)=>{
     setProgressSaveDirty(false);
   })();
 
-  document.querySelectorAll('#panel-gear .gear-upload-form').forEach(function(formEl){
-    var input = formEl.querySelector('.gear-upload-input');
+  document.querySelectorAll('#panel-gear .gear-upload-form, .profile-cover').forEach(function(formEl){
+    var input = formEl.querySelector('.gear-upload-input, .profile-cover-file');
     var state = formEl.querySelector('.gear-save-state');
     if (!input) return;
     input.addEventListener('change', function(){
       if (!input.files || !input.files[0]) return;
+      var kind = formEl.getAttribute('data-kind') || (formEl.classList.contains('profile-cover') ? 'cover' : '');
+      var files = Array.prototype.slice.call(input.files, 0, kind === 'cover' ? 40 : 1);
+      if (kind === 'cover' && window.appendProfileCoverLocalFiles) {
+        window.appendProfileCoverLocalFiles(files);
+      } else {
+        flashState(state, 'Saving', 'is-saving');
+      }
       var fd = new FormData();
-      fd.append('kind', formEl.getAttribute('data-kind') || '');
-      fd.append('media', input.files[0]);
-      flashState(state, 'Saving', 'is-saving');
+      fd.append('kind', kind);
+      if (kind === 'cover') {
+        files.forEach(function(file){ fd.append('media[]', file); });
+      } else {
+        fd.append('media', files[0]);
+      }
       fetch('save_gear_media.php', {
         method: 'POST',
         body: fd,
         credentials: 'same-origin',
         headers: {'X-Requested-With': 'XMLHttpRequest'}
-      })
-      .then(function(res){ return res.json(); })
-      .then(function(data){
+      }).then(function(res){ return res.json().catch(function(){ return null; }); }).then(function(data){
         if (!data || !data.ok) throw new Error((data && data.message) ? data.message : 'Upload failed');
         flashState(state, 'Saved', 'is-saved');
-        var kind = formEl.getAttribute('data-kind') || '';
-        var now = Date.now();
-        if (kind === 'avatar') {
+        if (kind === 'cover') {
+          var savedCount = Number(data.saved || files.length || 1);
+          if (data.slides && window.applyProfileCoverSlides) {
+            window.applyProfileCoverSlides(data.slides);
+          }
+          var upMsg = savedCount === 1 ? 'Photo uploaded.' : 'Photos uploaded.';
+          if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function') {
+            window.MSBPostCardMenu.toast(upMsg);
+          } else {
+            var toastEl = document.getElementById('pcmActionToast');
+            if (!toastEl) {
+              toastEl = document.createElement('div');
+              toastEl.id = 'pcmActionToast';
+              toastEl.setAttribute('role', 'status');
+              toastEl.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#262626;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:100001;opacity:0;transition:opacity .2s ease;pointer-events:none;';
+              document.body.appendChild(toastEl);
+            }
+            toastEl.textContent = upMsg;
+            toastEl.style.opacity = '1';
+            clearTimeout(toastEl._hideTimer);
+            toastEl._hideTimer = setTimeout(function(){ toastEl.style.opacity = '0'; }, 1800);
+          }
+        } else {
+          var now = Date.now();
           document.querySelectorAll('img[data-live-avatar="1"]').forEach(function(img){
             var base = img.getAttribute('data-avatar-base') || img.getAttribute('src') || '';
             base = base.replace(/([?&])v=\d+/g, '$1').replace(/[?&]$/, '');
             img.setAttribute('src', base + (base.indexOf('?') >= 0 ? '&' : '?') + 'v=' + now);
           });
-        } else if (kind === 'cover') {
-          var cover = document.getElementById('profileCoverPreview');
-          if (cover) {
-            if (cover.tagName && cover.tagName.toLowerCase() === 'img') {
-              cover.setAttribute('src', data.preview);
-            } else {
-              var img = document.createElement('img');
-              img.id = 'profileCoverPreview';
-              img.alt = 'Cover image';
-              img.src = data.preview;
-              cover.replaceWith(img);
-            }
-          }
         }
         input.value = '';
         window.setTimeout(function(){ flashState(state, '', ''); }, 1400);
@@ -8562,10 +10359,257 @@ pv.text.addEventListener('keydown', (e)=>{
       .catch(function(){
         flashState(state, 'Error', 'is-error');
         input.value = '';
+        if (kind === 'cover') {
+          fetch('ajax/cover_slide.php?action=list', { credentials: 'same-origin' })
+            .then(function(res){ return res.json().catch(function(){ return null; }); })
+            .then(function(listData){
+              if (listData && listData.ok && listData.slides && window.applyProfileCoverSlides) {
+                window.applyProfileCoverSlides(listData.slides);
+              }
+            });
+        }
       });
     });
   });
 
+})();
+</script>
+
+<script>
+(function(){
+  var root = document.querySelector('.profile-cover[data-cover-slideshow]');
+  if (!root) return;
+  var stage = document.getElementById('profileCoverSlides');
+  var prevBtn = root.querySelector('.profile-cover-prev');
+  var nextBtn = root.querySelector('.profile-cover-next');
+  var dotsEl = document.getElementById('profileCoverDots');
+  var delBtn = document.getElementById('profileCoverDelete');
+  var index = 0;
+  var timer = null;
+  var delay = 4500;
+
+  function slides(){
+    return Array.prototype.slice.call(stage.querySelectorAll('.profile-cover-slide'));
+  }
+
+  function stop(){
+    if (timer) {
+      window.clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function start(){
+    stop();
+    if (slides().length < 2) return;
+    timer = window.setInterval(function(){ go(index + 1); }, delay);
+  }
+
+  function paint(){
+    var list = slides();
+    list.forEach(function(img, i){
+      img.classList.toggle('is-active', i === index);
+      if (i === index) img.id = 'profileCoverPreview';
+      else img.removeAttribute('id');
+    });
+    if (dotsEl) {
+      Array.prototype.forEach.call(dotsEl.querySelectorAll('button'), function(dot, i){
+        dot.classList.toggle('is-active', i === index);
+      });
+    }
+    var many = list.length > 1;
+    if (prevBtn) prevBtn.hidden = !many;
+    if (nextBtn) nextBtn.hidden = !many;
+    if (dotsEl) dotsEl.hidden = !many;
+    if (delBtn) {
+      delBtn.hidden = !(root.getAttribute('data-cover-edit') === '1' && list.length > 0);
+    }
+  }
+
+  function go(next){
+    var list = slides();
+    if (!list.length) return;
+    index = ((next % list.length) + list.length) % list.length;
+    paint();
+  }
+
+  function rebuildDots(){
+    if (!dotsEl) return;
+    dotsEl.innerHTML = '';
+    slides().forEach(function(_img, i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Go to photo ' + (i + 1));
+      b.addEventListener('click', function(){
+        go(i);
+        start();
+      });
+      dotsEl.appendChild(b);
+    });
+  }
+
+  window.applyProfileCoverSlides = function(rows){
+    if (!stage || !Array.isArray(rows)) return;
+    slides().forEach(function(img){
+      var src = img.getAttribute('src') || '';
+      if (src.indexOf('blob:') === 0) {
+        try { URL.revokeObjectURL(src); } catch (e) {}
+      }
+    });
+    stage.innerHTML = '';
+    if (!rows.length) {
+      var empty = document.createElement('div');
+      empty.id = 'profileCoverPreview';
+      empty.className = 'profile-cover-empty';
+      stage.appendChild(empty);
+      index = 0;
+      rebuildDots();
+      paint();
+      stop();
+      return;
+    }
+    var now = Date.now();
+    rows.forEach(function(row, i){
+      var img = document.createElement('img');
+      img.className = 'profile-cover-slide' + (i === 0 ? ' is-active' : '');
+      img.alt = 'Cover photo ' + (i + 1);
+      img.setAttribute('data-slide-id', String(row.id || 0));
+      var url = String(row.url || row.path || '');
+      img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + now;
+      if (i === 0) img.id = 'profileCoverPreview';
+      stage.appendChild(img);
+    });
+    index = Math.max(0, rows.length - 1);
+    rebuildDots();
+    paint();
+    start();
+  };
+
+  window.appendProfileCoverLocalFiles = function(files){
+    if (!stage || !files || !files.length) return;
+    var empty = stage.querySelector('.profile-cover-empty');
+    if (empty) empty.remove();
+    Array.prototype.forEach.call(files, function(file, i){
+      if (!file || !file.type || file.type.indexOf('image/') !== 0) return;
+      var img = document.createElement('img');
+      img.className = 'profile-cover-slide';
+      img.alt = 'Uploading photo';
+      img.src = URL.createObjectURL(file);
+      stage.appendChild(img);
+    });
+    index = Math.max(0, slides().length - 1);
+    rebuildDots();
+    paint();
+    start();
+  };
+  if (prevBtn) prevBtn.addEventListener('click', function(){ go(index - 1); start(); });
+  if (nextBtn) nextBtn.addEventListener('click', function(){ go(index + 1); start(); });
+  root.addEventListener('mouseenter', stop);
+  root.addEventListener('mouseleave', start);
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) stop();
+    else start();
+  });
+  if (delBtn) {
+    var dialog = document.getElementById('coverSlideDeleteDialog');
+    var grid = document.getElementById('coverSlideDeleteGrid');
+    var cancelBtn = document.getElementById('coverSlideDeleteCancel');
+    var confirmBtn = document.getElementById('coverSlideDeleteConfirm');
+
+    function selectedIds(){
+      if (!grid) return [];
+      return Array.prototype.map.call(grid.querySelectorAll('input:checked'), function(box){
+        return parseInt(box.value || '0', 10);
+      });
+    }
+
+    function syncConfirm(){
+      if (confirmBtn) confirmBtn.disabled = selectedIds().length < 1;
+    }
+
+    function closePicker(){
+      if (dialog) dialog.hidden = true;
+      start();
+    }
+
+    function openPicker(){
+      if (!dialog || !grid) return;
+      stop();
+      grid.innerHTML = '';
+      var list = slides();
+      list.forEach(function(img, i){
+        var sid = parseInt(img.getAttribute('data-slide-id') || '0', 10);
+        var label = document.createElement('label');
+        label.className = 'cover-del-tile' + (i === index ? ' is-on' : '');
+        var box = document.createElement('input');
+        box.type = 'checkbox';
+        box.value = String(sid);
+        box.checked = i === index;
+        var thumb = document.createElement('img');
+        thumb.src = img.getAttribute('src') || '';
+        thumb.alt = 'Slideshow photo ' + (i + 1);
+        label.appendChild(box);
+        label.appendChild(thumb);
+        box.addEventListener('change', function(){
+          label.classList.toggle('is-on', box.checked);
+          syncConfirm();
+        });
+        grid.appendChild(label);
+      });
+      dialog.hidden = false;
+      syncConfirm();
+    }
+
+    delBtn.addEventListener('click', openPicker);
+    if (cancelBtn) cancelBtn.addEventListener('click', closePicker);
+    if (dialog) dialog.addEventListener('click', function(ev){
+      if (ev.target === dialog) closePicker();
+    });
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function(){
+        var ids = selectedIds();
+        if (!ids.length) return;
+        var fd = new FormData();
+        fd.append('action', 'delete');
+        ids.forEach(function(id){ fd.append('ids[]', String(id)); });
+        confirmBtn.disabled = true;
+        fetch('ajax/cover_slide.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(function(res){ return res.json(); }).then(function(data){
+          var count = ids.length;
+          if (data && data.ok && data.slides) window.applyProfileCoverSlides(data.slides);
+          closePicker();
+          if (data && data.ok) {
+            var msg = count === 1 ? 'Photo deleted.' : 'Photos deleted.';
+            if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function') {
+              window.MSBPostCardMenu.toast(msg);
+            } else {
+              var el = document.getElementById('pcmActionToast');
+              if (!el) {
+                el = document.createElement('div');
+                el.id = 'pcmActionToast';
+                el.setAttribute('role', 'status');
+                el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#262626;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:100001;opacity:0;transition:opacity .2s ease;pointer-events:none;';
+                document.body.appendChild(el);
+              }
+              el.textContent = msg;
+              el.style.opacity = '1';
+              clearTimeout(el._hideTimer);
+              el._hideTimer = setTimeout(function(){ el.style.opacity = '0'; }, 1800);
+            }
+          }
+        }).catch(function(){
+          confirmBtn.disabled = false;
+        });
+      });
+    }
+  }
+  rebuildDots();
+  paint();
+  start();
 })();
 </script>
 
@@ -8687,6 +10731,25 @@ pv.text.addEventListener('keydown', (e)=>{
         e.stopPropagation();
         showDetail(btn.getAttribute('data-detail-id') || '');
       });
+
+      gearNav.addEventListener('wheel', function(e){
+        var box = gearNav;
+        var inner = e.target.closest('.gear-nav-items');
+        if (inner && gearNav.contains(inner) && inner.scrollHeight > inner.clientHeight + 1) {
+          box = inner;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        box.scrollTop += e.deltaY;
+      }, { passive: false });
+    }
+
+    if (main) {
+      main.addEventListener('wheel', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        main.scrollTop += e.deltaY;
+      }, { passive: false });
     }
 
     var search = document.getElementById('gearSearchInput');
@@ -9697,7 +11760,7 @@ pv.text.addEventListener('keydown', (e)=>{
       '<a class="mf-act mf-comment" href="javascript:void(0)" role="button" title="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt" data-count="comment">0</span></a>'+
       '<a class="mf-act mf-share" href="javascript:void(0)" role="button" title="Share"><i class="msb-pact msb-pact-share" aria-hidden="true"></i><span class="mf-num" data-count="share">0</span></a>'+
       '</div><div class="mf-right">'+
-      '<a class="mf-act mf-save" href="javascript:void(0)" role="button" title="Save"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num" data-count="save">0</span></a>'+
+      '<a class="mf-act mf-save" href="javascript:void(0)" role="button" title="Favorite"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num" data-count="save">0</span></a>'+
       '</div></div>';
   }
   function profileFriendBtnHtml(it, isOwner){
@@ -10334,8 +12397,8 @@ pv.text.addEventListener('keydown', (e)=>{
       try{
         if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
           window.MSBPostCardMenu.toast(Number(merged.is_saved || 0) === 1
-            ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
-            : 'Removed from Bookmarks.');
+            ? 'Added to Favorites. Find it in Settings → Favorites.'
+            : 'Removed from Favorites.');
         }
       }catch(_eToast){}
     });
@@ -10530,6 +12593,48 @@ pv.text.addEventListener('keydown', (e)=>{
 })();
 </script>
 
+<script>
+(function(){
+  var scroll = document.querySelector('body.profile-page .ig-profile-scroll');
+  var coverEl = document.querySelector('body.profile-page .sh-pagebody > .profile-cover');
+  var pagebody = document.querySelector('body.profile-page .sh-pagebody');
+  if (!coverEl) return;
+  var collapseY = 0;
+  function coverBase(){
+    return window.matchMedia('(max-width: 768px)').matches ? 250 : 450;
+  }
+  function coverCollapse(){
+    return window.matchMedia('(max-width: 768px)').matches ? 150 : 330;
+  }
+  function applyCoverScroll(){
+    var base = coverBase();
+    var max = coverCollapse();
+    collapseY = Math.min(max, Math.max(0, collapseY));
+    var h = (base - collapseY) + 'px';
+    coverEl.style.setProperty('height', h, 'important');
+    coverEl.style.setProperty('min-height', h, 'important');
+    coverEl.style.setProperty('max-height', h, 'important');
+    coverEl.style.setProperty('flex-basis', h, 'important');
+    document.documentElement.style.setProperty('--profile-cover-h', h);
+    if (document.body) document.body.style.setProperty('--profile-cover-h', h);
+  }
+  function onWheel(e){
+    if (e.target && e.target.closest && e.target.closest('#gearNav, #gearMain, .gear-main, .ig-profile-rail')) return;
+    var max = coverCollapse();
+    var overCover = coverEl.contains(e.target);
+    var collapsing = e.deltaY > 0 && collapseY < max;
+    var expanding = e.deltaY < 0 && collapseY > 0 && (!scroll || scroll.scrollTop <= 0);
+    if (!overCover && !collapsing && !expanding) return;
+    collapseY += e.deltaY;
+    if (scroll && (overCover || collapsing || expanding)) scroll.scrollTop += e.deltaY;
+    applyCoverScroll();
+    e.preventDefault();
+  }
+  if (pagebody) pagebody.addEventListener('wheel', onWheel, {passive:false, capture:true});
+  window.addEventListener('resize', applyCoverScroll);
+  applyCoverScroll();
+})();
+</script>
 <script>
 (function(){
   function syncProfileHeaderDivider(){
@@ -11209,6 +13314,124 @@ html[data-theme="dark"] body.profile-page a.msb-mention{
   }
 })();
 </script>
+<script>
+(function(){
+  var pinBox = document.getElementById('igAboutPins');
+  if (!pinBox) return;
+
+  function escapeHtml(s){
+    return String(s || '').replace(/[&<>"']/g, function(ch){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]);
+    });
+  }
+
+  function pinRowHtml(key, label, value, isLink, iconClass){
+    var ico = String(iconClass || '').replace(/^icon\s+/i, '').trim() || 'ion-ios-information';
+    var html = '<div class="ig-pin-item' + (key === 'work' ? ' is-work' : '') + '" data-pin-key="' + escapeHtml(key) + '">';
+    html += '<span class="ig-pin-ico" aria-hidden="true"><i class="icon ' + escapeHtml(ico) + '"></i></span>';
+    if (isLink) {
+      html += '<a class="ig-pin-value" href="' + escapeHtml(value) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(value) + '</a>';
+    } else {
+      html += '<div class="ig-pin-value">' + escapeHtml(value) + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function placePinRow(row, key){
+    if (key === 'work') {
+      pinBox.insertAdjacentElement('afterbegin', row);
+      return;
+    }
+    var work = pinBox.querySelector('[data-pin-key="work"]');
+    if (work && work.nextSibling) {
+      pinBox.insertBefore(row, work.nextSibling);
+    } else if (work) {
+      pinBox.appendChild(row);
+    } else {
+      pinBox.appendChild(row);
+    }
+  }
+
+  function showPin(card, key, on){
+    if (key === 'full_name' || key === 'pronouns') return;
+    var existing = pinBox.querySelector('[data-pin-key="' + key + '"]');
+    if (!on) {
+      if (existing) existing.remove();
+      return;
+    }
+    var value = (card.getAttribute('data-pin-value') || '').trim();
+    if (!value) return;
+    var label = card.getAttribute('data-pin-label') || '';
+    var isLink = card.getAttribute('data-pin-link') === '1';
+    var iconClass = card.getAttribute('data-pin-icon') || '';
+    var wrap = document.createElement('div');
+    wrap.innerHTML = pinRowHtml(key, label, value, isLink, iconClass);
+    var row = wrap.firstElementChild;
+    if (!row) return;
+    if (existing) existing.replaceWith(row);
+    else placePinRow(row, key);
+  }
+
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.about-switch');
+    if (!btn) return;
+    e.preventDefault();
+    var key = (btn.getAttribute('data-pin-key') || '').trim();
+    if (!key || btn.disabled) return;
+    var card = btn.closest('.about-card');
+    var nextOn = btn.getAttribute('aria-checked') !== 'true';
+    btn.disabled = true;
+    var body = new FormData();
+    body.append('field', key);
+    body.append('on', nextOn ? '1' : '0');
+    fetch('profile.php?ajax=about_pin', {
+      method: 'POST',
+      body: body,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function(res){ return res.json(); }).then(function(data){
+      if (!data || !data.ok) throw new Error('save failed');
+      btn.setAttribute('aria-checked', nextOn ? 'true' : 'false');
+      var label = card ? (card.getAttribute('data-pin-label') || key) : key;
+      btn.setAttribute('aria-label', (nextOn ? 'Hide ' : 'Show ') + label + ' under profile photo');
+      if (card) showPin(card, key, nextOn);
+    }).catch(function(){
+      // leave previous state
+    }).finally(function(){
+      btn.disabled = false;
+    });
+  });
+})();
+</script>
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.js-account-switch');
+    if (!btn) return;
+    e.preventDefault();
+    var uid = parseInt(btn.getAttribute('data-user-id') || '0', 10);
+    if (!uid) return;
+    btn.disabled = true;
+    var body = new FormData();
+    body.append('target_user_id', String(uid));
+    body.append('csrf_token', btn.getAttribute('data-csrf') || '');
+    fetch('ajax/account_switch.php', {
+      method: 'POST',
+      body: body,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function(res){ return res.json(); }).then(function(data){
+      if (!data || !data.ok) throw new Error((data && data.error) || 'switch failed');
+      window.location.href = 'home.php?tab=for-you';
+    }).catch(function(err){
+      btn.disabled = false;
+      window.alert(err && err.message ? err.message : 'Could not switch accounts.');
+    });
+  });
+})();
+</script>
+<?php include __DIR__ . '/includes/profile_people_tags.js.php'; ?>
 
 </body>
 </html>

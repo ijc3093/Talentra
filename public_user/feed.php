@@ -2604,7 +2604,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   .mf-card.mf-card-video .mf-body{ padding-top:14px; }
   .mf-card.mf-card-video .mf-video-meta{ padding:14px 18px 18px; }
   .mf-card.mf-card-video .mf-video-title{ font-size:16px; font-weight:800; line-height:1.35; color:#f5f7fb; margin:0 0 8px; }
-  .mf-card.mf-card-video .mf-video-body{ color:#c8d0db; font-size:13px; line-height:1.6; }
+  .mf-card.mf-card-video .mf-video-body{ color:#c8d0db; font-size:12px; font-weight:400; line-height:1.45; }
   .mf-card.mf-card-video .mf-video-body .mf-readmore{ color:#fff; text-decoration:underline; margin-left:6px; }
 
   .mf-card.mf-card-reel{
@@ -2696,7 +2696,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   }
   .mf-card.mf-card-reel .mf-reel-body{
     position:absolute; left:14px; right:64px; bottom:14px; z-index:3;
-    color:#fff; font-size:14px; line-height:1.5; word-break:break-word;
+    color:#fff; font-size:12px; font-weight:400; line-height:1.45; word-break:break-word;
     text-shadow:0 2px 10px rgba(0,0,0,.55);
   }
   .mf-card.mf-card-reel .mf-reel-body .mf-readmore{ color:#fff; text-decoration:underline; }
@@ -2852,8 +2852,9 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
 
   .mf-body{
     padding: 12px 0 6px;
-    font-size:14px;
-    line-height:1.7;
+    font-size:12px;
+    font-weight:400;
+    line-height:1.45;
     word-break:break-word;
     text-align:left;
   }
@@ -3004,8 +3005,9 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   .mf-body,
   .mf-video-body{
     padding: 16px 0 20px;
-    font-size: 15px;
-    line-height: 1.75;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
     color: #344054;
     text-align:left;
   }
@@ -4298,7 +4300,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     display:flex;
     flex-direction:column;
     position:fixed;
-    left:calc(var(--feed-mainpanel-left) + 8px);
+    left:calc(
+      var(--feed-mainpanel-left)
+      + max(0px, (var(--feed-left-column-w, calc(8px + var(--feed-left-nav-w))) - var(--feed-left-nav-w)) / 2)
+    );
     top:var(--feed-left-rail-top, 220px);
     width:var(--feed-left-nav-w);
     height:var(--feed-left-nav-box-h);
@@ -4971,7 +4976,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                             </a>
                           </div>
                           <div class="ig-insta-actions-right">
-                            <a id="btnSave" class="ig-act" type="button" title="Save">
+                            <a id="btnSave" class="ig-act" type="button" title="Favorite">
                               <span class="ig-circle"><i class="fa fa-bookmark-o ig-insta-ico-save"></i></span>
                               <span id="saveCount" class="ig-count">0</span>
                             </a>
@@ -5004,7 +5009,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                             <span id="viewCountV" class="vrail-count">0</span>
                           </a> -->
 
-                          <button id="btnSaveV" type="button" class="vrail-btn" title="Save">
+                          <button id="btnSaveV" type="button" class="vrail-btn" title="Favorite">
                             <span class="vrail-ico"><i class="fa fa-bookmark"></i></span>
                             <span id="saveCountV" class="vrail-count">0</span>
                           </button>
@@ -5047,7 +5052,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                       </a>
                     </div>
                     <div class="ig-post-footer-right">
-                      <a id="btnFooterSave" class="ig-post-footer-act" href="#" title="Save">
+                      <a id="btnFooterSave" class="ig-post-footer-act" href="#" title="Favorite">
                         <i class="fa fa-bookmark"></i><span id="saveCountF">0</span>
                       </a>
                     </div>
@@ -9440,7 +9445,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                   '<a class="mf-act mf-share" href="javascript:void(0)" role="button" title="Share"><i class="msb-pact msb-pact-share" aria-hidden="true"></i><span class="mf-num" data-count="share">0</span></a>'+
                 '</div>'+
                 '<div class="mf-right">'+
-                  '<a class="mf-act mf-save" href="javascript:void(0)" role="button" title="Save"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num" data-count="save">0</span></a>'+
+                  '<a class="mf-act mf-save" href="javascript:void(0)" role="button" title="Favorite"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num" data-count="save">0</span></a>'+
                 '</div>'+
               '</div>';
           }
@@ -9503,7 +9508,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               +               '<a class="mf-live-action-btn mf-act mf-like" href="javascript:void(0)" role="button" title="Like"><i class="fa fa-thumbs-o-up"></i><span class="mf-num" data-count="like">0</span></a>'
               +               '<a class="mf-live-action-btn mf-act mf-comment" href="javascript:void(0)" role="button" title="Comment"><i class="msb-pact msb-pact-comment" aria-hidden="true"></i><span class="mf-num mf-cmt" data-count="comment">0</span></a>'
               +               '<a class="mf-live-action-btn mf-act mf-share" href="javascript:void(0)" role="button" title="Share"><i class="msb-pact msb-pact-share" aria-hidden="true"></i><span class="mf-num" data-count="share">0</span></a>'
-              +               '<span class="mf-live-action-spacer"><a class="mf-live-action-btn mf-act mf-save" href="javascript:void(0)" role="button" title="Save"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num" data-count="save">0</span></a></span>'
+              +               '<span class="mf-live-action-spacer"><a class="mf-live-action-btn mf-act mf-save" href="javascript:void(0)" role="button" title="Favorite"><i class="msb-pact msb-pact-bookmark" aria-hidden="true"></i><span class="mf-num" data-count="save">0</span></a></span>'
               +             '</div>'
               +             '<div class="mf-live-comments-link">View all 0 comments</div>'
               +           '</div>'
@@ -10180,8 +10185,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             try{
               if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
                 window.MSBPostCardMenu.toast(Number(counts.is_saved || 0) === 1
-                  ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
-                  : 'Removed from Bookmarks.');
+                  ? 'Added to Favorites. Find it in Settings → Favorites.'
+                  : 'Removed from Favorites.');
               }
             }catch(_eToast){}
           });
@@ -12426,8 +12431,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               var savedNow = !!(res && res.state && Number(res.state.saved || 0) === 1);
               if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
                 window.MSBPostCardMenu.toast(savedNow
-                  ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
-                  : 'Removed from Bookmarks.');
+                  ? 'Added to Favorites. Find it in Settings → Favorites.'
+                  : 'Removed from Favorites.');
               }
             }catch(_eToast){}
           }, 'json');
@@ -13932,7 +13937,7 @@ function feedGoToPost(){
           <button type="button" class="pv-act" id="pvComment" title="Comment" aria-label="Comment"><i class="icon ion-chatbubble"></i><span class="pv-n" id="pvComN">0</span></button>
           <button type="button" class="pv-act" id="pvShare" title="Share" aria-label="Share"><i class="icon ion-forward"></i><span class="pv-n" id="pvShareN">0</span></button>
           <div class="pv-sp"></div>
-          <button type="button" class="pv-act" id="pvSave" title="Save" aria-label="Save"><i class="icon ion-bookmark"></i><span class="pv-n" id="pvSaveN">0</span></button>
+          <button type="button" class="pv-act" id="pvSave" title="Favorite" aria-label="Favorite"><i class="icon ion-bookmark"></i><span class="pv-n" id="pvSaveN">0</span></button>
         </div>
         <div class="pv-counts" hidden aria-hidden="true">
           <span class="pv-c" title="Views"><i class="icon ion-eye"></i> <b id="pvViewN">0</b></span>
@@ -14066,9 +14071,9 @@ function feedGoToPost(){
   .pv-caption{border-bottom:1px solid rgba(15,23,42,.08);padding:10px 14px;max-height:140px;overflow:auto;}
   .pv-cap{font-size:13px;line-height:1.35;color:#0f172a;word-break:break-word;}
   .pv-cap-title{font-size:15px;font-weight:800;line-height:1.25;margin-bottom:6px;}
-  .pv-cap-desc{font-size:13px;line-height:1.45;}
+  .pv-cap-desc{font-size:12px;font-weight:400;line-height:1.45;}
   .pv-cap-subtitle{font-size:14px;font-weight:700;line-height:1.3;margin:10px 0 6px;color:inherit;}
-  .pv-cap-summary{font-size:13px;line-height:1.45;opacity:.95;}
+  .pv-cap-summary{font-size:12px;font-weight:400;line-height:1.45;opacity:.95;}
   .pv-cap-summary .post-slide-summary-p{margin:0}
   .pv-cap-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
   .pv-cap-summary .post-slide-summary-list li{margin:0 0 .35em}
@@ -14079,7 +14084,7 @@ function feedGoToPost(){
   .pv-media-shell{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:26px;}
   .pv-media-copy{max-width:640px;color:#fff;text-align:left;max-height:100%;overflow:hidden;}
   .pv-media-copy.is-title-only{text-align:center;}
-  .pv-media-text{white-space:normal;word-break:break-word;}
+  .pv-media-text{white-space:normal;word-break:break-word;font-size:12px;font-weight:400;line-height:1.45;}
   .pv-media-text[data-expanded="1"]{max-height:min(58vh, 420px);overflow:auto;padding-right:8px;}
   .pv-readmore{margin-left:6px;font-weight:800;color:#2563eb;cursor:pointer;white-space:nowrap;}
   .pv-readmore:hover{text-decoration:underline;}
@@ -15133,8 +15138,9 @@ html[data-theme="dark"] .ig-post-progress{
   body .mf-feed .mf-body,
   body .mf-feed .mf-video-body{
     padding:2px 0 0 !important;
-    font-size:15px !important;
-    line-height:1.7 !important;
+    font-size:12px !important;
+    font-weight:400 !important;
+    line-height:1.45 !important;
     color:var(--feed-text) !important;
     text-align:left !important;
     margin-left:0 !important;
@@ -15471,7 +15477,7 @@ body .mf-feed .mf-head:not(.mf-head--on-media) .post-card-menu-btn{
   border:0!important;
   border-radius:0!important;
   background:transparent!important;
-  color:var(--msb-palette-text, #5c3d2e)!important;
+  color:var(--msb-fries, var(--msb-palette-text, #0f172a))!important;
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;

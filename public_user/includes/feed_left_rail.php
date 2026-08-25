@@ -152,6 +152,14 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
     <?php endif; ?>
   </div>
   <?php endif; ?>
+  <?php if (!$flrShopOnlyNav): ?>
+  <div class="feed-left-rail-head">
+    <button class="feed-left-nav-item feed-left-nav-add-program" type="button" aria-label="Add Program" aria-haspopup="dialog" aria-controls="feedProgramManager">
+      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></svg></span>
+      <span class="feed-left-nav-label">Add Program</span>
+    </button>
+  </div>
+  <?php endif; ?>
   <nav class="feed-left-nav" aria-label="Sidebar menu">
     <?php if ($flrShopOnlyNav): ?>
     <?php if (!empty($feedLeftRailShopFilters)): ?>
@@ -306,10 +314,6 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
     }
   ?>
   <div class="feed-left-rail-footer" aria-label="Sidebar actions">
-    <button class="feed-left-nav-item feed-left-nav-add-program" type="button" aria-label="Add Program" aria-haspopup="dialog" aria-controls="feedProgramManager">
-      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></svg></span>
-      <span class="feed-left-nav-label">Add Program</span>
-    </button>
     <a class="feed-left-nav-item" href="logout.php">
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2"/><path d="M15 12H3"/><path d="M6 9l-3 3 3 3"/></svg></span>
       <span class="feed-left-nav-label">Sign Out</span>
@@ -1009,4 +1013,24 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
   </script>
   <?php endif; ?>
   <?php endif; ?>
-<?php if (!$feedLeftRailEmbed): ?></aside><?php endif; ?>
+<?php if (!$feedLeftRailEmbed): ?></aside>
+<script>
+(function () {
+  function syncAddProgramToAvatar() {
+    var avatar = document.querySelector('.feed-ig-rail .feed-ig-avatar');
+    if (!avatar) return;
+    var y = Math.round(avatar.getBoundingClientRect().top);
+    if (y >= 40 && y < 400) {
+      document.documentElement.style.setProperty('--feed-left-rail-top', y + 'px');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncAddProgramToAvatar);
+  } else {
+    syncAddProgramToAvatar();
+  }
+  window.addEventListener('load', syncAddProgramToAvatar);
+  window.addEventListener('resize', syncAddProgramToAvatar);
+})();
+</script>
+<?php endif; ?>

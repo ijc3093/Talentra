@@ -43,6 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
     } else {
       $ok = revokeOneUserSession($meId, $rowId, $currentSid, $dbh);
       $message = $ok ? 'The selected device session was signed out.' : 'That session could not be revoked. It may already be inactive or it may be this current device.';
+      if ($ok) {
+        try {
+          require_once __DIR__ . '/includes/account_admin_events.php';
+          account_admin_event_notify($dbh, $meId, 'remove_access', ['session_id' => $rowId]);
+        } catch (Throwable $eNotify) {
+        }
+      }
     }
   } elseif ($action === 'revoke_others') {
     $affected = revokeAllUserSessions($meId, $currentSid, $dbh);
@@ -50,6 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
       $error = 'Session table is not installed yet. Run sql_user_sessions.sql first.';
     } elseif ($affected > 0) {
       $message = 'Logged out ' . $affected . ' other device session' . ($affected === 1 ? '' : 's') . '.';
+      try {
+        require_once __DIR__ . '/includes/account_admin_events.php';
+        account_admin_event_notify($dbh, $meId, 'remove_access', ['sessions' => $affected]);
+      } catch (Throwable $eNotify) {
+      }
     } else {
       $message = 'No other active device sessions were found.';
     }

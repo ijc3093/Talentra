@@ -34,6 +34,9 @@ $allowed = [
     'friend_request_permission' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
     'message_permission' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
     'timeline_visit_approval' => ['type' => 'bool'],
+    'show_tags_tab' => ['type' => 'bool'],
+    'show_about_tab' => ['type' => 'bool'],
+    'show_saved_tab' => ['type' => 'bool'],
 
     'auto_show_timeline' => ['type' => 'bool'],
     'resurface_old_memories' => ['type' => 'bool'],
@@ -103,6 +106,7 @@ try {
     if (!$hasTable) {
         throw new RuntimeException('user_profile_settings table not found');
     }
+    profile_settings_ensure_tab_privacy_columns($dbh);
 
     $ensure = $dbh->prepare("INSERT INTO user_profile_settings (user_id) VALUES (:uid) ON DUPLICATE KEY UPDATE user_id = user_id");
     $ensure->execute([':uid' => $userId]);

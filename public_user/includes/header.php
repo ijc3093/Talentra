@@ -109,7 +109,8 @@ if (!function_exists('parse_notification_meta')) {
     $commentId = 0;
     $isStory = false;
 
-    while (preg_match('/\s\[(live|r|p|c|story):([^\]]+)\]\s*$/', $type, $m)) {
+    $profileUserId = 0;
+    while (preg_match('/\s\[(live|r|p|c|story|u):([^\]]+)\]\s*$/', $type, $m)) {
       $key = trim((string)($m[1] ?? ''));
       $value = trim((string)($m[2] ?? ''));
       if ($key === 'live') {
@@ -122,8 +123,10 @@ if (!function_exists('parse_notification_meta')) {
         $commentId = (int)$value;
       } elseif ($key === 'story') {
         $isStory = ((int)$value === 1) || strtolower($value) === '1' || strtolower($value) === 'true';
+      } elseif ($key === 'u') {
+        $profileUserId = (int)$value;
       }
-      $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story):[^\]]+\]\s*$/', '', $type, 1));
+      $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story|u):[^\]]+\]\s*$/', '', $type, 1));
     }
     if (!$isStory && (stripos($type, ' in a story') !== false || stripos($type, 'story') !== false && (stripos($type, 'tagged') !== false || stripos($type, 'mentioned') !== false))) {
       $isStory = stripos($type, ' in a story') !== false;
@@ -158,6 +161,10 @@ if (!function_exists('parse_notification_meta')) {
         $params['hide_nav'] = 1;
       }
       $url = $page . '?' . http_build_query($params);
+    } elseif ($profileUserId > 0) {
+      $url = 'profile.php?tab=about&id=' . $profileUserId;
+    } elseif ($route === 'pf') {
+      $url = 'profile.php?tab=about';
     }
 
     return [
@@ -549,6 +556,7 @@ if ($meId > 0) {
 
 $railProfileMenuItems = [
   ['href' => $railProfileHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
+  ['href' => 'profile.php?tab=gear#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
   ['href' => 'my_orders.php', 'icon' => 'ion-bag', 'label' => 'My Orders'],
   ['href' => 'cart.php', 'icon' => 'ion-ios-cart', 'label' => 'Cart'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
@@ -558,6 +566,7 @@ $railProfileMenuItems = [
 
 $topProfileMenuItems = [
   ['href' => 'profile.php?tab=about', 'icon' => 'ion-ios-person', 'label' => 'Edit Profile'],
+  ['href' => 'profile.php?tab=gear#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
   ['href' => 'change-password.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
 ];
@@ -642,11 +651,14 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <!-- ✅ AUTO DARK MODE (Public User) — per-account theme prefs -->
 <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
 <?php if (!defined('MSB_THEME_DARK_CSS')): ?>
-<link rel="stylesheet" href="./css/dark-auto.css?v=40">
+<link rel="stylesheet" href="./css/dark-auto.css?v=41">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
 <link rel="stylesheet" href="./css/appearance-palette.css?v=109">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
+<?php if (!defined('MSB_HAIRLINE_BORDERS_CSS')): ?>
+<link rel="stylesheet" href="./css/hairline-borders.css?v=5">
+<?php define('MSB_HAIRLINE_BORDERS_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
 <?php define('MSB_THEME_DARK_JS', true); endif; ?>
@@ -689,8 +701,8 @@ video.msb-clean-loop-video{
   --msb-logo-book: #7dd3fc;  /* soft sky */
   --msb-dd-surface: #ffffff;
   --msb-dd-surface-strong: #f8fafc;
-  --msb-dd-border: #c0c2c4;
-  --msb-dd-divider: #c0c2c4;
+  --msb-dd-border: #d3d3d3;
+  --msb-dd-divider: #d3d3d3;
   --msb-dd-text: #0f172a;
   --msb-dd-muted: #64748b;
   --msb-dd-soft: #334155;
@@ -4290,6 +4302,7 @@ span.msb-rx-face svg{
 }
 </style>
 
+<?php include __DIR__ . '/post_reactors_modal.php'; ?>
 <script>
 (function(){
   // Force fresh reaction-picker build (bust stale cached picker DOM)
@@ -4627,6 +4640,7 @@ span.msb-rx-face svg{
 
   function matchDelegate(target){
     if (!target || !target.closest) return null;
+    if (isReactionCountTarget(target)) return null;
     for (let i = 0; i < delegates.length; i += 1) {
       const delegate = delegates[i];
       let element = target.closest(delegate.selector);
@@ -4639,6 +4653,16 @@ span.msb-rx-face svg{
       return { delegate: delegate, element: element };
     }
     return null;
+  }
+
+  function isReactionCountTarget(target){
+    if (!target || !target.closest) return false;
+    if (target.closest('.js-open-reactors, .js-love-count, .js-like-count, .js-reaction-count, .js-share-count, .js-save-count')) return true;
+    var num = target.closest('.mf-num, .reel-act-count, .action-count');
+    if (!num) return false;
+    if (num.classList && (num.classList.contains('js-comment-count-inline') || num.classList.contains('mf-cmt'))) return false;
+    var wrap = num.closest('.js-react-love, .js-react-like, .mf-act.mf-love, .mf-act.mf-like, .reel-act[data-act="love"]');
+    return !!wrap;
   }
 
   function bindLikePicker(selector, onSelect){

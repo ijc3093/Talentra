@@ -16,6 +16,14 @@ dialog.pcm-archive-dialog:not([open]){
   --pcm-on-media-menu-right:1px;
   --pcm-on-media-topbar-menu-top:-10px;
   --pcm-on-media-topbar-menu-right:4px;
+  --msb-fries:#0f172a;
+}
+html[data-msb-appearance]{
+  --msb-fries:var(--msb-palette-icon, var(--msb-palette-text, #0f172a));
+}
+html.dark-auto,
+html[data-theme="dark"]{
+  --msb-fries:#ffffff;
 }
 .post-card-menu-wrap{
   position:relative;
@@ -850,5 +858,33 @@ html[data-theme="dark"] .post-card-menu-btn{
   -webkit-filter:none !important;
   text-shadow:none !important;
   box-shadow:none !important;
+}
+
+/* Fries bars: paint against the page/card background (do not inherit muted chrome grey). */
+.post-card-menu-btn .pcm-fries-icon,
+.post-card-menu-btn .post-card-fries-icon,
+html[data-msb-appearance] .post-card-menu-btn .pcm-fries-icon,
+html.dark-auto .post-card-menu-btn .pcm-fries-icon,
+html[data-theme="dark"] .post-card-menu-btn .pcm-fries-icon{
+  color:var(--msb-fries, #0f172a) !important;
+}
+.post-card-menu-btn .pcm-fries-bar,
+.post-card-menu-btn .post-card-fries-icon span,
+html[data-msb-appearance] .post-card-menu-btn .pcm-fries-bar,
+html.dark-auto .post-card-menu-btn .pcm-fries-bar,
+html[data-theme="dark"] .post-card-menu-btn .pcm-fries-bar{
+  background:var(--msb-fries, #0f172a) !important;
+}
+.post-card-menu-btn.pcm-on-dark-media .pcm-fries-icon{
+  color:#ffffff !important;
+}
+.post-card-menu-btn.pcm-on-dark-media .pcm-fries-bar{
+  background:#ffffff !important;
+}
+.post-card-menu-btn.pcm-on-light-media .pcm-fries-icon{
+  color:#0f172a !important;
+}
+.post-card-menu-btn.pcm-on-light-media .pcm-fries-bar{
+  background:#0f172a !important;
 }
 

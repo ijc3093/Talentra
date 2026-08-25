@@ -1374,7 +1374,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
           <i class="fa fa-paper-plane-o"></i>
           <span class="tt-stories-action-count" id="ttStoriesPubShareCount">0</span>
         </button>
-        <button type="button" class="tt-stories-action tt-stories-action-pill" id="ttStoriesPubSave" title="Save" aria-label="Save">
+        <button type="button" class="tt-stories-action tt-stories-action-pill" id="ttStoriesPubSave" title="Favorite" aria-label="Favorite">
           <i class="fa fa-bookmark-o"></i>
           <span class="tt-stories-action-count" id="ttStoriesPubSaveCount">0</span>
         </button>
@@ -1784,7 +1784,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
     }
     if(isOwner || canInteract){
       html += '<button type="button" class="pcm-item pcm-bookmark'+(isSaved ? ' is-active' : '')+'" role="menuitem" data-post-id="'+esc(String(postId))+'" data-saved="'+(isSaved ? '1' : '0')+'">'
-        + '<i class="'+(isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o')+'" aria-hidden="true"></i><span>Bookmark</span></button>';
+        + '<i class="'+(isSaved ? 'fa fa-bookmark' : 'fa fa-bookmark-o')+'" aria-hidden="true"></i><span>Favorite</span></button>';
       html += '<button type="button" class="pcm-item pcm-share" role="menuitem" data-post-id="'+esc(String(postId))+'">'
         + '<i class="fa fa-share" aria-hidden="true"></i><span>Share</span></button>';
     }

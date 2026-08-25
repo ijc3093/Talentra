@@ -1315,6 +1315,13 @@ if ($peerRaw !== '') {
     }
 }
 
+if ($commerceDraft === '') {
+    $incomingDraft = trim((string)($_GET['draft'] ?? ''));
+    if ($incomingDraft !== '') {
+        $commerceDraft = function_exists('mb_substr') ? mb_substr($incomingDraft, 0, 2000) : substr($incomingDraft, 0, 2000);
+    }
+}
+
 // ---------------- page data ----------------
 $groupFeatureReady = $isGroupChatView;
 $groupNoticeType = strtolower(trim((string)($_GET['group_notice_type'] ?? '')));

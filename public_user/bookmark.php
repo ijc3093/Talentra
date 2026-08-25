@@ -34,7 +34,7 @@ if ($meId <= 0) {
 }
 
 $posts = msb_bookmark_fetch_posts($dbh, $meId, 200);
-$backUrl = 'profile.php?tab=gear';
+$backUrl = 'profile.php?tab=saved';
 
 $storyPosts = [];
 $feedPosts = [];
@@ -110,7 +110,7 @@ $totalCount = count($posts);
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-  <title>Bookmarks</title>
+  <title>Favorites</title>
   <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
   <link rel="stylesheet" href="lib/Ionicons/css/ionicons.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -325,17 +325,17 @@ $totalCount = count($posts);
           <path d="M15.5 4.5 8 12l7.5 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <h1 class="ig-bookmark-title">Bookmarks</h1>
-      <span class="ig-bookmark-count"><?= (int)$totalCount ?> saved</span>
+      <h1 class="ig-bookmark-title">Favorites</h1>
+      <span class="ig-bookmark-count"><?= (int)$totalCount ?> favorited</span>
     </div>
 
     <div class="ig-bookmark-stories-block">
       <div class="ig-bookmark-stories-label">Stories</div>
       <div class="ig-stories-wrap">
-        <div class="ig-stories-bar<?= $hasStories ? '' : ' is-empty' ?>" aria-label="Bookmarked stories">
+        <div class="ig-stories-bar<?= $hasStories ? '' : ' is-empty' ?>" aria-label="Favorited stories">
           <div class="ig-stories-track<?= $hasStories ? '' : ' is-empty' ?>" id="igBookmarkStoriesTrack">
             <?php if (!$hasStories): ?>
-              <div class="ig-story-item ig-story-empty" role="status" aria-label="No bookmarked stories">
+              <div class="ig-story-item ig-story-empty" role="status" aria-label="No favorited stories">
                 <div class="ig-story-ring ig-story-ring-empty">
                   <span class="ig-story-empty-icon" aria-hidden="true"><i class="icon ion-ios-bookmarks-outline"></i></span>
                 </div>
@@ -375,16 +375,16 @@ $totalCount = count($posts);
           </div>
         </div>
       </div>
-      <p class="ig-bookmark-note">Bookmark a story from the story door menu to keep it here. Only you can see these.</p>
+      <p class="ig-bookmark-note">Favorite a story from the story door menu to keep it here. Only you can see these.</p>
     </div>
   </header>
 
   <div class="ig-bookmark-body">
     <?php if ($feedPosts): ?>
-      <section class="ig-bookmark-section" aria-label="Bookmarked posts">
+      <section class="ig-bookmark-section" aria-label="Favorited posts">
         <div class="ig-bookmark-posts-meta">
           <div class="ig-bookmark-section-title">Posts</div>
-          <p class="ig-bookmark-note" style="margin-top:0;margin-bottom:12px;">Saved from For You, Discover, Reels, or Profile post menus.</p>
+          <p class="ig-bookmark-note" style="margin-top:0;margin-bottom:12px;">Favorited from For You, Discover, Reels, or Profile post menus.</p>
         </div>
         <div class="ig-bookmark-grid-scroll">
           <div class="ig-bookmark-grid" id="bookmarkPostList">
@@ -412,7 +412,7 @@ $totalCount = count($posts);
                 data-src="<?= msb_bookmark_h($previewSrc) ?>"
                 data-type="<?= msb_bookmark_h($isVideo ? 'video' : ($previewSrc !== '' ? 'image' : 'text')) ?>"
                 data-caption="<?= msb_bookmark_h($openCaption) ?>"
-                aria-label="Bookmarked post"
+                aria-label="Favorited post"
               >
                 <?php if ($badge['day'] !== ''): ?>
                   <span class="ig-bookmark-date">
@@ -437,23 +437,23 @@ $totalCount = count($posts);
       </section>
     <?php elseif (!$hasStories): ?>
       <div class="ig-bookmark-empty" role="status">
-        <strong>No bookmarks yet</strong>
-        <p>Use Bookmark on a post card or story menu in For You, Discover, Reels, or Profile. Find them again here under Settings.</p>
+        <strong>No favorites yet</strong>
+        <p>Use Favorite on a post card or story menu in For You, Discover, Reels, or Profile. Find them again here under Settings.</p>
       </div>
     <?php else: ?>
       <div class="ig-bookmark-empty" role="status">
-        <strong>No bookmarked posts</strong>
-        <p>Your bookmarked stories are above. Save a post card to see it in this grid.</p>
+        <strong>No favorited posts</strong>
+        <p>Your favorited stories are above. Favorite a post card to see it in this grid.</p>
       </div>
     <?php endif; ?>
   </div>
 </div>
 
 <div class="ig-bookmark-viewer" id="bookmarkViewer" aria-hidden="true">
-  <div class="ig-bookmark-sheet" role="dialog" aria-modal="true" aria-label="Bookmarked item">
+  <div class="ig-bookmark-sheet" role="dialog" aria-modal="true" aria-label="Favorited item">
     <div class="ig-bookmark-sheet-preview" id="bookmarkViewerPreview"></div>
     <div class="ig-bookmark-sheet-actions">
-      <button type="button" class="ig-bookmark-sheet-btn is-danger" id="bookmarkRemoveBtn">Remove bookmark</button>
+      <button type="button" class="ig-bookmark-sheet-btn is-danger" id="bookmarkRemoveBtn">Remove favorite</button>
       <button type="button" class="ig-bookmark-sheet-btn" id="bookmarkViewerClose">Cancel</button>
     </div>
   </div>
@@ -560,12 +560,12 @@ $totalCount = count($posts);
       var stillSaved = Number(res.state && res.state.saved != null ? res.state.saved : 0) === 1;
       if(stillSaved){
         if(removeBtn) removeBtn.disabled = false;
-        toast('Could not remove bookmark.');
+        toast('Could not remove favorite.');
         return;
       }
       removeEverywhere(postId);
       closeViewer();
-      toast('Bookmark removed.');
+      toast('Favorite removed.');
     }).catch(function(){
       if(removeBtn) removeBtn.disabled = false;
       toast('Network error. Try again.');

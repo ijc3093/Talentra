@@ -25,6 +25,17 @@ $discoverFragmentRequest = (string)($_GET['ajax_discover'] ?? '') === '1';
 $discoverFragmentBaseObLevel = ob_get_level();
 if ($discoverFragmentRequest) {
     ob_start();
+    set_exception_handler(static function (Throwable $e): void {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            http_response_code(200);
+            header('Content-Type: text/html; charset=utf-8');
+        }
+        echo '';
+        exit;
+    });
 }
 
 $controller = new Controller();
@@ -868,7 +879,6 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .post.public-post-card:not(.is-reel-post){
       position:relative;
       background:var(--public-surface);
-      border:1px solid var(--public-border-strong, var(--public-border)) !important;
       box-shadow:none;
     }
     .public-auto-progress{
@@ -1146,8 +1156,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       line-height:1.3;
     }
     .standard-text-caption{
-      font-size:15px;
-      line-height:1.5;
+      font-size:12px;
+      font-weight:400;
+      line-height:1.45;
       color:var(--public-text);
       word-break:break-word;
       text-align:left;
@@ -1306,6 +1317,11 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       max-height:var(--post-media-max-height, min(70vh, 580px));
       background:transparent;
       border-radius:0;
+    }
+    .media-stage.standard-video-stage > video,
+    .media-slide > video,
+    .reel-stage > video.reel-video{
+      cursor:pointer;
     }
     .media-stage.standard-image-stage > img{
       width:100%;
@@ -1910,7 +1926,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       line-height:1.3;
     }
     .standard-media-caption{
-      font-size:15px;
+      font-size:12px;
+      font-weight:400;
       line-height:1.45;
       color:#fff;
       word-break:break-word;
@@ -2077,7 +2094,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .actions{padding:12px 16px 14px}
     .post.public-post-card:not(.is-reel-post) .actions{
       background:var(--public-surface);
-      border-top:1px solid var(--public-border);
+      border-top:0;
     }
     .action-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
     .action-left,.action-right{display:flex;align-items:center;gap:14px}
@@ -2244,7 +2261,8 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       color:var(--public-text);
     }
     .reel-caption{
-      font-size:15px;
+      font-size:12px;
+      font-weight:400;
       line-height:1.45;
       color:var(--public-text);
       word-break:break-word;
@@ -2819,7 +2837,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4)) !important;
     }
     .post.public-post-card:not(.is-reel-post) .actions{
-      border-top-color:var(--public-border);
+      border-top:0 !important;
     }
     .post.public-post-card:not(.is-reel-post) .head-meta .name,
     .post.public-post-card:not(.is-reel-post) .post-author-link,
@@ -3280,8 +3298,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .standard-text-caption,
       body .standard-media-caption{
         color:var(--public-text);
-        font-size:15px;
-        line-height:1.7;
+        font-size:12px;
+        font-weight:400;
+        line-height:1.45;
         word-break:break-word;
         text-shadow:none;
         text-align:left;
@@ -4057,7 +4076,7 @@ body.feed-insta-ui .avatar-thumb img{
     --feed-center-w:614px;
     --feed-side-gap:28px;
     --feed-left-nav-w:236px;
-    --feed-right-rail-w:248px;
+    --feed-right-rail-w:300px;
     --feed-main-inset:0px;
     /* sh-mainpanel already clears the icon rail; this is the in-panel offset only. */
     --feed-center-left:calc(8px + var(--feed-left-nav-w) + var(--feed-side-gap) + var(--feed-main-inset));
@@ -4068,7 +4087,10 @@ body.feed-insta-ui .avatar-thumb img{
     display:flex;
     flex-direction:column;
     position:fixed;
-    left:calc(var(--feed-mainpanel-left) + 8px);
+    left:calc(
+      var(--feed-mainpanel-left)
+      + max(0px, (var(--feed-left-column-w, calc(8px + var(--feed-left-nav-w))) - var(--feed-left-nav-w)) / 2)
+    );
     top:var(--feed-left-rail-top, 220px);
     width:var(--feed-left-nav-w);
     height:var(--feed-left-nav-box-h);
@@ -4260,16 +4282,23 @@ body.feed-insta-ui .avatar-thumb img{
       + var(--feed-side-gap)
     ) !important;
     right:auto !important;
-    top:250px;
+    top:154px;
     width:var(--feed-right-rail-w);
+    height:calc(100vh - 170px);
+    max-height:calc(100vh - 170px);
     z-index:90;
     padding:0;
     box-sizing:border-box;
   }
   body.public-page.feed-insta-ui.public-suggestions-visible .feed-right-rail{
-    display:block !important;
+    display:flex !important;
+    flex-direction:column !important;
     visibility:visible !important;
     opacity:1 !important;
+    top:154px !important;
+    height:calc(100vh - 170px) !important;
+    max-height:calc(100vh - 170px) !important;
+    overflow-y:auto !important;
     left:calc(
       var(--feed-mainpanel-left, var(--feedRailW, 84px))
       + max(
@@ -4474,6 +4503,10 @@ body.feed-insta-ui .avatar-thumb img{
     overflow:hidden !important;
     display:flex !important;
     flex-direction:column !important;
+    /* Full-width shell so the header bottom border can meet the icon-rail line. */
+    margin-left:0 !important;
+    width:100% !important;
+    max-width:100% !important;
   }
   body.public-page.feed-insta-ui .sh-pagebody{
     flex:1 1 auto !important;
@@ -4495,7 +4528,9 @@ body.feed-insta-ui .avatar-thumb img{
     flex:1 1 auto !important;
     min-height:0 !important;
     overflow:hidden !important;
-    width:100% !important;
+    margin-left:var(--feedRailW, 84px) !important;
+    width:calc(100% - var(--feedRailW, 84px)) !important;
+    max-width:calc(100% - var(--feedRailW, 84px)) !important;
   }
   body.public-page.feed-insta-ui .feed-desktop-center{
     display:flex !important;
@@ -4836,7 +4871,7 @@ body.news-page .post.public-post-card .standard-media-topbar .post-card-menu-btn
 body.public-page .post.public-post-card .standard-text-topbar .post-card-menu-btn,
 body.public-page .post.public-post-card .post-card-head-actions .post-card-menu-btn,
 body.news-page .post.public-post-card .standard-text-topbar .post-card-menu-btn{
-  color:#5c3d2e!important;
+  color:var(--msb-fries, var(--msb-palette-text, #0f172a))!important;
 }
 body.public-page .post.public-post-card .post-card-menu-btn:hover,
 body.public-page .post.public-post-card .post-card-menu-btn:focus,
@@ -4978,7 +5013,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 }
 </style>
 </head>
-<body class="public-page feed-insta-ui public-suggestions-visible<?= $isNewsSurface ? ' news-page' : '' ?>">
+<body class="public-page feed-insta-ui public-suggestions-visible<?= $isNewsSurface ? ' news-page' : '' ?><?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
 <?php require __DIR__ . '/includes/register_welcome_modal.php'; ?>
 <?php $GLOBALS['msb_skip_header_leftbar'] = true; $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
 <?php $feedLeftRailActive = isset($publicNavTabs[$discoverTab]) ? $discoverTab : $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__ . '/includes/feed_left_rail.php'; ?>
@@ -5208,11 +5243,6 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               prefetchTab(e.target.closest('.feed-discover-tab'));
             });
             window.setTimeout(prefetchNeighbors, 100);
-            if('requestIdleCallback' in window){
-              window.requestIdleCallback(prefetchRemainingTabs, {timeout:900});
-            }else{
-              window.setTimeout(prefetchRemainingTabs, 350);
-            }
             tabs.addEventListener('click', function(e){
               var link = e.target.closest('.feed-discover-tab');
               if(!link) return;
@@ -5529,7 +5559,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             <div class="post-header">
               <div class="post-author-link<?= $authorNameClass ?>">
                 <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
-                  <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>"></span></div>
+                  <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                 </a>
                 <div class="head-meta">
                   <div class="name-row">
@@ -5571,7 +5601,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             <div class="post-header">
               <div class="post-author-link<?= $authorNameClass ?>">
                 <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
-                  <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>"></span></div>
+                  <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                 </a>
                 <div class="head-meta">
                   <div class="name-row">
@@ -5592,7 +5622,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               <div class="standard-text-topbar">
                 <div class="standard-text-author<?= $authorNameClass ?>">
                   <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
-                    <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>"></span></div>
+                    <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                   </a>
                   <div class="standard-text-meta">
                     <span class="standard-text-name<?= $authorNameClass ?>"><?= $authorNameHtml ?></span>
@@ -5660,10 +5690,12 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               <div class="standard-text-actions">
                 <div class="standard-text-left">
                   <div class="standard-text-row">
-                    <a class="standard-text-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                      <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
-                      <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
-                    </a>
+                    <span class="msb-react-cluster">
+                      <a class="standard-text-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
+                        <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
+                      </a>
+                      <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                    </span>
                     <!-- <a class="standard-text-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                       <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
                       <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
@@ -5672,17 +5704,21 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       <?= post_action_thin_icon('comment') ?>
                       <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                     </a>
-                    <a class="standard-text-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                      <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
-                      <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
-                    </a>
+                    <span class="msb-react-cluster">
+                      <a class="standard-text-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
+                        <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
+                      </a>
+                      <span class="action-count js-share-count js-open-reactors" data-rx-tab="share" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who shared"><?= (int)($post['share_count'] ?? 0) ?></span>
+                    </span>
                   </div>
                 </div>
                 <div class="standard-text-right">
-                  <a class="standard-text-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                    <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
-                    <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
-                  </a>
+                  <span class="msb-react-cluster">
+                    <a class="standard-text-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Favorite" data-post-id="<?= (int)$post['id'] ?>">
+                      <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
+                    </a>
+                    <span class="action-count js-save-count js-open-reactors" data-rx-tab="save" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who favorited"><?= (int)($post['save_count'] ?? 0) ?></span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -5746,27 +5782,33 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                     <div class="public-live-actionbar">
                       <div class="public-live-action-left">
                         <div class="public-live-action-row">
-                          <a class="public-live-action-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                            <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
-                            <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
-                          </a>
+                          <span class="msb-react-cluster">
+                            <a class="public-live-action-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
+                              <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
+                            </a>
+                            <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                          </span>
                           <a class="public-live-action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                             <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
-                            <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
+                            <span class="action-count js-like-count js-open-reactors" data-rx-tab="like" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who liked"><?= (int)$post['like_count'] ?></span>
                           </a>
                           <a class="public-live-action-btn js-open-comments" type="button" aria-label="Comment" data-post-id="<?= (int)$post['id'] ?>">
                             <?= post_action_thin_icon('comment') ?>
                             <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                           </a>
-                          <a class="public-live-action-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                            <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
-                            <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
-                          </a>
-                          <span class="public-live-action-spacer">
-                            <a class="public-live-action-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                              <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
-                              <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
+                          <span class="msb-react-cluster">
+                            <a class="public-live-action-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
+                              <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
                             </a>
+                            <span class="action-count js-share-count js-open-reactors" data-rx-tab="share" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who shared"><?= (int)($post['share_count'] ?? 0) ?></span>
+                          </span>
+                          <span class="public-live-action-spacer">
+                            <span class="msb-react-cluster">
+                              <a class="public-live-action-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Favorite" data-post-id="<?= (int)$post['id'] ?>">
+                                <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
+                              </a>
+                              <span class="action-count js-save-count js-open-reactors" data-rx-tab="save" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who favorited"><?= (int)($post['save_count'] ?? 0) ?></span>
+                            </span>
                           </span>
                         </div>
                         <div class="public-live-comments-link js-open-comments" data-post-id="<?= (int)$post['id'] ?>">
@@ -5784,7 +5826,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               <div class="reel-top-left">
                 <div class="reel-top-author<?= $authorNameClass ?>">
                   <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
-                    <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>"></span></div>
+                    <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                   </a>
                   <div class="reel-top-meta">
                     <span class="reel-top-name<?= $authorNameClass ?>"><?= $authorNameHtml ?></span>
@@ -5855,32 +5897,38 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               <div class="reel-inline-actions">
                 <div class="reel-inline-left">
                   <div class="reel-inline-row">
-                    <a class="reel-inline-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                      <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
-                      <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
-                    </a>
+                    <span class="msb-react-cluster">
+                      <a class="reel-inline-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
+                        <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
+                      </a>
+                      <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                    </span>
                     <a class="reel-inline-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                       <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
-                      <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
+                      <span class="action-count js-like-count js-open-reactors" data-rx-tab="like" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who liked"><?= (int)$post['like_count'] ?></span>
                     </a>
                     <a class="reel-inline-btn js-open-comments" type="button" aria-label="Comment" data-post-id="<?= (int)$post['id'] ?>">
                       <?= post_action_thin_icon('comment') ?>
                       <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                     </a>
-                    <a class="reel-inline-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                      <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
-                      <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
-                    </a>
+                    <span class="msb-react-cluster">
+                      <a class="reel-inline-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
+                        <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
+                      </a>
+                      <span class="action-count js-share-count js-open-reactors" data-rx-tab="share" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who shared"><?= (int)($post['share_count'] ?? 0) ?></span>
+                    </span>
                   </div>
                   <div class="reel-inline-comments js-open-comments" data-post-id="<?= (int)$post['id'] ?>">
                     View all <span class="js-comment-count"><?= (int)$post['comment_count'] ?></span> comments
                   </div>
                 </div>
                 <div class="reel-inline-right">
-                  <a class="reel-inline-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                    <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
-                    <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
-                  </a>
+                  <span class="msb-react-cluster">
+                    <a class="reel-inline-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Favorite" data-post-id="<?= (int)$post['id'] ?>">
+                      <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
+                    </a>
+                    <span class="action-count js-save-count js-open-reactors" data-rx-tab="save" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who favorited"><?= (int)($post['save_count'] ?? 0) ?></span>
+                  </span>
                   <div class="reel-inline-views"><?= (int)$post['views_count'] ?> views</div>
                 </div>
               </div>
@@ -5948,7 +5996,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 <div class="standard-media-topbar">
                   <div class="standard-media-author<?= $authorNameClass ?>">
                     <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
-                      <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>"></span></div>
+                      <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                     </a>
                     <div class="standard-media-meta">
                       <div class="standard-media-name-row">
@@ -6026,10 +6074,12 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                   <div class="standard-media-actions">
                     <div class="standard-media-left">
                       <div class="standard-media-row">
-                        <a class="standard-media-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
-                          <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
-                          <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
-                        </a>
+                        <span class="msb-react-cluster">
+                          <a class="standard-media-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
+                            <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
+                          </a>
+                          <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                        </span>
                         <!-- <a class="standard-media-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                           <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
                           <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
@@ -6038,20 +6088,24 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                           <?= post_action_thin_icon('comment') ?>
                           <span class="action-count js-comment-count-inline"><?= (int)$post['comment_count'] ?></span>
                         </a>
-                        <a class="standard-media-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
-                          <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
-                          <span class="action-count js-share-count"><?= (int)($post['share_count'] ?? 0) ?></span>
-                        </a>
+                        <span class="msb-react-cluster">
+                          <a class="standard-media-btn js-share-post<?= !empty($post['my_shared']) ? ' is-share' : '' ?>" type="button" aria-label="Share" data-post-id="<?= (int)$post['id'] ?>">
+                            <?= post_action_thin_icon('share', !empty($post['my_shared'])) ?>
+                          </a>
+                          <span class="action-count js-share-count js-open-reactors" data-rx-tab="share" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who shared"><?= (int)($post['share_count'] ?? 0) ?></span>
+                        </span>
                       </div>
                       <!-- <div class="standard-media-comments js-open-comments" data-post-id="<?= (int)$post['id'] ?>">
                         View all <span class="js-comment-count"><?= (int)$post['comment_count'] ?></span> comments
                       </div> -->
                     </div>
                     <div class="standard-media-right">
-                      <a class="standard-media-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
-                        <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
-                        <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
-                      </a>
+                      <span class="msb-react-cluster">
+                        <a class="standard-media-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Favorite" data-post-id="<?= (int)$post['id'] ?>">
+                          <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
+                        </a>
+                        <span class="action-count js-save-count js-open-reactors" data-rx-tab="save" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who favorited"><?= (int)($post['save_count'] ?? 0) ?></span>
+                      </span>
                       <!-- <div class="standard-media-views"><?= (int)$post['views_count'] ?> views</div> -->
                     </div>
                   </div>
@@ -6086,7 +6140,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 </div>
 
                 <div class="action-right">
-                  <a class="action-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Save" data-post-id="<?= (int)$post['id'] ?>">
+                  <a class="action-btn js-save-post<?= !empty($post['my_saved']) ? ' is-save' : '' ?>" type="button" aria-label="Favorite" data-post-id="<?= (int)$post['id'] ?>">
                     <?= post_action_thin_icon('bookmark', !empty($post['my_saved'])) ?>
                     <span class="action-count js-save-count"><?= (int)($post['save_count'] ?? 0) ?></span>
                   </a>
@@ -6122,14 +6176,12 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       // Right rail: Suggested for you stays visible on public.php / news.php.
       // Followed publishers leave this list and their posts move to Friends Feed.
       $suggestedForYouStaffReadonly = $staffReadonly;
+      $suggestedForYouMaxFriends = 12;
+      $suggestedForYouMaxFollow = 12;
+      $GLOBALS['suggestedForYouIncludePeople'] = true;
       if ($isNewsSurface || $isPublisherWorkspaceViewer) {
-          // Publishers / News: suggest other publishers (never personal people).
-          $suggestedForYouMaxFriends = 0;
-          $suggestedForYouMaxFollow = 6;
           $suggestedForYouMaxAdvertise = 3;
-      } elseif ($discoverTab === 'public') {
-          // Discover (personal): people to add as friends.
-          $suggestedForYouMaxFollow = 0;
+      } else {
           $suggestedForYouMaxAdvertise = 0;
       }
       include __DIR__ . '/includes/suggested_for_you.php';
@@ -6257,8 +6309,52 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   if (up) up.addEventListener('click', function(){ go(-1); });
   if (down) down.addEventListener('click', function(){ go(1); });
   if (videoBtn) videoBtn.addEventListener('click', function(){
-    window.location.href = 'reel.php';
+    var list = cards();
+    var idx = currentIndex();
+    var card = (idx >= 0 && list[idx] && isVideoCard(list[idx])) ? list[idx] : null;
+    if(!card){
+      for(var i = 0; i < list.length; i += 1){
+        if(isVideoCard(list[i])){ card = list[i]; break; }
+      }
+    }
+    var pid = card ? Number(card.getAttribute('data-post-id') || 0) : 0;
+    window.location.href = pid > 0 ? ('reel.php?post=' + encodeURIComponent(String(pid))) : 'reel.php';
   });
+
+<?php if (empty($isNewsSurface)): ?>
+  if(!window.__msbDiscoverVideoToReelBound){
+    window.__msbDiscoverVideoToReelBound = true;
+    document.addEventListener('click', function(e){
+      var tabNow = '';
+      try{ tabNow = String((new URL(window.location.href)).searchParams.get('tab') || ''); }catch(eTab){ tabNow = ''; }
+      if(tabNow !== 'discover' && tabNow !== 'public') return;
+      var t = e.target;
+      if(!t || !t.closest) return;
+      if(t.closest('a, button, input, textarea, select, .post-card-menu-wrap, .standard-media-top-actions, .standard-media-topbar, .standard-media-actions, .standard-media-bottom, .standard-text-actions, .reel-inline-actions, .reel-mute, .media-dots, .js-media-prev, .js-media-next, .public-live-actionbar, .js-open-reactors, .js-open-comments')) return;
+      if(t.closest('img')) return;
+      var card = t.closest('.post.public-post-card');
+      if(!card) return;
+      var slide = t.closest('.media-slide');
+      if(slide && !slide.querySelector('video')) return;
+      var hitVideo = t.closest('video');
+      var videoStage = t.closest('.media-stage.standard-video-stage');
+      var reelStage = t.closest('.reel-stage');
+      var isVideoHit = !!hitVideo;
+      if(!isVideoHit && videoStage && !videoStage.classList.contains('has-carousel')) isVideoHit = true;
+      if(!isVideoHit && slide && slide.querySelector('video')) isVideoHit = true;
+      if(!isVideoHit && reelStage){
+        var reelVid = reelStage.querySelector('video');
+        isVideoHit = !!(reelVid && reelVid.parentNode === reelStage);
+      }
+      if(!isVideoHit) return;
+      var pid = Number(card.getAttribute('data-post-id') || 0);
+      if(!pid) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = 'reel.php?post=' + encodeURIComponent(String(pid));
+    });
+  }
+<?php endif; ?>
 
   document.addEventListener('keydown', function(e){
     if (e.key === 'ArrowUp') go(-1);
@@ -7179,6 +7275,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   $(document).on('click', '.js-react-love', function(e){
+    if (e.target && e.target.closest && e.target.closest('.js-love-count, .js-open-reactors, .js-like-count, .js-reaction-count, .js-share-count, .js-save-count')) return;
     e.preventDefault();
     e.stopPropagation();
     var btn = this;
@@ -7219,6 +7316,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   });
 
   $(document).on('click', '.js-react-like', function(e){
+    if (e.target && e.target.closest && e.target.closest('.js-like-count, .js-open-reactors')) return;
     e.preventDefault();
     e.stopPropagation();
     var btn = this;
@@ -7304,6 +7402,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   $(document).on('click', '.js-share-post', function(e){
+    if (e.target && e.target.closest && e.target.closest('.js-share-count, .js-open-reactors')) return;
     e.preventDefault();
     e.stopPropagation();
     var btn = this;
@@ -7345,6 +7444,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   });
 
   $(document).on('click', '.js-save-post', function(e){
+    if (e.target && e.target.closest && e.target.closest('.js-save-count, .js-open-reactors')) return;
     e.preventDefault();
     e.stopPropagation();
     var btn = this;
@@ -7371,8 +7471,8 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           var savedNow = !!(res.state && Number(res.state.saved || 0) === 1);
           if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toast === 'function'){
             window.MSBPostCardMenu.toast(savedNow
-              ? 'Saved to Bookmarks. Find it in Settings → Bookmarks.'
-              : 'Removed from Bookmarks.');
+              ? 'Added to Favorites. Find it in Settings → Favorites.'
+              : 'Removed from Favorites.');
           }
         }catch(_eToast){}
       } else {
@@ -8584,8 +8684,9 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
   body.public-page.feed-insta-ui .ig-feed-header{
     width:100%!important;
     margin:0!important;
-    padding:16px 16px 14px!important;
+    padding:16px 16px 14px calc(var(--feedRailW, 84px) + 16px)!important;
     box-sizing:border-box!important;
+    border-bottom:1px solid var(--msb-palette-border-strong, var(--public-border-strong, #d1d5db))!important;
   }
   body.public-page.feed-insta-ui .ig-stories-wrap{
     width:100%!important;
@@ -8620,7 +8721,7 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
     padding:2px!important;
     box-sizing:border-box!important;
   }
-  body.public-page.feed-insta-ui .ig-feed-top-lead{left:16px!important}
+  body.public-page.feed-insta-ui .ig-feed-top-lead{left:calc(var(--feedRailW, 84px) + 16px)!important}
   body.public-page.feed-insta-ui .ig-feed-top-actions{
     right:16px!important;
     gap:10px!important;
@@ -8834,9 +8935,19 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
   }
   body.public-page.feed-insta-ui .standard-media-caption,
   body.public-page.feed-insta-ui .standard-text-caption,
+  body.public-page.feed-insta-ui .reel-caption,
+  body.public-page.feed-insta-ui .reel-caption-text,
+  body.home-page.feed-insta-ui .standard-media-caption,
+  body.home-page.feed-insta-ui .standard-text-caption,
+  body.home-page.feed-insta-ui .reel-caption,
+  body.home-page.feed-insta-ui .reel-caption-text,
+  body.news-page.feed-insta-ui .standard-media-caption,
+  body.news-page.feed-insta-ui .standard-text-caption,
+  body.news-page.feed-insta-ui .reel-caption,
+  body.news-page.feed-insta-ui .reel-caption-text,
   body.public-page.feed-insta-ui .post-copy p{
-    font-size:15px!important;
-    line-height:1.7!important;
+    font-size:12px!important;
+    line-height:1.45!important;
     font-weight:400!important;
   }
   body.public-page.feed-insta-ui .open-inline,
@@ -8915,6 +9026,34 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
 <style id="shared-feed-public-chrome-lock-css">
 <?php include __DIR__ . '/includes/feed_public_chrome_lock.css.php'; ?>
 </style>
+<style id="home-header-rail-tjunction">
+@media (min-width:1025px){
+  body.public-page.feed-insta-ui .sh-mainpanel,
+  body.home-page.feed-insta-ui .sh-mainpanel{
+    margin-left:0 !important;
+    width:100% !important;
+    max-width:100% !important;
+  }
+  body.public-page.feed-insta-ui .ig-feed-header,
+  body.home-page.feed-insta-ui .ig-feed-header{
+    width:100% !important;
+    margin:0 !important;
+    padding:16px 16px 14px calc(var(--feedRailW, 84px) + 16px) !important;
+    box-sizing:border-box !important;
+    border-bottom:1px solid var(--msb-palette-border-strong, #d1d5db) !important;
+  }
+  body.public-page.feed-insta-ui .ig-feed-top-lead,
+  body.home-page.feed-insta-ui .ig-feed-top-lead{
+    left:calc(var(--feedRailW, 84px) + 16px) !important;
+  }
+  body.public-page.feed-insta-ui .feed-desktop-layout,
+  body.home-page.feed-insta-ui .feed-desktop-layout{
+    margin-left:var(--feedRailW, 84px) !important;
+    width:calc(100% - var(--feedRailW, 84px)) !important;
+    max-width:calc(100% - var(--feedRailW, 84px)) !important;
+  }
+}
+</style>
 <style id="public-mobile-tablet-post-divider">
 /* Match feed.php: draw a column-width divider without resizing the card/media. */
 body.public-page.feed-insta-ui .feed-desktop-center .ig-feed{
@@ -8922,8 +9061,13 @@ body.public-page.feed-insta-ui .feed-desktop-center .ig-feed{
 }
 body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card:not(.is-reel-post){
   position:relative !important;
-  border-bottom:0 !important;
+  border:0 !important;
+  border-bottom:1px solid var(--msb-hairline, var(--feed-post-divider, var(--public-border-strong, #d3d3d3))) !important;
   overflow:visible !important;
+}
+body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card.is-reel-post{
+  border:0 !important;
+  border-bottom:1px solid var(--msb-hairline, var(--feed-post-divider, var(--public-border-strong, #d3d3d3))) !important;
 }
 /* Head-outside: stage must grow with header + media + actions so the divider
    sits UNDER reacts/save — not through them. Cap height on media only. */
@@ -8948,27 +9092,11 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
 body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card.public-media-head-outside:not(.is-reel-post){
   padding-bottom:8px !important;
 }
-body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card:not(.is-reel-post)::after{
-  content:'';
-  position:absolute;
-  left:50%;
-  bottom:0;
-  transform:translateX(-50%);
-  width:100cqw;
-  border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4));
-  pointer-events:none;
-  z-index:1;
-}
+body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card:not(.is-reel-post)::after,
 body.public-page.feed-insta-ui .feed-desktop-center .ig-feed .post.public-post-card:not(.is-reel-post)::before{
-  content:'';
-  position:absolute;
-  left:50%;
-  top:0;
-  transform:translateX(-50%);
-  width:100cqw;
-  border-top:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4));
-  pointer-events:none;
-  z-index:1;
+  content:none !important;
+  display:none !important;
+  border:0 !important;
 }
 </style>
 <style id="public-media-action-icon-size">
@@ -9093,9 +9221,12 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .post-card-menu-btn,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .post-card-menu-btn i,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .pcm-fries-icon{
-  color:var(--msb-palette-text, var(--public-text)) !important;
-  -webkit-text-fill-color:var(--msb-palette-text, var(--public-text)) !important;
+  color:var(--msb-fries, var(--msb-palette-text, var(--public-text))) !important;
+  -webkit-text-fill-color:var(--msb-fries, var(--msb-palette-text, var(--public-text))) !important;
   text-shadow:none !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar .pcm-fries-bar{
+  background:var(--msb-fries, #ffffff) !important;
 }
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > .standard-media-top-actions{
   position:relative !important;
@@ -9556,6 +9687,7 @@ include __DIR__ . '/includes/post_viewer_modal.js.php';
   }).observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['class']});
 })();
 </script>
+<?php include __DIR__ . '/includes/post_reactors_modal.php'; ?>
 <?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
 </body>
 </html>

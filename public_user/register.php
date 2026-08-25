@@ -11,6 +11,7 @@ require_once __DIR__ . '/includes/publisher_organization_bridge.php';
 require_once __DIR__ . '/includes/publisher_authority.php';
 require_once __DIR__ . '/includes/user_phone.php';
 require_once __DIR__ . '/includes/org_commerce_brands.php';
+require_once __DIR__ . '/includes/account_switch.php';
 
 $error = '';
 $msg   = '';
@@ -57,7 +58,8 @@ if (
     && $signupTrack === 'personal'
     && empty($_GET['stay'])
 ) {
-    header('Location: index.php?view=register&account_type=personal');
+    $addQs = account_switch_is_add_request() ? '&add_account=1' : '';
+    header('Location: index.php?view=register&account_type=personal' . $addQs);
     exit;
 }
 
@@ -587,6 +589,7 @@ function generateUniqueFriendCode(PDO $dbh, string $prefix = 'USR', int $maxTrie
 }
 
 if (isset($_POST['submit'])) {
+    $accountSwitchFromId = account_switch_is_add_request() ? account_switch_pending_owner_id() : 0;
     $lockedTrack = register_signup_track_from_request();
     $accountType = strtolower(trim((string)($_POST['account_type'] ?? 'personal')));
     if (!in_array($accountType, ['personal', 'publisher'], true)) {
@@ -823,6 +826,7 @@ if (isset($_POST['submit'])) {
                         'friend_code' => $friendCode,
                         'account_kind' => 'publisher',
                     ]);
+                    account_switch_complete_after_auth($dbh, $accountSwitchFromId, $newUserId);
                     header('Location: entry.php');
                     exit;
                 }
@@ -838,6 +842,7 @@ if (isset($_POST['submit'])) {
                     'friend_code' => $friendCode,
                     'account_kind' => 'personal',
                 ]);
+                account_switch_complete_after_auth($dbh, $accountSwitchFromId, $newUserId);
                 $_SESSION['register_welcome'] = [
                     'friend_code' => $friendCode,
                     'name' => $name,
@@ -1264,6 +1269,9 @@ if ($isPublisherReg) {
         <div class="signbox-body">
           <form method="post" autocomplete="off" id="registerForm" action="register.php<?= htmlspecialchars(register_signup_query_string($signupTrack), ENT_QUOTES, 'UTF-8') ?>">
               <?php echo csrfInput(); ?>
+              <?php if (account_switch_is_add_request()): ?>
+              <input type="hidden" name="add_account" value="1">
+              <?php endif; ?>
               <?php if ($signupTrack === 'commerce'): ?>
               <input type="hidden" name="account_type" value="publisher">
               <input type="hidden" name="publisher_mode" value="commerce">

@@ -279,7 +279,7 @@ function appearance_bridge_print_pub_palette_critical(string $mode): void
     echo '<style id="pub-dashboard-palette-critical">'
         . 'html[data-msb-appearance],html.msb-palette-active{--msb-palette-bg:' . $pageBgAttr . ';--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';'
         . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
-        . '--msb-palette-icon:' . $iconAttr . ';--msb-palette-action:' . $actionAttr . ';'
+        . '--msb-palette-icon:' . $iconAttr . ';--msb-fries:' . ($usesDarkChrome ? '#ffffff' : '#0f172a') . ';--msb-palette-action:' . $actionAttr . ';'
         . '--msb-palette-border:' . $borderAttr . ';--msb-palette-border-strong:' . $borderStrongAttr . ';'
         . '--public-border:' . $borderAttr . ';--public-border-strong:' . $borderStrongAttr . ';'
         . '--feed-border:' . $borderAttr . ';--feed-border-strong:' . $borderStrongAttr . ';'
@@ -349,6 +349,8 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . 'html[data-msb-appearance] body.profile-page .ig-card,'
         . 'html[data-msb-appearance] body.profile-page .ig-profile-shell,'
         . 'html[data-msb-appearance] body.profile-page .ig-profile-head,'
+        . 'html[data-msb-appearance] body.profile-page .ig-profile-rail,'
+        . 'html[data-msb-appearance] body.profile-page .ig-rail-card,'
         . 'html[data-msb-appearance] body.profile-page .ig-profile-scroll,'
         . 'html[data-msb-appearance] body.profile-page .ig-highlights,'
         . 'html[data-msb-appearance] body.profile-page .ig-tabs,'
@@ -371,6 +373,8 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . 'html.msb-palette-active body.profile-page .ig-card,'
         . 'html.msb-palette-active body.profile-page .ig-profile-shell,'
         . 'html.msb-palette-active body.profile-page .ig-profile-head,'
+        . 'html.msb-palette-active body.profile-page .ig-profile-rail,'
+        . 'html.msb-palette-active body.profile-page .ig-rail-card,'
         . 'html.msb-palette-active body.profile-page .ig-profile-scroll,'
         . 'html.msb-palette-active body.profile-page .ig-tabs,'
         . 'html.msb-palette-active body.profile-page .profile-panel,'
@@ -382,7 +386,7 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
     echo '<style id="profile-palette-critical">'
         . 'html[data-msb-appearance],html.msb-palette-active{--msb-palette-bg:' . $pageBgAttr . ';--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';'
         . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
-        . '--msb-palette-icon:' . $iconAttr . ';--msb-palette-action:' . $actionAttr . ';'
+        . '--msb-palette-icon:' . $iconAttr . ';--msb-fries:' . ($usesDarkChrome ? '#ffffff' : '#0f172a') . ';--msb-palette-action:' . $actionAttr . ';'
         . '--msb-palette-border:' . $borderAttr . ';--msb-palette-border-strong:' . $borderStrongAttr . ';'
         . '--public-border:' . $borderAttr . ';--public-border-strong:' . $borderStrongAttr . ';'
         . '--feed-border:' . $borderAttr . ';--feed-border-strong:' . $borderStrongAttr . ';'
@@ -400,6 +404,10 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . 'html[data-msb-appearance] body.profile-page .ig-username,'
         . 'html[data-msb-appearance] body.profile-page .ig-stat,'
         . 'html[data-msb-appearance] body.profile-page .ig-bio,'
+        . 'html[data-msb-appearance] body.profile-page .ig-rail-title,'
+        . 'html[data-msb-appearance] body.profile-page .ig-rail-bio,'
+        . 'html[data-msb-appearance] body.profile-page .ig-rail-stat b,'
+        . 'html[data-msb-appearance] body.profile-page .ig-rail-video-title,'
         . 'html[data-msb-appearance] body.profile-page .gear-sidebar-title,'
         . 'html[data-msb-appearance] body.profile-page .gear-detail-title,'
         . 'html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,'
@@ -407,7 +415,11 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . 'html[data-msb-appearance] body.profile-page .gear-control,'
         . 'html.msb-palette-active body.profile-page .ig-username,'
         . 'html.msb-palette-active body.profile-page .ig-stat,'
-        . 'html.msb-palette-active body.profile-page .ig-bio{'
+        . 'html.msb-palette-active body.profile-page .ig-bio,'
+        . 'html.msb-palette-active body.profile-page .ig-rail-title,'
+        . 'html.msb-palette-active body.profile-page .ig-rail-bio,'
+        . 'html.msb-palette-active body.profile-page .ig-rail-stat b,'
+        . 'html.msb-palette-active body.profile-page .ig-rail-video-title{'
         . 'color:var(--msb-palette-text,' . $textAttr . ')!important;}'
         . 'html[data-msb-appearance] body.profile-page .gear-nav-section-icon,'
         . 'html.msb-palette-active body.profile-page .gear-nav-section-icon{'
@@ -569,6 +581,8 @@ function appearance_bridge_print_profile_palette_tail(string $mode): void
     $surfaces = 'html[data-msb-appearance] body.profile-page .ig-card,'
         . 'html[data-msb-appearance] body.profile-page .ig-profile-shell,'
         . 'html[data-msb-appearance] body.profile-page .ig-profile-head,'
+        . 'html[data-msb-appearance] body.profile-page .ig-profile-rail,'
+        . 'html[data-msb-appearance] body.profile-page .ig-rail-card,'
         . 'html[data-msb-appearance] body.profile-page .ig-profile-scroll,'
         . 'html[data-msb-appearance] body.profile-page .ig-tabs,'
         . 'html[data-msb-appearance] body.profile-page .profile-panel,'
@@ -585,6 +599,8 @@ function appearance_bridge_print_profile_palette_tail(string $mode): void
         . 'html.msb-palette-active body.profile-page .ig-card,'
         . 'html.msb-palette-active body.profile-page .ig-profile-shell,'
         . 'html.msb-palette-active body.profile-page .ig-profile-head,'
+        . 'html.msb-palette-active body.profile-page .ig-profile-rail,'
+        . 'html.msb-palette-active body.profile-page .ig-rail-card,'
         . 'html.msb-palette-active body.profile-page .ig-profile-scroll,'
         . 'html.msb-palette-active body.profile-page .ig-tabs,'
         . 'html.msb-palette-active body.profile-page .profile-panel,'
@@ -820,7 +836,7 @@ function appearance_bridge_print_shell_critical(PDO $dbh, int $userId, bool $org
         . 'html[data-msb-appearance]{--msb-palette-bg:' . $pageBgAttr . ';--org-bg:' . $pageBgAttr . ';--org-page-bg:' . $pageBgAttr . ';'
         . '--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';--bg-sidebar:' . $pageBgAttr . ';'
         . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
-        . '--msb-palette-icon:' . $iconAttr . ';--msb-palette-action:' . $actionAttr . ';'
+        . '--msb-palette-icon:' . $iconAttr . ';--msb-fries:' . ($usesDarkChrome ? '#ffffff' : '#0f172a') . ';--msb-palette-action:' . $actionAttr . ';'
         . '--msb-palette-text-on-nav:' . $textAttr . ';}'
         . ($orgSurface
             ? 'html[data-msb-appearance] body.org-app,html[data-msb-appearance] body.org-app .sh-mainpanel,'
@@ -902,7 +918,7 @@ function appearance_bridge_print_css_link(string $assetPrefix = './'): void
     }
     $GLOBALS['__MSB_APPEARANCE_BRIDGE_CSS'] = true;
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
-    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=53', ENT_QUOTES, 'UTF-8');
+    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=58', ENT_QUOTES, 'UTF-8');
     echo '<link rel="stylesheet" href="' . $href . '">' . "\n";
 }
 
@@ -1052,10 +1068,14 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
         define('MSB_APPEARANCE_PALETTE_CSS', true);
         echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=109', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
+    if (!defined('MSB_HAIRLINE_BORDERS_CSS')) {
+        define('MSB_HAIRLINE_BORDERS_CSS', true);
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/hairline-borders.css?v=5', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+    }
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=40', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=41', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);
@@ -1114,7 +1134,7 @@ function appearance_bridge_print_org_tail_critical(PDO $dbh, int $userId): void
             . 'html[data-msb-appearance],html.msb-palette-active{--msb-palette-bg:' . $pageBgAttr . ';--org-bg:' . $pageBgAttr . ';'
             . '--org-page-bg:' . $pageBgAttr . ';--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';'
             . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
-            . '--msb-palette-icon:' . $iconAttr . ';--msb-palette-action:' . $actionAttr . ';'
+            . '--msb-palette-icon:' . $iconAttr . ';--msb-fries:' . ($usesDarkChrome ? '#ffffff' : '#0f172a') . ';--msb-palette-action:' . $actionAttr . ';'
             . '--msb-palette-text-on-nav:' . $textAttr . ';}'
             . $orgSurfaces . '{'
             . 'background-color:var(--msb-palette-bg,' . $pageBgAttr . ')!important;background-image:none!important;'

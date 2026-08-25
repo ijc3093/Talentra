@@ -1652,6 +1652,7 @@ body.dark-auto:not([data-msb-appearance]) {
   --msb-palette-border: rgba(255, 255, 255, 0.12);
   --msb-palette-border-strong: rgba(177, 188, 206, 0.48);
   --msb-palette-text: #b1bcce;
+  --msb-fries: #ffffff;
   --msb-palette-text-muted: #b1bcce;
   --msb-palette-text-on-nav: #b1bcce;
   --msb-palette-text-on-nav-hover: #e8edf5;
@@ -2077,8 +2078,6 @@ html[data-theme="dark"]:not([data-msb-appearance]) span.gear-chip {
 
 html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-tag,
 html.dark-auto:not([data-msb-appearance]) span.gear-tag,
-html.dark-auto:not([data-msb-appearance]) span.profile-account-badge,
-html.dark-auto:not([data-msb-appearance]) .profile-account-badge,
 html.dark-auto:not([data-msb-appearance]) span.badge,
 html.dark-auto:not([data-msb-appearance]) .badge,
 html.dark-auto:not([data-msb-appearance]) .badge-light,
