@@ -1,0 +1,17 @@
+# OS / editor
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# User-generated media (stays on the server, not GitHub)
+public_user/uploads/posts/**
+!public_user/uploads/posts/.htaccess
+!public_user/uploads/posts/**/.htaccess
+public_user/uploads/avatars/**
+!public_user/uploads/avatars/.htaccess
+public_user/uploads/covers/**
+!public_user/uploads/covers/.htaccess
+public_user/uploads/mobile_drafts/**
+!public_user/uploads/mobile_drafts/.htaccess
+public_user/attachment/**
+!public_user/attachment/.htaccess
