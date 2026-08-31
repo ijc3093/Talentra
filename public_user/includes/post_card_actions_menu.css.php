@@ -3,7 +3,9 @@ dialog.pcm-share-dialog:not([open]),
 dialog.pcm-delete-dialog:not([open]),
 dialog.pcm-tag-dialog:not([open]),
 dialog.pcm-mention-dialog:not([open]),
-dialog.pcm-archive-dialog:not([open]){
+dialog.pcm-archive-dialog:not([open]),
+dialog.pcm-vis-dialog:not([open]),
+dialog.pcm-private-dialog:not([open]){
   display:none !important;
   visibility:hidden !important;
   pointer-events:none !important;

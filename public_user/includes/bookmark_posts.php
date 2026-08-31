@@ -166,7 +166,10 @@ if (!function_exists('msb_bookmark_fetch_posts')) {
                     END,
                     aa.id ASC
                   LIMIT 1
-                ) AS thumb_type
+                ) AS thumb_type,
+                COALESCE(p.views_count,0) AS views_count,
+                (SELECT COUNT(*) FROM public_post_comments c WHERE c.post_id = p.id AND COALESCE(c.is_deleted,0) = 0) AS comment_count,
+                (SELECT COUNT(*) FROM public_post_reactions r WHERE r.post_id = p.id AND r.reaction = 'love') AS love_count
               FROM public_post_saves s
               INNER JOIN public_posts p ON p.id = s.post_id
               LEFT JOIN users u ON u.id = p.user_id
@@ -206,5 +209,76 @@ if (!function_exists('msb_bookmark_fetch_posts')) {
         unset($post);
 
         return $posts;
+    }
+}
+
+if (!function_exists('msb_bookmark_prepare_view')) {
+    /**
+     * @param list<array<string,mixed>> $posts
+     * @return array{storyCircles:list<array<string,mixed>>,hasStories:bool,feedPosts:list<array<string,mixed>>,avatarUrl:string}
+     */
+    function msb_bookmark_prepare_view(array $posts): array
+    {
+        $storyPosts = [];
+        $feedPosts = [];
+        foreach ($posts as $post) {
+            if (!empty($post['saved_as_story']) || !empty($post['is_story'])) {
+                $storyPosts[] = $post;
+            } else {
+                $feedPosts[] = $post;
+            }
+        }
+        $storyCircles = [];
+        foreach ($storyPosts as $post) {
+            $pid = (int)($post['id'] ?? 0);
+            if ($pid <= 0) {
+                continue;
+            }
+            $previewSrc = (string)($post['preview_src'] ?? '');
+            $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
+            $isVideo = ($thumbType === 'video');
+            $caption = trim((string)($post['preview_text'] ?? ''));
+            if (preg_match('/^story\s*#\s*\d+$/i', $caption)) {
+                $caption = '';
+            }
+            $badge = function_exists('msb_archive_date_badge')
+                ? msb_archive_date_badge((string)($post['saved_at'] ?? $post['created_at'] ?? ''))
+                : msb_bookmark_date_badge((string)($post['saved_at'] ?? $post['created_at'] ?? ''));
+            $label = trim($badge['day'] . ' ' . $badge['month']);
+            $authorName = trim((string)($post['author_name'] ?? ''));
+            if ($authorName === '') {
+                $authorName = trim((string)($post['author_username'] ?? 'Story'));
+            }
+            if ($label === '') {
+                $label = $authorName !== '' ? $authorName : 'Story';
+            }
+            $avatarUrl = '';
+            if (function_exists('msb_archive_avatar_url')) {
+                $avatarUrl = msb_archive_avatar_url([
+                    'id' => (int)($post['user_id'] ?? 0),
+                    'name' => $authorName,
+                    'username' => (string)($post['author_username'] ?? ''),
+                    'image' => '',
+                ], 96);
+            }
+            $storyCircles[] = [
+                'postId' => $pid,
+                'src' => $previewSrc,
+                'type' => $isVideo ? 'video' : ($previewSrc !== '' ? 'image' : 'text'),
+                'caption' => $caption,
+                'label' => $label,
+                'authorName' => $authorName,
+                'username' => trim((string)($post['author_username'] ?? '')),
+                'avatarUrl' => $avatarUrl,
+                'createdAt' => (string)($post['saved_at'] ?? $post['created_at'] ?? ''),
+                'ringSrc' => $previewSrc !== '' ? $previewSrc : $avatarUrl,
+            ];
+        }
+        return [
+            'storyCircles' => $storyCircles,
+            'hasStories' => count($storyCircles) > 0,
+            'feedPosts' => $feedPosts,
+            'avatarUrl' => '',
+        ];
     }
 }

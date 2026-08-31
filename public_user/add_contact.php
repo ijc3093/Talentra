@@ -513,7 +513,7 @@ if (!$isEdit && isset($_POST['add_contact'])) {
       </div><!-- /sh-pagebody -->
 
       <!-- <div class="sh-footer">
-        <div>Copyright &copy; <?= date('Y') ?>. All Rights Reserved. Talentra</div>
+        <div>Copyright &copy; <?= date('Y') ?>. All Rights Reserved. Talsora</div>
         <div class="mg-t-10 mg-md-t-0">Designed by: <a href="http://themepixels.me">ThemePixels</a></div>
       </div> -->
     </div>

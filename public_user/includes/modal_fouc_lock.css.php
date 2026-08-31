@@ -41,7 +41,7 @@ dialog.feed-delete-dialog:not([open]){
   visibility:hidden !important;
   pointer-events:none !important;
 }
-/* Legacy selected-post viewer (not used by Friends For You card feed) */
+/* Legacy selected-post viewer (not used by Friends Circle card feed) */
 body.feed-page.feed-insta-ui .row.row-sm.desktop-only,
 body.feed-page.feed-insta-ui #feedPostScrollCol,
 body.feed-page.feed-insta-ui #feedPostScrollCol .ig-post-shell,

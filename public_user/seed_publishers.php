@@ -27,7 +27,7 @@ $publishers = [
         'email' => 'cnn@talentra.demo',
         'category' => 'news',
         'tagline' => 'Breaking news and daily updates from CNN',
-        'welcome_title' => 'Welcome to CNN on Talentra',
+        'welcome_title' => 'Welcome to CNN on Talsora',
         'welcome_body' => 'Follow us for breaking news, politics, and world updates. Tap Follow on public.php to see our posts in your feed.',
     ],
     [
@@ -36,7 +36,7 @@ $publishers = [
         'email' => 'foxnews@talentra.demo',
         'category' => 'news',
         'tagline' => 'America\'s most-watched cable news network',
-        'welcome_title' => 'Fox News is now on Talentra',
+        'welcome_title' => 'Fox News is now on Talsora',
         'welcome_body' => 'Follow Fox News for top stories, opinion, and live coverage.',
     ],
     [
@@ -54,7 +54,7 @@ $publishers = [
         'email' => 'nbc@talentra.demo',
         'category' => 'news',
         'tagline' => 'NBC News — breaking news and in-depth reporting',
-        'welcome_title' => 'NBC News on Talentra',
+        'welcome_title' => 'NBC News on Talsora',
         'welcome_body' => 'Follow NBC News for national and international headlines.',
     ],
     [
@@ -85,7 +85,7 @@ foreach ($publishers as $pub) {
     } else {
         $friendCode = publisher_make_friend_code($dbh);
         $tagline = (string)$pub['tagline'];
-        $designation = $tagline !== '' ? $tagline : ('Official ' . $pub['name'] . ' on Talentra');
+        $designation = $tagline !== '' ? $tagline : ('Official ' . $pub['name'] . ' on Talsora');
 
         $ins = $dbh->prepare("
             INSERT INTO users

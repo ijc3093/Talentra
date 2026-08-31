@@ -104,7 +104,7 @@ if (!function_exists('sfy_friend_rows')) {
             return [];
         }
         require_once __DIR__ . '/publisher_accounts.php';
-        if (publisher_workspace_viewer($dbh, $meId) && empty($GLOBALS['suggestedForYouIncludePeople'])) {
+        if (publisher_workspace_viewer($dbh, $meId)) {
             return [];
         }
         $limit = max(1, min($limit, 100));
@@ -551,10 +551,12 @@ if ($sfyDbh instanceof PDO && $sfyMeId > 0) {
     }
 }
 
-$sfyCanShowPersonal = $sfyMaxFriends > 0 && (
-    !empty($GLOBALS['suggestedForYouIncludePeople'])
-    || (!$sfyIsPublisherWorkspace && !$sfyStaffReadonly)
-);
+$sfyCanShowPersonal = $sfyMaxFriends > 0
+    && !$sfyIsPublisherWorkspace
+    && (
+        !empty($GLOBALS['suggestedForYouIncludePeople'])
+        || !$sfyStaffReadonly
+    );
 
 $sfyPageTab = 'people';
 if ($sfyModeIsPage) {
@@ -617,9 +619,6 @@ if ($sfyDbh instanceof PDO && $sfyMeId > 0) {
         }
         if ($sfyCanBrowsePublishers && $sfyMaxFollow > 0) {
             $sfyFollow = sfy_publisher_rows($sfyDbh, $sfyMeId, $sfyMaxFollow);
-        }
-        if (!$sfyFriends && $sfyFollow) {
-            $sfyFriends = $sfyFollow;
         }
         $excludeIds = array_merge(
             array_column($sfyFollow, 'id'),
@@ -723,6 +722,22 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   }
   body.feed-insta-ui .feed-right-rail .home-right-card-see:hover{text-decoration:underline;}
   body.feed-insta-ui .feed-right-rail .home-right-empty{margin:0;font-size:11px;color:#737373;}
+  body.feed-insta-ui .feed-right-rail .home-right-legal{
+    flex:0 0 auto;
+    margin-top:auto;
+    padding:14px 2px 6px;
+    box-sizing:border-box;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-legal nav{
+    display:flex;flex-wrap:wrap;gap:4px 10px;margin:0 0 6px;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-legal a{
+    color:var(--msb-palette-text-muted,#8a919c);font-size:11px;line-height:1.4;text-decoration:none;
+  }
+  body.feed-insta-ui .feed-right-rail .home-right-legal a:hover{text-decoration:underline;}
+  body.feed-insta-ui .feed-right-rail .home-right-legal p{
+    margin:0;color:var(--msb-palette-text-muted,#8a919c);font-size:11px;line-height:1.4;
+  }
   body.feed-insta-ui .feed-right-rail .home-trend-list,
   body.feed-insta-ui .feed-right-rail .home-event-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
   body.feed-insta-ui .feed-right-rail .home-trend-row{display:flex;align-items:flex-start;gap:8px;}
@@ -807,7 +822,7 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
     padding:0 34px 0 12px;font-size:13px;line-height:1.2;
   }
   <?= $sfyScope ?> .sfy-search-input::placeholder{color:#a3a3a3;}
-  <?= $sfyScope ?> .sfy-search-input:focus{outline:none;border-color:#0095f6;box-shadow:0 0 0 2px rgba(0,149,246,.15);}
+  <?= $sfyScope ?> .sfy-search-input:focus{outline:none;border-color:var(--msb-hairline,#2a2f36);box-shadow:none;}
   <?= $sfyScope ?> .sfy-search-icon{
     position:absolute;right:4px;top:50%;transform:translateY(-50%);
     width:28px;height:28px;border:0;border-radius:50%;background:transparent;
@@ -944,14 +959,16 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <div class="sfy-panel-body js-sfy-panel-scroll">
 <?php else: ?>
 <aside class="feed-right-rail" aria-label="Explore">
+  <?php if ($sfyCanShowPersonal): ?>
   <div class="sfy-panel">
     <div class="sfy-panel-head">
       <header class="sfy-head">
         <h2 class="sfy-title">People You May Know</h2>
-        <a class="sfy-see" href="suggested_for_you.php?tab=<?= $sfyIsPublisherWorkspace ? 'publishers' : 'people' ?>">See all</a>
+        <a class="sfy-see" href="suggested_for_you.php?tab=people">See all</a>
       </header>
     </div>
     <div class="sfy-panel-body js-sfy-panel-scroll">
+<?php endif; ?>
 <?php endif; ?>
     <?php if ($sfyModeIsPage): ?>
       <?php if ($sfyPageTab === 'people' && $sfyCanShowPersonal): ?>
@@ -999,7 +1016,7 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
       </section>
       <?php endif; ?>
       <?php endif; ?>
-    <?php elseif (!$sfyModeIsPage): ?>
+    <?php elseif ($sfyCanShowPersonal): ?>
       <section class="sfy-block" aria-label="People You May Know">
         <?php if ($sfyFriends): ?>
         <ul class="sfy-list">
@@ -1011,7 +1028,7 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
         <p class="sfy-empty">No people to suggest right now.</p>
         <?php endif; ?>
       </section>
-    <?php else: ?>
+    <?php elseif ($sfyModeIsPage): ?>
       <section class="sfy-block" aria-label="Suggested for you">
         <p class="sfy-empty">No suggestions available right now.</p>
       </section>
@@ -1026,9 +1043,30 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>
     </button>
   </div>
-  <?php elseif (!$sfyModeIsPage): ?>
+  <?php elseif ($sfyCanShowPersonal): ?>
   </div>
   </div>
+  <?php if ($sfyFollow): ?>
+  <div class="sfy-panel">
+    <div class="sfy-panel-head">
+      <header class="sfy-head">
+        <h2 class="sfy-title">Publishers</h2>
+        <a class="sfy-see" href="suggested_for_you.php?tab=publishers">See all</a>
+      </header>
+    </div>
+    <div class="sfy-panel-body js-sfy-panel-scroll">
+      <section class="sfy-block" aria-label="Publishers">
+        <ul class="sfy-list">
+          <?php foreach ($sfyFollow as $row): ?>
+            <?php sfy_render_row($row); ?>
+          <?php endforeach; ?>
+        </ul>
+      </section>
+    </div>
+  </div>
+  <?php endif; ?>
+  <?php endif; ?>
+  <?php if (!$sfyModeIsPage): ?>
   <?php include __DIR__ . '/home_right_rail_widgets.php'; ?>
   <?php endif; ?>
 <?php if ($sfyModeIsPage): ?>

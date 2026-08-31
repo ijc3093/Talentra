@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Post sign-in / sign-up boot gate.
- * Distinctive Talentra splash, then soft sleep into home.
+ * Distinctive Talsora splash, then soft sleep into home.
  */
 
 $homeFallback = 'home.php?tab=for-you';
@@ -54,9 +54,9 @@ if ($nextJson === false) {
 }
 $messageHtml = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
 $taglineHtml = htmlspecialchars($tagline, ENT_QUOTES, 'UTF-8');
-$letters = preg_split('//u', 'Talentra', -1, PREG_SPLIT_NO_EMPTY);
+$letters = preg_split('//u', 'Talsora', -1, PREG_SPLIT_NO_EMPTY);
 if (!is_array($letters) || $letters === []) {
-    $letters = str_split('Talentra');
+    $letters = str_split('Talsora');
 }
 
 header('Content-Type: text/html; charset=utf-8');
@@ -68,7 +68,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta name="robots" content="noindex,nofollow">
-  <title>Talentra</title>
+  <title>Talsora</title>
   <script>
   (function () {
     try {
@@ -381,7 +381,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
           <span class="te-monogram-t">t</span>
         </div>
       </div>
-      <h1 class="te-word" aria-label="Talentra">
+      <h1 class="te-word" aria-label="Talsora">
         <?php foreach ($letters as $i => $ch): ?>
           <span style="animation-delay:<?= number_format(0.72 + ($i * 0.08), 2, '.', '') ?>s"><?= htmlspecialchars($ch, ENT_QUOTES, 'UTF-8') ?></span>
         <?php endforeach; ?>

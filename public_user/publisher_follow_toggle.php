@@ -41,6 +41,26 @@ try {
         $st = $dbh->prepare('INSERT INTO public_follows (follower_id, following_id, created_at) VALUES (:me, :you, NOW())');
         $st->execute([':me' => $meId, ':you' => $targetId]);
         $following = true;
+        if (!function_exists('profile_user_wants_notification')) {
+            require_once __DIR__ . '/includes/profile_access.php';
+        }
+        if (profile_user_wants_notification($dbh, $targetId, 'followed_notifications')) {
+            try {
+                $stN = $dbh->prepare('SELECT id, name, username FROM users WHERE id IN (:me, :you)');
+                $stN->execute([':me' => $meId, ':you' => $targetId]);
+                $byId = [];
+                while ($row = $stN->fetch(PDO::FETCH_ASSOC)) {
+                    $byId[(int)$row['id']] = $row;
+                }
+                $sender = trim((string)($byId[$meId]['name'] ?? $byId[$meId]['username'] ?? ''));
+                $receiver = trim((string)($byId[$targetId]['username'] ?? ''));
+                if ($sender !== '' && $receiver !== '') {
+                    $stI = $dbh->prepare('INSERT INTO notification (notiuser, notireceiver, notitype, is_read) VALUES (:s, :r, :t, 0)');
+                    $stI->execute([':s' => $sender, ':r' => $receiver, ':t' => 'started following you [r:pb]']);
+                }
+            } catch (Throwable $eN) {
+            }
+        }
     }
 
     echo json_encode(['ok' => true, 'following' => $following, 'target_id' => $targetId]);

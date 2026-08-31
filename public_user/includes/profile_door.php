@@ -12,7 +12,8 @@ if ($__profileDoorHref === '') {
 $__profileMenuItems = is_array($railProfileMenuItems ?? null) ? $railProfileMenuItems : [
   ['href' => $__profileDoorHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
-  ['href' => 'change-password.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
+  ['href' => 'profile.php?tab=gear', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
+  ['href' => 'index.php?tab=help', 'icon' => 'ion-help-circled', 'label' => 'Help'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
 ];
 $__profileDisplayName = trim((string)($meMenuDisplayName ?? $meName ?? 'My Account'));
@@ -38,7 +39,7 @@ $__profileAvatarGrad = trim((string)($meGrad ?? ''));
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
-  transition:transform .18s ease, opacity .18s ease;
+  transition:transform .6s ease-in-out, opacity .45s ease;
 }
 #ttLeftbarOverlays .tt-profile-wrap.is-open,
 .msb-profile-door-host .tt-profile-wrap.is-open{
@@ -235,7 +236,14 @@ body.msb-profile-door-open .msb-profile-door-host{ pointer-events:auto; }
   opacity:0;
   visibility:hidden;
   pointer-events:none;
-  transition:opacity .18s ease, visibility .18s ease;
+  transition:opacity .6s ease-in-out, visibility .6s ease-in-out;
+}
+@media (prefers-reduced-motion:reduce){
+  #ttLeftbarOverlays .tt-profile-wrap,
+  .msb-profile-door-host .tt-profile-wrap,
+  .msb-profile-door-backdrop{
+    transition:none;
+  }
 }
 body.msb-profile-door-open .msb-profile-door-backdrop{
   opacity:1;
@@ -284,7 +292,7 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
         $label = trim((string)($item['label'] ?? 'Open'));
         if ($href === '' || $label === '') continue;
       ?>
-        <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" data-profile-door-link="1"><i class="icon <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a></li>
+        <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" data-profile-door-link="1"<?= (stripos($href, 'logout.php') !== false) ? ' class="js-signout-confirm"' : '' ?>><i class="icon <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a></li>
       <?php endforeach; ?>
     </ul>
   </div>
@@ -297,6 +305,19 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
   var standaloneBackdrop = document.getElementById('msbProfileDoorBackdrop');
   var isStandalone = <?php echo $__profileStandalone ? 'true' : 'false'; ?>;
   var isOpen = false;
+  var closeTimer = null;
+
+  function doorAnimMs(){
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
+    } catch (e) {}
+    return 620;
+  }
+
+  function releaseDoorChrome(){
+    if (isStandalone) document.body.classList.remove('msb-profile-door-open');
+    else document.body.classList.remove('public-leftbar-open');
+  }
 
   function closeOtherPanels(){
     try {
@@ -321,12 +342,21 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
     isOpen = false;
     $profileWrap.classList.remove('is-open');
     $profileWrap.setAttribute('aria-hidden', 'true');
-    if(isStandalone) document.body.classList.remove('msb-profile-door-open');
-    else document.body.classList.remove('public-leftbar-open');
+    if(closeTimer) clearTimeout(closeTimer);
+    closeTimer = setTimeout(function(){
+      closeTimer = null;
+      if(isOpen) return;
+      releaseDoorChrome();
+    }, doorAnimMs());
   }
 
   function openProfilePanel(){
-    if(!$profileWrap || isOpen) return;
+    if(!$profileWrap) return;
+    if(closeTimer){
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
+    if(isOpen) return;
     isOpen = true;
     closeOtherPanels();
     $profileWrap.classList.add('is-open');
@@ -370,6 +400,7 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
     if(e.defaultPrevented) return;
     if(e.button !== 0) return;
     if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if(/logout\.php(\?|$|#)/i.test(link.getAttribute('href') || '') || (link.classList && link.classList.contains('js-signout-confirm'))) return;
     e.preventDefault();
     e.stopPropagation();
     closeProfilePanel();

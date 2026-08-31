@@ -5,6 +5,7 @@ if (!empty($GLOBALS['msb_live_door_included'])) {
     return;
 }
 $GLOBALS['msb_live_door_included'] = true;
+require_once __DIR__ . '/leftbar_door_anim.js.php';
 
 if (!function_exists('h')) {
     function h(string $s): string
@@ -149,7 +150,7 @@ $__liveDoorDefaultSrc = 'live_door_hub.php?' . http_build_query($__liveDoorQuery
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
-  transition:transform .22s ease, opacity .22s ease, box-shadow .22s ease;
+  transition:transform .6s ease-in-out, opacity .45s ease, box-shadow .6s ease;
   display:flex;
   flex-direction:column;
   overflow:hidden;
@@ -169,7 +170,7 @@ $__liveDoorDefaultSrc = 'live_door_hub.php?' . http_build_query($__liveDoorQuery
   width:1px;
   background:var(--msb-palette-border-strong, #d1d5db);
   opacity:0;
-  transition:opacity .22s ease;
+  transition:opacity .6s ease-in-out;
   pointer-events:none;
   z-index:4;
 }
@@ -183,7 +184,7 @@ $__liveDoorDefaultSrc = 'live_door_hub.php?' . http_build_query($__liveDoorQuery
   width:1px;
   background:var(--msb-palette-border, rgba(15,23,42,.12));
   opacity:0;
-  transition:opacity .22s ease;
+  transition:opacity .6s ease-in-out;
   pointer-events:none;
   z-index:3;
 }
@@ -276,7 +277,7 @@ body.public-leftbar-open.feed-insta-ui .feed-left-rail{
   opacity:0;
   visibility:hidden;
   pointer-events:none;
-  transition:opacity .22s ease, visibility .22s ease;
+  transition:opacity .6s ease-in-out, visibility .6s ease-in-out;
 }
 body.msb-live-door-open .msb-live-door-backdrop{
   opacity:1;
@@ -685,6 +686,7 @@ body.msb-live-door-open .msb-live-door-backdrop{
   }
 
   function setLeftLiveDoorOpen(nextSrc){
+    if (window.MSBLeftbarDoorAnim) window.MSBLeftbarDoorAnim.cancel('live');
     var wrap = ensureLiveDoorInLeftbar() || getLiveDoorWrap();
     var frame = getLiveDoorFrame();
     if (!wrap) return false;
@@ -737,13 +739,22 @@ body.msb-live-door-open .msb-live-door-backdrop{
     if(!wrap) return;
     wrap.classList.remove('is-open');
     wrap.setAttribute('aria-hidden', 'true');
-    if(frame) {
-      showLiveDoorShade();
-      frame.setAttribute('src', 'about:blank');
+    var finish = function(){
+      if(frame) {
+        showLiveDoorShade();
+        frame.setAttribute('src', 'about:blank');
+      }
+      if(isStandalone) document.body.classList.remove('msb-live-door-open');
+      else document.body.classList.remove('public-leftbar-open');
+      window.setTimeout(preloadLiveDoorHub, 300);
+    };
+    if(window.MSBLeftbarDoorAnim){
+      window.MSBLeftbarDoorAnim.hold('live', function(){
+        return wrap.classList.contains('is-open');
+      }, finish);
+    } else {
+      finish();
     }
-    if(isStandalone) document.body.classList.remove('msb-live-door-open');
-    else document.body.classList.remove('public-leftbar-open');
-    window.setTimeout(preloadLiveDoorHub, 300);
   }
 
   function openLivePanel(liveUrl){

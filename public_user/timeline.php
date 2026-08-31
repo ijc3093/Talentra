@@ -706,7 +706,7 @@ $mkScale = static fn(string $s) => $base . 'scale=' . urlencode($s);
         <div class="room-actions">
           <a class="btn-ghost" href="dashboard.php"><i class="fa fa-plus"></i> New Post</a>
           <a class="btn-ghost" href="home.php?tab=for-you"><i class="fa fa-rss"></i> Feed</a>
-          <a class="btn-gold" href="about.php<?= $ownerId !== $meId ? '?u='.(int)$ownerId : '' ?>"><i class="fa fa-user"></i> About</a>
+          <a class="btn-gold" href="profile.php?tab=about<?= $ownerId !== $meId ? '&id='.(int)$ownerId : '' ?>"><i class="fa fa-user"></i> About</a>
         </div>
       </div>
     </div>

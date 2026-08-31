@@ -1,6 +1,6 @@
 # Senior Backend Engineer Database System Architecture
 
-This document explains the database system architecture behind [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:27) across the three main project surfaces:
+This document explains the database system architecture behind [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:27) across the three main project surfaces:
 
 - `admin`
 - `organization`
@@ -23,7 +23,7 @@ The database therefore behaves like one platform database with several bounded d
 
 ```mermaid
 flowchart TD
-    DB["Talentra SQL Database"]
+    DB["Talsora SQL Database"]
 
     ADMIN["Admin Domain"]
     ORG["Organization Domain"]
@@ -837,21 +837,21 @@ Feature roots:
 
 Use these links when reading the actual dump:
 
-- Schema guide block: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:27)
-- Admin domain divider: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:167)
-- Organization domain divider: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:1900)
-- Public social divider: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2333)
-- Public identity divider: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2875)
-- Public live divider: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3330)
-- Index section: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3752)
-- Constraint section: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:5060)
-- Hardening block: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:5249)
+- Schema guide block: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:27)
+- Admin domain divider: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:167)
+- Organization domain divider: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:1900)
+- Public social divider: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2333)
+- Public identity divider: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2875)
+- Public live divider: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3330)
+- Index section: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3752)
+- Constraint section: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:5060)
+- Hardening block: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:5249)
 
 ## 14. Recommended reading order
 
 If you want to understand the whole system clearly:
 
-1. Read the top schema guide comments in `Talentra.sql`.
+1. Read the top schema guide comments in `Talsora.sql`.
 2. Read this architecture document.
 3. Read the detailed update guide.
 4. Then inspect the specific domain tables you are changing.

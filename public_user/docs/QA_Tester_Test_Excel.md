@@ -36,7 +36,7 @@ Important note:
 
 Application under test:
 
-- `http://localhost:8888/Talentra/public_user`
+- `http://localhost:8888/Talsora/public_user`
 
 Accounts used for this recent CSV-based test pass:
 

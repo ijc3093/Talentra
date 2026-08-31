@@ -1637,7 +1637,7 @@ $currentPost    = [];
 $sidebarPosts   = [];
 $currentPostId  = 0;
 
-// ✅ If no explicit id, show the newest post in the main view area (Facebook-style),
+// ✅ If no explicit id, show the newest post in the main view area (Talsora),
 // and put older posts in the right sidebar.
 if (!$isView) {
     try {

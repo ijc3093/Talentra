@@ -1,6 +1,6 @@
 <?php
 // /Business_only/ajax/user_presence_batch.php
-// Purpose: Update current user's last_seen and return online/offline info for MANY peers (WhatsApp-like)
+// Purpose: Update current user's last_seen and return online/offline info for MANY peers (text-like)
 
 declare(strict_types=1);
 

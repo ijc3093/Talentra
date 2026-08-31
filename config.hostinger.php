@@ -3,9 +3,9 @@
 // (Keep the local MAMP config.php on your computer unchanged.)
 //
 // Hostinger account u825834874:
-//   Database  = u825834874_talentra
+//   Database  = u825834874_talsora
 //   App files = domains/mystorybook.pro/public_html  (this repo)
-//   Public domain to use: talentra.io (Namecheap). Do not use talentra.pro
+//   Public domain to use: talsora.io (Namecheap). Do not use talsora.pro
 //   (that name is a different live marketing site).
 declare(strict_types=1);
 
@@ -28,7 +28,7 @@ if (!class_exists('Config', false)) {
         public string $DB_HOST = '127.0.0.1';
         public string $DB_USER = 'u825834874_root';
         public string $DB_PASS = 'u825834874_Pass';
-        public string $DB_NAME = 'u825834874_talentra';
+        public string $DB_NAME = 'u825834874_talsora';
         public int    $DB_PORT = 3306;
 
         /* =========================

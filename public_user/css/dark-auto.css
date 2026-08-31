@@ -292,9 +292,9 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
   background:var(--msb-palette-hover-bg, #1f2630) !important;
   color:var(--msb-palette-text, #e6edf3) !important;
 }
-:is(html.dark-auto, body.dark-auto) #pvAtBtn{
-  background:linear-gradient(180deg, #ff2e89 0%, #c11353 100%) !important;
-  color:#fff !important;
+:is(html.dark-auto, body.dark-auto) #pvMediaBtn{
+  background:transparent !important;
+  color:#22c55e !important;
 }
 :is(html.dark-auto, body.dark-auto) .pv-send{
   background:#7c1730 !important;
@@ -324,16 +324,16 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
 }
 
 /* Inputs */
-:is(html.dark-auto, body.dark-auto) input,
+:is(html.dark-auto, body.dark-auto) input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not([type=submit]):not([type=button]):not([type=image]):not(.gear-color-control),
 :is(html.dark-auto, body.dark-auto) .textarea,
 :is(html.dark-auto, body.dark-auto) .rm-title,
 :is(html.dark-auto, body.dark-auto) textarea,
 :is(html.dark-auto, body.dark-auto) select,
 :is(html.dark-auto, body.dark-auto) .form-control,
 :is(html.dark-auto, body.dark-auto) .custom-select{
-  background:var(--studio-input) !important;
-  color:#f8fafc !important;
-  border-color:var(--studio-border) !important;
+  background:var(--msb-palette-input-bg, var(--msb-palette-bg, var(--studio-input))) !important;
+  color:var(--msb-palette-text, #f8fafc) !important;
+  border-color:var(--msb-palette-border-strong, var(--studio-border)) !important;
 }
 :is(html.dark-auto, body.dark-auto) .pv-input,
 :is(html.dark-auto, body.dark-auto) .pv-actions,
@@ -406,11 +406,10 @@ html[data-theme="dark"]:not([data-msb-appearance]) .btn-outline-secondary {
 :is(html.dark-auto, body.dark-auto) .rm-footer,
 :is(html.dark-auto, body.dark-auto) .input-group,
 :is(html.dark-auto, body.dark-auto)  .txt,
-:is(html.dark-auto, body.dark-auto) .input-group-btn,
-:is(html.dark-auto, body.dark-auto) .form-control{
-  background:#131d25 !important;
-  color:#e6edf3 !important;
-  border-color:rgba(255,255,255,.12);
+:is(html.dark-auto, body.dark-auto) .input-group-btn{
+  background:var(--msb-palette-bg, #131d25) !important;
+  color:var(--msb-palette-text, #e6edf3) !important;
+  border-color:var(--msb-palette-border, rgba(255,255,255,.12));
 }
 
 :is(html.dark-auto, body.dark-auto) input::placeholder,
@@ -1177,9 +1176,9 @@ html.dark-auto .msg-box{background:#171d24 !important;border-color:rgba(255,255,
 /* Input groups + controls */
 html.dark-auto .input-group,
 html.dark-auto .input-group-btn{background:#171d24 !important;}
-html.dark-auto .input,
+html.dark-auto .input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]),
 html.dark-auto .textarea,
-html.dark-auto .form-control{background:#131d25 !important;color:#e6edf3 !important;border-color:rgba(255,255,255,.12) !important;}
+html.dark-auto .form-control{background:var(--msb-palette-input-bg, var(--msb-palette-bg, #131d25)) !important;color:var(--msb-palette-text, #e6edf3) !important;border-color:var(--msb-palette-border-strong, rgba(255,255,255,.12)) !important;}
 html.dark-auto .mf-body,
 html.dark-auto .mf-title,
 html.dark-auto .mf-card .mf-foot,
@@ -1974,8 +1973,6 @@ html.dark-auto:not([data-msb-appearance]) .yt-icon-btn,
 html.dark-auto:not([data-msb-appearance]) .search-btn,
 html.dark-auto:not([data-msb-appearance]) .iconbtn,
 html.dark-auto:not([data-msb-appearance]) .messages-shell-action-btn,
-html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle,
-html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-nav-item,
 html.dark-auto:not([data-msb-appearance]) body.profile-page .gear-upload-btn,
 html[data-theme="dark"]:not([data-msb-appearance]) button,
 html[data-theme="dark"]:not([data-msb-appearance]) .btn,
@@ -2057,11 +2054,19 @@ html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-upload-b
 
 html:not(.dark-auto):not([data-msb-appearance]) .btn:not(.btn-primary):not(.btn-success),
 html:not(.dark-auto):not([data-msb-appearance]) button.btn:not(.btn-primary),
-html:not(.dark-auto):not([data-msb-appearance]) .ig-btn,
-html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-nav-item,
-html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle {
+html:not(.dark-auto):not([data-msb-appearance]) .ig-btn {
   background-color: var(--msb-palette-surface-2, var(--msb-palette-bg, #f5f7fb)) !important;
   border-color: var(--msb-palette-border-strong, rgba(15,23,42,.14)) !important;
+  color: var(--msb-palette-text, #0f172a) !important;
+}
+
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-nav-item,
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-nav-section-toggle,
+html:not(.dark-auto):not([data-msb-appearance]) body.profile-page .gear-archive-shortcut {
+  background-color: transparent !important;
+  border: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   color: var(--msb-palette-text, #0f172a) !important;
 }
 
@@ -2748,4 +2753,87 @@ html.dark-auto[data-msb-appearance] body.dashboard-page #instructionBox{
   background-color: var(--msb-palette-bg) !important;
   background-image: none !important;
   color: var(--msb-palette-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]){
+  --hc-story-bg:#171d24;
+  --hc-story-gold:#e8c98a;
+  --hc-story-text:#b1bcce;
+  --hc-story-muted:#8b97a8;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-page,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .help-center,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-top,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-nav,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-main,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-page-foot,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-about-story,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-card,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-shell,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-left,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-right,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-gear-menu{
+  background:#171d24 !important;
+  color:#b1bcce !important;
+  border:1px solid #2a2f36 !important;
+  box-shadow:none !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-brand,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-menu,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-lang,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-home-cta,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth a.hc-home-cta,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-nav-group a,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-nav-group summary,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-nav-topic summary,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-legal-article,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-page-foot a{
+  color:#b1bcce !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-nav-group a.is-active,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-story-progress a.is-active,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-story-kicker,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-about-story .hc-story-more{
+  color:#e8c98a !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-nav-topic a.is-active{
+  color:#b1bcce !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-acc-tool,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-acc-link{
+  color:var(--msb-palette-action, #0095f6) !important;
+  -webkit-text-fill-color:var(--msb-palette-action, #0095f6) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-menu,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .hc-search input,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-help-chat,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-help-input,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth textarea.auth-help-input{
+  background:#171d24 !important;
+  background-color:#171d24 !important;
+  color:#b1bcce !important;
+  border-color:#2a2f36 !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-field,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-birthday select{
+  background:#171d24 !important;
+  border-color:#2a2f36 !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-field:focus-within{
+  background:#171d24 !important;
+  border-color:#4b5563 !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-field input,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-field select,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-field textarea{
+  border:0 !important;
+  background:transparent !important;
+  color:#f3f6fb !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-switch button,
+html.dark-auto:not([data-msb-appearance]) body.ig-auth .auth-create-btn{
+  background:#0d61bc !important;
+  border-color:#0d61bc !important;
+  color:#fff !important;
 }

@@ -24,7 +24,7 @@ The recent QA pass was a live application test, not only a code review.
 
 I tested the running `public_user` app against the local environment:
 
-- local site: `http://127.0.0.1:8888/Talentra/public_user/`
+- local site: `http://127.0.0.1:8888/Talsora/public_user/`
 - local database: MySQL on port `8889`
 
 The QA work included:

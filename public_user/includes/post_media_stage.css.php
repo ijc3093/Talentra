@@ -60,9 +60,11 @@ function post_media_stage_css(string $scope = ''): string
     $lines[] = $s('.media-stage.phone-shot.standard-image-stage > img{width:100%;height:100%;max-height:none;object-fit:contain;border-radius:0;background:transparent}');
     $lines[] = $s('.media-stage.phone-shot.single-portrait,') . $s('.media-stage.phone-shot.single-landscape,') . $s('.media-stage.phone-shot.single-square{aspect-ratio:var(--device-ar-w,375)/var(--device-ar-h,667)}');
 
-    $lines[] = $s('.media-carousel{position:relative;width:100%;height:100%}');
-    $lines[] = $s('.media-slides{display:flex;width:100%;height:100%;transition:transform .28s ease}');
-    $lines[] = $s('.media-slide{flex:0 0 100%;width:100%;height:100%;background:transparent;display:flex;align-items:center;justify-content:center}');
+    $lines[] = $s('.media-carousel{position:relative;width:100%;height:100%;overflow:hidden}');
+    $lines[] = $s('.media-slides{display:grid;grid-template-areas:"fade";width:100%;height:100%;transform:none!important;transition:none}');
+    $lines[] = $s('.media-slide{grid-area:fade;flex:none;width:100%;height:100%;background:transparent;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .7s ease-in-out;pointer-events:none;z-index:0}');
+    $lines[] = $s('.media-slide.is-active{opacity:1;pointer-events:auto;z-index:1}');
+    $lines[] = '@media (prefers-reduced-motion:reduce){' . $s('.media-slide{transition:none}') . '}';
     $lines[] = $s('.media-slide > img,') . $s('.media-slide > video{width:100%;height:auto;background:transparent}');
     $lines[] = $s('.media-slide > img{object-fit:contain;object-position:center center}');
     $lines[] = $s('.media-slide > video{object-fit:contain;object-position:center center}');
@@ -138,7 +140,10 @@ function post_media_stage_css(string $scope = ''): string
 
         // Publisher only: action bar overlay on media.
         $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom{align-self:end;justify-self:stretch;position:absolute;left:0;right:0;bottom:0;z-index:12;pointer-events:none;padding:12px 14px 6px;background:none;color:#fff}';
-        $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0;margin:0;border-top:0;pointer-events:auto}';
+        $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-actions,'
+            . $pubCard . ' .mf-media-shell > .standard-media-bottom .standard-media-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0;margin:0;border-top:0;pointer-events:auto;width:100%}';
+        $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act,'
+            . $pubCard . ' .mf-media-shell > .standard-media-bottom .standard-media-btn{pointer-events:auto}';
         $lines[] = $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act,'
             . $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act i,'
             . $pubCard . ' .mf-media-shell > .standard-media-bottom .mf-act .mf-num{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}';

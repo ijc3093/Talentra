@@ -85,17 +85,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-    <!-- Twitter -->
+    <!-- Link preview -->
     <meta name="twitter:site" content="@themepixels">
     <meta name="twitter:creator" content="@themepixels">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Talentra">
+    <meta name="twitter:title" content="Talsora">
     <meta name="twitter:description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="twitter:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
 
-    <!-- Facebook -->
+    <!-- Open Graph -->
     <meta property="og:url" content="http://themepixels.me/shamcey">
-    <meta property="og:title" content="Talentra">
+    <meta property="og:title" content="Talsora">
     <meta property="og:description" content="Premium Quality and Responsive UI for Dashboard.">
 
     <meta property="og:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
@@ -104,12 +104,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="600">
 
-    <!-- Meta -->
+    <!-- Page -->
     <meta name="description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="author" content="ThemePixels">
 
 
-    <title>Talentra</title>
+    <title>Talsora</title>
     <?php
     require_once __DIR__ . '/includes/theme_prefs.php';
     theme_prefs_print_head_bootstrap($dbh, $meId);
@@ -202,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       </div><!-- sh-pagebody -->
       <!-- <div class="sh-footer">
-        <div>Copyright &copy; 2017. All Rights Reserved. Talentra</div>
+        <div>Copyright &copy; 2017. All Rights Reserved. Talsora</div>
         <div class="mg-t-10 mg-md-t-0">Designed by: <a href="http://themepixels.me">ThemePixels</a></div>
       </div> -->
       <!-- sh-footer -->

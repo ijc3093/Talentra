@@ -1,6 +1,6 @@
 # Public User Database Update Guide
 
-This guide explains the schema hardening work added to [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:5051) for the `public_user` project.
+This guide explains the schema hardening work added to [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:5051) for the `public_user` project.
 
 The goal of the update was to make the public social tables, live tables, and security tables safer to run in production without breaking the existing PHP pages and AJAX endpoints.
 
@@ -45,33 +45,33 @@ The root ownership rule is simple:
 
 Use these links when you want to cross-check the dump:
 
-- Hardening block: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:5051)
-- `users`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2702)
-- `user_post_categories`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2883)
-- `public_posts`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2200)
-- `public_post_attachments`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2258)
-- `public_post_comments`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2315)
-- `public_post_reactions`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2340)
-- `public_post_reads`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2369)
-- `public_post_saves`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2418)
-- `public_post_shares`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2444)
-- `public_post_tags`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2470)
-- `public_post_views`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2483)
-- `public_post_view_daily`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2522)
-- `public_profile_access`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2550)
-- `public_saved_posts`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2566)
-- `public_comment_likes`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2168)
-- `public_follows`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2187)
-- `password_reset_tokens`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:2096)
-- `org_posts`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:1890)
-- `user_video_lives`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3228)
-- `user_video_live_comments`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3302)
-- `user_video_live_comment_likes`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3376)
-- `user_video_live_guest_requests`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3389)
-- `user_video_live_join_requests`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3404)
-- `user_video_live_reactions`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3422)
-- `user_video_live_usage`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3524)
-- `user_video_live_viewers`: [Talentra.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talentra.sql:3547)
+- Hardening block: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:5051)
+- `users`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2702)
+- `user_post_categories`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2883)
+- `public_posts`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2200)
+- `public_post_attachments`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2258)
+- `public_post_comments`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2315)
+- `public_post_reactions`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2340)
+- `public_post_reads`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2369)
+- `public_post_saves`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2418)
+- `public_post_shares`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2444)
+- `public_post_tags`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2470)
+- `public_post_views`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2483)
+- `public_post_view_daily`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2522)
+- `public_profile_access`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2550)
+- `public_saved_posts`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2566)
+- `public_comment_likes`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2168)
+- `public_follows`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2187)
+- `password_reset_tokens`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:2096)
+- `org_posts`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:1890)
+- `user_video_lives`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3228)
+- `user_video_live_comments`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3302)
+- `user_video_live_comment_likes`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3376)
+- `user_video_live_guest_requests`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3389)
+- `user_video_live_join_requests`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3404)
+- `user_video_live_reactions`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3422)
+- `user_video_live_usage`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3524)
+- `user_video_live_viewers`: [Talsora.sql](https://github.com/ijc3093/Business3/blob/master/Data/Talsora.sql:3547)
 
 ## 5. Ownership model and root tables
 

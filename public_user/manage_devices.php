@@ -35,7 +35,7 @@ if (!$allowManage) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
-  $action = trim((string)($_POST['action'] ?? ''));
+  $action = trim((string)($_POST['action'] ?? $_POST['ajax'] ?? ''));
   if ($action === 'revoke_one') {
     $rowId = (int)($_POST['session_id'] ?? 0);
     if ($rowId <= 0) {
@@ -83,6 +83,27 @@ if ($hasSessionTable) {
 $activeCount = 0;
 foreach ($sessions as $s) {
   if (empty($s['revoked_at'])) $activeCount++;
+}
+
+$ajaxAction = trim((string)($_REQUEST['ajax'] ?? ''));
+if (in_array($ajaxAction, ['revoke_one', 'revoke_others', 'pane'], true)) {
+  if ($ajaxAction === 'pane' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Content-Type: text/html; charset=utf-8');
+    include __DIR__ . '/includes/gear_manage_devices.php';
+    exit;
+  }
+  header('Content-Type: application/json; charset=utf-8');
+  ob_start();
+  include __DIR__ . '/includes/gear_manage_devices.php';
+  $html = (string)ob_get_clean();
+  $ok = ($error === '');
+  echo json_encode([
+    'ok' => $ok,
+    'message' => $message,
+    'error' => $error,
+    'html' => $html,
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  exit;
 }
 ?>
 <!DOCTYPE html>

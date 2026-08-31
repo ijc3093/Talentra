@@ -139,7 +139,7 @@ if ($hubDoor !== '') {
 
 $featuredTitle = trim((string)($featured['title'] ?? ''));
 if ($featuredTitle === '') {
-    $featuredTitle = 'Live now on Talentra';
+    $featuredTitle = 'Live now on Talsora';
 }
 $featuredHost = trim((string)($featured['name'] ?? $featured['username'] ?? 'Host'));
 $featuredDescription = $featured ? trim((string)($featured['description'] ?? '')) : '';
@@ -147,15 +147,15 @@ $featuredViews = (int)($featured['viewer_count'] ?? 0);
 if ($featured) {
     $featuredTitle = trim((string)($featured['title'] ?? ''));
     if ($featuredTitle === '') {
-        $featuredTitle = 'Live now on Talentra';
+        $featuredTitle = 'Live now on Talsora';
     }
     $featuredHost = trim((string)($featured['name'] ?? $featured['username'] ?? 'Host'));
     $featuredDescription = trim((string)($featured['description'] ?? ''));
     $featuredViews = (int)($featured['viewer_count'] ?? 0);
 } else {
     $featured = null;
-    $featuredTitle = 'Live now on Talentra';
-    $featuredHost = 'Talentra Live';
+    $featuredTitle = 'Live now on Talsora';
+    $featuredHost = 'Talsora Live';
     $featuredDescription = '';
     $featuredViews = 0;
 }
@@ -1158,7 +1158,7 @@ if ($featured) {
         <div class="hub-brand">
           <div class="hub-logo">T</div>
           <div class="hub-brand-text">
-            <strong><?= h($featured ? $featuredHost : 'Talentra Live') ?></strong>
+            <strong><?= h($featured ? $featuredHost : 'Talsora Live') ?></strong>
             <span><?= $featured ? h($featuredTitle) : 'Discover live sessions' ?></span>
           </div>
         </div>
@@ -1269,7 +1269,7 @@ if ($featured) {
           <div class="hub-msg system">
             <div class="hub-msg-avatar">LV</div>
             <div class="hub-msg-body">
-              <div class="hub-msg-user">Talentra Live</div>
+              <div class="hub-msg-user">Talsora Live</div>
               <div class="hub-msg-text"><?= $canStudio ? 'Start your live in Live Studio. Your broadcast appears here when you go live. Friends who are live also appear here.' : 'Live hosts from your friends appear here. Open a host to watch.' ?></div>
             </div>
           </div>
@@ -2059,7 +2059,7 @@ if ($featured) {
         + '<div class="hub-msg system">'
         + '<div class="hub-msg-avatar">LV</div>'
         + '<div class="hub-msg-body">'
-        + '<div class="hub-msg-user">Talentra Live</div>'
+        + '<div class="hub-msg-user">Talsora Live</div>'
         + '<div class="hub-msg-text">' + escapeHubText(hint) + '</div>'
         + '</div></div>'
         + (hubCanStudio
@@ -2708,7 +2708,7 @@ if ($featured) {
           + '<div class="hub-msg system">'
           + '<div class="hub-msg-avatar">LV</div>'
           + '<div class="hub-msg-body">'
-          + '<div class="hub-msg-user">Talentra Live</div>'
+          + '<div class="hub-msg-user">Talsora Live</div>'
           + '<div class="hub-msg-text">Live hosts appear here. When a friend goes live, tap their name to watch.</div>'
           + '</div></div>'
           + '<div class="hub-empty">No hosts are live right now.</div>';
@@ -2893,7 +2893,7 @@ if ($featured) {
           + '&t=' + encodeURIComponent(version)
           + '&v=' + encodeURIComponent(version)
           + '&preload=1';
-        // Warm the cover bytes so prev/next feels TikTok-instant.
+        // Warm the cover bytes so prev/next feels clips-instant.
         fetch(url, { credentials: 'same-origin', cache: 'force-cache' }).catch(function(){});
       });
     }
@@ -3715,14 +3715,14 @@ if ($featured) {
           var isWatching = stage && stage.classList.contains('is-watching');
           if (stage && !isWatching && !hasStagePick) {
             renderHubStageIdlePick(parseInt(stageLive.id, 10), {
-              title: stageLive.title || 'Live now on Talentra',
+              title: stageLive.title || 'Live now on Talsora',
               host: stageLive.is_owner ? 'You' : (stageLive.host || 'Host'),
               ownerId: parseInt(stageLive.user_id || hubMeId || '0', 10) || hubMeId,
               isOwner: !!stageLive.is_owner
             });
             updateHubBrand({
               host: stageLive.is_owner ? 'You' : (stageLive.host || 'Host'),
-              title: stageLive.title || 'Live now on Talentra'
+              title: stageLive.title || 'Live now on Talsora'
             });
           }
         }
@@ -3743,7 +3743,7 @@ if ($featured) {
       stage.classList.remove('is-watching');
       if (stageWrap) stageWrap.classList.remove('is-watching');
 
-      var title = String(meta.title || 'Live now on Talentra').trim() || 'Live now on Talentra';
+      var title = String(meta.title || 'Live now on Talsora').trim() || 'Live now on Talsora';
       var host = String(meta.host || 'You').trim() || 'You';
       var ownerId = parseInt(meta.ownerId || hubMeId || '0', 10) || hubMeId || 0;
       var isOwner = meta.isOwner !== false;
@@ -4414,7 +4414,7 @@ if ($featured) {
       video.srcObject = stream;
       return video.play().then(function(){
         showHubHostCamRetry(retryBtn, false);
-        // Always publish host frames from the hub stage so viewers get a TikTok-like
+        // Always publish host frames from the hub stage so viewers get a clips-like
         // cover even if the studio iframe RTC/snapshot loop stalls.
         startHubHostSnapshotLoop(liveId, video);
         startHubHostRtcLoop(liveId);
@@ -5408,7 +5408,7 @@ if ($featured) {
         hubLiveStartedAt = now;
       }
       ownLiveId = nextId;
-      var title = String(payload.title || 'Live now on Talentra').trim() || 'Live now on Talentra';
+      var title = String(payload.title || 'Live now on Talsora').trim() || 'Live now on Talsora';
       var visibility = String(payload.visibility || 'friends').toLowerCase();
       hubOwnLiveMeta = {
         title: title,

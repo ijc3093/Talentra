@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Full-screen Talentra boot splash.
+ * Full-screen Talsora boot splash.
  * Expects:
  *   $talentraSplashNext (string) — URL to open after the wait
  * Optional:
@@ -35,7 +35,7 @@ if ($talentraSplashNextJson === false) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta name="robots" content="noindex,nofollow">
-  <title>Talentra</title>
+  <title>Talsora</title>
   <style>
     :root{
       --te-ink:#f8fafc;
@@ -177,7 +177,7 @@ if ($talentraSplashNextJson === false) {
   <div class="te-splash" role="status" aria-live="polite" aria-busy="true">
     <div class="te-splash-inner">
       <div class="te-mark" aria-hidden="true"><span class="te-mark-letter">T</span></div>
-      <h1 class="te-brand">Talentra</h1>
+      <h1 class="te-brand">Talsora</h1>
       <p class="te-status"><?= htmlspecialchars($talentraSplashMessage, ENT_QUOTES, 'UTF-8') ?></p>
       <div class="te-dots" aria-hidden="true"><span></span><span></span><span></span></div>
     </div>

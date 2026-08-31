@@ -61,6 +61,7 @@ try {
         SELECT id, notiuser, notitype, created_at, is_read
         FROM notification
         WHERE notireceiver IN ($receiverPh)
+          AND is_read = 0
           AND notitype NOT LIKE ?
           AND notitype NOT LIKE ?
           AND notitype NOT LIKE ?
@@ -123,7 +124,11 @@ try {
                 $params['open_comment'] = $commentId;
             }
             $typeLower = strtolower($type);
-            if (strpos($typeLower, 'mention') !== false || strpos($typeLower, 'tagged you') !== false) {
+            if (strpos($typeLower, 'mention') !== false
+                || strpos($typeLower, 'tagged you') !== false
+                || strpos($typeLower, 'comment') !== false
+                || strpos($typeLower, 'replied') !== false
+                || $commentId > 0) {
                 $params['hide_nav'] = 1;
             }
             $url = $page . '?' . http_build_query($params);
@@ -138,6 +143,7 @@ try {
             'text' => $type,
             'live_id' => $liveId,
             'post_id' => $postId,
+            'comment_id' => $commentId,
             'is_story' => $isStory ? 1 : 0,
             'url' => $url,
             'created_at' => (string)($row['created_at'] ?? ''),

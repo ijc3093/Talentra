@@ -313,12 +313,14 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       $feedProgramManagerBoot = true;
     }
   ?>
+  <?php if ($feedLeftRailEmbed): ?>
   <div class="feed-left-rail-footer" aria-label="Sidebar actions">
-    <a class="feed-left-nav-item" href="logout.php">
+    <a class="feed-left-nav-item js-signout-confirm" href="logout.php">
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2"/><path d="M15 12H3"/><path d="M6 9l-3 3 3 3"/></svg></span>
       <span class="feed-left-nav-label">Sign Out</span>
     </a>
   </div>
+  <?php endif; ?>
   <?php if ($feedProgramManagerBoot): ?>
   <?php
     // Remove any stale native <dialog> leftovers from older renders

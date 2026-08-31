@@ -5302,8 +5302,8 @@ $studioBodyClasses = array_filter([
   <?php if (!$hubEmbedMode): include __DIR__.'/includes/live_right_door.php'; endif; ?>
   <div class="studio-shell">
     <aside class="studio-rail" aria-label="Studio navigation">
-      <a class="brand-mark" href="home.php?tab=for-you" aria-label="Talentra">t</a>
-      <div class="brand-copy">Talentra</div>
+      <a class="brand-mark" href="home.php?tab=for-you" aria-label="Talsora">t</a>
+      <div class="brand-copy">Talsora</div>
 
       <a class="rail-avatar" href="profile.php" title="<?php echo h($meName); ?>">
         <img src="<?php echo h($avatarUrl); ?>" alt="<?php echo h($meName); ?>" onerror="this.style.display='none';this.parentNode.textContent='<?php echo h($initials); ?>';">

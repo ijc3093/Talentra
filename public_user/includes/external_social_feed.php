@@ -9,14 +9,13 @@ function social_news_platforms(): array
         'rss' => 'Headlines',
         'reddit' => 'Reddit',
         'bluesky' => 'Bluesky',
-        'tiktok' => 'TikTok',
         'youtube' => 'YouTube',
     ];
 }
 
 function social_news_http_json(string $url, int $timeout = 12): array
 {
-    $body = external_news_http_get($url, $timeout, 'TalentraSocial/1.0');
+    $body = external_news_http_get($url, $timeout, 'TalsoraSocial/1.0');
     if ($body === '' || (isset($body[0]) && $body[0] === '<')) {
         return [];
     }
@@ -217,21 +216,20 @@ function social_youtube_sources_for_category(string $category): array
     return $map[$category] ?? [];
 }
 
-function social_tiktok_reddit_sources(): array
+function social_shortclip_reddit_sources(): array
 {
     return [
-        ['sub' => 'tiktok', 'label' => 'TikTok Reddit'],
-        ['sub' => 'TikTokCringe', 'label' => 'TikTok Clips'],
-        ['sub' => 'tiktokgossip', 'label' => 'TikTok Gossip'],
+        ['sub' => 'videos', 'label' => 'Video Reddit'],
+        ['sub' => 'youtubehaiku', 'label' => 'Short clips'],
     ];
 }
 
-function social_fetch_tiktok_proxy(string $subreddit, string $category, int $limit = 5): array
+function social_fetch_shortclip_reddit(string $subreddit, string $category, int $limit = 5): array
 {
     $items = external_news_fetch_reddit($subreddit, $category, $limit);
     return array_map(static function (array $item): array {
-        $wrapped = social_news_wrap_item($item, 'tiktok');
-        $wrapped['source'] = 'TikTok · ' . (string)($item['source'] ?? 'Reddit');
+        $wrapped = social_news_wrap_item($item, 'reddit');
+        $wrapped['source'] = 'Video · ' . (string)($item['source'] ?? 'Reddit');
         return $wrapped;
     }, $items);
 }
@@ -292,9 +290,9 @@ function social_news_sources_for_category_single(string $category): array
     }
 
     if (in_array($category, ['news', 'music'], true)) {
-        foreach (social_tiktok_reddit_sources() as $src) {
+        foreach (social_shortclip_reddit_sources() as $src) {
             $sources[] = [
-                'social_type' => 'tiktok',
+                'social_type' => 'reddit',
                 'sub' => $src['sub'],
                 'source' => $src['label'],
                 'category' => $category,
@@ -385,8 +383,6 @@ function social_news_collect(string $category = 'all', string $query = '', int $
             $chunk = array_map(static fn(array $it): array => social_news_wrap_item($it, 'reddit'), $chunk);
         } elseif ($socialType === 'bluesky') {
             $chunk = social_fetch_bluesky_author((string)$src['handle'], $cat, (string)$src['source'], 3);
-        } elseif ($socialType === 'tiktok') {
-            $chunk = social_fetch_tiktok_proxy((string)$src['sub'], $cat, 4);
         } elseif ($socialType === 'nasa' || ($src['type'] ?? '') === 'nasa') {
             $chunk = array_map(static fn(array $it): array => social_news_wrap_item($it, 'rss'), external_news_fetch_nasa_apod());
         } elseif ($socialType === 'youtube' || ($src['type'] ?? '') === 'youtube') {

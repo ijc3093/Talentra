@@ -11,6 +11,7 @@ $pvModalApiUrl = isset($pvModalApiUrl) ? (string)$pvModalApiUrl : 'feed_api.php'
 $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 ?>
 <script>
+<?php require __DIR__ . '/comment_gifs.js.php'; ?>
 (function(){
   'use strict';
 
@@ -338,7 +339,7 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     if (Array.isArray(atts) && atts.length > 1) {
       var slides = '';
       atts.forEach(function(a, i){
-        slides += '<div class="media-slide mf-media-slide" data-slide-index="' + i + '">' + pvSlideInner(a) + '</div>';
+        slides += '<div class="media-slide mf-media-slide' + (i === 0 ? ' is-active' : '') + '" data-slide-index="' + i + '">' + pvSlideInner(a) + '</div>';
       });
       pv.media.innerHTML =
         '<div class="media-carousel mf-media-carousel" data-index="0">' +
@@ -455,7 +456,10 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     if (idx < 0) idx = 0;
     if (idx > slideCount - 1) idx = slideCount - 1;
     carousel.setAttribute('data-index', String(idx));
-    if (slides) slides.style.transform = 'translateX(' + String(idx * -100) + '%)';
+    if (slides) slides.style.transform = 'none';
+    carousel.querySelectorAll('.mf-media-slide, .media-slide').forEach(function(el, i){
+      el.classList.toggle('is-active', i === idx);
+    });
     dots.forEach(function(dot){
       var on = Number(dot.getAttribute('data-index')) === idx;
       dot.classList.toggle('is-active', on);
@@ -469,8 +473,54 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
   }
 
   function pvReplyToggleLabel(count, isOpen){
-    return isOpen ? 'Close replies' : ('Open ' + count + ' ' + (count === 1 ? 'reply' : 'replies'));
+    return isOpen ? 'Hide replies' : ('Show ' + count + ' ' + (count === 1 ? 'reply' : 'replies'));
   }
+  function pvDescendantReplyCount(node){
+    var kids = Array.isArray(node && node._replies) ? node._replies : [];
+    var n = 0;
+    kids.forEach(function(child){
+      n += 1 + pvDescendantReplyCount(child);
+    });
+    return n;
+  }
+  function pvCollapseRepliesByDefault(comments){
+    pvCollapsedReplyIds.clear();
+    (Array.isArray(comments) ? comments : []).forEach(function(c){
+      var parentId = Number(c && c.parent_id || 0);
+      if (parentId > 0) pvCollapsedReplyIds.add(parentId);
+    });
+  }
+  function pvExpandAncestorsForComment(comments, commentId){
+    commentId = Number(commentId || 0);
+    if (!commentId) return;
+    var byId = {};
+    (Array.isArray(comments) ? comments : []).forEach(function(c){
+      byId[Number(c && c.id || 0)] = c;
+    });
+    var cur = byId[commentId];
+    var guard = 0;
+    while (cur && guard++ < 50) {
+      pvCollapsedReplyIds.delete(Number(cur.id || 0));
+      var pid = Number(cur.parent_id || 0);
+      if (pid > 0) pvCollapsedReplyIds.delete(pid);
+      cur = pid > 0 ? byId[pid] : null;
+    }
+  }
+  function pvFocusCommentById(commentId){
+    commentId = Number(commentId || 0);
+    if (!commentId || !pv.comments) return false;
+    if (!pv.comments.querySelector('.pv-com[data-cid="' + String(commentId) + '"]') && pvCommentsCache.length) {
+      pvExpandAncestorsForComment(pvCommentsCache, commentId);
+      pvRenderComments({}, pvCommentsCache);
+    }
+    pv.comments.querySelectorAll('.pv-com.is-alert-focus').forEach(function(node){ node.classList.remove('is-alert-focus'); });
+    var row = pv.comments.querySelector('.pv-com[data-cid="' + String(commentId) + '"]');
+    if (!row) return false;
+    row.classList.add('is-alert-focus');
+    try { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+    return true;
+  }
+  try { window.pvFocusCommentById = pvFocusCommentById; } catch (ePvFocus) {}
 
   function pvRenderComments(post, comments){
     var items = Array.isArray(comments) ? comments : [];
@@ -495,20 +545,29 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       var cid = Number(c.id || 0);
       var nm = String(c.display_name || c.username || 'User');
       var txt = String(c.comment_text || '');
+      var mediaPath = String(c.media_path || '');
+      var gifMark = txt.match(/\[\[MSB_GIF:(https?:[^\]]+)\]\]/);
+      if (gifMark) {
+        txt = txt.replace(/\s*\[\[MSB_GIF:(https?:[^\]]+)\]\]\s*/g, '\n').trim();
+        if (!mediaPath) mediaPath = String(gifMark[1] || '');
+      }
       var t = pvTimeAgo(c.created_at);
       var ava = pvAvatarUrlFor(c || {}, 72);
       var kids = Array.isArray(c._replies) ? c._replies : [];
       var replyCount = kids.length;
+      var threadCount = pvDescendantReplyCount(c) || replyCount;
       var repliesOpen = !pvCollapsedReplyIds.has(cid);
       var childrenHtml = kids.map(function(child){ return commentHtml(child, depth + 1); }).join('');
+      var toggleLabel = repliesOpen ? '' : (threadCount + ' ' + (threadCount === 1 ? 'reply' : 'replies'));
       return '<div class="pv-node' + (depth > 0 ? ' is-reply' : '') + (replyCount > 0 ? ' has-children' : '') + (replyCount > 0 && !repliesOpen ? ' is-collapsed' : '') + '">' +
         '<div class="pv-com" data-cid="' + cid + '">' +
           '<div class="a"><img src="' + pvEsc(ava) + '" alt="' + pvEsc(nm) + '" /></div>' +
           '<div class="b"><div class="nm">' + pvEsc(nm) + '</div>' +
             '<div class="tx">' + ((window.MSBMentionAC && window.MSBMentionAC.linkify) ? window.MSBMentionAC.linkify(txt) : pvEsc(txt)) + '</div>' +
+            (mediaPath ? '<div class="pv-com-media"><img src="' + pvEsc(mediaPath) + '" alt="" referrerpolicy="no-referrer"></div>' : '') +
             '<div class="m"><span>' + pvEsc(t) + '</span>' +
               '<button type="button" class="link replies-toggle pv-reply" data-cid="' + cid + '" data-name="' + pvEsc(nm) + '">Reply</button>' +
-              (replyCount > 0 ? '<button type="button" class="link replies-toggle pv-toggle-replies" data-toggle-replies="' + cid + '">' + pvEsc(pvReplyToggleLabel(replyCount, repliesOpen)) + '</button>' : '') +
+              (replyCount > 0 ? '<button type="button" class="link replies-toggle pv-toggle-replies' + (repliesOpen ? ' is-open' : '') + '" data-toggle-replies="' + cid + '" aria-expanded="' + (repliesOpen ? 'true' : 'false') + '" title="' + pvEsc(pvReplyToggleLabel(threadCount, repliesOpen)) + '"><i class="icon ion-chatbubbles" aria-hidden="true"></i>' + (toggleLabel ? '<span>' + pvEsc(toggleLabel) + '</span>' : '') + '<i class="icon ion-ios-arrow-down pv-toggle-caret" aria-hidden="true"></i></button>' : '') +
             '</div></div></div>' +
         (replyCount > 0 && repliesOpen ? '<div class="pv-children">' + childrenHtml + '</div>' : '') +
       '</div>';
@@ -569,7 +628,7 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
         pv.meta.insertAdjacentHTML('beforeend', ' ' + window.MSBPostCardMenu.visibilityBadgeHtml(post.visibility || 'public'));
       }
     }
-    // Heart button shows TOTAL reactions (love + like/thumbs/faces), same as For You / Discover.
+    // Heart button shows TOTAL reactions (love + like/thumbs/faces), same as Circle / Discover.
     var totalRx = pvReactionTotal(counts, post);
     if (totalRx != null) pvSetLoveCount(totalRx);
     if (pv.likeN && (counts.like_count != null || post.like_count != null)) {
@@ -683,7 +742,7 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       pv.love.setAttribute('data-msb-rx-click', '1');
       pv.love.addEventListener('click', function(e){
         if (!window.MSBReactions) return;
-        // Same as For You / Discover: click opens the reaction tray.
+        // Same as Circle / Discover: click opens the reaction tray.
         if (typeof window.MSBReactions.openPickerFor === 'function') {
           e.preventDefault();
           e.stopPropagation();
@@ -711,7 +770,27 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       pvCurrentAttachments = Array.isArray(view.attachments) ? view.attachments.slice() : [];
       pvRenderMedia(view.post, view.attachments);
       pvRenderCaption(view.post, view.attachments, 0);
+      pvCollapseRepliesByDefault(view.comments);
+      var keepId = Number(window.__pvKeepReplyOpenId || 0);
+      var focusId = Number(window.__pvFocusCommentId || 0);
+      if (keepId > 0) {
+        pvCollapsedReplyIds.delete(keepId);
+        (Array.isArray(view.comments) ? view.comments : []).forEach(function(row){
+          if (Number(row && row.id || 0) !== keepId) return;
+          var parentId = Number(row.parent_id || 0);
+          while (parentId > 0) {
+            pvCollapsedReplyIds.delete(parentId);
+            var parent = (view.comments || []).find(function(x){ return Number(x.id || 0) === parentId; });
+            parentId = parent ? Number(parent.parent_id || 0) : 0;
+          }
+        });
+        window.__pvKeepReplyOpenId = 0;
+      }
+      if (focusId > 0) pvExpandAncestorsForComment(view.comments, focusId);
       pvRenderComments(view.post, view.comments);
+      if (focusId > 0) {
+        setTimeout(function(){ pvFocusCommentById(focusId); }, 0);
+      }
       pvApplyCounts(view);
       if (pv.comN) {
         var commentCount = (view.counts && view.counts.comment_count != null)
@@ -774,8 +853,11 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     // Shared modal has no gallery prev/next; opts.hideNav is accepted for API parity.
     opts = (opts && typeof opts === 'object') ? opts : {};
     try { window.__pvHidePostNav = !!(opts.hideNav || opts.standalone || opts.fromMention || opts.fromTag); } catch (e) {}
+    var commentId = Number(opts.commentId || opts.open_comment || window.__pvFocusCommentId || 0);
+    try { window.__pvFocusCommentId = commentId > 0 ? commentId : 0; } catch (eCid) {}
     pvSetActivePostId(postId);
     pvSetReply(0, '');
+    pvClearGif();
     pvCollapsedReplyIds.clear();
     pvCommentsCache = [];
     pvSetVh();
@@ -798,21 +880,47 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     return true;
   };
 
+  var pvSelectedGif = null;
+  function pvClearGif(){
+    pvSelectedGif = null;
+    var preview = document.getElementById('pvCommentGifPreview');
+    var thumb = document.getElementById('pvCommentGifThumb');
+    var name = document.getElementById('pvCommentGifName');
+    if (preview) preview.classList.remove('is-on');
+    if (thumb) { thumb.removeAttribute('src'); }
+    if (name) name.textContent = '';
+  }
+  function pvPreviewGif(item){
+    if (!item || !item.url) { pvClearGif(); return; }
+    pvSelectedGif = { url: String(item.url), title: String(item.title || 'GIF') };
+    var preview = document.getElementById('pvCommentGifPreview');
+    var thumb = document.getElementById('pvCommentGifThumb');
+    var name = document.getElementById('pvCommentGifName');
+    if (thumb) thumb.src = pvSelectedGif.url;
+    if (name) name.textContent = pvSelectedGif.title;
+    if (preview) preview.classList.add('is-on');
+  }
+
   async function pvPostComment(){
     if (!pvPostId || !pv.text) return;
     var text = String(pv.text.value || '').trim();
-    if (!text) return;
+    var gifUrl = pvSelectedGif && pvSelectedGif.url ? String(pvSelectedGif.url) : '';
+    if (!text && !gifUrl) return;
     if (pv.postBtn) pv.postBtn.disabled = true;
     try {
-      var body = 'post_id=' + encodeURIComponent(pvPostId) + '&comment_text=' + encodeURIComponent(text);
-      if (pvReplyTo > 0) body += '&parent_id=' + encodeURIComponent(pvReplyTo);
+      var fd = new FormData();
+      fd.append('post_id', String(pvPostId));
+      fd.append('comment_text', text);
+      if (pvReplyTo > 0) fd.append('parent_id', String(pvReplyTo));
+      if (gifUrl) fd.append('comment_gif_url', gifUrl);
+      if (pvReplyTo > 0) window.__pvKeepReplyOpenId = pvReplyTo;
       await pvJson(PV_API + '?ajax=comment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-        body: body,
+        body: fd,
         credentials: 'same-origin'
       });
       pv.text.value = '';
+      pvClearGif();
       pvSetReply(0, '');
       await pvLoad(pvPostId);
       if (pv.comN) pvPublishCommentCount(pvPostId, pv.comN.textContent);
@@ -873,6 +981,8 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
     pv.comments.addEventListener('click', function(e){
       var toggleBtn = e.target.closest('.pv-toggle-replies');
       if (toggleBtn) {
+        e.preventDefault();
+        e.stopPropagation();
         var cid = Number(toggleBtn.getAttribute('data-toggle-replies') || 0);
         if (!cid) return;
         if (pvCollapsedReplyIds.has(cid)) pvCollapsedReplyIds.delete(cid);
@@ -984,10 +1094,71 @@ $pvModalApiUrlJson = json_encode($pvModalApiUrl, JSON_UNESCAPED_SLASHES | JSON_H
       try { input.setSelectionRange(start + chunk.length, start + chunk.length); } catch (e) {}
       input.focus();
     }
-    var atBtn = document.getElementById('pvAtBtn');
+    function escGif(s){
+      return String(s || '').replace(/[&<>"']/g, function(m){
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
+      });
+    }
+    var mediaBtn = document.getElementById('pvMediaBtn');
     var emojiBtn = document.getElementById('pvEmojiBtn');
-    if (atBtn && pv.text) atBtn.addEventListener('click', function(){ insertAtCursor(pv.text, '@'); });
-    if (emojiBtn && pv.text) emojiBtn.addEventListener('click', function(){ insertAtCursor(pv.text, '😊'); });
+    var picker = document.getElementById('pvCommentGifPicker');
+    var grid = document.getElementById('pvCommentGifGrid');
+    var empty = document.getElementById('pvCommentGifEmpty');
+    var search = document.getElementById('pvCommentGifSearch');
+    var clearBtn = document.getElementById('pvCommentGifClear');
+    var items = Array.isArray(window.MSB_COMMENT_GIFS) ? window.MSB_COMMENT_GIFS : [];
+    function renderGifGrid(){
+      if (!grid) return;
+      var q = String(search && search.value || '').trim().toLowerCase();
+      var list = items.filter(function(item){
+        var hay = (item.title + ' ' + item.keywords).toLowerCase();
+        return q === '' || hay.indexOf(q) !== -1;
+      });
+      grid.innerHTML = list.map(function(item){
+        return '<button type="button" data-gif-url="'+escGif(item.url)+'" data-gif-title="'+escGif(item.title)+'">' +
+          '<img src="'+escGif(item.url)+'" alt="'+escGif(item.title)+'">' +
+        '</button>';
+      }).join('');
+      if (empty) empty.hidden = list.length > 0;
+    }
+    function closeGifPicker(){
+      if (!picker || !mediaBtn) return;
+      picker.hidden = true;
+      mediaBtn.classList.remove('is-open');
+      mediaBtn.setAttribute('aria-expanded', 'false');
+    }
+    function openGifPicker(){
+      if (!picker || !mediaBtn) return;
+      picker.hidden = false;
+      mediaBtn.classList.add('is-open');
+      mediaBtn.setAttribute('aria-expanded', 'true');
+      renderGifGrid();
+    }
+    if (mediaBtn && picker) {
+      mediaBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        if (picker.hidden) openGifPicker();
+        else closeGifPicker();
+      });
+    }
+    if (grid) {
+      grid.addEventListener('click', function(e){
+        var btn = e.target.closest('[data-gif-url]');
+        if (!btn) return;
+        e.preventDefault();
+        pvPreviewGif({ url: btn.getAttribute('data-gif-url'), title: btn.getAttribute('data-gif-title') });
+        closeGifPicker();
+        pvPostComment();
+      });
+    }
+    if (search) search.addEventListener('input', renderGifGrid);
+    if (clearBtn) clearBtn.addEventListener('click', function(e){ e.preventDefault(); pvClearGif(); });
+    if (emojiBtn && pv.text) emojiBtn.addEventListener('click', function(){ closeGifPicker(); insertAtCursor(pv.text, '😊'); });
+    document.addEventListener('click', function(e){
+      if (!picker || picker.hidden) return;
+      if (picker.contains(e.target) || (mediaBtn && mediaBtn.contains(e.target))) return;
+      closeGifPicker();
+    });
   })();
 })();
 </script>

@@ -8,6 +8,7 @@ $__msgThreads = is_array($namedChatThreads ?? null) ? $namedChatThreads : [];
 $__msgUnknown = (int)($unknownUnread ?? 0);
 $__msgTotal = (int)($totalUnread ?? 0);
 $__msgStandalone = !empty($msbMessagesDoorStandalone);
+require_once __DIR__ . '/leftbar_door_anim.js.php';
 ?>
 <style>
 #ttLeftbarOverlays .tt-messages-wrap,
@@ -24,7 +25,7 @@ $__msgStandalone = !empty($msbMessagesDoorStandalone);
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
-  transition:transform .18s ease, opacity .18s ease;
+  transition:transform .6s ease-in-out, opacity .45s ease;
 }
 #ttLeftbarOverlays .tt-messages-wrap.is-open,
 .msb-messages-door-host .tt-messages-wrap.is-open{
@@ -233,7 +234,7 @@ body.msb-messages-door-open .msb-messages-door-host{ pointer-events:auto; }
   opacity:0;
   visibility:hidden;
   pointer-events:none;
-  transition:opacity .18s ease, visibility .18s ease;
+  transition:opacity .6s ease-in-out, visibility .6s ease-in-out;
 }
 body.msb-messages-door-open .msb-messages-door-backdrop{
   opacity:1;
@@ -298,11 +299,21 @@ body.msb-messages-door-open .msb-messages-door-backdrop{
     if(!$messagesWrap) return;
     $messagesWrap.classList.remove('is-open');
     $messagesWrap.setAttribute('aria-hidden', 'true');
-    if(isStandalone) document.body.classList.remove('msb-messages-door-open');
-    else document.body.classList.remove('public-leftbar-open');
+    var release = function(){
+      if(isStandalone) document.body.classList.remove('msb-messages-door-open');
+      else document.body.classList.remove('public-leftbar-open');
+    };
+    if(window.MSBLeftbarDoorAnim){
+      window.MSBLeftbarDoorAnim.hold('messages', function(){
+        return $messagesWrap.classList.contains('is-open');
+      }, release);
+    } else {
+      release();
+    }
   }
 
   function openMessagesPanel(){
+    if(window.MSBLeftbarDoorAnim) window.MSBLeftbarDoorAnim.cancel('messages');
     if(!$messagesWrap) return;
     closeOtherPanels();
     $messagesWrap.classList.add('is-open');

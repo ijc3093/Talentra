@@ -312,7 +312,7 @@ function org_commerce_brands_create(PDO $dbh, string $name, string $tagline = ''
     $slug = org_commerce_brands_unique_slug($dbh, org_commerce_brands_slug_from_name($name));
     $tagline = trim($tagline);
     if ($tagline === '') {
-        $tagline = 'Brand stores and seller accounts on Talentra Shop.';
+        $tagline = 'Brand stores and seller accounts on Talsora Shop.';
     }
 
     $iconLetter = mb_strtoupper(mb_substr($name, 0, 1));

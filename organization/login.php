@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="signbox">
         <div class="signbox-header">
           <h2>Organization Login</h2>
-          <p class="mg-b-0">Manager, staff, or publisher accounts registered on Talentra can sign in here.</p>
+          <p class="mg-b-0">Manager, staff, or publisher accounts registered on Talsora can sign in here.</p>
         </div><!-- signbox-header -->
 
          <?php if ($err): ?>

@@ -39,6 +39,55 @@ function post_attachments_ensure_slide_columns(PDO $dbh): void
     }
 }
 
+function post_upload_parse_ini_bytes(string $val): int
+{
+    $val = strtoupper(trim($val));
+    if ($val === '' || $val === '-1') {
+        return 0;
+    }
+    if (!preg_match('/^(\d+)\s*([KMG])?B?$/', $val, $m)) {
+        return max(0, (int)$val);
+    }
+    $n = (int)$m[1];
+    $u = (string)($m[2] ?? '');
+    if ($u === 'G') {
+        return $n * 1024 * 1024 * 1024;
+    }
+    if ($u === 'M') {
+        return $n * 1024 * 1024;
+    }
+    if ($u === 'K') {
+        return $n * 1024;
+    }
+    return $n;
+}
+
+/** Product cap for a single create-post attachment. */
+function post_upload_app_max_bytes(): int
+{
+    return 256 * 1024 * 1024;
+}
+
+function post_upload_max_bytes(): int
+{
+    $cap = post_upload_app_max_bytes();
+    $upload = post_upload_parse_ini_bytes((string)ini_get('upload_max_filesize'));
+    $post = post_upload_parse_ini_bytes((string)ini_get('post_max_size'));
+    if ($upload > 0) {
+        $cap = min($cap, $upload);
+    }
+    if ($post > 0) {
+        $cap = min($cap, $post);
+    }
+    return max(1, $cap);
+}
+
+function post_upload_max_label(): string
+{
+    $mb = (int)max(1, (int)round(post_upload_max_bytes() / (1024 * 1024)));
+    return $mb . 'MB';
+}
+
 function post_upload_allowed_ext(): array
 {
     return [
@@ -324,7 +373,7 @@ function post_upload_store_pending(int $userId, array $file): array
     }
 
     $size = (int)($file['size'] ?? 0);
-    $maxBytes = 100 * 1024 * 1024;
+    $maxBytes = post_upload_max_bytes();
     if ($size <= 0) {
         $size = (int)@filesize($tmp);
     }

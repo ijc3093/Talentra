@@ -252,12 +252,12 @@ if ($editPost) {
     <meta name="twitter:site" content="@themepixels">
     <meta name="twitter:creator" content="@themepixels">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Talentra">
+    <meta name="twitter:title" content="Talsora">
     <meta name="twitter:description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="twitter:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
 
     <meta property="og:url" content="http://themepixels.me/shamcey">
-    <meta property="og:title" content="Talentra">
+    <meta property="og:title" content="Talsora">
     <meta property="og:description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta property="og:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
     <meta property="og:image:secure_url" content="http://themepixels.me/shamcey/img/shamcey-social.png">
@@ -268,7 +268,7 @@ if ($editPost) {
     <meta name="description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="author" content="ThemePixels">
 
-    <title>Talentra</title>
+    <title>Talsora</title>
 
     <!-- Vendor css -->
     <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
@@ -1929,7 +1929,7 @@ body.dashboard-page .progress{
                         <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
                         <select name="visibility" id="createPostVisibility" class="form-control">
                           <option value="private" <?= $visClassic==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
-                          <option value="friends" <?= $visClassic==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends room (For You)' : 'Friends' ?></option>
+                          <option value="friends" <?= $visClassic==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends room (Circle)' : 'Friends' ?></option>
                           <option value="public" <?= $visClassic==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public room (Discover)' : 'Public' ?></option>
                         </select>
                         <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → friends. <strong>Public</strong> → public feed.</small>

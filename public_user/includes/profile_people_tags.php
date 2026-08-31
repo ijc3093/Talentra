@@ -273,6 +273,9 @@ function profile_people_tags_notify(PDO $dbh, int $ownerId, int $taggedId, strin
     if ($ownerId <= 0 || $taggedId <= 0 || $ownerId === $taggedId || $message === '') {
         return;
     }
+    if (function_exists('profile_user_wants_notification') && !profile_user_wants_notification($dbh, $taggedId, 'tagged_notifications')) {
+        return;
+    }
     $owner = profile_people_tags_find_user($dbh, $ownerId, '');
     $tagged = profile_people_tags_find_user($dbh, $taggedId, '');
     if (!$owner || !$tagged) {
@@ -350,7 +353,7 @@ function profile_people_tags_save_relationship(PDO $dbh, int $ownerId, string $r
 
     $user = profile_people_tags_find_user($dbh, $taggedId, $username);
     if (!$user) {
-        return ['ok' => false, 'error' => 'Type @username and pick someone on Talentra.'];
+        return ['ok' => false, 'error' => 'Type @username and pick someone on Talsora.'];
     }
     if ((int)$user['id'] === $ownerId) {
         return ['ok' => false, 'error' => 'You cannot tag yourself.'];
@@ -402,7 +405,7 @@ function profile_people_tags_add_family(PDO $dbh, int $ownerId, string $roleKey,
     }
     $user = profile_people_tags_find_user($dbh, $taggedId, $username);
     if (!$user) {
-        return ['ok' => false, 'error' => 'Type @username and pick someone on Talentra.'];
+        return ['ok' => false, 'error' => 'Type @username and pick someone on Talsora.'];
     }
     if ((int)$user['id'] === $ownerId) {
         return ['ok' => false, 'error' => 'You cannot tag yourself.'];

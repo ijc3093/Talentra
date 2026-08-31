@@ -1972,7 +1972,7 @@ $publicLiveUrl = 'public_live.php?' . http_build_query(array_filter([
       <section class="hero">
         <div class="yt-topbar-left">
           <button class="yt-icon-btn" type="button" aria-label="Menu"><i class="fa fa-bars"></i></button>
-          <div class="yt-brand"> Talentra</div>
+          <div class="yt-brand"> Talsora</div>
         </div>
         <div class="yt-topbar-center">
           <form class="search-card" id="feedTopbarSearchForm" method="get" action="public_live.php">

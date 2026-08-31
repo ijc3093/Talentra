@@ -272,3 +272,52 @@ html[data-theme="dark"] .has-rx-icon[data-selected-reaction="angry"] .msb-rx-fac
   background:transparent !important;
   fill:none !important;
 }
+
+/* Keep love / thumbs / comment / save / share clickable on every surface.
+   Do not unlock the whole media overlay — only the action controls. */
+.mf-actions,
+.mf-act,
+.mf-act .msb-pact,
+.mf-act .mf-num,
+.standard-media-actions,
+.standard-media-btn,
+.standard-text-actions,
+.standard-text-btn,
+.action-btn,
+.reel-inline-btn,
+.public-live-action-btn,
+.reel-act-wrap,
+.reel-act,
+.pv-act,
+.pv-actions,
+.js-react-love,
+.js-react-like,
+.js-save-post,
+.js-share-post,
+.js-open-comments,
+.tt-stories-action,
+.tt-stories-lovebtn,
+.tt-stories-publisher-foot,
+.tt-stories-user-foot,
+.tt-stories-input-row{
+  pointer-events:auto !important;
+}
+.mf-act,
+.standard-media-btn,
+.standard-text-btn,
+.action-btn,
+.reel-inline-btn,
+.public-live-action-btn,
+.reel-act,
+.pv-act,
+.js-react-love,
+.js-save-post,
+.js-share-post,
+.js-open-comments,
+.tt-stories-action{
+  cursor:pointer;
+}
+.msb-reaction-picker.is-open{
+  z-index:2147483000 !important;
+  pointer-events:auto !important;
+}

@@ -304,12 +304,12 @@ if ($editPost) {
     <meta name="twitter:site" content="@themepixels">
     <meta name="twitter:creator" content="@themepixels">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Talentra">
+    <meta name="twitter:title" content="Talsora">
     <meta name="twitter:description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="twitter:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
 
     <meta property="og:url" content="http://themepixels.me/shamcey">
-    <meta property="og:title" content="Talentra">
+    <meta property="og:title" content="Talsora">
     <meta property="og:description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta property="og:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
     <meta property="og:image:secure_url" content="http://themepixels.me/shamcey/img/shamcey-social.png">
@@ -320,7 +320,7 @@ if ($editPost) {
     <meta name="description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="author" content="ThemePixels">
 
-    <title>Talentra</title>
+    <title>Talsora</title>
 
     <!-- Vendor css -->
     <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
@@ -533,6 +533,29 @@ if ($editPost) {
 .create-post-slide-remove:hover{
   background:rgba(185,28,28,.14);
   color:#b91c1c;
+}
+.create-post-slide-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:0 0 auto;
+}
+.create-post-slide-replace{
+  height:22px;
+  padding:0 8px;
+  border:0;
+  border-radius:999px;
+  background:rgba(15,23,42,.1);
+  color:#0f172a;
+  font-size:11px;
+  font-weight:700;
+  line-height:22px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.create-post-slide-replace:hover{
+  background:rgba(37,99,235,.16);
+  color:#1d4ed8;
 }
 .create-post-slide-media{
   width:44px;
@@ -1693,7 +1716,10 @@ body.dashboard-page.dashboard-modal-page .create-post-slides-panel{
   margin-bottom:0 !important;
 }
 body.dashboard-page.dashboard-modal-page .create-post-slides-shell{
-  max-height:148px !important;
+  max-height:min(46vh, 280px) !important;
+}
+body.dashboard-page.dashboard-modal-page .create-post-slides-shell.is-editing-multi{
+  max-height:min(52vh, 340px) !important;
 }
 body.dashboard-page.dashboard-modal-page .create-post-slides-actions{
   position:sticky !important;
@@ -1757,6 +1783,25 @@ body.dashboard-page .create-post-slide-label{
   visibility:visible !important;
   overflow:visible !important;
   flex:1 1 auto !important;
+}
+body.dashboard-page .create-post-slide-actions{
+  display:flex !important;
+  align-items:center !important;
+  gap:6px !important;
+  flex:0 0 auto !important;
+}
+body.dashboard-page .create-post-slide-replace{
+  height:22px !important;
+  padding:0 8px !important;
+  border:0 !important;
+  border-radius:999px !important;
+  background:rgba(15,23,42,.1) !important;
+  color:#0f172a !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+  line-height:22px !important;
+  cursor:pointer !important;
+  white-space:nowrap !important;
 }
 body.dashboard-page .create-post-slide-remove{
   width:22px !important;
@@ -2097,7 +2142,11 @@ body.dashboard-page .progress{
                   <?php endif; ?>
                   <?php if ($editPost): ?>
                   <div class="alert alert-secondary py-2 px-3 mb-3 msb-composer-edit-note" style="font-size:13px;">
-                    Editing post #<?= (int)$editPost['id'] ?><?= $editAttachmentCount > 0 ? (' · ' . $editAttachmentCount . ' existing media file' . ($editAttachmentCount === 1 ? '' : 's') . ' kept unless you add new ones') : '' ?>.
+                    Editing post #<?= (int)$editPost['id'] ?><?php
+                      if ($editAttachmentCount > 0) {
+                        echo ' · ' . (int)$editAttachmentCount . ' media file' . ($editAttachmentCount === 1 ? '' : 's') . '. Replace, delete, or add more before you save.';
+                      }
+                    ?>.
                     Change <strong>Private</strong> / <strong>Friends</strong> / <strong>Public</strong> to move this post.
                   </div>
                   <?php endif; ?>
@@ -2142,7 +2191,7 @@ body.dashboard-page .progress{
                     $hasTitlePanel = $titleVal !== '';
                     $hasMusicPanel = ($musicTitleVal !== '' || $musicArtistVal !== '' || $composerSoundId > 0);
                     $hasTagPanel = !empty($editTaggedUsers);
-                    $hasMediaPanel = !empty($editAttachments);
+                    $hasMediaPanel = !empty($editAttachments) || !empty($editPost);
                     $hasProductPanel = !empty($composerProducts);
                   ?>
 
@@ -2165,7 +2214,7 @@ body.dashboard-page .progress{
                         <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
                         <select name="visibility" id="createPostVisibility" class="form-control">
                           <option value="private" <?= $visClassic==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
-                          <option value="friends" <?= $visClassic==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends room (For You)' : 'Friends' ?></option>
+                          <option value="friends" <?= $visClassic==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends room (Circle)' : 'Friends' ?></option>
                           <option value="public" <?= $visClassic==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public room (Discover)' : 'Public' ?></option>
                         </select>
                         <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → friends. <strong>Public</strong> → public feed.</small>
@@ -2267,7 +2316,7 @@ body.dashboard-page .progress{
                       <p class="small text-muted mb-2">Optional. Add slides for a presentation. Scroll media inside the box; Add slide / Submit stay below.</p>
                       <?php endif; ?>
                       <div class="create-post-slides-panel">
-                      <div class="create-post-slides-shell">
+                      <div class="create-post-slides-shell<?= $editAttachmentCount >= 2 ? ' is-editing-multi' : '' ?>">
                         <div id="createPostSlides" class="create-post-slides" aria-label="Slides list">
                           <?php foreach ($editAttachments as $idx => $att): ?>
                             <?php
@@ -2280,7 +2329,10 @@ body.dashboard-page .progress{
                             <div class="create-post-slide" data-existing-id="<?= $aid ?>">
                               <div class="create-post-slide-head">
                                 <div class="create-post-slide-label">Slide <?= (int)$idx + 1 ?></div>
-                                <button type="button" class="create-post-slide-remove" aria-label="Remove slide <?= (int)$idx + 1 ?>" title="Remove slide">&times;</button>
+                                <div class="create-post-slide-actions">
+                                  <button type="button" class="create-post-slide-replace" aria-label="Replace slide <?= (int)$idx + 1 ?>" title="Replace this photo or video">Replace</button>
+                                  <button type="button" class="create-post-slide-remove" aria-label="Remove slide <?= (int)$idx + 1 ?>" title="Remove slide">&times;</button>
+                                </div>
                               </div>
                               <div class="create-post-slide-media">
                                 <?php if ($atype === 'video'): ?>
@@ -2300,13 +2352,14 @@ body.dashboard-page .progress{
                         </div>
                       </div>
                       <input type="file" id="createPostAttachments" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip" style="display:none;">
+                      <input type="file" id="createPostReplaceFile" accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip" style="display:none;">
                       <div class="create-post-slides-actions">
                       <div class="d-flex align-items-center justify-content-between flex-wrap" style="gap:8px;">
                         <div class="d-flex align-items-center flex-wrap" style="gap:8px;min-width:0;flex:1 1 auto;">
                           <button type="button" class="btn btn-outline-primary btn-sm" id="createPostAddSlideBtn"><i class="fa fa-plus" aria-hidden="true"></i> Add media</button>
                           <div id="createPostUploadStatus" class="small text-muted mb-0" aria-live="polite" style="line-height:1.3;"><?php
                             if ($editPost && $editAttachmentCount > 0) {
-                                echo h($editAttachmentCount . ' slide' . ($editAttachmentCount === 1 ? '' : 's') . ' already on this post. Add more below; existing media stays.');
+                                echo h($editAttachmentCount . ' slide' . ($editAttachmentCount === 1 ? '' : 's') . ' on this post. Replace, delete, or add more.');
                             }
                           ?></div>
                         </div>
@@ -2470,6 +2523,7 @@ body.dashboard-page .progress{
     <!-- ✅ No "copy list into modal" JS needed anymore -->
   
 <script>
+window.__MSB_CREATE_POST_CSRF = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLASHES); ?>;
 function qaValidatePost(form){
   // Title is OPTIONAL for all post types.
   return true;
@@ -2487,6 +2541,8 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 
   const fileInput = document.getElementById('createPostAttachments') || f.querySelector('input[type="file"][name="attachments[]"]');
+  const replaceFileInput = document.getElementById('createPostReplaceFile');
+  let replaceTargetCard = null;
   const tokenBox = document.getElementById('pendingUploadTokens');
   const statusEl = document.getElementById('createPostUploadStatus');
   const progressWrap = document.getElementById('createPostUploadProgress');
@@ -2550,7 +2606,7 @@ document.addEventListener('DOMContentLoaded', function(){
     submitBtn.style.opacity = uploading ? '0.7' : '';
   }
 
-  function addToken(token, fileMeta){
+  function addPendingTokenInput(token){
     if (!tokenBox || !token) return;
     const input = document.createElement('input');
     input.type = 'hidden';
@@ -2559,7 +2615,80 @@ document.addEventListener('DOMContentLoaded', function(){
     input.dataset.pendingToken = '1';
     tokenBox.appendChild(input);
     pendingCount++;
+  }
+
+  function addToken(token, fileMeta){
+    if (!token) return;
+    addPendingTokenInput(token);
     addSlideCardForToken(token, fileMeta || null);
+  }
+
+  function queueRemovedAttachmentId(existingId){
+    existingId = parseInt(existingId || '0', 10) || 0;
+    if (existingId <= 0) return;
+    let removeBox = document.getElementById('removedAttachmentIds');
+    if (!removeBox && f) {
+      removeBox = document.createElement('div');
+      removeBox.id = 'removedAttachmentIds';
+      f.appendChild(removeBox);
+    }
+    if (!removeBox) return;
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'remove_attachment_ids[]';
+    inp.value = String(existingId);
+    removeBox.appendChild(inp);
+  }
+
+  function dropPendingToken(token){
+    token = String(token || '').trim();
+    if (!token || !tokenBox) return;
+    Array.prototype.slice.call(tokenBox.querySelectorAll('input[data-pending-token="1"]')).forEach(function(inp){
+      if (String(inp.value || '') === token) {
+        if (inp.parentNode) inp.parentNode.removeChild(inp);
+        pendingCount = Math.max(0, pendingCount - 1);
+      }
+    });
+  }
+
+  function paintSlideMedia(media, fileMeta){
+    if (!media) return;
+    const type = String((fileMeta && fileMeta.type) || '').toLowerCase();
+    const previewUrl = String((fileMeta && (fileMeta.previewUrl || fileMeta.web)) || '');
+    const objectUrl = String((fileMeta && fileMeta.objectUrl) || '');
+    const fileType = String((fileMeta && fileMeta.fileType) || '').toLowerCase();
+    if (previewUrl && type.indexOf('video') === 0) {
+      media.innerHTML = '<video src="'+previewUrl.replace(/"/g,'&quot;')+'" muted playsinline preload="metadata"></video>';
+    } else if (previewUrl && type.indexOf('image') === 0) {
+      media.innerHTML = '<img src="'+previewUrl.replace(/"/g,'&quot;')+'" alt="">';
+    } else if (objectUrl && fileType.indexOf('video') === 0) {
+      media.innerHTML = '<video src="'+objectUrl.replace(/"/g,'&quot;')+'" muted playsinline preload="metadata"></video>';
+    } else if (objectUrl && fileType.indexOf('image') === 0) {
+      media.innerHTML = '<img src="'+objectUrl.replace(/"/g,'&quot;')+'" alt="">';
+    } else {
+      media.innerHTML = '<div class="create-post-slide-file">FILE</div>';
+    }
+  }
+
+  function applyReplaceOnCard(card, token, fileMeta){
+    if (!card || !token) return;
+    const existingId = parseInt(card.getAttribute('data-existing-id') || '0', 10) || 0;
+    const oldToken = String(card.getAttribute('data-token') || '').trim();
+    if (existingId > 0) queueRemovedAttachmentId(existingId);
+    if (oldToken) dropPendingToken(oldToken);
+    addPendingTokenInput(token);
+    card.setAttribute('data-token', token);
+    card.removeAttribute('data-existing-id');
+    paintSlideMedia(card.querySelector('.create-post-slide-media'), fileMeta || null);
+    const titleInp = card.querySelector('input[name^="existing_slide_title"], input[name^="slide_title"]');
+    const bodyInp = card.querySelector('textarea[name^="existing_slide_body"], textarea[name^="slide_body"]');
+    if (titleInp) titleInp.name = 'slide_title[' + token + ']';
+    if (bodyInp) bodyInp.name = 'slide_body[' + token + ']';
+    syncPendingStatusMessage();
+    syncSubmitEnabled();
+    try {
+      if (typeof window.msbComposerOpenPanel === 'function') window.msbComposerOpenPanel('media');
+    } catch (_open) {}
   }
 
   function nextSlideNumber(){
@@ -2615,30 +2744,8 @@ document.addEventListener('DOMContentLoaded', function(){
       });
     } catch (_blob) {}
 
-    if (token && tokenBox) {
-      Array.prototype.slice.call(tokenBox.querySelectorAll('input[data-pending-token="1"]')).forEach(function(inp){
-        if (String(inp.value || '') === token) {
-          if (inp.parentNode) inp.parentNode.removeChild(inp);
-          pendingCount = Math.max(0, pendingCount - 1);
-        }
-      });
-    }
-
-    if (existingId > 0) {
-      let removeBox = document.getElementById('removedAttachmentIds');
-      if (!removeBox && f) {
-        removeBox = document.createElement('div');
-        removeBox.id = 'removedAttachmentIds';
-        f.appendChild(removeBox);
-      }
-      if (removeBox) {
-        const inp = document.createElement('input');
-        inp.type = 'hidden';
-        inp.name = 'remove_attachment_ids[]';
-        inp.value = String(existingId);
-        removeBox.appendChild(inp);
-      }
-    }
+    if (token) dropPendingToken(token);
+    if (existingId > 0) queueRemovedAttachmentId(existingId);
 
     if (card.parentNode) card.parentNode.removeChild(card);
     renumberSlideCards();
@@ -2691,10 +2798,22 @@ document.addEventListener('DOMContentLoaded', function(){
     removeBtn.title = 'Remove slide';
     removeBtn.innerHTML = '&times;';
 
+    const replaceBtn = document.createElement('button');
+    replaceBtn.type = 'button';
+    replaceBtn.className = 'create-post-slide-replace';
+    replaceBtn.setAttribute('aria-label', 'Replace slide ' + n);
+    replaceBtn.title = 'Replace this photo or video';
+    replaceBtn.textContent = 'Replace';
+
+    const actions = document.createElement('div');
+    actions.className = 'create-post-slide-actions';
+    actions.appendChild(replaceBtn);
+    actions.appendChild(removeBtn);
+
     const head = document.createElement('div');
     head.className = 'create-post-slide-head';
     head.appendChild(label);
-    head.appendChild(removeBtn);
+    head.appendChild(actions);
 
     const media = document.createElement('div');
     media.className = 'create-post-slide-media';
@@ -2738,6 +2857,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
     return (n / (1024 * 1024)).toFixed(1) + ' MB';
   }
+
+  const maxUploadBytes = <?= (int)post_upload_max_bytes() ?>;
 
   // Compress large photos before upload. Videos/PDFs pass through instantly.
   function compressImageFile(file){
@@ -2822,7 +2943,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const msg = String(message || '').trim();
     if (msg) return msg;
     const map = {
-      too_large: 'File is too large (max 100MB).',
+      too_large: 'File is too large (max <?= h(post_upload_max_label()) ?>).',
       unsupported_type: 'That file type is not supported. Use JPG, PNG, GIF, WEBP, MP4, MOV, or PDF.',
       heic_unsupported: 'HEIC/HEIF photos are not supported. Export as JPG or PNG and try again.',
       mime_mismatch: 'File type did not match its contents. Try another export.',
@@ -2834,30 +2955,65 @@ document.addEventListener('DOMContentLoaded', function(){
       auth: 'Please sign in again, then retry the upload.',
       readonly: 'This account cannot upload media.',
       no_files: 'No file was received. Try choosing the file again.',
-      upload_failed: 'Upload failed. Try again or submit to upload on save.'
+      upload_failed: 'Upload failed. Try again or submit to upload on save.',
+      http_403: 'Upload was blocked. Refresh the page and try again.',
+      http_409: 'Session expired. Refresh the page and try again.'
     };
     const key = String(code || '').trim();
     return map[key] || ('Upload failed' + (key ? (' (' + key + ')') : '') + '.');
   }
 
+  function parseUploadJson(raw){
+    raw = String(raw || '').replace(/^\uFEFF/, '').trim();
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (_e) {}
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try { return JSON.parse(raw.slice(start, end + 1)); } catch (_e2) {}
+    }
+    return null;
+  }
+
+  function createPostCsrf(){
+    let token = csrfInput ? String(csrfInput.value || '') : '';
+    if (!token) token = String(window.__MSB_CREATE_POST_CSRF || '');
+    if (!token) {
+      try {
+        if (window.parent && window.parent !== window && window.parent.__MSB_CSRF_TOKEN) {
+          token = String(window.parent.__MSB_CSRF_TOKEN || '');
+        }
+      } catch (_e) {}
+    }
+    return token;
+  }
+
+  function mediaUploadUrl(){
+    try {
+      const path = String(window.location.pathname || '');
+      const dir = path.replace(/\/[^/]*$/, '/');
+      return (dir || './') + 'ajax/post_media_upload.php';
+    } catch (_e) {
+      return 'ajax/post_media_upload.php';
+    }
+  }
+
   function uploadOneFile(file, onByteProgress){
     return new Promise(function(resolve){
-      const csrf = csrfInput ? String(csrfInput.value || '') : '';
+      const csrf = createPostCsrf();
       const fd = new FormData();
-      if (csrf) fd.append('csrf_token', csrf);
-      // Use non-bracket name + bracket alias for broader PHP/CGI compatibility.
+      fd.append('csrf_token', csrf);
       fd.append('attachments[]', file, file.name || 'upload.bin');
 
       const xhr = new XMLHttpRequest();
-      const uploadUrl = (function(){
-        try {
-          return new URL('ajax/post_media_upload.php', window.location.href).toString();
-        } catch (_e) {
-          return 'ajax/post_media_upload.php';
-        }
-      })();
-      xhr.open('POST', uploadUrl, true);
+      xhr.open('POST', mediaUploadUrl(), true);
+      xhr.withCredentials = true;
       xhr.responseType = 'text';
+      try { xhr.setRequestHeader('Accept', 'application/json'); } catch (_a) {}
+      try { xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); } catch (_x) {}
+      if (csrf) {
+        try { xhr.setRequestHeader('X-CSRF-Token', csrf); } catch (_h) {}
+      }
       xhr.upload.onprogress = function(ev){
         if (!ev.lengthComputable) return;
         if (typeof onByteProgress === 'function') onByteProgress(ev.loaded, ev.total, false);
@@ -2870,11 +3026,7 @@ document.addEventListener('DOMContentLoaded', function(){
         }
       };
       xhr.onload = function(){
-        let data = null;
-        const raw = String(xhr.responseText || '').trim();
-        if (raw) {
-          try { data = JSON.parse(raw); } catch (_e) { data = null; }
-        }
+        const data = parseUploadJson(xhr.responseText);
         if (!data || !data.ok || !Array.isArray(data.files) || !data.files.length) {
           let err = data && data.error ? String(data.error) : ('http_' + String(xhr.status || 0));
           if (data && Array.isArray(data.errors) && data.errors[0] && data.errors[0].error) {
@@ -2891,12 +3043,15 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 
-  function uploadSelectedFiles(fileList){
+  function uploadSelectedFiles(fileList, opts){
+    opts = opts || {};
+    const replaceCard = opts.replaceCard || null;
     if (!fileList || !fileList.length) return;
     const files = Array.prototype.slice.call(fileList).map(function(f){
       try { f.__objectUrl = URL.createObjectURL(f); } catch (_e) { f.__objectUrl = ''; }
       return f;
     });
+    if (replaceCard && files.length > 1) files.splice(1);
     uploading = true;
     activeUploads = files.length;
     syncSubmitEnabled();
@@ -2943,6 +3098,13 @@ document.addEventListener('DOMContentLoaded', function(){
         : Promise.resolve(file);
 
       return prep.then(function(out){
+        if (out && Number(out.size || 0) > maxUploadBytes) {
+          return {
+            ok: false,
+            error: 'too_large',
+            message: 'File is too large (max ' + formatBytes(maxUploadBytes) + ').'
+          };
+        }
         totals[idx] = Math.max(1, Number(out && out.size) || Number(file.size) || 1);
         loaded[idx] = 0;
         refreshProgress();
@@ -2967,7 +3129,8 @@ document.addEventListener('DOMContentLoaded', function(){
                   objectUrl: (files[idx] && files[idx].__objectUrl) ? files[idx].__objectUrl : '',
                   fileType: String((files[idx] && files[idx].type) || '')
                 };
-                addToken(String(item.token), meta);
+                if (replaceCard) applyReplaceOnCard(replaceCard, String(item.token), meta);
+                else addToken(String(item.token), meta);
                 tokens.push(String(item.token));
               }
             });
@@ -3048,13 +3211,34 @@ document.addEventListener('DOMContentLoaded', function(){
   const addSlideBtn = document.getElementById('createPostAddSlideBtn');
   if (addSlideBtn && fileInput) {
     addSlideBtn.addEventListener('click', function(){
+      replaceTargetCard = null;
       fileInput.click();
+    });
+  }
+  if (replaceFileInput) {
+    replaceFileInput.addEventListener('change', function(){
+      if (replaceFileInput.files && replaceFileInput.files.length) {
+        const card = replaceTargetCard;
+        replaceTargetCard = null;
+        uploadSelectedFiles(replaceFileInput.files, { replaceCard: card });
+      }
+      replaceFileInput.value = '';
     });
   }
 
   const slidesBoxEl = document.getElementById('createPostSlides');
   if (slidesBoxEl) {
     slidesBoxEl.addEventListener('click', function(ev){
+      const replaceBtn = ev.target && ev.target.closest ? ev.target.closest('.create-post-slide-replace') : null;
+      if (replaceBtn && slidesBoxEl.contains(replaceBtn)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const card = replaceBtn.closest('.create-post-slide');
+        if (!card) return;
+        replaceTargetCard = card;
+        if (replaceFileInput) replaceFileInput.click();
+        return;
+      }
       const btn = ev.target && ev.target.closest ? ev.target.closest('.create-post-slide-remove') : null;
       if (!btn || !slidesBoxEl.contains(btn)) return;
       ev.preventDefault();
@@ -3099,8 +3283,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if (editPostId > 0) {
       fd.set('post_id', String(editPostId));
     }
-    // If files were pre-uploaded, do not send empty file fields.
-    if (pendingCount > 0 && fileInput && (!fileInput.files || !fileInput.files.length)) {
+    // If files were pre-uploaded, never re-send the picker files (that can drop extras under max_file_uploads).
+    if (pendingCount > 0) {
       fd.delete('attachments[]');
     }
 
@@ -3268,6 +3452,11 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 
   window.msbComposerOpenPanel = function(key){ openPanel(key, {}); };
+
+  var editIdEl = document.getElementById('createPostId');
+  if (editIdEl && Number(editIdEl.value || 0) > 0) {
+    openPanel('media', {});
+  }
 
   form.addEventListener('click', function(ev){
     var openBtn = ev.target.closest('[data-open-panel]');

@@ -3829,7 +3829,7 @@ img, video, iframe { max-width: 100% !important; }
     display:none;
   }
   .vcall-shell.group-mode .vcall-meeting-badge::before{
-    content:"Talentra";
+    content:"Talsora";
   }
   .vcall-shell.group-mode .vcall-meta{
     height:48px;

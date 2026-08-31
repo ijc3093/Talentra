@@ -1,6 +1,6 @@
 <?php
 /**
- * Shared Instagram-style post viewer modal (#pvOverlay).
+ * Shared Talsora post viewer modal (#pvOverlay).
  * Used by public.php (feed/profile keep their inline copies for now).
  */
 if (defined('MSB_POST_VIEWER_MODAL_HTML')) {
@@ -11,7 +11,7 @@ if (!function_exists('post_action_thin_icon')) {
     require_once __DIR__ . '/post_action_thin_icons.php';
 }
 ?>
-<!-- Post Viewer Modal (Instagram-style) -->
+<!-- Post Viewer Modal (Talsora) -->
 <div id="pvOverlay" class="pv-overlay" aria-hidden="true" hidden style="display:none">
   <button type="button" class="pv-x" id="pvClose" aria-label="Close"><i class="icon ion-close"></i></button>
   <button type="button" class="pv-nav pv-prev" id="pvPrev" aria-label="Previous" hidden><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
@@ -63,17 +63,30 @@ if (!function_exists('post_action_thin_icon')) {
           <span><span id="pvReplyLead">Replying to</span> <b id="pvReplyName">—</b></span>
           <button type="button" class="pv-replyx" id="pvReplyCancel" aria-label="Cancel reply"><i class="icon ion-close"></i></button>
         </div>
+        <div class="pv-gif-preview" id="pvCommentGifPreview">
+          <img id="pvCommentGifThumb" alt="">
+          <span id="pvCommentGifName"></span>
+          <button type="button" class="pv-replyx" id="pvCommentGifClear" aria-label="Remove GIF">&times;</button>
+        </div>
         <div class="pv-input">
-          <button type="button" class="pv-iconbtn" id="pvAtBtn" title="Mention" aria-label="Mention">
-            <i class="icon ion-at"></i>
-          </button>
           <input type="text" id="pvText" placeholder="Add comment..." autocomplete="off" />
+          <button type="button" class="pv-iconbtn" id="pvMediaBtn" title="GIF" aria-label="GIF" aria-expanded="false" aria-controls="pvCommentGifPicker">
+            <i class="icon ion-image"></i>
+          </button>
           <button type="button" class="pv-iconbtn" id="pvEmojiBtn" title="Emoji" aria-label="Emoji">
             <i class="icon ion-happy-outline"></i>
           </button>
           <button type="button" class="pv-send" id="pvPostBtn" title="Send" aria-label="Send">
             <i class="icon ion-arrow-up-a"></i>
           </button>
+        </div>
+        <div class="pv-gif-picker" id="pvCommentGifPicker" hidden role="dialog" aria-label="GIF">
+          <div class="pv-gif-search-wrap">
+            <i class="icon ion-search" aria-hidden="true"></i>
+            <input type="search" id="pvCommentGifSearch" placeholder="Search GIFs" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="pv-gif-grid" id="pvCommentGifGrid"></div>
+          <div class="pv-gif-empty" id="pvCommentGifEmpty" hidden>No GIFs match</div>
         </div>
       </div>
     </div>
@@ -94,9 +107,11 @@ if (!function_exists('post_action_thin_icon')) {
   .pv-media .mf-media-carousel,
   .pv-media .media-carousel{position:relative;width:100%;height:100%;overflow:hidden;background:transparent;}
   .pv-media .mf-media-slides,
-  .pv-media .media-slides{display:flex;flex-wrap:nowrap;width:100%;height:100%;transition:transform .28s ease;}
+  .pv-media .media-slides{display:grid;grid-template-areas:"fade";width:100%;height:100%;transform:none!important;transition:none;}
   .pv-media .mf-media-slide,
-  .pv-media .media-slide{flex:0 0 100%;width:100%;height:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;}
+  .pv-media .media-slide{grid-area:fade;flex:none;width:100%;height:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;opacity:0;transition:opacity .7s ease-in-out;pointer-events:none;z-index:0;}
+  .pv-media .mf-media-slide.is-active,
+  .pv-media .media-slide.is-active{opacity:1;pointer-events:auto;z-index:1;}
   .pv-media .mf-media-slide > img,
   .pv-media .media-slide > img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:center center;}
   .pv-media .mf-media-slide > video,
@@ -139,7 +154,7 @@ if (!function_exists('post_action_thin_icon')) {
     .pv-left.pv-left-scroll .pv-media{overflow:auto;-webkit-overflow-scrolling:touch;align-items:flex-start !important;justify-content:flex-start !important;}
     .pv-left.pv-left-scroll .pv-media > div{height:auto !important;min-height:100%;align-items:flex-start !important;justify-content:flex-start !important;padding:22px !important;}
   }
-  .pv-right{flex:.85;min-width:320px;display:flex;flex-direction:column;background:var(--msb-palette-bg, #f2f1e8);min-height:0;border-left:1px solid var(--msb-palette-border, rgba(15,23,42,.18));}
+  .pv-right{flex:.85;min-width:320px;display:flex;flex-direction:column;background:var(--msb-palette-bg, #f2f1e8);min-height:0;border-left:1px solid var(--msb-palette-border, rgba(15,23,42,.18));position:relative;}
   .pv-head{padding:14px 14px;border-bottom:1px solid rgba(15,23,42,.08);display:flex;align-items:center;justify-content:space-between;gap:10px;}
   .pv-user{display:flex;align-items:center;gap:10px;min-width:0;}
   .pv-ava{width:35px;height:35px;border-radius:999px;object-fit:cover;background:#eef2ff;}
@@ -191,6 +206,7 @@ if (!function_exists('post_action_thin_icon')) {
   .pv-node.has-children.is-collapsed::after{display:none;}
   .pv-children{margin-left:calc(var(--pv-avatar-size) / 2);padding-left:28px;}
   .pv-com{display:flex;gap:7px;padding:14px 12px 12px;border-radius:18px;margin-bottom:0;}
+  .pv-com.is-alert-focus{background:var(--msb-palette-hover-bg, rgba(37,99,235,.10));outline:1px solid var(--msb-palette-border-strong, rgba(37,99,235,.28));}
   .pv-com .a{width:20px;height:20px;border-radius:999px;background:#111;color:#fff;flex:0 0 20px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8px;}
   .pv-com .a img{width:100%;height:100%;object-fit:cover;display:block;}
   .pv-com .b{min-width:0;flex:1;display:flex;flex-direction:column;}
@@ -199,8 +215,11 @@ if (!function_exists('post_action_thin_icon')) {
   .pv-com .m{margin-top:8px;font-size:12px;color:var(--msb-palette-text-muted, #667085);display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
   .pv-com .m .link{cursor:pointer;border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;}
   .pv-com .m .replies-toggle{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;}
-  .pv-com .m .pv-toggle-replies{color:var(--msb-palette-text-muted, #667085);font-weight:700;position:relative;padding-left:36px !important;display:inline-flex;align-items:center;gap:8px;}
-  .pv-com .m .pv-toggle-replies::before{content:"";position:absolute;left:0;top:50%;width:22px;height:1px;background:var(--pv-thread);transform:translateY(-50%);}
+  .pv-com .m .pv-toggle-replies{color:var(--msb-palette-text-muted, #667085);font-weight:700;position:relative;padding-left:28px !important;display:inline-flex;align-items:center;gap:5px;}
+  .pv-com .m .pv-toggle-replies::before{content:"";position:absolute;left:0;top:50%;width:18px;height:1px;background:var(--pv-thread);transform:translateY(-50%);}
+  .pv-com .m .pv-toggle-replies i{font-size:14px;line-height:1;}
+  .pv-com .m .pv-toggle-replies .pv-toggle-caret{font-size:11px;transition:transform .15s ease;}
+  .pv-com .m .pv-toggle-replies.is-open .pv-toggle-caret{transform:rotate(180deg);}
   .pv-actions{border-top:1px solid rgba(15,23,42,.08);padding:10px 12px 12px;}
   .pv-actrow{display:flex;align-items:center;gap:14px;}
   .pv-actrow .msb-react-cluster{display:inline-flex;align-items:center;gap:6px;}
@@ -236,13 +255,29 @@ if (!function_exists('post_action_thin_icon')) {
     background:var(--msb-palette-hover-bg, #f2f4f7);color:var(--msb-palette-text, #101828);
     display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;padding:0;flex:0 0 auto;
   }
-  #pvAtBtn{background:linear-gradient(180deg, #ff2e89 0%, #c11353 100%) !important;color:#fff !important;}
+  #pvMediaBtn{background:transparent !important;color:#22c55e !important;}
+  #pvMediaBtn i{color:#22c55e !important;font-size:16px;}
   .pv-send{
     width:25px;height:25px;border-radius:999px;border:none;
     background:#7c1730 !important;color:#fff !important;
     display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;flex:0 0 auto;
   }
   .pv-send:disabled{opacity:.55;cursor:not-allowed;}
+  .pv-com-media{margin:6px 0 0;max-width:88px;}
+  .pv-com-media img{display:block;width:88px;height:88px;object-fit:contain;border-radius:10px;background:transparent;}
+  .pv-gif-preview{display:none;align-items:center;gap:8px;margin:0 0 8px;padding:6px 8px;border-radius:12px;background:var(--msb-palette-hover-bg, #f2f4f7);}
+  .pv-gif-preview.is-on{display:flex;}
+  .pv-gif-preview img{width:56px;height:56px;object-fit:contain;border-radius:10px;}
+  .pv-gif-preview span{flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pv-gif-picker{position:absolute;left:12px;right:12px;bottom:70px;z-index:6;display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(48,48,52,.97);box-shadow:0 16px 36px rgba(0,0,0,.42);color:#f5f5f7;overflow:hidden;}
+  .pv-gif-picker[hidden]{display:none !important;}
+  .pv-gif-search-wrap{position:relative;margin:8px 10px 4px;}
+  .pv-gif-search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.42);font-size:12px;pointer-events:none;}
+  .pv-gif-search-wrap input{width:100%;height:28px;border:0;border-radius:8px;background:rgba(0,0,0,.28);color:#f5f5f7;font-size:13px;padding:0 10px 0 28px;outline:none;}
+  .pv-gif-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;max-height:260px;overflow:auto;padding:6px 10px 10px;}
+  .pv-gif-grid button{border:0;border-radius:10px;padding:0;background:rgba(255,255,255,.06);cursor:pointer;overflow:hidden;}
+  .pv-gif-grid img{display:block;width:100%;height:72px;object-fit:contain;}
+  .pv-gif-empty{padding:18px 12px;text-align:center;font-size:12px;color:rgba(255,255,255,.55);}
   .pv-replybar{margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:var(--msb-palette-text-muted, #667085);}
   .pv-replyx{border:0;background:transparent;cursor:pointer;color:var(--msb-palette-text, #101828);font-weight:800;padding:0;}
   .pv-x{position:fixed;top:14px;right:14px;z-index:10000;border:0;background:rgba(255,255,255,.12);backdrop-filter:blur(8px);color:#fff;width:42px;height:42px;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;}

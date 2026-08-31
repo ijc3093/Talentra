@@ -39,7 +39,7 @@
         videoLink: 'காணொளி இணைப்பு',
         insert: 'காணொளியை செருகு',
         url: 'இணையதள முகவரி',
-        providers: '(YouTube, Vimeo, Vine, Instagram, DailyMotion or Youku)'
+        providers: '(YouTube, Vimeo, Vine, DailyMotion or Youku)'
       },
       link: {
         link: 'இணைப்பு',

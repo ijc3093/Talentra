@@ -21,7 +21,7 @@
   }
 
   function updateCard(box, data){
-    var card = box.closest('.about-card') || box.closest('.field');
+    var card = box.closest('.about-card') || box.closest('.gear-edit-field') || box.closest('.acc-field') || box.closest('.field');
     if (!card || !data) return;
     var val = String(data.display || '');
     card.setAttribute('data-pin-value', val);

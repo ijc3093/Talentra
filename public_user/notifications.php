@@ -114,7 +114,11 @@ function notifications_parse_meta(string $type): array {
             $params['open_comment'] = $commentId;
         }
         $typeLower = strtolower($type);
-        if (strpos($typeLower, 'mention') !== false || strpos($typeLower, 'tagged you') !== false) {
+        if (strpos($typeLower, 'mention') !== false
+            || strpos($typeLower, 'tagged you') !== false
+            || strpos($typeLower, 'comment') !== false
+            || strpos($typeLower, 'replied') !== false
+            || $commentId > 0) {
             $params['hide_nav'] = 1;
         }
         $url = $page . '?' . http_build_query($params);
@@ -623,7 +627,7 @@ try {
   <style id="modal-fouc-lock-css"><?php include __DIR__ . '/includes/modal_fouc_lock.css.php'; ?></style>
   <?php post_action_thin_icons_render_css(); ?>
   <?php if (!defined('MSB_POST_ENGAGEMENT_JS')): ?>
-  <script src="./js/post-engagement-sync.js?v=7"></script>
+  <script src="./js/post-engagement-sync.js?v=8"></script>
   <?php define('MSB_POST_ENGAGEMENT_JS', true); endif; ?>
   <link rel="stylesheet" href="css/font-awesome.min.css">
   <link rel="stylesheet" href="css/bootstrap.min.css">
@@ -1425,6 +1429,7 @@ try {
                   $url = trim((string)($meta['url'] ?? ''));
                   $liveId = (int)($meta['live_id'] ?? 0);
                   $postId = (int)($meta['post_id'] ?? 0);
+                  $commentId = (int)($meta['comment_id'] ?? 0);
                   $isStoryNoti = (int)($meta['is_story'] ?? 0) === 1
                     || stripos($text, ' in a story') !== false
                     || (strpos($url, 'story_post=') !== false);
@@ -1448,8 +1453,9 @@ try {
                          data-noti-card="<?= h($tab) ?>"
                          data-id="<?= $nid ?>"
                          <?php if ($postId > 0): ?>data-post-id="<?= $postId ?>"<?php endif; ?>
+                         <?php if ($commentId > 0): ?>data-comment-id="<?= $commentId ?>"<?php endif; ?>
                          data-is-story="<?= $isStoryNoti ? '1' : '0' ?>"
-                         <?php if ($isMentionOrTag): ?>data-hide-nav="1"<?php endif; ?>
+                         <?php if ($isMentionOrTag || $commentId > 0): ?>data-hide-nav="1"<?php endif; ?>
                          <?php if ($url !== ''): ?>data-href="<?= h($url) ?>" role="link" tabindex="0"<?php endif; ?>
                          <?= $rowHidden ? 'hidden' : '' ?>>
                   <div class="x-noti-icon <?= h($iconClass) ?>" aria-hidden="true">
@@ -1478,8 +1484,9 @@ try {
                           type="button"
                           class="dropdown-item js-noti-view-post"
                           data-post-id="<?= $postId ?>"
+                          data-comment-id="<?= $commentId ?>"
                           data-is-story="<?= $isStoryNoti ? '1' : '0' ?>"
-                          data-hide-nav="<?= $isMentionOrTag ? '1' : '0' ?>"
+                          data-hide-nav="<?= ($isMentionOrTag || $commentId > 0) ? '1' : '0' ?>"
                         ><i class="fa fa-expand" aria-hidden="true"></i><?= $isStoryNoti ? 'View story' : 'View the post' ?></button>
                       <?php elseif ($url !== ''): ?>
                         <a class="dropdown-item" href="<?= h($url) ?>">Open</a>
@@ -1575,7 +1582,7 @@ try {
           <a href="#">Accessibility</a><span class="x-rail-footer-sep">·</span>
           <a href="#">Ads info</a><span class="x-rail-footer-sep">·</span>
           <a href="#">More...</a>
-          <div style="margin-top:4px;">© <?= date('Y') ?> Talentra</div>
+          <div style="margin-top:4px;">© <?= date('Y') ?> Talsora</div>
         </div>
       </aside>
     </div>
@@ -1680,14 +1687,17 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
     return false;
   }
 
-  function openNotiViewPost(postId, hideNav, isStory){
+  function openNotiViewPost(postId, hideNav, isStory, commentId){
     postId = parseInt(postId, 10) || 0;
+    commentId = parseInt(commentId || 0, 10) || 0;
     if (postId <= 0) return false;
     if (isStory) {
       return openNotiStory(postId, 'home.php?tab=for-you&story_post=' + encodeURIComponent(String(postId)));
     }
-    var opts = hideNav ? { hideNav: true } : {};
-    // Same Instagram-style #pvOverlay used by header bell → tagged/mentioned.
+    var opts = {};
+    if (hideNav || commentId > 0) opts.hideNav = true;
+    if (commentId > 0) opts.commentId = commentId;
+    // Same Talsora #pvOverlay used by header bell → tagged/mentioned.
     try {
       if (typeof window.pvOpenById === 'function') {
         var opened = window.pvOpenById(postId, opts);
@@ -1707,7 +1717,7 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
     } catch (eMenu) {}
     // Last resort: same destination the header uses when the modal is unavailable.
     try {
-      window.location.href = 'home.php?tab=for-you&open_post=' + encodeURIComponent(String(postId)) + (hideNav ? '&hide_nav=1' : '');
+      window.location.href = 'home.php?tab=for-you&open_post=' + encodeURIComponent(String(postId)) + (hideNav || commentId > 0 ? '&hide_nav=1' : '') + (commentId > 0 ? '&open_comment=' + encodeURIComponent(String(commentId)) : '');
       return true;
     } catch (eNav) {}
     return false;
@@ -1719,12 +1729,14 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
     var openPostId = parseInt(row.getAttribute('data-post-id') || '0', 10) || 0;
     var hideNav = row.getAttribute('data-hide-nav') === '1';
     var isStory = row.getAttribute('data-is-story') === '1';
+    var commentId = parseInt(row.getAttribute('data-comment-id') || '0', 10) || 0;
     if (!openPostId && href) {
       try {
         var u = new URL(href, window.location.href);
         openPostId = parseInt(u.searchParams.get('story_post') || u.searchParams.get('open_post') || u.searchParams.get('post') || '0', 10) || 0;
         if (!hideNav) hideNav = u.searchParams.get('hide_nav') === '1';
         if (!isStory) isStory = !!u.searchParams.get('story_post');
+        if (!commentId) commentId = parseInt(u.searchParams.get('open_comment') || '0', 10) || 0;
       } catch (eUrl) {}
     }
     if (!isStory) {
@@ -1737,7 +1749,7 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
     if (openPostId > 0 && isStory && openNotiStory(openPostId, href)) {
       return;
     }
-    if (openPostId > 0 && openNotiViewPost(openPostId, hideNav, false)) {
+    if (openPostId > 0 && openNotiViewPost(openPostId, hideNav, false, commentId)) {
       return;
     }
     if (href) window.location.href = href;
@@ -1751,7 +1763,9 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
       var postId = parseInt(viewBtn.getAttribute('data-post-id') || '0', 10) || 0;
       var hideNav = viewBtn.getAttribute('data-hide-nav') === '1';
       var isStory = viewBtn.getAttribute('data-is-story') === '1';
+      var commentId = parseInt(viewBtn.getAttribute('data-comment-id') || '0', 10) || 0;
       var row = viewBtn.closest('.x-noti-row');
+      if (!commentId && row) commentId = parseInt(row.getAttribute('data-comment-id') || '0', 10) || 0;
       if (!isStory && row) isStory = row.getAttribute('data-is-story') === '1';
       try {
         if (window.jQuery) {
@@ -1759,7 +1773,7 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
           window.jQuery(viewBtn).closest('.dropdown-toggle').attr('aria-expanded', 'false');
         }
       } catch (eDrop) {}
-      if (openNotiViewPost(postId, hideNav, isStory)) return;
+      if (openNotiViewPost(postId, hideNav, isStory, commentId)) return;
       openNotiRow(row);
       return;
     }

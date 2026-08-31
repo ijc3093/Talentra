@@ -16,8 +16,17 @@ header('Connection: close');
 
 function post_media_json(array $payload, int $code = 200): void
 {
+    // Keep application errors off HTTP 403. Hosts (and some Apache ErrorDocument
+    // setups) replace a 403 body with HTML, and the create-post UI then shows http_403.
+    if ($code === 403) {
+        $code = 409;
+    }
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
     http_response_code($code);
     $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
+    header('Content-Type: application/json; charset=utf-8');
     header('Content-Length: ' . strlen((string)$body));
     echo $body;
     if (function_exists('fastcgi_finish_request')) {
@@ -45,9 +54,18 @@ if (staff_pub_is_readonly()) {
     post_media_json(['ok' => false, 'error' => 'readonly'], 403);
 }
 
-$csrf = trim((string)($_POST['csrf_token'] ?? ''));
-if ($csrf === '' || !hash_equals(csrfToken(), $csrf)) {
-    post_media_json(['ok' => false, 'error' => 'csrf'], 403);
+$headerCsrf = trim((string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+$csrf = trim((string)($_POST['csrf_token'] ?? $headerCsrf));
+if ($csrf === '' && $headerCsrf !== '') {
+    $csrf = $headerCsrf;
+}
+$sessionCsrf = csrfToken();
+$csrfOk = ($sessionCsrf !== '' && $csrf !== '' && hash_equals($sessionCsrf, $csrf));
+if (!$csrfOk && function_exists('requestHasValidCsrf') && requestHasValidCsrf()) {
+    $csrfOk = true;
+}
+if (!$csrfOk) {
+    post_media_json(['ok' => false, 'error' => 'csrf', 'message' => 'Session expired. Refresh the page and try again.'], 409);
 }
 
 // Release the session lock before moving large media. Pending tokens are
@@ -114,7 +132,7 @@ foreach ($files as $file) {
 if ($saved === []) {
     $first = (string)(($errors[0]['error'] ?? '') ?: 'upload_failed');
     $messages = [
-        'too_large' => 'File is too large (max 100MB).',
+        'too_large' => 'File is too large (max ' . post_upload_max_label() . ').',
         'unsupported_type' => 'That file type is not supported. Use JPG, PNG, GIF, WEBP, MP4, MOV, PDF, or Office files.',
         'heic_unsupported' => 'HEIC/HEIF photos are not supported here. Export as JPG or PNG and try again.',
         'mime_mismatch' => 'File type did not match its contents. Try another file or re-export it.',

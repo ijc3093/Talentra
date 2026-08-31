@@ -3,6 +3,7 @@ if (!empty($GLOBALS['msb_menu_door_included'])) {
   return;
 }
 $GLOBALS['msb_menu_door_included'] = true;
+require_once __DIR__ . '/leftbar_door_anim.js.php';
 ?>
 <style>
 #ttLeftbarOverlays .tt-menu-wrap{
@@ -19,7 +20,7 @@ $GLOBALS['msb_menu_door_included'] = true;
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
-  transition:transform .18s ease, opacity .18s ease;
+  transition:transform .6s ease-in-out, opacity .45s ease;
 }
 #ttLeftbarOverlays .tt-menu-head{
   align-self:stretch !important;
@@ -30,6 +31,9 @@ $GLOBALS['msb_menu_door_included'] = true;
   transform:translateX(0);
   opacity:1;
   pointer-events:auto;
+}
+@media (prefers-reduced-motion:reduce){
+  #ttLeftbarOverlays .tt-menu-wrap{transition:none}
 }
 .tt-menu-head{
   flex:0 0 auto !important;
@@ -324,10 +328,17 @@ $GLOBALS['msb_menu_door_included'] = true;
     isOpen = false;
     $menuWrap.classList.remove('is-open');
     $menuWrap.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('public-leftbar-open');
+    if(window.MSBLeftbarDoorAnim){
+      window.MSBLeftbarDoorAnim.hold('menu', function(){ return isOpen; }, function(){
+        document.body.classList.remove('public-leftbar-open');
+      });
+    } else {
+      document.body.classList.remove('public-leftbar-open');
+    }
   }
 
   function openMenuPanel(){
+    if(window.MSBLeftbarDoorAnim) window.MSBLeftbarDoorAnim.cancel('menu');
     if(!$menuWrap || isOpen) return;
     isOpen = true;
     closeOtherPanels();

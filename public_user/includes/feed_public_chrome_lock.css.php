@@ -443,7 +443,21 @@ body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-im
   pointer-events:none !important;
 }
 
-/* For You tab: keep the real author/menu and reaction controls out of view
+/* Love / comment / thumbs / save / share sit below the media (display:contents).
+   Once the video is shown, keep that bar usable even if the first-frame
+   callback never fires. Do not change the action-bar flex layout. */
+body.public-page.feed-insta-ui .ig-feed:not(.public-media-hydrating) .public-post-card.mf-video-ready .standard-media-bottom,
+body.public-page.feed-insta-ui .ig-feed:not(.public-media-hydrating) .public-post-card.mf-video-ready .standard-media-bottom > *,
+body.public-page.feed-insta-ui .ig-feed:not(.public-media-hydrating) .public-post-card.mf-video-ready .standard-media-actions,
+body.public-page.feed-insta-ui .ig-feed:not(.public-media-hydrating) .public-post-card.mf-video-ready .standard-media-actions a,
+body.public-page.feed-insta-ui .ig-feed:not(.public-media-hydrating) .public-post-card.mf-video-ready .standard-media-actions button,
+body.public-page.feed-insta-ui .ig-feed:not(.public-media-hydrating) .public-post-card.mf-video-ready .standard-media-actions span{
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+}
+
+/* Circle tab: keep the real author/menu and reaction controls out of view
    until the pending image or first video frame has painted. */
 body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .mf-head--on-media,
 body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .mf-media-top-actions,
@@ -456,7 +470,7 @@ body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):
   pointer-events:none !important;
 }
 
-/* For You must not reserve bordered rows for posts whose media is not ready.
+/* Circle must not reserve bordered rows for posts whose media is not ready.
    The card returns to normal document flow as soon as its ready class lands. */
 body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-video-ready):not(.mf-video-error),
 body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error){

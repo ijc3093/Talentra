@@ -61,7 +61,7 @@ $publishers = news_publisher_follows_with_meta($meId);
       </article>
     <?php endforeach; ?>
   </div>
-  <div class="news-pub-note">Tip: after you follow sources, open <strong>News → Following</strong> to see only their latest posts. Love, comment, save, and share stay on Talentra — publishers never receive your messages.</div>
+  <div class="news-pub-note">Tip: after you follow sources, open <strong>News → Following</strong> to see only their latest posts. Love, comment, save, and share stay on Talsora — publishers never receive your messages.</div>
 </section>
 <script>
 (function(){

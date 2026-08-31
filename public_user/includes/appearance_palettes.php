@@ -347,6 +347,38 @@ function appearance_palette_mix_hex(string $hex, string $mixHex, float $weight):
     return sprintf('#%02x%02x%02x', $r, $g, $b);
 }
 
+/** Thin chrome line: light-on-dark or slightly darkened on tan / light color. */
+function appearance_palette_hairline_on_bg(string $bg, bool $isDark): string
+{
+    if ($isDark) {
+        return appearance_palette_mix_hex($bg, '#ffffff', 0.16);
+    }
+    if (appearance_palette_relative_luminance($bg) > 0.82) {
+        return '#d0d3da';
+    }
+    return appearance_palette_mix_hex($bg, '#000000', 0.14);
+}
+
+function appearance_palette_chrome_hairline_hex(string $slug): string
+{
+    $slug = appearance_palette_normalize_mode($slug);
+    if ($slug === 'light' || $slug === 'system' || $slug === '') {
+        return '#d0d3da';
+    }
+    if ($slug === 'dark') {
+        return appearance_palette_hairline_on_bg(appearance_palette_dark_hex(), true);
+    }
+    $bg = appearance_palette_unified_bg_hex($slug);
+    return appearance_palette_hairline_on_bg($bg, appearance_palette_uses_dark_chrome($slug));
+}
+
+function appearance_palette_hairline_css(string $slug): string
+{
+    $h = appearance_palette_chrome_hairline_hex($slug);
+    return '--msb-hairline:' . $h . ';--hc-chrome-line:' . $h . ';--hc-help-border:' . $h
+        . ';--ig-line:' . $h . ';--ig-border:' . $h . ';--hc-chrome-width:1px;';
+}
+
 /** Match JS paletteUnifiedBackground() for early shell paint. */
 function appearance_palette_unified_bg_hex(string $slug): string
 {
@@ -480,6 +512,18 @@ function appearance_palette_contrast_ratio(string $hex1, string $hex2): float
  */
 function appearance_palette_border_pair_on(string $bgHex, ?string $accentHex = null): array
 {
+    $accent = trim((string)$accentHex);
+    if ($accent !== '') {
+        if ($accent[0] !== '#') {
+            $accent = '#' . $accent;
+        }
+        if (preg_match('/^#[0-9a-f]{6}$/i', $accent)) {
+            return [
+                'border' => strtolower($accent),
+                'borderStrong' => strtolower($accent),
+            ];
+        }
+    }
     $lum = appearance_palette_relative_luminance($bgHex);
     // Light → soft gray; dark → subtle slate matching preferred dark divider.
     $preferred = $lum > 0.45 ? '#c0c2c4' : '#34383c';

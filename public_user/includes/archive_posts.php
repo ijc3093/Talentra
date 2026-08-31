@@ -80,7 +80,10 @@ if (!function_exists('msb_archive_fetch_posts')) {
                     aa.id ASC
                   LIMIT 1
                 ) AS thumb_type,
-                (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count
+                (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count,
+                COALESCE(p.views_count,0) AS views_count,
+                (SELECT COUNT(*) FROM public_post_comments c WHERE c.post_id = p.id AND c.is_deleted = 0) AS comment_count,
+                (SELECT COUNT(*) FROM public_post_reactions r WHERE r.post_id = p.id AND r.reaction = 'love') AS love_count
               FROM public_posts p
               WHERE p.user_id = :me
                 AND COALESCE(p.is_deleted,0) = 0
@@ -179,7 +182,7 @@ if (!function_exists('msb_archive_render_list_html')) {
             return '<div class="msb-archive-empty" role="status">'
                 . '<i class="icon ion-ios-box" aria-hidden="true"></i>'
                 . '<div class="msb-archive-empty-title">' . msb_archive_h($emptyTitle) . '</div>'
-                . '<div class="msb-archive-empty-text">Use Archive on a post menu in For You or Discover. Hidden posts show up here for you only.</div>'
+                . '<div class="msb-archive-empty-text">Use Archive on a post menu in Circle or Discover. Hidden posts show up here for you only.</div>'
                 . '</div>';
         }
 
@@ -343,5 +346,101 @@ if (!function_exists('msb_archive_render_unarchive_js')) {
 })();
 </script>
         <?php
+    }
+}
+
+if (!function_exists('msb_archive_avatar_url')) {
+    function msb_archive_avatar_url(array $user, int $size = 96): string
+    {
+        if (function_exists('user_avatar_url')) {
+            return (string)user_avatar_url($user, $size);
+        }
+        $img = trim((string)($user['image'] ?? ''));
+        if ($img !== '' && $img !== 'default.jpg') {
+            if (preg_match('~^(https?:)?//~i', $img) || (isset($img[0]) && $img[0] === '/')) {
+                return $img;
+            }
+            return './' . ltrim($img, './');
+        }
+        return 'avatar.php?id=' . (int)($user['id'] ?? 0) . '&s=' . $size;
+    }
+}
+
+if (!function_exists('msb_archive_date_badge')) {
+    /**
+     * @return array{day:string,month:string}
+     */
+    function msb_archive_date_badge(string $dt): array
+    {
+        $ts = strtotime(trim($dt));
+        if ($ts === false) {
+            return ['day' => '', 'month' => ''];
+        }
+        $day = date('j', $ts);
+        $month = date('Y', $ts) === date('Y')
+            ? date('M', $ts)
+            : date('M Y', $ts);
+        return ['day' => $day, 'month' => $month];
+    }
+}
+
+if (!function_exists('msb_archive_prepare_view')) {
+    /**
+     * @param list<array<string,mixed>> $posts
+     * @return array{storyCircles:list<array<string,mixed>>,hasStories:bool,feedPosts:list<array<string,mixed>>,avatarUrl:string}
+     */
+    function msb_archive_prepare_view(array $posts, array $meUser): array
+    {
+        $storyPosts = [];
+        $feedPosts = [];
+        foreach ($posts as $post) {
+            if (!empty($post['archived_as_story'])) {
+                $storyPosts[] = $post;
+            } else {
+                $feedPosts[] = $post;
+            }
+        }
+        $avatarUrl = msb_archive_avatar_url($meUser, 96);
+        $storyCircles = [];
+        foreach ($storyPosts as $post) {
+            $pid = (int)($post['id'] ?? 0);
+            if ($pid <= 0) {
+                continue;
+            }
+            $previewSrc = (string)($post['preview_src'] ?? '');
+            $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
+            $isVideo = ($thumbType === 'video');
+            $caption = trim((string)($post['preview_text'] ?? ''));
+            if (preg_match('/^story\s*#\s*\d+$/i', $caption)) {
+                $caption = '';
+            }
+            $badge = msb_archive_date_badge((string)($post['updated_at'] ?? $post['created_at'] ?? ''));
+            $label = trim($badge['day'] . ' ' . $badge['month']);
+            $authorName = trim((string)($meUser['name'] ?? ''));
+            if ($authorName === '') {
+                $authorName = trim((string)($meUser['username'] ?? 'You'));
+            }
+            if ($label === '') {
+                $label = $authorName !== '' ? $authorName : 'Story';
+            }
+            $storyCircles[] = [
+                'postId' => $pid,
+                'src' => $previewSrc,
+                'type' => $isVideo ? 'video' : ($previewSrc !== '' ? 'image' : 'text'),
+                'caption' => $caption,
+                'label' => $label,
+                'authorName' => $authorName,
+                'username' => trim((string)($meUser['username'] ?? '')),
+                'avatarUrl' => $avatarUrl,
+                'createdAt' => (string)($post['updated_at'] ?? $post['created_at'] ?? ''),
+                'ringSrc' => $previewSrc !== '' ? $previewSrc : $avatarUrl,
+            ];
+        }
+        return [
+            'storyCircles' => $storyCircles,
+            'hasStories' => count($storyCircles) > 0,
+            'feedPosts' => $feedPosts,
+            'avatarUrl' => $avatarUrl,
+        ];
     }
 }

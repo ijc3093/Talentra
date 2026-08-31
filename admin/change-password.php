@@ -154,17 +154,17 @@ if (isset($_POST['submit'])) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-    <!-- Twitter -->
+    <!-- Link preview -->
     <meta name="twitter:site" content="@themepixels">
     <meta name="twitter:creator" content="@themepixels">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Talentra">
+    <meta name="twitter:title" content="Talsora">
     <meta name="twitter:description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="twitter:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
 
-    <!-- Facebook -->
+    <!-- Open Graph -->
     <meta property="og:url" content="http://themepixels.me/shamcey">
-    <meta property="og:title" content="Talentra">
+    <meta property="og:title" content="Talsora">
     <meta property="og:description" content="Premium Quality and Responsive UI for Dashboard.">
 
     <meta property="og:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
@@ -173,7 +173,7 @@ if (isset($_POST['submit'])) {
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="600">
 
-    <!-- Meta -->
+    <!-- Page -->
     <meta name="description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="author" content="ThemePixels">
 

@@ -56,7 +56,7 @@ $feedUploadWarn = (string)($_GET['upload_warn'] ?? '') === '1';
 $feedSearchQ = trim((string)($_GET['q'] ?? ''));
 $feedDiscoverTab = home_tab_internal(strtolower(trim((string)($_GET['tab'] ?? 'for-you'))));
 $feedDiscoverTabs = [
-    'for-you' => 'For You',
+    'for-you' => 'Circle',
     'public' => 'Discover',
     'enterprise' => 'Commerce',
     'trending' => 'Trending',
@@ -165,6 +165,37 @@ if ($feedAlertPostId > 0 && $meId > 0) {
                 (string)($bootRow['preview_thumb_path'] ?? ''),
                 (int)($bootRow['attachment_count'] ?? 0)
             );
+            $bootRow['attachments'] = [];
+            try {
+                $stBootAtt = $dbh->prepare(
+                    "SELECT type, file_path, thumb_path, slide_title, slide_body
+                     FROM public_post_attachments
+                     WHERE post_id = :pid
+                     ORDER BY id ASC"
+                );
+                $stBootAtt->execute([':pid' => (int)$bootRow['id']]);
+                foreach ($stBootAtt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $bootAtt) {
+                    $bootAtt['file_path'] = preg_replace('#^public_user/#', '', (string)($bootAtt['file_path'] ?? ''));
+                    $bootAtt['thumb_path'] = preg_replace('#^public_user/#', '', (string)($bootAtt['thumb_path'] ?? ''));
+                    $bootRow['attachments'][] = $bootAtt;
+                }
+            } catch (Throwable $eBootAtt) {
+                try {
+                    $stBootAtt = $dbh->prepare(
+                        "SELECT type, file_path, thumb_path
+                         FROM public_post_attachments
+                         WHERE post_id = :pid
+                         ORDER BY id ASC"
+                    );
+                    $stBootAtt->execute([':pid' => (int)$bootRow['id']]);
+                    foreach ($stBootAtt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $bootAtt) {
+                        $bootAtt['file_path'] = preg_replace('#^public_user/#', '', (string)($bootAtt['file_path'] ?? ''));
+                        $bootAtt['thumb_path'] = preg_replace('#^public_user/#', '', (string)($bootAtt['thumb_path'] ?? ''));
+                        $bootRow['attachments'][] = $bootAtt;
+                    }
+                } catch (Throwable $eBootAtt2) {
+                }
+            }
             $feedBootItems[] = $bootRow;
         }
     } catch (Throwable $e) {
@@ -934,7 +965,7 @@ html, body { max-width: 100%; }
 <style>
 /* [FEED_MOBILE_FACEBOOK_STYLE] */
 /* =====================================================
-   MOBILE/TABLET: "Facebook-like" media post viewer
+   MOBILE/TABLET: "stacked" media post viewer
    - Desktop keeps Book layout unchanged
    - Mobile/Tablet: full-width card, header always visible, media never covers header
 ===================================================== */
@@ -970,7 +1001,7 @@ html, body { max-width: 100%; }
     z-index: 1 !important;
     order: 2 !important;
     width: 100% !important;
-    height: auto !important;     /* ✅ allow tall images like Facebook */
+    height: auto !important;     /* ✅ allow tall images like Talsora */
     flex: 0 0 auto !important;
     background: transparent;
   }
@@ -1034,7 +1065,7 @@ html, body { max-width: 100%; }
 <style>
 /* [FEED_TIKTOK_SCROLL_CSS] */
 /* =====================================================
-   TikTok-style reel navigation (mobile/tablet)
+   short-video reel navigation (mobile/tablet)
    - Only active when .ig-viewer-body.mode-reel is present
 ===================================================== */
 @media (max-width: 991.98px){
@@ -1122,7 +1153,7 @@ html, body { max-width: 100%; }
 </style>
 <style>
 /* [IG_INSTA_POST_CARD_UI] */
-/* Instagram-style post card (reference screenshot) */
+/* Talsora post card (reference screenshot) */
   .ig-insta-card{
     max-width:470px;
     margin-left:auto;
@@ -1426,7 +1457,7 @@ html, body { max-width: 100%; }
 <style>
 /* =====================================================
    ✅ MOBILE/TABLET: REEL-ONLY LAYOUT
-   - Reel shows (TikTok style)
+   - Reel shows (clips style)
    - Center post card + right sidebar hidden
    - NavLeftbar hidden
 ===================================================== */
@@ -2101,15 +2132,16 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   }
   .mf-media-slides,
   .media-slides{
-    display:flex;
+    display:grid;
+    grid-template-areas:"fade";
     width:100%;
-    flex-wrap:nowrap !important;
-    flex-direction:row !important;
-    transition:transform .28s ease;
+    transform:none !important;
+    transition:none;
   }
   .mf-media-slide,
   .media-slide{
-    flex:0 0 100%;
+    grid-area:fade;
+    flex:none;
     width:100%;
     max-width:100%;
     display:flex;
@@ -2117,6 +2149,20 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     justify-content:center;
     overflow:hidden;
     background:transparent;
+    opacity:0;
+    transition:opacity .7s ease-in-out;
+    pointer-events:none;
+    z-index:0;
+  }
+  .mf-media-slide.is-active,
+  .media-slide.is-active{
+    opacity:1;
+    pointer-events:auto;
+    z-index:1;
+  }
+  @media (prefers-reduced-motion:reduce){
+    .mf-media-slide,
+    .media-slide{transition:none}
   }
   .mf-media-slide > img,
   .mf-media-slide > video,
@@ -4058,8 +4104,9 @@ body.feed-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top-s
   color:var(--feed-control-placeholder, #667085);
 }
 .feed-top-search-input:focus{
-  border-color:var(--msb-palette-action, var(--feed-accent, #2563eb));
-  box-shadow:0 0 0 3px var(--msb-palette-action-soft, var(--feed-accent-soft, rgba(37,99,235,.12)));
+  outline:none;
+  border-color:var(--msb-hairline, #2a2f36);
+  box-shadow:none;
 }
 .feed-top-search-icon{
   position:absolute;
@@ -4724,7 +4771,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 <style id="shared-feed-public-chrome-lock-css"><?php include __DIR__ . '/includes/feed_public_chrome_lock.css.php'; ?></style>
 
 </head>
-  <body class="feed-page feed-insta-ui">
+  <body class="feed-page feed-insta-ui<?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
   <?php $GLOBALS['msb_skip_header_leftbar'] = true; $skipHeaderThemeBootstrap = true; include __DIR__.'/includes/header.php'; ?>
   <?php $feedLeftRailActive = 'home.php'; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__.'/includes/feed_left_rail.php'; ?>
     
@@ -4758,7 +4805,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             <div class="ig-feed-header">
               <?php include __DIR__ . '/includes/feed_top_user_lead.php'; ?>
               <div class="ig-stories-wrap">
-                <div class="ig-stories-bar is-empty" aria-label="Stories">
+                <div class="ig-stories-bar is-empty" aria-label="Moments">
                   <div class="ig-stories-track is-empty<?= $staffReadonly ? '' : ' has-create' ?>" id="igStoriesTrack">
                     <?php if (!$staffReadonly): ?>
                     <a class="ig-story-item ig-story-create" href="dashboard.php?modal=1&amp;story=1" data-create-post-modal="1" aria-label="Create a story">
@@ -4952,7 +4999,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                       <!-- ✅ TOP AREA -->
                       <div class="ig-topbar">
 
-                        <!-- ✅ Instagram action bar -->
+                        <!-- ✅ Talsora action bar -->
                         <div class="ig-underbar ig-insta-actionbar">
                           <div class="ig-insta-actions-left ig-actions ig-actions-icons">
                             <a id="btnLove" class="ig-act" type="button" title="Love">
@@ -6334,7 +6381,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
 
         /* =========================================================
-           ✅ REEL layout (Mobile TikTok-style)
+           ✅ REEL layout (Mobile short-video)
            - Auto-enabled for single-video posts on small screens (<= 768px),
              or when post declares layout/type = "reel".
            - No card background; video fills viewport area; actions as vertical rail.
@@ -6900,7 +6947,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         
 
         // =====================================================
-        // ✅ REEL layout toggle (mobile TikTok-style)
+        // ✅ REEL layout toggle (mobile short-video)
         // - Enabled for single-video posts on small screens (<= 768px),
         //   or when post declares layout/type = "reel".
         // - Uses existing vertical action rail (#bookVrail).
@@ -7283,6 +7330,61 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           return window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
         }
 
+        function mfDescMediaMaxHeightCss(){
+          if(window.matchMedia('(max-width: 767.98px)').matches){
+            return 'min(52vh, 580px)';
+          }
+          if(window.matchMedia('(max-width: 1024.98px)').matches){
+            return 'min(54vh, 580px)';
+          }
+          return 'min(70vh, 580px)';
+        }
+
+        /* Discover (public.php publicComputeMediaCardWidth) — caption+media only. */
+        function mfComputeDescMediaCardWidth(aspectW, aspectH, opts){
+          opts = opts || {};
+          aspectW = Number(aspectW || 0);
+          aspectH = Number(aspectH || 0);
+          if(!aspectW || !aspectH) return 0;
+
+          var aspect = aspectW / aspectH;
+          var viewportH = Math.max(window.innerHeight || 0, 320);
+          var reserved = 250;
+          var fitH = Math.max(280, viewportH - reserved);
+          var maxVideoH;
+          if(window.matchMedia('(max-width: 767.98px)').matches){
+            maxVideoH = Math.min(Math.round(viewportH * 0.52), fitH, 580);
+          }else if(window.matchMedia('(max-width: 1024.98px)').matches){
+            maxVideoH = Math.min(Math.round(viewportH * 0.54), fitH, 580);
+          }else{
+            maxVideoH = Math.min(Math.round(viewportH * 0.56), fitH, 580);
+          }
+          var feed = opts.feedEl || document.querySelector('.mf-feed');
+          var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), 680);
+          var cardPad = opts.cardPad != null ? Number(opts.cardPad) : 24;
+          var availableWidth = Math.max(240, (feedWidth || 680) - cardPad);
+          var isPhoneShot = !!opts.isPhoneShot;
+          var desiredWidth = Math.round(aspect * maxVideoH);
+          var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
+          var isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
+
+          if(isMobile){
+            if(isPhoneShot){
+              return Math.max(220, Math.min(availableWidth, Math.round(Math.min(window.innerWidth * 0.72, 320))));
+            }
+            var mobileMax = aspect < 0.8 ? 310 : (aspect > 1.15 ? Math.min(availableWidth, 380) : 330);
+            return Math.max(220, Math.min(desiredWidth, availableWidth, mobileMax));
+          }
+
+          if(isTablet){
+            var tabletMax = aspect < 0.8 ? 400 : (aspect > 1.15 ? Math.min(availableWidth, 560) : 440);
+            return Math.max(260, Math.min(desiredWidth, availableWidth, tabletMax));
+          }
+
+          var maxByShape = aspect < 0.8 ? 400 : (aspect > 1.15 ? 680 : 520);
+          return Math.max(260, Math.min(desiredWidth, availableWidth, maxByShape));
+        }
+
         function mfComputeMediaCardWidth(aspectW, aspectH, opts){
           opts = opts || {};
           aspectW = Number(aspectW || 0);
@@ -7348,14 +7450,18 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var image = card.querySelector('.media-stage.standard-image-stage > img');
           var isPhoneShot = card.classList.contains('mf-card-phone-shot') || !!(media && media.classList.contains('phone-shot'));
           var isHeadOutside = card.classList.contains('mf-card-media-head-outside');
-          var safeWidth = mfComputeMediaCardWidth(aspectW, aspectH, {
+          var isDescMedia = card.classList.contains('mf-card-description-media');
+          var widthOpts = {
             isPhoneShot: isPhoneShot,
             feedEl: card.closest('.mf-feed'),
             cardPad: 24
-          });
+          };
+          var safeWidth = isDescMedia
+            ? mfComputeDescMediaCardWidth(aspectW, aspectH, widthOpts)
+            : mfComputeMediaCardWidth(aspectW, aspectH, widthOpts);
           if(!safeWidth) return;
 
-          var maxH = mfMediaMaxHeightCss();
+          var maxH = isDescMedia ? mfDescMediaMaxHeightCss() : mfMediaMaxHeightCss();
           card.style.width = '100%';
           card.style.maxWidth = '100%';
           card.style.marginLeft = '0';
@@ -7467,7 +7573,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var dims = mfGetDeviceDimensions(card) || mfInitialMediaAspect(it, null);
           if(!dims || !dims.w || !dims.h) return;
           mfApplyPublicVideoCardWidth(card, dims.w, dims.h);
-          var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
+          var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage, .media-stage.has-carousel');
           if(media && card.classList.contains('is-single-image-post')){
             media.classList.add('mf-media-sized');
           }
@@ -8970,8 +9076,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         function mfIsOwnFeedItem(it){
           it = it || {};
           if(STAFF_READONLY) return false;
-          if(String(mfFriendStatusFromItem(it)) === 'self') return true;
-          return Number(it.user_id || it.author_id || 0) === Number(ME_ID || 0);
+          var me = Number(ME_ID || 0);
+          var uid = Number(it.user_id || it.author_id || 0);
+          return me > 0 && uid > 0 && uid === me;
         }
 
         function mfFriendStatusFromItem(it){
@@ -9267,11 +9374,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             }else{
               inner = mfFileTileHtml(src, kind);
             }
-            slides += '<div class="media-slide mf-media-slide" data-slide-index="'+i+'" data-slide-title="'+esc(String(a.slide_title||''))+'" data-slide-body="'+esc(String(a.slide_body||''))+'" style="flex:0 0 100%;width:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;border-radius:8px;">'+inner+'</div>';
+            slides += '<div class="media-slide mf-media-slide'+(i===0?' is-active':'')+'" data-slide-index="'+i+'" data-slide-title="'+esc(String(a.slide_title||''))+'" data-slide-body="'+esc(String(a.slide_body||''))+'">'+inner+'</div>';
           }
           return ''+
-            '<div class="media-carousel mf-media-carousel" data-index="0" style="position:relative;width:100%;overflow:hidden;border-radius:8px;background:transparent;">'+
-              '<div class="media-slides mf-media-slides" style="display:flex;flex-wrap:nowrap;flex-direction:row;width:100%;transition:transform .28s ease;">'+slides+'</div>'+
+            '<div class="media-carousel mf-media-carousel" data-index="0">'+
+              '<div class="media-slides mf-media-slides">'+slides+'</div>'+
               mfCarouselNavButtonsHtml()+
               mfMediaDots(atts.length)+
             '</div>';
@@ -9294,7 +9401,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(nextIndex >= total) nextIndex = 0;
           $carousel.attr('data-index', String(nextIndex));
           $carousel.closest('.js-media-carousel, .media-stage').attr('data-index', String(nextIndex));
-          $slides.css('transform', 'translateX(' + String(nextIndex * -100) + '%)');
+          $slides.css('transform', 'none');
+          $items.each(function(i){ this.classList.toggle('is-active', i === nextIndex); });
 
           var $dots = $carousel.find('.mf-media-dot');
           if(!$dots.length){
@@ -9403,7 +9511,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(isLiveCard) return '';
           if(!hasMedia && !title && !hasBody) return '';
           // Same reel rule as public.php: only explicit media_reel_bottom layout.
-          var isReelCard = (pkind === 'video' && isSingleMedia && declaredLayout === 'media_reel_bottom');
+          var isReelCard = false;
           var isVideoCard = (pkind === 'video' && !isReelCard);
 
           var titleHtml = title ? '<div class="mf-title">'+esc(title)+'</div>' : '';
@@ -9412,9 +9520,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var mediaHtml = '';
           var actionsHtml = '';
           var cardClass = 'mf-card';
-          var useMediaHeadOutside = hasMedia && !isReelCard;
+          var hasMediaDescription = hasMedia && !!(title || hasBody || slideTitle0 || slideBody0);
+          var useMediaHeadOutside = hasMediaDescription && !isReelCard;
           if(useMediaHeadOutside){
-            cardClass += ' mf-card-media-head-outside';
+            cardClass += ' mf-card-media-head-outside mf-card-description-media';
           }
           if(isPhoneShot && isSingleMedia){
             cardClass += ' mf-card-phone-shot';
@@ -9530,9 +9639,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               });
               mediaHtml = '<div class="'+imageMediaClass+'"'+mediaStyleAttr+' data-shape-ready="1" data-count="'+attCount+'" data-index="0">'+
                           (isMultiMedia
-                            ? ('<div class="media-carousel mf-media-carousel" data-index="0" data-pending-hydrate="1" style="position:relative;width:100%;overflow:hidden;border-radius:8px;background:transparent;">'+
-                                 '<div class="media-slides mf-media-slides" style="display:flex;flex-wrap:nowrap;flex-direction:row;width:100%;transition:transform .28s ease;">'+
-                                   '<div class="media-slide mf-media-slide" data-slide-index="0" style="flex:0 0 100%;width:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;border-radius:8px;"><img src="'+esc(psrc)+'" alt=""></div>'+
+                            ? ('<div class="media-carousel mf-media-carousel" data-index="0" data-pending-hydrate="1">'+
+                                 '<div class="media-slides mf-media-slides">'+
+                                   '<div class="media-slide mf-media-slide is-active" data-slide-index="0"><img src="'+esc(psrc)+'" alt=""></div>'+
                                  '</div>'+
                                  mfCarouselNavButtonsHtml()+
                                  mfMediaDots(attCount)+
@@ -10029,8 +10138,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           $card = $card && $card.jquery ? $card : $($card);
           return {
             comment_count: Number($card.find('.mf-cmt, .mf-act.mf-comment .mf-num').first().text()||0),
-            love_count: Number($card.find('.mf-act.mf-love .mf-num').first().text()||0),
+            love_count: Number($card.attr('data-love-count') || 0),
             like_count: Number($card.find('.mf-act.mf-like .mf-num').first().text()||0),
+            reaction_count: Number($card.find('.mf-act.mf-love .mf-num').first().text()||0),
             save_count: Number($card.find('.mf-act.mf-save .mf-num').first().text()||0),
             share_count: Number($card.find('.mf-act.mf-share .mf-num').first().text()||0),
             my_reaction: String($card.attr('data-my-reaction') || ''),
@@ -10130,12 +10240,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             var prev = String(snap.my_reaction || '');
             if(next === 'none' && !prev) return;
             if(next !== 'none' && prev === next) return;
-            var optimistic = Object.assign({}, snap, {
-              my_reaction: next === 'none' ? '' : next,
-              love_count: Math.max(0, Number(snap.love_count||0)
-                + (prev === 'love' && next !== 'love' ? -1 : 0)
-                + (prev !== 'love' && next === 'love' ? 1 : 0))
-            });
+            var totals = (window.MSBPostEngagement && typeof window.MSBPostEngagement.nextReaction === 'function')
+              ? window.MSBPostEngagement.nextReaction(snap, next)
+              : { my_reaction: next === 'none' ? '' : next, love_count: snap.love_count, like_count: snap.like_count, reaction_count: Math.max(0, Number(snap.love_count||0) + (!prev && next !== 'none' ? 1 : 0) - (prev && next === 'none' ? 1 : 0)) };
+            var optimistic = Object.assign({}, snap, totals);
             $btn.data('busy', 1);
             mfApplyCardEngagement(pid, optimistic, {}, []);
             mfPost('react', { post_id: pid, reaction: next }, function(res){
@@ -10371,7 +10479,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
         function buildStoryCatalogFromItems(items){
           items = Array.isArray(items) ? items : [];
-          var byUser = {};
+          var byPost = {};
           items.forEach(function(it){
             if(Number(it && it.is_archived || 0) === 1) return;
             /* Only explicit Story-layout posts belong in the story rail.
@@ -10379,38 +10487,59 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             if(!isStoryPost(it)) return;
             var src = storyMediaSrcFromItem(it);
             var uid = Number(it.user_id || 0);
-            if(!uid) return;
+            var postId = Number(it.id || 0);
+            if(!uid || !postId) return;
+            var key = 's' + String(postId);
+            if(byPost[key]) return;
             var caption = storyCaptionFromItem(it);
-            if(!src && !caption) return;
-            var key = 'u' + String(uid);
-            if(!byUser[key]){
-              var storyIsPublisher = String(it.account_kind || '') === 'publisher'
-                || String(it.friend_code || '').trim().toUpperCase().indexOf('PUB-') === 0;
-              byUser[key] = {
-                key: key,
-                userId: uid,
-                name: peerLabel(it.display_name, it.username) || String(it.username || 'User'),
-                username: String(it.username || '').trim(),
-                friendCode: String(it.friend_code || '').trim().toUpperCase(),
-                friendStatus: String(it.friend_status || it.friendStatus || '').trim().toLowerCase() || 'none',
-                verified: Number(it.is_verified || it.verified || 0) === 1,
-                isPublisher: storyIsPublisher,
-                avatarUrl: avatarUrlFor(it, 96),
-                subtitle: '',
-                slides: []
-              };
-            } else if(!byUser[key].friendStatus && (it.friend_status || it.friendStatus)){
-              byUser[key].friendStatus = String(it.friend_status || it.friendStatus || '').trim().toLowerCase() || 'none';
+            var attList = Array.isArray(it.attachments) ? it.attachments : [];
+            var mediaSlides = [];
+            attList.forEach(function(a){
+              a = a || {};
+              var aSrc = String(a.file_path || a.thumb_path || '').trim()
+                .replace(/^public_user\//,'')
+                .replace(/^\.\//,'');
+              if(!aSrc) return;
+              var aType = String(a.type || '').trim().toLowerCase();
+              var kind = storyPreviewKind(aSrc, aType);
+              if(kind !== 'video') kind = 'image';
+              mediaSlides.push({
+                src: aSrc,
+                type: kind,
+                previewType: aType,
+                caption: String(a.slide_body || a.slide_title || '').trim()
+              });
+            });
+            if(!mediaSlides.length && src){
+              mediaSlides.push({
+                src: src,
+                type: storyPreviewKind(src, it.preview_type) === 'video' ? 'video' : 'image',
+                previewType: String(it.preview_type || '').trim(),
+                caption: ''
+              });
             }
-            byUser[key].slides.push({
-              src: src,
-              type: src ? storyPreviewKind(src, it.preview_type) : 'text',
+            if(!mediaSlides.length && !caption) return;
+            var storyIsPublisher = String(it.account_kind || '') === 'publisher'
+              || String(it.friend_code || '').trim().toUpperCase().indexOf('PUB-') === 0;
+            byPost[key] = {
+              key: key,
+              userId: uid,
+              name: peerLabel(it.display_name, it.username) || String(it.username || 'User'),
+              username: String(it.username || '').trim(),
+              friendCode: String(it.friend_code || '').trim().toUpperCase(),
+              friendStatus: String(it.friend_status || it.friendStatus || '').trim().toLowerCase() || 'none',
+              verified: Number(it.is_verified || it.verified || 0) === 1,
+              isPublisher: storyIsPublisher,
+              avatarUrl: avatarUrlFor(it, 96),
+              subtitle: '',
+              slides: []
+            };
+            var slideBase = {
               title: storyCaptionFromItem(it, true),
-              caption: caption,
               timeLabel: fmtDateShort(itemDate(it)) || timeAgoShort(itemDate(it)) || '',
               timeAgo: timeAgoShort(itemDate(it)) || '',
               createdAt: String(itemDate(it) || ''),
-              postId: Number(it.id || 0),
+              postId: postId,
               myReaction: String(it.my_reaction || ''),
               myShared: Number(it.my_shared || 0) ? 1 : 0,
               mySaved: Number(it.my_saved || 0) ? 1 : 0,
@@ -10419,11 +10548,29 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               loveCount: Number(it.reaction_count != null ? it.reaction_count : (it.love_count || 0)),
               shareCount: Number(it.share_count || 0),
               saveCount: Number(it.save_count || 0),
-              friendCode: String(it.friend_code || byUser[key].friendCode || '').trim().toUpperCase(),
-              previewType: String(it.preview_type || '').trim()
-            });
+              friendCode: String(it.friend_code || byPost[key].friendCode || '').trim().toUpperCase()
+            };
+            if(!mediaSlides.length){
+              byPost[key].slides.push(Object.assign({}, slideBase, {
+                src: '',
+                type: 'text',
+                caption: caption,
+                previewType: ''
+              }));
+            } else {
+              mediaSlides.forEach(function(media){
+                byPost[key].slides.push(Object.assign({}, slideBase, {
+                  src: media.src,
+                  type: media.type,
+                  caption: media.caption || caption,
+                  previewType: media.previewType || ''
+                }));
+              });
+              var firstSrc = String(byPost[key].slides[0] && byPost[key].slides[0].src || '').trim();
+              if(firstSrc) byPost[key].avatarUrl = firstSrc;
+            }
           });
-          return Object.keys(byUser).map(function(k){ return byUser[k]; }).filter(function(story){
+          return Object.keys(byPost).map(function(k){ return byPost[k]; }).filter(function(story){
             return story.slides && story.slides.length;
           });
         }
@@ -11803,7 +11950,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           // ============================
           try{
             var isSingleVideoOnlyPost = (firstKind === 'video' && !hasTitle && !hasLong && Number((atts && atts.length) || 0) === 1);
-            var wantsReel = (declaredLayout === 'reel' || declaredLayout === 'reels' || declaredLayout === 'tiktok' || (wantsMediaReelBottom && firstKind === 'video') || isSingleVideoOnlyPost);
+            var wantsReel = (declaredLayout === 'reel' || declaredLayout === 'reels' || declaredLayout === 'clip' || declaredLayout === 'clips' || (wantsMediaReelBottom && firstKind === 'video') || isSingleVideoOnlyPost);
 
             if(wantsReel && !(isInstaFeedCard() && !isSmallScreen())){
               setReelMode(true);
@@ -13302,7 +13449,7 @@ function feedGoToPost(){
 <script>
 /* [FEED_TIKTOK_SCROLL_JS] */
 /* =====================================================
-   TikTok-style reel scroll (swipe up/down) for mobile/tablet
+   short-video reel scroll (swipe up/down) for mobile/tablet
    ✅ Uses existing loadPost(postId, fromList)
    ✅ Uses #postList order (.pl-item[data-id])
 ===================================================== */
@@ -13900,7 +14047,7 @@ function feedGoToPost(){
 
 
 
-<!-- ✅ Post Viewer Modal (Instagram-style) -->
+<!-- ✅ Post Viewer Modal (Talsora) -->
 <div id="pvOverlay" class="pv-overlay" aria-hidden="true" hidden style="display:none">
   <button type="button" class="pv-x" id="pvClose" aria-label="Close"><i class="icon ion-close"></i></button>
   <button type="button" class="pv-nav pv-prev" id="pvPrev" aria-label="Previous"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
@@ -13964,7 +14111,7 @@ function feedGoToPost(){
 </div>
 
 <style>
-  /* ✅ Modal (instagram-style) */
+  /* ✅ Modal (Talsora) */
   .pv-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.72);z-index:9999;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
   .pv-overlay.pv-is-switching .pv-body{opacity:.84;transition:opacity .14s ease;pointer-events:none;}
   .pv-overlay.show{display:flex;}
@@ -13976,9 +14123,11 @@ function feedGoToPost(){
   .pv-media .mf-media-carousel,
   .pv-media .media-carousel{position:relative;width:100%;height:100%;overflow:hidden;background:transparent;}
   .pv-media .mf-media-slides,
-  .pv-media .media-slides{display:flex;flex-wrap:nowrap;width:100%;height:100%;transition:transform .28s ease;}
+  .pv-media .media-slides{display:grid;grid-template-areas:"fade";width:100%;height:100%;transform:none!important;transition:none;}
   .pv-media .mf-media-slide,
-  .pv-media .media-slide{flex:0 0 100%;width:100%;height:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;}
+  .pv-media .media-slide{grid-area:fade;flex:none;width:100%;height:100%;max-width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;opacity:0;transition:opacity .7s ease-in-out;pointer-events:none;z-index:0;}
+  .pv-media .mf-media-slide.is-active,
+  .pv-media .media-slide.is-active{opacity:1;pointer-events:auto;z-index:1;}
   .pv-media .mf-media-slide > img,
   .pv-media .media-slide > img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:center center;}
   .pv-media .mf-media-slide > video,
@@ -15610,6 +15759,17 @@ body .mf-feed video.ig-smart-feed-video{
   object-fit:contain !important;
   object-position:center center !important;
 }
+body .mf-feed .mf-card.mf-card-description-media.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
+body .mf-feed .mf-card.mf-card-description-media.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage > img{
+  width:min(100%, var(--post-media-card-width, 680px)) !important;
+  max-width:100% !important;
+  height:auto !important;
+  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  object-fit:contain !important;
+  object-position:left center !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+}
 @media (max-width:767.98px){
   body .mf-feed{
     --post-media-max-height: min(58vh, 620px);
@@ -16077,13 +16237,18 @@ window.pvOpenById = function(postId, opts){
   if (!postId) return false;
   opts = (opts && typeof opts === 'object') ? opts : {};
   var hideNav = !!(opts.hideNav || opts.standalone || opts.fromMention || opts.fromTag);
+  var commentId = Number(opts.commentId || opts.open_comment || 0);
   try { window.__pvHidePostNav = hideNav; } catch (eFlag) {}
+  if (commentId > 0) {
+    pvCommentFocusId = commentId;
+    try { window.__pvFocusCommentId = commentId; } catch (eCid) {}
+  }
 
   if (hideNav) {
     if (typeof pvSetReply === 'function') pvSetReply(0, '');
     pvCollapsedReplyIds.clear();
     pvCommentsCache = [];
-    pvCommentFocusId = 0;
+    if (commentId <= 0) pvCommentFocusId = 0;
     if (typeof pvSetVh === 'function') pvSetVh();
     pvIndex = -1;
     pvPostId = postId;
@@ -16105,12 +16270,13 @@ window.pvOpenById = function(postId, opts){
   var idx = Array.isArray(ids) ? ids.indexOf(postId) : -1;
   if (typeof pvOpenByIndex === 'function' && idx >= 0) {
     pvOpenByIndex(idx);
+    if (commentId > 0) pvCommentFocusId = commentId;
     return true;
   }
   if (typeof pvSetReply === 'function') pvSetReply(0, '');
   pvCollapsedReplyIds.clear();
   pvCommentsCache = [];
-  pvCommentFocusId = 0;
+  if (commentId <= 0) pvCommentFocusId = 0;
   if (typeof pvSetVh === 'function') pvSetVh();
   pvIndex = idx;
   pvPostId = postId;
@@ -16323,7 +16489,7 @@ function pvRenderMedia(post, atts){
   if (Array.isArray(atts) && atts.length > 1) {
     let slides = '';
     atts.forEach((a, i) => {
-      slides += `<div class="media-slide mf-media-slide" data-slide-index="${i}">${pvSlideInner(a)}</div>`;
+      slides += `<div class="media-slide mf-media-slide${i === 0 ? ' is-active' : ''}" data-slide-index="${i}">${pvSlideInner(a)}</div>`;
     });
     pv.media.innerHTML = `
       <div class="media-carousel mf-media-carousel" data-index="0">
@@ -16390,7 +16556,10 @@ function pvSetMediaCarouselIndex(carousel, nextIndex){
   if (idx < 0) idx = 0;
   if (idx > slideCount - 1) idx = slideCount - 1;
   carousel.setAttribute('data-index', String(idx));
-  if (slides) slides.style.transform = 'translateX(' + String(idx * -100) + '%)';
+  if (slides) slides.style.transform = 'none';
+  carousel.querySelectorAll('.mf-media-slide, .media-slide').forEach(function(el, i){
+    el.classList.toggle('is-active', i === idx);
+  });
   dots.forEach((dot) => {
     const di = Number(dot.getAttribute('data-index'));
     const on = di === idx;
@@ -16431,6 +16600,21 @@ function pvRenderComments(post, comments){
     node._replies.forEach((child) => annotateReplyDepth(child, depth + 1, nextCappedAncestorId));
   }
   roots.forEach((node) => annotateReplyDepth(node, 0, 0));
+
+  var focusId = Number(pvCommentFocusId || window.__pvFocusCommentId || 0);
+  if (focusId > 0) {
+    Object.values(byId).forEach(function(c){
+      if (Number(c.id || 0) !== focusId) return;
+      var cur = c;
+      var guard = 0;
+      while (cur && guard++ < 50) {
+        pvCollapsedReplyIds.delete(Number(cur.id || 0));
+        var pid = Number(cur.parent_id || 0);
+        if (pid > 0) pvCollapsedReplyIds.delete(pid);
+        cur = pid > 0 ? byId[pid] : null;
+      }
+    });
+  }
 
   function commentHtml(c, depth){
     const cid = Number(c?.id || 0);
@@ -16722,7 +16906,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { e.preventDefault(); if (pvIndex < pvIds().length - 1) pvOpenByIndex(pvIndex + 1); }
 });
 
-// ✅ Mobile swipe (left/right) like Instagram
+// ✅ Mobile swipe (left/right) like Talsora
 let pvTouchX = 0;
 let pvTouchY = 0;
 pv.ov.addEventListener('touchstart', (e) => {
@@ -17010,7 +17194,10 @@ pv.text.addEventListener('keydown', (e)=>{
     try{
       // Prefer the gallery/feed-style View-the-post modal (tags, mentions, etc.).
       if (typeof window.pvOpenById === 'function') {
-        window.pvOpenById(alertPostId, alertHideNav ? { hideNav: true } : {});
+        window.pvOpenById(alertPostId, {
+          hideNav: alertHideNav || alertCommentId > 0,
+          commentId: alertCommentId
+        });
         if (alertCommentId > 0) {
           var triesC = 0;
           (function waitComment(){
@@ -17100,11 +17287,18 @@ pv.text.addEventListener('keydown', (e)=>{
     return false;
   }
 
-  function openTalentraCircle(){
-    var key = 'u' + String(Number(window.ME_ID || <?php echo (int)$meId; ?> || 0));
-    if(!key || key === 'u0') return;
-    if(window.TTStories && typeof window.TTStories.openByKey === 'function'){
-      window.TTStories.openByKey(key);
+  function openTalsoraCircle(){
+    var me = Number(window.ME_ID || <?php echo (int)$meId; ?> || 0);
+    if(!me || !window.TTStories) return;
+    var items = (typeof window.TTStories.getCatalog === 'function') ? (window.TTStories.getCatalog() || []) : [];
+    for(var i = 0; i < items.length; i += 1){
+      if(Number((items[i] || {}).userId || 0) !== me) continue;
+      if(typeof window.TTStories.openByIndex === 'function'){
+        window.TTStories.openByIndex(i);
+      } else if(typeof window.TTStories.openByKey === 'function'){
+        window.TTStories.openByKey(String(items[i].key || ''));
+      }
+      return;
     }
   }
 
@@ -17116,7 +17310,7 @@ pv.text.addEventListener('keydown', (e)=>{
     if(hasStory){
       clearStoryPostParam();
       if(!openStoryByPostId(storyPostId)){
-        setTimeout(openTalentraCircle, 120);
+        setTimeout(openTalsoraCircle, 120);
       }
       return;
     }
@@ -17693,6 +17887,54 @@ body.feed-insta-ui .mf-feed .mf-card.is-single-image-post{
     margin-right:auto !important;
   }
 }
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media{
+  --desc-media-max:680px;
+  --post-media-max:680px;
+  --post-media-max-height:min(70vh, 580px);
+}
+@media (max-width:1024.98px){
+  body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media,
+  body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media{
+    --desc-media-max:560px;
+    --post-media-max-height:min(54vh, 580px);
+  }
+}
+@media (max-width:767.98px){
+  body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media,
+  body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media{
+    --desc-media-max:380px;
+    --post-media-max-height:min(52vh, 580px);
+  }
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-title,
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-body,
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-slide-title,
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-slide-summary,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-title,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-body,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-slide-title,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-slide-summary{
+  width:100% !important;
+  max-width:100% !important;
+  text-align:left !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+}
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-video-post .media-stage.standard-video-stage > video,
+body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-post .media-stage.standard-image-stage > img,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-video-post .media-stage.standard-video-stage > video,
+body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-post .media-stage.standard-image-stage > img{
+  width:min(100%, var(--post-media-card-width, var(--desc-media-max, 680px))) !important;
+  max-width:100% !important;
+  height:auto !important;
+  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  object-fit:contain !important;
+  object-position:left center !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  border-radius:10px !important;
+}
 </style>
 
 <script id="feed-post-visible-media-left-align">
@@ -17728,6 +17970,31 @@ body.feed-insta-ui .mf-feed .mf-card.is-single-image-post{
       else maxH = 'min(74vh, 640px)';
     }
     var mediaEl = stage.querySelector(':scope > img, :scope > video');
+
+    if (card.classList.contains('mf-card-description-media') && mediaEl) {
+      var descW = String(w || '').trim();
+      if (!descW) descW = '680px';
+      var descMaxH = (card.style.getPropertyValue('--post-media-max-height') || '').trim();
+      if (!descMaxH) {
+        if (window.matchMedia('(max-width: 767.98px)').matches) descMaxH = 'min(52vh, 580px)';
+        else if (window.matchMedia('(max-width: 1024.98px)').matches) descMaxH = 'min(54vh, 580px)';
+        else descMaxH = 'min(70vh, 580px)';
+      }
+      stage.style.setProperty('width', '100%', 'important');
+      stage.style.setProperty('max-width', '100%', 'important');
+      stage.style.setProperty('overflow', 'visible', 'important');
+      stage.style.removeProperty('max-height');
+      mediaEl.style.setProperty('width', 'min(100%, ' + descW + ')', 'important');
+      mediaEl.style.setProperty('max-width', '100%', 'important');
+      mediaEl.style.setProperty('height', 'auto', 'important');
+      mediaEl.style.setProperty('max-height', descMaxH, 'important');
+      mediaEl.style.setProperty('object-fit', 'contain', 'important');
+      mediaEl.style.setProperty('object-position', 'left center', 'important');
+      mediaEl.style.setProperty('margin-left', '0', 'important');
+      mediaEl.style.setProperty('margin-right', 'auto', 'important');
+      mediaEl.style.setProperty('border-radius', '10px', 'important');
+      return;
+    }
 
     if (isHeadOutside) {
       stage.style.setProperty('width', '100%', 'important');

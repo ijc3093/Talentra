@@ -179,8 +179,9 @@ body.shop-page.feed-insta-ui .shop-header-search .feed-top-search-input::placeho
   color:var(--feed-control-placeholder, #667085);
 }
 body.shop-page.feed-insta-ui .shop-header-search .feed-top-search-input:focus{
-  border-color:var(--msb-palette-action, var(--feed-accent, #2563eb));
-  box-shadow:0 0 0 3px var(--msb-palette-action-soft, var(--feed-accent-soft, rgba(37,99,235,.12)));
+  outline:none;
+  border-color:var(--msb-hairline, #2a2f36);
+  box-shadow:none;
 }
 body.shop-page.feed-insta-ui .shop-header-search .feed-top-search-icon{
   position:absolute;
@@ -721,10 +722,9 @@ body.shop-page.feed-insta-ui .shop-page-scroll{
 }
 @media (min-width:1025px) and (max-height:920px){
   body.shop-page.feed-insta-ui .shop-page-scroll{
-    height:auto !important;
-    max-height:none !important;
-    overflow-x:hidden !important;
-    overflow-y:auto !important;
+    height:100% !important;
+    max-height:100% !important;
+    overflow:hidden !important;
     margin-top:-1.5%;
     margin-bottom:1%;
   }

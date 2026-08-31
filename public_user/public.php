@@ -46,12 +46,12 @@ msb_feed_engagement_ensure_schema($dbh);
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $isPublisherWorkspaceViewer = publisher_workspace_viewer($dbh, $meId);
+$canFollowOnPublicMenu = $canFollowPublishers || $isPublisherWorkspaceViewer;
 $registerWelcome = null;
 if (!$discoverFragmentRequest && !empty($_SESSION['register_welcome']) && is_array($_SESSION['register_welcome'])) {
     $registerWelcome = $_SESSION['register_welcome'];
     unset($_SESSION['register_welcome']);
 }
-$canFollowOnPublicMenu = $canFollowPublishers || $isPublisherWorkspaceViewer;
 $staffReadonly = staff_pub_is_readonly();
 $canLiveStudio = live_studio_user_can_access($dbh, $meId);
 $feedLeftRailPublicPublishers = staff_pub_menu_for_viewer($dbh, $meId);
@@ -62,9 +62,9 @@ $q = trim((string)($_GET['q'] ?? ''));
 $discoverTab = home_tab_internal(strtolower(trim((string)($_GET['tab'] ?? ($isNewsSurface ? 'news' : 'public')))));
 $pageTitle = $isNewsSurface
     ? 'News'
-    : ($discoverTab === 'for-you' ? 'For You' : ($discoverTab === 'public' ? 'Discover' : 'Public'));
+    : ($discoverTab === 'for-you' ? 'Circle' : ($discoverTab === 'public' ? 'Discover' : 'Public'));
 $discoverTabs = [
-    'for-you' => 'For You',
+    'for-you' => 'Circle',
     'public' => 'Discover',
     'enterprise' => 'Commerce',
     'trending' => 'Trending',
@@ -104,12 +104,43 @@ $publicNavTabs = [
     'deep-research' => 'Deep research',
 ] + publisher_academic_categories() + publisher_custom_categories($dbh);
 if (!isset($discoverTabs[$discoverTab]) && !isset($publicNavTabs[$discoverTab])) {
-    $discoverTab = 'for-you';
+    $discoverTab = $isNewsSurface ? 'news' : 'public';
 }
 $publicAlertPostId = (int)($_GET['open_post'] ?? $_GET['post'] ?? 0);
 $publicAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 $publicStoryPostId = (int)($_GET['story_post'] ?? 0);
 $publicUploadWarn = (string)($_GET['upload_warn'] ?? '') === '1';
+
+if ($discoverTab === 'for-you') {
+    if ($discoverFragmentRequest) {
+        while (ob_get_level() > $discoverFragmentBaseObLevel) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=utf-8');
+        }
+        echo '';
+        exit;
+    }
+    $circleExtra = [];
+    if ($q !== '') {
+        $circleExtra['q'] = $q;
+    }
+    if ($publicAlertPostId > 0) {
+        $circleExtra['post'] = $publicAlertPostId;
+    }
+    if ($publicAlertCommentId > 0) {
+        $circleExtra['open_comment'] = $publicAlertCommentId;
+    }
+    if ($publicStoryPostId > 0) {
+        $circleExtra['story_post'] = $publicStoryPostId;
+    }
+    if ($publicUploadWarn) {
+        $circleExtra['upload_warn'] = '1';
+    }
+    header('Location: ' . home_tab_url('for-you', $circleExtra));
+    exit;
+}
 
 if ($q !== '' && $meId > 0 && !$isNewsSurface) {
     try {
@@ -385,7 +416,7 @@ function public_caption_card_html(string $caption, int $maxSentences = 3, int $m
 $isForYouTab = ($discoverTab === 'for-you');
 $params = [];
 if ($isForYouTab) {
-    // For You: same friends / followed-publisher scope as feed_api list (no 24h public window).
+    // Circle: same friends / followed-publisher scope as feed_api list (no 24h public window).
     $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0";
     if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
         $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
@@ -474,7 +505,7 @@ if (!$isForYouTab && $discoverTab === 'enterprise') {
 
 $publicOrderBy = 'COALESCE(p.updated_at,p.created_at) DESC, p.id DESC';
 if ($isForYouTab) {
-    // For You: newest first so a just-created post (incl. text-only) is always on top.
+    // Circle: newest first so a just-created post (incl. text-only) is always on top.
     // Own posts from the last 48h stay ahead of everyone else's older cards.
     $ownRecentExpr = '(CASE WHEN p.user_id = :meBoost AND COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 48 HOUR) THEN 1 ELSE 0 END)';
     $publicOrderBy = $ownRecentExpr . ' DESC, COALESCE(p.updated_at,p.created_at) DESC, p.id DESC';
@@ -821,7 +852,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .search-card{width:min(100%,840px);border:0;border-radius:0;background:transparent;padding:0;margin:0}
     .search-row{display:flex;align-items:center;gap:10px;width:100%}
     .yt-search-shell{display:flex;align-items:center;width:min(100%,840px);min-width:0}
-    .search-input{flex:1;height:52px;border:1px solid var(--feed-control-border, var(--public-control-border, var(--msb-palette-border-strong, #3a3a3a)));border-right:0;border-radius:999px 0 0 999px;padding:0 22px;font-size:15px;outline:none;background:#121212;color:#fff}
+    .search-input{flex:1;height:52px;border:1px solid var(--feed-control-border, var(--public-control-border, var(--msb-palette-border-strong, #3a3a3a)));border-right:0;border-radius:999px 0 0 999px;padding:0 22px;font-size:15px;outline:none;background:var(--msb-palette-input-bg, var(--msb-palette-bg, #121212));color:var(--msb-palette-text, #fff)}
     .search-btn{flex:0 0 auto;width:88px;height:52px;border:1px solid var(--feed-control-border, var(--public-control-border, var(--msb-palette-border-strong, #3a3a3a)));border-radius:0 999px 999px 0;padding:0;font-weight:800;color:#fff;background:#222;cursor:pointer;white-space:nowrap;font-size:24px}
     .yt-mic-btn{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;border:0;background:#181818;color:#fff;font-size:24px;cursor:pointer}
     .yt-signin{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 18px;border-radius:999px;border:1px solid rgba(255,255,255,.12);color:#fff;font-size:18px;font-weight:800}
@@ -1417,9 +1448,11 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       }
     }
 
-    .media-carousel{position:relative;width:100%;height:100%}
-    .media-slides{display:flex;width:100%;height:100%;transition:transform .28s ease}
-    .media-slide{flex:0 0 100%;width:100%;height:100%;background:transparent;display:flex;align-items:center;justify-content:center}
+    .media-carousel{position:relative;width:100%;height:100%;overflow:hidden}
+    .media-slides{display:grid;grid-template-areas:"fade";width:100%;height:100%;transform:none!important;transition:none}
+    .media-slide{grid-area:fade;flex:none;width:100%;height:100%;background:transparent;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .7s ease-in-out;pointer-events:none;z-index:0}
+    .media-slide.is-active{opacity:1;pointer-events:auto;z-index:1}
+    @media (prefers-reduced-motion:reduce){.media-slide{transition:none}}
     .media-slide > img,.media-slide > video{width:100%;height:100%;background:transparent}
     .media-slide > img{object-fit:contain;object-position:center center}
     .media-slide > video{object-fit:contain;object-position:center center}
@@ -3884,8 +3917,9 @@ body.public-page.feed-insta-ui .feed-desktop-center > .feed-top-search .feed-top
   color:var(--public-muted, #667085);
 }
 .feed-top-search-input:focus{
-  border-color:var(--msb-palette-action, var(--public-accent, #2563eb));
-  box-shadow:0 0 0 3px var(--msb-palette-action-soft, rgba(37,99,235,.12));
+  outline:none;
+  border-color:var(--msb-hairline, #2a2f36);
+  box-shadow:none;
 }
 .feed-top-search-icon{
   position:absolute;
@@ -5024,7 +5058,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     <div class="ig-feed-header">
       <?php include __DIR__ . '/includes/feed_top_user_lead.php'; ?>
       <div class="ig-stories-wrap">
-        <div class="ig-stories-bar<?= empty($publicStoryCatalog) ? ' is-empty' : '' ?>" aria-label="Stories">
+        <div class="ig-stories-bar<?= empty($publicStoryCatalog) ? ' is-empty' : '' ?>" aria-label="Moments">
           <div class="ig-stories-track<?= empty($publicStoryCatalog) ? ' is-empty' : '' ?><?= $staffReadonly ? '' : ' has-create' ?>" id="igStoriesTrack">
             <?php if (!$staffReadonly): ?>
               <a class="ig-story-item ig-story-create" href="dashboard.php?modal=1&amp;story=1" data-create-post-modal="1" aria-label="Create a story">
@@ -5112,6 +5146,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               return 'for-you';
             }
           }
+          function isCircleTabKey(tab){
+            return tab === 'for-you';
+          }
           function activateDiscoverTabs(selected){
             if(!tabs) return;
             tabs.querySelectorAll('.feed-discover-tab').forEach(function(tab){
@@ -5136,6 +5173,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           }
           function prefetchTab(link){
             if(!link || !window.fetch || tabHtmlCache[link.href] || tabHtmlRequests[link.href]) return;
+            if(isCircleTabKey(tabKeyFromLink(link))) return;
             var prefetchUrl = new URL(link.href, window.location.href);
             prefetchUrl.searchParams.set('ajax_discover', '1');
             tabHtmlRequests[link.href] = fetch(prefetchUrl.href, {
@@ -5174,7 +5212,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               return;
             }
             var selectedTab = tabKeyFromLink(link);
-            var currentTab = new URL(window.location.href).searchParams.get('tab') || 'for-you';
+            if(isCircleTabKey(selectedTab)){
+              window.location.assign(link.href);
+              return;
+            }
+            var currentTab = new URL(window.location.href).searchParams.get('tab') || 'discover';
             if(selectedTab === currentTab && link.classList.contains('is-active')) return;
             if(tabs){
               try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
@@ -5250,6 +5292,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 e.preventDefault();
                 return;
               }
+              if(isCircleTabKey(tabKeyFromLink(link))){
+                e.preventDefault();
+                window.location.assign(link.href);
+                return;
+              }
               e.preventDefault();
               softSwapCenter(link);
             });
@@ -5266,6 +5313,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             }
             if(link.classList.contains('is-active')){
               e.preventDefault();
+              return;
+            }
+            if(isCircleTabKey(tabKeyFromLink(link))){
+              e.preventDefault();
+              window.location.assign(link.href);
               return;
             }
             e.preventDefault();
@@ -5447,7 +5499,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             isset($attachments[0]) &&
             in_array((string)($attachments[0]['type'] ?? ''), ['video','image'], true)
           );
-          $isReelOnly = ($declaredLayout === 'media_reel_bottom' && $isSingleMedia);
+          $isReelOnly = false;
           $isSingleStandardVideo = (
             !$isReelOnly &&
             count($attachments) === 1 &&
@@ -5546,6 +5598,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           data-comment-count="<?= (int)$post['comment_count'] ?>"
           data-like-count="<?= (int)$post['like_count'] ?>"
           data-love-count="<?= (int)$post['love_count'] ?>"
+          data-reaction-count="<?= (int)$post['love_count'] + (int)$post['like_count'] ?>"
           data-my-reaction="<?= h((string)($post['my_reaction'] ?? "")) ?>"
           <?= $singleMediaCardStyle !== '' ? 'style="' . h($singleMediaCardStyle) . '"' : '' ?>
         >
@@ -5574,13 +5627,13 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 
               <?php if (!$isOwner && !$isReelOnly): ?>
                 <div class="post-card-head-actions">
-                <?php if ($isPublisher && $canFollowPublishers): ?>
+                <?php if ($isPublisher && $canFollowPublishers && !$isFollowing): ?>
                 <button
                   type="button"
-                  class="publisher-follow-btn<?= $isFollowing ? ' is-following' : ' primary' ?>"
+                  class="publisher-follow-btn primary"
                   data-publisher-id="<?= (int)$post['user_id'] ?>"
-                ><?= $isFollowing ? 'Following' : 'Follow' ?></button>
-                <?php elseif (!$isPublisher && $friendStatus !== 'friends'): ?>
+                >Follow</button>
+                <?php elseif (!$isPublisher && !$isPublisherWorkspaceViewer && $friendStatus !== 'friends'): ?>
                 <button
                   type="button"
                   class="friend-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
@@ -5634,9 +5687,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 </div>
                 <div class="standard-text-top-actions post-card-head-actions">
                   <?php if (!$isOwner && (!$isPublisher || $canFollowPublishers)): ?>
-                    <?php if ($isPublisher && $canFollowPublishers): ?>
-                    <button type="button" class="publisher-follow-btn<?= $isFollowing ? ' is-following' : ' primary' ?>" data-publisher-id="<?= (int)$post['user_id'] ?>"><?= $isFollowing ? 'Following' : 'Follow' ?></button>
-                    <?php elseif (!$isPublisher && $friendStatus !== 'friends'): ?>
+                    <?php if ($isPublisher && $canFollowPublishers && !$isFollowing): ?>
+                    <button type="button" class="publisher-follow-btn primary" data-publisher-id="<?= (int)$post['user_id'] ?>">Follow</button>
+                    <?php elseif (!$isPublisher && !$isPublisherWorkspaceViewer && $friendStatus !== 'friends'): ?>
                     <button
                       type="button"
                       class="friend-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
@@ -5694,7 +5747,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       <a class="standard-text-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
                         <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                       </a>
-                      <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                      <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                     </span>
                     <!-- <a class="standard-text-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                       <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
@@ -5786,7 +5839,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                             <a class="public-live-action-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
                               <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                             </a>
-                            <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                            <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                           </span>
                           <a class="public-live-action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                             <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
@@ -5838,9 +5891,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               </div>
               <div class="reel-top-right post-card-head-actions">
                 <?php if (!$isOwner && (!$isPublisher || $canFollowPublishers)): ?>
-                  <?php if ($isPublisher && $canFollowPublishers): ?>
-                  <button type="button" class="publisher-follow-btn<?= $isFollowing ? ' is-following' : ' primary' ?>" data-publisher-id="<?= (int)$post['user_id'] ?>"><?= $isFollowing ? 'Following' : 'Follow' ?></button>
-                  <?php elseif (!$isPublisher && $friendStatus !== 'friends'): ?>
+                  <?php if ($isPublisher && $canFollowPublishers && !$isFollowing): ?>
+                  <button type="button" class="publisher-follow-btn primary" data-publisher-id="<?= (int)$post['user_id'] ?>">Follow</button>
+                  <?php elseif (!$isPublisher && !$isPublisherWorkspaceViewer && $friendStatus !== 'friends'): ?>
                   <button
                     type="button"
                     class="friend-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
@@ -5901,7 +5954,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       <a class="reel-inline-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
                         <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                       </a>
-                      <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                      <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                     </span>
                     <a class="reel-inline-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                       <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
@@ -5959,7 +6012,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 <div class="media-carousel">
                   <div class="media-slides">
                     <?php foreach ($attachments as $slideIndex => $a): $src = h((string)$a['file_path']); ?>
-                      <div class="media-slide" data-slide-index="<?= (int)$slideIndex ?>" data-slide-title="<?= h((string)($a['slide_title'] ?? '')) ?>" data-slide-body="<?= h((string)($a['slide_body'] ?? '')) ?>">
+                      <div class="media-slide<?= $slideIndex === 0 ? ' is-active' : '' ?>" data-slide-index="<?= (int)$slideIndex ?>" data-slide-title="<?= h((string)($a['slide_title'] ?? '')) ?>" data-slide-body="<?= h((string)($a['slide_body'] ?? '')) ?>">
                         <?php if ((string)$a['type'] === 'image'): ?>
                           <img src="<?= $src ?>" alt="">
                         <?php elseif ((string)$a['type'] === 'video'): ?>
@@ -6011,11 +6064,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                   </div>
                   <?= post_card_actions_menu_shell_html($pcmCtx, 'standard-media-topbar-menu') ?>
                 </div>
-                <?php if (!$isOwner && (($isPublisher && $canFollowPublishers && !$isFollowing) || (!$isPublisher && $friendStatus !== 'friends'))): ?>
+                <?php if (!$isOwner && (($isPublisher && $canFollowPublishers && !$isFollowing) || (!$isPublisher && !$isPublisherWorkspaceViewer && $friendStatus !== 'friends'))): ?>
                 <div class="standard-media-top-actions post-card-head-actions">
                   <?php if ($isPublisher && $canFollowPublishers): ?>
                   <?= publisher_media_follow_btn_html((int)$post['user_id'], $isFollowing, $canFollowPublishers) ?>
-                  <?php elseif (!$isPublisher): ?>
+                  <?php elseif (!$isPublisher && !$isPublisherWorkspaceViewer): ?>
                   <button
                     type="button"
                     class="friend-btn mf-media-action-circle mf-media-follow-btn<?= $friendStatus === 'outgoing_pending' ? ' is-pending' : '' ?><?= $friendStatus === 'incoming_pending' ? ' is-accept' : '' ?><?= $friendStatus === 'none' ? ' primary' : '' ?>"
@@ -6078,7 +6131,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                           <a class="standard-media-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
                             <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
                           </a>
-                          <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] ?></span>
+                          <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                         </span>
                         <!-- <a class="standard-media-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
                           <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
@@ -6120,7 +6173,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 <div class="action-left">
                   <a class="action-btn js-react-love<?= public_reaction_is_love_lane((string)($post['my_reaction'] ?? '')) ? ' is-love' : '' ?>" type="button" aria-label="Love" data-post-id="<?= (int)$post['id'] ?>">
                     <?= post_action_thin_icon('heart', (string)($post['my_reaction'] ?? '') === 'love') ?>
-                    <span class="action-count js-love-count"><?= (int)$post['love_count'] ?></span>
+                    <span class="action-count js-love-count"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                   </a>
 
                   <a class="action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
@@ -6178,7 +6231,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       $suggestedForYouStaffReadonly = $staffReadonly;
       $suggestedForYouMaxFriends = 12;
       $suggestedForYouMaxFollow = 12;
-      $GLOBALS['suggestedForYouIncludePeople'] = true;
+      $GLOBALS['suggestedForYouIncludePeople'] = empty($isPublisherWorkspaceViewer);
       if ($isNewsSurface || $isPublisherWorkspaceViewer) {
           $suggestedForYouMaxAdvertise = 3;
       } else {
@@ -6884,10 +6937,14 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   function publicCardCounts(card){
-    if(!card) return { love_count:0, like_count:0, comment_count:0, save_count:0, share_count:0, my_reaction:'', is_saved:0, is_shared:0 };
+    if(!card) return { love_count:0, like_count:0, reaction_count:0, comment_count:0, save_count:0, share_count:0, my_reaction:'', is_saved:0, is_shared:0 };
+    var loveN = Number(card.getAttribute('data-love-count') || (card.querySelector('.js-love-count') || {}).textContent || 0);
+    var likeN = Number(card.getAttribute('data-like-count') || (card.querySelector('.js-like-count') || {}).textContent || 0);
+    var reactN = Number(card.getAttribute('data-reaction-count') || (card.querySelector('.js-love-count') || {}).textContent || 0);
     return {
-      love_count: Number(card.getAttribute('data-love-count') || (card.querySelector('.js-love-count') || {}).textContent || 0),
-      like_count: Number(card.getAttribute('data-like-count') || (card.querySelector('.js-like-count') || {}).textContent || 0),
+      love_count: loveN,
+      like_count: likeN,
+      reaction_count: reactN,
       comment_count: Number(card.getAttribute('data-comment-count') || (card.querySelector('.js-comment-count') || {}).textContent || 0),
       save_count: Number((card.querySelector('.js-save-count') || {}).textContent || 0),
       share_count: Number((card.querySelector('.js-share-count') || {}).textContent || 0),
@@ -6895,6 +6952,13 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       is_saved: card.querySelector('.js-save-post.is-save') ? 1 : 0,
       is_shared: card.querySelector('.js-share-post.is-share') ? 1 : 0
     };
+  }
+
+  function publicReactionBadge(counts){
+    if(!counts) return 0;
+    if(counts.reaction_count != null && counts.reaction_count !== '') return Number(counts.reaction_count || 0);
+    if(counts.love_count != null && counts.like_count != null) return Number(counts.love_count || 0) + Number(counts.like_count || 0);
+    return Number(counts.love_count || 0);
   }
 
   function updatePublicReactionState(postId, counts){
@@ -6909,9 +6973,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       card.querySelectorAll('.js-like-count').forEach(function(el){ el.textContent = String(likeCount); });
     }
     if(Object.prototype.hasOwnProperty.call(counts, 'love_count') && counts.love_count != null){
-      var loveCount = Number(counts.love_count || 0);
-      card.setAttribute('data-love-count', String(loveCount));
-      card.querySelectorAll('.js-love-count').forEach(function(el){ el.textContent = String(loveCount); });
+      card.setAttribute('data-love-count', String(Number(counts.love_count || 0)));
     }
     if(Object.prototype.hasOwnProperty.call(counts, 'reaction_count') && counts.reaction_count != null){
       card.setAttribute('data-reaction-count', String(Number(counts.reaction_count || 0)));
@@ -6919,8 +6981,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         el.textContent = String(Number(counts.reaction_count || 0));
       });
     } else if(Object.prototype.hasOwnProperty.call(counts, 'love_count') && Object.prototype.hasOwnProperty.call(counts, 'like_count')){
+      var summed = Number(counts.love_count || 0) + Number(counts.like_count || 0);
+      card.setAttribute('data-reaction-count', String(summed));
       card.querySelectorAll('.js-love-count, .js-reaction-count').forEach(function(el){
-        el.textContent = String(Number(counts.love_count || 0) + Number(counts.like_count || 0));
+        el.textContent = String(summed);
       });
     }
     if(Object.prototype.hasOwnProperty.call(counts, 'my_reaction')){
@@ -7056,6 +7120,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   $(document).on('click', function(e){
     var target = e.target;
     if(!target || !target.closest) return;
+    if(target instanceof Node && !document.contains(target)) return;
 
     var menuWrap = document.getElementById('tt-menu-wrap');
     var commentsWrap = document.getElementById('tt-comments-wrap');
@@ -7069,7 +7134,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var storiesOpen = !!(storiesWrap && storiesWrap.classList.contains('is-open'));
     if(!menuOpen && !commentsOpen && !readOpen && !profileOpen && !storiesOpen) return;
 
-    if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-stories-wrap, #tt-live-right-wrap, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttStoriesClose, .tt-story-cmt-sheet, .tt-story-cmt-panel, .tt-story-cmt-backdrop')) return;
+    if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-stories-wrap, #tt-live-right-wrap, #ttCommentEmojiPicker, #ttCommentGifPicker, #ttEmojiBtn, #ttMediaBtn, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttStoriesClose, .tt-story-cmt-sheet, .tt-story-cmt-panel, .tt-story-cmt-backdrop')) return;
     if(target.closest('.js-open-menu-door, .ig-story-item, .ig-story-empty, .js-open-comments, .js-open-readmore, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .feed-ig-avatar')) return;
 
     if(menuOpen){
@@ -7123,7 +7188,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     if(nextIndex >= count) nextIndex = 0;
 
     stage.setAttribute('data-index', String(nextIndex));
-    track.style.transform = 'translateX(' + (-100 * nextIndex) + '%)';
+    track.style.transform = 'none';
+    slides.forEach(function(el, i){
+      el.classList.toggle('is-active', i === nextIndex);
+    });
 
     dots.forEach(function(dot, dotIndex){
       var on = dotIndex === nextIndex;
@@ -7275,6 +7343,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   $(document).on('click', '.js-react-love', function(e){
+    if (this.closest && this.closest('#reelApp, .reel-slide')) return;
     if (e.target && e.target.closest && e.target.closest('.js-love-count, .js-open-reactors, .js-like-count, .js-reaction-count, .js-share-count, .js-save-count')) return;
     e.preventDefault();
     e.stopPropagation();
@@ -7284,11 +7353,15 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var card = btn.closest('.public-post-card');
     var snap = publicCardCounts(card);
     var nextReaction = snap.my_reaction === 'love' ? 'none' : 'love';
-    var optimistic = {
-      love_count: Math.max(0, Number(snap.love_count || 0) + (nextReaction === 'none' ? -1 : (snap.my_reaction === 'love' ? 0 : 1))),
-      like_count: snap.like_count,
-      my_reaction: nextReaction === 'none' ? '' : 'love'
-    };
+    var totals = (window.MSBPostEngagement && typeof window.MSBPostEngagement.nextReaction === 'function')
+      ? window.MSBPostEngagement.nextReaction(snap, nextReaction)
+      : {
+          my_reaction: nextReaction === 'none' ? '' : 'love',
+          love_count: Math.max(0, Number(snap.love_count || 0) + (nextReaction === 'none' ? -1 : 1)),
+          like_count: snap.like_count,
+          reaction_count: Math.max(0, Number(snap.reaction_count || 0) + (nextReaction === 'none' ? -1 : (snap.my_reaction ? 0 : 1)))
+        };
+    var optimistic = Object.assign({}, snap, totals);
     stampPublicEngagement(card);
     updatePublicReactionState(postId, optimistic);
     if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, optimistic, { source: 'public-card' });
@@ -7325,11 +7398,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var card = btn.closest('.public-post-card');
     var snap = publicCardCounts(card);
     var nextReaction = snap.my_reaction === 'like' ? 'none' : 'like';
-    var optimistic = {
-      like_count: Math.max(0, Number(snap.like_count || 0) + (nextReaction === 'none' ? -1 : (snap.my_reaction === 'like' ? 0 : 1))),
-      love_count: snap.love_count,
-      my_reaction: nextReaction === 'none' ? '' : 'like'
-    };
+    var totals = (window.MSBPostEngagement && typeof window.MSBPostEngagement.nextReaction === 'function')
+      ? window.MSBPostEngagement.nextReaction(snap, nextReaction)
+      : { my_reaction: nextReaction === 'none' ? '' : 'like', love_count: snap.love_count, like_count: Math.max(0, Number(snap.like_count || 0) + (nextReaction === 'none' ? -1 : 1)), reaction_count: Math.max(0, Number(snap.reaction_count || 0) + (nextReaction === 'none' ? -1 : (snap.my_reaction ? 0 : 1))) };
+    var optimistic = Object.assign({}, snap, totals);
     stampPublicEngagement(card);
     updatePublicReactionState(postId, optimistic);
     if(window.MSBPostEngagement) window.MSBPostEngagement.publish(postId, optimistic, { source: 'public-card' });
@@ -7364,12 +7436,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       var prev = String(snap.my_reaction || '');
       if(next === 'none' && !prev) return;
       if(next !== 'none' && prev === next) return;
-      var optimistic = Object.assign({}, snap, {
-        my_reaction: next === 'none' ? '' : next,
-        love_count: Math.max(0, Number(snap.love_count || 0)
-          + (prev === 'love' && next !== 'love' ? -1 : 0)
-          + (prev !== 'love' && next === 'love' ? 1 : 0))
-      });
+      var totals = (window.MSBPostEngagement && typeof window.MSBPostEngagement.nextReaction === 'function')
+        ? window.MSBPostEngagement.nextReaction(snap, next)
+        : { my_reaction: next === 'none' ? '' : next, love_count: snap.love_count, like_count: snap.like_count, reaction_count: Math.max(0, Number(snap.reaction_count || 0) + (!prev && next !== 'none' ? 1 : 0) - (prev && next === 'none' ? 1 : 0)) };
+      var optimistic = Object.assign({}, snap, totals);
       stampPublicEngagement(card);
       updatePublicReactionState(postId, optimistic);
       try {
@@ -7402,6 +7472,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   $(document).on('click', '.js-share-post', function(e){
+    if (this.closest && this.closest('#reelApp, .reel-slide')) return;
     if (e.target && e.target.closest && e.target.closest('.js-share-count, .js-open-reactors')) return;
     e.preventDefault();
     e.stopPropagation();
@@ -7409,8 +7480,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var postId = Number(btn.getAttribute('data-post-id') || 0);
     if(!postId || btn.disabled) return;
     if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function'){
-      window.MSBPostCardMenu.openShare(postId, btn.closest('.public-post-card'));
-      return;
+      if(window.MSBPostCardMenu.openShare(postId, btn.closest('.public-post-card'))) return;
     }
     var card = btn.closest('.public-post-card');
     var snap = publicCardCounts(card);
@@ -7444,6 +7514,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   });
 
   $(document).on('click', '.js-save-post', function(e){
+    if (this.closest && this.closest('#reelApp, .reel-slide')) return;
     if (e.target && e.target.closest && e.target.closest('.js-save-count, .js-open-reactors')) return;
     e.preventDefault();
     e.stopPropagation();
@@ -7637,7 +7708,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     if(!publicAlertPostId) return;
     // Prefer feed-style View-the-post modal when available.
     if (typeof window.pvOpenById === 'function') {
-      window.pvOpenById(publicAlertPostId, publicAlertHideNav ? { hideNav: true } : {});
+      window.pvOpenById(publicAlertPostId, {
+        hideNav: publicAlertHideNav || publicAlertCommentId > 0,
+        commentId: publicAlertCommentId
+      });
       if (publicAlertCommentId > 0) {
         var triesC = 0;
         (function waitComment(){
@@ -7850,7 +7924,6 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     var isHeadOutside = card.classList.contains('public-media-head-outside');
     if(media){
       if(isHeadOutside){
-        // Keep stage full-width so fries/save stay on the card right edge.
         media.style.width = '100%';
         media.style.maxWidth = '100%';
         media.style.marginLeft = '0';
@@ -7955,7 +8028,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   function waitForPublicPaintedFrame(video){
-    if(!video || (video.dataset && video.dataset.publicFramePaintPending === '1')) return;
+    if(!video) return;
+    window.setTimeout(function(){ markPublicPaintedFrame(video); }, 700);
+    if(video.dataset && video.dataset.publicFramePaintPending === '1') return;
     try{ video.dataset.publicFramePaintPending = '1'; }catch(e){}
     if(typeof video.requestVideoFrameCallback === 'function'){
       try{
@@ -8366,11 +8441,18 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     return false;
   }
 
-  function openTalentraCircle(){
-    var key = 'u' + String(Number(window.ME_ID || <?php echo (int)$meId; ?> || 0));
-    if(!key || key === 'u0') return;
-    if(window.TTStories && typeof window.TTStories.openByKey === 'function'){
-      window.TTStories.openByKey(key);
+  function openTalsoraCircle(){
+    var me = Number(window.ME_ID || <?php echo (int)$meId; ?> || 0);
+    if(!me || !window.TTStories) return;
+    var items = (typeof window.TTStories.getCatalog === 'function') ? (window.TTStories.getCatalog() || []) : [];
+    for(var i = 0; i < items.length; i += 1){
+      if(Number((items[i] || {}).userId || 0) !== me) continue;
+      if(typeof window.TTStories.openByIndex === 'function'){
+        window.TTStories.openByIndex(i);
+      } else if(typeof window.TTStories.openByKey === 'function'){
+        window.TTStories.openByKey(String(items[i].key || ''));
+      }
+      return;
     }
   }
 
@@ -8382,7 +8464,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     if(hasStory){
       clearStoryPostParam();
       if(!openStoryByPostId(storyPostId)){
-        setTimeout(openTalentraCircle, 120);
+        setTimeout(openTalsoraCircle, 120);
       }
       return;
     }
@@ -9165,7 +9247,7 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-image-post:not(.is-reel-post) .media-stage > :first-child,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-video-post:not(.is-reel-post) .media-stage > video,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-image-post:not(.is-reel-post) .media-stage > img{
-  width:min(100%, var(--post-media-card-width, 100%)) !important;
+  width:min(100%, var(--post-media-card-width, var(--post-media-max, 680px))) !important;
   max-width:100% !important;
   margin-left:0 !important;
   margin-right:auto !important;
@@ -9253,6 +9335,8 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
   margin-right:-10px !important;
 }
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-bottom{
+  /* Hoist copy + actions into the card grid so the bar stays full width
+     (love/comment/share left, save right). Do not replace with flex. */
   display:contents !important;
 }
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-copy{
@@ -9290,6 +9374,7 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
   grid-area:auto !important;
   grid-column:1 !important;
   grid-row:4 !important;
+  pointer-events:auto !important;
   display:flex !important;
   align-items:center !important;
   justify-content:space-between !important;
@@ -9457,7 +9542,6 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
   if (!feed) return;
 
   function publicMediaMaxHeightCss(){
-    // Same budget as the main public sizing helpers (keep this IIFE self-contained).
     if (window.matchMedia('(max-width: 767.98px)').matches) {
       return 'min(52vh, 580px)';
     }
@@ -9493,7 +9577,6 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
     var mediaEl = stage.querySelector(':scope > img, :scope > video, :scope > .media-carousel');
 
     if (isHeadOutside) {
-      // Full-width stage so fries (header) and save (actions) sit on the card right edge.
       stage.style.setProperty('width', '100%', 'important');
       stage.style.setProperty('max-width', '100%', 'important');
       stage.style.setProperty('margin-left', '0', 'important');
@@ -9505,6 +9588,7 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
         mediaEl.style.setProperty('max-width', '100%', 'important');
         mediaEl.style.setProperty('margin-left', '0', 'important');
         mediaEl.style.setProperty('margin-right', 'auto', 'important');
+        mediaEl.style.setProperty('align-self', 'flex-start', 'important');
         mediaEl.style.setProperty('justify-self', 'start', 'important');
         mediaEl.style.setProperty('height', 'auto', 'important');
         mediaEl.style.setProperty('object-fit', 'contain', 'important');

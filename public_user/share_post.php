@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Share landing page — Open Graph preview for Facebook / X / etc.,
+ * Share landing page — Open Graph preview for Talsora / X / etc.,
  * then send people into the real post viewer.
  */
 require_once __DIR__ . '/includes/session_user.php';
@@ -18,8 +18,8 @@ if ($postId <= 0) {
 $controller = new Controller();
 $dbh = $controller->pdo();
 
-$title = 'Talentra post';
-$description = 'Shared from Talentra';
+$title = 'Talsora post';
+$description = 'Shared from Talsora';
 $image = '';
 $mediaType = 'website';
 $author = '';
@@ -103,7 +103,7 @@ if ($caption !== '') {
     $title = function_exists('mb_substr') ? (string)mb_substr($caption, 0, 90) : substr($caption, 0, 90);
     $description = function_exists('mb_substr') ? (string)mb_substr($caption, 0, 180) : substr($caption, 0, 180);
 } elseif ($author !== '') {
-    $title = $author . ' on Talentra';
+    $title = $author . ' on Talsora';
     $description = 'See this post from ' . $author;
 }
 
@@ -137,7 +137,7 @@ $viewUrl = $base . '/post.php?id=' . $postId;
 // Social crawlers need the HTML meta tags; humans go to the post.
 $ua = strtolower((string)($_SERVER['HTTP_USER_AGENT'] ?? ''));
 $isBot = (bool)preg_match(
-    '~facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|whatsapp|telegrambot|pinterest|embedly|quora link preview|outbrain|vkshare|redditbot|applebot|bingpreview|google.*snippet~i',
+    '~facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|text|telegrambot|pinterest|embedly|quora link preview|outbrain|vkshare|redditbot|applebot|bingpreview|google.*snippet~i',
     $ua
 );
 
@@ -161,7 +161,7 @@ function h($v): string
   <link rel="canonical" href="<?= h($shareUrl) ?>">
 
   <meta property="og:type" content="<?= h($mediaType === 'video.other' ? 'video.other' : 'article') ?>">
-  <meta property="og:site_name" content="Talentra">
+  <meta property="og:site_name" content="Talsora">
   <meta property="og:title" content="<?= h($title) ?>">
   <meta property="og:description" content="<?= h($description) ?>">
   <meta property="og:url" content="<?= h($shareUrl) ?>">

@@ -37,7 +37,7 @@ if (!function_exists('admin_platform_settings_defaults')) {
      */
     function admin_platform_settings_defaults(?object $controller = null): array
     {
-        $fromName = 'Talentra Admin';
+        $fromName = 'Talsora Admin';
         $fromEmail = '';
         $smtpHost = 'smtp.gmail.com';
         $smtpPort = 587;
@@ -71,7 +71,7 @@ if (!function_exists('admin_platform_settings_defaults')) {
         $base = rtrim($scheme . '://' . $host . dirname($script), '/\\');
 
         return [
-            'platform_name' => 'Talentra Admin',
+            'platform_name' => 'Talsora Admin',
             'platform_url' => $base,
             'timezone' => 'America/New_York',
             'date_format' => 'M j, Y',
@@ -93,7 +93,7 @@ if (!function_exists('admin_platform_settings_defaults')) {
             'password_policy' => 'strong',
             'backup_codes_unused' => 10,
             'ip_whitelist' => '',
-            'email_from_name' => $fromName !== '' ? $fromName : 'Talentra Admin',
+            'email_from_name' => $fromName !== '' ? $fromName : 'Talsora Admin',
             'email_from' => $fromEmail,
             'email_reply_to' => $fromEmail,
             'smtp_host' => $smtpHost,
@@ -370,7 +370,7 @@ if (!function_exists('admin_platform_settings_system_info')) {
             }
         }
 
-        $platformName = 'Talentra Admin';
+        $platformName = 'Talsora Admin';
         if (is_array($settings)) {
             $pn = trim((string)($settings['platform_name'] ?? ''));
             if ($pn !== '') {

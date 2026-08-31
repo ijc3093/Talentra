@@ -39,7 +39,7 @@
         videoLink: 'Ligazón do vídeo',
         insert: 'Insertar vídeo',
         url: 'URL do vídeo?',
-        providers: '(YouTube, Vimeo, Vine, Instagram, DailyMotion, o Youku)'
+        providers: '(YouTube, Vimeo, Vine, DailyMotion, o Youku)'
       },
       link: {
         link: 'Ligazón',

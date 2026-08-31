@@ -6285,7 +6285,7 @@ if ($ownerName !== '') {
     const stageVideoFreezeGraceMs = 22000;
     const stageVideoSoftRecoverStrikes = 4;
     const stageVideoHardRecoverStrikes = 8;
-    // Soft stall only — never hide live video for brief buffering (TikTok-like).
+    // Soft stall only — never hide live video for brief buffering (clips-like).
     const webRtcPromoteMs = 120;
     const webRtcDemoteMs = 8000;
     let watchCommentsFingerprint = '';
@@ -7227,7 +7227,7 @@ if ($ownerName !== '') {
         && !watchStageVideo.ended
         && Number(watchStageVideo.currentTime || 0) >= 0;
 
-      // TikTok-like: if we have pixels + live track + ok peer, keep video on screen.
+      // clips-like: if we have pixels + live track + ok peer, keep video on screen.
       // Do NOT demote just because currentTime stopped advancing (common with MediaStream).
       if (trackLive && connectionOk && playing && viewerVideoHasFrames()) {
         if (!webRtcLiveSince) webRtcLiveSince = Date.now();
@@ -7596,7 +7596,7 @@ if ($ownerName !== '') {
       watchStageVideo.addEventListener('canplay', markStageVideoProgress);
       watchStageVideo.addEventListener('waiting', function() {
         if (!isOwnerView && watchStageVideo.srcObject) {
-          // Brief buffering is normal — keep live video visible (TikTok-like).
+          // Brief buffering is normal — keep live video visible (clips-like).
           watchStageVideo.play().catch(function() {});
         }
       });
@@ -8257,7 +8257,7 @@ if ($ownerName !== '') {
         return;
       }
 
-      // Match host upload cadence (~700ms) for TikTok-like continuous motion.
+      // Match host upload cadence (~700ms) for clips-like continuous motion.
       const desiredMs = usesSnapshotHostStage() ? 700 : ((isHubEmbedMode || preferSnapshotViewer) ? 900 : 1100);
       if (snapshotPollTimer) {
         if (Number(watchStageImage && watchStageImage.dataset.pollMs || 0) === desiredMs) {

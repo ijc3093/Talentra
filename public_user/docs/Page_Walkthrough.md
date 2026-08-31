@@ -31,7 +31,7 @@ Use them together with this page walkthrough:
 
 ## 1. What public_user is
 
-`public_user` is the user-facing social application surface of the larger `Talentra` platform.
+`public_user` is the user-facing social application surface of the larger `Talsora` platform.
 
 At a high level, it allows users to:
 
@@ -916,7 +916,7 @@ This matters because one user session can move through feed, profile, chat, and 
 
 ## 8. Plain-language summary
 
-`public_user` is a custom PHP social application inside the larger `Talentra` platform.
+`public_user` is a custom PHP social application inside the larger `Talsora` platform.
 
 It combines:
 

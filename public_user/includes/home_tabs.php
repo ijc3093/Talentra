@@ -48,7 +48,9 @@ if (!function_exists('home_entry_script')) {
     function home_entry_script(string $internalTab): string
     {
         $internalTab = home_tab_internal($internalTab);
-        // For You shares the public.php shell so soft center tab swaps keep chrome.
+        if ($internalTab === 'for-you') {
+            return 'feed';
+        }
         if ($internalTab === 'news') {
             return 'news';
         }

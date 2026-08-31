@@ -42,7 +42,7 @@ try {
         exit;
     }
 
-    // Keep my presence alive too (WhatsApp-like)
+    // Keep my presence alive too (text-like)
     $meId = (int)($_SESSION['user_id'] ?? 0);
     if ($meId > 0) {
         $stSeen = $dbh->prepare("UPDATE users SET last_seen = NOW() WHERE id = :id LIMIT 1");

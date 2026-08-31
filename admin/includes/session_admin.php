@@ -6,17 +6,17 @@ require_once __DIR__ . '/role_helpers.php';
 require_once __DIR__ . '/app_session_lifetime_load.php';
 
 /**
- * Cookie name v3 — drops any leftover timed TALENTRA_ADMIN cookies that caused
+ * Cookie name v3 — drops leftover timed TALENTRA_ADMIN cookies that caused
  * empty sessions / instant sign-out on refresh.
  */
 if (!defined('ADMIN_SESSION_NAME')) {
-  define('ADMIN_SESSION_NAME', 'TALENTRA_ADMIN_V3');
+  define('ADMIN_SESSION_NAME', 'TALSORA_ADMIN_V3');
 }
 
 if (!function_exists('admin_legacy_session_cookie_names')) {
   /** @return list<string> */
   function admin_legacy_session_cookie_names(): array {
-    return ['TALENTRA_ADMIN', 'BUSINESS_ONLY_ADMIN'];
+    return ['TALENTRA_ADMIN', 'TALENTRA_ADMIN_V3', 'TALSORA_ADMIN', 'BUSINESS_ONLY_ADMIN'];
   }
 }
 

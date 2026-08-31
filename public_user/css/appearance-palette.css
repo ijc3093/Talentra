@@ -101,6 +101,7 @@ html[data-msb-appearance] .feed-desktop-layout,
 html[data-msb-appearance] .feed-desktop-center,
 html[data-msb-appearance] .ig-feed-header,
 html[data-msb-appearance] .hero,
+html[data-msb-appearance] .shop-promo-hero,
 html[data-msb-appearance] .card,
 html[data-msb-appearance] .card-body,
 html[data-msb-appearance] .card-header,
@@ -166,12 +167,7 @@ html[data-msb-appearance] .ig-insta-caption-block,
 html[data-msb-appearance] .ig-insta-actionbar,
 html[data-msb-appearance] .ig-insta-dots-host,
 html[data-msb-appearance] .ig-post-card,
-html[data-msb-appearance] .sh-pagetitle,
-html[data-msb-appearance] input:not([type=checkbox]):not([type=radio]),
-html[data-msb-appearance] textarea,
-html[data-msb-appearance] select,
-html[data-msb-appearance] .form-control,
-html[data-msb-appearance] .search-input {
+html[data-msb-appearance] .sh-pagetitle {
   background-color: var(--msb-palette-bg) !important;
   background-image: none !important;
   color: var(--msb-palette-text) !important;
@@ -593,7 +589,7 @@ html[data-msb-appearance] .feed-ig-rail .ig-link .icon,
 html[data-msb-appearance] .feed-ig-rail .ig-link .fa {
   color: var(--msb-palette-icon) !important;
 }
-/* Reels CTA: light disc + play triangle = Appearance accent */
+/* Clips CTA: light disc + play triangle = Appearance accent */
 html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels,
 html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:hover,
 html[data-msb-appearance] .feed-ig-rail a.feed-ig-reels:focus,
@@ -912,8 +908,9 @@ html[data-msb-appearance] .public-publisher-search button:focus {
   filter: none !important;
 }
 html[data-msb-appearance] .feed-top-search-input:focus {
-  border-color: var(--msb-palette-border-strong) !important;
-  box-shadow: 0 0 0 3px var(--msb-palette-nav-hover) !important;
+  outline: none !important;
+  border-color: var(--msb-hairline, var(--msb-palette-border-strong, #2a2f36)) !important;
+  box-shadow: none !important;
 }
 
 /* Messages tabs — light soft fill */
@@ -1562,9 +1559,9 @@ html[data-msb-appearance] body.profile-page .ig-tabs {
 
 /* Profile Gear tab — palette-driven contrast for icons, buttons, and active nav */
 html[data-msb-appearance] body.profile-page .gear-nav-section-toggle {
-  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;
+  background-color: transparent !important;
   background-image: none !important;
-  border: 1px solid var(--msb-palette-border) !important;
+  border: 0 !important;
   color: var(--msb-palette-text) !important;
 }
 
@@ -1638,8 +1635,9 @@ html[data-msb-appearance] body.profile-page label.gear-upload-btn:hover {
 
 html[data-msb-appearance] body.profile-page .gear-control:focus,
 html[data-msb-appearance] body.profile-page .gear-search:focus {
-  border-color: var(--msb-palette-action) !important;
-  box-shadow: 0 0 0 4px var(--msb-palette-action-soft) !important;
+  outline: none !important;
+  border-color: var(--msb-hairline, #2a2f36) !important;
+  box-shadow: none !important;
 }
 
 html[data-msb-appearance] body.profile-page .gear-sidebar-title,
@@ -2347,9 +2345,9 @@ html[data-msb-appearance] .pv-iconbtn {
   border-color: transparent !important;
 }
 
-html[data-msb-appearance] #pvAtBtn {
-  background: linear-gradient(180deg, #ff2e89 0%, #c11353 100%) !important;
-  color: #fff !important;
+html[data-msb-appearance] #pvMediaBtn {
+  background: transparent !important;
+  color: #22c55e !important;
   border-color: transparent !important;
 }
 
@@ -2486,8 +2484,9 @@ html[data-msb-appearance] .gear-note {
 }
 
 html[data-msb-appearance] .gear-control:focus {
-  border-color: var(--msb-palette-action) !important;
-  box-shadow: 0 0 0 4px var(--msb-palette-action-soft) !important;
+  outline: none !important;
+  border-color: var(--msb-hairline, #2a2f36) !important;
+  box-shadow: none !important;
 }
 
 html[data-msb-appearance] .mf-friend-btn:not(.is-friends):not(.is-pending):not(.is-accept),
@@ -2502,7 +2501,7 @@ html[data-msb-appearance] .ig-insta-card .ig-insta-strip .ig-strip-item.active {
 }
 
 html[data-msb-appearance] .post-author-link:focus-visible {
-  outline-color: var(--msb-palette-action-soft) !important;
+  outline: none !important;
 }
 
 html[data-msb-appearance] body:not(.org-app) .ig-avatar-mini,
@@ -2595,8 +2594,9 @@ html[data-msb-appearance] .group-send-form button[type="submit"] i {
 
 html[data-msb-appearance] #messageInput:focus,
 html[data-msb-appearance] .group-message-input:focus {
-  border-color: var(--msb-palette-border-strong) !important;
-  box-shadow: 0 0 0 4px var(--msb-palette-action-soft) !important;
+  outline: none !important;
+  border-color: var(--msb-hairline, var(--msb-palette-border-strong, #2a2f36)) !important;
+  box-shadow: none !important;
 }
 
 /* Messages empty-state FAB — blue/purple → light pink */
@@ -3108,4 +3108,204 @@ html[data-msb-appearance] .btn-success i,
 html[data-msb-appearance] .ch-btn-primary i {
   color: var(--msb-palette-btn-text, #ffffff) !important;
   -webkit-text-fill-color: var(--msb-palette-btn-text, #ffffff) !important;
+}
+
+/* Help Center + sign-in gate (index.php) follow Gear Appearance / Progress color */
+html[data-msb-appearance]{
+  --ig-blue:var(--msb-palette-action);
+  --ig-blue-deep:var(--msb-palette-action-strong, var(--msb-palette-action));
+  --ig-link:var(--msb-palette-link, var(--msb-palette-action));
+  --ig-text:var(--msb-palette-text);
+  --ig-muted:var(--msb-palette-text-muted);
+  --ig-border:var(--msb-palette-border);
+  --ig-bg:var(--msb-palette-bg);
+  --ig-input:var(--msb-palette-input-bg, var(--msb-palette-surface, #fafafa));
+  --ig-line:var(--msb-palette-border);
+  --hc-story-bg:var(--msb-palette-bg);
+  --hc-story-gold:var(--msb-palette-text, #111827);
+  --hc-story-text:var(--msb-palette-text);
+  --hc-story-muted:var(--msb-palette-text-muted);
+}
+html[data-msb-appearance] body.ig-auth,
+html[data-msb-appearance] body.ig-auth .auth-page,
+html[data-msb-appearance] body.ig-auth .auth-shell,
+html[data-msb-appearance] body.ig-auth .auth-left,
+html[data-msb-appearance] body.ig-auth .auth-right,
+html[data-msb-appearance] body.ig-auth .auth-card,
+html[data-msb-appearance] body.ig-auth .help-center,
+html[data-msb-appearance] body.ig-auth .hc-top,
+html[data-msb-appearance] body.ig-auth .hc-nav,
+html[data-msb-appearance] body.ig-auth .hc-main,
+html[data-msb-appearance] body.ig-auth .auth-page-foot,
+html[data-msb-appearance] body.ig-auth .hc-about-story,
+html[data-msb-appearance] body.ig-auth .auth-help-chat{
+  background-color:var(--msb-palette-bg) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] body.ig-auth .auth-gear-menu{
+  border:1px solid #2a2f36 !important;
+  box-shadow:none !important;
+}
+html[data-msb-appearance] body.ig-auth .hc-brand,
+html[data-msb-appearance] body.ig-auth .hc-brand-text,
+html[data-msb-appearance] body.ig-auth .hc-lang,
+html[data-msb-appearance] body.ig-auth .hc-home-cta,
+html[data-msb-appearance] body.ig-auth a.hc-home-cta,
+html[data-msb-appearance] body.ig-auth .hc-nav-group summary,
+html[data-msb-appearance] body.ig-auth .hc-nav-topic summary,
+html[data-msb-appearance] body.ig-auth .hc-nav-group a,
+html[data-msb-appearance] body.ig-auth .auth-legal-article,
+html[data-msb-appearance] body.ig-auth .auth-legal-article h1,
+html[data-msb-appearance] body.ig-auth .auth-legal-article h2,
+html[data-msb-appearance] body.ig-auth .auth-page-foot a{
+  color:var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] body.ig-auth .hc-nav-group a.is-active,
+html[data-msb-appearance] body.ig-auth .hc-crumb,
+html[data-msb-appearance] body.ig-auth .hc-copy,
+html[data-msb-appearance] body.ig-auth .auth-page-foot a.is-active,
+html[data-msb-appearance] body.ig-auth .hc-story-progress a,
+html[data-msb-appearance] body.ig-auth .hc-story-progress a.is-active,
+html[data-msb-appearance] body.ig-auth .hc-story-kicker,
+html[data-msb-appearance] body.ig-auth .hc-about-story .hc-story-more{
+  color:var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] body.ig-auth .hc-acc-tool,
+html[data-msb-appearance] body.ig-auth .hc-acc-link{
+  color:var(--msb-palette-action, #0095f6) !important;
+  -webkit-text-fill-color:var(--msb-palette-action, #0095f6) !important;
+}
+html[data-msb-appearance] body.ig-auth .hc-top,
+html[data-msb-appearance] body.ig-auth .hc-nav,
+html[data-msb-appearance] body.ig-auth .auth-page-foot{
+  border-color:var(--hc-chrome-line, var(--msb-hairline, #d0d3da)) !important;
+}
+html[data-msb-appearance] body.ig-auth .hc-login,
+html[data-msb-appearance] body.ig-auth .auth-btn,
+html[data-msb-appearance] body.ig-auth .auth-help-send{
+  background:var(--msb-palette-action) !important;
+  color:var(--msb-palette-btn-text, #fff) !important;
+}
+html[data-msb-appearance] body.ig-auth .hc-menu,
+html[data-msb-appearance] body.ig-auth .hc-menu:hover,
+html[data-msb-appearance] body.ig-auth .hc-menu:focus{
+  background:var(--msb-palette-bg) !important;
+  background-color:var(--msb-palette-bg) !important;
+  color:var(--msb-palette-text) !important;
+  border:1px solid var(--hc-chrome-line, var(--msb-hairline, #d0d3da)) !important;
+}
+html[data-msb-appearance] body.ig-auth .hc-search input,
+html[data-msb-appearance] body.ig-auth .auth-help-input,
+html[data-msb-appearance] body.ig-auth textarea.auth-help-input,
+html[data-msb-appearance] body.ig-auth .auth-help-chat,
+html[data-msb-appearance] body.ig-auth .auth-help-thread,
+html[data-msb-appearance] body.ig-auth .auth-help-compose,
+html[data-msb-appearance] body.ig-auth:not(.is-index-tab) input,
+html[data-msb-appearance] body.ig-auth:not(.is-index-tab) textarea{
+  background:var(--msb-palette-bg) !important;
+  background-color:var(--msb-palette-bg) !important;
+  color:var(--msb-palette-text) !important;
+  border-color:var(--msb-palette-action, var(--msb-palette-accent, var(--hc-chrome-line, #d0d3da))) !important;
+}
+html body.ig-auth.is-index-tab .hc-top,
+html body.ig-auth.is-index-tab .hc-nav,
+html body.ig-auth.is-index-tab .hc-menu,
+html body.ig-auth.is-index-tab .hc-search input,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-top,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-nav,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-menu,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-search input,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-pill,
+html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-pill,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-acc,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-helpful-btn,
+html[data-msb-appearance] body.ig-auth.is-index-tab button.hc-helpful-btn,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-related-card,
+html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-related-card,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-featured-card,
+html[data-msb-appearance] body.ig-auth.is-index-tab .hc-topic-child,
+html[data-msb-appearance] body.ig-auth.is-index-tab .auth-page-foot{
+  border-color:var(--hc-help-border, var(--hc-chrome-line, #d0d3da)) !important;
+}
+html[data-msb-appearance] body.ig-auth .auth-field,
+html[data-msb-appearance] body.ig-auth .auth-birthday select{
+  border:1.5px solid var(--msb-palette-action, var(--msb-palette-accent)) !important;
+  background:var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;
+  background-color:var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;
+}
+html[data-msb-appearance] body.ig-auth .auth-field:focus-within{
+  border-color:var(--msb-palette-action) !important;
+  background:var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;
+}
+html[data-msb-appearance] body.ig-auth .auth-field input,
+html[data-msb-appearance] body.ig-auth .auth-field select,
+html[data-msb-appearance] body.ig-auth .auth-field textarea{
+  border:0 !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  background-color:transparent !important;
+}
+html[data-msb-appearance] body.ig-auth .auth-continue,
+html[data-msb-appearance] body.ig-auth .auth-switch button,
+html[data-msb-appearance] body.ig-auth .auth-create-btn{
+  background:var(--msb-palette-action) !important;
+  background-color:var(--msb-palette-action) !important;
+  border-color:var(--msb-palette-action) !important;
+  color:var(--msb-palette-btn-text, #fff) !important;
+  -webkit-text-fill-color:var(--msb-palette-btn-text, #fff) !important;
+}
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn),
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):hover,
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):focus{
+  color:var(--msb-palette-text, #111827) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, #111827) !important;
+}
+
+/* Text fields follow Appearance color, Progress color, and Dark auto. */
+html[data-msb-appearance] input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not([type=submit]):not([type=button]):not([type=image]):not(.gear-color-control),
+html[data-msb-appearance] textarea,
+html[data-msb-appearance] select,
+html[data-msb-appearance] .form-control,
+html[data-msb-appearance] .search-input,
+html[data-msb-appearance] .studio-input,
+html[data-msb-appearance] .gear-control,
+html[data-msb-appearance] .gear-edit-field input,
+html[data-msb-appearance] .gear-edit-field textarea,
+html[data-msb-appearance] .gear-edit-field select,
+html[data-msb-appearance] .gear-edit-pane .about-people-role,
+html[data-msb-appearance] .gear-edit-pane .about-people-mention,
+html[data-msb-appearance] .acc-field input:not([type=file]),
+html[data-msb-appearance] .acc-field textarea,
+html[data-msb-appearance] .acc-field select,
+html.dark-auto input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not([type=submit]):not([type=button]):not([type=image]):not(.gear-color-control),
+html.dark-auto textarea,
+html.dark-auto select,
+html.dark-auto .form-control,
+html.dark-auto .search-input,
+html.dark-auto .studio-input,
+html.dark-auto .gear-control,
+html.dark-auto .gear-edit-field input,
+html.dark-auto .gear-edit-field textarea,
+html.dark-auto .gear-edit-field select,
+html.dark-auto .gear-edit-pane .about-people-role,
+html.dark-auto .gear-edit-pane .about-people-mention,
+html.dark-auto .acc-field input:not([type=file]),
+html.dark-auto .acc-field textarea,
+html.dark-auto .acc-field select{
+  background:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb)) !important;
+  background-color:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb)) !important;
+  color:var(--msb-palette-text, #0b1220) !important;
+  border-color:var(--msb-palette-border-strong, var(--msb-palette-border, #d3d3d3)) !important;
+}
+html[data-msb-appearance] body.ig-auth .auth-field input,
+html[data-msb-appearance] body.ig-auth .auth-field select,
+html[data-msb-appearance] body.ig-auth .auth-field textarea,
+html.dark-auto body.ig-auth .auth-field input,
+html.dark-auto body.ig-auth .auth-field select,
+html.dark-auto body.ig-auth .auth-field textarea{
+  background:transparent !important;
+  background-color:transparent !important;
+  border:0 !important;
+  color:inherit !important;
 }

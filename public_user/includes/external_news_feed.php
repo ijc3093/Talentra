@@ -47,7 +47,7 @@ function external_news_http_get(string $url, int $timeout = 12, string $userAgen
         return '';
     }
     if ($userAgent === '') {
-        $userAgent = 'TalentraNews/1.0 (+https://localhost)';
+        $userAgent = 'TalsoraNews/1.0 (+https://localhost)';
     }
 
     if (function_exists('curl_init')) {
@@ -150,7 +150,7 @@ function external_news_is_video_url(string $url): bool
     if (preg_match('~(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)~i', $url)) {
         return true;
     }
-    if (preg_match('~(?:tiktok\.com/|vm\.tiktok\.com/)~i', $url)) {
+    if (preg_match('~(?:clips\.com/|vm\.clips\.com/)~i', $url)) {
         return true;
     }
     if (preg_match('~(?:vimeo\.com/\d+|player\.vimeo\.com/video/)~i', $url)) {
@@ -175,7 +175,7 @@ function external_news_infer_video(string $video, string $url, string $descripti
     if (preg_match('~https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/)[^\s"\'<>]+~i', $hay, $m)) {
         return trim((string)($m[0] ?? ''));
     }
-    if (preg_match('~https?://(?:www\.)?(?:tiktok\.com/|vm\.tiktok\.com/)[^\s"\'<>]+~i', $hay, $m)) {
+    if (preg_match('~https?://(?:www\.)?(?:clips\.com/|vm\.clips\.com/)[^\s"\'<>]+~i', $hay, $m)) {
         return trim((string)($m[0] ?? ''));
     }
     if (preg_match('~https?://(?:www\.)?(?:vimeo\.com/\d+|player\.vimeo\.com/video/\d+)[^\s"\'<>]*~i', $hay, $m)) {
@@ -380,7 +380,7 @@ function external_news_extract_rss_media(SimpleXMLElement $node): array
         if ($video === '' && preg_match('~https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/)[^\s"\'<>]+~i', $html, $m)) {
             $video = trim((string)($m[0] ?? ''));
         }
-        if ($video === '' && preg_match('~https?://(?:www\.)?(?:tiktok\.com/|vm\.tiktok\.com/)[^\s"\'<>]+~i', $html, $m)) {
+        if ($video === '' && preg_match('~https?://(?:www\.)?(?:clips\.com/|vm\.clips\.com/)[^\s"\'<>]+~i', $html, $m)) {
             $video = trim((string)($m[0] ?? ''));
         }
     }
@@ -582,7 +582,7 @@ function external_news_fetch_reddit_rss(string $subreddit, string $category, int
     }
 
     $url = 'https://www.reddit.com/r/' . rawurlencode($subreddit) . '/.rss';
-    $body = external_news_http_get($url, 12, 'Talentra:1.0.0 (external news)');
+    $body = external_news_http_get($url, 12, 'Talsora:1.0.0 (external news)');
     $items = external_news_parse_rss($body, $category, 'Reddit r/' . $subreddit, $limit);
     external_news_cache_set($cacheKey, json_encode($items, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '[]');
     return $items;
@@ -602,10 +602,10 @@ function external_news_fetch_reddit(string $subreddit, string $category, int $li
     }
 
     $url = 'https://www.reddit.com/r/' . rawurlencode($subreddit) . '/hot.json?limit=' . max(1, min($limit, 25)) . '&raw_json=1';
-    $body = external_news_http_get($url, 12, 'Talentra:1.0.0 (external news)');
+    $body = external_news_http_get($url, 12, 'Talsora:1.0.0 (external news)');
     if ($body === '' || (isset($body[0]) && $body[0] === '<')) {
         $url = 'https://old.reddit.com/r/' . rawurlencode($subreddit) . '/hot.json?limit=' . max(1, min($limit, 25)) . '&raw_json=1';
-        $body = external_news_http_get($url, 12, 'Talentra:1.0.0 (external news)');
+        $body = external_news_http_get($url, 12, 'Talsora:1.0.0 (external news)');
     }
     $data = json_decode($body, true);
     if (!is_array($data) || empty($data['data']['children'])) {

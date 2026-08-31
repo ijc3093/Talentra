@@ -64,7 +64,7 @@ a, button, .btn, input, textarea, select{
 }
 
 .sh-pagebody{
-  padding-bottom: 24px;
+  /* padding-bottom: 24px; */
   margin-right: 24px;
 }
 

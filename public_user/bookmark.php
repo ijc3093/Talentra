@@ -384,7 +384,7 @@ $totalCount = count($posts);
       <section class="ig-bookmark-section" aria-label="Favorited posts">
         <div class="ig-bookmark-posts-meta">
           <div class="ig-bookmark-section-title">Posts</div>
-          <p class="ig-bookmark-note" style="margin-top:0;margin-bottom:12px;">Favorited from For You, Discover, Reels, or Profile post menus.</p>
+          <p class="ig-bookmark-note" style="margin-top:0;margin-bottom:12px;">Favorited from Circle, Discover, Clips, or Profile post menus.</p>
         </div>
         <div class="ig-bookmark-grid-scroll">
           <div class="ig-bookmark-grid" id="bookmarkPostList">
@@ -438,7 +438,7 @@ $totalCount = count($posts);
     <?php elseif (!$hasStories): ?>
       <div class="ig-bookmark-empty" role="status">
         <strong>No favorites yet</strong>
-        <p>Use Favorite on a post card or story menu in For You, Discover, Reels, or Profile. Find them again here under Settings.</p>
+        <p>Use Favorite on a post card or story menu in Circle, Discover, Clips, or Profile. Find them again here under Settings.</p>
       </div>
     <?php else: ?>
       <div class="ig-bookmark-empty" role="status">

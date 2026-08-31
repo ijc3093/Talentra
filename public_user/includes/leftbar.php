@@ -373,23 +373,26 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 .tt-inlinebtn:hover{color:var(--tt-text);}
 .tt-likebtn{margin-left:auto;order:10;font-weight:500;}
 .tt-likebtn i{font-size:15px;margin-right:5px;vertical-align:-1px;}
-.tt-toggle-replies{color:var(--tt-muted);font-weight:700;position:relative;padding-left:36px !important;display:inline-flex;align-items:center;gap:8px;}
+.tt-toggle-replies{color:var(--tt-muted);font-weight:700;position:relative;padding-left:28px !important;display:inline-flex;align-items:center;gap:5px;}
 .tt-toggle-replies::before{
   content:"";
   position:absolute;
   left:0;
   top:50%;
-  width:22px;
+  width:18px;
   height:1px;
   background:var(--tt-thread);
   transform:translateY(-50%);
 }
-.tt-toggle-replies::after{
-  content:"\f3d0";
-  font-family:"Ionicons";
-  font-size:13px;
+.tt-toggle-replies i{
+  font-size:14px;
   line-height:1;
 }
+.tt-toggle-replies .tt-toggle-caret{
+  font-size:11px;
+  transition:transform .15s ease;
+}
+.tt-toggle-replies.is-open .tt-toggle-caret{ transform:rotate(180deg); }
 .tt-toggle-replies:hover{color:var(--tt-text);}
 .tt-likebtn.liked{color:var(--tt-text);}
 .tt-likepill{display:none;}
@@ -415,10 +418,18 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 }
 .tt-iconbtn:hover{ background:var(--tt-control-hover); }
 .tt-iconbtn i{ font-size:22px; }
-#ttAtBtn{
-  background:linear-gradient(180deg, #ff2e89 0%, #c11353 100%);
-  color:#fff;
+#ttAtBtn,
+#ttMediaBtn{
+  background:transparent;
+  color:#22c55e;
   box-shadow:none;
+}
+#ttMediaBtn i{
+  color:#22c55e;
+  font-size:22px;
+}
+#ttMediaBtn.is-open{
+  background:var(--tt-accent-soft, rgba(37,99,235,.12));
 }
 .tt-send{
   width:25px;height:25px;border-radius:999px;border:none;
@@ -428,12 +439,171 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 }
 .tt-send:hover{ background:var(--tt-send-bg-hover); }
 .tt-send i{ font-size:21px; }
+#ttEmojiBtn.is-open{
+  background:var(--tt-accent-soft, rgba(37,99,235,.12));
+  color:var(--tt-accent, #2563eb);
+}
+#ttCommentEmojiPicker{
+  position:fixed;
+  z-index:2147482500;
+  width:min(292px, calc(100vw - 24px));
+  display:flex;
+  flex-direction:column;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:14px;
+  background:rgba(48,48,52,.97);
+  backdrop-filter:saturate(160%) blur(16px);
+  -webkit-backdrop-filter:saturate(160%) blur(16px);
+  box-shadow:0 16px 36px rgba(0,0,0,.42);
+  color:#f5f5f7;
+  overflow:hidden;
+}
+#ttCommentEmojiPicker[hidden]{ display:none !important; }
+.tt-emoji-search-wrap{
+  position:relative;
+  margin:8px 10px 4px;
+}
+.tt-emoji-search-wrap i{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  color:rgba(255,255,255,.42);font-size:12px;pointer-events:none;
+}
+.tt-emoji-search{
+  width:100%;height:28px;border:0;border-radius:8px;
+  background:rgba(0,0,0,.28);color:#f5f5f7;font-size:13px;
+  padding:0 10px 0 28px;outline:none;
+}
+.tt-emoji-search::placeholder{ color:rgba(255,255,255,.42); }
+.tt-emoji-body{
+  max-height:196px;overflow:auto;padding:2px 8px 6px;
+}
+.tt-emoji-label{
+  font-size:11px;font-weight:600;color:rgba(255,255,255,.55);
+  padding:4px 4px 6px;
+}
+.tt-emoji-grid{
+  display:grid;grid-template-columns:repeat(6, minmax(0,1fr));gap:2px;
+}
+.tt-emoji-grid button{
+  width:100%;aspect-ratio:1;border:0;border-radius:8px;
+  background:transparent;font-size:24px;line-height:1;cursor:pointer;padding:0;
+}
+.tt-emoji-grid button:hover,
+.tt-emoji-grid button:focus{ background:rgba(255,255,255,.12); outline:none; }
+.tt-emoji-empty{
+  padding:16px 8px;text-align:center;font-size:12px;color:rgba(255,255,255,.5);
+}
+.tt-emoji-cats{
+  display:flex;align-items:center;justify-content:space-between;gap:2px;
+  padding:6px 8px 8px;border-top:1px solid rgba(255,255,255,.08);
+  background:rgba(0,0,0,.12);
+}
+.tt-emoji-cat{
+  width:26px;height:26px;border:0;border-radius:999px;background:transparent;
+  font-size:14px;line-height:1;cursor:pointer;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  opacity:.72;
+}
+.tt-emoji-cat.is-active{ background:#0a84ff; opacity:1; }
+.tt-emoji-cat:hover:not(.is-active){ background:rgba(255,255,255,.1); opacity:1; }
 
 .tt-replying{
   display:none; align-items:center; justify-content:space-between;
   gap:8px; font-size:13px; color:var(--tt-muted); padding:0 0 10px;
 }
 .tt-replying .x{ cursor:pointer; color:var(--tt-text); font-weight:800; }
+.tt-comment-media-preview{
+  display:none;
+  align-items:center;
+  gap:8px;
+  margin:0 0 8px;
+  padding:6px 8px;
+  border-radius:12px;
+  background:var(--tt-control-bg);
+}
+.tt-comment-media-preview.is-on{ display:flex; }
+.tt-comment-media-preview img{
+  display:none;
+  width:56px;
+  height:56px;
+  object-fit:contain;
+  border-radius:10px;
+  background:transparent;
+}
+.tt-comment-media-preview .tt-comment-media-name{
+  flex:1;
+  min-width:0;
+  font-size:12px;
+  color:var(--tt-muted);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.tt-comment-media-preview .tt-comment-media-x{
+  border:0;
+  background:transparent;
+  color:var(--tt-text);
+  font-weight:800;
+  cursor:pointer;
+  padding:0 4px;
+}
+.tt-comment-media,
+.tt-comment-gif{
+  margin:6px 0 0;
+  max-width:88px;
+}
+.tt-comment-media img,
+.tt-comment-gif img{
+  display:block !important;
+  width:88px;
+  height:88px;
+  object-fit:contain;
+  border-radius:10px;
+  background:transparent;
+}
+#ttCommentGifPicker{
+  position:fixed;
+  z-index:2147482500;
+  width:min(292px, calc(100vw - 24px));
+  display:flex;
+  flex-direction:column;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:14px;
+  background:rgba(48,48,52,.97);
+  backdrop-filter:saturate(160%) blur(16px);
+  -webkit-backdrop-filter:saturate(160%) blur(16px);
+  box-shadow:0 16px 36px rgba(0,0,0,.42);
+  color:#f5f5f7;
+  overflow:hidden;
+}
+#ttCommentGifPicker[hidden]{ display:none !important; }
+.tt-gif-search-wrap{
+  position:relative;
+  margin:8px 10px 4px;
+}
+.tt-gif-search-wrap i{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  color:rgba(255,255,255,.42);font-size:12px;pointer-events:none;
+}
+.tt-gif-search{
+  width:100%;height:28px;border:0;border-radius:8px;
+  background:rgba(0,0,0,.28);color:#f5f5f7;font-size:13px;
+  padding:0 10px 0 28px;outline:none;
+}
+.tt-gif-search::placeholder{ color:rgba(255,255,255,.42); }
+.tt-gif-grid{
+  display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:6px;
+  max-height:280px;overflow:auto;padding:6px 10px 10px;
+}
+.tt-gif-card{
+  border:0;border-radius:10px;padding:0;background:rgba(255,255,255,.06);
+  cursor:pointer;overflow:hidden;min-height:72px;
+}
+.tt-gif-card img{
+  display:block;width:100%;height:72px;object-fit:contain;background:transparent;
+}
+.tt-gif-empty{
+  padding:18px 12px;text-align:center;font-size:12px;color:rgba(255,255,255,.55);
+}
 
 @media (min-width:1025px){
   .tt-comments-wrap{ --tt-comments-gutter:16px; }
@@ -570,15 +740,20 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
         <div class="x" id="ttCancelReply">Cancel</div>
       </div>
 
+      <div class="tt-comment-media-preview" id="ttCommentMediaPreview">
+        <img id="ttCommentMediaThumb" alt="">
+        <span class="tt-comment-media-name" id="ttCommentMediaName"></span>
+        <button type="button" class="tt-comment-media-x" id="ttCommentMediaClear" aria-label="Remove GIF">&times;</button>
+      </div>
       <form id="ttCommentForm" class="m-0" autocomplete="off">
         <input type="hidden" id="ttPostId" value="0">
         <input type="hidden" id="ttParentId" value="0">
         <div class="tt-input-row">
-          <button type="button" class="tt-iconbtn" id="ttAtBtn" title="Mention">
-            <i class="icon ion-at"></i>
-          </button>
           <input class="tt-input" id="ttCommentText" type="text" placeholder="Add comment..." />
-          <button type="button" class="tt-iconbtn" id="ttEmojiBtn" title="Emoji">
+          <button type="button" class="tt-iconbtn" id="ttMediaBtn" title="GIF" aria-label="GIF" aria-expanded="false" aria-controls="ttCommentGifPicker">
+            <i class="icon ion-image"></i>
+          </button>
+          <button type="button" class="tt-iconbtn" id="ttEmojiBtn" title="Emoji" aria-label="Emoji" aria-expanded="false" aria-controls="ttCommentEmojiPicker">
             <i class="icon ion-happy-outline"></i>
           </button>
           <button class="tt-send" type="submit" title="Send">
@@ -586,11 +761,32 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
           </button>
         </div>
       </form>
+      <div class="tt-gif-picker" id="ttCommentGifPicker" hidden role="dialog" aria-label="GIF">
+        <div class="tt-gif-search-wrap">
+          <i class="icon ion-search" aria-hidden="true"></i>
+          <input type="search" class="tt-gif-search" id="ttCommentGifSearch" placeholder="Search GIFs" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="tt-gif-grid" id="ttCommentGifGrid"></div>
+        <div class="tt-gif-empty" id="ttCommentGifEmpty" hidden>No GIFs match</div>
+      </div>
+      <div class="tt-emoji-picker" id="ttCommentEmojiPicker" hidden role="dialog" aria-label="Emoji">
+        <div class="tt-emoji-search-wrap">
+          <i class="icon ion-search" aria-hidden="true"></i>
+          <input type="search" class="tt-emoji-search" id="ttCommentEmojiSearch" placeholder="Search" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="tt-emoji-body">
+          <div class="tt-emoji-label" id="ttCommentEmojiLabel">Frequently Used</div>
+          <div class="tt-emoji-grid" id="ttCommentEmojiGrid"></div>
+          <div class="tt-emoji-empty" id="ttCommentEmojiEmpty" hidden>No emoji found</div>
+        </div>
+        <div class="tt-emoji-cats" id="ttCommentEmojiCats" role="tablist" aria-label="Emoji categories"></div>
+      </div>
     </div>
 
   </div>
 
 
+  <?php require_once __DIR__ . '/leftbar_door_anim.js.php'; ?>
   <?php include __DIR__ . '/menu_door.php'; ?>
   <?php include __DIR__ . '/profile_door.php'; ?>
   <?php include __DIR__ . '/messages_door.php'; ?>
@@ -622,6 +818,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   </div>
 </div>
 <script>
+<?php require __DIR__ . '/comment_gifs.js.php'; ?>
 (function(){
   const $wrap = document.getElementById('tt-comments-wrap');
   const $list = document.getElementById('ttCommentsList');
@@ -630,6 +827,12 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   const $parentId = document.getElementById('ttParentId');
   const $text = document.getElementById('ttCommentText');
   const $form = document.getElementById('ttCommentForm');
+  const $mediaBtn = document.getElementById('ttMediaBtn');
+  const $mediaPreview = document.getElementById('ttCommentMediaPreview');
+  const $mediaThumb = document.getElementById('ttCommentMediaThumb');
+  const $mediaName = document.getElementById('ttCommentMediaName');
+  const $mediaClear = document.getElementById('ttCommentMediaClear');
+  let selectedGif = null;
   const $replyRow = document.getElementById('ttReplyingRow');
   const $replyTo = document.getElementById('ttReplyingTo');
   const $cancelReply = document.getElementById('ttCancelReply');
@@ -641,6 +844,21 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   let currentByParent = {};
   const collapsedReplyIds = new Set();
   const MAX_REPLY_CURVE_DEPTH = 4;
+
+  if($list){
+    $list.addEventListener('click', function(e){
+      var btn = e.target && e.target.closest ? e.target.closest('[data-toggle-replies]') : null;
+      if(!btn || !$list.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      var cid = Number(btn.getAttribute('data-toggle-replies') || 0);
+      if(!cid) return;
+      if(collapsedReplyIds.has(cid)) collapsedReplyIds.delete(cid);
+      else collapsedReplyIds.add(cid);
+      render(currentComments);
+    });
+  }
 
   function esc(s){
     return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -688,7 +906,23 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   }
   function replyToggleLabel(count, isOpen){
     const noun = count === 1 ? 'reply' : 'replies';
-    return isOpen ? 'Close replies' : ('Open ' + count + ' ' + noun);
+    return isOpen ? 'Hide replies' : ('Show ' + count + ' ' + noun);
+  }
+  function descendantReplyCount(id){
+    const kids = currentByParent[Number(id)] || [];
+    let n = 0;
+    kids.forEach(function(k){
+      n += 1 + descendantReplyCount(k.id);
+    });
+    return n;
+  }
+  function replyToggleHtml(count, isOpen, cid){
+    const label = isOpen ? '' : (count + ' ' + (count === 1 ? 'reply' : 'replies'));
+    return `<button type="button" class="tt-inlinebtn tt-toggle-replies${isOpen ? ' is-open' : ''}" data-toggle-replies="${cid}" aria-expanded="${isOpen ? 'true' : 'false'}" title="${esc(replyToggleLabel(count, isOpen))}">` +
+      `<i class="icon ion-chatbubbles" aria-hidden="true"></i>` +
+      (label ? `<span>${esc(label)}</span>` : '') +
+      `<i class="icon ion-ios-arrow-down tt-toggle-caret" aria-hidden="true"></i>` +
+    `</button>`;
   }
   function collapseRepliesByDefault(comments){
     collapsedReplyIds.clear();
@@ -696,8 +930,35 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
       if(Number(c.parent_id || 0) > 0) collapsedReplyIds.add(Number(c.parent_id));
     });
   }
+  function expandAncestorsForComment(comments, commentId){
+    commentId = Number(commentId || 0);
+    if(!commentId) return;
+    var byId = {};
+    (Array.isArray(comments) ? comments : []).map(normalizeComment).forEach(function(c){
+      byId[Number(c.id || 0)] = c;
+    });
+    var cur = byId[commentId];
+    var guard = 0;
+    while(cur && guard++ < 50){
+      collapsedReplyIds.delete(Number(cur.id || 0));
+      var pid = Number(cur.parent_id || 0);
+      if(pid > 0) collapsedReplyIds.delete(pid);
+      cur = pid > 0 ? byId[pid] : null;
+    }
+  }
 
+  function splitCommentGif(c){
+    var text = String(c.comment_text || c.body || c.text || '');
+    var path = String(c.media_path || '').trim();
+    var m = text.match(/\[\[MSB_GIF:(https?:[^\]]+)\]\]/);
+    if(m){
+      text = text.replace(/\s*\[\[MSB_GIF:(https?:[^\]]+)\]\]\s*/g, '\n').trim();
+      if(!path) path = String(m[1] || '');
+    }
+    return { text: text, path: path };
+  }
   function normalizeComment(c){
+    const split = splitCommentGif(c || {});
     return {
       id: Number(c.id || c.comment_id || 0),
       user_id: Number(c.user_id || c.uid || 0),
@@ -706,7 +967,9 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
       display_name: c.display_name || c.author_name || c.username || c.fullname || 'User',
       friend_code: c.friend_code || '',
       email: c.email || '',
-      comment_text: c.comment_text || c.body || c.text || '',
+      comment_text: split.text,
+      media_path: split.path,
+      media_type: split.path ? (String(c.media_type || '').trim() || 'gif') : String(c.media_type || '').trim(),
       created_at: c.created_at || c.createdAt || '',
       me_liked: Number(c.me_liked || c.meLiked || 0),
       like_count: Number(c.like_count || c.likeCount || 0),
@@ -728,6 +991,292 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     }
   }
   $cancelReply?.addEventListener('click', ()=>setReply(0,''));
+
+  function clearCommentMedia(){
+    selectedGif = null;
+    if($mediaPreview) $mediaPreview.classList.remove('is-on');
+    if($mediaThumb){ $mediaThumb.removeAttribute('src'); $mediaThumb.style.display = 'none'; }
+    if($mediaName) $mediaName.textContent = '';
+  }
+  function previewCommentGif(item){
+    if(!item || !item.url){ clearCommentMedia(); return; }
+    selectedGif = { url: String(item.url), title: String(item.title || 'GIF') };
+    if($mediaThumb){
+      $mediaThumb.style.display = 'block';
+      $mediaThumb.src = selectedGif.url;
+    }
+    if($mediaName) $mediaName.textContent = selectedGif.title;
+    if($mediaPreview) $mediaPreview.classList.add('is-on');
+  }
+  $mediaClear?.addEventListener('click', function(e){
+    e.preventDefault();
+    clearCommentMedia();
+  });
+
+  (function commentGifPicker(){
+    var gifBtn = document.getElementById('ttMediaBtn');
+    var picker = document.getElementById('ttCommentGifPicker');
+    var grid = document.getElementById('ttCommentGifGrid');
+    var empty = document.getElementById('ttCommentGifEmpty');
+    var search = document.getElementById('ttCommentGifSearch');
+    var items = Array.isArray(window.MSB_COMMENT_GIFS) ? window.MSB_COMMENT_GIFS : [];
+    if(!gifBtn || !picker || !grid) return;
+    function placePicker(){
+      if(picker.hidden) return;
+      var btnRect = gifBtn.getBoundingClientRect();
+      var vw = window.innerWidth || 320;
+      var vh = window.innerHeight || 480;
+      var pad = 8;
+      var pw = Math.min(292, vw - pad * 2);
+      picker.style.width = pw + 'px';
+      picker.style.visibility = 'hidden';
+      picker.style.display = 'flex';
+      var ph = picker.offsetHeight || 280;
+      var left = Math.max(pad, Math.min(vw - pw - pad, Math.round(btnRect.left + btnRect.width / 2 - pw / 2)));
+      var top = Math.round(btnRect.top - ph - 8);
+      if(top < pad) top = Math.min(vh - ph - pad, Math.round(btnRect.bottom + 8));
+      picker.style.left = left + 'px';
+      picker.style.top = Math.max(pad, top) + 'px';
+      picker.style.visibility = 'visible';
+    }
+    function renderGrid(){
+      var q = String(search && search.value || '').trim().toLowerCase();
+      var list = items.filter(function(item){
+        var hay = (item.title + ' ' + item.keywords).toLowerCase();
+        return q === '' || hay.indexOf(q) !== -1;
+      });
+      grid.innerHTML = list.map(function(item){
+        return '<button type="button" class="tt-gif-card" data-gif-url="'+esc(item.url)+'" data-gif-title="'+esc(item.title)+'">' +
+          '<img src="'+esc(item.url)+'" alt="'+esc(item.title)+'">' +
+        '</button>';
+      }).join('');
+      if(empty) empty.hidden = list.length > 0;
+    }
+    function closePicker(){
+      picker.hidden = true;
+      picker.style.visibility = '';
+      picker.style.display = '';
+      gifBtn.classList.remove('is-open');
+      gifBtn.setAttribute('aria-expanded', 'false');
+    }
+    function openPicker(){
+      try{ if(typeof window.__ttCloseCommentEmojiPicker === 'function') window.__ttCloseCommentEmojiPicker(); }catch(e){}
+      try{ document.body.appendChild(picker); }catch(e){}
+      picker.hidden = false;
+      gifBtn.classList.add('is-open');
+      gifBtn.setAttribute('aria-expanded', 'true');
+      renderGrid();
+      requestAnimationFrame(function(){
+        placePicker();
+        requestAnimationFrame(placePicker);
+      });
+    }
+    window.__ttCloseCommentGifPicker = closePicker;
+    gifBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(picker.hidden) openPicker();
+      else closePicker();
+    });
+    grid.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-gif-url]');
+      if(!btn) return;
+      e.preventDefault();
+      previewCommentGif({ url: btn.getAttribute('data-gif-url'), title: btn.getAttribute('data-gif-title') });
+      closePicker();
+      submitComment();
+    });
+    if(search){
+      search.addEventListener('input', function(){ renderGrid(); placePicker(); });
+      search.addEventListener('keydown', function(e){
+        if(e.key === 'Escape'){ e.preventDefault(); closePicker(); }
+      });
+    }
+    document.addEventListener('click', function(e){
+      if(picker.hidden) return;
+      if(picker.contains(e.target) || gifBtn.contains(e.target)) return;
+      closePicker();
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && !picker.hidden) closePicker();
+    });
+    window.addEventListener('resize', function(){
+      if(!picker.hidden) placePicker();
+    });
+  })();
+
+  (function commentEmojiPicker(){
+    var emojiBtn = document.getElementById('ttEmojiBtn');
+    var picker = document.getElementById('ttCommentEmojiPicker');
+    var grid = document.getElementById('ttCommentEmojiGrid');
+    var label = document.getElementById('ttCommentEmojiLabel');
+    var empty = document.getElementById('ttCommentEmojiEmpty');
+    var cats = document.getElementById('ttCommentEmojiCats');
+    var search = document.getElementById('ttCommentEmojiSearch');
+    if(!emojiBtn || !picker || !grid || !$text) return;
+    var activeCat = 'recents';
+    var RECENT_KEY = 'msbCommentEmojiRecents';
+    var DEFAULT_RECENTS = ["😂","❤️","😍","😒","👌","☺️","😊","😘","😭","😩","💕","😔","😏","😁","😳","👍","✌️","😉","😌","🙈","😎","🎶","👀","😑","😴","😆","😜","😋","👏"];
+    var CATEGORIES = [
+      { id:'recents', label:'Frequently Used', icon:'🕒', emojis:null },
+      { id:'smileys', label:'Smileys & People', icon:'😊', emojis:["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🫡","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👻","💀","👽","🤖","🎃","👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","💪","👀","👅","👄","💋"] },
+      { id:'animals', label:'Animals & Nature', icon:'🐶', emojis:["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐢","🐍","🐙","🐠","🐬","🐳","🦈","🌵","🎄","🌲","🌳","🌴","🍀","🌸","🌹","🌻","🌞","🌝","🌙","⭐","🌟","✨","⚡","🔥","🌈","☀️","☁️","❄️","⛄","💨","💧","☔","🌊"] },
+      { id:'food', label:'Food & Drink', icon:'🍎', emojis:["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🍒","🍑","🥭","🍍","🥝","🍅","🥑","🥦","🌽","🥕","🍞","🧀","🍔","🍟","🍕","🌮","🌯","🥗","🍝","🍜","🍣","🍦","🍩","🍪","🎂","🍰","🍫","🍬","🍭","☕","🍵","🍺","🍻","🥂","🍷","🍸","🍹"] },
+      { id:'activity', label:'Activity', icon:'⚽', emojis:["⚽","🏀","🏈","⚾","🎾","🏐","🎱","🏓","⛳","🏹","🥊","🎽","🛹","🎿","🏄","🏊","🚴","🏆","🥇","🎯","🎮","🎲","🧩","🎭","🎨","🎤","🎧","🎸","🎹","🎺","🎻","🥁","🎬"] },
+      { id:'travel', label:'Travel & Places', icon:'🚗', emojis:["🚗","🚕","🚌","🚓","🚑","🚒","🚜","🚲","🛵","🏍️","✈️","🚀","🛸","🚁","⛵","🚤","🚢","🗽","🗼","🏰","🎡","🎢","🏠","🏢","🏥","🏦","🏨","⛪","🌁","🌃","🌄","🌅","🌉"] },
+      { id:'objects', label:'Objects', icon:'💡', emojis:["⌚","📱","💻","📷","🎥","📺","⏰","💡","🔦","💸","💵","💎","🔧","🔨","💣","🔮","💊","🎁","🎈","🎉","✉️","📦","📝","📚","📌","✂️","🖊️","🔑","🔒"] },
+      { id:'symbols', label:'Symbols', icon:'❤️', emojis:["❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💯","💢","❗","❓","⚠️","✅","♻️","🔵","🟢","🟡","🟠","🔴","🟣","⚫","⚪"] },
+      { id:'flags', label:'Flags', icon:'🏁', emojis:["🏳️","🏴","🏁","🚩","🏳️‍🌈","🇺🇸","🇨🇦","🇲🇽","🇧🇷","🇬🇧","🇫🇷","🇩🇪","🇮🇹","🇪🇸","🇮🇳","🇨🇳","🇯🇵","🇰🇷","🇦🇺","🇳🇬","🇿🇦"] }
+    ];
+    var NAMES = {"👍":"thumbs up","👎":"thumbs down","😂":"joy laugh","❤️":"heart love","😍":"heart eyes","😊":"smile","🙏":"pray","🔥":"fire","👏":"clap","😭":"cry","😎":"cool","🥰":"hearts","😮":"wow","🎉":"party","💯":"hundred","✨":"sparkles","👀":"eyes","🙌":"hands","😘":"kiss","😔":"sad","😒":"unamused","👌":"ok","🙈":"see no evil","😴":"sleep","😜":"wink"};
+
+    function loadRecents(){
+      try{
+        var raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+        if(Array.isArray(raw) && raw.length) return raw.filter(function(e){ return typeof e === 'string' && e; }).slice(0, 48);
+      }catch(e){}
+      return DEFAULT_RECENTS.slice();
+    }
+    function saveRecent(emoji){
+      if(!emoji) return;
+      var list = loadRecents().filter(function(e){ return e !== emoji; });
+      list.unshift(emoji);
+      try{ localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 48))); }catch(e){}
+    }
+    function catById(id){
+      for(var i = 0; i < CATEGORIES.length; i++) if(CATEGORIES[i].id === id) return CATEGORIES[i];
+      return CATEGORIES[0];
+    }
+    function currentEmojis(){
+      var q = ((search && search.value) || '').trim().toLowerCase();
+      if(q){
+        var list = [];
+        CATEGORIES.forEach(function(cat){
+          (cat.id === 'recents' ? loadRecents() : (cat.emojis || [])).forEach(function(e){
+            if(!e || list.indexOf(e) !== -1) return;
+            if((NAMES[e] || '').indexOf(q) !== -1 || e.indexOf(q) !== -1) list.push(e);
+          });
+        });
+        return list;
+      }
+      var cat = catById(activeCat);
+      return cat.id === 'recents' ? loadRecents() : (cat.emojis || []);
+    }
+    function renderGrid(){
+      var list = currentEmojis().filter(Boolean);
+      var searching = !!(search && search.value.trim());
+      if(label) label.textContent = searching ? 'Search Results' : (catById(activeCat).label || 'Emojis');
+      if(!list.length){
+        grid.innerHTML = '';
+        if(empty) empty.hidden = false;
+        return;
+      }
+      if(empty) empty.hidden = true;
+      grid.innerHTML = list.map(function(e){
+        return '<button type="button" data-emoji="'+e+'" title="'+(NAMES[e] || 'Emoji')+'" aria-label="Insert emoji">'+e+'</button>';
+      }).join('');
+    }
+    function renderCats(){
+      cats.innerHTML = CATEGORIES.map(function(cat){
+        return '<button type="button" class="tt-emoji-cat'+(cat.id === activeCat ? ' is-active' : '')+'" data-cat="'+cat.id+'" title="'+cat.label+'" aria-label="'+cat.label+'">'+cat.icon+'</button>';
+      }).join('');
+    }
+    function placePicker(){
+      if(picker.hidden) return;
+      var btnRect = emojiBtn.getBoundingClientRect();
+      var vw = window.innerWidth || 320;
+      var vh = window.innerHeight || 480;
+      var pad = 8;
+      var pw = Math.min(292, vw - pad * 2);
+      picker.style.width = pw + 'px';
+      picker.style.visibility = 'hidden';
+      picker.style.display = 'flex';
+      var ph = picker.offsetHeight || 280;
+      var left = Math.max(pad, Math.min(vw - pw - pad, Math.round(btnRect.left + btnRect.width / 2 - pw / 2)));
+      var top = Math.round(btnRect.top - ph - 8);
+      if(top < pad) top = Math.min(vh - ph - pad, Math.round(btnRect.bottom + 8));
+      picker.style.left = left + 'px';
+      picker.style.top = Math.max(pad, top) + 'px';
+      picker.style.visibility = 'visible';
+    }
+    function closePicker(){
+      picker.hidden = true;
+      picker.style.visibility = '';
+      picker.style.display = '';
+      emojiBtn.classList.remove('is-open');
+      emojiBtn.setAttribute('aria-expanded', 'false');
+    }
+    function openPicker(){
+      try{ if(typeof window.__ttCloseCommentGifPicker === 'function') window.__ttCloseCommentGifPicker(); }catch(e){}
+      try{ document.body.appendChild(picker); }catch(e){}
+      picker.hidden = false;
+      emojiBtn.classList.add('is-open');
+      emojiBtn.setAttribute('aria-expanded', 'true');
+      renderCats();
+      renderGrid();
+      requestAnimationFrame(function(){
+        placePicker();
+        requestAnimationFrame(placePicker);
+      });
+    }
+    function insertEmoji(emoji){
+      if(!emoji || !$text) return;
+      var start = typeof $text.selectionStart === 'number' ? $text.selectionStart : ($text.value || '').length;
+      var end = typeof $text.selectionEnd === 'number' ? $text.selectionEnd : start;
+      var val = String($text.value || '');
+      $text.value = val.slice(0, start) + emoji + val.slice(end);
+      var pos = start + emoji.length;
+      try{ $text.setSelectionRange(pos, pos); }catch(e){}
+      $text.focus();
+      try{ $text.dispatchEvent(new Event('input', { bubbles:true })); }catch(e2){}
+    }
+
+    window.__ttCloseCommentEmojiPicker = closePicker;
+
+    emojiBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(picker.hidden) openPicker();
+      else closePicker();
+    });
+    cats.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-cat]');
+      if(!btn) return;
+      e.preventDefault();
+      activeCat = btn.getAttribute('data-cat') || 'recents';
+      if(search) search.value = '';
+      renderCats();
+      renderGrid();
+      placePicker();
+    });
+    grid.addEventListener('click', function(e){
+      var btn = e.target.closest('button[data-emoji]');
+      if(!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var emoji = btn.getAttribute('data-emoji') || '';
+      saveRecent(emoji);
+      insertEmoji(emoji);
+      closePicker();
+    });
+    if(search){
+      search.addEventListener('input', function(){ renderGrid(); placePicker(); });
+      search.addEventListener('keydown', function(e){
+        if(e.key === 'Escape'){ e.preventDefault(); closePicker(); }
+      });
+    }
+    document.addEventListener('click', function(e){
+      if(picker.hidden) return;
+      if(picker.contains(e.target) || emojiBtn.contains(e.target)) return;
+      closePicker();
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && !picker.hidden) closePicker();
+    });
+    window.addEventListener('resize', function(){
+      if(!picker.hidden) placePicker();
+    });
+  })();
 
   $close?.addEventListener('click', ()=>{
     closeCommentsPanel();
@@ -772,6 +1321,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     commentsPanelOpen = false;
     $wrap.classList.remove('is-open');
     $wrap.setAttribute('aria-hidden', 'true');
+    try{ if(typeof window.__ttCloseCommentEmojiPicker === 'function') window.__ttCloseCommentEmojiPicker(); }catch(e){}
     if(!readMorePanelOpen()){
       document.body.classList.remove('public-leftbar-open', 'profile-leftbar-open');
     }
@@ -831,7 +1381,10 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
       return;
     }
 
-    if(typeof window.TTComments.clearFocusComment === 'function'){
+    var focusId = Number(opts.commentId || opts.focusCommentId || 0);
+    if (focusId > 0 && window.TTComments && typeof window.TTComments.setFocusComment === 'function') {
+      window.TTComments.setFocusComment(focusId);
+    } else if (typeof window.TTComments.clearFocusComment === 'function') {
       window.TTComments.clearFocusComment();
     }
 
@@ -878,11 +1431,19 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     const when = timeAgo(c.created_at) || fmtShort(c.created_at);
     const avatar = avatarUrl(c, 72);
     const replyCount = (currentByParent[c.id] || []).length;
+    const threadCount = descendantReplyCount(c.id) || replyCount;
     const repliesOpen = !collapsedReplyIds.has(c.id);
     const depthClamped = depth > MAX_REPLY_CURVE_DEPTH;
     const childDepthCapped = (depth + 1) > MAX_REPLY_CURVE_DEPTH;
     const replyActionLabel = c._reply_action_label || 'Reply';
     const replyTargetId = Number(c._reply_target_id || c.id);
+    const mediaPath = String(c.media_path || '').replace(/"/g, '');
+    const textHtml = String(c.comment_text || '').trim()
+      ? `<div class="tt-text">${esc(c.comment_text)}</div>`
+      : '';
+    const mediaHtml = mediaPath
+      ? `<div class="tt-comment-gif"><img src="${esc(mediaPath)}" alt="" referrerpolicy="no-referrer"></div>`
+      : '';
     return `
       <div class="tt-node${depth > 0 ? ' is-reply' : ''}${replyCount > 0 ? ' has-children' : ''}${replyCount > 0 && !repliesOpen ? ' is-collapsed' : ''}${depthClamped ? ' is-depth-clamped' : ''}" data-cid="${c.id}">
         <div class="tt-comment" data-cid="${c.id}">
@@ -890,13 +1451,13 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
           <div class="tt-body">
             <div class="tt-bubble">
               <div class="tt-name">${esc(dn)}</div>
-              <div class="tt-text">${esc(c.comment_text)}</div>
+              ${textHtml}${mediaHtml}
             </div>
             <div class="tt-meta">
               <span>${esc(when)}</span>
               <button type="button" class="tt-inlinebtn tt-likebtn tt-reactbtn ${liked ? 'liked' : ''}" data-heart="${c.id}" data-reaction="${esc(myReaction)}"><i class="fa fa-heart-o"></i><span data-reaction-label>${esc(liked ? currentLabel : 'Love')}</span></button>
               <button type="button" class="tt-inlinebtn tt-reply-link" data-reply="${replyTargetId}" data-who="${esc(dn)}" data-mode="${esc(replyActionLabel)}">${esc(replyActionLabel)}</button>
-              ${replyCount > 0 ? `<button type="button" class="tt-inlinebtn tt-toggle-replies" data-toggle-replies="${c.id}">${esc(replyToggleLabel(replyCount, repliesOpen))}</button>` : ``}
+              ${replyCount > 0 ? replyToggleHtml(threadCount, repliesOpen, c.id) : ``}
               ${likeCount > 0 ? `<span class="tt-likepill"><i class="icon ion-thumbsup"></i>${likeCount}</span>` : ``}
             </div>
           </div>
@@ -991,34 +1552,26 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     }
 
     bindReplyLinks($list);
-    (function bindReplyToggles(scope){
-      (scope || $list).querySelectorAll('[data-toggle-replies]').forEach(el=>{
-        el.addEventListener('click', function(){
-          const cid = Number(this.getAttribute('data-toggle-replies') || 0);
-          if(!cid) return;
-          if(collapsedReplyIds.has(cid)) collapsedReplyIds.delete(cid);
-          else collapsedReplyIds.add(cid);
-          render(currentComments);
-        });
-      });
-    })($list);
-
     $list.querySelectorAll('[data-heart]').forEach(bindHeart);
     if(window.MSBReactions){
       $list.querySelectorAll('.tt-reactbtn').forEach(function(btn){
         window.MSBReactions.applyReactionButton(btn, btn.getAttribute('data-reaction') || '', 'love');
       });
     }
-    if(focusCommentId > 0) focusRenderedComment();
-    $list.scrollTop = $list.scrollHeight;
+    var focused = false;
+    if(focusCommentId > 0) focused = focusRenderedComment();
+    if(!focused) $list.scrollTop = $list.scrollHeight;
   }
 
-  $form?.addEventListener('submit', async function(e){
-    e.preventDefault();
+  let commentSending = false;
+  async function submitComment(){
+    if(commentSending) return;
     const txt = String($text.value||'').trim();
+    const gifUrl = selectedGif && selectedGif.url ? String(selectedGif.url) : '';
     const newsItemId = String(window.__newsCommentItemId || '').trim();
     if (newsItemId && txt) {
       try {
+        commentSending = true;
         const fd = new FormData();
         fd.append('action', 'comment');
         fd.append('item_id', newsItemId);
@@ -1033,11 +1586,13 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
           }
         }
       } catch (err) {}
+      commentSending = false;
       return;
     }
     const news2ItemId = String(window.__news2CommentItemId || '').trim();
     if (news2ItemId && txt) {
       try {
+        commentSending = true;
         const fd = new FormData();
         fd.append('action', 'comment');
         fd.append('item_id', news2ItemId);
@@ -1052,29 +1607,43 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
           }
         }
       } catch (err) {}
+      commentSending = false;
       return;
     }
     const pid = Number($postId.value||0);
     const parent = Number($parentId.value||0);
-    if(!pid || !txt) return;
+    if(!pid || (!txt && !gifUrl)) return;
 
     try{
+      commentSending = true;
       const fd = new FormData();
       fd.append('ajax','comment');
       fd.append('post_id', String(pid));
       fd.append('parent_id', String(parent));
       fd.append('comment_text', txt);
+      if(gifUrl) fd.append('comment_gif_url', gifUrl);
 
-      const r = await fetch('feed_api.php', { method:'POST', body: fd, cache:'no-store' });
+      const r = await fetch('feed_api.php', { method:'POST', body: fd, credentials:'same-origin', cache:'no-store' });
       const data = await r.json();
-      if(data && data.ok){
+        if(data && data.ok){
         $text.value = '';
+        clearCommentMedia();
         setReply(0,'');
+        if(parent > 0) window.__ttKeepReplyOpenId = parent;
+        if(data.comment){
+          render((currentComments || []).concat([data.comment]));
+        }
         if(window.TTComments && typeof window.TTComments.refreshCurrent === 'function'){
           window.TTComments.refreshCurrent();
         }
       }
     }catch(err){}
+    commentSending = false;
+  }
+
+  $form?.addEventListener('submit', function(e){
+    e.preventDefault();
+    submitComment();
   });
 
   // Public API for feed.php
@@ -1086,6 +1655,16 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   window.TTComments.clearFocusComment = function(){
     focusCommentId = 0;
   };
+  window.TTComments.focusComment = function(commentId){
+    commentId = Number(commentId || focusCommentId || 0);
+    if(!commentId || !$list) return false;
+    $list.querySelectorAll('.tt-comment.is-alert-focus').forEach(function(node){ node.classList.remove('is-alert-focus'); });
+    var row = $list.querySelector('.tt-comment[data-cid="'+String(commentId)+'"]');
+    if(!row) return false;
+    row.classList.add('is-alert-focus');
+    try{ row.scrollIntoView({ block:'center', behavior:'smooth' }); }catch(err){}
+    return true;
+  };
 
   window.TTComments.setPost = function(postId, comments, open){
     window.__newsCommentItemId = '';
@@ -1095,13 +1674,31 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     if(postId !== currentCommentsPostId){
       currentCommentsPostId = postId;
     }
-    if((postChanged || open !== false) && focusCommentId <= 0){
+    if(focusCommentId <= 0){
       collapseRepliesByDefault(comments);
-    } else if(postChanged && focusCommentId > 0){
-      collapsedReplyIds.clear();
+      var keepId = Number(window.__ttKeepReplyOpenId || 0);
+      if(keepId > 0){
+        collapsedReplyIds.delete(keepId);
+        (Array.isArray(comments) ? comments : []).forEach(function(row){
+          var cid = Number(row && row.id || 0);
+          var parentId = Number(row && row.parent_id || 0);
+          if(cid === keepId){
+            while(parentId > 0){
+              collapsedReplyIds.delete(parentId);
+              var parent = (Array.isArray(comments) ? comments : []).find(function(x){ return Number(x.id || 0) === parentId; });
+              parentId = parent ? Number(parent.parent_id || 0) : 0;
+            }
+          }
+        });
+      }
+      window.__ttKeepReplyOpenId = 0;
+    } else {
+      collapseRepliesByDefault(comments);
+      expandAncestorsForComment(comments, focusCommentId);
     }
     $postId.value = String(postId||0);
     setReply(0,'');
+    clearCommentMedia();
     render(comments || []);
     if(open !== false) openPanel();
   };
@@ -1138,7 +1735,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 
   document.addEventListener('click', function(e){
     var trigger = e.target && e.target.closest
-      ? e.target.closest('.js-open-comments-door, .js-open-profile-comments-door, #profilePostsFeed .mf-comment, .mf-feed .mf-comment, .mf-card .mf-comment, #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"]')
+      ? e.target.closest('.js-open-comments, .js-open-comments-door, .js-open-profile-comments-door, #profilePostsFeed .mf-comment, .mf-feed .mf-comment, .mf-card .mf-comment, .reel-act[data-act="comment"], #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"]')
       : null;
     if(!trigger) return;
     e.preventDefault();
@@ -1473,6 +2070,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   document.addEventListener('click', function(e){
     var target = e.target;
     if(!target || !target.closest) return;
+    if(target instanceof Node && !document.contains(target)) return;
 
     var menuWrap = document.getElementById('tt-menu-wrap');
     var commentsWrap = document.getElementById('tt-comments-wrap');
@@ -1492,7 +2090,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     var liveOpen = !!(liveWrap && liveWrap.classList.contains('is-open'));
     if(!menuOpen && !commentsOpen && !readOpen && !profileOpen && !messagesOpen && !notificationsOpen && !friendRequestsOpen && !liveOpen) return;
 
-    if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-messages-wrap, #tt-notifications-wrap, #tt-friend-requests-wrap, #tt-live-wrap, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttMessagesClose, #ttNotificationsClose, #ttFriendRequestsClose')) return;
+    if(target.closest('#tt-menu-wrap, #tt-comments-wrap, #tt-readmore-wrap, #tt-profile-wrap, #tt-messages-wrap, #tt-notifications-wrap, #tt-friend-requests-wrap, #tt-live-wrap, #ttCommentEmojiPicker, #ttCommentGifPicker, #ttEmojiBtn, #ttMediaBtn, #ttMenuClose, #ttCommentsClose, #ttRmClose, #ttProfileClose, #ttMessagesClose, #ttNotificationsClose, #ttFriendRequestsClose')) return;
     if(target.closest('.js-open-menu-door, .ig-story-item, .js-open-comments, .js-open-comments-door, .js-open-readmore, .js-open-readmore-door, .js-open-profile-door, .js-open-messages-door, .js-open-notifications-door, .js-open-friend-requests-door, .js-open-live-door, .js-open-live-studio-browse, .js-open-live-software-browse, .js-open-order-details-door, .js-open-shop-buy-door, .feed-ig-avatar')) return;
     if(target.closest('#tt-stories-wrap, #tt-live-right-wrap, #ttStoriesClose')) return;
     if(target.closest('.mf-comment, .js-open-profile-comments-door, .mf-readmore, #commentCountLink, #commentCountLinkV, #btnViewComments, #btnFooterComment, #btnFooterViewComments, .ig-image-overlay-btn[data-act="comment"], #pvCapReadMore, .ig-cap-readmore, #pvFooterReadMore, #pvInlineReadMore, #btnReadMore, #btnOpenCommentsDrawer, #postList .pl-readmore')) return;

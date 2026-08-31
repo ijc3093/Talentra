@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * reel.php — Public Reels theater (Facebook Reels–style vertical snap scroll).
+ * reel.php — Public Clips theater (vertical snap scroll).
  * Opened from the video circle on public.php.
  */
 require_once __DIR__ . '/includes/session_user.php';
@@ -34,7 +34,7 @@ $iconFries = post_card_menu_fries_icon_html();
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Reels</title>
+  <title>Clips</title>
   <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="./lib/Ionicons/css/ionicons.css" rel="stylesheet">
@@ -141,7 +141,10 @@ $iconFries = post_card_menu_fries_icon_html();
       transform:translate3d(0,0,0);
     }
     .reel-track.is-animating{
-      transition:transform .32s cubic-bezier(.22,.61,.36,1);
+      transition:transform .6s ease-in-out;
+    }
+    @media (prefers-reduced-motion:reduce){
+      .reel-track.is-animating{transition:none}
     }
     .reel-slide{
       position:relative;
@@ -389,7 +392,8 @@ $iconFries = post_card_menu_fries_icon_html();
     }
 
     .reel-right{
-      z-index:15;
+      position:relative;
+      z-index:40;
       display:flex;
       flex-direction:column;
       align-items:center;
@@ -397,12 +401,16 @@ $iconFries = post_card_menu_fries_icon_html();
       flex:0 0 auto;
       align-self:center;
       padding:0 4px;
+      pointer-events:auto;
     }
     .reel-act-wrap{
       display:flex;
       flex-direction:column;
       align-items:center;
       gap:6px;
+      pointer-events:auto;
+      position:relative;
+      z-index:1;
     }
     .reel-act{
       background:none;
@@ -486,7 +494,7 @@ $iconFries = post_card_menu_fries_icon_html();
       right:24px;
       top:50%;
       transform:translateY(-50%);
-      z-index:25;
+      z-index:22;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -655,8 +663,9 @@ $iconFries = post_card_menu_fries_icon_html();
       opacity:1;
     }
     body.reel-page .feed-top-search-input:focus{
-      border-color:var(--msb-palette-action, #2563eb);
-      box-shadow:0 0 0 3px var(--msb-palette-action-soft, rgba(37,99,235,.12));
+      outline:none;
+      border-color:var(--msb-hairline, #2a2f36);
+      box-shadow:none;
     }
     body.reel-page .feed-top-search-icon{
       position:absolute;
@@ -722,7 +731,7 @@ $iconFries = post_card_menu_fries_icon_html();
     </form>
   </div>
   <div class="reel-app" id="reelApp">
-    <div class="reel-scroller" id="reelScroller" aria-label="Reels feed">
+    <div class="reel-scroller" id="reelScroller" aria-label="Clips feed">
       <div class="reel-track" id="reelTrack"></div>
     </div>
 
@@ -1375,19 +1384,27 @@ $iconFries = post_card_menu_fries_icon_html();
       if(!pid) return;
       next = String(next || 'none');
       var prevLove = Number(it.love_count || 0);
+      var prevLike = Number(it.like_count || 0);
+      var prevTotal = it.reaction_count != null ? Number(it.reaction_count) : (prevLove + prevLike);
       var prevReaction = String(it.my_reaction || '');
       if(next === 'none' && !prevReaction) return;
       if(next !== 'none' && prevReaction === next) return;
-      it.my_reaction = next === 'none' ? '' : next;
-      it.love_count = Math.max(0, prevLove
-        + (prevReaction === 'love' && next !== 'love' ? -1 : 0)
-        + (prevReaction !== 'love' && next === 'love' ? 1 : 0));
+      var snap = { my_reaction: prevReaction, love_count: prevLove, like_count: prevLike, reaction_count: prevTotal };
+      var totals = (window.MSBPostEngagement && typeof window.MSBPostEngagement.nextReaction === 'function')
+        ? window.MSBPostEngagement.nextReaction(snap, next)
+        : { my_reaction: next === 'none' ? '' : next, love_count: prevLove, like_count: prevLike, reaction_count: Math.max(0, prevTotal + (!prevReaction && next !== 'none' ? 1 : 0) - (prevReaction && next === 'none' ? 1 : 0)) };
+      it.my_reaction = totals.my_reaction;
+      it.love_count = totals.love_count;
+      it.like_count = totals.like_count;
+      it.reaction_count = totals.reaction_count;
       slide.setAttribute('data-engage-at', String(Date.now()));
       slide.setAttribute('data-my-reaction', it.my_reaction);
       syncSlideActions(slide, it);
       if(window.MSBPostEngagement){
         window.MSBPostEngagement.publish(pid, {
           love_count: it.love_count,
+          like_count: it.like_count,
+          reaction_count: it.reaction_count,
           my_reaction: it.my_reaction
         }, { source: 'reel' });
       }
@@ -1400,12 +1417,14 @@ $iconFries = post_card_menu_fries_icon_html();
         .then(function(res){
           if(!res || !res.ok){
             it.love_count = prevLove;
+            it.like_count = prevLike;
+            it.reaction_count = prevTotal;
             it.my_reaction = prevReaction;
             slide.setAttribute('data-engage-at', String(Date.now()));
             slide.setAttribute('data-my-reaction', prevReaction);
             syncSlideActions(slide, it);
             if(window.MSBPostEngagement){
-              window.MSBPostEngagement.publish(pid, { love_count: prevLove, my_reaction: prevReaction }, { source: 'reel' });
+              window.MSBPostEngagement.publish(pid, { love_count: prevLove, like_count: prevLike, reaction_count: prevTotal, my_reaction: prevReaction }, { source: 'reel' });
             }
             return;
           }
@@ -1422,11 +1441,15 @@ $iconFries = post_card_menu_fries_icon_html();
           if(window.MSBPostEngagement){
             window.MSBPostEngagement.publish(pid, {
               love_count: it.love_count,
+              like_count: it.like_count,
+              reaction_count: it.reaction_count,
               my_reaction: it.my_reaction
             }, { source: 'reel' });
           }
         }).catch(function(){
           it.love_count = prevLove;
+          it.like_count = prevLike;
+          it.reaction_count = prevTotal;
           it.my_reaction = prevReaction;
           slide.setAttribute('data-engage-at', String(Date.now()));
           slide.setAttribute('data-my-reaction', prevReaction);
@@ -1639,10 +1662,10 @@ $iconFries = post_card_menu_fries_icon_html();
             '</div>'+
           '</div>'+
           '<div class="reel-right" aria-label="Reel actions">'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="love" aria-label="Love">'+ICON.heart+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="love" data-count="love" role="button" tabindex="0" aria-label="See who reacted">0</span></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="love" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Love">'+ICON.heart+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="love" data-count="love" data-post-id="'+esc(String(it.id || 0))+'" role="button" tabindex="0" aria-label="See who reacted">0</span></div>'+
             '<div class="reel-act-wrap"><button type="button" class="reel-act js-open-comments" data-act="comment" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Comment">'+ICON.comment+'</button><span class="reel-act-count" data-count="comment">0</span></div>'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="share" aria-label="Share">'+ICON.share+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="share" data-count="share" role="button" tabindex="0" aria-label="See who shared">0</span></div>'+
-            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="save" aria-label="Favorite">'+ICON.bookmark+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="save" data-count="save" role="button" tabindex="0" aria-label="See who favorited">0</span></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="share" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Share">'+ICON.share+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="share" data-count="share" data-post-id="'+esc(String(it.id || 0))+'" role="button" tabindex="0" aria-label="See who shared">0</span></div>'+
+            '<div class="reel-act-wrap"><button type="button" class="reel-act" data-act="save" data-post-id="'+esc(String(it.id || 0))+'" aria-label="Favorite">'+ICON.bookmark+'</button><span class="reel-act-count js-open-reactors" data-rx-tab="save" data-count="save" data-post-id="'+esc(String(it.id || 0))+'" role="button" tabindex="0" aria-label="See who favorited">0</span></div>'+
           '</div>'+
         '</div>';
 
@@ -1676,6 +1699,7 @@ $iconFries = post_card_menu_fries_icon_html();
       });
       video.addEventListener('playing', revealPaintedReel);
       if(video.readyState >= 2) revealPaintedReel();
+      window.setTimeout(function(){ revealPaintedReel(); }, 1800);
       video.addEventListener('error', function(){
         var at = slideEls.indexOf(slide);
         if(at < 0) at = Number(slide.getAttribute('data-index') || -1);
@@ -1810,7 +1834,7 @@ $iconFries = post_card_menu_fries_icon_html();
       at = Math.max(0, Math.min(items.length - 1, Number(at || 0)));
       if(animate && at !== index){
         animating = true;
-        window.setTimeout(function(){ animating = false; }, 340);
+        window.setTimeout(function(){ animating = false; }, 620);
       }
       applyTrackTransform(at, !!animate);
       activateIndex(at, true);
@@ -1953,8 +1977,7 @@ $iconFries = post_card_menu_fries_icon_html();
         }
         if(act === 'share'){
           if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function'){
-            window.MSBPostCardMenu.openShare(pid);
-            return;
+            if(window.MSBPostCardMenu.openShare(pid)) return;
           }
           var prevShare = Number(it.share_count || 0);
           var prevShared = Number(it.my_shared || 0);
@@ -2146,7 +2169,7 @@ $iconFries = post_card_menu_fries_icon_html();
       var now = Date.now();
       if(now < wheelLockUntil || animating) return;
       if(Math.abs(e.deltaY) < 8) return;
-      wheelLockUntil = now + 420;
+      wheelLockUntil = now + 700;
       go(e.deltaY > 0 ? 1 : -1);
     }, { passive:false });
 

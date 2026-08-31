@@ -263,7 +263,7 @@ foreach ($homeRailLive as $ev) {
 $homeRailEvents = array_slice($homeRailEvents, 0, 10);
 $homeRailTrendHref = defined('MSB_HOME_PAGE') ? 'home.php?tab=trending' : 'public.php?tab=trending';
 $homeRailPublishers = [];
-if (!$sfyModeIsPage) {
+if (!$sfyModeIsPage && empty($sfyCanShowPersonal)) {
     foreach (array_merge($sfyFollow ?? [], $sfyAdvertise ?? []) as $row) {
         $homeRailPublishers[] = $row;
     }
@@ -338,6 +338,18 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
   <?php endif; ?>
   </div>
 </section>
+<footer class="home-right-legal" aria-label="About Talsora">
+  <nav>
+    <a href="index.php?tab=about">About</a>
+    <a href="index.php?tab=guidance">Guidance</a>
+    <a href="index.php?tab=help">Help</a>
+    <a href="index.php?tab=policy">Policy</a>
+    <a href="index.php?tab=terms">Terms</a>
+    <a href="index.php?tab=locations">Locations</a>
+    <a href="shop.php">Shop</a>
+  </nav>
+  <p>English · © <?= (int)date('Y') ?> Talsora</p>
+</footer>
 <style>
 .home-bday-dialog{
   border:1px solid var(--msb-palette-border,#e5e7eb);border-radius:16px;padding:0;max-width:420px;width:calc(100% - 32px);

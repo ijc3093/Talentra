@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * Client-side Talentra splash for login/register form submits.
- * Call window.msbShowTalentraBootSplash(optionalMessage) before navigation.
+ * Client-side Talsora splash for login/register form submits.
+ * Call window.msbShowTalsoraBootSplash(optionalMessage) before navigation.
  */
 ?>
 <style id="msb-talentra-boot-inline-css">
@@ -72,20 +72,20 @@ declare(strict_types=1);
 </style>
 <script>
 (function () {
-  if (window.msbShowTalentraBootSplash) return;
-  window.msbShowTalentraBootSplash = function (message) {
-    var existing = document.getElementById('msbTalentraBootSplash');
+  if (window.msbShowTalsoraBootSplash) return;
+  window.msbShowTalsoraBootSplash = function (message) {
+    var existing = document.getElementById('msbTalsoraBootSplash');
     if (existing) {
       existing.removeAttribute('hidden');
       var status = existing.querySelector('.msb-te-boot-status');
       if (status && message) status.textContent = String(message);
       return existing;
     }
-    var brand = 'Talentra'.split('').map(function (ch, i) {
+    var brand = 'Talsora'.split('').map(function (ch, i) {
       return '<span style="animation-delay:' + (0.35 + i * 0.06).toFixed(2) + 's">' + ch + '</span>';
     }).join('');
     var el = document.createElement('div');
-    el.id = 'msbTalentraBootSplash';
+    el.id = 'msbTalsoraBootSplash';
     el.className = 'msb-te-boot';
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
@@ -94,13 +94,13 @@ declare(strict_types=1);
       '<div class="msb-te-boot-aurora" aria-hidden="true"></div>' +
       '<div class="msb-te-boot-inner">' +
         '<div class="msb-te-boot-orb" aria-hidden="true"><div class="msb-te-boot-ring"></div><div class="msb-te-boot-mark">T</div></div>' +
-        '<h1 class="msb-te-boot-brand" aria-label="Talentra">' + brand + '</h1>' +
+        '<h1 class="msb-te-boot-brand" aria-label="Talsora">' + brand + '</h1>' +
         '<div class="msb-te-boot-rule" aria-hidden="true"></div>' +
         '<p class="msb-te-boot-status"></p>' +
         '<div class="msb-te-boot-bar" aria-hidden="true"><i></i></div>' +
       '</div>';
     var statusEl = el.querySelector('.msb-te-boot-status');
-    if (statusEl) statusEl.textContent = String(message || 'Opening Talentra');
+    if (statusEl) statusEl.textContent = String(message || 'Opening Talsora');
     document.body.appendChild(el);
     try { document.documentElement.style.overflow = 'hidden'; } catch (e) {}
     return el;

@@ -117,8 +117,8 @@ Each domain has its own source-of-truth tables, but the user experience crosses 
 
 Related reference documents:
 
-- [Senior_Backend_Engineer_database_system_architecture.md](/Applications/MAMP/htdocs/Talentra/public_user/docs/Senior_Backend_Engineer_database_system_architecture.md)
-- [Senior_Backend_Engineer _database_update_guide.md](/Applications/MAMP/htdocs/Talentra/public_user/docs/Senior_Backend_Engineer%20_database_update_guide.md)
+- [Senior_Backend_Engineer_database_system_architecture.md](/Applications/MAMP/htdocs/Talsora/public_user/docs/Senior_Backend_Engineer_database_system_architecture.md)
+- [Senior_Backend_Engineer _database_update_guide.md](/Applications/MAMP/htdocs/Talsora/public_user/docs/Senior_Backend_Engineer%20_database_update_guide.md)
 
 System design diagram:
 

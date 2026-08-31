@@ -38,17 +38,6 @@ $posts = msb_archive_fetch_posts($dbh, $meId, 200);
 $backUrl = 'profile.php?tab=gear';
 $staffReadonly = function_exists('staff_pub_is_readonly') && staff_pub_is_readonly();
 
-$storyPosts = [];
-$feedPosts = [];
-foreach ($posts as $post) {
-    // Split by where Archive was clicked: story door → Stories; card fries → Posts.
-    if (!empty($post['archived_as_story'])) {
-        $storyPosts[] = $post;
-    } else {
-        $feedPosts[] = $post;
-    }
-}
-
 $meUser = ['id' => $meId, 'name' => '', 'username' => '', 'image' => ''];
 try {
     $stU = $dbh->prepare('SELECT id, name, username, image FROM users WHERE id = :id LIMIT 1');
@@ -61,71 +50,15 @@ try {
     // keep defaults
 }
 
-if (!function_exists('msb_archive_avatar_url')) {
-    function msb_archive_avatar_url(array $user, int $size = 96): string
-    {
-        if (function_exists('user_avatar_url')) {
-            return (string)user_avatar_url($user, $size);
-        }
-        $img = trim((string)($user['image'] ?? ''));
-        if ($img !== '' && $img !== 'default.jpg') {
-            if (preg_match('~^(https?:)?//~i', $img) || (isset($img[0]) && $img[0] === '/')) {
-                return $img;
-            }
-            return './' . ltrim($img, './');
-        }
-        return 'avatar.php?id=' . (int)($user['id'] ?? 0) . '&s=' . $size;
-    }
-}
-
-/**
- * @return array{day:string,month:string}
- */
-function msb_archive_date_badge(string $dt): array
-{
-    $ts = strtotime(trim($dt));
-    if ($ts === false) {
-        return ['day' => '', 'month' => ''];
-    }
-    $day = date('j', $ts);
-    $month = date('Y', $ts) === date('Y')
-        ? date('M', $ts)
-        : date('M Y', $ts);
-    return ['day' => $day, 'month' => $month];
-}
-
-$avatarUrl = msb_archive_avatar_url($meUser, 96);
+$view = msb_archive_prepare_view($posts, $meUser);
+$storyCircles = $view['storyCircles'];
+$hasStories = $view['hasStories'];
+$feedPosts = $view['feedPosts'];
+$avatarUrl = $view['avatarUrl'];
 $displayName = trim((string)($meUser['name'] ?? '')) !== ''
     ? trim((string)$meUser['name'])
     : trim((string)($meUser['username'] ?? 'You'));
-
-// One circle per archived story (hide/archive adds the next circle in the rail).
-$storyCircles = [];
-foreach ($storyPosts as $post) {
-    $pid = (int)($post['id'] ?? 0);
-    if ($pid <= 0) {
-        continue;
-    }
-    $previewSrc = (string)($post['preview_src'] ?? '');
-    $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
-    $isVideo = ($thumbType === 'video');
-    $caption = trim((string)($post['preview_text'] ?? ''));
-    $badge = msb_archive_date_badge((string)($post['updated_at'] ?? $post['created_at'] ?? ''));
-    $label = trim($badge['day'] . ' ' . $badge['month']);
-    if ($label === '') {
-        $label = $caption !== '' ? $caption : ('Story #' . $pid);
-    }
-    $storyCircles[] = [
-        'postId' => $pid,
-        'src' => $previewSrc,
-        'type' => $isVideo ? 'video' : ($previewSrc !== '' ? 'image' : 'text'),
-        'caption' => $caption !== '' ? $caption : ('Story #' . $pid),
-        'label' => $label,
-        'ringSrc' => $previewSrc !== '' ? $previewSrc : $avatarUrl,
-        'createdAt' => (string)($post['updated_at'] ?? $post['created_at'] ?? ''),
-    ];
-}
-$hasStories = count($storyCircles) > 0;
+$msbArchiveEmbed = false;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -488,11 +421,33 @@ $hasStories = count($storyCircles) > 0;
       color:#fff;text-align:left;
       -webkit-tap-highlight-color:transparent;
     }
-    .ig-archive-tile:focus-visible,
-    .ig-story-item[data-story-key]:focus-visible{
+    .ig-archive-tile:focus-visible{
       outline:2px solid #0095f6;
       outline-offset:2px;
       z-index:1;
+    }
+    .ig-archive-tile .react-overlay{
+      position:absolute;inset:0;z-index:6;
+      background:rgba(2,8,23,.58);
+      opacity:0;pointer-events:none;
+      transition:opacity .16s ease;
+      display:flex;align-items:center;justify-content:center;
+      gap:10px;padding:10px;color:#fff;
+    }
+    .ig-archive-tile:hover .react-overlay,
+    .ig-archive-tile:focus-visible .react-overlay{opacity:1}
+    .ig-archive-tile .react-btn{
+      display:flex;align-items:center;gap:7px;
+      padding:8px 10px;border-radius:999px;
+      background:rgba(255,255,255,.16);color:#fff;
+      font-weight:900;font-size:12px;
+      border:1px solid rgba(255,255,255,.14);
+      pointer-events:none;
+    }
+    .ig-archive-tile .react-btn i{font-size:16px}
+    .ig-story-item:focus,
+    .ig-story-item:focus-visible{
+      outline:none;
     }
     .ig-archive-media{
       position:absolute;inset:0;
@@ -661,341 +616,11 @@ $hasStories = count($storyCircles) > 0;
   </style>
 </head>
 <body>
-<div class="ig-archive">
-  <header class="ig-archive-top">
-    <div class="ig-archive-head">
-      <a class="ig-archive-back" href="<?= msb_archive_h($backUrl) ?>" aria-label="Back">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M15.5 4.5 8 12l7.5 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </a>
-      <h1 class="ig-archive-title">Archive</h1>
-    </div>
-
-    <div class="ig-archive-stories-block">
-      <div class="ig-archive-stories-label">Stories</div>
-      <div class="ig-stories-wrap">
-      <div class="ig-stories-bar<?= $hasStories ? '' : ' is-empty' ?>" aria-label="Archived stories">
-        <div class="ig-stories-track<?= $hasStories ? '' : ' is-empty' ?>" id="igStoriesTrack">
-          <?php if (!$hasStories): ?>
-            <div class="ig-story-item ig-story-empty" role="status" aria-label="No archived stories">
-              <div class="ig-story-ring ig-story-ring-empty">
-                <span class="ig-story-empty-icon" aria-hidden="true"><i class="icon ion-ios-book-outline"></i></span>
-              </div>
-            </div>
-          <?php else: ?>
-            <?php foreach ($storyCircles as $circle): ?>
-              <?php
-                $cid = (int)$circle['postId'];
-                $cSrc = (string)$circle['src'];
-                $cType = (string)$circle['type'];
-                $cCap = (string)$circle['caption'];
-                $cLabel = (string)$circle['label'];
-                $cRing = (string)$circle['ringSrc'];
-                $slideJson = json_encode([[
-                    'postId' => $cid,
-                    'src' => $cSrc,
-                    'type' => $cType,
-                    'caption' => $cCap,
-                ]], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-              ?>
-              <button
-                type="button"
-                class="ig-story-item"
-                data-story-key="s<?= $cid ?>"
-                data-post-id="<?= $cid ?>"
-                data-src="<?= msb_archive_h($cSrc) ?>"
-                data-type="<?= msb_archive_h($cType) ?>"
-                data-caption="<?= msb_archive_h($cCap) ?>"
-                data-story-slides="<?= msb_archive_h((string)$slideJson) ?>"
-                aria-label="Open archived story <?= msb_archive_h($cLabel) ?>"
-              >
-                <div class="ig-story-ring">
-                  <?php if ($cType === 'video' && $cSrc !== ''): ?>
-                    <video class="ig-story-thumb" src="<?= msb_archive_h($cSrc) ?>" muted playsinline preload="metadata"></video>
-                  <?php elseif ($cSrc !== ''): ?>
-                    <img class="ig-story-thumb" src="<?= msb_archive_h($cSrc) ?>" alt="">
-                  <?php elseif ($cRing !== '' && $cRing !== $cSrc): ?>
-                    <img class="ig-story-thumb" src="<?= msb_archive_h($cRing) ?>" alt="">
-                  <?php else: ?>
-                    <span class="ig-story-ring-text"><?= msb_archive_h(function_exists('mb_substr') ? (string)mb_substr($cCap, 0, 18) : substr($cCap, 0, 18)) ?></span>
-                  <?php endif; ?>
-                </div>
-                <span class="ig-story-name"><?= msb_archive_h($cLabel) ?></span>
-              </button>
-            <?php endforeach; ?>
-          <?php endif; ?>
-        </div>
-        <?php if ($hasStories): ?>
-          <button type="button" class="ig-stories-next" aria-label="Next stories" id="igStoriesNext">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        <?php endif; ?>
-      </div>
-      </div>
-      <p class="ig-archive-note ig-archive-note--stories">Only you can see archived stories. Each hide from the story door fries menu adds the next circle here.</p>
-    </div>
-  </header>
-
-  <?php if ($feedPosts || (!$hasStories && !$feedPosts)): ?>
-  <div class="ig-archive-body">
-  <?php if ($feedPosts): ?>
-    <section class="ig-archive-section" aria-label="Archived posts">
-    <div class="ig-archive-posts-meta">
-      <div class="ig-archive-section-title">Posts</div>
-      <p class="ig-archive-note" style="margin-top:0;margin-bottom:12px;">Archived from the feed or public post-card fries menu stay here — separate from story circles above.</p>
-    </div>
-    <div class="ig-archive-grid-scroll">
-    <div class="ig-archive-grid" id="archivePostList">
-      <?php foreach ($feedPosts as $post): ?>
-        <?php
-          $pid = (int)($post['id'] ?? 0);
-          if ($pid <= 0) {
-              continue;
-          }
-          $previewSrc = (string)($post['preview_src'] ?? '');
-          $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
-          $isVideo = ($thumbType === 'video');
-          $caption = trim((string)($post['preview_text'] ?? ''));
-          $title = trim((string)($post['title'] ?? ''));
-          if ($title === '' || strcasecmp($title, 'post') === 0) {
-              $title = $caption !== '' ? $caption : ('Post #' . $pid);
-          }
-          $badge = msb_archive_date_badge((string)($post['updated_at'] ?? $post['created_at'] ?? ''));
-          $openCaption = $caption !== '' ? $caption : $title;
-        ?>
-        <button
-          type="button"
-          class="ig-archive-tile"
-          data-post-id="<?= $pid ?>"
-          data-src="<?= msb_archive_h($previewSrc) ?>"
-          data-type="<?= msb_archive_h($isVideo ? 'video' : ($previewSrc !== '' ? 'image' : 'text')) ?>"
-          data-caption="<?= msb_archive_h($openCaption) ?>"
-          data-kind="post"
-          aria-label="Archived post from <?= msb_archive_h(trim($badge['day'] . ' ' . $badge['month'])) ?>"
-        >
-          <?php if ($badge['day'] !== ''): ?>
-            <span class="ig-archive-date">
-              <span class="ig-archive-date-day"><?= msb_archive_h($badge['day']) ?></span>
-              <span class="ig-archive-date-month"><?= msb_archive_h($badge['month']) ?></span>
-            </span>
-          <?php endif; ?>
-          <?php if ($isVideo && $previewSrc !== ''): ?>
-            <span class="ig-archive-video-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </span>
-            <video class="ig-archive-media" src="<?= msb_archive_h($previewSrc) ?>" muted playsinline preload="metadata"></video>
-          <?php elseif ($previewSrc !== ''): ?>
-            <img class="ig-archive-media" src="<?= msb_archive_h($previewSrc) ?>" alt="">
-          <?php else: ?>
-            <div class="ig-archive-fallback"><span><?= msb_archive_h($openCaption) ?></span></div>
-          <?php endif; ?>
-        </button>
-      <?php endforeach; ?>
-    </div>
-    </div>
-    </section>
-  <?php endif; ?>
-
-  <?php if (!$hasStories && !$feedPosts): ?>
-    <div class="ig-archive-empty" role="status">
-      <strong>No archived items</strong>
-      <p>Archive a story from the story door fries menu (adds a circle above), or archive a post from For You / Discover (shows under Posts).</p>
-    </div>
-  <?php endif; ?>
-  </div>
-  <?php endif; ?>
-</div>
-
-<div class="ig-archive-viewer" id="archiveViewer" aria-hidden="true">
-  <div class="ig-archive-sheet" role="dialog" aria-modal="true" aria-label="Archived item">
-    <div class="ig-archive-sheet-preview" id="archiveViewerPreview"></div>
-    <div class="ig-archive-sheet-actions">
-      <button type="button" class="ig-archive-sheet-btn is-danger" id="archiveUnarchiveBtn">Unarchive</button>
-      <button type="button" class="ig-archive-sheet-btn" id="archiveViewerClose">Cancel</button>
-    </div>
-  </div>
-</div>
-<div class="ig-archive-toast" id="archiveToast" role="status" aria-live="polite"></div>
-
-<script>
-(function(){
-  var viewer = document.getElementById('archiveViewer');
-  var preview = document.getElementById('archiveViewerPreview');
-  var unBtn = document.getElementById('archiveUnarchiveBtn');
-  var closeBtn = document.getElementById('archiveViewerClose');
-  var toastEl = document.getElementById('archiveToast');
-  var nextBtn = document.getElementById('igStoriesNext');
-  var track = document.getElementById('igStoriesTrack');
-  var activeId = 0;
-  var toastTimer = 0;
-
-  function toast(msg){
-    if(!toastEl) return;
-    toastEl.textContent = String(msg || '');
-    toastEl.classList.add('is-on');
-    if(toastTimer) window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(function(){ toastEl.classList.remove('is-on'); }, 2200);
-  }
-
-  function closeViewer(){
-    activeId = 0;
-    if(viewer){
-      viewer.classList.remove('is-open');
-      viewer.setAttribute('aria-hidden', 'true');
-    }
-    if(preview) preview.innerHTML = '';
-    if(unBtn) unBtn.disabled = false;
-  }
-
-  function openMedia(src, type, caption, postId){
-    activeId = Number(postId || 0);
-    if(!viewer || !preview || !activeId) return;
-    preview.innerHTML = '';
-    src = String(src || '');
-    type = String(type || 'text');
-    caption = String(caption || '');
-    if(type === 'video' && src){
-      var v = document.createElement('video');
-      v.src = src; v.controls = true; v.playsInline = true; v.autoplay = true; v.muted = true;
-      preview.appendChild(v);
-    } else if(src){
-      var img = document.createElement('img');
-      img.src = src; img.alt = '';
-      preview.appendChild(img);
-    } else {
-      var fall = document.createElement('div');
-      fall.className = 'ig-archive-fallback';
-      fall.innerHTML = '<span></span>';
-      fall.querySelector('span').textContent = caption || 'Story';
-      preview.appendChild(fall);
-    }
-    viewer.classList.add('is-open');
-    viewer.setAttribute('aria-hidden', 'false');
-  }
-
-  function openStoryCircle(btn){
-    if(!btn) return;
-    var src = String(btn.getAttribute('data-src') || '');
-    var type = String(btn.getAttribute('data-type') || 'text');
-    var caption = String(btn.getAttribute('data-caption') || '');
-    var postId = Number(btn.getAttribute('data-post-id') || 0);
-    if(postId > 0 && (src || caption)){
-      openMedia(src, type, caption, postId);
-      return;
-    }
-    var raw = btn.getAttribute('data-story-slides') || '[]';
-    var slides = [];
-    try{ slides = JSON.parse(raw) || []; }catch(e){ slides = []; }
-    if(!slides.length) return;
-    var first = slides[0] || {};
-    openMedia(first.src || '', first.type || 'text', first.caption || '', first.postId || 0);
-  }
-
-  function showStoriesEmpty(){
-    if(!track) return;
-    track.innerHTML = ''
-      + '<div class="ig-story-item ig-story-empty" role="status" aria-label="No archived stories">'
-      + '<div class="ig-story-ring ig-story-ring-empty"><span class="ig-story-empty-icon" aria-hidden="true"><i class="icon ion-ios-book-outline"></i></span></div>'
-      + '</div>';
-    track.classList.add('is-empty');
-    track.classList.remove('has-create');
-    var bar = track.closest('.ig-stories-bar');
-    if(bar) bar.classList.add('is-empty');
-    if(nextBtn) nextBtn.style.display = 'none';
-  }
-
-  function removePostEverywhere(postId){
-    postId = String(postId || '');
-    document.querySelectorAll('.ig-story-item[data-post-id="'+postId+'"]').forEach(function(el){
-      try{ el.remove(); }catch(e){}
-    });
-    document.querySelectorAll('#archivePostList .ig-archive-tile[data-post-id="'+postId+'"]').forEach(function(el){
-      try{ el.remove(); }catch(e){}
-    });
-
-    if(track && !track.querySelector('.ig-story-item[data-story-key]')){
-      showStoriesEmpty();
-    }
-
-    var postList = document.getElementById('archivePostList');
-    if(postList && !postList.querySelector('.ig-archive-tile')){
-      var postSection = postList.closest('.ig-archive-section');
-      if(postSection) postSection.remove();
-      else {
-        var ptitle = postList.previousElementSibling;
-        if(ptitle && ptitle.classList.contains('ig-archive-section-title')) ptitle.remove();
-        postList.remove();
-      }
-    }
-  }
-
-  function unarchive(postId){
-    postId = Number(postId || 0);
-    if(!postId) return;
-    if(unBtn) unBtn.disabled = true;
-    var body = new URLSearchParams({ ajax:'archive', post_id:String(postId), archived:'0' });
-    fetch('feed_api.php', {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
-      credentials:'same-origin',
-      body: body
-    }).then(function(r){ return r.json(); }).then(function(res){
-      if(!res || res.ok === false){
-        if(unBtn) unBtn.disabled = false;
-        toast((res && res.error) ? String(res.error) : 'Could not unarchive.');
-        return;
-      }
-      removePostEverywhere(postId);
-      closeViewer();
-      toast('Restored to your feed.');
-    }).catch(function(){
-      if(unBtn) unBtn.disabled = false;
-      toast('Network error. Try again.');
-    });
-  }
-
-  document.addEventListener('click', function(e){
-    var storyCircle = e.target && e.target.closest ? e.target.closest('.ig-story-item[data-story-key]') : null;
-    if(storyCircle){
-      e.preventDefault();
-      openStoryCircle(storyCircle);
-      return;
-    }
-    var tile = e.target && e.target.closest ? e.target.closest('.ig-archive-tile, .ig-archive-post-open') : null;
-    if(tile){
-      e.preventDefault();
-      openMedia(
-        tile.getAttribute('data-src'),
-        tile.getAttribute('data-type'),
-        tile.getAttribute('data-caption'),
-        tile.getAttribute('data-post-id')
-      );
-      return;
-    }
-    var un = e.target && e.target.closest ? e.target.closest('.js-unarchive') : null;
-    if(un){
-      e.preventDefault();
-      unarchive(un.getAttribute('data-post-id'));
-    }
-  });
-
-  if(nextBtn && track){
-    nextBtn.addEventListener('click', function(){
-      track.scrollBy({ left: 140, behavior: 'smooth' });
-    });
-  }
-  if(closeBtn) closeBtn.addEventListener('click', closeViewer);
-  if(unBtn) unBtn.addEventListener('click', function(){ unarchive(activeId); });
-  if(viewer){
-    viewer.addEventListener('click', function(e){
-      if(e.target === viewer) closeViewer();
-    });
-  }
-  document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape' && viewer && viewer.classList.contains('is-open')) closeViewer();
-  });
-})();
-</script>
+<?php
+$msbArchiveEmbed = false;
+include __DIR__ . "/includes/archive_view.php";
+include __DIR__ . "/includes/archive_view.js.php";
+?>
 </body>
 </html>
+

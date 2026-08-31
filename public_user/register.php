@@ -110,7 +110,7 @@ function register_policy_sections(): array
         'Eligibility' => 'Personal accounts are for users who are at least ' . register_minimum_personal_age() . ' years old. You must provide accurate information when creating an account.',
         'Acceptable use' => 'Do not post illegal, abusive, harassing, fraudulent, or harmful content. Do not impersonate others or misuse the service.',
         'Your account' => 'You are responsible for activity on your account and for keeping your login credentials secure.',
-        'Privacy' => 'We use the information you provide to operate Talentra, including your profile details and birthday for eligibility and account safety.',
+        'Privacy' => 'We use the information you provide to operate Talsora, including your profile details and birthday for eligibility and account safety.',
         'Enforcement' => 'We may suspend or remove accounts that violate these terms or provide false information, including false age declarations.',
     ];
 }
@@ -726,7 +726,7 @@ if (isset($_POST['submit'])) {
                     : generateUniqueFriendCode($dbh, 'USR');
                 $password = password_hash($passwordRaw, PASSWORD_DEFAULT);
                 $designation = $isPublisher
-                    ? ($publisherTagline !== '' ? $publisherTagline : ('Official ' . $name . ' on Talentra'))
+                    ? ($publisherTagline !== '' ? $publisherTagline : ('Official ' . $name . ' on Talsora'))
                     : '';
                 $image = 'default.jpg';
 
@@ -885,7 +885,7 @@ if ($isPublisherReg) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Create account — Talentra</title>
+    <title>Create account — Talsora</title>
     <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
     <link href="./lib/Ionicons/css/ionicons.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/shamcey.css">

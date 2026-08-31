@@ -154,7 +154,7 @@ function post_card_actions_owner_menu_items_html(array $ctx): string
     $postId = (int)($ctx['post_id'] ?? 0);
     $staffReadonly = !empty($ctx['staff_readonly']);
     $editUrl = trim((string)($ctx['edit_url'] ?? ''));
-    if ($postId <= 0 || $staffReadonly) {
+    if ($postId <= 0 || $staffReadonly || empty($ctx['is_owner'])) {
         return '';
     }
 
@@ -174,6 +174,15 @@ function post_card_actions_owner_menu_items_html(array $ctx): string
         $items[] = post_card_actions_button_item('pcm-private', 'Private', 'fa fa-lock', [
             'data-post-id' => (string)$postId,
             'data-visibility' => 'private',
+        ]);
+    } else {
+        $items[] = post_card_actions_button_item('pcm-vis-friends', 'Friends', 'fa fa-users', [
+            'data-post-id' => (string)$postId,
+            'data-visibility' => 'friends',
+        ]);
+        $items[] = post_card_actions_button_item('pcm-vis-public', 'Public', 'fa fa-globe', [
+            'data-post-id' => (string)$postId,
+            'data-visibility' => 'public',
         ]);
     }
     $items[] = post_card_actions_button_item(
@@ -209,7 +218,7 @@ function post_card_actions_common_menu_items_html(array $ctx): string
     $isStranger = !$isOwner && $friendStatus !== 'friends' && $friendStatus !== 'self';
     $items = [];
 
-    // Discover / Reels strangers: Mention only — no Tag (incl. Add to Tags).
+    // Discover / Clips strangers: Mention only — no Tag (incl. Add to Tags).
     // Report is added by the parent non-owner menu (first fries action).
     if (!$isOwner) {
         $allowTag = !($isDiscoverOrReel && $isStranger);
@@ -262,7 +271,10 @@ function post_card_actions_menu_context(
 ): array {
     $peerId = (int)($post['user_id'] ?? 0);
     $isOwner = $peerId > 0 && $peerId === $meId;
-    $friendStatus = (string)($post['friend_status'] ?? 'none');
+    $friendStatus = strtolower(trim((string)($post['friend_status'] ?? 'none')));
+    if (!in_array($friendStatus, ['self', 'friends', 'outgoing_pending', 'incoming_pending', 'none'], true)) {
+        $friendStatus = 'none';
+    }
     $accountKind = strtolower(trim((string)($post['account_kind'] ?? 'personal')));
     $isPublisher = !empty($post['is_publisher']) || $accountKind === 'publisher';
     $isFollowing = !empty($post['is_following']);
@@ -315,7 +327,7 @@ function post_card_actions_menu_items_html(array $ctx): string
     $isOwner = !empty($ctx['is_owner']);
     $staffReadonly = !empty($ctx['staff_readonly']);
     $isPublisher = !empty($ctx['is_publisher']);
-    $friendStatus = (string)($ctx['friend_status'] ?? 'none');
+    $friendStatus = strtolower(trim((string)($ctx['friend_status'] ?? 'none')));
     $isFollowing = !empty($ctx['is_following']);
     $profileUrl = trim((string)($ctx['profile_url'] ?? ''));
     $messageUrl = trim((string)($ctx['message_url'] ?? ''));
@@ -337,7 +349,7 @@ function post_card_actions_menu_items_html(array $ctx): string
 
     $items = [];
 
-    // Report FIRST on every non-own fries so For You / Discover / Profile always show it.
+    // Report FIRST on every non-own fries so Circle / Discover / Profile always show it.
     if ($postId > 0 && !$isOwner) {
         $items[] = post_card_actions_button_item('pcm-report is-danger', 'Report', 'fa fa-flag', [
             'data-post-id' => (string)$postId,
@@ -349,7 +361,7 @@ function post_card_actions_menu_items_html(array $ctx): string
         $items[] = $viewPostItem;
     }
 
-    if (($isOwner || ($feedSurface && $friendStatus === 'self')) && !$staffReadonly) {
+    if ($isOwner && !$staffReadonly) {
         // Rebuild owner path without the Report block above.
         $items = [];
         if ($viewPostItem !== '') {
@@ -391,11 +403,11 @@ function post_card_actions_menu_items_html(array $ctx): string
         ]);
     }
 
-    if (!$feedSurface && !$isPublisher && $peerId > 0 && $friendStatus === 'none' && !$staffReadonly) {
+    if (!$feedSurface && !$isPublisher && $peerId > 0 && $friendStatus === 'none' && !$staffReadonly && !$publisherWorkspaceViewer) {
         $items[] = '<button type="button" class="pcm-item pcm-add-friend" data-peer-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-plus" aria-hidden="true"></i><span>Add Friend</span></button>';
     }
 
-    if (!$feedSurface && $isPublisher && !$isFollowing && $peerId > 0 && $canFollowPublishers) {
+    if ($isPublisher && !$isFollowing && $peerId > 0 && $canFollowPublishers) {
         $items[] = '<button type="button" class="pcm-item pcm-follow" data-publisher-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-plus" aria-hidden="true"></i><span>Follow</span></button>';
     }
 
@@ -440,11 +452,15 @@ function post_card_actions_menu_shell_html(array $ctx, string $wrapClass = ''): 
         'data-post-id="' . (int)($ctx['post_id'] ?? 0) . '"',
         'data-peer-id="' . (int)($ctx['peer_id'] ?? 0) . '"',
         'data-is-owner="' . (!empty($ctx['is_owner']) ? '1' : '0') . '"',
+        'data-friend-status="' . post_card_actions_menu_h(strtolower(trim((string)($ctx['friend_status'] ?? 'none')))) . '"',
         'data-menu-surface="' . post_card_actions_menu_h((string)($ctx['menu_surface'] ?? 'public')) . '"',
     ];
     if (!empty($ctx['peer_code'])) {
         $attrs[] = 'data-peer-code="' . post_card_actions_menu_h((string)$ctx['peer_code']) . '"';
     }
+    $attrs[] = 'data-is-publisher="' . (!empty($ctx['is_publisher']) ? '1' : '0') . '"';
+    $attrs[] = 'data-is-following="' . (!empty($ctx['is_following']) ? '1' : '0') . '"';
+    $attrs[] = 'data-account-kind="' . post_card_actions_menu_h((string)($ctx['account_kind'] ?? (!empty($ctx['is_publisher']) ? 'publisher' : 'personal'))) . '"';
 
     $onMedia = (bool)preg_match('/(?:standard-media-topbar|on-media)/i', $wrapClass);
 
@@ -518,6 +534,18 @@ function post_card_actions_menu_render_modals(): void
   <div class="pcm-delete-dialog-actions">
     <button type="button" class="pcm-delete-dialog-cancel" data-pcm-private-dismiss>Cancel</button>
     <button type="button" class="pcm-delete-dialog-confirm pcm-private-dialog-confirm" id="pcmGenericConfirmPrivateBtn">Private</button>
+  </div>
+</dialog>
+<dialog class="pcm-delete-dialog pcm-vis-dialog is-friends" id="pcmVisConfirmDialog" aria-labelledby="pcmVisConfirmTitle">
+  <button type="button" class="pcm-delete-dialog-close" data-pcm-vis-dismiss aria-label="Close">&times;</button>
+  <div class="pcm-delete-dialog-icon pcm-vis-dialog-icon" id="pcmVisConfirmIcon" aria-hidden="true"><i class="fa fa-users"></i></div>
+  <h2 id="pcmVisConfirmTitle">Move this to Friends?</h2>
+  <p id="pcmVisConfirmBody">People in your Circle can see it again.</p>
+  <input type="hidden" id="pcmVisPostId" value="0">
+  <input type="hidden" id="pcmVisTarget" value="friends">
+  <div class="pcm-delete-dialog-actions">
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-vis-dismiss>Cancel</button>
+    <button type="button" class="pcm-delete-dialog-confirm pcm-vis-dialog-confirm" id="pcmGenericConfirmVisBtn">Friends</button>
   </div>
 </dialog>
 <dialog class="pcm-delete-dialog" id="pcmDeleteConfirmDialog" aria-labelledby="pcmDeleteConfirmTitle">
@@ -701,23 +729,18 @@ function post_card_actions_menu_render_modals(): void
 <dialog class="pcm-share-dialog" id="pcmShareSheet" aria-labelledby="pcmShareSheetTitle">
   <button type="button" class="pcm-share-close" data-pcm-share-dismiss aria-label="Close">&times;</button>
   <h2 id="pcmShareSheetTitle">Share</h2>
-  <p class="pcm-share-sub">Send this post with apps you use.</p>
+  <p class="pcm-share-sub">Send a Talsora link from this device. No other networks are opened from here.</p>
   <button type="button" class="pcm-share-native" id="pcmShareNativeBtn" hidden>
     <span class="pcm-share-native-ico" aria-hidden="true"><i class="fa fa-share-alt"></i></span>
     <span class="pcm-share-native-txt">
-      <strong>Share via…</strong>
-      <small>Messages, Instagram, TikTok, and more</small>
+      <strong>Device share</strong>
+      <small>Your phone or computer’s own share list</small>
     </span>
   </button>
   <div class="pcm-share-grid" role="list">
-    <a class="pcm-share-app" data-pcm-share="facebook" role="listitem" href="#" target="_blank" rel="noopener noreferrer"><span class="pcm-share-app-ico pcm-share-fb" aria-hidden="true"><i class="fa fa-facebook"></i></span><span>Facebook</span></a>
-    <a class="pcm-share-app" data-pcm-share="instagram" role="listitem" href="#" target="_blank" rel="noopener noreferrer"><span class="pcm-share-app-ico pcm-share-ig" aria-hidden="true"><i class="fa fa-instagram"></i></span><span>Instagram</span></a>
-    <a class="pcm-share-app" data-pcm-share="messages" role="listitem" href="#"><span class="pcm-share-app-ico pcm-share-msg" aria-hidden="true"><i class="fa fa-comment"></i></span><span>Messages</span></a>
-    <a class="pcm-share-app" data-pcm-share="tiktok" role="listitem" href="#" target="_blank" rel="noopener noreferrer"><span class="pcm-share-app-ico pcm-share-tt" aria-hidden="true"><i class="fa fa-music"></i></span><span>TikTok</span></a>
-    <a class="pcm-share-app" data-pcm-share="whatsapp" role="listitem" href="#" target="_blank" rel="noopener noreferrer"><span class="pcm-share-app-ico pcm-share-wa" aria-hidden="true"><i class="fa fa-whatsapp"></i></span><span>WhatsApp</span></a>
-    <a class="pcm-share-app" data-pcm-share="x" role="listitem" href="#" target="_blank" rel="noopener noreferrer"><span class="pcm-share-app-ico pcm-share-x" aria-hidden="true"><i class="fa fa-twitter"></i></span><span>X</span></a>
-    <a class="pcm-share-app" data-pcm-share="telegram" role="listitem" href="#" target="_blank" rel="noopener noreferrer"><span class="pcm-share-app-ico pcm-share-tg" aria-hidden="true"><i class="fa fa-paper-plane"></i></span><span>Telegram</span></a>
+    <a class="pcm-share-app" data-pcm-share="messages" role="listitem" href="#"><span class="pcm-share-app-ico pcm-share-msg" aria-hidden="true"><i class="fa fa-comment"></i></span><span>Text</span></a>
     <a class="pcm-share-app" data-pcm-share="email" role="listitem" href="#"><span class="pcm-share-app-ico pcm-share-em" aria-hidden="true"><i class="fa fa-envelope"></i></span><span>Email</span></a>
+    <a class="pcm-share-app" data-pcm-share="chat" role="listitem" href="messages.php"><span class="pcm-share-app-ico pcm-share-tg" aria-hidden="true"><i class="fa fa-comments"></i></span><span>Chat</span></a>
   </div>
   <button type="button" class="pcm-share-copy" id="pcmShareCopyBtn" data-pcm-share="copy">
     <i class="fa fa-link" aria-hidden="true"></i><span>Copy link</span>
@@ -747,6 +770,10 @@ function post_card_actions_menu_render_modals(): void
   html body .pcm-archive-dialog-confirm{border:1px solid #2563eb!important;background:#2563eb!important;color:#fff!important}
   html body .pcm-private-dialog-icon{background:rgba(180,83,9,.12)!important;color:#b45309!important}
   html body .pcm-private-dialog-confirm{border:1px solid #b45309!important;background:#b45309!important;color:#fff!important}
+  html body .pcm-vis-dialog.is-friends .pcm-vis-dialog-icon{background:rgba(37,99,235,.12)!important;color:#2563eb!important}
+  html body .pcm-vis-dialog.is-friends .pcm-vis-dialog-confirm{border:1px solid #2563eb!important;background:#2563eb!important;color:#fff!important}
+  html body .pcm-vis-dialog.is-public .pcm-vis-dialog-icon{background:rgba(15,118,110,.12)!important;color:#0f766e!important}
+  html body .pcm-vis-dialog.is-public .pcm-vis-dialog-confirm{border:1px solid #0f766e!important;background:#0f766e!important;color:#fff!important}
   @media(max-width:575.98px){html body dialog.pcm-delete-dialog{padding:18px 16px 14px!important}html body .pcm-delete-dialog h2{font-size:15px!important}}
 
   html body dialog.pcm-share-dialog{
@@ -795,13 +822,8 @@ function post_card_actions_menu_render_modals(): void
   .pcm-share-app-ico{
     width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:16px;color:#fff;
   }
-  .pcm-share-fb{background:#1877f2}
-  .pcm-share-ig{background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af)}
   .pcm-share-msg{background:#34c759}
-  .pcm-share-tt{background:#111}
-  .pcm-share-wa{background:#25d366}
-  .pcm-share-x{background:#111}
-  .pcm-share-tg{background:#229ed9}
+  .pcm-share-tg{background:var(--msb-palette-action,#4b5563)}
   .pcm-share-em{background:#64748b}
   html body .pcm-share-copy,
   html body .pcm-share-cancel{

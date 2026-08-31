@@ -226,13 +226,13 @@ $welcomeContinueLabel = $welcomeAlreadySignedIn ? 'Continue to Home' : 'Continue
 >
   <div class="reg-welcome-dialog">
     <div class="reg-welcome-hero">
-      <h2 class="reg-welcome-brand" id="regWelcomeBrand">Talentra</h2>
+      <h2 class="reg-welcome-brand" id="regWelcomeBrand">Talsora</h2>
       <p class="reg-welcome-kicker"><?= htmlspecialchars($welcomeGreeting, ENT_QUOTES, 'UTF-8') ?>. Your personal account is ready.</p>
     </div>
     <div class="reg-welcome-body">
       <h3 class="reg-welcome-title">Your Friend Code</h3>
       <p class="reg-welcome-copy" id="regWelcomeDesc">
-        Save this code. Friends use it to find and connect with you on Talentra.
+        Save this code. Friends use it to find and connect with you on Talsora.
       </p>
       <div class="reg-welcome-code-wrap">
         <span class="reg-welcome-code-label">Friend code</span>

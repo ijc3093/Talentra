@@ -1,10 +1,12 @@
 <?php
-// /public_user/index.php — Talentra sign-in / sign-up gate
+// /public_user/index.php — Talsora sign-in / sign-up gate
 require_once __DIR__ . '/includes/session_user.php';
 require_once __DIR__ . '/includes/deleted_user_registry.php';
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/account_switch.php';
+require_once __DIR__ . '/includes/index_footer_tabs.php';
+require_once __DIR__ . '/includes/appearance_bridge.php';
 require_once __DIR__ . '/../admin/includes/admin_linked_accounts_load.php';
 
 error_reporting(E_ALL);
@@ -107,7 +109,10 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['user_login'])) {
     }
 }
 
-if (!$addingAccount && !empty($_SESSION['user_login']) && !empty($_SESSION['user_id'])) {
+$indexTab = index_footer_tab_from_request();
+$indexLoggedIn = !empty($_SESSION['user_login']) && !empty($_SESSION['user_id']);
+
+if ($indexLoggedIn) {
     try {
         $controller = new Controller();
         $uid = (int)($_SESSION['user_id'] ?? 0);
@@ -122,10 +127,12 @@ if (!$addingAccount && !empty($_SESSION['user_login']) && !empty($_SESSION['user
             redirectUserLoginDeactivated();
         }
     } catch (Throwable $e) {
-        // fall through to feed redirect
+        // fall through
     }
-    header('Location: home.php?tab=for-you');
-    exit;
+    if (!$addingAccount && $indexTab === '') {
+        header('Location: home.php?tab=for-you');
+        exit;
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
@@ -268,12 +275,37 @@ try {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta name="robots" content="noindex,nofollow">
-  <title>Talentra — Sign in</title>
+  <title><?= $indexTab !== '' ? htmlspecialchars(index_help_tab_title($indexTab) . ' · Talsora', ENT_QUOTES, 'UTF-8') : 'Talsora — Sign in' ?></title>
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
-  <link href="./css/auth-gate.css?v=16" rel="stylesheet">
+  <link href="./css/auth-gate.css?v=80" rel="stylesheet">
+  <?php
+  $themeUserId = $indexLoggedIn ? (int)($_SESSION['user_id'] ?? 0) : 0;
+  $themeDbh = null;
+  try {
+      $themeDbh = (new Controller())->pdo();
+  } catch (Throwable $e) {
+      $themeDbh = null;
+  }
+  if ($themeDbh instanceof PDO && $themeUserId > 0) {
+      appearance_bridge_print_theme_stack($themeDbh, $themeUserId);
+      appearance_bridge_print_index_gate_critical($themeDbh, $themeUserId);
+  } else {
+      $guestMode = appearance_bridge_read_cookie_mode();
+      if (appearance_bridge_is_named_palette($guestMode)) {
+          appearance_bridge_print_guest_index_theme($guestMode);
+      } else {
+          appearance_bridge_print_early_dark_auto_class(true);
+          appearance_bridge_print_index_daylight_critical();
+          if (!defined('MSB_THEME_DARK_CSS')) {
+              define('MSB_THEME_DARK_CSS', true);
+              echo '<link rel="stylesheet" href="./css/dark-auto.css?v=51">' . "\n";
+          }
+      }
+  }
+  ?>
 
 </head>
-<body class="ig-auth" data-auth-view="<?= htmlspecialchars($authView, ENT_QUOTES, 'UTF-8') ?>" data-login-mode="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>">
+<body class="ig-auth<?= $indexTab !== '' ? ' is-index-tab' : '' ?>" data-auth-view="<?= htmlspecialchars($authView, ENT_QUOTES, 'UTF-8') ?>" data-login-mode="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>" data-index-tab="<?= htmlspecialchars($indexTab, ENT_QUOTES, 'UTF-8') ?>">
   <?php require __DIR__ . '/includes/register_welcome_modal.php'; ?>
 
   <div class="auth-page">
@@ -306,29 +338,29 @@ try {
       </div>
     </div>
   </div>
-  <div class="auth-shell" id="authShell" aria-label="Talentra sign in">
-    <aside class="auth-left" aria-label="Talentra">
+  <div class="auth-shell" id="authShell" aria-label="Talsora sign in">
+    <aside class="auth-left" aria-label="Talsora">
       <a class="ig-logo" href="index.php">
         <span class="auth-brand-orb" aria-hidden="true"><span class="auth-brand-mark">t</span></span>
-        <span class="ig-logo-word">Talentra</span>
+        <span class="ig-logo-word">Talsora</span>
       </a>
       <h2 class="ig-headline" id="igHeadline">See everyday moments from your <span id="igHeadlineAccent">close friends.</span></h2>
       <div class="ig-phones" aria-hidden="true">
         <span class="ig-heart">♥</span>
         <div class="ig-phone">
-          <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=400&h=720&q=80" alt="">
           <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
         </div>
         <div class="ig-phone">
-          <img src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=400&h=720&q=80" alt="">
           <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
         </div>
         <div class="ig-phone">
-          <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <img src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&h=720&q=80" alt="">
           <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
         </div>
         <div class="ig-phone">
-          <img src="https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=400&h=720&q=80" alt="">
+          <img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=400&h=720&q=80" alt="">
           <div class="ig-phone-ui"><span class="ig-progress"><i class="is-on"></i><i></i><i></i></span></div>
         </div>
       </div>
@@ -343,10 +375,10 @@ try {
           if ($addingAccount) {
               echo $authView === 'register' ? 'Create another account' : 'Add another account';
           } else {
-              echo $authView === 'register' ? 'Create an account' : 'Log into Talentra';
+              echo $authView === 'register' ? 'Create an account' : 'Log into Talsora';
           }
         ?></p>
-        <h2 class="auth-title sr-only" id="authTitle"><?= $authView === 'register' ? 'Join Talentra' : 'Log into Talentra' ?></h2>
+        <h2 class="auth-title sr-only" id="authTitle"><?= $authView === 'register' ? 'Join Talsora' : 'Log into Talsora' ?></h2>
         <p class="auth-sub" id="authSub">Sign in to your personal account.</p>
       </div>
 
@@ -564,21 +596,15 @@ try {
         <span id="authSwitchLead">Don't have an account?</span>
         <button type="button" id="authSwitchBtn">Create new account</button>
       </div>
-      <div class="auth-meta-mark" aria-hidden="true">Talentra</div>
+      <div class="auth-meta-mark" aria-hidden="true">Talsora</div>
       </div>
       </div>
     </section>
   </div>
+  <?php index_render_legal_panels($indexTab, $indexLoggedIn, $addingAccount); ?>
   <footer class="auth-page-foot">
-    <nav aria-label="About">
-      <a href="index.php">About</a>
-      <a href="index.php">Help</a>
-      <a href="index.php">Privacy</a>
-      <a href="index.php">Terms</a>
-      <a href="index.php">Locations</a>
-      <a href="shop.php">Shop</a>
-    </nav>
-    <p class="auth-page-copy">English · © <?= (int)date('Y') ?> Talentra</p>
+    <?php index_render_footer_tab_nav($indexTab, $addingAccount); ?>
+    <p class="auth-page-copy">English · © <?= (int)date('Y') ?> Talsora</p>
   </footer>
   </div>
 
@@ -712,7 +738,7 @@ try {
       personal: {
         hint: 'Friends & family — your personal story space.',
         loginSub: 'Sign in to your personal account.',
-        registerSub: 'Create your personal Talentra account.',
+        registerSub: 'Create your personal Talsora account.',
         placeholder: 'Mobile number, username or email',
         continueLabel: 'Log in',
         registerCta: 'Create personal account',
@@ -748,9 +774,9 @@ try {
       if (registerPanel) registerPanel.classList.toggle('is-active', view === 'register');
       if (kicker) {
         if (addingAccount) kicker.textContent = view === 'register' ? 'Create another account' : 'Add another account';
-        else kicker.textContent = view === 'register' ? 'Create an account' : 'Log into Talentra';
+        else kicker.textContent = view === 'register' ? 'Create an account' : 'Log into Talsora';
       }
-      if (title) title.textContent = view === 'register' ? 'Create an account' : 'Log into Talentra';
+      if (title) title.textContent = view === 'register' ? 'Create an account' : 'Log into Talsora';
       if (switchLead) switchLead.textContent = view === 'register' ? 'Already have an account?' : "Don't have an account?";
       if (switchBtn) switchBtn.textContent = view === 'register' ? 'Log in' : 'Create new account';
       syncMode();
@@ -1263,6 +1289,373 @@ try {
     }
   })();
   </script>
-  <?php require __DIR__ . '/includes/entry_bridge_handoff.php'; ?>
+  <script>
+  (function () {
+    var tabs = <?= json_encode(index_help_all_tab_keys(), JSON_UNESCAPED_SLASHES) ?>;
+    var titles = <?= json_encode(index_help_all_tab_titles(), JSON_UNESCAPED_SLASHES) ?>;
+    var adding = <?= $addingAccount ? 'true' : 'false' ?>;
+    var groupLabels = <?= json_encode(index_help_crumb_map(), JSON_UNESCAPED_SLASHES) ?>;
+    var crumb = document.getElementById('hcCrumb');
+    var search = document.getElementById('hcSearch');
+    var legal = document.getElementById('authLegal');
+    var articles = legal ? legal.querySelectorAll('[data-legal-panel]') : [];
+    var links = document.querySelectorAll('.js-index-tab');
+    var helpInited = false;
+    var hcMain = document.querySelector('.hc-main');
+    function updateAboutProgress() {
+      var nav = document.querySelector('.hc-story-progress');
+      if (!nav || !hcMain) return;
+      var prog = nav.querySelectorAll('a');
+      if (!prog.length) return;
+      if (document.body.getAttribute('data-index-tab') !== 'about') return;
+      var marker = hcMain.getBoundingClientRect().top + 140;
+      var current = prog[0].getAttribute('href');
+      Array.prototype.forEach.call(prog, function (a) {
+        var id = String(a.getAttribute('href') || '').replace('#', '');
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (el.getBoundingClientRect().top <= marker) current = a.getAttribute('href');
+      });
+      Array.prototype.forEach.call(prog, function (a) {
+        a.classList.toggle('is-active', a.getAttribute('href') === current);
+      });
+    }
+    function syncAboutReel() {
+      var onAbout = document.body.getAttribute('data-index-tab') === 'about';
+      document.querySelectorAll('.hc-about-reel-video').forEach(function (v) {
+        if (!onAbout) {
+          try { v.pause(); } catch (ePause) {}
+          return;
+        }
+        var r = v.getBoundingClientRect();
+        var vis = r.bottom > 80 && r.top < (window.innerHeight - 40);
+        if (vis) {
+          v.muted = true;
+          var play = v.play();
+          if (play && play.catch) play.catch(function () {});
+        } else {
+          try { v.pause(); } catch (eOff) {}
+        }
+      });
+    }
+    document.addEventListener('click', function (e) {
+      var reel = e.target && e.target.closest ? e.target.closest('.hc-about-reel') : null;
+      if (!reel) return;
+      var v = reel.querySelector('.hc-about-reel-video');
+      if (!v) return;
+      if (v.paused) {
+        var play = v.play();
+        if (play && play.catch) play.catch(function () {});
+      } else {
+        v.pause();
+      }
+    });
+    if (hcMain) hcMain.addEventListener('scroll', function () {
+      updateAboutProgress();
+      syncAboutReel();
+    }, { passive: true });
+    document.querySelectorAll('.hc-story-progress a, .hc-story-scroll, .hc-dest-card').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        var id = String(a.getAttribute('href') || '').replace('#', '');
+        var el = document.getElementById(id);
+        if (!el || !hcMain) return;
+        e.preventDefault();
+        var next = hcMain.scrollTop + el.getBoundingClientRect().top - hcMain.getBoundingClientRect().top;
+        hcMain.scrollTo({ top: next, behavior: 'smooth' });
+      });
+    });
+
+    function hrefFor(tab) {
+      var q = 'index.php?tab=' + encodeURIComponent(tab);
+      if (adding) q += '&add_account=1';
+      return q;
+    }
+    function initHelp() {
+      if (helpInited) return;
+      var root = document.getElementById('indexHelpRoot');
+      if (!root) return;
+      helpInited = true;
+      var endpoint = String(root.getAttribute('data-endpoint') || 'ajax/admin_support_chat.php');
+      var thread = document.getElementById('indexHelpThread');
+      var input = document.getElementById('indexHelpInput');
+      var sendBtn = document.getElementById('indexHelpSend');
+      var errEl = document.getElementById('indexHelpErr');
+      var lastId = 0;
+      var polling = false;
+      function setErr(msg) {
+        if (!errEl) return;
+        if (!msg) { errEl.hidden = true; errEl.textContent = ''; return; }
+        errEl.hidden = false;
+        errEl.textContent = msg;
+      }
+      function esc(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+      function appendItems(items, replace) {
+        if (!thread) return;
+        if (replace) thread.innerHTML = '';
+        (items || []).forEach(function (item) {
+          var id = parseInt(item.id || 0, 10);
+          if (id > lastId) lastId = id;
+          var div = document.createElement('div');
+          div.className = 'auth-help-bubble ' + (item.is_me ? 'me' : 'them');
+          div.innerHTML = esc(item.text || '') + '<div class="auth-help-meta">' + esc(item.from || '') + ' · ' + esc(item.time_label || '') + '</div>';
+          thread.appendChild(div);
+        });
+        thread.scrollTop = thread.scrollHeight;
+      }
+      async function loadHistory() {
+        try {
+          var res = await fetch(endpoint + '?mode=history&after=0&mark=1', { credentials: 'same-origin' });
+          var data = await res.json();
+          if (data && data.ok) {
+            lastId = 0;
+            appendItems(data.items || [], true);
+            if (!(data.items || []).length) {
+              thread.innerHTML = '<div class="auth-help-empty">No Admin messages yet. Describe what you need help with.</div>';
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
+      async function pollNew() {
+        if (polling) return;
+        polling = true;
+        try {
+          var res = await fetch(endpoint + '?mode=history&after=' + lastId + '&mark=1', { credentials: 'same-origin' });
+          var data = await res.json();
+          if (data && data.ok && (data.items || []).length) {
+            if (thread && thread.querySelector('.auth-help-empty')) thread.innerHTML = '';
+            appendItems(data.items, false);
+          }
+        } catch (e) { /* ignore */ }
+        polling = false;
+      }
+      async function sendMessage() {
+        setErr('');
+        var text = input ? String(input.value || '').trim() : '';
+        if (!text) { setErr('Type a message for Admin.'); return; }
+        if (sendBtn) sendBtn.disabled = true;
+        try {
+          var body = new URLSearchParams();
+          body.set('mode', 'send');
+          body.set('topic', 'help');
+          body.set('message', text);
+          var res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+            credentials: 'same-origin'
+          });
+          var data = await res.json();
+          if (!data || !data.ok) {
+            setErr((data && (data.error || data.message)) || 'Could not send.');
+            return;
+          }
+          if (input) input.value = '';
+          if (data.item) {
+            if (thread && thread.querySelector('.auth-help-empty')) thread.innerHTML = '';
+            appendItems([data.item], false);
+          } else {
+            await pollNew();
+          }
+        } catch (e) {
+          setErr('Could not send message.');
+        } finally {
+          if (sendBtn) sendBtn.disabled = false;
+        }
+      }
+      if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+      if (input) {
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        });
+      }
+      loadHistory();
+      setInterval(pollNew, 5000);
+    }
+    function showTab(tab) {
+      var ok = tabs.indexOf(tab) !== -1;
+      document.body.classList.toggle('is-index-tab', ok);
+      document.body.setAttribute('data-index-tab', ok ? tab : '');
+      if (legal) legal.hidden = !ok;
+      Array.prototype.forEach.call(articles, function (el) {
+        el.hidden = !ok || el.getAttribute('data-legal-panel') !== tab;
+      });
+      Array.prototype.forEach.call(links, function (a) {
+        var on = ok && a.getAttribute('data-index-tab') === tab && !a.classList.contains('hc-brand');
+        a.classList.toggle('is-active', on);
+      });
+      document.querySelectorAll('.hc-nav-group').forEach(function (group) {
+        var has = group.querySelector('a[data-index-tab="' + tab + '"]');
+        if (has) group.open = true;
+      });
+      document.querySelectorAll('.hc-nav-topic').forEach(function (topic) {
+        var has = topic.querySelector('a[data-index-tab="' + tab + '"]');
+        if (has) topic.open = true;
+      });
+      if (crumb) crumb.textContent = ok ? (groupLabels[tab] || 'Talsora') : 'Talsora';
+      document.title = ok ? ((titles[tab] || 'Talsora') + ' · Talsora') : 'Talsora — Sign in';
+      if (history.replaceState) {
+        history.replaceState(null, '', ok ? hrefFor(tab) : (adding ? 'index.php?add_account=1' : 'index.php'));
+      }
+      if (ok && tab === 'help') initHelp();
+      if (ok && tab === 'about') {
+        var mainReset = document.querySelector('.hc-main');
+        if (mainReset) mainReset.scrollTop = 0;
+        updateAboutProgress();
+        syncAboutReel();
+      } else {
+        if (hcMain) hcMain.scrollTop = 0;
+        syncAboutReel();
+      }
+      var hashId = String(window.location.hash || '').replace('#', '');
+      if (ok && hashId) openHelpAcc(hashId);
+    }
+    Array.prototype.forEach.call(links, function (a) {
+      a.addEventListener('click', function (e) {
+        var tab = a.getAttribute('data-index-tab');
+        if (!tab) return;
+        if (a.classList.contains('hc-topic-link')) e.stopPropagation();
+        e.preventDefault();
+        showTab(tab);
+        window.scrollTo(0, 0);
+      });
+    });
+    function openHelpAcc(id) {
+      var acc = id ? document.getElementById(id) : null;
+      if (!acc || acc.tagName !== 'DETAILS') return false;
+      var panel = acc.closest('[data-legal-panel]');
+      if (panel && panel.hidden) return false;
+      document.querySelectorAll('.hc-acc').forEach(function (d) { d.open = d === acc; });
+      document.querySelectorAll('.hc-pill').forEach(function (p) {
+        p.classList.toggle('is-on', p.getAttribute('href') === '#' + id);
+      });
+      if (hcMain) {
+        hcMain.scrollTop = hcMain.scrollTop + acc.getBoundingClientRect().top - hcMain.getBoundingClientRect().top - 8;
+      }
+      return true;
+    }
+    document.addEventListener('click', function (e) {
+      var helpBtn = e.target && e.target.closest ? e.target.closest('.hc-helpful-btn') : null;
+      if (helpBtn) {
+        var box = helpBtn.closest('.hc-helpful');
+        if (!box) return;
+        var id = String(box.getAttribute('data-helpful-id') || '');
+        var val = String(helpBtn.getAttribute('data-helpful') || '');
+        try { if (id) localStorage.setItem('hc-helpful-' + id, val); } catch (err) {}
+        box.querySelectorAll('.hc-helpful-btn').forEach(function (b) {
+          b.classList.toggle('is-on', b === helpBtn);
+        });
+        var done = box.querySelector('.hc-helpful-done');
+        if (done) done.hidden = false;
+        return;
+      }
+      var copyHash = e.target && e.target.closest ? e.target.closest('.js-hc-copy-hash') : null;
+      if (copyHash) {
+        var hash = String(copyHash.getAttribute('data-hash') || '');
+        var url = window.location.href.split('#')[0] + (hash ? '#' + hash : '');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(function () {
+            var label = copyHash.querySelector('.hc-acc-copy-label');
+            if (!label) return;
+            label.textContent = 'Copied';
+            setTimeout(function () { label.textContent = 'Copy link'; }, 1600);
+          }).catch(function () {});
+        }
+        e.preventDefault();
+        return;
+      }
+      var jump = e.target && e.target.closest ? e.target.closest('.hc-pill, .js-hc-acc-jump, a.hc-acc-tool') : null;
+      if (jump) {
+        var pid = String(jump.getAttribute('href') || '').split('#')[1] || '';
+        if (pid && openHelpAcc(pid)) e.preventDefault();
+      }
+    });
+    document.querySelectorAll('.hc-acc').forEach(function (acc) {
+      acc.addEventListener('toggle', function () {
+        if (!acc.open) return;
+        document.querySelectorAll('.hc-acc').forEach(function (d) {
+          if (d !== acc) d.open = false;
+        });
+        document.querySelectorAll('.hc-pill').forEach(function (p) {
+          p.classList.toggle('is-on', p.getAttribute('href') === '#' + acc.id);
+        });
+      });
+    });
+    document.querySelectorAll('.js-hc-login').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        showTab('');
+      });
+    });
+    document.querySelectorAll('.js-hc-copy').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var url = window.location.href;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(function () {
+            btn.textContent = 'Copied';
+            setTimeout(function () { btn.textContent = 'Copy link'; }, 1600);
+          }).catch(function () {});
+        }
+      });
+    });
+    var navToggle = document.getElementById('hcNavToggle');
+    var helpCenter = document.getElementById('authLegal');
+    function setNavOpen(open) {
+      if (!helpCenter || !navToggle) return;
+      helpCenter.classList.toggle('is-nav-closed', !open);
+      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      navToggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    }
+    if (navToggle) {
+      setNavOpen(false);
+      navToggle.addEventListener('click', function () {
+        setNavOpen(helpCenter && helpCenter.classList.contains('is-nav-closed'));
+      });
+    }
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (helpCenter) helpCenter.classList.add('is-nav-anim');
+      });
+    });
+    if (search) {
+      search.addEventListener('input', function () {
+        var q = String(search.value || '').trim().toLowerCase();
+        document.querySelectorAll('.hc-nav-group a.js-index-tab').forEach(function (a) {
+          var hit = !q || String(a.textContent || '').toLowerCase().indexOf(q) !== -1;
+          a.classList.toggle('hc-nav-hidden', !hit);
+        });
+        document.querySelectorAll('.hc-nav-topic').forEach(function (topic) {
+          var summary = topic.querySelector('summary');
+          var topicHit = !q || String((summary && summary.textContent) || '').toLowerCase().indexOf(q) !== -1;
+          var any = false;
+          topic.querySelectorAll('a.js-index-tab').forEach(function (a) {
+            var hit = topicHit || !q || String(a.textContent || '').toLowerCase().indexOf(q) !== -1;
+            a.classList.toggle('hc-nav-hidden', !hit);
+            if (hit) any = true;
+          });
+          topic.classList.toggle('hc-nav-hidden', !!q && !any);
+          if (q && any) topic.open = true;
+        });
+      });
+    }
+    var current = String(document.body.getAttribute('data-index-tab') || '');
+    if (current === 'help') initHelp();
+    if (current === 'about') {
+      updateAboutProgress();
+      syncAboutReel();
+    }
+    openHelpAcc(String(window.location.hash || '').replace('#', ''));
+  })();
+  </script>
+  <?php
+  appearance_bridge_print_index_help_ink_tail();
+  appearance_bridge_print_index_chrome_lines(
+      ($themeDbh instanceof PDO) ? $themeDbh : null,
+      (int)($themeUserId ?? 0)
+  );
+  require __DIR__ . '/includes/entry_bridge_handoff.php';
+  appearance_bridge_print_index_help_borders();
+  ?>
 </body>
 </html>

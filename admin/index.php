@@ -121,17 +121,17 @@ if (isset($_POST['login'])) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-    <!-- Twitter -->
+    <!-- Link preview -->
     <meta name="twitter:site" content="@themepixels">
     <meta name="twitter:creator" content="@themepixels">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Talentra">
+    <meta name="twitter:title" content="Talsora">
     <meta name="twitter:description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="twitter:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
 
-    <!-- Facebook -->
+    <!-- Open Graph -->
     <meta property="og:url" content="http://themepixels.me/shamcey">
-    <meta property="og:title" content="Talentra">
+    <meta property="og:title" content="Talsora">
     <meta property="og:description" content="Premium Quality and Responsive UI for Dashboard.">
 
     <meta property="og:image" content="http://themepixels.me/shamcey/img/shamcey-social.png">
@@ -140,12 +140,12 @@ if (isset($_POST['login'])) {
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="600">
 
-    <!-- Meta -->
+    <!-- Page -->
     <meta name="description" content="Premium Quality and Responsive UI for Dashboard.">
     <meta name="author" content="ThemePixels">
 
 
-    <title>Admin sign in — Talentra</title>
+    <title>Admin sign in — Talsora</title>
 
     <!-- Vendor css -->
     <link href="../lib/font-awesome/css/font-awesome.css" rel="stylesheet">
@@ -160,7 +160,7 @@ if (isset($_POST['login'])) {
     <div class="signpanel-wrapper">
       <div class="signbox">
         <div class="signbox-header">
-          <h2>Talentra</h2>
+          <h2>Talsora</h2>
           <p class="mg-b-0">Responsive Bootstrap 4 Admin Template</p>
           <?php if ($error !== ''): ?>
                 <div class="errorWrap"><strong><?php echo htmlentities($error); ?></strong></div>

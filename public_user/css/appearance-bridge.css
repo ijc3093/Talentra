@@ -20,7 +20,7 @@ html {
   --text-secondary: var(--msb-palette-text-muted, #6b7280);
   --text-muted: var(--msb-palette-text-muted, #64748b);
   --muted: var(--msb-palette-text-muted, #64748b);
-  --border-color: var(--msb-palette-border, #e5e7eb);
+  --border-color: var(--msb-palette-border, #d0d3da);
   --accent: var(--msb-palette-action, var(--msb-palette-accent, #2563eb));
   --org-accent: var(--msb-palette-action, var(--msb-palette-accent, #2563eb));
   --org-bg: var(--msb-palette-bg, #f5f7fb);
@@ -222,8 +222,6 @@ html[data-msb-appearance] .yt-icon-btn,
 html[data-msb-appearance] .search-btn,
 html[data-msb-appearance] .iconbtn,
 html[data-msb-appearance] .messages-shell-action-btn,
-html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
-html[data-msb-appearance] body.profile-page .gear-nav-item,
 html[data-msb-appearance] body.org-app .btn:not(.btn-primary):not(.btn-success),
 html[data-msb-appearance] body.org-app button.btn,
 html[data-msb-appearance] body.org-app .btn-outline-primary,
@@ -243,7 +241,6 @@ html[data-msb-appearance] .btn-outline-primary:hover,
 html[data-msb-appearance] .ch-btn-ghost:hover,
 html[data-msb-appearance] .ig-btn:hover,
 html[data-msb-appearance] .feed-ig-btn:hover,
-html[data-msb-appearance] body.profile-page .gear-nav-item:hover,
 html[data-msb-appearance] body.org-app .btn:hover,
 html[data-msb-appearance] body.org-app .ch-btn-ghost:hover {
   background-color: var(--msb-palette-hover-bg) !important;
@@ -487,6 +484,30 @@ html[data-msb-appearance] .commerce-hero {
     var(--msb-palette-action) 42%,
     var(--msb-palette-accent, var(--msb-palette-action)) 100%
   ) !important;
+}
+
+/* Shop storefront hero — Progress color (Gear Appearance), not hardcoded lavender */
+html[data-msb-appearance] .shop-promo-hero,
+html.msb-palette-active .shop-promo-hero,
+html.dark-auto .shop-promo-hero {
+  background: var(--msb-palette-bg) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] .shop-promo-copy h2,
+html.msb-palette-active .shop-promo-copy h2,
+html.dark-auto .shop-promo-copy h2 {
+  color: var(--msb-palette-text) !important;
+}
+html[data-msb-appearance] .shop-promo-copy p,
+html.msb-palette-active .shop-promo-copy p,
+html.dark-auto .shop-promo-copy p {
+  color: var(--msb-palette-text-muted) !important;
+}
+html[data-msb-appearance] .shop-promo-kicker,
+html.msb-palette-active .shop-promo-kicker,
+html.dark-auto .shop-promo-kicker {
+  color: var(--msb-palette-action) !important;
 }
 
 /* App footer */
@@ -1329,8 +1350,9 @@ body.org-app .feed-compose-send:hover:not(:disabled) {
 }
 
 body.org-app .feed-compose-input:focus {
-  border-color: var(--org-accent) !important;
-  box-shadow: 0 0 0 3px var(--org-accent-soft) !important;
+  outline: none !important;
+  border-color: var(--msb-hairline, #2a2f36) !important;
+  box-shadow: none !important;
 }
 
 html.dark-auto:not([data-msb-appearance]) body.org-app .feed-sidebar,
@@ -1719,7 +1741,7 @@ html {
 
 html[data-msb-appearance] .btn-outline-primary {
   color: var(--msb-palette-action) !important;
-  border-color: var(--msb-palette-action) !important;
+  border-color: var(--msb-hairline, #2a2f36) !important;
 }
 
 html[data-msb-appearance] .btn-outline-primary:hover {
@@ -1741,8 +1763,9 @@ html[data-msb-appearance] .gear-control:focus,
 html[data-msb-appearance] input:focus,
 html[data-msb-appearance] textarea:focus,
 html[data-msb-appearance] select:focus {
-  border-color: var(--msb-palette-action) !important;
-  box-shadow: 0 0 0 3px var(--msb-palette-action-soft) !important;
+  outline: none !important;
+  border-color: var(--msb-hairline, #2a2f36) !important;
+  box-shadow: none !important;
 }
 
 /* Appearance color wins over Dark auto org-light canvas on all org surfaces */
@@ -1999,9 +2022,9 @@ html.msb-palette-active body.profile-page .gear-nav-item.is-active .gear-nav-ite
 
 html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
 html.msb-palette-active body.profile-page .gear-nav-section-toggle {
-  background-color: var(--msb-palette-action-soft, var(--msb-palette-hover-bg)) !important;
+  background-color: transparent !important;
   background-image: none !important;
-  border: 1px solid var(--msb-palette-border) !important;
+  border: 0 !important;
   color: var(--msb-palette-text) !important;
 }
 
@@ -2104,5 +2127,62 @@ html body.reel-page .reel-caption .see-more {
 #pvOverlay .pv-readmore {
   font-size: 12px !important;
   font-weight: 700 !important;
+}
+
+html[data-msb-appearance] body.ig-auth {
+  --bg-main: var(--msb-palette-bg);
+  --text-primary: var(--msb-palette-text);
+  --accent: var(--msb-palette-action);
+}
+html[data-msb-appearance] body.ig-auth .auth-field:focus-within {
+  outline: none !important;
+  border-color: var(--msb-palette-action, var(--msb-palette-accent)) !important;
+  box-shadow: none !important;
+  background: var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;
+}
+
+/* Help Center chrome: beat global `a { color: palette-link }` (:not() inflates that rule). Log in stays the action button. */
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn),
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):hover,
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):focus,
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab .hc-story-kicker,
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab .hc-story-more,
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab .hc-brand-text {
+  color: var(--msb-palette-text, #111827) !important;
+  -webkit-text-fill-color: var(--msb-palette-text, #111827) !important;
+}
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab .hc-login,
+html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a.hc-login {
+  background-color: var(--msb-palette-action, #0095f6) !important;
+  background-image: none !important;
+  color: var(--msb-palette-btn-text, #fff) !important;
+  -webkit-text-fill-color: var(--msb-palette-btn-text, #fff) !important;
+}
+
+/* No blue focus rings on fields — keep chrome hairline. */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+.form-control:focus,
+.gear-control:focus,
+.gear-search:focus,
+.auth-help-input:focus,
+.hc-search input:focus,
+.auth-help-input:focus,
+.hc-search input:focus,
+#messageInput:focus,
+.group-message-input:focus,
+.feed-top-search-input:focus,
+.sfy-search-input:focus {
+  outline: none !important;
+  border-color: var(--msb-hairline, #2a2f36) !important;
+  box-shadow: none !important;
+}
+.btn-outline-primary,
+.btn-outline-info {
+  border-color: var(--msb-hairline, #2a2f36) !important;
 }
 

@@ -3,6 +3,38 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/appearance_palettes.php';
 
+function appearance_bridge_cookie_name(): string
+{
+    return 'msb_appearance';
+}
+
+function appearance_bridge_read_cookie_mode(): string
+{
+    $raw = (string)($_COOKIE[appearance_bridge_cookie_name()] ?? '');
+    if ($raw === '') {
+        return 'system';
+    }
+    return appearance_palette_normalize_mode(rawurldecode($raw));
+}
+
+function appearance_bridge_write_cookie(string $mode): void
+{
+    $mode = appearance_palette_normalize_mode($mode);
+    if (headers_sent()) {
+        return;
+    }
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ((string)($_SERVER['SERVER_PORT'] ?? '') === '443');
+    setcookie(appearance_bridge_cookie_name(), rawurlencode($mode), [
+        'expires' => time() + 60 * 60 * 24 * 400,
+        'path' => '/',
+        'secure' => $https,
+        'httponly' => false,
+        'samesite' => 'Lax',
+    ]);
+    $_COOKIE[appearance_bridge_cookie_name()] = rawurlencode($mode);
+}
+
 function appearance_bridge_user_mode(PDO $dbh, int $userId): string
 {
     if ($userId <= 0) {
@@ -342,6 +374,7 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
     $navActiveTextAttr = htmlspecialchars($navActiveText, ENT_QUOTES, 'UTF-8');
     $borderAttr = htmlspecialchars($borderPair['border'], ENT_QUOTES, 'UTF-8');
     $borderStrongAttr = htmlspecialchars($borderPair['borderStrong'], ENT_QUOTES, 'UTF-8');
+    $hexAttr = htmlspecialchars(appearance_palette_hex_for_slug($mode), ENT_QUOTES, 'UTF-8');
 
     $surfaces = 'html[data-msb-appearance] body.profile-page,'
         . 'html[data-msb-appearance] body.profile-page .sh-mainpanel,'
@@ -387,6 +420,7 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . 'html[data-msb-appearance],html.msb-palette-active{--msb-palette-bg:' . $pageBgAttr . ';--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';'
         . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
         . '--msb-palette-icon:' . $iconAttr . ';--msb-fries:' . ($usesDarkChrome ? '#ffffff' : '#0f172a') . ';--msb-palette-action:' . $actionAttr . ';'
+        . '--msb-palette-accent:' . $hexAttr . ';' . appearance_palette_hairline_css($mode)
         . '--msb-palette-border:' . $borderAttr . ';--msb-palette-border-strong:' . $borderStrongAttr . ';'
         . '--public-border:' . $borderAttr . ';--public-border-strong:' . $borderStrongAttr . ';'
         . '--feed-border:' . $borderAttr . ';--feed-border-strong:' . $borderStrongAttr . ';'
@@ -625,8 +659,8 @@ function appearance_bridge_print_profile_palette_tail(string $mode): void
         . 'color:var(--msb-palette-action,' . $actionAttr . ')!important;}'
         . 'html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,'
         . 'html.msb-palette-active body.profile-page .gear-nav-section-toggle{'
-        . 'background:var(--msb-palette-action-soft)!important;'
-        . 'border:1px solid var(--msb-palette-border)!important;'
+        . 'background:transparent!important;'
+        . 'border:0!important;'
         . 'color:var(--msb-palette-text,' . $textAttr . ')!important;}'
         . 'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn,'
         . 'html[data-msb-appearance] body.profile-page a.gear-detail-open-btn:link,'
@@ -829,6 +863,7 @@ function appearance_bridge_print_shell_critical(PDO $dbh, int $userId, bool $org
     $mutedAttr = htmlspecialchars($muted, ENT_QUOTES, 'UTF-8');
     $iconAttr = htmlspecialchars($icon, ENT_QUOTES, 'UTF-8');
     $actionAttr = htmlspecialchars($action, ENT_QUOTES, 'UTF-8');
+    $hexAttr = htmlspecialchars($hex, ENT_QUOTES, 'UTF-8');
 
     echo '<script>document.documentElement.setAttribute("data-msb-appearance",' . $modeJson . ');'
         . 'document.documentElement.removeAttribute("data-msb-org-light");</script>' . "\n";
@@ -837,6 +872,7 @@ function appearance_bridge_print_shell_critical(PDO $dbh, int $userId, bool $org
         . '--bg-main:' . $pageBgAttr . ';--bg-card:' . $pageBgAttr . ';--bg-sidebar:' . $pageBgAttr . ';'
         . '--msb-palette-text:' . $textAttr . ';--msb-palette-text-muted:' . $mutedAttr . ';'
         . '--msb-palette-icon:' . $iconAttr . ';--msb-fries:' . ($usesDarkChrome ? '#ffffff' : '#0f172a') . ';--msb-palette-action:' . $actionAttr . ';'
+        . '--msb-palette-accent:' . $hexAttr . ';' . appearance_palette_hairline_css($mode)
         . '--msb-palette-text-on-nav:' . $textAttr . ';}'
         . ($orgSurface
             ? 'html[data-msb-appearance] body.org-app,html[data-msb-appearance] body.org-app .sh-mainpanel,'
@@ -918,7 +954,7 @@ function appearance_bridge_print_css_link(string $assetPrefix = './'): void
     }
     $GLOBALS['__MSB_APPEARANCE_BRIDGE_CSS'] = true;
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
-    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=58', ENT_QUOTES, 'UTF-8');
+    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=65', ENT_QUOTES, 'UTF-8');
     echo '<link rel="stylesheet" href="' . $href . '">' . "\n";
 }
 
@@ -1010,6 +1046,381 @@ function appearance_bridge_print_profile_builtin_light_critical(string $mode, bo
         . '</style>' . "\n";
 }
 
+function appearance_bridge_print_index_daylight_critical(): void
+{
+    if (!empty($GLOBALS['__MSB_INDEX_DAYLIGHT_CRITICAL'])) {
+        return;
+    }
+    $GLOBALS['__MSB_INDEX_DAYLIGHT_CRITICAL'] = true;
+
+    echo '<style id="hc-index-daylight-critical">'
+        . 'html:not(.dark-auto){--hc-story-bg:#f5f7fb;--hc-story-text:#111827;'
+        . '--hc-story-gold:#111827;--hc-story-muted:#64748b;--ig-bg:#f5f7fb;--ig-text:#262626;}'
+        . 'html:not(.dark-auto) body.ig-auth:not(.is-index-tab),'
+        . 'html:not(.dark-auto) body.ig-auth:not(.is-index-tab) .auth-page,'
+        . 'html:not(.dark-auto) body.ig-auth:not(.is-index-tab) .auth-shell,'
+        . 'html:not(.dark-auto) body.ig-auth:not(.is-index-tab) .auth-left,'
+        . 'html:not(.dark-auto) body.ig-auth:not(.is-index-tab) .auth-right,'
+        . 'html:not(.dark-auto) body.ig-auth:not(.is-index-tab) .auth-page-foot{'
+        . 'background-color:#f5f7fb !important;background-image:none !important;color:#111827 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .auth-page,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .help-center,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-top,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-nav,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-body,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-main,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-about-story,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-story-block,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .auth-page-foot{'
+        . 'background-color:#f5f7fb !important;background-image:none !important;color:#111827 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth .auth-card,'
+        . 'html:not(.dark-auto) body.ig-auth .auth-gear-menu{'
+        . 'background-color:#ffffff !important;background-image:none !important;color:#111827 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-copy h2,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-hero-copy h1,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-lead,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-scroll,'
+        . 'html:not(.dark-auto) body.ig-auth .ig-headline,'
+        . 'html:not(.dark-auto) body.ig-auth .ig-logo-word{color:#111827 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-kicker,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-kicker::before,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-progress a,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-progress a.is-active,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-about-story .hc-story-more,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-brand-text,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-nav-group a,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-nav-group a.is-active,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-crumb,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-copy,'
+        . 'html:not(.dark-auto) body.ig-auth .auth-legal-article a,'
+        . 'html:not(.dark-auto) body.ig-auth .auth-page-foot a,'
+        . 'html:not(.dark-auto) body.ig-auth .auth-page-foot a.is-active{color:#111111 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-kicker::before{background:#111827 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth .hc-login,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-story-try{'
+        . 'background-color:#0095f6 !important;color:#fff !important;-webkit-text-fill-color:#fff !important;}'
+        . 'html:not(.dark-auto) body.ig-auth a.hc-acc-tool,'
+        . 'html:not(.dark-auto) body.ig-auth button.hc-acc-tool,'
+        . 'html:not(.dark-auto) body.ig-auth a.hc-acc-link{'
+        . 'color:var(--msb-palette-action,#0095f6)!important;-webkit-text-fill-color:var(--msb-palette-action,#0095f6)!important;}'
+        . 'html:not(.dark-auto) body.ig-auth .auth-brand-mark,'
+        . 'html:not(.dark-auto) body.ig-auth .hc-brand .auth-brand-mark{'
+        . 'color:#e8c98a !important;-webkit-text-fill-color:#e8c98a !important;}'
+        . 'background:linear-gradient(180deg,transparent 0%,#f5f7fb 100%) !important;}'
+        . '</style>' . "\n";
+}
+
+function appearance_bridge_print_index_help_ink_tail(): void
+{
+    if (!empty($GLOBALS['__MSB_INDEX_HELP_INK_TAIL'])) {
+        return;
+    }
+    $GLOBALS['__MSB_INDEX_HELP_INK_TAIL'] = true;
+
+    echo '<style id="hc-index-ink-tail">'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):not(.hc-home-cta),'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):not(.hc-home-cta):hover,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):not(.hc-home-cta):focus,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-story-kicker,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-story-more,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-brand-text,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-nav-group a,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-nav-group a.is-active,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-story-progress a,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-story-progress a.is-active,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .auth-page-foot a,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .auth-page-foot a.is-active{'
+        . 'color:#111111 !important;-webkit-text-fill-color:#111111 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .help-center,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-top,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-nav,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-body,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-main,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-about-story,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .auth-page-foot{'
+        . 'background-color:var(--msb-palette-bg, var(--hc-story-bg, #f5f7fb)) !important;background-image:none !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-story-kicker::before{background:#111111 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-home-cta,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a.hc-home-cta,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-lang{'
+        . 'color:var(--msb-palette-text, #475569) !important;-webkit-text-fill-color:var(--msb-palette-text, #475569) !important;background:transparent !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-menu{color:var(--msb-palette-text, #111111) !important;background:var(--msb-palette-bg, transparent) !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .auth-brand-mark,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-brand .auth-brand-mark{'
+        . 'color:#e8c98a !important;-webkit-text-fill-color:#e8c98a !important;background:none !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-login,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a.hc-login,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-story-try,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a.hc-story-try{'
+        . 'background-color:#0095f6 !important;background-image:none !important;'
+        . 'color:#fff !important;-webkit-text-fill-color:#fff !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-about-map a.hc-map-link{'
+        . 'color:#737373 !important;-webkit-text-fill-color:#737373 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-about-map h2,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab .hc-about-map h2 a{'
+        . 'color:#111111 !important;-webkit-text-fill-color:#111111 !important;}'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a.hc-acc-tool,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab button.hc-acc-tool,'
+        . 'html:not(.dark-auto) body.ig-auth.is-index-tab a.hc-acc-link{'
+        . 'color:var(--msb-palette-action,#0095f6)!important;-webkit-text-fill-color:var(--msb-palette-action,#0095f6)!important;}'
+        . '</style>' . "\n";
+}
+
+function appearance_bridge_print_index_gate_critical(PDO $dbh, int $userId): void
+{
+    if ($userId <= 0) {
+        return;
+    }
+    appearance_bridge_print_index_gate_for_mode(
+        appearance_bridge_user_mode($dbh, $userId),
+        appearance_bridge_theme_auto_enabled($dbh, $userId)
+    );
+}
+
+function appearance_bridge_print_index_gate_for_mode(string $mode, bool $autoEnabled): void
+{
+    if (!empty($GLOBALS['__MSB_INDEX_GATE_CRITICAL'])) {
+        return;
+    }
+    $GLOBALS['__MSB_INDEX_GATE_CRITICAL'] = true;
+
+    $mode = appearance_palette_normalize_mode($mode);
+    $named = appearance_bridge_is_named_palette($mode);
+
+    // Dark auto follows the browser clock (day = light, 5pm–6am = dark).
+    // Do not use PHP timezone — it forced night/dark at local noon.
+    if ($autoEnabled && !$named && $mode !== 'dark') {
+        $GLOBALS['__MSB_INDEX_STORY_BG'] = '';
+        appearance_bridge_print_index_daylight_critical();
+        return;
+    }
+
+    $line = '';
+    if ($named) {
+        $bg = appearance_palette_unified_bg_hex($mode);
+        $darkChrome = appearance_palette_uses_dark_chrome($mode);
+        $text = $darkChrome ? '#f3f6fb' : appearance_palette_chromatic_text_hex($mode);
+        $gold = $darkChrome ? appearance_palette_chromatic_action_hex($mode) : $text;
+        $muted = $darkChrome ? '#cbd5e1' : appearance_palette_chromatic_muted_hex($mode);
+        $line = appearance_palette_hex_for_slug($mode);
+    } elseif ($mode === 'dark') {
+        $bg = appearance_palette_dark_hex();
+        $text = '#f3f6fb';
+        $gold = '#e8c98a';
+        $muted = '#b1bcce';
+    } else {
+        $bg = appearance_palette_light_hex();
+        $text = '#111827';
+        $gold = '#111827';
+        $muted = '#64748b';
+    }
+
+    $GLOBALS['__MSB_INDEX_STORY_BG'] = $bg;
+    $GLOBALS['__MSB_INDEX_STORY_TEXT'] = $text;
+    $GLOBALS['__MSB_INDEX_STORY_GOLD'] = $gold;
+
+    $bgA = htmlspecialchars($bg, ENT_QUOTES, 'UTF-8');
+    $textA = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    $goldA = htmlspecialchars($gold, ENT_QUOTES, 'UTF-8');
+    $mutedA = htmlspecialchars($muted, ENT_QUOTES, 'UTF-8');
+
+    $lineCss = appearance_palette_hairline_css($mode);
+    if ($line !== '') {
+        $lineA = htmlspecialchars($line, ENT_QUOTES, 'UTF-8');
+        $lineCss .= '--msb-palette-accent:' . $lineA . ';';
+    }
+
+    echo '<style id="hc-story-appearance-critical">'
+        . 'html{--hc-story-bg:' . $bgA . ';--hc-story-text:' . $textA . ';'
+        . '--hc-story-gold:' . $goldA . ';--hc-story-muted:' . $mutedA . ';' . $lineCss . '}'
+        . 'html body.ig-auth .hc-top,html body.ig-auth .auth-page-foot{'
+        . 'border-color:var(--hc-help-border, var(--hc-chrome-line, #d0d3da)) !important;'
+        . 'border-top-width:1px !important;border-bottom-width:1px !important;}'
+        . 'html body.ig-auth .hc-nav{border-color:var(--hc-help-border, var(--hc-chrome-line, #d0d3da)) !important;}'
+        . 'html body.ig-auth .help-center,'
+        . 'html body.ig-auth .hc-top,'
+        . 'html body.ig-auth .hc-nav,'
+        . 'html body.ig-auth .hc-main,'
+        . 'html body.ig-auth .hc-about-story,'
+        . 'html body.ig-auth .hc-story-block,'
+        . 'html body.ig-auth .auth-page-foot{'
+        . 'background-color:' . $bgA . ' !important;background-image:none !important;color:' . $textA . ' !important;}'
+        . 'html body.ig-auth .hc-story-copy h2,html body.ig-auth .hc-story-hero-copy h1,'
+        . 'html body.ig-auth .hc-story-scroll,html body.ig-auth .hc-story-lead{color:' . $textA . ' !important;}'
+        . 'html body.ig-auth .hc-story-kicker,html body.ig-auth .hc-story-progress a,'
+        . 'html body.ig-auth .hc-story-progress a.is-active,'
+        . 'html body.ig-auth .hc-about-story .hc-story-more,'
+        . 'html body.ig-auth .hc-brand,html body.ig-auth .hc-nav-group a,'
+        . 'html body.ig-auth .auth-page-foot a{color:' . $textA . ' !important;}'
+        . 'html body.ig-auth .hc-story-kicker::before{background:' . $textA . ' !important;}'
+        . 'html body.ig-auth .hc-story-hero::after{'
+        . 'background:linear-gradient(180deg,transparent 0%,' . $bgA . ' 100%) !important;}'
+        . '</style>' . "\n";
+}
+
+function appearance_bridge_resolve_index_line_hex(?PDO $dbh, int $userId): string
+{
+    $mode = 'system';
+    if ($userId > 0 && $dbh instanceof PDO) {
+        $mode = appearance_bridge_user_mode($dbh, $userId);
+    }
+    if (!appearance_bridge_is_named_palette($mode)) {
+        $mode = appearance_bridge_read_cookie_mode();
+    }
+    if (!appearance_bridge_is_named_palette($mode)) {
+        return '';
+    }
+    return appearance_palette_hex_for_slug($mode);
+}
+
+/** Last paint for Help Center header / nav / footer lines on index.php. */
+function appearance_bridge_print_index_chrome_lines(?PDO $dbh, int $userId): void
+{
+    $line = 'var(--hc-help-border, var(--hc-chrome-line, #d0d3da))';
+    echo '<style id="hc-chrome-lines">'
+        . 'html{--hc-chrome-width:1px;--hc-help-border:#d0d3da;--hc-chrome-line:#d0d3da;--msb-hairline:#d0d3da;--ig-line:#d0d3da;}'
+        . 'html.dark-auto,html[data-theme="dark"],html.msb-palette-light-fg{'
+        . '--hc-chrome-width:1px;--hc-help-border:#3a3f47;--hc-chrome-line:#3a3f47;--msb-hairline:#3a3f47;--ig-line:#3a3f47;}'
+        . 'html body.ig-auth .hc-top,'
+        . 'html.dark-auto body.ig-auth .hc-top,'
+        . 'html body.ig-auth.is-index-tab .hc-top,'
+        . 'html[data-msb-appearance] body.ig-auth .hc-top{'
+        . 'border-top-width:1px !important;border-bottom-width:1px !important;'
+        . 'border-top-color:' . $line . ' !important;border-bottom-color:' . $line . ' !important;}'
+        . 'html body.ig-auth .hc-nav,'
+        . 'html.dark-auto body.ig-auth .hc-nav,'
+        . 'html body.ig-auth.is-index-tab .hc-nav,'
+        . 'html[data-msb-appearance] body.ig-auth .hc-nav{'
+        . 'border-width:0 1px 1px 0 !important;border-style:solid !important;'
+        . 'border-color:' . $line . ' !important;}'
+        . 'html body.ig-auth .auth-page-foot,'
+        . 'html.dark-auto body.ig-auth .auth-page-foot,'
+        . 'html body.ig-auth.is-index-tab .auth-page-foot,'
+        . 'html[data-msb-appearance] body.ig-auth .auth-page-foot{'
+        . 'border-top-width:1px !important;border-bottom-width:1px !important;'
+        . 'border-top-color:' . $line . ' !important;border-bottom-color:' . $line . ' !important;}'
+        . 'html body.ig-auth .hc-menu,'
+        . 'html body.ig-auth .hc-search input,'
+        . 'html.dark-auto body.ig-auth .hc-menu,'
+        . 'html.dark-auto body.ig-auth .hc-search input,'
+        . 'html[data-msb-appearance] body.ig-auth .hc-menu,'
+        . 'html[data-msb-appearance] body.ig-auth .hc-search input,'
+        . 'html body.ig-auth.is-index-tab .hc-pill,'
+        . 'html body.ig-auth.is-index-tab a.hc-pill,'
+        . 'html body.ig-auth.is-index-tab .hc-acc,'
+        . 'html body.ig-auth.is-index-tab .hc-helpful-btn,'
+        . 'html body.ig-auth.is-index-tab button.hc-helpful-btn,'
+        . 'html body.ig-auth.is-index-tab .hc-related-card,'
+        . 'html body.ig-auth.is-index-tab a.hc-related-card,'
+        . 'html body.ig-auth.is-index-tab .hc-featured-card,'
+        . 'html body.ig-auth.is-index-tab .hc-topic-child,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-pill,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-acc,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-helpful-btn,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-related-card,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-featured-card{'
+        . 'border-width:1px !important;border-color:' . $line . ' !important;}'
+        . '</style>' . "\n";
+}
+
+function appearance_bridge_print_index_help_borders(): void
+{
+    if (!empty($GLOBALS['__MSB_INDEX_HELP_BORDERS'])) {
+        return;
+    }
+    $GLOBALS['__MSB_INDEX_HELP_BORDERS'] = true;
+    $line = 'var(--hc-help-border, var(--hc-chrome-line, #d0d3da))';
+    echo '<style id="hc-help-borders">'
+        . 'html body.ig-auth.is-index-tab .hc-top,'
+        . 'html body.ig-auth.is-index-tab .hc-nav,'
+        . 'html body.ig-auth.is-index-tab .hc-menu,'
+        . 'html body.ig-auth.is-index-tab .hc-search input,'
+        . 'html body.ig-auth.is-index-tab .hc-pill,'
+        . 'html body.ig-auth.is-index-tab a.hc-pill,'
+        . 'html body.ig-auth.is-index-tab .hc-acc,'
+        . 'html body.ig-auth.is-index-tab .hc-helpful-btn,'
+        . 'html body.ig-auth.is-index-tab button.hc-helpful-btn,'
+        . 'html body.ig-auth.is-index-tab .hc-related-card,'
+        . 'html body.ig-auth.is-index-tab a.hc-related-card,'
+        . 'html body.ig-auth.is-index-tab .hc-featured-card,'
+        . 'html body.ig-auth.is-index-tab a.hc-featured-card,'
+        . 'html body.ig-auth.is-index-tab .hc-topic-child,'
+        . 'html body.ig-auth.is-index-tab .auth-page-foot,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-top,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-nav,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-menu,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-search input,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-pill,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-acc,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-helpful-btn,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-related-card,'
+        . 'html[data-msb-appearance] body.ig-auth.is-index-tab .auth-page-foot{'
+        . 'border-color:' . $line . ' !important;}'
+        . 'html body.ig-auth.is-index-tab .hc-menu,'
+        . 'html body.ig-auth.is-index-tab .hc-search input,'
+        . 'html body.ig-auth.is-index-tab .hc-pill,'
+        . 'html body.ig-auth.is-index-tab .hc-acc,'
+        . 'html body.ig-auth.is-index-tab .hc-helpful-btn,'
+        . 'html body.ig-auth.is-index-tab .hc-related-card{'
+        . 'border-width:1px !important;}'
+        . 'html body.ig-auth.is-index-tab .hc-menu:focus,'
+        . 'html body.ig-auth.is-index-tab .hc-search input:focus,'
+        . 'html body.ig-auth.is-index-tab .hc-pill:focus,'
+        . 'html body.ig-auth.is-index-tab .hc-helpful-btn:focus,'
+        . 'html body.ig-auth.is-index-tab .auth-page-foot a:focus{'
+        . 'outline:1px solid ' . $line . ' !important;outline-offset:2px;box-shadow:none !important;}'
+        . '</style>' . "\n";
+}
+
+/** Signed-out Help Center / index.php — keep last Gear Appearance color. */
+function appearance_bridge_print_guest_index_theme(string $mode, string $assetPrefix = './'): void
+{
+    $mode = appearance_palette_normalize_mode($mode);
+    if (!appearance_bridge_is_named_palette($mode)) {
+        appearance_bridge_print_early_dark_auto_class(true);
+        appearance_bridge_print_index_daylight_critical();
+        if (!defined('MSB_THEME_DARK_CSS')) {
+            define('MSB_THEME_DARK_CSS', true);
+            echo '<link rel="stylesheet" href="./css/dark-auto.css?v=52">' . "\n";
+        }
+        return;
+    }
+
+    $modeJson = json_encode($mode, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    echo '<script>document.documentElement.setAttribute("data-msb-appearance",' . $modeJson . ');'
+        . 'document.documentElement.classList.add("msb-palette-active");</script>' . "\n";
+    appearance_bridge_print_index_gate_for_mode($mode, false);
+
+    $manualMode = appearance_palette_is_dark_slug($mode) ? 'dark' : 'light';
+    $manualModeJson = json_encode($manualMode);
+    $paletteJson = json_encode(appearance_palette_js_map(), JSON_UNESCAPED_SLASHES);
+    echo '<script>window.__MSB_APPEARANCE_PALETTES = ' . $paletteJson . ';'
+        . 'window.__MSB_THEME_USER_ID = 0;'
+        . 'window.__MSB_THEME_DEFAULTS = {autoEnabled: false, manualMode: ' . $manualModeJson . ', appearanceMode: ' . $modeJson . '};'
+        . 'window.__MSB_THEME_DB_MODE = ' . $modeJson . ';'
+        . 'window.__MSBThemePrefs = {autoEnabled: false, manualMode: ' . $manualModeJson . ', appearanceMode: ' . $modeJson . '};</script>' . "\n";
+
+    $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
+    if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
+        $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=141', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+    }
+    if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
+        define('MSB_APPEARANCE_PALETTE_CSS', true);
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=128', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+    }
+    if (!defined('MSB_HAIRLINE_BORDERS_CSS')) {
+        define('MSB_HAIRLINE_BORDERS_CSS', true);
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/hairline-borders.css?v=13', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+    }
+    appearance_bridge_print_css_link($assetPrefix);
+    if (!defined('MSB_THEME_DARK_CSS')) {
+        define('MSB_THEME_DARK_CSS', true);
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=52', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+    }
+}
+
 /** Shell paint + JS config + theme-bootstrap + shared appearance CSS for any app surface. */
 function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $assetPrefix = './', bool $disableLocalStorage = false, bool $orgSurface = false): void
 {
@@ -1036,6 +1447,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     require_once __DIR__ . '/appearance_palettes.php';
 
     $mode = appearance_bridge_user_mode($dbh, $userId);
+    appearance_bridge_write_cookie($mode);
     $manualMode = 'dark';
     if ($mode === 'light') {
         $manualMode = 'light';
@@ -1062,20 +1474,20 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
     if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
         $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
-        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=122', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=141', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=109', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=128', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_HAIRLINE_BORDERS_CSS')) {
         define('MSB_HAIRLINE_BORDERS_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/hairline-borders.css?v=5', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/hairline-borders.css?v=13', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=41', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=52', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);
@@ -1083,7 +1495,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     }
     if (!defined('MSB_POST_ENGAGEMENT_JS')) {
         define('MSB_POST_ENGAGEMENT_JS', true);
-        echo '<script src="' . htmlspecialchars($prefix . 'js/post-engagement-sync.js?v=7', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/post-engagement-sync.js?v=8', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
 }
 

@@ -312,6 +312,8 @@ function staff_pub_enforce_allowed_page(): void
         'staff_publisher_portal.php',
         'avatar.php',
         'index.php',
+        'post_media_upload.php',
+        'post_save.php',
     ];
 
     if (!in_array($script, $allowed, true)) {

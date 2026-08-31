@@ -170,7 +170,7 @@ function admin_linked_with_admin_session(callable $fn)
     }
 
     admin_linked_apply_session_cookie_path();
-    session_name(defined('ADMIN_SESSION_NAME') ? ADMIN_SESSION_NAME : 'TALENTRA_ADMIN');
+    session_name(defined('ADMIN_SESSION_NAME') ? ADMIN_SESSION_NAME : 'TALSORA_ADMIN');
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }

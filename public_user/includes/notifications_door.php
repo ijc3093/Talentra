@@ -7,6 +7,7 @@ $GLOBALS['msb_notifications_door_included'] = true;
 $__notiItems = is_array($headerNotifications ?? null) ? $headerNotifications : [];
 $__notiUnread = (int)($headerNotificationUnread ?? 0);
 $__notiStandalone = !empty($msbNotificationsDoorStandalone);
+require_once __DIR__ . '/leftbar_door_anim.js.php';
 ?>
 <style>
 #ttLeftbarOverlays .tt-notifications-wrap,
@@ -23,7 +24,7 @@ $__notiStandalone = !empty($msbNotificationsDoorStandalone);
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
-  transition:transform .18s ease, opacity .18s ease;
+  transition:transform .6s ease-in-out, opacity .45s ease;
 }
 #ttLeftbarOverlays .tt-notifications-wrap.is-open,
 .msb-notifications-door-host .tt-notifications-wrap.is-open{
@@ -259,7 +260,7 @@ body.msb-notifications-door-open .msb-notifications-door-host{ pointer-events:au
   opacity:0;
   visibility:hidden;
   pointer-events:none;
-  transition:opacity .18s ease, visibility .18s ease;
+  transition:opacity .6s ease-in-out, visibility .6s ease-in-out;
 }
 body.msb-notifications-door-open .msb-notifications-door-backdrop{
   opacity:1;
@@ -321,11 +322,21 @@ body.msb-notifications-door-open .msb-notifications-door-backdrop{
     if(!$notiWrap) return;
     $notiWrap.classList.remove('is-open');
     $notiWrap.setAttribute('aria-hidden', 'true');
-    if(isStandalone) document.body.classList.remove('msb-notifications-door-open');
-    else document.body.classList.remove('public-leftbar-open');
+    var release = function(){
+      if(isStandalone) document.body.classList.remove('msb-notifications-door-open');
+      else document.body.classList.remove('public-leftbar-open');
+    };
+    if(window.MSBLeftbarDoorAnim){
+      window.MSBLeftbarDoorAnim.hold('notifications', function(){
+        return $notiWrap.classList.contains('is-open');
+      }, release);
+    } else {
+      release();
+    }
   }
 
   function openNotificationsPanel(){
+    if(window.MSBLeftbarDoorAnim) window.MSBLeftbarDoorAnim.cancel('notifications');
     if(!$notiWrap) return;
     closeOtherPanels();
     $notiWrap.classList.add('is-open');

@@ -1,6 +1,6 @@
 <?php
 /**
- * Minimal TikTok-style watch beacon (attention signals).
+ * Minimal short-video watch beacon (attention signals).
  * Include once per page that plays reel/feed video.
  */
 if (!empty($GLOBALS['msb_watch_beacon_printed'])) {

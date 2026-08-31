@@ -1,6 +1,6 @@
 <?php
 // /Business_only/ajax/user_presence_ping.php
-// Purpose: Update current user's last_seen and return online/offline info for a peer (WhatsApp-like)
+// Purpose: Update current user's last_seen and return online/offline info for a peer (text-like)
 
 declare(strict_types=1);
 

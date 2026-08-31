@@ -1,11 +1,19 @@
-/* Thin light-grey structural lines (home, profile, messages, shop, …).
-   Does not restyle accent/error/avatar rings. */
+/* Thin structural lines */
 :root{
-  --msb-hairline:#d3d3d3;
+  --msb-hairline:#d0d3da;
+  --hc-chrome-line:#d0d3da;
+  --hc-help-border:#d0d3da;
+  --ig-line:#d0d3da;
+  --hc-chrome-width:1px;
 }
 html.dark-auto,
-html[data-theme="dark"]{
-  --msb-hairline:rgba(211,211,211,.28);
+html[data-theme="dark"],
+html.msb-palette-light-fg{
+  --msb-hairline:#3a3f47;
+  --hc-chrome-line:#3a3f47;
+  --hc-help-border:#3a3f47;
+  --ig-line:#3a3f47;
+  --hc-chrome-width:1px;
 }
 html,
 html[data-msb-appearance],
@@ -50,8 +58,6 @@ html.msb-palette-active{
 .mf-card,
 .standard-text-card,
 .gear-shell,
-.gear-sidebar,
-.gear-main,
 .gear-detail-panel,
 .gear-control,
 .form-control,
@@ -61,8 +67,7 @@ textarea.form-control,
 .msg-thread,
 .msg-composer,
 .x-rail,
-.pcm-share-dialog,
-.auth-field{
+.pcm-share-dialog{
   border-width:1px !important;
 }
 
@@ -79,11 +84,64 @@ textarea.form-control,
 .mf-card,
 .standard-text-card,
 .gear-shell,
-.gear-sidebar,
-.gear-main,
 .gear-detail-panel,
 .form-control,
 select.form-control,
 textarea.form-control{
   border-color:var(--msb-hairline) !important;
+}
+
+html[data-msb-appearance] .ig-card,
+html[data-msb-appearance] .ig-profile-shell,
+html[data-msb-appearance] .ig-profile-scroll,
+html[data-msb-appearance] .ig-profile-head,
+html[data-msb-appearance] .ig-tabs,
+html[data-msb-appearance] .gear-shell,
+html[data-msb-appearance] .gear-sidebar,
+html[data-msb-appearance] .gear-main,
+html[data-msb-appearance] .hc-nav,
+html[data-msb-appearance] .hc-top,
+html[data-msb-appearance] .auth-page-foot,
+html.msb-palette-active .ig-card,
+html.msb-palette-active .ig-profile-scroll,
+html.msb-palette-active .gear-sidebar,
+html.msb-palette-active .gear-main{
+  border-color:var(--msb-hairline) !important;
+}
+html[data-msb-appearance] .profile-cover-hairline,
+html[data-msb-appearance] .ig-rail-video-rule,
+html[data-msb-appearance] body.profile-page .profile-cover::after,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover::after,
+html.dark-auto[data-msb-appearance] body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover::after,
+html[data-theme="dark"][data-msb-appearance] body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover::after,
+html.msb-palette-active .profile-cover-hairline,
+html.msb-palette-active body.profile-page .profile-cover::after{
+  background:var(--msb-hairline) !important;
+  background-color:var(--msb-hairline) !important;
+}
+
+/* Kill blue focus rings / outline-primary strokes on every public surface. */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+.form-control:focus,
+.dataTables_filter input:focus,
+.gear-control:focus,
+.gear-search:focus,
+.auth-help-input:focus,
+.hc-search input:focus,
+.auth-field:focus-within,
+#messageInput:focus,
+.group-message-input:focus,
+.feed-top-search-input:focus {
+  outline: none !important;
+  border-color: var(--msb-hairline, #2a2f36) !important;
+  box-shadow: none !important;
+}
+.btn-outline-primary,
+.btn-outline-info {
+  border-color: var(--msb-hairline, #2a2f36) !important;
 }

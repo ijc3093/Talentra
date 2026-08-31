@@ -257,7 +257,7 @@ if (!function_exists('shop_card_spec_bits')) {
   <link rel="stylesheet" href="assets/ui_best.css">
   <link rel="stylesheet" href="assets/layout-fixed.css">
   <link rel="stylesheet" href="./css/shop-page.css?v=10">
-    <link rel="stylesheet" href="./css/shop-storefront.css?v=86">
+    <link rel="stylesheet" href="./css/shop-storefront.css?v=90">
   <style><?php include __DIR__ . '/includes/feed_rails.css.php'; ?></style>
   <style><?php include __DIR__ . '/includes/feed_header_chrome.css.php'; ?></style>
   <script defer src="assets/layout-fixed.js"></script>
@@ -729,6 +729,7 @@ if (!function_exists('shop_card_spec_bits')) {
     <div class="shop-page-scroll">
     <div class="shop-storefront-layout">
       <main class="shop-storefront-main">
+        <div class="shop-storefront-scroll">
         <section class="shop-promo-hero" id="shopPromoHero" aria-label="Featured shopping promotion">
           <div class="shop-promo-slides">
             <?php foreach ($shopPromoSlides as $shopPromoIndex => $shopPromoSlide): ?>
@@ -915,6 +916,7 @@ if (!function_exists('shop_card_spec_bits')) {
       </div>
     <?php endif; ?>
         </section>
+        </div>
         <?php if ($products): ?>
       <nav class="shop-product-pagination" aria-label="Featured product pages">
         <div class="shop-product-pagination-pages">

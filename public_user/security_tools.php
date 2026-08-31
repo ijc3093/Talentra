@@ -97,8 +97,9 @@ if (!empty($settings['report_history_enabled'])) {
     <div class="sec-title" style="font-size:22px">Login / security section</div>
     <div class="list">
       <div class="row"><div><strong>Change password</strong><small>Open your existing password page to protect the account quickly.</small></div><a class="btn" href="change-password.php">Open</a></div>
+      <div class="row"><div><strong>Manage devices</strong><small>See active sessions and revoke one device at a time.</small></div><a class="btn alt" href="manage_devices.php">Open</a></div>
       <div class="row"><div><strong>Logout now</strong><small>Signs out of this current browser session immediately.</small></div><a class="btn" href="logout.php">Logout</a></div>
-      <div class="row"><div><strong>Logout all devices</strong><small>Your project now uses the shared SQL session table, so you can manage active devices and revoke other sessions safely.</small></div><a class="btn alt" href="account_tools.php?action=logout_all">Open tool</a></div>
+      <div class="row"><div><strong>Logout all devices</strong><small>Sign out other browsers. Delete, export, and deactivate stay in Danger Zone.</small></div><a class="btn alt" href="account_tools.php?action=logout_all">Open tool</a></div>
     </div>
   </div>
 

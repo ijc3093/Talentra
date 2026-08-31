@@ -316,8 +316,14 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
     if (!wrap || !hidden) return;
     var selected = {};
 
+    function notify(){
+      if (typeof opts.onChange === 'function') {
+        try { opts.onChange(selected); } catch (e) {}
+      }
+    }
     function syncHidden(){
       hidden.value = Object.keys(selected).join(',');
+      notify();
     }
     function renderChips(){
       wrap.innerHTML = '';
@@ -348,6 +354,14 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
       bindField(input, addUser);
       input.setAttribute('data-msb-mention', '1');
       input.setAttribute('placeholder', input.getAttribute('placeholder') || 'Tag people with @username');
+    }
+    if (opts.initial && typeof opts.initial === 'object') {
+      Object.keys(opts.initial).forEach(function(id){
+        var u = opts.initial[id];
+        if (u) selected[String(id)] = u;
+      });
+      if (hidden) hidden.value = Object.keys(selected).join(',');
+      renderChips();
     }
     return { addUser: addUser, selected: selected };
   }

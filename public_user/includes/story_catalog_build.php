@@ -11,7 +11,7 @@ require_once __DIR__ . '/post_layout.php';
  */
 function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): array
 {
-    $byUser = [];
+    $byPost = [];
 
     foreach ($posts as $post) {
         if (!is_array($post) || !post_is_story_only($post)) {
@@ -22,19 +22,22 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
         }
 
         $attachments = is_array($post['attachments'] ?? null) ? $post['attachments'] : [];
-        $first = $attachments[0] ?? null;
         $uid = (int)($post['user_id'] ?? 0);
-        if ($uid <= 0) {
+        $postId = (int)($post['id'] ?? 0);
+        if ($uid <= 0 || $postId <= 0) {
             continue;
         }
 
-        [$src, $mediaType] = story_catalog_media_from_attachment(is_array($first) ? $first : null);
         $caption = post_story_caption($post);
-        if ($src === '' && $caption === '') {
+        $mediaSlides = story_catalog_media_entries($attachments);
+        if ($mediaSlides === [] && $caption === '') {
             continue;
         }
 
-        $key = 'u' . $uid;
+        $key = 's' . $postId;
+        if (isset($byPost[$key])) {
+            continue;
+        }
         $friendCode = strtoupper(trim((string)($post['friend_code'] ?? '')));
         $friendStatus = strtolower(trim((string)($post['friend_status'] ?? $post['friendStatus'] ?? '')));
         if ($friendStatus === '') {
@@ -42,8 +45,8 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
         }
         $isPublisher = story_catalog_item_is_publisher($post);
 
-        if (!isset($byUser[$key])) {
-            $byUser[$key] = [
+        if (!isset($byPost[$key])) {
+            $byPost[$key] = [
                 'key' => $key,
                 'userId' => $uid,
                 'name' => trim((string)($post['display_name'] ?? $post['username'] ?? 'User')),
@@ -58,24 +61,16 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
                 'subtitle' => '',
                 'slides' => [],
             ];
-        } elseif ($friendStatus === 'friends' || empty($byUser[$key]['friendStatus']) || $byUser[$key]['friendStatus'] === 'none') {
-            if ($friendStatus !== 'none' || empty($byUser[$key]['friendStatus'])) {
-                $byUser[$key]['friendStatus'] = $friendStatus;
-            }
         }
 
         $storyWhen = (string)($post['updated_at'] ?? $post['created_at'] ?? '');
         $whenLabel = $timeAgoFn($storyWhen);
-
-        $byUser[$key]['slides'][] = [
-            'src' => $src,
-            'type' => $src !== '' ? story_catalog_preview_kind($src, $mediaType) : 'text',
+        $slideBase = [
             'title' => trim((string)($post['title'] ?? '')),
-            'caption' => $caption,
             'timeLabel' => $whenLabel,
             'timeAgo' => $whenLabel,
             'createdAt' => $storyWhen,
-            'postId' => (int)($post['id'] ?? 0),
+            'postId' => $postId,
             'myReaction' => trim((string)($post['my_reaction'] ?? '')),
             'myShared' => !empty($post['my_shared']) ? 1 : 0,
             'mySaved' => !empty($post['my_saved']) ? 1 : 0,
@@ -84,12 +79,38 @@ function story_catalog_build_from_posts(array $posts, callable $timeAgoFn): arra
             'loveCount' => (int)($post['reaction_count'] ?? $post['love_count'] ?? 0),
             'shareCount' => (int)($post['share_count'] ?? 0),
             'saveCount' => (int)($post['save_count'] ?? 0),
-            'friendCode' => $friendCode !== '' ? $friendCode : (string)($byUser[$key]['friendCode'] ?? ''),
-            'previewType' => (string)$mediaType,
+            'friendCode' => $friendCode !== '' ? $friendCode : (string)($byPost[$key]['friendCode'] ?? ''),
         ];
+
+        if ($mediaSlides === []) {
+            $byPost[$key]['slides'][] = $slideBase + [
+                'src' => '',
+                'type' => 'text',
+                'caption' => $caption,
+                'previewType' => '',
+            ];
+        } else {
+            foreach ($mediaSlides as $media) {
+                $slideCaption = trim((string)($media['caption'] ?? ''));
+                if ($slideCaption === '') {
+                    $slideCaption = $caption;
+                }
+                $byPost[$key]['slides'][] = $slideBase + [
+                    'src' => (string)$media['src'],
+                    'type' => (string)$media['kind'],
+                    'caption' => $slideCaption,
+                    'previewType' => (string)$media['mediaType'],
+                ];
+            }
+        }
+
+        $firstSrc = trim((string)($byPost[$key]['slides'][0]['src'] ?? ''));
+        if ($firstSrc !== '') {
+            $byPost[$key]['avatarUrl'] = $firstSrc;
+        }
     }
 
-    return array_values(array_filter($byUser, static function (array $story): bool {
+    return array_values(array_filter($byPost, static function (array $story): bool {
         return !empty($story['slides']);
     }));
 }
@@ -101,6 +122,46 @@ function story_catalog_item_is_publisher(array $post): bool
     }
     $friendCode = strtoupper(trim((string)($post['friend_code'] ?? '')));
     return str_starts_with($friendCode, 'PUB-');
+}
+
+/**
+ * Visual image/video attachments for a story post (one door slide each).
+ *
+ * @param array<int,mixed> $attachments
+ * @return array<int,array{src:string,mediaType:string,kind:string,caption:string}>
+ */
+function story_catalog_media_entries(array $attachments): array
+{
+    $out = [];
+    foreach ($attachments as $attachment) {
+        if (!is_array($attachment)) {
+            continue;
+        }
+        $mediaType = (string)($attachment['type'] ?? 'image');
+        $src = trim((string)($attachment['file_path'] ?? ''));
+        if ($src === '') {
+            $src = trim((string)($attachment['thumb_path'] ?? ''));
+        }
+        $src = ltrim(preg_replace('~^\./~', '', $src), '/');
+        if ($src === '') {
+            continue;
+        }
+        $kind = story_catalog_preview_kind($src, $mediaType);
+        if ($kind !== 'video') {
+            $kind = 'image';
+        }
+        $slideCaption = trim((string)($attachment['slide_body'] ?? ''));
+        if ($slideCaption === '') {
+            $slideCaption = trim((string)($attachment['slide_title'] ?? ''));
+        }
+        $out[] = [
+            'src' => $src,
+            'mediaType' => $mediaType,
+            'kind' => $kind,
+            'caption' => $slideCaption,
+        ];
+    }
+    return $out;
 }
 
 /**

@@ -85,6 +85,171 @@ function clamp_int($v, int $min, int $max, int $default): int {
   return $n;
 }
 
+function feed_comment_media_ensure_columns(PDO $dbh): void
+{
+  static $done = false;
+  if ($done) {
+    return;
+  }
+  $done = true;
+  try {
+    $cols = [];
+    foreach ($dbh->query('SHOW COLUMNS FROM public_post_comments')->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+      $field = (string)($row['Field'] ?? '');
+      if ($field !== '') {
+        $cols[$field] = true;
+      }
+    }
+    if (empty($cols['media_path'])) {
+      $dbh->exec("ALTER TABLE public_post_comments ADD COLUMN media_path VARCHAR(255) NOT NULL DEFAULT '' AFTER comment_text");
+    }
+    if (empty($cols['media_type'])) {
+      $dbh->exec("ALTER TABLE public_post_comments ADD COLUMN media_type VARCHAR(16) NOT NULL DEFAULT '' AFTER media_path");
+    }
+  } catch (Throwable $e) {
+  }
+}
+
+function feed_comment_gif_marker(string $url): string
+{
+  $url = feed_comment_gif_url($url);
+  return $url === '' ? '' : ('[[MSB_GIF:' . $url . ']]');
+}
+
+function feed_comment_hydrate_media(array $c): array
+{
+  $text = (string)($c['comment_text'] ?? '');
+  $path = (string)($c['media_path'] ?? '');
+  if (preg_match('/\[\[MSB_GIF:(https?:[^\]\s]+)\]\]/', $text, $m)) {
+    $text = trim((string)preg_replace('/\s*\[\[MSB_GIF:(https?:[^\]\s]+)\]\]\s*/', "\n", $text));
+    if ($path === '') {
+      $path = (string)($m[1] ?? '');
+    }
+  }
+  $c['comment_text'] = $text;
+  $public = feed_comment_media_public_path($path);
+  if ($public === '' && $path !== '' && strncmp($path, 'https://', 8) === 0) {
+    $public = feed_comment_gif_url($path);
+  }
+  $c['media_path'] = $public;
+  if ($c['media_path'] !== '') {
+    $c['media_type'] = 'gif';
+  } else {
+    $type = (string)($c['media_type'] ?? '');
+    $c['media_type'] = in_array($type, ['image', 'video', 'gif'], true) ? $type : '';
+  }
+  return $c;
+}
+
+function feed_comment_gif_url(string $url): string
+{
+  $url = trim($url);
+  if ($url === '' || strlen($url) > 255) {
+    return '';
+  }
+  $parts = parse_url($url);
+  if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https') {
+    return '';
+  }
+  $host = strtolower((string)($parts['host'] ?? ''));
+  $allowed = [
+    'media.giphy.com',
+    'i.giphy.com',
+    'media0.giphy.com',
+    'media1.giphy.com',
+    'media2.giphy.com',
+    'media3.giphy.com',
+    'media4.giphy.com',
+    'c.tenor.com',
+    'media.tenor.com',
+    'media1.tenor.com',
+  ];
+  if (!in_array($host, $allowed, true)) {
+    return '';
+  }
+  $path = (string)($parts['path'] ?? '');
+  if ($path === '' || strpos($path, '..') !== false) {
+    return '';
+  }
+  if (!preg_match('/\.(gif|webp)$/i', $path) && strpos($path, '/media/') === false) {
+    return '';
+  }
+  return 'https://' . $host . $path;
+}
+
+function feed_comment_media_public_path(string $path): string
+{
+  $gif = feed_comment_gif_url($path);
+  if ($gif !== '') {
+    return $gif;
+  }
+  $path = str_replace('\\', '/', trim($path));
+  $path = ltrim($path, '/');
+  if ($path === '' || strpos($path, '..') !== false) {
+    return '';
+  }
+  if (strncmp($path, 'uploads/comments/', 17) !== 0) {
+    return '';
+  }
+  return $path;
+}
+
+/** @param array<string,mixed> $file */
+function feed_save_comment_media(array $file, int $userId): array
+{
+  $err = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+  if ($err === UPLOAD_ERR_NO_FILE || $err === UPLOAD_ERR_NO_TMP_DIR) {
+    return ['ok' => true, 'path' => '', 'type' => ''];
+  }
+  if ($err !== UPLOAD_ERR_OK) {
+    return ['ok' => false, 'error' => 'Upload failed'];
+  }
+  $tmp = (string)($file['tmp_name'] ?? '');
+  if ($tmp === '' || !is_uploaded_file($tmp)) {
+    return ['ok' => false, 'error' => 'Invalid upload'];
+  }
+  $orig = function_exists('post_upload_safe_filename')
+    ? post_upload_safe_filename((string)($file['name'] ?? 'file'))
+    : preg_replace('/[^a-zA-Z0-9_\.-]+/', '_', (string)($file['name'] ?? 'file'));
+  $ext = strtolower((string)pathinfo((string)$orig, PATHINFO_EXTENSION));
+  if ($ext === 'jfif' || $ext === 'jpe') {
+    $ext = 'jpg';
+  }
+  $imageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+  $videoExt = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+  if (!in_array($ext, $imageExt, true) && !in_array($ext, $videoExt, true)) {
+    return ['ok' => false, 'error' => 'Use a photo or video'];
+  }
+  $size = (int)($file['size'] ?? 0);
+  if ($size <= 0) {
+    $size = (int)@filesize($tmp);
+  }
+  if ($size > 80 * 1024 * 1024) {
+    return ['ok' => false, 'error' => 'File is too large'];
+  }
+  $mime = strtolower(trim((string)($file['type'] ?? '')));
+  $kind = in_array($ext, $videoExt, true) || strncmp($mime, 'video/', 6) === 0 ? 'video' : 'image';
+  $baseDir = __DIR__ . '/uploads/comments';
+  $ym = date('Ym');
+  $subDir = $baseDir . '/' . $ym;
+  if (!is_dir($subDir) && !@mkdir($subDir, 0775, true) && !is_dir($subDir)) {
+    return ['ok' => false, 'error' => 'Could not save media'];
+  }
+  $fname = 'cmt_u' . max(0, $userId) . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+  $destAbs = $subDir . '/' . $fname;
+  $moved = @move_uploaded_file($tmp, $destAbs);
+  if (!$moved) {
+    $moved = @copy($tmp, $destAbs);
+    if ($moved) {
+      @unlink($tmp);
+    }
+  }
+  if (!$moved || !is_file($destAbs)) {
+    return ['ok' => false, 'error' => 'Could not save media'];
+  }
+  return ['ok' => true, 'path' => 'uploads/comments/' . $ym . '/' . $fname, 'type' => $kind];
+}
+
 function feedUserRow(PDO $dbh, int $userId): array {
   static $cache = [];
   if ($userId <= 0) return [];
@@ -113,6 +278,9 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
       'comment_notifications' => 1,
       'reaction_notifications' => 1,
       'share_notifications' => 1,
+      'saved_notifications' => 1,
+      'tagged_notifications' => 1,
+      'followed_notifications' => 1,
     ];
   }
   if (isset($cache[$userId])) return $cache[$userId];
@@ -121,11 +289,15 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
     'comment_notifications' => 1,
     'reaction_notifications' => 1,
     'share_notifications' => 1,
+    'saved_notifications' => 1,
+    'tagged_notifications' => 1,
+    'followed_notifications' => 1,
   ];
 
   try {
     $st = $dbh->prepare("
-      SELECT comment_notifications, reaction_notifications, share_notifications
+      SELECT comment_notifications, reaction_notifications, share_notifications,
+             saved_notifications, tagged_notifications, followed_notifications
       FROM user_profile_settings
       WHERE user_id = :uid
       LIMIT 1
@@ -133,14 +305,16 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
     $st->execute([':uid' => $userId]);
     $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     if ($row) {
-      $prefs['comment_notifications'] = (int)($row['comment_notifications'] ?? 1);
-      $prefs['reaction_notifications'] = (int)($row['reaction_notifications'] ?? 1);
-      $prefs['share_notifications'] = (int)($row['share_notifications'] ?? 1);
+      foreach ($prefs as $k => $_) {
+        if (array_key_exists($k, $row) && $row[$k] !== null) {
+          $prefs[$k] = (int)$row[$k];
+        }
+      }
     }
   } catch (Throwable $e) {
     try {
       $st = $dbh->prepare("
-        SELECT comment_notifications, reaction_notifications
+        SELECT comment_notifications, reaction_notifications, share_notifications
         FROM user_profile_settings
         WHERE user_id = :uid
         LIMIT 1
@@ -150,8 +324,10 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
       if ($row) {
         $prefs['comment_notifications'] = (int)($row['comment_notifications'] ?? 1);
         $prefs['reaction_notifications'] = (int)($row['reaction_notifications'] ?? 1);
+        $prefs['share_notifications'] = (int)($row['share_notifications'] ?? 1);
       }
-    } catch (Throwable $e2) {}
+    } catch (Throwable $e2) {
+    }
   }
 
   $cache[$userId] = $prefs;
@@ -268,8 +444,11 @@ function feedAllowsNotification(PDO $dbh, int $receiverId, string $kind): bool {
   if ($kind === 'comment') {
     return (int)($prefs['comment_notifications'] ?? 1) === 1;
   }
-  if ($kind === 'share' || $kind === 'save') {
+  if ($kind === 'share') {
     return (int)($prefs['share_notifications'] ?? 1) === 1;
+  }
+  if ($kind === 'save') {
+    return (int)($prefs['saved_notifications'] ?? 1) === 1;
   }
   return true;
 }
@@ -383,15 +562,22 @@ function feedCommentReactionNotificationMessage(string $reaction): string {
 
 function feedBuildNotificationType(string $message, array $meta = []): string {
   $type = trim($message);
+  $suffix = '';
   $route = trim((string)($meta['route'] ?? ''));
   $postId = (int)($meta['post_id'] ?? 0);
   $commentId = (int)($meta['comment_id'] ?? 0);
 
-  if ($route !== '') $type .= ' [r:' . preg_replace('/[^a-z]/i', '', $route) . ']';
-  if ($postId > 0) $type .= ' [p:' . $postId . ']';
-  if ($commentId > 0) $type .= ' [c:' . $commentId . ']';
+  if ($route !== '') $suffix .= ' [r:' . preg_replace('/[^a-z]/i', '', $route) . ']';
+  if ($postId > 0) $suffix .= ' [p:' . $postId . ']';
+  if ($commentId > 0) $suffix .= ' [c:' . $commentId . ']';
 
-  return mb_substr($type, 0, 100);
+  $max = 100;
+  $suffixLen = mb_strlen($suffix);
+  $room = max(0, $max - $suffixLen);
+  if (mb_strlen($type) > $room) {
+    $type = rtrim(mb_substr($type, 0, $room));
+  }
+  return mb_substr($type . $suffix, 0, $max);
 }
 
 function feedAddNotification(PDO $dbh, int $senderId, int $receiverId, string $message, string $kind, array $meta = []): void {
@@ -445,7 +631,7 @@ try {
 
     $order    = (string)($_GET['order'] ?? 'recent'); // recent|views|attention|created
 
-    // For You / feed default: attention when available (scope unchanged).
+    // Circle / feed default: attention when available (scope unchanged).
     if ($order === 'recent' && $pageMode === 'feed' && msb_posts_has_attention_cols($dbh)) {
       $order = 'attention';
     }
@@ -462,7 +648,7 @@ try {
       $where .= " AND p.visibility = 'public'";
       $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, false);
       $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, false));
-      // Reels / public list: publishers only see other publishers' posts.
+      // Clips / public list: publishers only see other publishers' posts.
       if (publisher_workspace_viewer($dbh, $meId)) {
         $where .= ' AND ' . publisher_author_is_publisher_sql('u');
       }
@@ -687,6 +873,65 @@ try {
     }
     $rows = array_values($filteredRows);
 
+    $storyIdsForAtt = [];
+    foreach ($rows as $rStoryAtt) {
+      if (empty($rStoryAtt['is_story'])) {
+        continue;
+      }
+      $sidAtt = (int)($rStoryAtt['id'] ?? 0);
+      if ($sidAtt > 0) {
+        $storyIdsForAtt[] = $sidAtt;
+      }
+    }
+    $storyIdsForAtt = array_values(array_unique($storyIdsForAtt));
+    $attsByPost = [];
+    if ($storyIdsForAtt !== []) {
+      $inStoryAtt = implode(',', array_fill(0, count($storyIdsForAtt), '?'));
+      try {
+        $stStoryAtt = $dbh->prepare(
+          "SELECT post_id, type, file_path, thumb_path, slide_title, slide_body
+           FROM public_post_attachments
+           WHERE post_id IN ($inStoryAtt)
+           ORDER BY id ASC"
+        );
+        $stStoryAtt->execute($storyIdsForAtt);
+        foreach ($stStoryAtt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $attRow) {
+          $pidA = (int)($attRow['post_id'] ?? 0);
+          if ($pidA <= 0) {
+            continue;
+          }
+          $attRow['file_path'] = preg_replace('#^public_user/#', '', (string)($attRow['file_path'] ?? ''));
+          $attRow['thumb_path'] = preg_replace('#^public_user/#', '', (string)($attRow['thumb_path'] ?? ''));
+          $attsByPost[$pidA][] = $attRow;
+        }
+      } catch (Throwable $eStoryAtt) {
+        try {
+          $stStoryAtt = $dbh->prepare(
+            "SELECT post_id, type, file_path, thumb_path
+             FROM public_post_attachments
+             WHERE post_id IN ($inStoryAtt)
+             ORDER BY id ASC"
+          );
+          $stStoryAtt->execute($storyIdsForAtt);
+          foreach ($stStoryAtt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $attRow) {
+            $pidA = (int)($attRow['post_id'] ?? 0);
+            if ($pidA <= 0) {
+              continue;
+            }
+            $attRow['file_path'] = preg_replace('#^public_user/#', '', (string)($attRow['file_path'] ?? ''));
+            $attRow['thumb_path'] = preg_replace('#^public_user/#', '', (string)($attRow['thumb_path'] ?? ''));
+            $attsByPost[$pidA][] = $attRow;
+          }
+        } catch (Throwable $eStoryAtt2) {
+        }
+      }
+    }
+    foreach ($rows as &$rAttFill) {
+      $pidFill = (int)($rAttFill['id'] ?? 0);
+      $rAttFill['attachments'] = ($pidFill > 0 && isset($attsByPost[$pidFill])) ? $attsByPost[$pidFill] : [];
+    }
+    unset($rAttFill);
+
     if (function_exists('msb_post_tags_people_for_posts')) {
       $tagMap = msb_post_tags_people_for_posts($dbh, array_map(static function ($row) {
         return (int)($row['id'] ?? 0);
@@ -846,7 +1091,8 @@ try {
       $post['live_meta'] = null;
     }
 
-    $vis = (string)($post['visibility'] ?? 'public');
+    $post['visibility'] = post_visibility_normalize((string)($post['visibility'] ?? 'friends'));
+    $vis = (string)$post['visibility'];
     $authorId = (int)($post['user_id'] ?? 0);
     $isTaggedViewer = ($meId > 0 && function_exists('msb_user_is_tagged_on_post') && msb_user_is_tagged_on_post($dbh, $postId, $meId));
     $isMentionedViewer = ($meId > 0 && function_exists('msb_user_is_mentioned_on_post') && msb_user_is_mentioned_on_post($dbh, $postId, $meId));
@@ -997,6 +1243,21 @@ try {
 
     $comments = [];
     if (!$lite) {
+    feed_comment_media_ensure_columns($dbh);
+    try {
+    $stCom = $dbh->prepare("
+      SELECT c.id, c.post_id, c.user_id, c.parent_id, c.comment_text, c.created_at,
+             COALESCE(c.media_path,'') AS media_path, COALESCE(c.media_type,'') AS media_type,
+             u.username, COALESCE(u.name,u.username) AS display_name
+      FROM public_post_comments c
+      JOIN users u ON u.id = c.user_id
+      WHERE c.post_id = :pid AND c.is_deleted = 0
+      ORDER BY c.created_at ASC
+      LIMIT 1000
+    ");
+    $stCom->execute([':pid' => $postId]);
+    $comments = $stCom->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $eCom) {
     $stCom = $dbh->prepare("
       SELECT c.id, c.post_id, c.user_id, c.parent_id, c.comment_text, c.created_at,
              u.username, COALESCE(u.name,u.username) AS display_name
@@ -1008,8 +1269,9 @@ try {
     ");
     $stCom->execute([':pid' => $postId]);
     $comments = $stCom->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 
-    // Attach comment like counts (TikTok-style hearts)
+    // Attach comment like counts (short-video hearts)
     $commentIds = array_values(array_filter(array_map(static function($r){
       return isset($r['id']) ? (int)$r['id'] : 0;
     }, $comments)));
@@ -1061,6 +1323,12 @@ try {
         $c['like_count'] = (int)($likeCounts[$cid] ?? 0);
         $c['me_liked']   = (int)($myLikes[$cid] ?? 0);
         $c['my_reaction'] = (string)($myReactions[$cid] ?? '');
+        $c = feed_comment_hydrate_media($c);
+      }
+      unset($c);
+    } else {
+      foreach ($comments as &$c) {
+        $c = feed_comment_hydrate_media($c);
       }
       unset($c);
     }
@@ -1665,9 +1933,17 @@ try {
     $postId   = (int)($_POST['post_id'] ?? 0);
     $parentId = (int)($_POST['parent_id'] ?? 0);
     $text     = trim((string)($_POST['comment_text'] ?? ''));
+    feed_comment_media_ensure_columns($dbh);
+    $mediaPath = '';
+    $mediaType = '';
+    $gifUrl = feed_comment_gif_url((string)($_POST['comment_gif_url'] ?? ''));
+    if ($gifUrl !== '') {
+      $mediaPath = $gifUrl;
+      $mediaType = 'gif';
+    }
 
     if ($postId <= 0) jexit(['ok'=>false,'error'=>'Missing post id', 'me_id'=>$meId]);
-    if ($text === '') jexit(['ok'=>false,'error'=>'Empty comment', 'me_id'=>$meId]);
+    if ($text === '' && $mediaPath === '') jexit(['ok'=>false,'error'=>'Empty comment', 'me_id'=>$meId]);
 
     $postOwnerId = 0;
     $postVisibility = 'friends';
@@ -1695,16 +1971,38 @@ try {
       }
     }
 
-    $st = $dbh->prepare("
-      INSERT INTO public_post_comments (post_id, user_id, parent_id, comment_text, created_at, is_deleted)
-      VALUES (:pid, :uid, :parent, :txt, NOW(), 0)
-    ");
-    $st->execute([
-      ':pid'    => $postId,
-      ':uid'    => $meId,
-      ':parent' => ($parentId > 0 ? $parentId : null),
-      ':txt'    => $text
-    ]);
+    $marker = $mediaPath !== '' ? feed_comment_gif_marker($mediaPath) : '';
+    $insertText = $text;
+    if ($marker !== '') {
+      $insertText = $text === '' ? $marker : ($text . "\n" . $marker);
+    } elseif ($text === '' && $mediaPath !== '') {
+      $insertText = ' ';
+    }
+    try {
+      $st = $dbh->prepare("
+        INSERT INTO public_post_comments (post_id, user_id, parent_id, comment_text, media_path, media_type, created_at, is_deleted)
+        VALUES (:pid, :uid, :parent, :txt, :media_path, :media_type, NOW(), 0)
+      ");
+      $st->execute([
+        ':pid'    => $postId,
+        ':uid'    => $meId,
+        ':parent' => ($parentId > 0 ? $parentId : null),
+        ':txt'    => $insertText,
+        ':media_path' => $mediaPath,
+        ':media_type' => $mediaType,
+      ]);
+    } catch (Throwable $eIns) {
+      $st = $dbh->prepare("
+        INSERT INTO public_post_comments (post_id, user_id, parent_id, comment_text, created_at, is_deleted)
+        VALUES (:pid, :uid, :parent, :txt, NOW(), 0)
+      ");
+      $st->execute([
+        ':pid'    => $postId,
+        ':uid'    => $meId,
+        ':parent' => ($parentId > 0 ? $parentId : null),
+        ':txt'    => $insertText
+      ]);
+    }
     $newCommentId = (int)($dbh->lastInsertId() ?: 0);
 
     $dbh->prepare("UPDATE public_posts SET updated_at = NOW() WHERE id = :pid LIMIT 1")
@@ -1735,7 +2033,25 @@ try {
       msb_comment_mentions_notify($dbh, $meId, $postId, $newCommentId, $text, $postOwnerId, $postVisibility);
     } catch (Throwable $eMention) {}
 
-    jexit(['ok'=>true, 'me_id'=>$meId]);
+    $outComment = [
+      'id' => $newCommentId,
+      'post_id' => $postId,
+      'user_id' => $meId,
+      'parent_id' => $parentId > 0 ? $parentId : 0,
+      'comment_text' => $text,
+      'media_path' => $mediaPath,
+      'media_type' => $mediaType !== '' ? $mediaType : ($mediaPath !== '' ? 'gif' : ''),
+      'created_at' => date('Y-m-d H:i:s'),
+      'like_count' => 0,
+      'me_liked' => 0,
+      'my_reaction' => '',
+    ];
+    $meRow = feedUserRow($dbh, $meId);
+    $outComment['username'] = (string)($meRow['username'] ?? '');
+    $outComment['display_name'] = (string)($meRow['display_name'] ?? $outComment['username']);
+    $outComment = feed_comment_hydrate_media($outComment);
+
+    jexit(['ok'=>true, 'me_id'=>$meId, 'comment_id'=>$newCommentId, 'comment'=>$outComment]);
   }
 
 

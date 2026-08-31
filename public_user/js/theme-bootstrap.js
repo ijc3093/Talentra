@@ -145,12 +145,30 @@
     return {
       autoEnabled: autoEnabled,
       manualMode: normalizeManualMode(manual),
-      appearanceMode: normalizeAppearanceMode(defaults.appearanceMode || window.__MSB_THEME_DB_MODE || 'system')
+      appearanceMode: normalizeAppearanceMode(defaults.appearanceMode || window.__MSB_THEME_DB_MODE || appearanceModeFromCookie() || 'system')
     };
+  }
+
+  function writeAppearanceCookie(mode){
+    try {
+      document.cookie = 'msb_appearance=' + encodeURIComponent(normalizeAppearanceMode(mode || 'system'))
+        + ';path=/;max-age=34560000;SameSite=Lax';
+    } catch (e) {}
+  }
+
+  function appearanceModeFromCookie(){
+    try {
+      var match = document.cookie.match(/(?:^|; )msb_appearance=([^;]*)/);
+      if (!match) return '';
+      return normalizeAppearanceMode(decodeURIComponent(match[1]));
+    } catch (e) {
+      return '';
+    }
   }
 
   function writeScopedPrefs(prefs){
     var uid = themeUserId();
+    writeAppearanceCookie(prefs && prefs.appearanceMode ? prefs.appearanceMode : 'system');
     if (uid > 0) return writeMemoryPrefs(prefs);
     if (!localStorageAllowed()) return prefs;
     try {
@@ -216,6 +234,12 @@
       a.g + (b.g - a.g) * w,
       a.b + (b.b - a.b) * w
     );
+  }
+
+  function hairlineOnBackground(bg, isDark){
+    if (isDark) return mixHex(bg, '#ffffff', 0.16);
+    if (relativeLuminance(bg) > 0.82) return '#d0d3da';
+    return mixHex(bg, '#000000', 0.14);
   }
 
   function appearanceDarkChrome(){
@@ -312,6 +336,11 @@
    * light UI → #c0c2c4; dark UI → #34383c (sampled from preferred dark divider).
    */
   function borderPairOnBackground(bg, accentHex){
+    var accent = String(accentHex || '').trim();
+    if (accent && /^#?[0-9a-f]{6}$/i.test(accent)) {
+      if (accent.charAt(0) !== '#') accent = '#' + accent;
+      return { border: accent.toLowerCase(), borderStrong: accent.toLowerCase() };
+    }
     var lum = relativeLuminance(bg);
     var preferred = lum > 0.45 ? '#c0c2c4' : '#34383c';
     return { border: preferred, borderStrong: preferred };
@@ -758,10 +787,10 @@
     for (i = 0; i < scripts.length; i++) {
       var src = scripts[i].src || '';
       if (src.indexOf('theme-bootstrap.js') !== -1) {
-        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=109');
+        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=128');
       }
     }
-    return './css/appearance-palette.css?v=109';
+    return './css/appearance-palette.css?v=128';
   }
 
   function ensurePaletteStylesheet(){
@@ -834,7 +863,8 @@
 
   var PALETTE_PAINT_STYLE_ID = 'msb-appearance-palette-inline';
   var PALETTE_PAINT_SELECTORS = [
-    'body', '.sh-mainpanel', '.sh-pagebody', '.sh-headpanel', '.sh-logopanel',
+    'body', 'body.ig-auth', '.auth-page', '.auth-shell', '.auth-card',
+    '.sh-mainpanel', '.sh-pagebody', '.sh-headpanel', '.sh-logopanel',
     '.sh-sideleft-menu', '#ttNavLeftbar', '.feed-ig-rail', '.feed-sidebar', '.right-sidebar',
     '.feed-main', '.app-main', '.card', '.card-body', '.card-header', '.panel', '.panel-body',
     '.ig-feed-header', '.ig-stories-wrap', '.ig-stories-bar', '.hero', '.sh-pagetitle',
@@ -911,6 +941,44 @@
     'body.org-app .card.fixed-card'
   ].join(',\nhtml[data-msb-appearance] ');
 
+  var THEME_FIELD_SELECTORS = [
+    'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not([type=submit]):not([type=button]):not([type=image]):not(.gear-color-control)',
+    'textarea',
+    'select',
+    '.form-control',
+    '.search-input',
+    '.studio-input',
+    '.gear-control',
+    '.gear-edit-field input',
+    '.gear-edit-field textarea',
+    '.gear-edit-field select',
+    '.gear-edit-pane .about-people-role',
+    '.gear-edit-pane .about-people-mention',
+    '.acc-field input:not([type=file])',
+    '.acc-field textarea',
+    '.acc-field select'
+  ].join(',\n');
+
+  function themeFieldFillCss(prefix){
+    var sels = THEME_FIELD_SELECTORS.split(',\n').map(function(sel){
+      return prefix + ' ' + sel.trim();
+    }).join(',\n');
+    return sels + ' {\n' +
+      '  background: var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;\n' +
+      '  background-color: var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
+      '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
+      '}\n' +
+      prefix + ' body.ig-auth .auth-field input,\n' +
+      prefix + ' body.ig-auth .auth-field select,\n' +
+      prefix + ' body.ig-auth .auth-field textarea {\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '  border: 0 !important;\n' +
+      '  color: inherit !important;\n' +
+      '}\n';
+  }
+
   function movePaletteStyleToDocumentEnd(style){
     if (!style) return;
     var root = document.body || document.documentElement;
@@ -958,6 +1026,17 @@
       '  background-image: none !important;\n' +
       '  color: var(--msb-palette-text) !important;\n' +
       '  border-color: var(--msb-palette-border) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .help-center,\n' +
+      'html[data-msb-appearance] .hc-top,\n' +
+      'html[data-msb-appearance] .hc-nav,\n' +
+      'html[data-msb-appearance] .hc-main,\n' +
+      'html[data-msb-appearance] .hc-about-story,\n' +
+      'html[data-msb-appearance] .hc-story-block,\n' +
+      'html[data-msb-appearance] .auth-page-foot {\n' +
+      '  background-color: var(--msb-palette-bg) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-text) !important;\n' +
       '}\n' +
       'html[data-msb-appearance] .btn-primary,\n' +
       'html[data-msb-appearance] a.btn-primary,\n' +
@@ -1676,7 +1755,87 @@
       'html[data-msb-appearance] body.profile-page .ig-tab.active i {\n' +
       '  background-color: transparent !important;\n' +
       '  color: inherit !important;\n' +
-      '}\n';
+      '}\n' +
+      'html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn),\n' +
+      'html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):hover,\n' +
+      'html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.gear-upload-btn):not(.about-edit-btn):not(.profile-shop-buy-btn):not(.feed-ig-logo):not(.feed-ig-btn):not(.messages-shell-tab):not(.hc-login):not(.auth-btn):focus {\n' +
+      '  color: var(--msb-palette-text, #111827) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-text, #111827) !important;\n' +
+      '}\n' +
+      'html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab .hc-login,\n' +
+      'html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a.hc-login,\n' +
+      'html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab .hc-story-try,\n' +
+      'html:not(.dark-auto)[data-msb-appearance] body.ig-auth.is-index-tab a.hc-story-try {\n' +
+      '  background-color: var(--msb-palette-action, #0095f6) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-btn-text, #fff) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-btn-text, #fff) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-field,\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-birthday select {\n' +
+      '  border: 1.5px solid var(--msb-palette-action, var(--msb-palette-accent)) !important;\n' +
+      '  background-color: var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;\n' +
+      '  background-image: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-field:focus-within {\n' +
+      '  border-color: var(--msb-palette-action, var(--msb-palette-accent)) !important;\n' +
+      '  background-color: var(--msb-palette-input-bg, var(--msb-palette-bg)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-field input,\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-field select,\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-field textarea {\n' +
+      '  border: 0 !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-continue,\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-switch button,\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-create-btn {\n' +
+      '  background-color: var(--msb-palette-action) !important;\n' +
+      '  background-image: none !important;\n' +
+      '  border-color: var(--msb-palette-action) !important;\n' +
+      '  color: var(--msb-palette-btn-text, #fff) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-btn-text, #fff) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.ig-auth .auth-gear-menu {\n' +
+      '  border: 1px solid #2a2f36 !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-top,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-nav,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-menu,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-search input,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab input.hc-search-input,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-pill,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-pill,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-acc,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-helpful-btn,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab button.hc-helpful-btn,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-related-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-related-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-featured-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-featured-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-topic-child,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .auth-page-foot {\n' +
+      '  border-color: var(--hc-help-border, var(--hc-chrome-line, #d0d3da)) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-menu,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-search input,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab input.hc-search-input,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-pill,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-pill,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-acc,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-helpful-btn,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab button.hc-helpful-btn,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-related-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-related-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-featured-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab a.hc-featured-card,\n' +
+      'html[data-msb-appearance] body.ig-auth.is-index-tab .hc-topic-child {\n' +
+      '  border-width: 1px !important;\n' +
+      '}\n' +
+      themeFieldFillCss('html[data-msb-appearance]');
     movePaletteStyleToDocumentEnd(style);
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function(){ movePaletteStyleToDocumentEnd(style); });
@@ -1845,7 +2004,8 @@
       '--msb-palette-icon-hover', '--msb-palette-bubble-me-text',
       '--msb-palette-bubble-bg', '--msb-palette-bubble-text', '--msb-palette-bubble-meta',
       '--msb-palette-bubble-border', '--msb-palette-bubble-reply-bg',
-      '--msb-palette-border', '--msb-palette-input-bg',
+      '--msb-palette-border', '--msb-palette-input-bg', '--msb-hairline', '--ig-line', '--ig-border',
+      '--hc-chrome-line', '--hc-help-border', '--hc-chrome-width',
       '--msb-palette-shadow', '--shadow', '--shadow-strong',
       '--msb-dd-surface', '--msb-dd-surface-strong', '--msb-dd-border', '--msb-dd-divider',
       '--msb-dd-text', '--msb-dd-muted', '--msb-dd-soft', '--msb-dd-hover', '--msb-dd-unread',
@@ -1991,6 +2151,12 @@
     root.style.setProperty('--msb-palette-text-on-hover', textOnHover);
     root.style.setProperty('--msb-palette-footer', surface);
     root.style.setProperty('--msb-palette-accent', hex);
+    var chromeLine = hairlineOnBackground(bg, isDark);
+    root.style.setProperty('--msb-hairline', chromeLine, 'important');
+    root.style.setProperty('--hc-chrome-line', chromeLine, 'important');
+    root.style.setProperty('--hc-help-border', chromeLine, 'important');
+    root.style.setProperty('--ig-line', chromeLine, 'important');
+    root.style.setProperty('--hc-chrome-width', '1px');
     root.style.setProperty('--msb-palette-action', actionAccent);
     root.style.setProperty('--msb-palette-action-strong', actionAccentHover);
     root.style.setProperty('--msb-palette-action-soft', rgbaFromHex(actionAccent, 0.14));
@@ -2134,8 +2300,15 @@
     if (!root) return;
     var bg = appearanceDarkBg();
     var chrome = appearanceDarkChrome();
+    var darkHair = hairlineOnBackground(bg, true);
     root.style.setProperty('--msb-dark-auto-chrome', chrome);
+    root.style.setProperty('--msb-hairline', darkHair, 'important');
+    root.style.setProperty('--hc-chrome-line', darkHair, 'important');
+    root.style.setProperty('--hc-help-border', darkHair, 'important');
+    root.style.setProperty('--ig-line', darkHair, 'important');
+    root.style.setProperty('--hc-chrome-width', '1px');
     root.style.setProperty('--msb-palette-bg', bg);
+    root.style.setProperty('--msb-palette-input-bg', bg);
     root.style.setProperty('--msb-palette-panel', bg);
     root.style.setProperty('--msb-palette-text', chrome);
     root.style.setProperty('--msb-palette-text-on-nav', chrome);
@@ -2196,6 +2369,12 @@
     var accent = '#2563eb';
 
     root.style.setProperty('--msb-palette-bg', bg);
+    root.style.setProperty('--msb-palette-input-bg', bg);
+    root.style.setProperty('--msb-hairline', '#d0d3da', 'important');
+    root.style.setProperty('--hc-chrome-line', '#d0d3da', 'important');
+    root.style.setProperty('--hc-help-border', '#d0d3da', 'important');
+    root.style.setProperty('--ig-line', '#d0d3da', 'important');
+    root.style.setProperty('--hc-chrome-width', '1px');
     root.style.setProperty('--msb-palette-panel', surface);
     root.style.setProperty('--msb-palette-surface', surface);
     root.style.setProperty('--msb-palette-surface-2', surface);
@@ -2748,6 +2927,7 @@
       '  color: var(--msb-palette-text) !important;\n' +
       '  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;\n' +
       '}\n' +
+      themeFieldFillCss(scope) +
       scopeSelectors(scope, 'body.org-app label, body.org-app .card-title, body.org-app h6') + ' {\n' +
       '  color: var(--msb-palette-text) !important;\n' +
       '}\n' +
@@ -2767,6 +2947,7 @@
   function applyThemeFromPrefs(prefs){
     prefs = prefs || readPrefs();
     var appearanceMode = resolveAppearanceMode(prefs);
+    writeAppearanceCookie(appearanceMode);
     var namedPalette = isNamedPaletteMode(appearanceMode);
     var root = document.documentElement;
     var body = document.body;

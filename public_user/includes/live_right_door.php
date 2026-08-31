@@ -5,6 +5,7 @@ if (!empty($GLOBALS['msb_live_right_door_included'])) {
     return;
 }
 $GLOBALS['msb_live_right_door_included'] = true;
+require_once __DIR__ . '/leftbar_door_anim.js.php';
 
 if (!function_exists('h')) {
     function h(string $s): string
@@ -60,7 +61,7 @@ $__liveRightInsideOverlays = !empty($GLOBALS['msb_stories_right_door_included'])
   transform:translateX(105%);
   opacity:0;
   pointer-events:none;
-  transition:transform .22s ease, opacity .22s ease, box-shadow .22s ease;
+  transition:transform .6s ease-in-out, opacity .45s ease, box-shadow .6s ease;
   isolation:isolate;
 }
 #ttRightbarOverlays .tt-live-right-wrap::before{
@@ -72,7 +73,7 @@ $__liveRightInsideOverlays = !empty($GLOBALS['msb_stories_right_door_included'])
   width:34px;
   background:linear-gradient(270deg, rgba(15,23,42,.2) 0%, rgba(15,23,42,.08) 42%, transparent 100%);
   opacity:0;
-  transition:opacity .22s ease;
+  transition:opacity .6s ease-in-out;
   pointer-events:none;
   z-index:2;
 }
@@ -85,7 +86,7 @@ $__liveRightInsideOverlays = !empty($GLOBALS['msb_stories_right_door_included'])
   width:1px;
   background:var(--msb-palette-border, rgba(15,23,42,.12));
   opacity:0;
-  transition:opacity .22s ease;
+  transition:opacity .6s ease-in-out;
   pointer-events:none;
   z-index:3;
 }
@@ -102,6 +103,13 @@ $__liveRightInsideOverlays = !empty($GLOBALS['msb_stories_right_door_included'])
 #ttRightbarOverlays .tt-live-right-wrap.is-open::before,
 #ttRightbarOverlays .tt-live-right-wrap.is-open::after{
   opacity:1;
+}
+@media (prefers-reduced-motion:reduce){
+  #ttRightbarOverlays .tt-live-right-wrap,
+  #ttRightbarOverlays .tt-live-right-wrap::before,
+  #ttRightbarOverlays .tt-live-right-wrap::after{
+    transition:none;
+  }
 }
 html.dark-auto #ttRightbarOverlays .tt-live-right-wrap.is-open,
 html[data-theme="dark"] #ttRightbarOverlays .tt-live-right-wrap.is-open{
@@ -151,7 +159,7 @@ body.tt-live-right-open{ overflow:hidden; }
   <iframe
     class="tt-live-right-door-frame"
     id="ttLiveRightDoorFrame"
-    title="Talentra Live"
+    title="Talsora Live"
     src="about:blank"
     allow="autoplay; fullscreen; picture-in-picture; camera; microphone"
   ></iframe>
@@ -243,6 +251,7 @@ body.tt-live-right-open{ overflow:hidden; }
 
   function setRightLiveDoorOpen(nextSrc){
     if (!wrap) return false;
+    if (window.MSBLeftbarDoorAnim) window.MSBLeftbarDoorAnim.cancel('live-right');
     closeOtherRightPanels();
     wrap.classList.add('is-open');
     wrap.setAttribute('aria-hidden', 'false');
@@ -278,8 +287,17 @@ body.tt-live-right-open{ overflow:hidden; }
     if (!wrap) return;
     wrap.classList.remove('is-open');
     wrap.setAttribute('aria-hidden', 'true');
-    if (frame) frame.setAttribute('src', 'about:blank');
-    document.body.classList.remove('tt-live-right-open');
+    var finish = function(){
+      if (frame) frame.setAttribute('src', 'about:blank');
+      document.body.classList.remove('tt-live-right-open');
+    };
+    if (window.MSBLeftbarDoorAnim) {
+      window.MSBLeftbarDoorAnim.hold('live-right', function(){
+        return wrap.classList.contains('is-open');
+      }, finish);
+    } else {
+      finish();
+    }
   }
 
   function buildLiveRightDoorSoftwareSrc(){

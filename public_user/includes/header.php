@@ -155,9 +155,13 @@ if (!function_exists('parse_notification_meta')) {
         $params['tab'] = 'for-you';
       }
       if ($commentId > 0) $params['open_comment'] = $commentId;
-      // Mention / tag alerts open a single post — hide gallery prev/next.
+      // Mention / tag / comment alerts open a single post — hide gallery prev/next.
       $typeLower = strtolower($type);
-      if (strpos($typeLower, 'mention') !== false || strpos($typeLower, 'tagged you') !== false) {
+      if (strpos($typeLower, 'mention') !== false
+        || strpos($typeLower, 'tagged you') !== false
+        || strpos($typeLower, 'comment') !== false
+        || strpos($typeLower, 'replied') !== false
+        || $commentId > 0) {
         $params['hide_nav'] = 1;
       }
       $url = $page . '?' . http_build_query($params);
@@ -171,6 +175,7 @@ if (!function_exists('parse_notification_meta')) {
       'text' => $type,
       'live_id' => $liveId,
       'post_id' => $postId,
+      'comment_id' => $commentId,
       'is_story' => $isStory ? 1 : 0,
       'url' => $url
     ];
@@ -331,6 +336,7 @@ if (!empty($notificationReceivers)) {
       SELECT id, notiuser, notitype, created_at, is_read
       FROM notification
       WHERE notireceiver IN ($receiverPh)
+        AND is_read = 0
         AND notitype NOT LIKE 'New chat message%'
         AND notitype NOT LIKE 'Internal Chat%'
         AND notitype NOT LIKE 'New internal message%'
@@ -356,6 +362,7 @@ foreach ($headerNotifications as $notiRow) {
     'text' => (string)($notiMetaJs['text'] ?? 'sent a notification'),
     'live_id' => (int)($notiMetaJs['live_id'] ?? 0),
     'post_id' => (int)($notiMetaJs['post_id'] ?? 0),
+    'comment_id' => (int)($notiMetaJs['comment_id'] ?? 0),
     'is_story' => (int)($notiMetaJs['is_story'] ?? 0) === 1 ? 1 : 0,
     'url' => (string)($notiMetaJs['url'] ?? ''),
     'created_at' => (string)($notiRow['created_at'] ?? ''),
@@ -475,6 +482,7 @@ if (!function_exists('render_header_notification_panel_inner')) {
               $notiLiveId = (int)($notiMeta['live_id'] ?? 0);
               $notiUrl = (string)($notiMeta['url'] ?? '');
               $notiPostId = (int)($notiMeta['post_id'] ?? 0);
+              $notiCommentId = (int)($notiMeta['comment_id'] ?? 0);
               $notiIsStory = (int)($notiMeta['is_story'] ?? 0) === 1;
               $notiTime = (string)($noti['created_at'] ?? '');
               $typeLower = strtolower($type);
@@ -482,7 +490,7 @@ if (!function_exists('render_header_notification_panel_inner')) {
                 || strpos($typeLower, 'tagged you') !== false
                 || strpos($type, '@') !== false);
             ?>
-            <a href="<?php echo h($notiUrl !== '' ? $notiUrl : '#'); ?>" class="dropdown-bestnoti-item<?php echo ((int)($noti['is_read'] ?? 0) === 0 ? ' is-unread' : ''); ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>" data-notification-url="<?php echo h($notiUrl); ?>" data-live-id="<?php echo $notiLiveId; ?>" data-post-id="<?php echo $notiPostId; ?>" data-is-story="<?php echo $notiIsStory ? '1' : '0'; ?>" data-noti-kind="<?php echo $isMention ? 'mentions' : 'all'; ?>">
+            <a href="<?php echo h($notiUrl !== '' ? $notiUrl : '#'); ?>" class="dropdown-bestnoti-item<?php echo ((int)($noti['is_read'] ?? 0) === 0 ? ' is-unread' : ''); ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>" data-notification-url="<?php echo h($notiUrl); ?>" data-live-id="<?php echo $notiLiveId; ?>" data-post-id="<?php echo $notiPostId; ?>" data-comment-id="<?php echo $notiCommentId; ?>" data-is-story="<?php echo $notiIsStory ? '1' : '0'; ?>" data-noti-kind="<?php echo $isMention ? 'mentions' : 'all'; ?>">
               <div class="bestnoti-avatar"><?php echo h(initials_from_name($sender, 'NT')); ?></div>
               <div class="bestnoti-mid">
                 <div class="bestnoti-text"><strong><?php echo h($sender); ?></strong> <?php echo h($type); ?></div>
@@ -536,7 +544,7 @@ if (!function_exists('render_header_profile_dropdown')) {
           $icon = trim((string)($item['icon'] ?? 'ion-ios-arrow-right'));
           $label = trim((string)($item['label'] ?? 'Open'));
         ?>
-          <li><a href="<?php echo h($href !== '' ? $href : '#'); ?>"><i class="icon <?php echo h($icon); ?>"></i> <?php echo h($label); ?></a></li>
+          <li><a href="<?php echo h($href !== '' ? $href : '#'); ?>"<?php echo (stripos($href, 'logout.php') !== false) ? ' class="js-signout-confirm"' : ''; ?>><i class="icon <?php echo h($icon); ?>"></i> <?php echo h($label); ?></a></li>
         <?php endforeach; ?>
       </ul>
     </div>
@@ -560,7 +568,8 @@ $railProfileMenuItems = [
   ['href' => 'my_orders.php', 'icon' => 'ion-bag', 'label' => 'My Orders'],
   ['href' => 'cart.php', 'icon' => 'ion-ios-cart', 'label' => 'Cart'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
-  ['href' => 'change-password.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
+  ['href' => 'profile.php?tab=gear', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
+  ['href' => 'index.php?tab=help', 'icon' => 'ion-help-circled', 'label' => 'Help'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
 ];
 
@@ -651,19 +660,19 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <!-- ✅ AUTO DARK MODE (Public User) — per-account theme prefs -->
 <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
 <?php if (!defined('MSB_THEME_DARK_CSS')): ?>
-<link rel="stylesheet" href="./css/dark-auto.css?v=41">
+<link rel="stylesheet" href="./css/dark-auto.css?v=52">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=109">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=128">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_HAIRLINE_BORDERS_CSS')): ?>
-<link rel="stylesheet" href="./css/hairline-borders.css?v=5">
+<link rel="stylesheet" href="./css/hairline-borders.css?v=13">
 <?php define('MSB_HAIRLINE_BORDERS_CSS', true); endif; ?>
 <?php if (!defined('MSB_THEME_DARK_JS')): ?>
 <script src="./js/dark-auto.js?v=6" defer></script>
 <?php define('MSB_THEME_DARK_JS', true); endif; ?>
 <?php if (!defined('MSB_POST_ENGAGEMENT_JS')): ?>
-<script src="./js/post-engagement-sync.js?v=7"></script>
+<script src="./js/post-engagement-sync.js?v=8"></script>
 <script src="./js/post-video-loop.js?v=1"></script>
 <style>
 video.msb-clean-loop-video::-webkit-media-controls,
@@ -689,7 +698,7 @@ video.msb-clean-loop-video{
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600;700;800&display=optional" rel="stylesheet">
 
 <style>
-/* ===== Brand typography (Talentra) ===== */
+/* ===== Brand typography (Talsora) ===== */
 :root{
   --msb-font-ui: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
   --msb-font-logo: 'Cormorant Garamond', 'Playfair Display', ui-serif, Georgia, 'Times New Roman', Times, serif;
@@ -742,7 +751,7 @@ html[data-theme="dark"]{
 /* Keep typography scoped to header so other page fonts remain untouched */
 .sh-logopanel, .sh-headpanel{ font-family: var(--msb-font-ui); }
 /* =========================
-   Talentra Logo (TOP-LEFT) Responsive
+   Talsora Logo (TOP-LEFT) Responsive
    ========================= */
 
 /* Make sure the logo panel is always left aligned */
@@ -1440,12 +1449,12 @@ iframe{
 
 <?php if ($showFeedRail): ?>
 <aside class="feed-ig-rail" aria-label="Feed navigation">
-  <a href="home.php?tab=for-you" class="feed-ig-logo" aria-label="Talentra">
+  <a href="home.php?tab=for-you" class="feed-ig-logo" aria-label="Talsora">
     <span class="feed-ig-logo-ring" aria-hidden="true"></span>
     <span class="feed-ig-logo-glow" aria-hidden="true"></span>
     <span class="feed-ig-logo-mark">t</span>
   </a>
-  <a href="home.php?tab=for-you" class="feed-ig-logo-label">Talentra</a>
+  <a href="home.php?tab=for-you" class="feed-ig-logo-label">Talsora</a>
 
   <div class="feed-ig-avatar">
     <button type="button" class="feed-ig-btn js-open-profile-door" aria-label="Profile" title="Profile">
@@ -1485,7 +1494,7 @@ iframe{
         <span class="feed-ig-badge"><?php echo $pendingFriendRequestCount > 99 ? '99+' : (string)$pendingFriendRequestCount; ?></span>
       <?php endif; ?>
     </button>
-    <a class="feed-ig-link feed-ig-reels<?php echo !empty($railIsReel) ? ' active' : ''; ?>" href="reel.php" title="Reels" aria-label="Open Reels">
+    <a class="feed-ig-link feed-ig-reels<?php echo !empty($railIsReel) ? ' active' : ''; ?>" href="reel.php" title="Clips" aria-label="Open Clips">
       <i class="fa fa-play" aria-hidden="true"></i>
     </a>
   </nav>
@@ -1504,8 +1513,8 @@ iframe{
 ?>
 <?php else: ?>
 <div class="sh-logopanel">
-  <a href="" class="sh-logo-text" aria-label="Talentra">
-    <span class="logo-book">Talentra.</span>
+  <a href="" class="sh-logo-text" aria-label="Talsora">
+    <span class="logo-book">Talsora.</span>
   </a>
 </div><!-- sh-logopanel -->
 
@@ -1518,7 +1527,7 @@ iframe{
     <a href="compose.php" class="sh-icon-link"><div><i class="icon ion-compose"></i><span>New Compose</span></div></a>
     <?php endif; ?>
     <div class="dropdown dropdown-app-list">
-      <a href="" data-toggle="dropdown" class="dropdown-link"><span class="logo-book">Talentra.</span></a>
+      <a href="" data-toggle="dropdown" class="dropdown-link"><span class="logo-book">Talsora.</span></a>
       <div class="dropdown-menu"><div class="row no-gutters"><div class="col-4"><a href="" class="dropdown-menu-link"><div><i class="icon ion-ios-folder-outline"></i><span>Directory</span></div></a></div><div class="col-4"><a href="" class="dropdown-menu-link"><div><i class="icon ion-ios-calendar-outline"></i><span>Events</span></div></a></div><div class="col-4"><a href="change-password.php" class="dropdown-menu-link"><div><i class="icon ion-ios-gear-outline"></i><span>Settings</span></div></a></div></div></div>
     </div>
   </div><!-- sh-headpanel-left -->
@@ -1530,6 +1539,7 @@ iframe{
   </div><!-- sh-headpanel-right -->
 </div><!-- sh-headpanel -->
 <?php
+  require_once __DIR__ . '/leftbar_door_anim.js.php';
   $msbMessagesDoorStandalone = true;
   echo '<div class="msb-messages-door-host" id="msbMessagesDoorHost">';
   include __DIR__ . '/messages_door.php';
@@ -4075,7 +4085,7 @@ img.msb-rx-face{
   position:fixed;
   left:0;
   top:0;
-  z-index:12050;
+  z-index:2147483000;
   display:flex;
   align-items:center;
   gap:4px;
@@ -4641,6 +4651,11 @@ span.msb-rx-face svg{
   function matchDelegate(target){
     if (!target || !target.closest) return null;
     if (isReactionCountTarget(target)) return null;
+    if (target.closest('.mf-act.mf-comment, .mf-act.mf-save, .mf-act.mf-share, .js-open-comments, .js-save-post, .js-share-post, .reel-act[data-act="comment"], .reel-act[data-act="share"], .reel-act[data-act="save"], .tt-stories-action:not(.tt-stories-lovebtn), .react-btn[data-act="comment"], .react-btn[data-act="views"]')) {
+      if (!target.closest('.mf-act.mf-love, .js-react-love, .reel-act[data-act="love"], .tt-stories-lovebtn, .react-btn[data-act="love"]')) {
+        return null;
+      }
+    }
     for (let i = 0; i < delegates.length; i += 1) {
       const delegate = delegates[i];
       let element = target.closest(delegate.selector);
@@ -4782,9 +4797,75 @@ span.msb-rx-face svg{
   const notifMarkAllTop = document.getElementById('headerNotificationMarkAllTop');
   const notifItems = () => Array.from(document.querySelectorAll('.dropdown-bestnoti-item[data-notification-id]'));
   let latestNotificationItems = Array.isArray(window.__MSB_HEADER_NOTIFICATIONS)
-    ? window.__MSB_HEADER_NOTIFICATIONS.slice()
+    ? window.__MSB_HEADER_NOTIFICATIONS.slice().filter(function(it){ return parseInt(it.is_read || 0, 10) === 0; })
     : [];
   let notificationDoorTab = 'all';
+  const dismissedNotificationIds = new Set();
+
+  function notificationItemId(item){
+    return parseInt((item && item.id) || 0, 10) || 0;
+  }
+
+  function isUnreadNotification(item){
+    return parseInt((item && item.is_read) || 0, 10) === 0;
+  }
+
+  function keepDoorNotification(item){
+    const id = notificationItemId(item);
+    if (id > 0 && dismissedNotificationIds.has(id)) return false;
+    return isUnreadNotification(item);
+  }
+
+  function dismissNotificationFromDoor(id){
+    id = parseInt(id || 0, 10) || 0;
+    if (id > 0) dismissedNotificationIds.add(id);
+    latestNotificationItems = latestNotificationItems.filter(function(it){
+      return notificationItemId(it) !== id && keepDoorNotification(it);
+    });
+    renderNotificationList(latestNotificationItems);
+    setNotificationBadge(latestNotificationItems.length);
+  }
+
+  function notificationCommentIdFromItem(item, url){
+    var cid = parseInt((item && item.getAttribute && item.getAttribute('data-comment-id')) || '0', 10) || 0;
+    if (cid > 0) return cid;
+    try {
+      var href = String(url || (item && item.getAttribute && (item.getAttribute('data-notification-url') || item.getAttribute('href'))) || '');
+      if (href) {
+        var u = new URL(href, window.location.href);
+        cid = parseInt(u.searchParams.get('open_comment') || '0', 10) || 0;
+      }
+    } catch (eCid) {}
+    return cid;
+  }
+
+  function focusOpenedNotificationComment(commentId){
+    commentId = parseInt(commentId || 0, 10) || 0;
+    if (commentId <= 0) return;
+    try { window.__pvFocusCommentId = commentId; } catch (eWin) {}
+    try {
+      if (window.TTComments && typeof window.TTComments.setFocusComment === 'function') {
+        window.TTComments.setFocusComment(commentId);
+      }
+    } catch (eTt) {}
+    var tries = 0;
+    (function tick(){
+      tries += 1;
+      var ok = false;
+      try {
+        if (typeof window.pvFocusCommentById === 'function') ok = !!window.pvFocusCommentById(commentId);
+      } catch (ePv) {}
+      if (!ok) {
+        try {
+          if (window.TTComments && typeof window.TTComments.focusComment === 'function') {
+            ok = !!window.TTComments.focusComment(commentId);
+          }
+        } catch (eFocus) {}
+      }
+      if (ok || tries >= 30) return;
+      setTimeout(tick, 140);
+    })();
+  }
 
   function notificationEsc(s){
     return String(s || '').replace(/[&<>"']/g, function(m){
@@ -4844,6 +4925,7 @@ span.msb-rx-face svg{
       const id = parseInt(node.getAttribute('data-notification-id') || '0', 10) || 0;
       if (id > 0 && seen[id]) return;
       if (id > 0) seen[id] = true;
+      if (!node.classList.contains('is-unread')) return;
       const textNode = node.querySelector('.bestnoti-text');
       let sender = 'Someone';
       let text = 'sent a notification';
@@ -4859,10 +4941,11 @@ span.msb-rx-face svg{
         text: text,
         live_id: parseInt(node.getAttribute('data-live-id') || '0', 10) || 0,
         post_id: parseInt(node.getAttribute('data-post-id') || '0', 10) || 0,
+        comment_id: parseInt(node.getAttribute('data-comment-id') || '0', 10) || 0,
         is_story: parseInt(node.getAttribute('data-is-story') || '0', 10) === 1 ? 1 : 0,
         url: String(node.getAttribute('data-notification-url') || node.getAttribute('href') || ''),
         created_at: '',
-        is_read: node.classList.contains('is-unread') ? 0 : 1
+        is_read: 0
       });
     });
     if (items.length && !latestNotificationItems.length) {
@@ -5047,7 +5130,7 @@ span.msb-rx-face svg{
   }
 
   function renderNotificationList(items){
-    const nextItems = Array.isArray(items) ? items.slice() : [];
+    const nextItems = (Array.isArray(items) ? items.slice() : []).filter(keepDoorNotification);
     latestNotificationItems = nextItems;
     const targets = notificationListTargets();
     if(!targets.length) return false;
@@ -5082,6 +5165,7 @@ span.msb-rx-face svg{
         const initials = notificationEsc(notificationInitials(item.sender || 'NT'));
         const kind = isMentionNotificationText(item.text) ? 'mentions' : 'all';
         const postId = parseInt(item.post_id || 0, 10) || 0;
+        const commentId = parseInt(item.comment_id || 0, 10) || 0;
         const isStory = parseInt(item.is_story || 0, 10) === 1 ? 1 : 0;
         return ''
           + '<a href="' + url + '" class="dropdown-bestnoti-item' + (unread ? ' is-unread' : '') + '"'
@@ -5089,6 +5173,7 @@ span.msb-rx-face svg{
           + ' data-notification-url="' + (url === '#' ? '' : url) + '"'
           + ' data-live-id="' + (parseInt(item.live_id || 0, 10) || 0) + '"'
           + ' data-post-id="' + postId + '"'
+          + ' data-comment-id="' + commentId + '"'
           + ' data-is-story="' + isStory + '"'
           + ' data-noti-kind="' + kind + '">'
           + '<div class="bestnoti-avatar">' + initials + '</div>'
@@ -5136,7 +5221,11 @@ span.msb-rx-face svg{
       const res = await fetch('ajax/user_notifications_poll.php', { cache: 'no-store', credentials: 'same-origin' });
       const data = await res.json();
       if (data && data.ok) {
-        const incoming = Array.isArray(data.items) ? data.items.slice() : [];
+        const incoming = (Array.isArray(data.items) ? data.items.slice() : []).filter(keepDoorNotification);
+        incoming.forEach(function(it){
+          const nid = notificationItemId(it);
+          if (nid > 0) dismissedNotificationIds.delete(nid);
+        });
         // Never wipe a good list with an empty payload while unread is still > 0.
         if (incoming.length || !(parseInt(data.unread || 0, 10) > 0 && latestNotificationItems.length)) {
           latestNotificationItems = incoming;
@@ -5170,13 +5259,13 @@ span.msb-rx-face svg{
   }, true);
 
   async function markNotificationRead(id, item){
+    dismissNotificationFromDoor(id);
     try{
       const fd = new FormData();
       fd.append('id', String(id));
       const res = await fetch('ajax/user_mark_read.php', { method:'POST', body:fd, credentials:'same-origin' });
       const data = await res.json();
       if (data && data.ok) {
-        if (item) item.classList.remove('is-unread');
         pollNotificationCount();
         return true;
       }
@@ -5186,11 +5275,17 @@ span.msb-rx-face svg{
 
   async function markAllNotificationsRead(){
     try{
+      latestNotificationItems.forEach(function(it){
+        const nid = notificationItemId(it);
+        if (nid > 0) dismissedNotificationIds.add(nid);
+      });
+      latestNotificationItems = [];
+      renderNotificationList([]);
+      setNotificationBadge(0);
       const res = await fetch('ajax/user_mark_all_read.php', { method:'POST', credentials:'same-origin' });
       const data = await res.json();
       if (data && data.ok) {
-        notifItems().forEach((item) => item.classList.remove('is-unread'));
-        setNotificationBadge(0);
+        pollNotificationCount();
       }
     } catch(e) {}
   }
@@ -7006,7 +7101,7 @@ span.msb-rx-face svg{
               navigator.sendBeacon('ajax/user_mark_read.php', fd);
             } catch (err) {}
           }
-          if (item) item.classList.remove('is-unread');
+          dismissNotificationFromDoor(id);
           openHeaderLiveDoorWatch(liveId).then(function(opened){
             if (!opened) {
               openHeaderLiveModal(url || liveWatchUrlFromId(liveId), liveId);
@@ -7048,7 +7143,7 @@ span.msb-rx-face svg{
               navigator.sendBeacon('ajax/user_mark_read.php', fd);
             } catch (err) {}
           }
-          if (item) item.classList.remove('is-unread');
+          dismissNotificationFromDoor(id);
           try {
             if (window.TTNotifications && typeof window.TTNotifications.close === 'function') {
               window.TTNotifications.close();
@@ -7086,13 +7181,14 @@ span.msb-rx-face svg{
               navigator.sendBeacon('ajax/user_mark_read.php', fd);
             } catch (err) {}
           }
-          if (item) item.classList.remove('is-unread');
+          dismissNotificationFromDoor(id);
           try {
             if (window.TTNotifications && typeof window.TTNotifications.close === 'function') {
               window.TTNotifications.close();
             }
           } catch (eClose) {}
           var hideNav = false;
+          var openCommentId = notificationCommentIdFromItem(item, url);
           try {
             var notiKind = String(item.getAttribute('data-noti-kind') || '');
             var notiText = '';
@@ -7101,7 +7197,12 @@ span.msb-rx-face svg{
             if (notiKind === 'mentions'
               || notiText.indexOf('tagged you') !== -1
               || notiText.indexOf('mentioned you') !== -1
-              || notiText.indexOf('mention') !== -1) {
+              || notiText.indexOf('mention') !== -1
+              || notiText.indexOf('comment') !== -1
+              || notiText.indexOf('replied') !== -1
+              || notiText.indexOf('loved your') !== -1
+              || notiText.indexOf('liked your') !== -1
+              || notiText.indexOf('reacted') !== -1) {
               hideNav = true;
             }
             if (!hideNav && url) {
@@ -7109,7 +7210,8 @@ span.msb-rx-face svg{
               hideNav = uNav.searchParams.get('hide_nav') === '1';
             }
           } catch (eHide) {}
-          var openOpts = hideNav ? { hideNav: true } : {};
+          var openOpts = { hideNav: hideNav };
+          if (openCommentId > 0) openOpts.commentId = openCommentId;
           var opened = false;
           try {
             if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openViewPost === 'function') {
@@ -7127,8 +7229,11 @@ span.msb-rx-face svg{
           } catch (eOpen) {
             opened = false;
           }
+          if (opened && openCommentId > 0) {
+            focusOpenedNotificationComment(openCommentId);
+          }
           if (!opened) {
-            var dest = url && url !== '#' ? url : ('home.php?tab=for-you&open_post=' + openPostId + (hideNav ? '&hide_nav=1' : ''));
+            var dest = url && url !== '#' ? url : ('home.php?tab=for-you&open_post=' + openPostId + (hideNav ? '&hide_nav=1' : '') + (openCommentId > 0 ? '&open_comment=' + openCommentId : ''));
             try { window.location.href = dest; } catch (eNav) {}
           }
           return;
@@ -7141,7 +7246,7 @@ span.msb-rx-face svg{
             navigator.sendBeacon('ajax/user_mark_read.php', fd);
           } catch (err) {}
         }
-        if (item) item.classList.remove('is-unread');
+        dismissNotificationFromDoor(id);
         return;
       }
       e.preventDefault();
@@ -7315,7 +7420,7 @@ span.msb-rx-face svg{
     }
     if (!data || data.type !== 'msb-create-post-done') return;
     try { closeCreatePostModal(); } catch (err) {}
-    // Soft tab swaps cache center HTML; drop it so For You / Discover refetch after publish.
+    // Soft tab swaps cache center HTML; drop it so Circle / Discover refetch after publish.
     try {
       if (window.msbClearDiscoverTabCache) window.msbClearDiscoverTabCache();
       sessionStorage.removeItem('msbDiscoverTabsScroll');
@@ -7403,7 +7508,7 @@ span.msb-rx-face svg{
 
     // A newly created Friends post must be visible immediately. The former
     // soft-insert path could miss the post while its media/list row was still
-    // settling, leaving For You stale until a manual refresh. Use the server's
+    // settling, leaving Circle stale until a manual refresh. Use the server's
     // fresh/pinned destination so the parent refreshes automatically and the
     // new card is guaranteed to be present at the top.
     if (onFeed && wantsFeed && !switchingSurface && !data.story && typeof window.MSBFeedOnPostCreated === 'function') {
@@ -7954,3 +8059,4 @@ span.msb-rx-face svg{
   });
 })();
 </script>
+<?php include __DIR__ . '/logout_confirm.php'; ?>

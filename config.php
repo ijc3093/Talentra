@@ -18,7 +18,7 @@ if (!class_exists('Config', false)) {
         public string $DB_HOST = 'localhost';
         public string $DB_USER = 'root';
         public string $DB_PASS = 'root';
-        public string $DB_NAME = 'talentra';
+        public string $DB_NAME = 'talsora';
         public int    $DB_PORT = 8889;
 
         /* =========================

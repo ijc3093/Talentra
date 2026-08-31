@@ -12,6 +12,7 @@ profile_require_edit_access($dbh, $meId, false);
 $action = trim((string)($_GET['action'] ?? ''));
 $message = '';
 $error = '';
+$redirect = '';
 
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
@@ -86,8 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Throwable $eNotify) {
         }
         session_unset(); session_destroy();
-        header('Location: index.php?deactivated=1');
-        exit;
+        $message = 'Account deactivated. You are signed out.';
+        $redirect = 'index.php?deactivated=1';
+        if (trim((string)($_POST['ajax'] ?? '')) !== 'deactivate') {
+          header('Location: index.php?deactivated=1');
+          exit;
+        }
       } catch (Throwable $e) { $error = $e->getMessage(); }
     }
   } elseif ($postAction === 'delete') {
@@ -129,6 +134,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'profile_visibility' => 'public',
         'about_visibility' => 'friends',
         'gallery_visibility' => 'friends',
+        'post_visibility' => 'friends',
+        'story_visibility' => 'friends',
+        'reel_visibility' => 'friends',
+        'post_hide_from' => '[]',
+        'story_hide_from' => '[]',
+        'reel_hide_from' => '[]',
         'comment_permission' => 'friends',
         'friend_request_permission' => 'public',
         'message_permission' => 'friends',
@@ -147,6 +158,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'comment_notifications' => 1,
         'reaction_notifications' => 1,
         'share_notifications' => 1,
+        'tagged_notifications' => 1,
+        'saved_notifications' => 1,
+        'birthday_notifications' => 1,
+        'followed_notifications' => 1,
+        'event_reminder_notifications' => 1,
+        'memory_notifications' => 1,
         'blocked_users_enabled' => 1,
         'hidden_users_enabled' => 1,
         'mute_users_enabled' => 1,
@@ -198,6 +215,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     }
   }
+}
+
+$ajaxAction = trim((string)($_REQUEST['ajax'] ?? ''));
+if (in_array($ajaxAction, ['logout_all', 'reset_settings', 'delete', 'deactivate'], true)) {
+  header('Content-Type: application/json; charset=utf-8');
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['ok' => false, 'error' => 'Not allowed']);
+    exit;
+  }
+  echo json_encode([
+    'ok' => ($error === ''),
+    'message' => $message,
+    'error' => $error,
+    'redirect' => $redirect,
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  exit;
 }
 ?>
 <!DOCTYPE html>

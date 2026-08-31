@@ -1348,7 +1348,7 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
 {
     $visibility = strtolower(trim($visibility));
 
-    // Public → Discover. Friends → For You. Private → Gallery Private.
+    // Public → Discover. Friends → Circle. Private → Gallery Private.
     // Prefer home.php so create/publish never depends on legacy feed.php/public.php hops.
     if ($visibility === 'public') {
         return 'home.php';
@@ -1361,12 +1361,12 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
 }
 
 /**
- * Posts that belong in For You (friends room):
+ * Posts that belong in Circle (friends room):
  * - my own friends-destination posts
  * - friends-only posts from my friends
  * - public posts from publishers I follow (following lane, not stranger Discover)
  *
- * Public posts anyone can open belong on Discover — not For You.
+ * Public posts anyone can open belong on Discover — not Circle.
  * Private stays in Gallery → Private.
  */
 function publisher_workspace_feed_scope_sql(): string
@@ -1526,7 +1526,7 @@ function publisher_feed_can_view_post(PDO $dbh, int $meId, array $post): bool
 
     if ($authorId === $meId) {
         $vis = strtolower(trim((string)($post['visibility'] ?? 'friends')));
-        // Own friends posts → For You. Own public → Discover. Own private → Gallery.
+        // Own friends posts → Circle. Own public → Discover. Own private → Gallery.
         return ($vis === 'friends' || $vis === '');
     }
 

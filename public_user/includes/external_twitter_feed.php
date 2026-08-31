@@ -60,7 +60,7 @@ function twitter_syndication_get(string $handle): array
     }
 
     $url = 'https://syndication.twitter.com/srv/timeline-profile/screen-name/' . rawurlencode($handle);
-    $body = external_news_http_get($url, 18, 'Mozilla/5.0 (compatible; Talentra/1.0; +https://localhost)');
+    $body = external_news_http_get($url, 18, 'Mozilla/5.0 (compatible; Talsora/1.0; +https://localhost)');
     if ($body === '' || strpos($body, '__NEXT_DATA__') === false) {
         return [];
     }

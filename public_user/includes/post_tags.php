@@ -177,7 +177,7 @@ if (!function_exists('msb_viewer_can_self_tag_post')) {
             return function_exists('fs_are_friends') && fs_are_friends($dbh, $viewerId, $ownerId);
         }
         if ($vis === 'public') {
-            // Public Discover / Reels: strangers may mention, but not tag.
+            // Public Discover / Clips: strangers may mention, but not tag.
             // Already-tagged viewers can still remove themselves.
             if (msb_user_is_tagged_on_post($dbh, $postId, $viewerId)) {
                 return true;
@@ -348,7 +348,7 @@ if (!function_exists('msb_post_person_profile_href')) {
 
 if (!function_exists('msb_post_sharing_with_name_html')) {
     /**
-     * Facebook-style: "John is sharing with Akin."
+     * Talsora: "John is sharing with Akin."
      * When $taggedPeople is empty, returns the escaped author label (optionally linked).
      *
      * @param list<array<string,mixed>> $taggedPeople
@@ -607,6 +607,10 @@ if (!function_exists('msb_insert_user_notification')) {
         if ($actorId <= 0 || $receiverId <= 0 || $actorId === $receiverId || trim($message) === '') {
             return false;
         }
+        $pref = trim((string)($meta['pref'] ?? ''));
+        if ($pref !== '' && function_exists('profile_user_wants_notification') && !profile_user_wants_notification($dbh, $receiverId, $pref)) {
+            return false;
+        }
         try {
             $stS = $dbh->prepare('SELECT id, name, username FROM users WHERE id = :id LIMIT 1');
             $stS->execute([':id' => $actorId]);
@@ -685,6 +689,7 @@ if (!function_exists('msb_post_tags_notify')) {
                 'route' => $notifRoute,
                 'post_id' => $postId,
                 'story' => $isStory ? 1 : 0,
+                'pref' => 'tagged_notifications',
             ]);
         }
     }
@@ -777,6 +782,7 @@ if (!function_exists('msb_post_mentions_notify')) {
                 'route' => $notifRoute,
                 'post_id' => $postId,
                 'story' => $isStory ? 1 : 0,
+                'pref' => 'tagged_notifications',
             ])) {
                 $notified[] = $rid;
             }

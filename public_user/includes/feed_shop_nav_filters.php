@@ -153,13 +153,13 @@ $shopFilterSections = [
     <i class="fa fa-cube" aria-hidden="true"></i>
     <span>Track Order</span>
   </a>
-  <a href="support.php">
+  <a href="index.php?tab=help">
     <i class="fa fa-question-circle-o" aria-hidden="true"></i>
     <span>Help Center</span>
   </a>
   <a href="register.php?account_type=publisher&amp;publisher_mode=commerce">
     <i class="fa fa-shopping-bag" aria-hidden="true"></i>
-    <span>Sell on Talentra</span>
+    <span>Sell on Talsora</span>
   </a>
   <button type="button" class="shop-nav-locale" aria-label="Language and currency: English, USD">
     <i class="fa fa-globe" aria-hidden="true"></i>

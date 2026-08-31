@@ -26,13 +26,20 @@ profile_require_edit_access($dbh, $userId);
 $field = trim((string)($_POST['field'] ?? ''));
 $value = trim((string)($_POST['value'] ?? ''));
 
+$privacyEnum = profile_privacy_audience_values();
 $allowed = [
-    'profile_visibility' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
-    'about_visibility' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
-    'gallery_visibility' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
-    'comment_permission' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
-    'friend_request_permission' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
-    'message_permission' => ['type' => 'enum', 'values' => ['public','friends','only_me','approved_visitors']],
+    'profile_visibility' => ['type' => 'enum', 'values' => $privacyEnum],
+    'about_visibility' => ['type' => 'enum', 'values' => $privacyEnum],
+    'gallery_visibility' => ['type' => 'enum', 'values' => $privacyEnum],
+    'post_visibility' => ['type' => 'enum', 'values' => $privacyEnum],
+    'story_visibility' => ['type' => 'enum', 'values' => $privacyEnum],
+    'reel_visibility' => ['type' => 'enum', 'values' => $privacyEnum],
+    'comment_permission' => ['type' => 'enum', 'values' => $privacyEnum],
+    'friend_request_permission' => ['type' => 'enum', 'values' => $privacyEnum],
+    'message_permission' => ['type' => 'enum', 'values' => $privacyEnum],
+    'post_hide_from' => ['type' => 'people_json'],
+    'story_hide_from' => ['type' => 'people_json'],
+    'reel_hide_from' => ['type' => 'people_json'],
     'timeline_visit_approval' => ['type' => 'bool'],
     'show_tags_tab' => ['type' => 'bool'],
     'show_about_tab' => ['type' => 'bool'],
@@ -50,6 +57,12 @@ $allowed = [
     'comment_notifications' => ['type' => 'bool'],
     'reaction_notifications' => ['type' => 'bool'],
     'share_notifications' => ['type' => 'bool'],
+    'tagged_notifications' => ['type' => 'bool'],
+    'saved_notifications' => ['type' => 'bool'],
+    'birthday_notifications' => ['type' => 'bool'],
+    'followed_notifications' => ['type' => 'bool'],
+    'event_reminder_notifications' => ['type' => 'bool'],
+    'memory_notifications' => ['type' => 'bool'],
 
 
     'blocked_users_enabled' => ['type' => 'bool'],
@@ -82,6 +95,8 @@ if (!isset($allowed[$field])) {
 $rule = $allowed[$field];
 if ($rule['type'] === 'bool') {
     $value = ($value === '1') ? '1' : '0';
+} elseif ($rule['type'] === 'people_json') {
+    $value = profile_privacy_hide_people_encode($dbh, $userId, $value);
 } elseif ($rule['type'] === 'appearance_palette') {
     appearance_palette_ensure_schema($dbh);
     if ($value === 'system') {

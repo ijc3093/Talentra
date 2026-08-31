@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Unified home for For You / Discover / program tabs.
+ * Unified home for Circle / Discover / program tabs.
  * Examples:
  *   home.php?tab=for-you
  *   home.php?tab=discover
@@ -30,8 +30,11 @@ if (!defined('MSB_HOME_PAGE')) {
 }
 
 $entry = home_entry_script($internalTab);
-// All home tabs (including For You) render through public.php so tab clicks can
-// soft-swap only the center column while header / left rails / right rail stay.
+// Circle = feed.php (friends + followed publishers). Discover / programs = public.php.
+if ($entry === 'feed') {
+    require __DIR__ . '/feed.php';
+    exit;
+}
 if ($entry === 'news') {
     if (!defined('MSB_PUBLIC_FEED_SURFACE')) {
         define('MSB_PUBLIC_FEED_SURFACE', 'news');

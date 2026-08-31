@@ -31,6 +31,7 @@ require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_tags.php';
 require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/bookmark_posts.php';
+require_once __DIR__ . '/includes/archive_posts.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/user_backgrounds.php';
@@ -403,129 +404,122 @@ if (!function_exists('profile_gear_row_value_label')) {
 }
 
 if (!function_exists('profile_gear_render_danger_zone')) {
-  function profile_gear_render_danger_zone(array $profileSettings, bool $isPublisher): void
+  function profile_gear_render_danger_zone(array $profileSettings, bool $isPublisher, string $action = ''): void
   {
     $allowDownload = !empty($profileSettings['allow_download_data']);
     $allowDeactivate = !empty($profileSettings['allow_deactivate_account']);
     $allowDelete = !empty($profileSettings['allow_delete_account']);
-    $allowLogoutAll = !empty($profileSettings['allow_logout_all_devices']);
-    $staffHref = $isPublisher ? 'publisher_org_portal.php' : 'manage_devices.php';
-    $staffTitle = $isPublisher ? 'Remove staff access' : 'Remove device access';
-    $staffDesc = $isPublisher
-      ? 'Permanently remove a staff member\'s access to this publisher workspace.'
-      : 'Revoke other browsers and devices so they can no longer use this account.';
-    $staffBullets = $isPublisher
-      ? ['They will no longer open this publisher workspace', 'Their own personal account is not deleted', 'You can invite them again later']
-      : ['Other sessions are signed out immediately', 'This device can stay signed in', 'You can sign in again from any device'];
-    $staffBtn = $isPublisher ? 'Manage staff access' : 'Manage devices';
+    $action = trim($action);
+    $cards = [
+      'delete' => [
+        'icon' => 'ion-trash-a',
+        'title' => 'Delete account',
+        'desc' => 'Permanently remove this account and its data. This cannot be undone.',
+        'bullets' => [
+          'Your profile, About Me, and settings',
+          'Posts, comments, friends, and messages tied to this account',
+          'Shop orders and publisher workspace links, if you have them',
+        ],
+        'enabled' => $allowDelete,
+        'pane' => 'delete_account',
+        'btn' => 'Delete account',
+        'hint' => 'Type DELETE to confirm',
+      ],
+      'staff' => [
+        'icon' => 'ion-person',
+        'title' => 'Remove staff access',
+        'desc' => 'Permanently remove a staff member\'s access to this publisher workspace.',
+        'bullets' => [
+          'They will no longer open this publisher workspace',
+          'Their own personal account is not deleted',
+          'You can invite them again later',
+        ],
+        'enabled' => true,
+        'href' => 'publisher_org_portal.php',
+        'btn' => 'Manage staff access',
+        'hint' => '',
+        'publisher_only' => true,
+      ],
+      'export' => [
+        'icon' => 'ion-archive',
+        'title' => 'Export account data',
+        'desc' => 'Download a copy of your profile, About details, settings, and post summary as JSON.',
+        'bullets' => [
+          'Includes profile, About Me, Gear settings, and posts',
+          'File is ready in the browser as soon as you click',
+          'Keep a backup before you deactivate or delete',
+        ],
+        'enabled' => $allowDownload,
+        'href' => 'account_tools.php?action=download',
+        'btn' => 'Export data',
+        'hint' => '',
+      ],
+      'reset' => [
+        'icon' => 'ion-refresh',
+        'title' => 'Reset account settings',
+        'desc' => 'Reset Gear privacy, notifications, and appearance to defaults. Posts and friends are not deleted.',
+        'bullets' => [
+          'Privacy, tabs, notifications, and appearance return to defaults',
+          'Your posts, friends, and media stay',
+          'You will need to set Appearance and privacy again',
+        ],
+        'enabled' => true,
+        'pane' => 'reset_settings',
+        'btn' => 'Reset settings',
+        'hint' => 'Type RESET to confirm',
+      ],
+      'deactivate' => [
+        'icon' => 'ion-close-circled',
+        'title' => 'Deactivate account',
+        'desc' => 'Temporarily close this account. You will be signed out. Log in later to reopen it with admin help if needed.',
+        'bullets' => [
+          'The profile is paused and hidden from normal use',
+          'Posts and data are kept',
+          'You can return after support reactivates you, or by signing in if status is restored',
+        ],
+        'enabled' => $allowDeactivate,
+        'pane' => 'deactivate_account',
+        'btn' => 'Deactivate account',
+        'hint' => 'Type DEACTIVATE to confirm',
+      ],
+    ];
+    $keys = $action !== '' && isset($cards[$action])
+      ? [$action]
+      : ['delete', 'staff', 'export', 'reset', 'deactivate'];
     ?>
     <div class="dz-wrap">
-      <p class="dz-lead">Irreversible or high-impact actions for this account. Proceed with caution.</p>
-
-      <article class="dz-card">
-        <div class="dz-ico" aria-hidden="true"><i class="icon ion-trash-a"></i></div>
-        <div class="dz-copy">
-          <h4>Delete account</h4>
-          <p>Permanently remove this account and its data. This cannot be undone.</p>
-          <ul>
-            <li>Your profile, About Me, and settings</li>
-            <li>Posts, comments, friends, and messages tied to this account</li>
-            <li>Shop orders and publisher workspace links, if you have them</li>
-          </ul>
-        </div>
-        <div class="dz-actions">
-          <?php if ($allowDelete): ?>
-            <a class="dz-btn" href="account_tools.php?action=delete">Delete account</a>
-            <span class="dz-hint">Type DELETE on the next page to confirm</span>
-          <?php else: ?>
-            <span class="dz-off">Turned off in Account</span>
-          <?php endif; ?>
-        </div>
-      </article>
-
-      <article class="dz-card">
-        <div class="dz-ico" aria-hidden="true"><i class="icon ion-person"></i></div>
-        <div class="dz-copy">
-          <h4><?php echo h($staffTitle); ?></h4>
-          <p><?php echo h($staffDesc); ?></p>
-          <ul>
-            <?php foreach ($staffBullets as $b): ?><li><?php echo h($b); ?></li><?php endforeach; ?>
-          </ul>
-        </div>
-        <div class="dz-actions">
-          <?php if ($isPublisher || $allowLogoutAll): ?>
-            <a class="dz-btn" href="<?php echo h($staffHref); ?>"><?php echo h($staffBtn); ?></a>
-            <?php if (!$isPublisher): ?>
-              <a class="dz-btn dz-btn-ghost" href="account_tools.php?action=logout_all">Logout all devices</a>
+      <?php foreach ($keys as $key): ?>
+        <?php
+          $card = $cards[$key];
+          if (!empty($card['publisher_only']) && !$isPublisher) {
+            continue;
+          }
+        ?>
+        <article class="dz-card">
+          <div class="dz-ico" aria-hidden="true"><i class="icon <?php echo h((string)$card['icon']); ?>"></i></div>
+          <div class="dz-copy">
+            <h4><?php echo h((string)$card['title']); ?></h4>
+            <p><?php echo h((string)$card['desc']); ?></p>
+            <ul>
+              <?php foreach ((array)$card['bullets'] as $b): ?><li><?php echo h((string)$b); ?></li><?php endforeach; ?>
+            </ul>
+          </div>
+          <div class="dz-actions">
+            <?php if (!empty($card['enabled'])): ?>
+              <?php if (trim((string)($card['pane'] ?? '')) !== ''): ?>
+                <button type="button" class="dz-btn" data-gear-open-pane="<?php echo h((string)$card['pane']); ?>"><?php echo h((string)$card['btn']); ?></button>
+              <?php else: ?>
+                <a class="dz-btn" href="<?php echo h((string)$card['href']); ?>"><?php echo h((string)$card['btn']); ?></a>
+              <?php endif; ?>
+              <?php if (trim((string)$card['hint']) !== ''): ?>
+                <span class="dz-hint"><?php echo h((string)$card['hint']); ?></span>
+              <?php endif; ?>
+            <?php else: ?>
+              <span class="dz-off">Turned off in Security</span>
             <?php endif; ?>
-          <?php else: ?>
-            <span class="dz-off">Turned off in Account</span>
-          <?php endif; ?>
-        </div>
-      </article>
-
-      <article class="dz-card">
-        <div class="dz-ico" aria-hidden="true"><i class="icon ion-archive"></i></div>
-        <div class="dz-copy">
-          <h4>Export account data</h4>
-          <p>Download a copy of your profile, About details, settings, and post summary as JSON.</p>
-          <ul>
-            <li>Includes profile, About Me, Gear settings, and posts</li>
-            <li>File is ready in the browser as soon as you click</li>
-            <li>Keep a backup before you deactivate or delete</li>
-          </ul>
-        </div>
-        <div class="dz-actions">
-          <?php if ($allowDownload): ?>
-            <a class="dz-btn" href="account_tools.php?action=download">Export data</a>
-          <?php else: ?>
-            <span class="dz-off">Turned off in Account</span>
-          <?php endif; ?>
-        </div>
-      </article>
-
-      <article class="dz-card">
-        <div class="dz-ico" aria-hidden="true"><i class="icon ion-refresh"></i></div>
-        <div class="dz-copy">
-          <h4>Reset account settings</h4>
-          <p>Reset Gear privacy, notifications, and appearance to defaults. Posts and friends are not deleted.</p>
-          <ul>
-            <li>Privacy, tabs, notifications, and appearance return to defaults</li>
-            <li>Your posts, friends, and media stay</li>
-            <li>You will need to set Appearance and privacy again</li>
-          </ul>
-        </div>
-        <div class="dz-actions">
-          <a class="dz-btn" href="account_tools.php?action=reset_settings">Reset settings</a>
-          <span class="dz-hint">Type RESET on the next page to confirm</span>
-        </div>
-      </article>
-
-      <article class="dz-card">
-        <div class="dz-ico" aria-hidden="true"><i class="icon ion-close-circled"></i></div>
-        <div class="dz-copy">
-          <h4>Deactivate account</h4>
-          <p>Temporarily close this account. You will be signed out. Log in later to reopen it with admin help if needed.</p>
-          <ul>
-            <li>The profile is paused and hidden from normal use</li>
-            <li>Posts and data are kept</li>
-            <li>You can return after support reactivates you, or by signing in if status is restored</li>
-          </ul>
-        </div>
-        <div class="dz-actions">
-          <?php if ($allowDeactivate): ?>
-            <a class="dz-btn" href="account_tools.php?action=deactivate">Deactivate account</a>
-            <span class="dz-hint">Type DEACTIVATE on the next page to confirm</span>
-          <?php else: ?>
-            <span class="dz-off">Turned off in Account</span>
-          <?php endif; ?>
-        </div>
-      </article>
-
-      <div class="dz-foot" role="note">
-        <i class="icon ion-alert-circled" aria-hidden="true"></i>
-        <span>These actions can lock you out or remove data. Export a copy first if you need a backup.</span>
-      </div>
+          </div>
+        </article>
+      <?php endforeach; ?>
     </div>
     <?php
   }
@@ -577,12 +571,20 @@ if (!function_exists('profile_gear_render_account_switch')) {
         <div class="as-add-title">Add another account</div>
         <p class="as-add-copy">Sign in or create a second account. It stays linked on this device so you can switch later.</p>
         <div class="as-add-row">
-          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;account_type=personal">Add personal</a>
-          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;account_type=publisher">Add publisher</a>
-          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;account_type=commerce">Add commerce</a>
-          <a class="as-btn as-btn-ghost" href="index.php?add_account=1&amp;view=register&amp;account_type=personal">Create new</a>
+          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=personal" data-account-type="personal">Add personal</a>
+          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=publisher" data-account-type="publisher">Add publisher</a>
+          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=commerce" data-account-type="commerce">Add commerce</a>
+          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=personal&amp;view=register" data-account-type="personal" data-auth-view="register">Create new</a>
         </div>
       </div>
+      <dialog class="as-logout-dialog" id="asAddLogoutDialog" aria-labelledby="asAddLogoutTitle">
+        <h2 id="asAddLogoutTitle">Log out to continue?</h2>
+        <p id="asAddLogoutCopy">You will leave this account. Cancel to stay, or log out. After logout you cannot come back to this session.</p>
+        <div class="as-logout-actions">
+          <button type="button" class="as-btn as-btn-ghost" id="asAddLogoutCancel">Cancel</button>
+          <button type="button" class="as-btn as-logout-confirm" id="asAddLogoutConfirm">Logout</button>
+        </div>
+      </dialog>
     </div>
     <?php
   }
@@ -592,15 +594,71 @@ if (!function_exists('profile_gear_render_detail_action')) {
   function profile_gear_render_detail_action(array $row, array $profileSettings, string $themeAutoDefault, bool $isPublisher = false): void
   {
     if (trim((string)($row['layout'] ?? '')) === 'danger_zone') {
-      profile_gear_render_danger_zone($profileSettings, $isPublisher);
+      profile_gear_render_danger_zone($profileSettings, $isPublisher, trim((string)($row['danger_action'] ?? '')));
+      return;
+    }
+    if (trim((string)($row['layout'] ?? '')) === 'archived_post') {
+      $post = (array)($row['post'] ?? []);
+      $pid = (int)($post['id'] ?? $row['post_id'] ?? 0);
+      $preview = trim((string)($post['preview_text'] ?? $row['meta'] ?? ''));
+      $previewSrc = trim((string)($post['preview_src'] ?? ''));
+      $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
+      $when = function_exists('msb_archive_time_ago')
+        ? msb_archive_time_ago((string)($post['updated_at'] ?? $post['created_at'] ?? ''))
+        : '';
+      $staffReadonly = function_exists('staff_pub_is_readonly') && staff_pub_is_readonly();
+      ?>
+      <div class="gear-archive-detail">
+        <?php if ($previewSrc !== '' && $thumbType === 'video'): ?>
+          <video class="gear-archive-detail-media" src="<?php echo h($previewSrc); ?>" controls playsinline preload="metadata"></video>
+        <?php elseif ($previewSrc !== ''): ?>
+          <img class="gear-archive-detail-media" src="<?php echo h($previewSrc); ?>" alt="">
+        <?php endif; ?>
+        <?php if ($preview !== ''): ?>
+          <p class="gear-archive-detail-text"><?php echo h($preview); ?></p>
+        <?php endif; ?>
+        <?php if ($when !== ''): ?>
+          <p class="gear-archive-detail-time">Archived · <?php echo h($when); ?></p>
+        <?php endif; ?>
+        <?php if ($pid > 0 && !$staffReadonly): ?>
+          <button type="button" class="dz-btn js-gear-unarchive" data-post-id="<?php echo (int)$pid; ?>">Unarchive</button>
+        <?php elseif ($staffReadonly): ?>
+          <span class="dz-off">Staff sessions cannot unarchive posts.</span>
+        <?php endif; ?>
+        <a class="gear-archive-page-link" href="archive.php">Open archive page</a>
+      </div>
+      <?php
       return;
     }
     if (trim((string)($row['layout'] ?? '')) === 'account_switch') {
       profile_gear_render_account_switch($row);
       return;
     }
+    if (trim((string)($row['layout'] ?? '')) === 'legal_copy') {
+      $sections = (array)($row['copy_sections'] ?? []);
+      if (!$sections && !empty($row['copy'])) {
+        $sections = [['heading' => '', 'paras' => (array)$row['copy']]];
+      }
+      echo '<div class="gear-legal-copy">';
+      foreach ($sections as $section) {
+        $heading = trim((string)($section['heading'] ?? ''));
+        if ($heading !== '') {
+          echo '<h4>' . h($heading) . '</h4>';
+        }
+        foreach ((array)($section['paras'] ?? []) as $para) {
+          $para = trim((string)$para);
+          if ($para === '') {
+            continue;
+          }
+          echo '<p>' . h($para) . '</p>';
+        }
+      }
+      echo '</div>';
+      return;
+    }
+    $embed = trim((string)($row['embed'] ?? ''));
     $href = trim((string)($row['href'] ?? ''));
-    $isLink = $href !== '';
+    $isLink = $href !== '' && $embed === '';
     $field = trim((string)($row['field'] ?? ''));
     $fieldLocal = trim((string)($row['field_local'] ?? ''));
     $options = (array)($row['options'] ?? []);
@@ -693,6 +751,29 @@ if (!function_exists('profile_gear_render_detail_action')) {
           </select>
           <span class="gear-save-state" aria-live="polite"></span>
         </div>
+        <?php
+          $exceptField = trim((string)($row['except_field'] ?? ''));
+          if ($exceptField !== ''):
+            $exceptPeople = profile_privacy_hide_people_decode($profileSettings[$exceptField] ?? '[]');
+            $exceptJson = json_encode($exceptPeople, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        ?>
+        <div class="gear-except" data-except-field="<?php echo h($exceptField); ?>">
+          <label class="gear-detail-control-label" for="<?php echo h('gear-except-' . $exceptField); ?>">People who cannot view</label>
+          <p class="gear-except-copy">Type @username. They cannot see this even if the audience is Everyone, Public, or Friends.</p>
+          <input
+            type="text"
+            id="<?php echo h('gear-except-' . $exceptField); ?>"
+            class="gear-except-input"
+            data-msb-mention="1"
+            autocomplete="off"
+            placeholder="Type @name"
+          >
+          <div class="gear-except-chips" aria-live="polite"></div>
+          <input type="hidden" class="gear-except-ids" value="">
+          <input type="hidden" class="gear-except-json" value="<?php echo h($exceptJson); ?>">
+          <span class="gear-save-state" aria-live="polite"></span>
+        </div>
+        <?php endif; ?>
       </div>
     <?php elseif ($hasUpload): ?>
       <form class="gear-upload-form gear-upload-form--detail" data-kind="<?php echo h($mediaKind); ?>" enctype="multipart/form-data">
@@ -701,6 +782,11 @@ if (!function_exists('profile_gear_render_detail_action')) {
         <span class="gear-upload-hint"><?php echo $mediaKind === 'avatar' ? 'JPG or PNG recommended.' : 'Wide images work best for cover.'; ?></span>
         <span class="gear-save-state" aria-live="polite"></span>
       </form>
+    <?php elseif ($embed !== ''): ?>
+      <button type="button" class="gear-detail-open-btn" data-gear-open-pane="<?php echo h($embed); ?>">
+        <i class="icon <?php echo h((string)($row['icon'] ?? 'ion-ios-arrow-forward')); ?>"></i>
+        <?php echo h($tag !== '' ? $tag : 'Open'); ?>
+      </button>
     <?php elseif ($isLink): ?>
       <a class="gear-detail-open-btn" href="<?php echo h($href); ?>">
         <i class="icon <?php echo h((string)($row['icon'] ?? 'ion-ios-arrow-forward')); ?>"></i>
@@ -795,6 +881,7 @@ if ($meId > 0 && $viewId > 0 && $meId !== $viewId) {
 $isViewedPublisher = ($viewId > 0 && $meId !== $viewId && publisher_is_publisher_user($dbh, $viewId));
 $isFollowingPublisher = $isViewedPublisher && publisher_user_is_followed($dbh, $meId, $viewId);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
+$isPublisherWorkspaceViewer = publisher_workspace_viewer($dbh, $meId);
 $profileIsPublisher = publisher_is_publisher_user($dbh, $viewId);
 if ($profileIsPublisher) {
   $me['account_kind'] = 'publisher';
@@ -877,6 +964,12 @@ $profileSettings = [
   'profile_visibility' => 'public',
   'about_visibility' => 'friends',
   'gallery_visibility' => 'friends',
+  'post_visibility' => 'friends',
+  'story_visibility' => 'friends',
+  'reel_visibility' => 'friends',
+  'post_hide_from' => '[]',
+  'story_hide_from' => '[]',
+  'reel_hide_from' => '[]',
   'comment_permission' => 'friends',
   'friend_request_permission' => 'public',
   'message_permission' => 'friends',
@@ -895,6 +988,12 @@ $profileSettings = [
   'comment_notifications' => 1,
   'reaction_notifications' => 1,
   'share_notifications' => 1,
+  'tagged_notifications' => 1,
+  'saved_notifications' => 1,
+  'birthday_notifications' => 1,
+  'followed_notifications' => 1,
+  'event_reminder_notifications' => 1,
+  'memory_notifications' => 1,
   'blocked_users_enabled' => 1,
   'hidden_users_enabled' => 1,
   'mute_users_enabled' => 1,
@@ -1316,6 +1415,7 @@ if ($coverUrl === '' && $coverSlides) {
 }
 
 $privacyOptions = [
+  'everyone' => 'Everyone',
   'public' => 'Public',
   'friends' => 'Friends',
   'only_me' => 'Only me',
@@ -1380,6 +1480,16 @@ if ($canManageProfilePrivate && $meId > 0 && !$accountSwitchStaffBlocked) {
   $accountSwitchAccounts = account_switch_list($dbh, $meId);
 }
 
+$gearArchiveView = [
+  'storyCircles' => [],
+  'hasStories' => false,
+  'feedPosts' => [],
+  'avatarUrl' => '',
+];
+if ($canManageProfilePrivate && $meId > 0) {
+  $gearArchiveView = msb_archive_prepare_view(msb_archive_fetch_posts($dbh, $meId, 200), is_array($me) ? $me : []);
+}
+
 $gearGroups = [
   [
     'title' => 'Profile settings',
@@ -1389,8 +1499,8 @@ $gearGroups = [
     'rows' => [
       [
         'label' => 'Edit Profile',
-        'meta' => 'Open user_edit.php for name, username, email, phone, friend code, gender, work and about details.',
-        'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear'),
+        'meta' => 'Open About background: pronouns, family, education, work, and hobby. Name and contact stay on Account.',
+        'embed' => 'edit_background',
         'icon' => 'ion-edit',
         'tag'  => 'Open',
       ],
@@ -1410,16 +1520,9 @@ $gearGroups = [
       ],
       [
         'label' => 'Change display name',
-        'meta' => 'Use Edit Profile to change the name shown at the top of the profile.',
-        'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear'),
+        'meta' => 'Use Account to change the name shown at the top of the profile.',
+        'embed' => 'edit_display_name',
         'icon' => 'ion-person',
-        'tag'  => 'Edit',
-      ],
-      [
-        'label' => 'Change username',
-        'meta' => 'Use Edit Profile to update your username.',
-        'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear'),
-        'icon' => 'ion-at',
         'tag'  => 'Edit',
       ],
       [
@@ -1436,10 +1539,13 @@ $gearGroups = [
     'title' => 'Privacy controls',
     'nav_label' => 'Privacy',
     'icon' => 'ion-locked',
-    'desc' => 'Control who can view your profile, About Me, Gallery, comments, friend requests, messages, and timeline visits.',
-    'chips' => ['Public', 'Friends', 'Only me', 'Approved visitors'],
+    'desc' => 'Control who can view your profile, posts, stories, reels, About Me, Gallery, comments, friend requests, messages, and timeline visits.',
+    'chips' => ['Everyone', 'Public', 'Friends', 'Only me', 'Approved visitors'],
     'rows' => [
-      ['label' => 'Who can view profile', 'meta' => 'Choose Public, Friends, Only me, or Approved visitors.', 'icon' => 'ion-person-stalker', 'tag' => 'Live', 'field' => 'profile_visibility', 'options' => $privacyOptions],
+      ['label' => 'Who can view profile', 'meta' => 'Choose Everyone, Public, Friends, Only me, or Approved visitors.', 'icon' => 'ion-person-stalker', 'tag' => 'Live', 'field' => 'profile_visibility', 'options' => $privacyOptions],
+      ['label' => 'Who can view posts', 'meta' => 'Audience for your posts. Type @username for people who cannot view them.', 'icon' => 'ion-android-list', 'tag' => 'Live', 'field' => 'post_visibility', 'except_field' => 'post_hide_from', 'options' => $privacyOptions],
+      ['label' => 'Who can view stories', 'meta' => 'Audience for your stories. Type @username for people who cannot view them.', 'icon' => 'ion-ios-circle-filled', 'tag' => 'Live', 'field' => 'story_visibility', 'except_field' => 'story_hide_from', 'options' => $privacyOptions],
+      ['label' => 'Who can view reels', 'meta' => 'Audience for your reels. Type @username for people who cannot view them.', 'icon' => 'ion-ios-videocam', 'tag' => 'Live', 'field' => 'reel_visibility', 'except_field' => 'reel_hide_from', 'options' => $privacyOptions],
       ['label' => 'Who can view About Me', 'meta' => 'Protect your life details and contact information.', 'icon' => 'ion-ios-person', 'tag' => 'Live', 'field' => 'about_visibility', 'options' => $privacyOptions],
       ['label' => 'Who can view Gallery', 'meta' => 'Control who can see your photo and video grids.', 'icon' => 'ion-images', 'tag' => 'Live', 'field' => 'gallery_visibility', 'options' => $privacyOptions],
       ['label' => 'Tags tab for others', 'meta' => 'On lets other people open your Tags tab. Off keeps it private to you.', 'icon' => 'ion-ios-pricetag', 'tag' => 'Live', 'field' => 'show_tags_tab', 'options' => $themeAutoOptions],
@@ -1448,7 +1554,7 @@ $gearGroups = [
       ['label' => 'Who can comment on posts', 'meta' => 'Limit comments to friends or approved visitors when you are ready.', 'icon' => 'ion-chatbubbles', 'tag' => 'Live', 'field' => 'comment_permission', 'options' => $privacyOptions],
       ['label' => 'Who can send friend request', 'meta' => 'Choose who is allowed to connect with you.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_permission', 'options' => $privacyOptions],
       ['label' => 'Who can message me', 'meta' => 'Control DM access before private chat opens.', 'icon' => 'ion-email', 'tag' => 'Live', 'field' => 'message_permission', 'options' => $privacyOptions],
-      ['label' => 'Allow timeline visit by approval only', 'meta' => 'Strong Talentra feature for consent-based timeline access.', 'icon' => 'ion-clock', 'tag' => 'Live', 'field' => 'timeline_visit_approval', 'options' => $yesNoOptions],
+      ['label' => 'Allow timeline visit by approval only', 'meta' => 'Strong Talsora feature for consent-based timeline access.', 'icon' => 'ion-clock', 'tag' => 'Live', 'field' => 'timeline_visit_approval', 'options' => $yesNoOptions],
     ],
   ],
   [
@@ -1457,8 +1563,6 @@ $gearGroups = [
     'icon' => 'ion-ios-book',
     'desc' => 'Shape how memories appear, resurface, and stay meaningful on your life timeline.',
     'rows' => [
-      ['label' => 'Archived posts', 'meta' => 'Open the private list of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited from For You, Discover, Reels, or Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Auto-show posts in timeline', 'meta' => 'Yes / No control for moving Dashboard posts into the life timeline automatically.', 'icon' => 'ion-ios-albums', 'tag' => 'Live', 'field' => 'auto_show_timeline', 'options' => $yesNoOptions],
       ['label' => 'Allow old memories to resurface', 'meta' => 'Bring older moments back later as meaningful memories.', 'icon' => 'ion-refresh', 'tag' => 'Live', 'field' => 'resurface_old_memories', 'options' => $yesNoOptions],
       ['label' => 'Show reactions in timeline', 'meta' => 'Decide whether likes and love appear on your life timeline.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'show_timeline_reactions', 'options' => $yesNoOptions],
@@ -1472,27 +1576,33 @@ $gearGroups = [
     'nav_label' => 'Archived posts',
     'icon' => 'ion-ios-box',
     'desc' => 'Posts you hid from feeds stay here. Only you can open this archive.',
-    'rows' => [
-      ['label' => 'Open archived posts', 'meta' => 'Review and unarchive posts that are hidden from everyone else.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-    ],
+    'skip_left_nav' => true,
+    'skip_row_pane' => true,
+    'rows' => [],
   ],
   [
     'title' => 'Favorites',
     'nav_label' => 'Favorites',
     'icon' => 'ion-ios-bookmarks',
-    'desc' => 'Posts and stories you favorited from For You, Discover, Reels, or Profile. Only you can open this list.',
-    'rows' => [
-      ['label' => 'Open favorites', 'meta' => 'Review and remove favorited posts and stories.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
-    ],
+    'desc' => 'Posts and stories you favorited from Circle, Discover, Clips, or Profile. Only you can open this list.',
+    'skip_left_nav' => true,
+    'skip_row_pane' => true,
+    'rows' => [],
   ],
   [
     'title' => 'Notifications',
     'nav_label' => 'Notifications',
     'icon' => 'ion-android-notifications',
-    'desc' => 'Keep one place for alerts from friends, reactions, comments, shares, and email.',
+    'desc' => 'Choose Yes or No for each alert: friends, tags, favorites, birthdays, follows, events, and memories.',
     'rows' => [
       ['label' => 'Email notifications', 'meta' => 'Updates from profile, timeline, and activity by email.', 'icon' => 'ion-android-mail', 'tag' => 'Live', 'field' => 'email_notifications', 'options' => $yesNoOptions],
       ['label' => 'Friend request notifications', 'meta' => 'Know when somebody wants to connect.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Tagged notifications', 'meta' => 'Know when someone tags you in a post, story, or About.', 'icon' => 'ion-ios-pricetag', 'tag' => 'Live', 'field' => 'tagged_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Saved notifications', 'meta' => 'Know when someone favorites or saves your post or story.', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Live', 'field' => 'saved_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Birthday notifications', 'meta' => 'Reminders when a friend or family birthday is coming up.', 'icon' => 'ion-cake', 'tag' => 'Live', 'field' => 'birthday_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Followed notifications', 'meta' => 'Know when someone follows your publisher or public page.', 'icon' => 'ion-android-star', 'tag' => 'Live', 'field' => 'followed_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Event reminder notifications', 'meta' => 'Reminders about events you are part of or invited to.', 'icon' => 'ion-ios-calendar', 'tag' => 'Live', 'field' => 'event_reminder_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Memory notifications', 'meta' => 'See memories about what you posted on this day in the past.', 'icon' => 'ion-ios-clock', 'tag' => 'Live', 'field' => 'memory_notifications', 'options' => $yesNoOptions],
       ['label' => 'Comment notifications', 'meta' => 'Get notified when someone comments on your story.', 'icon' => 'ion-chatbox', 'tag' => 'Live', 'field' => 'comment_notifications', 'options' => $yesNoOptions],
       ['label' => 'Reaction notifications', 'meta' => 'See likes and love on your posts.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'reaction_notifications', 'options' => $yesNoOptions],
       ['label' => 'Share notifications', 'meta' => 'Track when your posts are shared.', 'icon' => 'ion-forward', 'tag' => 'Live', 'field' => 'share_notifications', 'options' => $yesNoOptions],
@@ -1502,16 +1612,21 @@ $gearGroups = [
     'title' => 'Security and safety',
     'nav_label' => 'Security',
     'icon' => 'ion-shield',
-    'desc' => 'Protect your account, manage who you block or mute, and keep security tools close.',
+    'desc' => 'Protect your account, manage who you block or mute, and control whether Danger Zone tools are available.',
     'rows' => [
-      ['label' => 'Change password', 'meta' => 'Open the password page for your account.', 'href' => 'change-password.php?return=' . rawurlencode('profile.php?tab=gear'), 'icon' => 'ion-key', 'tag' => 'Open'],
       ['label' => 'Blocked users system', 'meta' => 'Turn blocked-user tools on or off for your profile.', 'icon' => 'ion-close-circled', 'tag' => 'Live', 'field' => 'blocked_users_enabled', 'options' => $yesNoOptions],
       ['label' => 'Hidden users system', 'meta' => 'Keep hidden-user controls ready when you want a quieter profile.', 'icon' => 'ion-eye-disabled', 'tag' => 'Live', 'field' => 'hidden_users_enabled', 'options' => $yesNoOptions],
       ['label' => 'Mute user system', 'meta' => 'Allow mute controls for noisy accounts and story activity.', 'icon' => 'ion-volume-mute', 'tag' => 'Live', 'field' => 'mute_users_enabled', 'options' => $yesNoOptions],
       ['label' => 'Report history system', 'meta' => 'Save report history tools in one place for later moderation work.', 'icon' => 'ion-flag', 'tag' => 'Live', 'field' => 'report_history_enabled', 'options' => $yesNoOptions],
-      ['label' => 'Open Safety Center', 'meta' => 'See the current state of blocked, hidden, muted, report history, and login safety.', 'href' => 'security_tools.php', 'icon' => 'ion-shield', 'tag' => 'Open'],
-      ['label' => 'Login / security section', 'meta' => 'Open your security center for session and account protection notes.', 'href' => 'security_tools.php#login-security', 'icon' => 'ion-locked', 'tag' => 'Open'],
-      ['label' => 'Manage devices', 'meta' => 'See your active devices, last active time, IP address, and revoke one device at a time.', 'href' => 'manage_devices.php', 'icon' => 'ion-iphone', 'tag' => 'Open'],
+      ['label' => 'Open Safety Center', 'meta' => 'See blocked, hidden, muted, report history, and login safety.', 'embed' => 'safety_center', 'icon' => 'ion-shield', 'tag' => 'Open'],
+      ['label' => 'Change password', 'meta' => 'Update the password for this account.', 'embed' => 'change_password', 'icon' => 'ion-key', 'tag' => 'Open'],
+      ['label' => 'Manage devices', 'meta' => 'See active devices, last active time, IP address, and revoke one device at a time.', 'embed' => 'manage_devices', 'icon' => 'ion-iphone', 'tag' => 'Open'],
+      ['label' => 'Logout now', 'meta' => 'Sign out of the current session immediately.', 'embed' => 'logout_now', 'icon' => 'ion-power', 'tag' => 'Open'],
+      ['label' => 'Allow logout all devices', 'meta' => 'Show or hide the sign-out-all-devices tool in Security.', 'icon' => 'ion-log-out', 'tag' => 'Live', 'field' => 'allow_logout_all_devices', 'options' => $yesNoOptions],
+      ['label' => 'Logout all devices', 'meta' => 'Sign out every other active browser session while this device stays signed in.', 'embed' => 'logout_all_devices', 'icon' => 'ion-log-out', 'tag' => 'Open'],
+      ['label' => 'Allow download my data', 'meta' => 'Show or hide Export data in Danger Zone.', 'icon' => 'ion-archive', 'tag' => 'Live', 'field' => 'allow_download_data', 'options' => $yesNoOptions],
+      ['label' => 'Allow deactivate account', 'meta' => 'Show or hide Deactivate in Danger Zone.', 'icon' => 'ion-pause', 'tag' => 'Live', 'field' => 'allow_deactivate_account', 'options' => $yesNoOptions],
+      ['label' => 'Allow delete account', 'meta' => 'Show or hide Delete account in Danger Zone.', 'icon' => 'ion-trash-a', 'tag' => 'Live', 'field' => 'allow_delete_account', 'options' => $yesNoOptions],
     ],
   ],
   [
@@ -1551,36 +1666,129 @@ $gearGroups = [
     'title' => 'Account tools',
     'nav_label' => 'Account',
     'icon' => 'ion-android-settings',
-    'desc' => 'Big account actions should stay visible, but separate from your About Me details.',
+    'desc' => 'Manage sign-in details for this account.',
     'rows' => [
-      ['label' => 'Archived posts', 'meta' => 'Open the private archive of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited across For You, Discover, Reels, and Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
-      ['label' => 'Allow download my data', 'meta' => 'Keep export tools available for your account.', 'icon' => 'ion-archive', 'tag' => 'Live', 'field' => 'allow_download_data', 'options' => $yesNoOptions],
-      ['label' => 'Allow deactivate account', 'meta' => 'Control whether deactivation tools are available in your account center.', 'icon' => 'ion-pause', 'tag' => 'Live', 'field' => 'allow_deactivate_account', 'options' => $yesNoOptions],
-      ['label' => 'Allow delete account', 'meta' => 'Show or hide the protected delete-account flow.', 'icon' => 'ion-trash-a', 'tag' => 'Live', 'field' => 'allow_delete_account', 'options' => $yesNoOptions],
-      ['label' => 'Allow logout all devices', 'meta' => 'Keep the multi-device sign-out tool visible in your account center.', 'icon' => 'ion-log-out', 'tag' => 'Live', 'field' => 'allow_logout_all_devices', 'options' => $yesNoOptions],
-      ['label' => 'Download my data', 'meta' => 'Export your profile, about details, settings, and post summary as a JSON file.', 'href' => 'account_tools.php?action=download', 'icon' => 'ion-archive', 'tag' => 'Open'],
-      ['label' => 'Deactivate account', 'meta' => 'Pause the account by switching your status off until you log in again.', 'href' => 'account_tools.php?action=deactivate', 'icon' => 'ion-pause', 'tag' => 'Open'],
-      ['label' => 'Delete account', 'meta' => 'Protected page for permanent account removal planning.', 'href' => 'account_tools.php?action=delete', 'icon' => 'ion-trash-a', 'tag' => 'Open'],
-      ['label' => 'Logout all devices', 'meta' => 'Sign out every other active browser session while this current device stays signed in.', 'href' => 'account_tools.php?action=logout_all', 'icon' => 'ion-log-out', 'tag' => 'Open'],
-      ['label' => 'Manage devices', 'meta' => 'Review current and recent devices, then revoke one session at a time.', 'href' => 'manage_devices.php', 'icon' => 'ion-iphone', 'tag' => 'Open'],
-      ['label' => 'Logout now', 'meta' => 'Sign out of the current session immediately.', 'href' => 'logout.php', 'icon' => 'ion-power', 'tag' => 'Open'],
+      ['label' => 'Account', 'meta' => 'Name, username, email, phone, friend code, bio, location, and website.', 'embed' => 'edit_account', 'icon' => 'ion-android-person', 'tag' => 'Open'],
+      ['label' => 'Change username', 'meta' => 'Update your username on the Account page.', 'embed' => 'edit_username', 'icon' => 'ion-at', 'tag' => 'Edit'],
+    ],
+  ],
+  [
+    'title' => 'Terms',
+    'nav_label' => 'Terms',
+    'icon' => 'ion-ios-paper',
+    'desc' => 'Read the terms for using Talsora.',
+    'rows' => [
+      [
+        'label' => 'Terms of Use',
+        'meta' => 'These Terms govern how you use Talsora. If you do not agree, do not use the service. This is a product summary, not a substitute for independent legal advice.',
+        'icon' => 'ion-ios-paper',
+        'tag' => 'Read',
+        'layout' => 'legal_copy',
+        'copy_sections' => [
+          [
+            'heading' => '1. The Talsora service',
+            'paras' => [
+              'Talsora provides personal, publisher, and commerce accounts so you can create, share, follow, message, go live, shop, and manage a public presence. We personalize feeds and suggestions from activity on the service, and we use tools (including automated systems) to keep the product working, safer, and available.',
+              'We may store and process data on infrastructure needed to run the service. Related features such as Shop, Live, and publisher workspaces are part of the same service unless we say separate terms apply.',
+            ],
+          ],
+          [
+            'heading' => '2. How the service is funded',
+            'paras' => [
+              'You can use Talsora without a subscription fee. We may show promotions, shop listings, or other paid placements. We do not sell your name or email to advertisers. We may use activity and interests to make those placements more relevant, and we may share aggregated reports that do not directly identify you unless you give permission.',
+              'Publisher and commerce accounts may post branded or selling content. That content must be honest and follow these Terms.',
+            ],
+          ],
+          [
+            'heading' => '3. Privacy',
+            'paras' => [
+              'Using Talsora means we collect and use information needed to run accounts, feeds, messages, shop, and safety tools. You control many of those choices in Gear → Privacy. Help from an admin is available through Help (profile door, home footer, or Shop Help Center).',
+            ],
+          ],
+          [
+            'heading' => '4. Who can use Talsora',
+            'paras' => [
+              'Personal accounts must meet the minimum age shown at sign-up (currently 21). You must not use the service if the law forbids it, if we have disabled your account for violations, or if you are using it to impersonate someone else. Provide accurate sign-up details and keep them up to date.',
+            ],
+          ],
+          [
+            'heading' => '5. How you may not use Talsora',
+            'paras' => [
+              'Do not do anything unlawful, misleading, or fraudulent. Do not harass people, post illegal or sexually exploitative material, or help others break these Terms.',
+              'Do not interfere with the product, abuse Help or report tools, scrape or collect data in an automated way without our permission, buy or sell accounts or login details, or post other people\'s private information or copyrighted work without rights.',
+              'Do not reverse engineer the product, bypass access controls, or use a domain as a username without our written consent.',
+            ],
+          ],
+          [
+            'heading' => '6. Permissions you give us',
+            'paras' => [
+              'You keep ownership of the content you post. To operate feeds, profiles, messages, live, shop, and related features, you grant Talsora a non-exclusive, worldwide license to host, display, distribute, and adapt that content according to your privacy settings. That license ends when the content is deleted from our systems, except where someone else still lawfully shares a copy or we must keep it for safety or legal reasons.',
+              'You also allow us to show your username, photo, and public actions (such as follows or reactions) with content you engage with, and to install updates needed for the service to work.',
+            ],
+          ],
+          [
+            'heading' => '7. Our rights, content removal, and accounts',
+            'paras' => [
+              'We may change a username that impersonates someone or infringes rights. Talsora keeps rights to its own names, marks, and built-in media. You may not use those marks except as we allow.',
+              'We may remove content or limit, disable, or delete an account if we believe it violates these Terms, harms people, or is required by law. You can deactivate or delete from Gear → Danger Zone. Deletion is not instant: content drops out of public view first, then we remove it from live systems and later from backups, except where law or safety investigations require a longer hold.',
+              'If we disable an account in error, contact Help and ask an admin to review it.',
+            ],
+          ],
+          [
+            'heading' => '8. Disputes, liability, and updates',
+            'paras' => [
+              'The service is provided as available. We do not control what other people post or do. To the extent the law allows, we are not liable for lost posts, downtime, or indirect damages. If you have a dispute, start with Help so an admin can try to resolve it.',
+              'Suggestions you send us may be used without payment or a duty to keep them secret.',
+              'We may update these Terms when the product or the law changes. Continued use after an update means you accept the new Terms. If you do not agree, stop using Talsora and delete your account.',
+            ],
+          ],
+        ],
+      ],
     ],
   ],
   [
     'title' => 'Danger Zone',
     'nav_label' => 'Danger Zone',
     'icon' => 'ion-alert-circled',
-    'desc' => 'Irreversible or high-impact actions for this account. Not store tools — account, devices, export, reset, and deactivate.',
-    'rows' => [
+    'desc' => 'Delete, remove access, export data, reset settings, and deactivate this account.',
+    'list_intro' => 'Delete, remove access, export data, reset settings, and deactivate this account.',
+    'rows' => array_values(array_filter([
       [
-        'label' => 'Danger Zone',
-        'meta' => 'Delete, remove access, export data, reset settings, and deactivate this account.',
-        'icon' => 'ion-alert-circled',
-        'tag' => 'Caution',
+        'label' => 'Delete account',
+        'meta' => 'Permanently remove this account and its data. This cannot be undone.',
+        'icon' => 'ion-trash-a',
         'layout' => 'danger_zone',
+        'danger_action' => 'delete',
       ],
-    ],
+      !empty($profileIsPublisher) ? [
+        'label' => 'Remove staff access',
+        'meta' => 'Permanently remove a staff member\'s access to this publisher workspace.',
+        'icon' => 'ion-person',
+        'layout' => 'danger_zone',
+        'danger_action' => 'staff',
+      ] : null,
+      [
+        'label' => 'Export account data',
+        'meta' => 'Download a copy of your profile, About details, settings, and posts.',
+        'icon' => 'ion-archive',
+        'layout' => 'danger_zone',
+        'danger_action' => 'export',
+      ],
+      [
+        'label' => 'Reset account settings',
+        'meta' => 'Reset Gear privacy, notifications, and appearance to defaults.',
+        'icon' => 'ion-refresh',
+        'layout' => 'danger_zone',
+        'danger_action' => 'reset',
+      ],
+      [
+        'label' => 'Deactivate account',
+        'meta' => 'Temporarily close this account. You will be signed out.',
+        'icon' => 'ion-close-circled',
+        'layout' => 'danger_zone',
+        'danger_action' => 'deactivate',
+      ],
+    ])),
   ],
 ];
 
@@ -1588,8 +1796,8 @@ $gearQuickLinks = [
   ['label' => 'Edit Profile', 'icon' => 'ion-edit', 'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear')],
   ['label' => 'Privacy', 'icon' => 'ion-locked', 'href' => '#gear-privacy-controls'],
   ['label' => 'Timeline Settings', 'icon' => 'ion-ios-book', 'href' => '#gear-timeline-memory-controls'],
-  ['label' => 'Archived posts', 'icon' => 'ion-ios-box', 'href' => 'archive.php'],
-  ['label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'href' => 'bookmark.php'],
+  ['label' => 'Archived posts', 'icon' => 'ion-ios-box', 'href' => '#gear-archived-posts'],
+  ['label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'href' => '#gear-favorites'],
   ['label' => 'Notifications', 'icon' => 'ion-android-notifications', 'href' => '#gear-notifications'],
   ['label' => 'Security', 'icon' => 'ion-shield', 'href' => '#gear-security-and-safety'],
   ['label' => 'Blocked Users', 'icon' => 'ion-close-circled', 'href' => '#gear-security-and-safety'],
@@ -1597,6 +1805,7 @@ $gearQuickLinks = [
   ['label' => 'Appearance', 'icon' => 'ion-android-color-palette', 'href' => '#gear-appearance-and-app-preferences'],
   ['label' => 'Switch accounts', 'icon' => 'ion-loop', 'href' => '#gear-switch-accounts'],
   ['label' => 'Account', 'icon' => 'ion-android-settings', 'href' => '#gear-account-tools'],
+  ['label' => 'Terms', 'icon' => 'ion-ios-paper', 'href' => '#gear-terms'],
   ['label' => 'Danger Zone', 'icon' => 'ion-alert-circled', 'href' => '#gear-danger-zone'],
 ];
 
@@ -1671,6 +1880,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gear') {
     ['key' => 'appearance', 'label' => 'Appearance', 'icon' => 'ion-android-color-palette', 'group' => 'Appearance and app preferences'],
     ['key' => 'switch_accounts', 'label' => 'Switch accounts', 'icon' => 'ion-loop', 'group' => 'Switch accounts'],
     ['key' => 'account', 'label' => 'Account', 'icon' => 'ion-android-settings', 'group' => 'Account tools'],
+    ['key' => 'terms', 'label' => 'Terms', 'icon' => 'ion-ios-paper', 'group' => 'Terms'],
   ];
 
   foreach ($mobileItems as $idx => $item) {
@@ -1926,6 +2136,53 @@ try {
   // keep $gridStorySource from the feed grid filter
 }
 
+$profileStoryAttsByPost = [];
+$profileStoryIds = [];
+foreach ($gridStorySource as $storySrcRow) {
+  $sid = (int)($storySrcRow['post_id'] ?? 0);
+  if ($sid > 0) {
+    $profileStoryIds[] = $sid;
+  }
+}
+$profileStoryIds = array_values(array_unique($profileStoryIds));
+if ($profileStoryIds) {
+  try {
+    $inStoryAtt = implode(',', array_fill(0, count($profileStoryIds), '?'));
+    $stStoryAtt = $dbh->prepare(
+      "SELECT post_id, type, file_path, thumb_path, slide_title, slide_body
+       FROM public_post_attachments
+       WHERE post_id IN ($inStoryAtt)
+       ORDER BY id ASC"
+    );
+    $stStoryAtt->execute($profileStoryIds);
+    foreach ($stStoryAtt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $attRow) {
+      $pidAtt = (int)($attRow['post_id'] ?? 0);
+      if ($pidAtt > 0) {
+        $profileStoryAttsByPost[$pidAtt][] = $attRow;
+      }
+    }
+  } catch (Throwable $eStoryAtt) {
+    try {
+      $inStoryAtt = implode(',', array_fill(0, count($profileStoryIds), '?'));
+      $stStoryAtt = $dbh->prepare(
+        "SELECT post_id, type, file_path, thumb_path
+         FROM public_post_attachments
+         WHERE post_id IN ($inStoryAtt)
+         ORDER BY id ASC"
+      );
+      $stStoryAtt->execute($profileStoryIds);
+      foreach ($stStoryAtt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $attRow) {
+        $pidAtt = (int)($attRow['post_id'] ?? 0);
+        if ($pidAtt > 0) {
+          $profileStoryAttsByPost[$pidAtt][] = $attRow;
+        }
+      }
+    } catch (Throwable $eStoryAtt2) {
+      $profileStoryAttsByPost = [];
+    }
+  }
+}
+
 if (!function_exists('profile_story_time_ago')) {
   function profile_story_time_ago(string $dt): string {
     $dt = trim($dt);
@@ -1962,11 +2219,13 @@ if (!function_exists('profile_story_time_ago')) {
 
 // One catalog row / circle per story (new create → next circle on the rail).
 $profileStoryCatalog = [];
+$profileStorySeenPosts = [];
 foreach ($gridStorySource as $it) {
   $postId = (int)($it['post_id'] ?? 0);
-  if ($postId <= 0) {
+  if ($postId <= 0 || isset($profileStorySeenPosts[$postId])) {
     continue;
   }
+  $profileStorySeenPosts[$postId] = true;
   $atype = strtolower(trim((string)($it['atype'] ?? '')));
   $thumb = trim((string)($it['thumb'] ?? ''));
   $filePath = trim((string)($it['file_path'] ?? ''));
@@ -1981,17 +2240,10 @@ foreach ($gridStorySource as $it) {
     $src = $filePath;
   }
   $caption = post_story_caption($it);
-  if ($src === '' && $caption === '') {
-    continue;
-  }
-  $srcNorm = $src !== '' ? ltrim(preg_replace('~^\./~', '', $src), '/') : '';
   $storyWhen = trim((string)($it['updated_at'] ?? $it['created_at'] ?? ''));
   $whenLabel = profile_story_time_ago($storyWhen);
-  $slide = [
-    'src' => $srcNorm,
-    'type' => $srcNorm !== '' ? $type : 'text',
+  $slideBase = [
     'title' => trim((string)($it['title'] ?? '')),
-    'caption' => $caption,
     'timeLabel' => $whenLabel,
     'timeAgo' => $whenLabel,
     'createdAt' => $storyWhen,
@@ -1999,7 +2251,61 @@ foreach ($gridStorySource as $it) {
     'myReaction' => trim((string)($it['my_reaction'] ?? '')),
     'friendCode' => $canViewProfilePrivateContact ? strtoupper(trim((string)($me['friend_code'] ?? ''))) : '',
   ];
-  $ringSrc = $srcNorm !== '' ? $srcNorm : $avatarUrl;
+  $slides = [];
+  $atts = $profileStoryAttsByPost[$postId] ?? [];
+  if ($atts === []) {
+    $atts = [[
+      'type' => $atype,
+      'thumb_path' => $thumb,
+      'file_path' => $filePath,
+    ]];
+  }
+  foreach ($atts as $att) {
+    $att = is_array($att) ? $att : [];
+    $attType = strtolower(trim((string)($att['type'] ?? $atype)));
+    $attThumb = trim((string)($att['thumb_path'] ?? ''));
+    $attFile = trim((string)($att['file_path'] ?? ''));
+    $slideSrc = '';
+    $slideType = $attType !== '' ? $attType : 'image';
+    if ($attType === 'video' && $attFile !== '' && is_video_path($attFile)) {
+      $slideSrc = $attFile;
+      $slideType = 'video';
+    } elseif ($attFile !== '') {
+      $slideSrc = $attFile;
+    } elseif ($attThumb !== '') {
+      $slideSrc = $attThumb;
+    }
+    $slideSrcNorm = $slideSrc !== '' ? ltrim(preg_replace('~^\./~', '', $slideSrc), '/') : '';
+    if ($slideSrcNorm === '') {
+      continue;
+    }
+    $slideCaption = trim((string)($att['slide_body'] ?? ''));
+    if ($slideCaption === '') {
+      $slideCaption = trim((string)($att['slide_title'] ?? ''));
+    }
+    if ($slideCaption === '') {
+      $slideCaption = $caption;
+    }
+    $slides[] = $slideBase + [
+      'src' => $slideSrcNorm,
+      'type' => $slideType,
+      'caption' => $slideCaption,
+    ];
+  }
+  if ($slides === [] && $caption !== '') {
+    $slides[] = $slideBase + [
+      'src' => '',
+      'type' => 'text',
+      'caption' => $caption,
+    ];
+  }
+  if ($slides === []) {
+    continue;
+  }
+  $ringSrc = trim((string)($slides[0]['src'] ?? ''));
+  if ($ringSrc === '') {
+    $ringSrc = $avatarUrl;
+  }
   $profileStoryCatalog[] = [
     'key' => 's' . $postId,
     'userId' => $viewId,
@@ -2010,9 +2316,9 @@ foreach ($gridStorySource as $it) {
     'isPublisher' => $profileIsPublisher,
     'avatarUrl' => $ringSrc,
     'ringSrc' => $ringSrc,
-    'ringType' => $slide['type'],
+    'ringType' => (string)($slides[0]['type'] ?? 'image'),
     'subtitle' => $whenLabel,
-    'slides' => [$slide],
+    'slides' => $slides,
   ];
 }
 $profileStoryPostId = (int)($_GET['story_post'] ?? 0);
@@ -2115,10 +2421,12 @@ foreach ($gridFeedSource as $it) {
     $title = 'Video';
   }
   $thumb = trim((string)($it['thumb'] ?? ''));
+  $thumbIsImage = $thumb !== '' && !is_video_path($thumb);
   $profileTopVideos[] = [
     'post_id' => (int)($it['post_id'] ?? 0),
     'title' => $title,
-    'thumb' => $thumb !== '' ? $thumb : $filePath,
+    'thumb' => $thumbIsImage ? $thumb : '',
+    'video' => $filePath,
     'views' => (int)($it['views_count'] ?? 0),
   ];
 }
@@ -2136,7 +2444,21 @@ if ($reqId > 0) {
   $profileRailViewAll = 'profile.php?friend_code=' . rawurlencode($reqFriendCode) . '&tab=gallery';
 }
 
-// Tags tab = posts where this profile user was @tagged / people-tagged (Instagram-style).
+$profileTabUrl = static function (string $tab) use ($reqId, $reqUsername, $reqFriendCode): string {
+  $q = ['tab' => $tab];
+  if ($reqId > 0) {
+    $q['id'] = (string)(int)$reqId;
+  }
+  if ($reqUsername !== '') {
+    $q['username'] = $reqUsername;
+  }
+  if ($reqFriendCode !== '') {
+    $q['friend_code'] = $reqFriendCode;
+  }
+  return 'profile.php?' . http_build_query($q);
+};
+
+// Tags tab = posts where this profile user was @tagged / people-tagged (Talsora).
 $tagsGrid = [];
 try {
   msb_post_tags_ensure_schema($dbh);
@@ -2258,8 +2580,9 @@ foreach ($tagsGrid as $it) {
 
 $savedGrid = [];
 $savedGridIds = [];
-if ($profileShowSavedTab) {
-  foreach (msb_bookmark_fetch_posts($dbh, (int)$viewId, 200) as $savedPost) {
+if ($profileShowSavedTab || ($profileShowGearTab && !empty($canManageProfilePrivate))) {
+  $savedBookmarkPosts = msb_bookmark_fetch_posts($dbh, (int)$viewId, 200);
+  foreach ($savedBookmarkPosts as $savedPost) {
     $pid = (int)($savedPost['id'] ?? 0);
     if ($pid <= 0) {
       continue;
@@ -2283,9 +2606,9 @@ if ($profileShowSavedTab) {
       'atype' => $thumbType,
       'thumb' => $thumb,
       'file_path' => $filePath,
-      'views_count' => 0,
-      'comment_count' => 0,
-      'love_count' => 0,
+      'views_count' => (int)($savedPost['views_count'] ?? 0),
+      'comment_count' => (int)($savedPost['comment_count'] ?? 0),
+      'love_count' => (int)($savedPost['love_count'] ?? 0),
       'visibility' => 'public',
       'category_name' => '',
     ];
@@ -2425,9 +2748,9 @@ if (!function_exists('profile_render_post_grid_items')) {
           <div class="ig-tag-pill" title="Category"><?php echo h($categoryName); ?></div>
         <?php endif; ?>
         <div class="react-overlay" aria-label="Reacts">
-          <div class="react-btn" title="Love"><i class="icon ion-heart"></i> <span class="n"><?php echo $loveC; ?></span></div>
-          <div class="react-btn" title="Comment"><i class="icon ion-chatbubble"></i> <span class="n"><?php echo $comC; ?></span></div>
-          <div class="react-btn" title="Views"><i class="icon ion-eye"></i> <span class="vnum"><?php echo $viewsC; ?></span></div>
+          <button type="button" class="react-btn" data-act="love" title="Love" aria-label="Love"><i class="icon ion-heart"></i> <span class="n"><?php echo $loveC; ?></span></button>
+          <button type="button" class="react-btn" data-act="comment" title="Comment" aria-label="Comment"><i class="icon ion-chatbubble"></i> <span class="n"><?php echo $comC; ?></span></button>
+          <button type="button" class="react-btn" data-act="views" title="Views" aria-label="Views"><i class="icon ion-eye"></i> <span class="vnum"><?php echo $viewsC; ?></span></button>
         </div>
       </a>
       <?php if ($canUnsave): ?>
@@ -2543,9 +2866,11 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   ], JSON_UNESCAPED_SLASHES);
   exit;
 }
+$profileFlowScrollTabs = ['gallery', 'posts', 'tags', 'about', 'saved', 'gear'];
+$profileIsFlowScroll = in_array($selectedTab, $profileFlowScrollTabs, true);
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"<?php echo $profileIsFlowScroll ? ' class="profile-flow-scroll"' : ''; ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -2576,6 +2901,32 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .ig-card{background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, #c0c2c4);overflow:visible;}
     html{
       --profile-cover-h: 450px;
+    }
+    @view-transition{
+      navigation:auto;
+    }
+    @keyframes msb-page-hold{
+      from{opacity:1;}
+      to{opacity:1;}
+    }
+    ::view-transition-old(root),
+    ::view-transition-new(root),
+    ::view-transition-old(msb-profile-cover),
+    ::view-transition-new(msb-profile-cover),
+    ::view-transition-old(msb-profile-head),
+    ::view-transition-new(msb-profile-head),
+    ::view-transition-old(msb-profile-tabs),
+    ::view-transition-new(msb-profile-tabs){
+      animation:msb-page-hold .01s linear both !important;
+    }
+    body.profile-page .profile-cover{
+      view-transition-name:msb-profile-cover;
+    }
+    body.profile-page .ig-profile-head{
+      view-transition-name:msb-profile-head;
+    }
+    body.profile-page .ig-tabs{
+      view-transition-name:msb-profile-tabs;
     }
     body.profile-page{
       overflow:hidden !important;
@@ -2642,6 +2993,9 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       margin:0 !important;
       border-radius:0 !important;
       overflow:hidden;
+      transform:translateZ(0);
+      -webkit-transform:translateZ(0);
+      backface-visibility:hidden;
       background:linear-gradient(135deg,#0f172a,#4338ca 55%,#7c3aed) !important;
     }
     body.profile-page .sh-pagebody > .profile-cover img,
@@ -2663,16 +3017,19 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     .ig-profile-head{
       flex:0 0 auto;
-      z-index:80;
+      z-index:2;
       position:relative;
       overflow:visible;
       background:transparent;
       border-bottom:0;
       box-shadow:none;
+      pointer-events:none;
     }
     .ig-profile-scroll{
       flex:1 1 auto;
       min-height:0;
+      position:relative;
+      z-index:6;
       border-left:1px solid var(--msb-palette-border, #c0c2c4);
       border-right:1px solid var(--msb-palette-border, #c0c2c4);
       box-sizing:border-box;
@@ -2681,6 +3038,129 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       -webkit-overflow-scrolling:touch;
       overscroll-behavior:contain;
       background-color:var(--msb-palette-bg, #f5f7fb);
+    }
+    body.profile-page .ig-profile-scroll{
+      width:630px;
+      max-width:100%;
+      margin-left:auto;
+      margin-right:auto;
+    }
+    html.profile-flow-scroll,
+    html:has(body.profile-page.profile-flow-scroll){
+      height:auto !important;
+      min-height:100%;
+      overflow-x:hidden !important;
+      overflow-y:auto !important;
+      scroll-behavior:auto !important;
+      overscroll-behavior-y:auto;
+    }
+    html.profile-flow-scroll body.profile-page.profile-flow-scroll,
+    body.profile-page.profile-flow-scroll{
+      height:auto !important;
+      max-height:none !important;
+      min-height:100%;
+      overflow-x:hidden !important;
+      overflow-y:visible !important;
+      scroll-behavior:auto !important;
+    }
+    body.profile-page.profile-flow-scroll .sh-mainpanel,
+    body.profile-page.profile-flow-scroll .sh-pagebody{
+      height:auto !important;
+      max-height:none !important;
+      overflow:visible !important;
+    }
+    body.profile-page.profile-flow-scroll .sh-pagebody{
+      overflow-x:hidden !important;
+      overflow-y:visible !important;
+      overscroll-behavior:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    body.profile-page.profile-flow-scroll .ig-wrap,
+    body.profile-page.profile-flow-scroll .ig-profile-shell{
+      flex:0 0 auto;
+      min-height:auto;
+      height:auto;
+      max-height:none;
+      overflow:visible;
+    }
+    body.profile-page.profile-flow-scroll .ig-profile-scroll{
+      flex:0 0 auto;
+      display:flex;
+      flex-direction:column;
+      min-height:calc(100vh - var(--profile-cover-h, 450px));
+      height:auto;
+      max-height:none;
+      overflow:visible !important;
+      box-sizing:border-box;
+    }
+    body.profile-page.profile-gear-mode.profile-flow-scroll .ig-profile-shell,
+    body.profile-page.profile-gear-mode.profile-flow-scroll .ig-profile-scroll{
+      overflow:visible !important;
+    }
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active{
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      min-width:0;
+      width:100%;
+      max-width:100%;
+      overflow-x:hidden !important;
+      overflow-y:visible !important;
+    }
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-wrap,
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-shell{
+      flex:1 1 auto;
+      display:flex;
+      align-items:stretch;
+      height:auto !important;
+      max-height:none !important;
+      min-height:0;
+      min-width:0;
+      max-width:100%;
+      width:100%;
+      overflow-x:hidden !important;
+      overflow-y:visible !important;
+    }
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-row-pane,
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-row-pane .gear-row-group:not([hidden]),
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-row-pane .gear-nav-items,
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-main,
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-shell.is-archive-open #gearArchiveEmbed,
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-shell.is-favorites-open #gearFavoritesEmbed{
+      align-self:stretch;
+      min-width:0;
+      min-height:0;
+      max-height:none;
+      overflow-x:hidden !important;
+      overflow-y:visible !important;
+    }
+    body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-main{
+      flex:1 1 auto;
+      max-width:100%;
+    }
+    body.profile-page.profile-gear-mode.profile-flow-scroll .gear-sidebar,
+    body.profile-page.profile-gear-mode.profile-flow-scroll .gear-edit-pane,
+    body.profile-page.profile-gear-mode.profile-flow-scroll .gear-edit-pane.is-open{
+      min-height:calc(100vh - var(--profile-cover-h, 450px) - 20px);
+      height:auto !important;
+      max-height:none !important;
+      overflow:visible !important;
+    }
+    body.profile-page.profile-gear-mode.profile-flow-scroll .gear-sidebar .gear-nav{
+      overflow:visible !important;
+      flex:0 0 auto;
+      min-height:0;
+    }
+    @media (max-width: 768px){
+      body.profile-page.profile-flow-scroll .ig-profile-scroll{
+        min-height:calc(100vh - 66px - var(--profile-cover-h, 250px));
+      }
+      body.profile-page.profile-gear-mode.profile-flow-scroll .gear-sidebar,
+      body.profile-page.profile-gear-mode.profile-flow-scroll .gear-edit-pane,
+      body.profile-page.profile-gear-mode.profile-flow-scroll .gear-edit-pane.is-open{
+        min-height:calc(100vh - 66px - var(--profile-cover-h, 250px) - 20px);
+      }
     }
     .ig-top{
       display:block;
@@ -2789,6 +3269,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     body.profile-page .profile-cover-slides{
       position:absolute;
       inset:0;
+      overflow:hidden;
     }
     body.profile-page .profile-cover-slide{
       position:absolute;
@@ -2797,12 +3278,20 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       height:100%;
       object-fit:cover;
       opacity:0;
-      transition:opacity .45s ease;
+      transform:none !important;
+      transition:opacity 1.15s ease-in-out;
       pointer-events:none;
+      z-index:0;
     }
     body.profile-page .profile-cover-slide.is-active{
       opacity:1;
       z-index:1;
+    }
+    body.profile-page .profile-cover-slide.is-sliding{
+      z-index:2;
+    }
+    @media (prefers-reduced-motion:reduce){
+      body.profile-page .profile-cover-slide{transition:none}
     }
     body.profile-page .profile-cover-empty{
       position:absolute;
@@ -2813,8 +3302,9 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       top:50%;
       transform:translateY(-50%);
       z-index:7;
-      width:40px;
-      height:40px;
+      width:44px;
+      height:72px;
+      touch-action:manipulation;
       border:0 !important;
       border-radius:0 !important;
       background:transparent !important;
@@ -2860,6 +3350,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       border-radius:50%;
       background:rgba(255,255,255,.45);
       cursor:pointer;
+      transition:width .6s ease-in-out, border-radius .6s ease-in-out, background .35s ease;
     }
     body.profile-page .profile-cover-dots button.is-active{
       width:16px;
@@ -2891,6 +3382,15 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       display:flex;
       flex-direction:column;
       align-items:flex-start;
+      pointer-events:none;
+    }
+    .ig-avatar-col a,
+    .ig-avatar-col button,
+    .ig-avatar-col .ig-btn,
+    .ig-avatar-col input,
+    .ig-avatar-col .people-tag-link,
+    .ig-avatar-col .about-link{
+      pointer-events:auto;
     }
     .ig-avatar{
       position:relative;
@@ -3040,8 +3540,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .ig-avatar-col a.ig-pin-value:hover{text-decoration:underline;}
     .ig-profile-rail{
       position:absolute;
-      right:max(-312px, calc((100% - (100vw - var(--feedRailW, 84px))) / 2 + 16px));
-      top:8px;
+      right:max(-268px, calc((100% - (100vw - var(--feedRailW, 84px))) / 2 + 16px));
+      top:20px;
       width:280px;
       max-height:min(78vh, calc(100vh - 96px));
       overflow-y:auto;
@@ -3054,8 +3554,12 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       overscroll-behavior:contain;
       -webkit-overflow-scrolling:touch;
       scrollbar-width:thin;
-      pointer-events:auto;
+      pointer-events:none;
       background:transparent;
+    }
+    .ig-profile-rail a,
+    .ig-profile-rail button{
+      pointer-events:auto;
     }
     .ig-rail-card{
       background:var(--msb-palette-bg, #f5f7fb);
@@ -3165,7 +3669,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       font-weight:600;
       color:var(--msb-palette-text-muted, #98a2b3);
     }
-    .ig-rail-videos{display:flex;flex-direction:column;gap:12px;}
+    .ig-rail-videos{display:flex;flex-direction:column;gap:0;}
     .ig-rail-video{
       display:flex;
       align-items:center;
@@ -3173,6 +3677,17 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       text-decoration:none;
       color:inherit;
       min-width:0;
+      padding:12px 0;
+    }
+    .ig-rail-video:first-child{padding-top:0;}
+    .ig-rail-video:last-child{padding-bottom:0;}
+    .ig-rail-video-rule{
+      flex:0 0 1px;
+      height:1px;
+      width:100%;
+      margin:0;
+      border:0;
+      background:var(--msb-hairline, #d3d3d3);
     }
     .ig-rail-thumb{
       position:relative;
@@ -3284,7 +3799,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color:var(--msb-palette-text, #0b1220);
     }
 
-    .ig-highlights{display:flex;align-items:center;padding:8px 26px 12px;overflow:hidden;}
+    .ig-highlights{display:flex;align-items:center;padding:8px 15px 5px;overflow:hidden;}
     .ig-stories-track{
       display:flex;
       align-items:center;
@@ -3363,10 +3878,30 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .ig-story-empty{
-      font-size:13px;
-      color:#667085;
-      padding:18px 4px 8px;
+    .ig-story-item.ig-story-empty{
+      cursor:default;
+      pointer-events:none;
+    }
+    .ig-story-ring-empty{
+      background:rgba(15,23,42,.08) !important;
+      padding:0 !important;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .ig-story-empty-icon{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      height:100%;
+      border-radius:50%;
+      border:2px solid var(--msb-palette-bg, #f5f7fb);
+      background:var(--msb-palette-hover-bg, #f2f4f7);
+      box-sizing:border-box;
+      color:var(--msb-palette-text-muted, #667085);
+      font-size:18px;
+      line-height:1;
     }
     .ig-story-create .ig-story-ring{
       background:rgba(15,23,42,.08);
@@ -3379,7 +3914,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color:#667085;
     }
 
-    .ig-tabs{border-top:1px solid var(--msb-palette-border, #c0c2c4);display:flex;justify-content:center;align-items:stretch;gap:4px;padding:2px 8px 0;flex-wrap:wrap;background:var(--msb-palette-bg, #f5f7fb);}
+    .ig-tabs{position:relative;z-index:110;border-top:1px solid var(--msb-palette-border, #c0c2c4);border-bottom:1px solid var(--msb-hairline, #d3d3d3);display:flex;justify-content:center;align-items:stretch;gap:4px;padding:2px 8px 0;flex-wrap:wrap;background:var(--msb-palette-bg, #f5f7fb);}
     .ig-tab{
       position:relative;
       display:flex;
@@ -3403,6 +3938,14 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       cursor:pointer;
       user-select:none;
       box-sizing:border-box;
+      text-decoration:none;
+    }
+    a.ig-tab,
+    a.ig-tab:hover,
+    a.ig-tab:focus,
+    a.ig-tab:visited{
+      color:inherit;
+      text-decoration:none;
     }
     .ig-tab:hover,
     .ig-tab:focus{
@@ -3467,7 +4010,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] .ig-tab.active::after{
       background:var(--msb-palette-text, #f3f6fb);
     }
-    /* Match feed "For You" active underline (pill bar), beat appearance !important. */
+    /* Match feed "Circle" active underline (pill bar), beat appearance !important. */
     html body.profile-page .ig-tab.active,
     html[data-msb-appearance] body.profile-page .ig-tab.active,
     html.msb-palette-active body.profile-page .ig-tab.active,
@@ -3497,7 +4040,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       pointer-events:none!important;
       display:block!important;
     }
-    .ig-gallery-filter{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 26px 12px;flex-wrap:wrap;}
+    .ig-gallery-filter{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 6px 5px;flex-wrap:wrap;}
     .ig-gallery-search{display:flex;align-items:center;gap:10px;flex:1 1 320px;min-width:260px;}
     .ig-gallery-search input{width:100%;height:40px;border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.14));background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);padding:0 12px;font-weight:700;}
     .ig-gallery-search button{height:40px;padding:0 14px;border:1px solid var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));background:var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));color:var(--msb-palette-btn-text,#ffffff);font-weight:800;cursor:pointer;}
@@ -3522,7 +4065,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
 
     /* Desktop: 3 cols | Mobile/Tablet: 2 cols */
-    .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 26px 26px;--post-media-radius:10px;}
+    .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 5px 26px;--post-media-radius:10px;}
     @media (max-width: 992px){ .ig-grid{grid-template-columns:repeat(2,1fr);} }
 
     /* Gallery visibility tabs — compact group near center. */
@@ -3610,20 +4153,21 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     .ig-saved-remove:disabled{opacity:.55;cursor:wait;}
     .ig-saved-remove i{font-size:16px;line-height:1;margin:0;}
-    html body dialog#savedRemoveDialog.saved-remove-dialog{
-      position:fixed !important;inset:0 !important;z-index:2147483647 !important;
-      display:none !important;width:min(430px,calc(100vw - 32px)) !important;
-      min-width:0 !important;max-width:430px !important;height:max-content !important;
-      min-height:0 !important;max-height:calc(100dvh - 32px) !important;
-      margin:auto !important;padding:30px !important;overflow:auto !important;
-      border:1px solid var(--msb-palette-border,rgba(148,163,184,.28)) !important;
-      border-radius:22px !important;background:var(--msb-palette-surface,#fff) !important;
-      color:var(--msb-palette-text,#111827) !important;box-shadow:0 28px 80px rgba(0,0,0,.38) !important;
-      text-align:center !important;box-sizing:border-box !important;transform:none !important;
+    html body .saved-remove-dialog{
+      position:fixed !important;inset:0 !important;z-index:2147483646 !important;
+      display:none;align-items:center;justify-content:center;
+      padding:16px;box-sizing:border-box;
+      background:rgba(15,23,42,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
     }
-    html body dialog#savedRemoveDialog.saved-remove-dialog[open]{display:block !important}
-    html body dialog#savedRemoveDialog.saved-remove-dialog::backdrop{
-      background:rgba(15,23,42,.62) !important;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)
+    html body .saved-remove-dialog[hidden]{display:none !important}
+    html body .saved-remove-dialog.is-open{display:flex !important}
+    html body .saved-remove-dialog .saved-remove-card{
+      position:relative;width:min(430px,calc(100vw - 32px));
+      max-height:calc(100dvh - 32px);overflow:auto;
+      margin:0;padding:30px;border:1px solid var(--msb-palette-border,rgba(148,163,184,.28));
+      border-radius:22px;background:var(--msb-palette-surface,#fff);
+      color:var(--msb-palette-text,#111827);box-shadow:0 28px 80px rgba(0,0,0,.38);
+      text-align:center;box-sizing:border-box;
     }
     #savedRemoveDialog .saved-remove-dialog-close{
       position:absolute !important;top:12px !important;right:14px !important;left:auto !important;
@@ -3666,7 +4210,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     #savedRemoveDialog .saved-remove-dialog-confirm:disabled{opacity:.65 !important;cursor:wait !important}
     @media(max-width:575.98px){
-      html body dialog#savedRemoveDialog.saved-remove-dialog{padding:28px 22px 22px !important}
+      html body .saved-remove-dialog .saved-remove-card{padding:28px 22px 22px !important}
       #savedRemoveDialog h2{font-size:19px !important}
     }
     .ig-item{position:relative;width:100%;aspect-ratio:1/1;background:#eef2f7;overflow:hidden;border:1px solid rgba(15,23,42,.06);text-decoration:none;}
@@ -3698,7 +4242,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .ig-metrics .m i{font-size:16px}
     .ig-metrics .m .n{font-size:12px;font-weight:900;line-height:1;min-width:10px;text-align:left;opacity:.98}
 
-    /* ✅ React overlay (desktop hover only) */
+    /* Desktop hover: love, comment, and views show on the tile, then hide. */
     .react-overlay{
       position:absolute;inset:0;z-index:8;
       background:rgba(2,8,23,.58);
@@ -3707,15 +4251,26 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       display:flex;align-items:center;justify-content:center;
       gap:10px;padding:10px;
     }
-    .ig-item:hover .react-overlay{opacity:1;pointer-events:auto;}
+    .ig-item:hover .react-overlay,
+    .ig-item:focus-within .react-overlay{
+      opacity:1;pointer-events:auto;
+    }
+    .ig-archive-tile:hover .react-overlay,
+    .ig-archive-tile:focus-visible .react-overlay{
+      opacity:1;
+    }
 
     .react-btn{
       display:flex;align-items:center;gap:7px;
-      padding:10px 12px;border-radius:999px;
-      background:rgba(255,255,255,.12);color:#fff;
+      padding:8px 10px;border-radius:999px;
+      background:rgba(255,255,255,.16);color:#fff;
       font-weight:900;font-size:12px;
       border:1px solid rgba(255,255,255,.14);
       user-select:none;
+      pointer-events:auto;
+      cursor:pointer;
+      position:relative;
+      z-index:9;
     }
     .react-btn i{font-size:16px}
     .react-btn .n{font-size:12px;font-weight:900;min-width:10px;text-align:left;}
@@ -3859,6 +4414,16 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       background:var(--msb-palette-bg, #111827);
       background-image:none;
     }
+    #panel-saved .ig-grid,
+    #gearFavoritesEmbed .ig-grid{padding-top:8px;}
+    html.dark-auto #panel-saved .ig-item.no-media .txtdesc,
+    html[data-theme="dark"] #panel-saved .ig-item.no-media .txtdesc,
+    html.dark-auto #gearFavoritesEmbed .ig-item.no-media .txtdesc,
+    html[data-theme="dark"] #gearFavoritesEmbed .ig-item.no-media .txtdesc{
+      background:linear-gradient(180deg,#2a2a2a 0%,#111 100%);
+      background-image:none;
+      border-color:rgba(255,255,255,.06);
+    }
 
     .ig-empty{padding:22px 26px 26px;color:#667085;font-weight:700;font-size:13px;}
     .mf-feed-empty{
@@ -3888,7 +4453,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     #panel-gallery .mf-feed-empty,
     #panel-tags .mf-feed-empty,
-    #panel-saved .mf-feed-empty{
+    #panel-saved .mf-feed-empty,
+    #gearFavoritesEmbed .mf-feed-empty{
       min-height:min(360px, calc(100vh - 420px));
     }
 
@@ -3970,10 +4536,9 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       padding-top:10px;
       background-color:var(--msb-palette-bg, #f5f7fb);
     }
+    .ig-story-item:focus,
     .ig-story-item:focus-visible{
-      outline:2px solid rgba(37,99,235,.35);
-      outline-offset:3px;
-      border-radius:8px;
+      outline:none;
     }
     .ig-story-item.is-viewing .ig-story-ring{
       box-shadow:0 0 0 2px #fff, 0 0 0 4px #2563eb;
@@ -4023,14 +4588,16 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     #profilePostsFeed .mf-media-slides,
     #profilePostsFeed .media-slides{
-      display:flex;
-      flex-wrap:nowrap;
+      display:grid;
+      grid-template-areas:"fade";
       width:100%;
-      transition:transform .28s ease;
+      transform:none !important;
+      transition:none;
     }
     #profilePostsFeed .mf-media-slide,
     #profilePostsFeed .media-slide{
-      flex:0 0 100%;
+      grid-area:fade;
+      flex:none;
       width:100%;
       max-width:100%;
       display:flex;
@@ -4038,6 +4605,16 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       justify-content:flex-start;
       overflow:hidden;
       background:transparent;
+      opacity:0;
+      transition:opacity .7s ease-in-out;
+      pointer-events:none;
+      z-index:0;
+    }
+    #profilePostsFeed .mf-media-slide.is-active,
+    #profilePostsFeed .media-slide.is-active{
+      opacity:1;
+      pointer-events:auto;
+      z-index:1;
     }
     #profilePostsFeed .mf-media-slide > img,
     #profilePostsFeed .media-slide > img{
@@ -4564,73 +5141,97 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 
 
 
+    .profile-gear-stage{display:contents;}
     .gear-wrap{padding:0;background:var(--msb-palette-bg, #f5f7fb);background-image:none;min-height:480px;}
-    .gear-shell{display:flex;align-items:stretch;min-height:480px;border:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);overflow:hidden;}
-    .gear-sidebar{width:min(320px, 38vw);flex:0 0 min(320px, 38vw);border-right:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-    .gear-sidebar-head{flex:0 0 auto;padding:22px 18px 14px;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);}
-    .gear-sidebar-title{font-size:22px;font-weight:900;color:var(--msb-palette-text, #0b1220);line-height:1.15;margin:0;}
+    .gear-shell{display:flex;align-items:stretch;min-height:480px;border:0;background:transparent;overflow:hidden;}
+    .gear-sidebar{display:none;flex-direction:column;min-height:0;overflow:visible;background:transparent;}
+    .gear-sidebar-head{flex:0 0 auto;padding:5px 0 5px;background:transparent;position:relative;z-index:2;}
+    .gear-sidebar-title{font-size:17px;font-weight:800;letter-spacing:-.02em;color:var(--msb-palette-text, #0b1220);line-height:1.2;margin:0;}
     .gear-archive-shortcut{
+      width:100%;
       display:flex;
       align-items:center;
-      gap:10px;
-      margin-top:12px;
-      padding:11px 12px;
-      border-radius:12px;
-      border:1px solid var(--msb-palette-border-strong, rgba(79,70,229,.22));
-      background:var(--msb-palette-action-soft, #eef2ff);
-      color:var(--msb-palette-action, #4338ca);
+      gap:8px;
+      margin-top:0;
+      padding:10px 12px;
+      border-radius:6px;
+      border:0;
+      background:transparent;
+      color:var(--msb-palette-text, #0b1220);
       text-decoration:none;
       font-size:13px;
-      font-weight:900;
+      font-weight:600;
+      cursor:pointer;
+      font-family:inherit;
+      text-align:left;
+      -webkit-appearance:none;
+      appearance:none;
     }
     .gear-archive-shortcut:hover,
     .gear-archive-shortcut:focus{
       text-decoration:none;
-      color:var(--msb-palette-action-strong, #3730a3);
-      background:var(--msb-palette-nav-hover, #e0e7ff);
+      color:var(--msb-palette-text, #0b1220);
+      background:rgba(15,23,42,.06);
     }
-    .gear-archive-shortcut i{font-size:18px;}
+    .gear-archive-shortcut i{font-size:15px;}
     .gear-search{width:100%;height:40px;border-radius:999px;border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.12));background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:700;padding:0 14px 0 38px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='16.65' y1='16.65' x2='21' y2='21'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:14px center;}
     .gear-search:focus{border-color:#4f46e5;box-shadow:0 0 0 4px rgba(79,70,229,.12);}
-    .gear-search-wrap{display:none;margin-left:auto;flex:1 1 240px;max-width:min(360px, 42vw);min-width:180px;}
-    body.profile-page.profile-gear-mode .gear-search-wrap{display:block;}
+    .gear-search-wrap{display:none !important;}
     .gear-search--head{width:100%;}
-    .gear-nav{flex:1 1 0;min-height:0;max-height:min(480px, 52vh);overflow-y:auto;overflow-x:hidden;padding:8px 10px 16px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(79,70,229,.35) transparent;}
+    .gear-nav{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:8px 10px 16px;scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.25) transparent;}
     .gear-nav::-webkit-scrollbar{width:8px;}
     .gear-nav::-webkit-scrollbar-thumb{background:rgba(79,70,229,.28);border-radius:999px;}
     .gear-nav::-webkit-scrollbar-track{background:transparent;}
-    .gear-nav-section{margin-bottom:4px;}
-    .gear-nav-section-toggle{width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));background:var(--msb-palette-action-soft, var(--msb-palette-hover-bg, rgba(15,23,42,.05)));color:var(--msb-palette-text, #0b1220);font-size:14px;font-weight:900;text-align:left;cursor:pointer;flex:0 0 auto;}
-    .gear-nav-section-toggle:hover,.gear-nav-section-toggle:focus{background:var(--msb-palette-nav-hover, var(--msb-palette-hover-bg, rgba(15,23,42,.08)));}
-    .gear-nav-section-icon{width:34px;height:34px;border-radius:10px;background:var(--msb-palette-nav-active-bg, var(--msb-palette-action-soft, #eef2ff));color:var(--msb-palette-action, var(--msb-palette-link, #4338ca));display:flex;align-items:center;justify-content:center;flex:0 0 34px;}
-    .gear-nav-section-icon i{font-size:18px;}
-    .gear-nav-section-label{flex:1 1 auto;min-width:0;}
-    .gear-nav-section-chevron{color:var(--msb-palette-text-muted, #98a2b3);font-size:14px;transition:transform .18s ease;}
-    .gear-nav-section.is-open .gear-nav-section-chevron{transform:rotate(180deg);}
-    .gear-nav-items{display:none;padding:2px 0 6px 44px;position:relative;z-index:1;}
-    .gear-nav-section.is-open .gear-nav-items{display:block;max-height:min(320px, 42vh);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(79,70,229,.35) transparent;}
+    .gear-nav-section{margin-bottom:2px;}
+    .gear-nav-section-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0;border-radius:0;background:transparent;color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:600;text-align:left;cursor:pointer;flex:0 0 auto;-webkit-appearance:none;appearance:none;}
+    .gear-nav-section-toggle:hover,.gear-nav-section-toggle:focus{background:rgba(15,23,42,.06);border-radius:6px;}
+    .gear-nav-section-icon{width:16px;height:16px;border-radius:0;background:transparent;color:var(--msb-palette-text, #0b1220);display:flex;align-items:center;justify-content:center;flex:0 0 16px;}
+    .gear-nav-section-icon i{font-size:15px;}
+    .gear-nav-section-label{flex:1 1 auto;min-width:0;white-space:normal;overflow:visible;}
+    .gear-nav-section-chevron{display:none;}
+    .gear-nav-section.is-open .gear-nav-section-toggle{
+      background:rgba(15,23,42,.08);
+      color:var(--msb-palette-text, #0b1220);
+      border:0;
+      border-radius:8px;
+    }
+    .gear-row-pane{width:min(280px, 42%);flex:0 0 min(280px, 42%);border-right:0;background:transparent;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;}
+    .gear-row-empty{padding:16px 12px;text-align:center;color:var(--msb-palette-text-muted, #667085);font-size:12px;font-weight:600;line-height:1.45;}
+    .gear-row-group{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+    .gear-row-group[hidden]{display:none !important;}
+    .gear-row-group-title{flex:0 0 auto;margin:0;padding:10px 12px 8px;font-size:15px;font-weight:600;color:var(--msb-palette-text-muted, #8a919c);}
+    .gear-row-group-intro{flex:0 0 auto;margin:0;padding:0 12px 8px;font-size:11px;font-weight:500;line-height:1.4;color:var(--msb-palette-text-muted, #8a919c);}
+    .gear-archive-detail{display:flex;flex-direction:column;gap:12px;max-width:420px;}
+    .gear-archive-detail-media{width:100%;max-height:280px;object-fit:cover;border-radius:12px;background:#0f172a;}
+    .gear-archive-detail-text{margin:0;font-size:14px;line-height:1.45;color:var(--msb-palette-text,#0b1220);}
+    .gear-archive-detail-time{margin:0;font-size:12px;font-weight:600;color:var(--msb-palette-text-muted,#8a919c);}
+    .gear-archive-page-link{font-size:13px;font-weight:600;color:var(--msb-palette-link,#4338ca);text-decoration:none;}
+    .gear-archive-page-link:hover{text-decoration:underline;}
+    .gear-nav-items{display:block;padding:4px 8px 16px;position:relative;z-index:1;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.25) transparent;}
     .gear-nav-items::-webkit-scrollbar{width:8px;}
     .gear-nav-items::-webkit-scrollbar-thumb{background:rgba(79,70,229,.28);border-radius:999px;}
     .gear-nav-items::-webkit-scrollbar-track{background:transparent;}
-    .gear-nav-item{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;border:0;border-radius:10px;background:transparent;color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:800;text-align:left;cursor:pointer;position:relative;z-index:2;}
-    .gear-nav-item:hover,.gear-nav-item:focus{background:var(--msb-palette-hover-bg, rgba(15,23,42,.05));}
-    .gear-nav-item.is-active{background:var(--msb-palette-nav-active, rgba(79,70,229,.12));color:var(--msb-palette-link, #4338ca);}
-    .gear-nav-item-meta{font-size:11px;font-weight:700;color:var(--msb-palette-text-muted, #667085);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .gear-nav-item.is-active .gear-nav-item-meta{color:var(--msb-palette-link, #4338ca);opacity:.85;}
-    .gear-main{flex:1 1 auto;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 28px 30px;background:var(--msb-palette-bg, #f5f7fb);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(79,70,229,.35) transparent;}
+    .gear-nav-item{width:100%;display:flex;flex-direction:row;align-items:center;gap:8px;padding:10px 12px;border:0;border-radius:0;background:transparent;color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:600;text-align:left;cursor:pointer;position:relative;z-index:2;-webkit-appearance:none;appearance:none;}
+    .gear-nav-item:hover,.gear-nav-item:focus{background:rgba(15,23,42,.06);border-radius:6px;}
+    .gear-nav-item.is-active{background:rgba(15,23,42,.08);color:var(--msb-palette-text, #0b1220);border-radius:6px;}
+    .gear-nav-item-icon{width:16px;height:16px;flex:0 0 16px;display:flex;align-items:center;justify-content:center;background:transparent;color:inherit;}
+    .gear-nav-item-icon i{font-size:15px;}
+    .gear-nav-item-meta{margin-left:auto;font-size:11px;font-weight:500;color:var(--msb-palette-text-muted, #8a919c);line-height:1.3;flex:0 0 auto;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;-webkit-line-clamp:unset;}
+    .gear-nav-item.is-active .gear-nav-item-meta{color:var(--msb-palette-text-muted, #8a919c);opacity:1;}
+    .gear-main{flex:1 1 auto;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 12px 16px;background:transparent;border:0;border-left:1px solid var(--msb-hairline, #d3d3d3);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.25) transparent;}
     .gear-main::-webkit-scrollbar{width:10px;}
     .gear-main::-webkit-scrollbar-thumb{background:rgba(79,70,229,.24);border-radius:999px;border:2px solid transparent;background-clip:padding-box;}
     .gear-main::-webkit-scrollbar-track{background:transparent;}
-    .gear-detail-empty{display:flex;align-items:center;justify-content:center;min-height:320px;padding:24px;text-align:center;color:var(--msb-palette-text-muted, #667085);font-size:14px;font-weight:700;}
+    .gear-detail-empty{display:flex;align-items:center;justify-content:center;min-height:180px;padding:16px;text-align:center;color:var(--msb-palette-text-muted, #667085);font-size:12px;font-weight:600;}
     .gear-detail-panel{display:none !important;}
     .gear-detail-panel.is-active{display:block !important;}
     .gear-detail-panel[hidden]{display:none !important;}
-    .gear-detail-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);}
-    .gear-detail-icon{width:52px;height:52px;border-radius:16px;background:var(--msb-palette-hover-bg, #eef2ff);color:var(--msb-palette-link, #4338ca);display:flex;align-items:center;justify-content:center;flex:0 0 52px;}
-    .gear-detail-icon i{font-size:24px;}
-    .gear-detail-title{font-size:20px;font-weight:900;color:var(--msb-palette-text, #0b1220);line-height:1.2;margin:0 0 6px;}
-    .gear-detail-desc{font-size:13px;color:var(--msb-palette-text-muted, #667085);font-weight:700;line-height:1.55;margin:0;}
-    .gear-detail-chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;}
+    .gear-detail-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;padding:2px 0 8px;border-bottom:0;}
+    .gear-detail-icon{width:16px;height:16px;border-radius:0;background:transparent;color:var(--msb-palette-text, #0b1220);display:flex;align-items:center;justify-content:center;flex:0 0 16px;padding-top:1px;}
+    .gear-detail-icon i{font-size:15px;}
+    .gear-detail-title{font-size:13px;font-weight:600;color:var(--msb-palette-text, #0b1220);line-height:1.25;margin:0 0 3px;}
+    .gear-detail-desc{font-size:12px;color:var(--msb-palette-text-muted, #8a919c);font-weight:500;line-height:1.4;margin:0;max-width:100%;white-space:normal;overflow-wrap:break-word;}
+    .gear-detail-chips{display:none;}
     .gear-chip{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;background:var(--msb-palette-hover-bg, #eef2ff);color:var(--msb-palette-link, #4338ca);font-size:11px;font-weight:900;letter-spacing:.02em;}
     .gear-detail-body{max-width:640px;}
     .gear-detail-panel:has(.dz-wrap) .gear-detail-body{
@@ -4642,26 +5243,26 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       container-type:inline-size;
       container-name:dzpane;
     }
-    .dz-wrap{display:flex;flex-direction:column;gap:10px;width:100%;min-width:0;overflow:hidden;}
-    .dz-lead{margin:0 0 4px;font-size:13px;line-height:1.5;color:var(--msb-palette-text-muted,#667085);}
+    .dz-wrap{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0;overflow:hidden;}
+    .dz-lead{margin:0 0 4px;font-size:12px;line-height:1.45;color:var(--msb-palette-text-muted,#667085);}
     .dz-card{
       display:flex;
       flex-wrap:wrap;
       align-items:flex-start;
-      gap:14px 16px;
+      gap:10px 12px;
       width:100%;
       min-width:0;
       box-sizing:border-box;
-      padding:14px 16px;
+      padding:10px 12px;
       border:1px solid rgba(185,28,28,.28);
-      border-radius:14px;
+      border-radius:10px;
       background:var(--msb-palette-bg,transparent);
     }
     .dz-ico{
-      width:48px;height:48px;border-radius:50%;
+      width:32px;height:32px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      background:rgba(185,28,28,.12);color:#b91c1c;font-size:22px;
-      flex:0 0 48px;
+      background:rgba(185,28,28,.12);color:#b91c1c;font-size:15px;
+      flex:0 0 32px;
     }
     .dz-copy{
       flex:1 1 220px;
@@ -4669,33 +5270,33 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       width:auto;
       max-width:none;
     }
-    .dz-copy h4{margin:0 0 6px;font-size:15px;font-weight:800;color:#b91c1c;line-height:1.3;}
+    .dz-copy h4{margin:0 0 4px;font-size:13px;font-weight:800;color:#b91c1c;line-height:1.3;}
     .dz-copy p,.dz-copy li{
       margin:0;
-      font-size:13px;
-      line-height:1.5;
+      font-size:12px;
+      line-height:1.45;
       color:var(--msb-palette-text,#0b1220);
       white-space:normal;
       overflow-wrap:break-word;
       word-break:normal;
     }
-    .dz-copy p{margin:0 0 8px;}
-    .dz-copy ul{margin:0;padding-left:1.15em;font-size:13px;line-height:1.55;color:var(--msb-palette-text-muted,#667085);}
+    .dz-copy p{margin:0 0 6px;}
+    .dz-copy ul{margin:0;padding-left:1.15em;font-size:12px;line-height:1.45;color:var(--msb-palette-text-muted,#667085);}
     .dz-actions{
-      display:flex;flex-direction:column;align-items:stretch;gap:8px;
-      flex:0 1 168px;
-      min-width:140px;
+      display:flex;flex-direction:column;align-items:stretch;gap:6px;
+      flex:0 1 148px;
+      min-width:120px;
       max-width:100%;
     }
     .dz-btn{
       display:inline-flex;align-items:center;justify-content:center;
-      padding:9px 12px;border-radius:10px;border:1px solid #b91c1c;
-      color:#b91c1c;background:transparent;font-weight:800;font-size:13px;text-decoration:none;text-align:center;
-      white-space:normal;
+      padding:6px 12px;border-radius:999px;border:1px solid #b91c1c;
+      color:#b91c1c;background:transparent;font-weight:700;font-size:12px;text-decoration:none;text-align:center;
+      white-space:normal;font-family:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;width:100%;
     }
     .dz-btn:hover{background:rgba(185,28,28,.08);}
     .dz-btn-ghost{border-color:var(--msb-palette-border,#c0c2c4);color:var(--msb-palette-text,#0b1220);}
-    .dz-hint,.dz-off{font-size:12px;line-height:1.4;color:var(--msb-palette-text-muted,#667085);}
+    .dz-hint,.dz-off{font-size:11px;line-height:1.35;color:var(--msb-palette-text-muted,#667085);}
     .dz-foot{
       display:flex;gap:10px;align-items:flex-start;
       padding:12px 14px;border-radius:14px;
@@ -4703,30 +5304,55 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       color:#991b1b;font-size:13px;line-height:1.5;
     }
     .gear-detail-panel:has(.as-wrap) .gear-detail-body{max-width:760px;}
-    .as-wrap{display:flex;flex-direction:column;gap:14px;}
-    .as-lead,.as-empty,.as-add-copy{margin:0;font-size:13px;line-height:1.45;color:var(--msb-palette-text-muted,#667085);}
-    .as-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+    .as-wrap{display:flex;flex-direction:column;gap:10px;}
+    .as-lead,.as-empty,.as-add-copy{margin:0;font-size:12px;line-height:1.4;color:var(--msb-palette-text-muted,#667085);}
+    .as-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
     .as-row{
-      display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;
-      padding:10px 12px;border-radius:14px;border:1px solid var(--msb-palette-border,#c0c2c4);
+      display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:8px;align-items:center;
+      padding:8px 10px;border-radius:10px;border:1px solid var(--msb-palette-border,#c0c2c4);
       background:var(--msb-palette-bg,transparent);
     }
     .as-row.is-current{border-color:var(--msb-palette-link,#4338ca);}
-    .as-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--msb-palette-hover-bg,#eef2ff);}
-    .as-name{font-size:14px;font-weight:800;color:var(--msb-palette-text,#0b1220);}
-    .as-meta{font-size:12px;color:var(--msb-palette-text-muted,#667085);}
-    .as-using{font-size:11px;font-weight:800;color:var(--msb-palette-link,#4338ca);}
+    .as-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--msb-palette-hover-bg,#eef2ff);}
+    .as-name{font-size:13px;font-weight:700;color:var(--msb-palette-text,#0b1220);}
+    .as-meta{font-size:11px;color:var(--msb-palette-text-muted,#667085);}
+    .as-using{font-size:10px;font-weight:800;color:var(--msb-palette-link,#4338ca);}
     .as-btn{
       display:inline-flex;align-items:center;justify-content:center;
-      padding:8px 12px;border-radius:12px;border:1px solid var(--msb-palette-link,#4338ca);
-      color:var(--msb-palette-link,#4338ca);background:transparent;font-weight:800;font-size:13px;
+      padding:5px 10px;border-radius:999px;border:1px solid var(--msb-palette-link,#4338ca);
+      color:var(--msb-palette-link,#4338ca);background:transparent;font-weight:700;font-size:12px;
       text-decoration:none;cursor:pointer;
     }
     .as-btn:hover{background:var(--msb-palette-hover-bg,#eef2ff);}
     .as-btn-ghost{border-color:var(--msb-palette-border,#c0c2c4);color:var(--msb-palette-text,#0b1220);}
     .as-add{padding-top:6px;border-top:1px solid var(--msb-palette-border,#c0c2c4);}
-    .as-add-title{font-size:14px;font-weight:800;margin:0 0 4px;color:var(--msb-palette-text,#0b1220);}
+    .as-add-title{font-size:13px;font-weight:800;margin:0 0 4px;color:var(--msb-palette-text,#0b1220);}
     .as-add-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+    .as-logout-dialog{
+      width:min(360px, calc(100vw - 32px));
+      max-width:360px;
+      padding:20px 18px 16px;
+      border:1px solid var(--msb-palette-border, rgba(148,163,184,.28));
+      border-radius:14px;
+      background:var(--msb-palette-surface, var(--msb-palette-bg, #171d24));
+      color:var(--msb-palette-text, #f4f6fb);
+      box-shadow:0 18px 48px rgba(0,0,0,.4);
+      text-align:center;
+    }
+    .as-logout-dialog::backdrop{background:rgba(15,23,42,.62);backdrop-filter:blur(5px);}
+    .as-logout-dialog h2{margin:0 0 8px;font-size:16px;font-weight:800;line-height:1.3;color:inherit;}
+    .as-logout-dialog p{margin:0;font-size:13px;line-height:1.45;color:var(--msb-palette-text-muted, #98a2b3);}
+    .as-logout-actions{display:flex;gap:8px;margin-top:16px;}
+    .as-logout-actions .as-btn{flex:1 1 0;height:34px;}
+    .as-logout-dialog:focus,
+    .as-logout-dialog:focus-visible,
+    .as-logout-actions .as-btn:focus,
+    .as-logout-actions .as-btn:focus-visible{
+      outline:none !important;
+      box-shadow:none !important;
+    }
+    .as-logout-confirm{border-color:#dc2626;background:#dc2626;color:#fff;}
+    .as-logout-confirm:hover{background:#b91c1c;border-color:#b91c1c;}
     .dz-foot .icon{font-size:18px;flex:0 0 auto;}
     @container dzpane (max-width: 560px){
       .dz-actions{flex:1 1 100%;min-width:0;max-width:220px;}
@@ -4734,23 +5360,36 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     @media (max-width:900px){
       .dz-actions{flex:1 1 100%;max-width:220px;}
     }
-    .gear-detail-control-label{display:block;font-size:12px;font-weight:900;color:var(--msb-palette-text-muted, #667085);margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;}
-    .gear-detail-open-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:12px;background:var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));color:var(--msb-palette-btn-text,#ffffff);border:1px solid var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));text-decoration:none;font-size:14px;font-weight:900;-webkit-text-fill-color:var(--msb-palette-btn-text,#ffffff);}
+    .gear-detail-control-label{display:block;font-size:11px;font-weight:800;color:var(--msb-palette-text-muted, #667085);margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+    .gear-except{margin-top:12px;}
+    .gear-except-copy{margin:0 0 6px;font-size:12px;line-height:1.4;color:var(--msb-palette-text-muted,#667085);}
+    .gear-except-input{
+      width:100%;box-sizing:border-box;height:32px;padding:0 10px;border-radius:8px;
+      border:1px solid var(--msb-palette-border,#c0c2c4);background:var(--msb-palette-bg,#fff);
+      color:var(--msb-palette-text,#0b1220);font-size:13px;font-weight:600;
+    }
+    .gear-except-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;min-height:4px;}
+    .gear-except .msb-tag-chip{background:var(--msb-palette-hover-bg,#eef2ff);}
+    .gear-detail-open-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));color:var(--msb-palette-btn-text,#ffffff);border:1px solid var(--msb-palette-btn-bg,var(--msb-palette-action,#4338ca));text-decoration:none;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-text-fill-color:var(--msb-palette-btn-text,#ffffff);}
     .gear-detail-open-btn:hover,.gear-detail-open-btn:focus{text-decoration:none;background:var(--msb-palette-btn-hover-bg,var(--msb-palette-action-strong,#3730a3));color:var(--msb-palette-btn-text,#ffffff);border-color:var(--msb-palette-btn-hover-bg,var(--msb-palette-action-strong,#3730a3));-webkit-text-fill-color:var(--msb-palette-btn-text,#ffffff);}
     .gear-detail-open-btn i,.gear-detail-open-btn .icon,.gear-detail-open-btn [class*="ion-"]{color:var(--msb-palette-btn-text,#ffffff);}
     .gear-tag{display:inline-flex;align-items:center;justify-content:center;padding:5px 9px;border-radius:999px;background:var(--msb-palette-hover-bg, #f3f4f6);color:var(--msb-palette-text-muted, #475467);font-size:10px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;}
-    .gear-note{margin-top:16px;padding:12px 14px;border:1px dashed var(--msb-palette-border-strong, rgba(79,70,229,.24));background:var(--msb-palette-surface-2, #f8faff);color:var(--msb-palette-link, #4338ca);font-size:13px;font-weight:700;}
-    .gear-control-wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .gear-note{margin-top:12px;padding:6px 12px 8px 8px;border:0;background:transparent;color:var(--msb-palette-text-muted, #8a919c);font-size:11px;font-weight:500;line-height:1.45;max-width:100%;box-sizing:border-box;white-space:normal;overflow-wrap:break-word;word-wrap:break-word;}
+    .gear-legal-copy{max-width:560px;display:flex;flex-direction:column;gap:8px;padding-bottom:24px;}
+    .gear-legal-copy h4{margin:12px 0 0;font-size:13px;font-weight:800;line-height:1.35;color:var(--msb-palette-text, #0b1220);}
+    .gear-legal-copy h4:first-child{margin-top:0;}
+    .gear-legal-copy p{margin:0;font-size:13px;font-weight:500;line-height:1.55;color:var(--msb-palette-text, #0b1220);}
+    .gear-control-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
     .gear-control-wrap--detail{align-items:flex-start;flex-direction:column;}
-    .gear-control{width:100%;max-width:360px;min-width:180px;height:44px;border-radius:10px;border:1px solid var(--msb-palette-border-strong, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:13px;font-weight:800;padding:0 12px;outline:none;}
+    .gear-control{width:100%;max-width:360px;min-width:160px;height:32px;border-radius:8px;border:1px solid var(--msb-palette-border-strong, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:12px;font-weight:700;padding:0 10px;outline:none;}
     .gear-control:focus{border-color:#4f46e5;box-shadow:0 0 0 4px rgba(79,70,229,.12);}
     .gear-control-wrap--color{flex-direction:row;align-items:center;gap:12px;}
     .gear-progress-picker{
       width:100%;
       max-width:360px;
-      margin:0 0 14px;
-      padding:10px;
-      border-radius:12px;
+      margin:0 0 10px;
+      padding:8px;
+      border-radius:10px;
       border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.14));
       background:var(--msb-palette-surface-2, rgba(255,255,255,.55));
       box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);
@@ -4758,7 +5397,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-progress-sv{
       position:relative;
       width:100%;
-      height:200px;
+      height:140px;
       border-radius:8px;
       border:1px solid rgba(15,23,42,.12);
       overflow:hidden;
@@ -4908,15 +5547,15 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       letter-spacing:.02em;
     }
     .gear-progress-save-btn{
-      height:44px;
-      min-width:96px;
-      padding:0 18px;
-      border-radius:10px;
+      height:32px;
+      min-width:72px;
+      padding:0 12px;
+      border-radius:8px;
       border:1px solid var(--msb-palette-btn-bg, var(--msb-palette-action, #4338ca));
       background:var(--msb-palette-btn-bg, var(--msb-palette-action, #4338ca));
       color:var(--msb-palette-btn-text, #fff);
-      font-size:13px;
-      font-weight:900;
+      font-size:12px;
+      font-weight:800;
       cursor:pointer;
     }
     .gear-progress-save-btn:hover:not(:disabled),
@@ -4943,13 +5582,184 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .gear-save-state.is-error{color:#b42318;}
     @media (max-width: 991px){
       .gear-shell{flex-direction:column;min-height:0;}
-      .gear-sidebar{width:100%;flex:0 0 auto;min-height:0;max-height:none;border-right:0;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);}
-      .gear-nav{max-height:min(340px, 42vh);}
-      .gear-nav-section.is-open .gear-nav-items{max-height:min(280px, 36vh);}
-      .gear-main{padding:18px 16px 24px;}
+      .gear-row-pane{width:100%;flex:0 0 auto;max-height:min(280px, 36vh);border-right:0;border-bottom:1px solid var(--msb-palette-border, #c0c2c4);}
+      .gear-main{padding:10px 12px 16px;border-left:0;border-top:0;}
     }
 
-    body.profile-page.profile-gear-mode .ig-wrap,
+    body.profile-page.profile-gear-mode .gear-sidebar{
+      --gear-left-w: calc((100vw - var(--feedRailW, 84px) - 630px) / 2 - 16px);
+      display:flex;
+      position:absolute;
+      left:calc(-1 * var(--gear-left-w) + (100% - min(630px, 100%)) / 2);
+      top:8px;
+      width:var(--gear-left-w);
+      max-width:none;
+      height:calc(100vh - var(--profile-cover-h, 450px) - 20px);
+      max-height:calc(100vh - 88px);
+      overflow-x:hidden;
+      overflow-y:hidden;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+      z-index:86;
+      pointer-events:auto;
+      scrollbar-width:thin;
+      border:0;
+      border-right:1px solid var(--msb-hairline, #d3d3d3);
+    }
+    body.profile-page.profile-gear-mode .gear-edit-pane{
+      --gear-right-w: min(480px, max(300px, calc((100vw - var(--feedRailW, 84px) - 630px) / 2 - 16px)));
+      display:none;
+      flex-direction:column;
+      position:absolute;
+      right:calc(-1 * var(--gear-right-w) + (100% - min(630px, 100%)) / 2);
+      top:8px;
+      width:var(--gear-right-w);
+      height:calc(100vh - var(--profile-cover-h, 450px) - 20px);
+      max-height:calc(100vh - 88px);
+      overflow-x:hidden;
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+      z-index:86;
+      padding:4px 4px 24px 16px;
+      box-sizing:border-box;
+      background:var(--msb-palette-bg, #f5f7fb);
+      border-left:1px solid var(--msb-hairline, #d3d3d3);
+      scrollbar-width:thin;
+    }
+body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
+  display:flex !important;
+  overflow-x:hidden !important;
+  overflow-y:hidden !important;
+}
+    body.profile-page.profile-gear-mode .gear-edit-pane [data-gear-pane-view][hidden]{
+      display:none !important;
+    }
+    body.profile-page:not(.profile-gear-mode) .gear-edit-pane{
+      display:none !important;
+    }
+    .gear-edit-form{min-width:0;}
+    .gear-edit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:0 0 10px;}
+    .gear-edit-title{margin:0;font-size:16px;line-height:1.15;font-weight:800;letter-spacing:-.02em;color:var(--msb-palette-text, #0b1220);}
+    .gear-edit-sub{margin:6px 0 0;font-size:11px;line-height:1.4;color:var(--msb-palette-text-muted, #8a919c);font-weight:500;}
+    .gear-edit-sub a{color:#4338ca;text-decoration:none;font-weight:700;}
+    .gear-edit-sub a:hover{text-decoration:underline;}
+    .gear-edit-save{
+      flex:0 0 auto;height:28px;padding:0 12px;border:0;border-radius:7px;cursor:pointer;
+      background:#5b3fd4;color:#fff;font-size:12px;font-weight:700;font-family:inherit;
+    }
+    .gear-edit-save:hover{background:#5136c4;color:#fff;}
+    a.gear-edit-save{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:#fff;-webkit-text-fill-color:#fff;}
+    a.gear-edit-save:hover{text-decoration:none;color:#fff;}
+    .gear-safety-form .gear-edit-card{margin-bottom:10px;}
+    .gear-safety-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .gear-safety-stat{
+      padding:8px 10px;border-radius:8px;background:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb));border:1px solid var(--msb-palette-border-strong, #d3d3d3);color:var(--msb-palette-text, #0b1220);
+      display:flex;flex-direction:column;gap:2px;min-width:0;
+    }
+    .gear-safety-stat span{font-size:10px;font-weight:600;color:#8b949e;}
+    .gear-safety-stat b{font-size:16px;line-height:1.1;font-weight:800;color:#fff;}
+    .gear-safety-stat small{font-size:10px;color:#8b949e;font-weight:500;}
+    .gear-safety-list{display:grid;gap:8px;}
+    .gear-safety-row{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+      padding:8px 10px;border-radius:8px;background:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb));border:1px solid var(--msb-palette-border-strong, #d3d3d3);color:var(--msb-palette-text, #0b1220);
+    }
+    .gear-safety-row strong{display:block;font-size:12px;font-weight:700;color:var(--msb-palette-text, #0b1220);}
+    .gear-safety-row small{display:block;margin-top:3px;font-size:11px;font-weight:500;color:#8b949e;line-height:1.35;}
+    .gear-safety-row .gear-edit-save{height:26px;padding:0 10px;font-size:11px;flex:0 0 auto;}
+    .gear-devices-form .gear-device-form{margin-top:12px;}
+    .gear-device-row{align-items:center;}
+    .gear-logout-actions{margin-top:12px;}
+    .gear-edit-alert{border-radius:8px;padding:8px 10px;margin:0 0 10px;font-size:12px;font-weight:600;background:rgba(91,63,212,.12);color:#5b3fd4;}
+    .gear-edit-card{
+      background:transparent;border:1px solid var(--msb-hairline, #d3d3d3);
+      border-radius:10px;padding:10px 12px 12px;
+    }
+    .gear-edit-card h3{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--msb-palette-text, #0b1220);}
+    .gear-edit-fields{display:grid;gap:8px;}
+    .gear-edit-split{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .gear-edit-field{display:grid;gap:5px;min-width:0;}
+    .gear-edit-field label{font-size:11px;line-height:1;font-weight:600;color:var(--msb-palette-text-muted, #8a919c);}
+    .gear-edit-field input,
+    .gear-edit-field textarea,
+    .gear-edit-field select,
+    .gear-edit-pane .about-people-role,
+    .gear-edit-pane .about-people-mention{
+      width:100%;box-sizing:border-box;border-radius:8px;
+      border:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, #d3d3d3));
+      background:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb)) !important;
+      color:var(--msb-palette-text, #0b1220) !important;
+      font-size:13px;font-weight:500;outline:none;
+      box-shadow:none;
+      -webkit-appearance:none;appearance:none;
+      font-family:inherit;
+    }
+    .gear-edit-field input,
+    .gear-edit-field select,
+    .gear-edit-pane .about-people-role,
+    .gear-edit-pane .about-people-mention{height:32px;padding:0 10px;}
+    .gear-edit-field textarea{min-height:64px;padding:8px 10px;resize:vertical;line-height:1.45;}
+    .gear-edit-field input:focus,
+    .gear-edit-field textarea:focus,
+    .gear-edit-field select:focus,
+    .gear-edit-pane .about-people-role:focus,
+    .gear-edit-pane .about-people-mention:focus{
+      border-color:#6d4de8;box-shadow:0 0 0 3px rgba(91,63,212,.18);
+    }
+    .gear-edit-value{
+      font-size:13px;font-weight:600;color:var(--msb-palette-text, #0b1220);margin:0;
+      padding:8px 10px;border-radius:8px;background:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb));border:1px solid var(--msb-palette-border-strong, #d3d3d3);
+    }
+    .gear-edit-muted{font-size:11px;color:var(--msb-palette-text-muted, #8a919c);font-weight:500;}
+    .gear-edit-save-state{margin:8px 0 0;font-size:11px;font-weight:700;min-height:14px;color:var(--msb-palette-text-muted, #8a919c);}
+    .gear-edit-save-state.is-saved{color:#047857;}
+    .gear-edit-save-state.is-error{color:#b42318;}
+    .gear-edit-pane .about-people{margin-top:4px;display:flex;flex-direction:column;gap:8px;}
+    .gear-edit-pane .about-people-row,
+    .gear-edit-pane .about-people-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+    .gear-edit-pane .about-people-mention{flex:1;min-width:120px;}
+    .gear-edit-pane .about-people-tag-row{position:relative;width:100%;}
+    .gear-edit-pane .about-people-ac{
+      position:absolute;left:0;right:0;top:100%;z-index:40;margin-top:4px;
+      background:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb));border:1px solid var(--msb-palette-border-strong, #d3d3d3);border-radius:10px;
+      box-shadow:0 12px 28px rgba(0,0,0,.35);max-height:220px;overflow:auto;padding:4px;
+    }
+    .gear-edit-pane .about-people-ac-item{
+      display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+      border:0;background:transparent;cursor:pointer;text-align:left;padding:8px 10px;border-radius:8px;color:#f4f6fb;
+    }
+    .gear-edit-pane .about-people-ac-item:hover{background:#1b2332;}
+    .gear-edit-pane .about-people-chips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+    .gear-edit-pane .about-people-chips li{
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+      padding:8px 10px;border-radius:8px;background:var(--msb-palette-input-bg, var(--msb-palette-bg, #f5f7fb));border:1px solid var(--msb-palette-border-strong, #d3d3d3);
+      font-size:13px;font-weight:600;color:#f4f6fb;
+    }
+    .gear-edit-pane .about-people-chips a{color:#c4b5fd;}
+    .gear-edit-pane .about-people-remove{border:0;background:transparent;cursor:pointer;font-size:18px;color:#8b949e;}
+    .gear-edit-pane .about-people-save{
+      height:28px;padding:0 12px;border:0;border-radius:7px;cursor:pointer;
+      background:#5b3fd4;color:#fff;font-size:11px;font-weight:700;font-family:inherit;
+    }
+    .gear-edit-pane .about-people-picked{font-size:12px;font-weight:600;color:#8a919c;}
+    .gear-edit-pane .about-people-msg{font-size:12px;font-weight:700;color:#b42318;}
+    .gear-edit-pane .about-people-msg.is-ok{color:#047857;}
+    @media (max-width: 1100px){
+      .gear-edit-split{grid-template-columns:1fr;}
+    }
+    body.profile-page.profile-gear-mode .ig-avatar-col{
+      visibility:hidden;
+      pointer-events:none;
+    }
+    body.profile-page.profile-gear-mode .ig-profile-rail{
+      display:none !important;
+      visibility:hidden !important;
+      pointer-events:none !important;
+    }
+    body.profile-page.profile-gear-mode .ig-wrap{
+      overflow:visible;
+    }
     body.profile-page.profile-gear-mode .ig-profile-shell{
       min-height:0;
       overflow:hidden;
@@ -4960,7 +5770,13 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     body.profile-page.profile-gear-mode #panel-gear.active{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
     body.profile-page.profile-gear-mode #panel-gear.active .gear-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
     body.profile-page.profile-gear-mode #panel-gear.active .gear-shell{flex:1 1 auto;min-height:0;height:100%;max-height:100%;overflow:hidden;}
-    body.profile-page.profile-gear-mode #panel-gear.active .gear-sidebar{min-height:0;overflow:hidden;}
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-row-pane{min-height:0;overflow:hidden;display:flex;flex-direction:column;}
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-row-pane .gear-row-group:not([hidden]){
+      flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;
+    }
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-row-pane .gear-nav-items{
+      flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+    }
     body.profile-page.profile-gear-mode #panel-gear.active .gear-main{
       flex:1 1 auto;
       min-height:0;
@@ -4968,6 +5784,72 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       overflow-x:hidden;
       overscroll-behavior:contain;
       -webkit-overflow-scrolling:touch;
+    }
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-shell.is-archive-open #gearArchiveEmbed{
+      flex:1 1 auto;
+      min-height:0;
+      height:100%;
+      overflow:hidden;
+    }
+    body.profile-page.profile-gear-mode #panel-gear.active .gear-shell.is-favorites-open #gearFavoritesEmbed{
+      flex:1 1 auto;
+      min-height:0;
+      height:100%;
+      overflow-x:hidden;
+      overflow-y:auto;
+    }
+    body.profile-page.profile-gear-mode .gear-sidebar .gear-nav{
+      flex:1 1 auto;
+      min-height:0;
+      overflow-x:hidden;
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
+      overflow-x:hidden;
+      overflow-y:hidden;
+    }
+    body.profile-page.profile-gear-mode .gear-edit-pane [data-gear-pane-view]:not([hidden]){
+      flex:1 1 auto;
+      min-height:0;
+      overflow-x:hidden;
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    @media (max-width: 991px){
+      body.profile-page.profile-gear-mode .gear-sidebar{
+        position:relative;
+        left:auto;
+        top:auto;
+        width:100%;
+        max-width:none;
+        height:auto;
+        max-height:min(52vh, 420px);
+        margin:0 0 10px;
+        overflow-x:hidden;
+        overflow-y:hidden;
+        border-right:0;
+        border-bottom:1px solid var(--msb-hairline, #d3d3d3);
+      }
+      body.profile-page.profile-gear-mode .gear-edit-pane{
+        position:relative;
+        right:auto;
+        top:auto;
+        width:100%;
+        max-width:none;
+        height:auto;
+        max-height:min(70vh, 640px);
+        margin:10px 0 0;
+        padding:12px 12px 20px;
+        border-left:0;
+        border-top:1px solid var(--msb-hairline, #d3d3d3);
+      }
+      body.profile-page.profile-gear-mode .ig-avatar-col{
+        visibility:visible;
+        pointer-events:auto;
+      }
     }
     @media (max-width: 575px){
       .gear-nav-items{padding-left:12px;}
@@ -5008,6 +5890,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] body.profile-page .gear-wrap,
     html[data-theme="dark"] body.profile-page .gear-shell,
     html[data-theme="dark"] body.profile-page .gear-sidebar-head,
+    html[data-theme="dark"] body.profile-page .gear-row-pane,
     html[data-theme="dark"] body.profile-page .gear-main,
     html[data-theme="dark"] body.profile-page .gear-search,
     html[data-theme="dark"] body.profile-page .gear-control,
@@ -5040,6 +5923,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html.dark-auto body.profile-page .gear-wrap,
     html.dark-auto body.profile-page .gear-shell,
     html.dark-auto body.profile-page .gear-sidebar-head,
+    html.dark-auto body.profile-page .gear-row-pane,
     html.dark-auto body.profile-page .gear-main,
     html.dark-auto body.profile-page .gear-search,
     html.dark-auto body.profile-page .gear-control,
@@ -5126,12 +6010,6 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
       color: var(--msb-palette-link, var(--msb-palette-text, #93c5fd)) !important;
     }
-    html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
-    html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:hover,
-    html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:focus,
-    html[data-msb-appearance] body.profile-page .gear-nav-section-icon,
-    html[data-msb-appearance] body.profile-page .gear-nav-item.is-active,
-    html[data-msb-appearance] body.profile-page .gear-detail-icon,
     html[data-msb-appearance] body.profile-page .gear-chip,
     html[data-msb-appearance] body.profile-page .gear-tag{
       background: var(--msb-palette-bg, #171d24) !important;
@@ -5139,12 +6017,6 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       background-image: none !important;
       border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
     }
-    html[data-theme="dark"] body.profile-page .gear-nav-section-toggle,
-    html[data-theme="dark"] body.profile-page .gear-nav-section-toggle:hover,
-    html[data-theme="dark"] body.profile-page .gear-nav-section-toggle:focus,
-    html[data-theme="dark"] body.profile-page .gear-nav-section-icon,
-    html[data-theme="dark"] body.profile-page .gear-nav-item.is-active,
-    html[data-theme="dark"] body.profile-page .gear-detail-icon,
     html[data-theme="dark"] body.profile-page .gear-chip,
     html[data-theme="dark"] body.profile-page .gear-tag{
       background: var(--msb-palette-bg, #171d24) !important;
@@ -5162,6 +6034,19 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       background-color: var(--msb-palette-bg, #171d24) !important;
       background-image: none !important;
       border-color: var(--msb-palette-border, rgba(255,255,255,.12)) !important;
+    }
+    html[data-msb-appearance] body.profile-page .ig-story-item.ig-story-empty,
+    html.dark-auto body.profile-page .ig-story-item.ig-story-empty,
+    html[data-theme="dark"] body.profile-page .ig-story-item.ig-story-empty{
+      background:transparent !important;
+      background-color:transparent !important;
+    }
+    html[data-msb-appearance] body.profile-page .ig-story-empty-icon,
+    html.dark-auto body.profile-page .ig-story-empty-icon,
+    html[data-theme="dark"] body.profile-page .ig-story-empty-icon{
+      background:var(--msb-palette-hover-bg, #1f2630) !important;
+      border-color:var(--msb-palette-bg, #171d24) !important;
+      color:var(--msb-palette-text-muted, #98a2b3) !important;
     }
 
     html.dark-auto .ig-username,
@@ -5209,6 +6094,10 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] .mf-feed-empty,
     html.dark-auto .gear-detail-desc,
     html[data-theme="dark"] .gear-detail-desc,
+    html.dark-auto .gear-legal-copy p,
+    html[data-theme="dark"] .gear-legal-copy p,
+    html.dark-auto .gear-legal-copy h4,
+    html[data-theme="dark"] .gear-legal-copy h4,
     html.dark-auto .gear-nav-item-meta,
     html[data-theme="dark"] .gear-nav-item-meta,
     html.dark-auto .gear-upload-hint,
@@ -5242,6 +6131,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] .about-card,
     html.dark-auto .gear-sidebar,
     html[data-theme="dark"] .gear-sidebar,
+    html.dark-auto .gear-row-pane,
+    html[data-theme="dark"] .gear-row-pane,
     html.dark-auto .gear-shell,
     html[data-theme="dark"] .gear-shell,
     html.dark-auto .gear-nav-item.is-active,
@@ -5448,7 +6339,7 @@ body.profile-page #globalLiveModal:not(.is-open) aside{
 }
 </style>
 
-<body class="profile-page<?php echo $selectedTab === 'posts' ? ' profile-posts-mode' : ''; ?><?php echo $selectedTab === 'gear' ? ' profile-gear-mode' : ''; ?>">
+<body class="profile-page<?php echo $selectedTab === 'posts' ? ' profile-posts-mode' : ''; ?><?php echo $selectedTab === 'gear' ? ' profile-gear-mode' : ''; ?><?php echo $profileIsFlowScroll ? ' profile-flow-scroll' : ''; ?>">
 <?php
 $forceFeedRail = true;
 $skipHeaderThemeBootstrap = true;
@@ -5492,6 +6383,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
       <button type="button" class="profile-cover-del" id="profileCoverDelete" title="Remove slideshow photos" hidden><i class="icon ion-trash-a"></i></button>
     <?php endif; ?>
   </div>
+  <div class="profile-cover-hairline" aria-hidden="true"></div>
   <?php if ($isOwnProfile && $canManageProfilePrivate): ?>
   <div class="cover-del-dialog" id="coverSlideDeleteDialog" hidden>
     <div class="cover-del-card" role="dialog" aria-labelledby="coverSlideDeleteTitle">
@@ -5506,7 +6398,41 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
   </div>
   <?php endif; ?>
 
+<div class="profile-gear-stage">
 <div class="ig-wrap">
+<?php if ($profileShowGearTab): ?>
+  <aside class="gear-sidebar" id="gearCategoryRail" aria-label="Settings">
+    <div class="gear-sidebar-head">
+      <h2 class="gear-sidebar-title">Settings</h2>
+    </div>
+    <nav class="gear-nav" id="gearNav">
+      <button type="button" class="gear-archive-shortcut" id="gearArchiveShortcut" data-library="archive" data-group-slug="gear-archived-posts">
+        <i class="icon ion-ios-box" aria-hidden="true"></i>
+        <span>Archived posts</span>
+      </button>
+      <button type="button" class="gear-archive-shortcut" id="gearFavoritesShortcut" data-library="favorites" data-group-slug="gear-favorites">
+        <i class="icon ion-ios-bookmarks" aria-hidden="true"></i>
+        <span>Favorites</span>
+      </button>
+      <?php foreach ($gearGroups as $gi => $group): ?>
+        <?php
+          if (!empty($group['skip_left_nav'])) {
+            continue;
+          }
+          $slug = profile_gear_group_slug((string)$group['title']);
+          $navLabel = trim((string)($group['nav_label'] ?? $group['title']));
+        ?>
+        <div class="gear-nav-section" id="<?php echo h($slug); ?>" data-group-slug="<?php echo h($slug); ?>">
+          <button type="button" class="gear-nav-section-toggle" aria-expanded="false">
+            <span class="gear-nav-section-icon"><i class="icon <?php echo h((string)$group['icon']); ?>"></i></span>
+            <span class="gear-nav-section-label"><?php echo h($navLabel); ?></span>
+            <span class="gear-nav-section-chevron"><i class="icon ion-chevron-down"></i></span>
+          </button>
+        </div>
+      <?php endforeach; ?>
+    </nav>
+  </aside>
+<?php endif; ?>
   <div class="ig-card ig-profile-shell">
     <div class="ig-top ig-profile-head">
       <div class="ig-avatar-col">
@@ -5537,6 +6463,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
             <button type="button" class="ig-btn publisher-follow-btn<?= $isFollowingPublisher ? ' is-following' : '' ?>" data-publisher-id="<?= (int)$viewId ?>">
               <?= $isFollowingPublisher ? 'Following' : 'Follow' ?>
             </button>
+          <?php elseif ($isPublisherWorkspaceViewer): ?>
           <?php else: ?>
             <?php if ($liveVisitorMode): ?>
               <?php if ($friendStatus === 'outgoing_pending'): ?>
@@ -5643,17 +6570,23 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
           </div>
           <?php if ($profileTopVideos): ?>
             <div class="ig-rail-videos">
-              <?php foreach ($profileTopVideos as $vid): ?>
+              <?php foreach ($profileTopVideos as $vidIndex => $vid): ?>
                 <?php
                   $vidId = (int)($vid['post_id'] ?? 0);
                   $vidTitle = trim((string)($vid['title'] ?? 'Video'));
                   $vidThumb = trim((string)($vid['thumb'] ?? ''));
+                  $vidVideo = trim((string)($vid['video'] ?? ''));
                   $vidHref = $vidId > 0 ? ($profileRailViewAll . '&open_post=' . $vidId) : $profileRailViewAll;
+                  if ($vidIndex > 0) {
+                    echo '<div class="ig-rail-video-rule" aria-hidden="true"></div>';
+                  }
                 ?>
                 <a class="ig-rail-video" href="<?php echo h($vidHref); ?>" data-post-id="<?php echo $vidId; ?>">
                   <span class="ig-rail-thumb">
                     <?php if ($vidThumb !== ''): ?>
                       <img src="<?php echo h($vidThumb); ?>" alt="">
+                    <?php elseif ($vidVideo !== ''): ?>
+                      <video src="<?php echo h($vidVideo); ?>" muted playsinline preload="metadata"></video>
                     <?php else: ?>
                       <span class="ig-rail-thumb-fallback"><i class="icon ion-play" aria-hidden="true"></i></span>
                     <?php endif; ?>
@@ -5672,13 +6605,6 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
       </aside>
 
       <div class="ig-main">
-          <?php if (!$liveVisitorMode && $canManageProfilePrivate): ?>
-            <div class="gear-search-wrap" id="gearSearchWrap">
-              <label class="sr-only" for="gearSearchInput">Search settings</label>
-              <input type="search" class="gear-search gear-search--head" id="gearSearchInput" placeholder="Search settings" autocomplete="off">
-            </div>
-          <?php endif; ?>
-
         <?php if ($showPeerNotFound): ?>
           <div style="margin:16px 0 10px;padding:14px 16px;border-radius:10px;background:#fff3cd;color:#7a5a00;border:1px solid rgba(122,90,0,.18);font-weight:700;">
             Peer profile was not found for this link, so no friend data was loaded.
@@ -5694,12 +6620,12 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 
     <div class="ig-highlights" aria-label="Profile stories">
       <div class="ig-stories-track" id="profileStoriesTrack">
-        <?php if ($isOwnProfile): ?>
+        <!-- <?php if ($isOwnProfile): ?>
           <a class="ig-story-item ig-story-create" href="dashboard.php?modal=1&amp;story=1&amp;from=profile" data-create-post-modal="1" aria-label="Create a story">
             <div class="ig-story-ring"><i class="icon ion-plus"></i></div>
             <span class="ig-story-name">New</span>
           </a>
-        <?php endif; ?>
+        <?php endif; ?> -->
         <?php if ($profileStoryCatalog): ?>
           <?php foreach ($profileStoryCatalog as $storyIndex => $story): ?>
             <?php
@@ -5735,45 +6661,124 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
               <span class="ig-story-name"><?php echo h($storyLabel); ?></span>
             </button>
           <?php endforeach; ?>
-        <?php elseif (!$isOwnProfile): ?>
-          <div class="ig-story-empty">No stories yet.</div>
+        <?php else: ?>
+          <div class="ig-story-item ig-story-empty" role="status" aria-label="No stories available">
+            <div class="ig-story-ring ig-story-ring-empty">
+              <span class="ig-story-empty-icon" aria-hidden="true"><i class="icon ion-ios-book-outline"></i></span>
+            </div>
+            <span class="ig-story-name"></span>
+          </div>
         <?php endif; ?>
       </div>
     </div>
 
     <div class="ig-tabs" role="tablist" aria-label="Profile sections">
-      <div class="ig-tab<?php echo $selectedTab === 'gallery' ? ' active' : ''; ?>" data-panel="gallery" role="tab" tabindex="<?php echo $selectedTab === 'gallery' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'gallery' ? 'true' : 'false'; ?>">
+      <a class="ig-tab<?php echo $selectedTab === 'gallery' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('gallery')); ?>" data-panel="gallery" role="tab" tabindex="<?php echo $selectedTab === 'gallery' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'gallery' ? 'true' : 'false'; ?>">
         <i class="icon ion-images"></i>Gallery
-      </div>
-      <div class="ig-tab<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>" data-panel="posts" role="tab" tabindex="<?php echo $selectedTab === 'posts' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'posts' ? 'true' : 'false'; ?>">
+      </a>
+      <a class="ig-tab<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('posts')); ?>" data-panel="posts" role="tab" tabindex="<?php echo $selectedTab === 'posts' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'posts' ? 'true' : 'false'; ?>">
         <i class="icon ion-grid"></i>Posts
-      </div>
+      </a>
       <?php if ($profileShowTagsTab): ?>
-      <div class="ig-tab<?php echo $selectedTab === 'tags' ? ' active' : ''; ?>" data-panel="tags" role="tab" tabindex="<?php echo $selectedTab === 'tags' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'tags' ? 'true' : 'false'; ?>">
+      <a class="ig-tab<?php echo $selectedTab === 'tags' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('tags')); ?>" data-panel="tags" role="tab" tabindex="<?php echo $selectedTab === 'tags' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'tags' ? 'true' : 'false'; ?>">
         <i class="icon ion-ios-pricetag"></i>Tags
-      </div>
+      </a>
       <?php endif; ?>
       <?php if (!empty($profileHasShop)): ?>
-      <div class="ig-tab<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>" data-panel="shop" role="tab" tabindex="<?php echo $selectedTab === 'shop' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'shop' ? 'true' : 'false'; ?>">
+      <a class="ig-tab<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('shop')); ?>" data-panel="shop" role="tab" tabindex="<?php echo $selectedTab === 'shop' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'shop' ? 'true' : 'false'; ?>">
         <i class="icon ion-bag"></i>Shop
-      </div>
+      </a>
       <?php endif; ?>
       <?php if ($profileShowAboutTab): ?>
-      <div class="ig-tab<?php echo $selectedTab === 'about' ? ' active' : ''; ?>" data-panel="about" role="tab" tabindex="<?php echo $selectedTab === 'about' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'about' ? 'true' : 'false'; ?>">
+      <a class="ig-tab<?php echo $selectedTab === 'about' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('about')); ?>" data-panel="about" role="tab" tabindex="<?php echo $selectedTab === 'about' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'about' ? 'true' : 'false'; ?>">
         <i class="icon ion-ios-person"></i>About Me
-      </div>
+      </a>
       <?php endif; ?>
       <?php if ($profileShowSavedTab): ?>
-        <div class="ig-tab<?php echo $selectedTab === 'saved' ? ' active' : ''; ?>" data-panel="saved" role="tab" tabindex="<?php echo $selectedTab === 'saved' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'saved' ? 'true' : 'false'; ?>">
+        <a class="ig-tab<?php echo $selectedTab === 'saved' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('saved')); ?>" data-panel="saved" role="tab" tabindex="<?php echo $selectedTab === 'saved' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'saved' ? 'true' : 'false'; ?>">
           <i class="icon ion-bookmark"></i>Favorites
-        </div>
+        </a>
       <?php endif; ?>
       <?php if ($profileShowGearTab): ?>
-        <div class="ig-tab<?php echo $selectedTab === 'gear' ? ' active' : ''; ?>" data-panel="gear" role="tab" tabindex="<?php echo $selectedTab === 'gear' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'gear' ? 'true' : 'false'; ?>">
+        <a class="ig-tab<?php echo $selectedTab === 'gear' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('gear')); ?>" data-panel="gear" role="tab" tabindex="<?php echo $selectedTab === 'gear' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'gear' ? 'true' : 'false'; ?>">
           <i class="icon ion-ios-gear"></i>Gear
-        </div>
+        </a>
       <?php endif; ?>
     </div>
+<script>
+(function(){
+  var tablist = document.querySelector('body.profile-page .ig-tabs');
+  if (!tablist) return;
+  var PANEL_NAMES = ['gallery', 'posts', 'tags', 'shop', 'about', 'saved', 'gear'];
+
+  function tabKey(tab){
+    return String((tab && tab.getAttribute('data-panel')) || '');
+  }
+
+  function activateChrome(selected){
+    tablist.querySelectorAll('.ig-tab[data-panel]').forEach(function(tab){
+      var on = tabKey(tab) === selected;
+      tab.classList.toggle('active', on);
+      tab.classList.toggle('is-active', on);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.setAttribute('tabindex', on ? '0' : '-1');
+      if (on) tab.setAttribute('aria-current', 'page');
+      else tab.removeAttribute('aria-current');
+    });
+  }
+
+  function showPanel(selected){
+    PANEL_NAMES.forEach(function(name){
+      var panel = document.getElementById('panel-' + name);
+      if (panel) panel.classList.toggle('active', name === selected);
+    });
+    var filterWrap = document.querySelector('.ig-gallery-filter');
+    if (filterWrap) {
+      var showFilter = selected === 'gallery' || selected === 'posts' || selected === 'tags';
+      filterWrap.hidden = !showFilter;
+      filterWrap.setAttribute('aria-hidden', showFilter ? 'false' : 'true');
+      var tabInput = filterWrap.querySelector('input[name="tab"]');
+      if (showFilter && tabInput) tabInput.value = selected;
+    }
+    document.body.classList.toggle('profile-posts-mode', selected === 'posts');
+    document.body.classList.toggle('profile-gear-mode', selected === 'gear');
+    if (selected === 'posts' && window.ProfilePostsFeed && typeof window.ProfilePostsFeed.ensureLoaded === 'function') {
+      window.ProfilePostsFeed.ensureLoaded(false);
+    }
+    if (selected !== 'gear' && window.MSBGearNav && typeof window.MSBGearNav.closeEditPane === 'function') {
+      window.MSBGearNav.closeEditPane();
+    }
+    if (selected === 'gear' && window.MSBGearNav && typeof window.MSBGearNav.bootFromHash === 'function') {
+      window.setTimeout(function(){ window.MSBGearNav.bootFromHash(); }, 0);
+    }
+  }
+
+  function switchTab(tab){
+    var selected = tabKey(tab);
+    if (!selected) return;
+    if (tab.classList.contains('active') || tab.classList.contains('is-active')) return;
+    activateChrome(selected);
+    showPanel(selected);
+    try {
+      var nextUrl = new URL(tab.getAttribute('href') || tab.href, window.location.href);
+      history.replaceState({ msbProfileTab: selected }, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
+    } catch (err) {}
+  }
+
+  window.msbSwitchProfileTab = function(name){
+    var tab = tablist.querySelector('.ig-tab[data-panel="' + String(name || '') + '"]');
+    if (tab) switchTab(tab);
+  };
+
+  tablist.addEventListener('click', function(e){
+    var tab = e.target && e.target.closest ? e.target.closest('.ig-tab[data-panel]') : null;
+    if (!tab || !tablist.contains(tab)) return;
+    e.preventDefault();
+    if (tab.classList.contains('active') || tab.classList.contains('is-active')) return;
+    switchTab(tab);
+  });
+})();
+</script>
 
     <?php
       $profileFilterTab = in_array($selectedTab, ['gallery', 'posts', 'tags'], true) ? $selectedTab : 'posts';
@@ -6047,108 +7052,112 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
         <?php
           profile_render_post_grid(
             $savedGrid,
-            $showPeerNotFound,
-            $isMobile,
+            !empty($showPeerNotFound),
+            !empty($isMobile),
             'No saved posts yet',
             'ion-bookmark',
             false,
-            $canManageProfilePrivate ? 'saved' : 'saved-view'
+            !empty($canManageProfilePrivate) ? 'saved' : 'saved-view'
           );
         ?>
       </div>
-
-      <?php if ($canManageProfilePrivate): ?>
-<dialog class="saved-remove-dialog" id="savedRemoveDialog" aria-labelledby="savedRemoveDialogTitle">
-  <button type="button" class="saved-remove-dialog-close" id="savedRemoveDialogClose" aria-label="Close">&times;</button>
-  <div class="saved-remove-dialog-icon" aria-hidden="true"><i class="fa fa-trash"></i></div>
-  <h2 id="savedRemoveDialogTitle">Delete this post?</h2>
-  <p>This action cannot be undone. The post will be permanently removed from Favorites.</p>
-  <div class="saved-remove-dialog-actions">
-    <button type="button" class="saved-remove-dialog-cancel" id="savedRemoveDialogCancel">Cancel</button>
-    <button type="button" class="saved-remove-dialog-confirm" id="savedRemoveDialogConfirm">Delete</button>
+    <?php endif; ?>
+    <?php if (!empty($canManageProfilePrivate) && ($profileShowSavedTab || $profileShowGearTab)): ?>
+<div class="saved-remove-dialog" id="savedRemoveDialog" hidden>
+  <div class="saved-remove-card" role="dialog" aria-modal="true" aria-labelledby="savedRemoveDialogTitle">
+    <button type="button" class="saved-remove-dialog-close" id="savedRemoveDialogClose" aria-label="Close">&times;</button>
+    <div class="saved-remove-dialog-icon" aria-hidden="true"><i class="fa fa-trash"></i></div>
+    <h2 id="savedRemoveDialogTitle">Delete this post?</h2>
+    <p>This action cannot be undone. The post will be permanently removed from Favorites.</p>
+    <div class="saved-remove-dialog-actions">
+      <button type="button" class="saved-remove-dialog-cancel" id="savedRemoveDialogCancel">Cancel</button>
+      <button type="button" class="saved-remove-dialog-confirm" id="savedRemoveDialogConfirm">Delete</button>
+    </div>
   </div>
-</dialog>
-      <?php endif; ?>
+</div>
     <?php endif; ?>
 
     <?php if ($profileShowGearTab): ?>
       <div id="panel-gear" class="profile-panel<?php echo $selectedTab === 'gear' ? ' active' : ''; ?>">
         <div class="gear-wrap">
-          <?php
-            $gearDefaultDetailId = '';
-            foreach ($gearGroups as $gi => $group) {
-              $slug = profile_gear_group_slug((string)$group['title']);
-              $rows = (array)($group['rows'] ?? []);
-              if ($gearDefaultDetailId === '' && !empty($rows)) {
-                $gearDefaultDetailId = 'gear-detail-' . $slug . '-0';
-              }
-            }
-          ?>
           <div class="gear-shell">
-            <aside class="gear-sidebar" aria-label="Settings navigation">
-              <div class="gear-sidebar-head">
-                <h2 class="gear-sidebar-title">Settings</h2>
-                <a class="gear-archive-shortcut" href="archive.php">
-                  <i class="icon ion-ios-box" aria-hidden="true"></i>
-                  <span>Archived posts</span>
-                </a>
-              </div>
-
-              <nav class="gear-nav" id="gearNav">
-                <?php foreach ($gearGroups as $gi => $group): ?>
-                  <?php
-                    $slug = profile_gear_group_slug((string)$group['title']);
-                    $navLabel = trim((string)($group['nav_label'] ?? $group['title']));
-                    $rows = (array)($group['rows'] ?? []);
-                    $isOpen = false;
-                  ?>
-                  <div class="gear-nav-section<?php echo $isOpen ? ' is-open' : ''; ?>" id="<?php echo h($slug); ?>" data-group-slug="<?php echo h($slug); ?>">
-                    <button type="button" class="gear-nav-section-toggle" aria-expanded="<?php echo $isOpen ? 'true' : 'false'; ?>">
-                      <span class="gear-nav-section-icon"><i class="icon <?php echo h((string)$group['icon']); ?>"></i></span>
-                      <span class="gear-nav-section-label"><?php echo h($navLabel); ?></span>
-                      <span class="gear-nav-section-chevron"><i class="icon ion-chevron-down"></i></span>
-                    </button>
-                    <div class="gear-nav-items">
-                      <?php foreach ($rows as $ri => $row): ?>
-                        <?php
-                          $rowId = 'gear-detail-' . $slug . '-' . $ri;
-                          $rowLabel = trim((string)($row['label'] ?? ''));
-                          $rowField = trim((string)($row['field'] ?? ''));
-                          $rowLocalField = trim((string)($row['field_local'] ?? ''));
-                          $rowControl = strtolower(trim((string)($row['control'] ?? '')));
-                          $rowMeta = profile_gear_row_value_label($row, $profileSettings, $themeAutoDefault);
-                          $navSub = $rowMeta;
-                          if ($navSub === '' && !empty($row['tag'])) {
-                            $navSub = trim((string)$row['tag']);
-                          } elseif ($navSub === '' && !empty($row['meta'])) {
-                            $navSub = trim((string)$row['meta']);
-                          }
-                          $searchBits = strtolower($navLabel . ' ' . $rowLabel . ' ' . (string)($row['meta'] ?? '') . ' ' . $navSub);
-                          $isActive = ($rowId === $gearDefaultDetailId);
-                        ?>
-                        <button
-                          type="button"
-                          class="gear-nav-item<?php echo $isActive ? ' is-active' : ''; ?>"
-                          data-detail-id="<?php echo h($rowId); ?>"
-                          <?php if ($rowField !== ''): ?>data-field="<?php echo h($rowField); ?>"<?php endif; ?>
-                          <?php if ($rowLocalField !== ''): ?>data-local-field="<?php echo h($rowLocalField); ?>"<?php endif; ?>
-                          <?php if ($rowControl === 'color'): ?>data-progress-color="1"<?php endif; ?>
-                          data-search-text="<?php echo h($searchBits); ?>"
-                        >
-                          <span><?php echo h($rowLabel); ?></span>
-                          <?php if ($navSub !== ''): ?>
-                            <span class="gear-nav-item-meta"><?php echo h($navSub); ?></span>
-                          <?php endif; ?>
-                        </button>
-                      <?php endforeach; ?>
-                    </div>
+            <div class="gear-row-pane" id="gearRowPane">
+              <div class="gear-row-empty" id="gearRowEmpty">Choose a category at the left.</div>
+              <?php foreach ($gearGroups as $gi => $group): ?>
+                <?php
+                  if (!empty($group['skip_row_pane'])) {
+                    continue;
+                  }
+                  $slug = profile_gear_group_slug((string)$group['title']);
+                  $navLabel = trim((string)($group['nav_label'] ?? $group['title']));
+                  $rows = (array)($group['rows'] ?? []);
+                ?>
+                <div class="gear-row-group" data-group-slug="<?php echo h($slug); ?>" hidden>
+                  <h3 class="gear-row-group-title"><?php echo h($navLabel); ?></h3>
+                  <?php if (trim((string)($group['list_intro'] ?? '')) !== ''): ?>
+                    <p class="gear-row-group-intro"><?php echo h(trim((string)$group['list_intro'])); ?></p>
+                  <?php endif; ?>
+                  <div class="gear-nav-items">
+                    <?php foreach ($rows as $ri => $row): ?>
+                      <?php
+                        $rowId = 'gear-detail-' . $slug . '-' . $ri;
+                        $rowLabel = trim((string)($row['label'] ?? ''));
+                        $rowField = trim((string)($row['field'] ?? ''));
+                        $rowLocalField = trim((string)($row['field_local'] ?? ''));
+                        $rowControl = strtolower(trim((string)($row['control'] ?? '')));
+                        $rowIcon = trim((string)($row['icon'] ?? 'ion-ios-gear'));
+                        $rowMeta = profile_gear_row_value_label($row, $profileSettings, $themeAutoDefault);
+                        $navSub = $rowMeta;
+                        $isDangerRow = trim((string)($row['layout'] ?? '')) === 'danger_zone';
+                        $isArchiveRow = trim((string)($row['layout'] ?? '')) === 'archived_post';
+                        if ($isDangerRow || $isArchiveRow) {
+                          $navSub = '';
+                        } elseif ($navSub === '' && !empty($row['tag'])) {
+                          $navSub = trim((string)$row['tag']);
+                        } elseif ($navSub === '' && !empty($row['meta'])) {
+                          $navSub = trim((string)$row['meta']);
+                        }
+                        $rowPostId = (int)($row['post_id'] ?? 0);
+                        $rowNavHref = trim((string)($row['nav_href'] ?? ''));
+                        $searchBits = strtolower($navLabel . ' ' . $rowLabel . ' ' . (string)($row['meta'] ?? '') . ' ' . $navSub);
+                      ?>
+                      <button
+                        type="button"
+                        class="gear-nav-item"
+                        data-detail-id="<?php echo h($rowId); ?>"
+                        data-group-slug="<?php echo h($slug); ?>"
+                        <?php if ($rowPostId > 0): ?>data-post-id="<?php echo (int)$rowPostId; ?>"<?php endif; ?>
+                        <?php if ($rowNavHref !== ''): ?>data-href="<?php echo h($rowNavHref); ?>"<?php endif; ?>
+                        <?php if ($rowField !== ''): ?>data-field="<?php echo h($rowField); ?>"<?php endif; ?>
+                        <?php if ($rowLocalField !== ''): ?>data-local-field="<?php echo h($rowLocalField); ?>"<?php endif; ?>
+                        <?php if ($rowControl === 'color'): ?>data-progress-color="1"<?php endif; ?>
+                        data-search-text="<?php echo h($searchBits); ?>"
+                      >
+                        <span class="gear-nav-section-icon gear-nav-item-icon"><i class="icon <?php echo h($rowIcon); ?>"></i></span>
+                        <span class="gear-nav-section-label"><?php echo h($rowLabel); ?></span>
+                        <?php if ($navSub !== ''): ?>
+                          <span class="gear-nav-item-meta"><?php echo h($navSub); ?></span>
+                        <?php endif; ?>
+                      </button>
+                    <?php endforeach; ?>
+                    <?php
+                      $archivePostCount = 0;
+                      foreach ($rows as $countRow) {
+                        if (trim((string)($countRow['layout'] ?? '')) === 'archived_post') {
+                          $archivePostCount++;
+                        }
+                      }
+                    ?>
+                    <?php if ($slug === 'gear-archived-posts' && $archivePostCount === 0): ?>
+                      <p class="gear-row-group-intro">No archived posts yet. Archive a post from Circle or Discover and it will show up here.</p>
+                    <?php endif; ?>
                   </div>
-                <?php endforeach; ?>
-              </nav>
-            </aside>
+                </div>
+              <?php endforeach; ?>
+            </div>
 
             <main class="gear-main" id="gearMain">
-              <div class="gear-detail-empty" id="gearDetailEmpty"<?php echo $gearDefaultDetailId !== '' ? ' hidden' : ''; ?>>Select a setting from the list on the left.</div>
+              <div class="gear-detail-empty" id="gearDetailEmpty">Select a row to choose Yes, No, or another option.</div>
 
               <?php foreach ($gearGroups as $gi => $group): ?>
                 <?php
@@ -6159,9 +7168,8 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                 <?php foreach ($rows as $ri => $row): ?>
                   <?php
                     $rowId = 'gear-detail-' . $slug . '-' . $ri;
-                    $isActive = ($rowId === $gearDefaultDetailId);
                   ?>
-                  <section class="gear-detail-panel<?php echo $isActive ? ' is-active' : ''; ?>" id="<?php echo h($rowId); ?>" aria-labelledby="<?php echo h($rowId); ?>-title"<?php echo $isActive ? '' : ' hidden'; ?>>
+                  <section class="gear-detail-panel" id="<?php echo h($rowId); ?>" aria-labelledby="<?php echo h($rowId); ?>-title" hidden>
                     <div class="gear-detail-head">
                       <div class="gear-detail-icon"><i class="icon <?php echo h((string)($row['icon'] ?? 'ion-ios-gear')); ?>"></i></div>
                       <div>
@@ -6191,18 +7199,123 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                 Gear live-saves privacy, timeline, notifications, security, appearance, and account settings from this tab. <b>Danger Zone</b> uses confirmation pages for delete, export, reset, and deactivate.
               </div>
             </main>
+            <div id="gearArchiveEmbed" class="ig-archive-embed-host" hidden>
+              <?php
+                $msbArchiveEmbed = true;
+                $msbArchiveMode = 'archive';
+                $msbArchiveUid = 'archive';
+                $msbArchiveCanManage = true;
+                $storyCircles = $gearArchiveView['storyCircles'];
+                $hasStories = !empty($gearArchiveView['hasStories']);
+                $feedPosts = $gearArchiveView['feedPosts'];
+                include __DIR__ . '/includes/archive_view.php';
+              ?>
+            </div>
+            <div id="gearFavoritesEmbed" class="ig-saved-embed-host" hidden>
+              <?php
+                profile_render_post_grid(
+                  $savedGrid,
+                  !empty($showPeerNotFound),
+                  !empty($isMobile),
+                  'No saved posts yet',
+                  'ion-bookmark',
+                  false,
+                  !empty($canManageProfilePrivate) ? 'saved' : 'saved-view'
+                );
+              ?>
+            </div>
           </div>
         </div>
       </div>
+    <?php endif; ?>
+    <?php if ($profileShowGearTab || $profileShowSavedTab): ?>
+      <?php include __DIR__ . '/includes/archive_embed.css.php'; ?>
+      <?php include __DIR__ . '/includes/archive_view.js.php'; ?>
     <?php endif; ?>
 
     </div><!-- ig-profile-scroll -->
 
   </div>
+  <?php if ($profileShowGearTab && $canManageProfilePrivate): ?>
+    <?php
+      $gearEditForm = [
+        'gender' => trim((string)($me['gender'] ?? '')),
+        'designation' => trim((string)($me['designation'] ?? '')),
+        'pronouns' => trim((string)($about['pronouns'] ?? '')),
+        'born_in' => trim((string)($about['born_in'] ?? '')),
+        'birthday' => trim((string)($about['birthday'] ?? '')),
+        'languages' => trim((string)($about['languages'] ?? '')),
+        'relationship_status' => trim((string)($about['relationship_status'] ?? '')),
+        'family_details' => trim((string)($about['family_details'] ?? '')),
+        'education_history' => trim((string)($about['education_history'] ?? '')),
+        'work_details' => trim((string)($about['work_details'] ?? '')),
+        'hobbies' => trim((string)($about['hobbies'] ?? '')),
+      ];
+    ?>
+    <aside class="gear-edit-pane" id="gearEditPane" hidden aria-label="Edit">
+      <div data-gear-pane-view="edit_background">
+        <?php include __DIR__ . '/includes/gear_edit_background_form.php'; ?>
+      </div>
+      <div data-gear-pane-view="edit_display_name" hidden>
+        <?php
+          $gearDisplayNameForm = [
+            'full_name' => trim((string)($me['name'] ?? '')),
+          ];
+          include __DIR__ . '/includes/gear_edit_display_name_form.php';
+        ?>
+      </div>
+      <div data-gear-pane-view="safety_center" hidden>
+        <?php include __DIR__ . '/includes/gear_safety_center.php'; ?>
+      </div>
+      <div data-gear-pane-view="change_password" hidden>
+        <?php include __DIR__ . '/includes/gear_change_password_form.php'; ?>
+      </div>
+      <div data-gear-pane-view="manage_devices" hidden>
+        <?php include __DIR__ . '/includes/gear_manage_devices.php'; ?>
+      </div>
+      <div data-gear-pane-view="logout_now" hidden>
+        <?php include __DIR__ . '/includes/gear_logout_now.php'; ?>
+      </div>
+      <div data-gear-pane-view="logout_all_devices" hidden>
+        <?php include __DIR__ . '/includes/gear_logout_all_devices.php'; ?>
+      </div>
+      <div data-gear-pane-view="edit_account" hidden>
+        <?php
+          $gearAccountForm = [
+            'full_name' => trim((string)($me['name'] ?? '')),
+            'username' => trim((string)($me['username'] ?? '')),
+            'email' => trim((string)($me['email'] ?? '')),
+            'mobile' => trim((string)($profilePhoneValue ?? $me['mobile'] ?? '')),
+            'friend_code' => trim((string)($me['friend_code'] ?? '')),
+            'bio' => trim((string)($about['about_text'] ?? '')),
+            'location' => trim((string)($about['lives_in'] ?? '')),
+            'website' => trim((string)($about['profile_link'] ?? '')),
+          ];
+          $gearAccountPhoneRequired = empty($profileIsPublisher);
+          include __DIR__ . '/includes/gear_account_form.php';
+        ?>
+      </div>
+      <div data-gear-pane-view="edit_username" hidden>
+        <?php
+          $gearUsernameForm = [
+            'username' => trim((string)($me['username'] ?? '')),
+          ];
+          include __DIR__ . '/includes/gear_edit_username_form.php';
+        ?>
+      </div>
+      <div data-gear-pane-view="reset_settings" hidden>
+        <?php include __DIR__ . '/includes/gear_reset_settings_form.php'; ?>
+      </div>
+      <div data-gear-pane-view="delete_account" hidden>
+        <?php include __DIR__ . '/includes/gear_delete_account_form.php'; ?>
+      </div>
+      <div data-gear-pane-view="deactivate_account" hidden>
+        <?php include __DIR__ . '/includes/gear_deactivate_account_form.php'; ?>
+      </div>
+    </aside>
+  <?php endif; ?>
 </div>
-
-
-<!-- ✅ Post Viewer Modal (Instagram-style) -->
+</div><!-- profile-gear-stage -->
 <div id="pvOverlay" class="pv-overlay" aria-hidden="true" hidden style="display:none">
   <button type="button" class="pv-x" id="pvClose" aria-label="Close"><i class="icon ion-close"></i></button>
   <button type="button" class="pv-nav pv-prev" id="pvPrev" aria-label="Previous"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
@@ -6302,7 +7415,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 </div>
 
 <style>
-  /* ✅ Modal (instagram-style)
+  /* ✅ Modal (Talsora)
      Desktop/laptop: fixed frame so next/prev never shifts the comments card.
      Mobile/tablet overrides below use their own stable dimensions. */
   .pv-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000;z-index:9999;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;isolation:isolate;}
@@ -6481,17 +7594,19 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
   }
   .pv-media .mf-media-slides,
   .pv-media .media-slides{
-    display:flex;
-    flex-wrap:nowrap;
+    display:grid;
+    grid-template-areas:"fade";
     width:100%;
     height:100%;
-    transition:transform .28s ease;
+    transform:none !important;
+    transition:none;
   }
   .pv-media .mf-media-slide,
   .pv-media .media-slide{
-    flex:0 0 100%;
+    grid-area:fade;
+    flex:none;
     width:100%;
-    min-width:100%;
+    min-width:0;
     max-width:100%;
     height:100%;
     display:flex;
@@ -6500,6 +7615,16 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
     overflow:hidden;
     background:transparent;
     box-sizing:border-box;
+    opacity:0;
+    transition:opacity .7s ease-in-out;
+    pointer-events:none;
+    z-index:0;
+  }
+  .pv-media .mf-media-slide.is-active,
+  .pv-media .media-slide.is-active{
+    opacity:1;
+    pointer-events:auto;
+    z-index:1;
   }
   .pv-media .mf-media-slide > img,
   .pv-media .media-slide > img{
@@ -7301,51 +8426,16 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 <script>
 (function(){
   const tabs = Array.from(document.querySelectorAll('.ig-tab[data-panel]'));
-  const panels = Array.from(document.querySelectorAll('.profile-panel'));
   if (!tabs.length) return;
 
   function activate(panelName){
-    tabs.forEach((tab) => {
-      const isActive = tab.getAttribute('data-panel') === panelName;
-      tab.classList.toggle('active', isActive);
-      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      tab.setAttribute('tabindex', isActive ? '0' : '-1');
-    });
-    panels.forEach((panel) => {
-      panel.classList.toggle('active', panel.id === 'panel-' + panelName);
-    });
-    var filterWrap = document.querySelector('.ig-gallery-filter');
-    var contentTabs = ['gallery', 'posts', 'tags', 'shop'];
-    if (filterWrap) {
-      var showFilter = contentTabs.includes(panelName) && panelName !== 'shop';
-      filterWrap.hidden = !showFilter;
-      filterWrap.setAttribute('aria-hidden', showFilter ? 'false' : 'true');
-      if (showFilter) {
-        var tabInput = filterWrap.querySelector('input[name="tab"]');
-        if (tabInput) tabInput.value = panelName;
-      }
+    if (typeof window.msbSwitchProfileTab === 'function') {
+      window.msbSwitchProfileTab(panelName);
+      return;
     }
-    document.body.classList.toggle('profile-posts-mode', panelName === 'posts');
-    document.body.classList.toggle('profile-gear-mode', panelName === 'gear');
-    var gearSearch = document.getElementById('gearSearchInput');
-    if (gearSearch && panelName !== 'gear') {
-      gearSearch.value = '';
-      gearSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    if (panelName === 'posts' && window.ProfilePostsFeed && typeof window.ProfilePostsFeed.ensureLoaded === 'function') {
-      window.ProfilePostsFeed.ensureLoaded(false);
-    }
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', panelName);
-      window.history.replaceState({}, '', url.toString());
-    } catch (e) {}
   }
 
-  activate(<?php echo json_encode($selectedTab); ?>);
-
   tabs.forEach((tab) => {
-    tab.addEventListener('click', () => activate(tab.getAttribute('data-panel') || 'posts'));
     tab.addEventListener('keydown', (e) => {
       const idx = tabs.indexOf(tab);
       if (e.key === 'Enter' || e.key === ' ') {
@@ -7390,13 +8480,63 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 // Video thumbnail start
 document.querySelectorAll('video.ig-vid').forEach(v => { try { v.currentTime = 0.1; } catch(e){} });
 
-/* Prevent navigating when clicking react UI */
+/* Gallery love / comment / views — do not navigate the tile */
 document.addEventListener('click', (e) => {
-  if (e.target.closest('.react-btn') || e.target.closest('.react-close')) {
-    e.preventDefault();
-    e.stopPropagation();
+  const btn = e.target.closest('.react-btn, .react-close');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+  if (btn.classList.contains('react-close')) return;
+  const item = btn.closest('.ig-item');
+  const pid = Number((item && item.getAttribute('data-post-id')) || 0);
+  if (!pid) return;
+  const act = String(btn.getAttribute('data-act') || '');
+  if (act === 'comment' || act === 'views') {
+    if (typeof window.openProfileCommentsTray === 'function') {
+      window.openProfileCommentsTray(pid);
+      return;
+    }
+    if (typeof window.pvOpenById === 'function') {
+      window.pvOpenById(pid);
+    }
+    return;
   }
-});
+  if (act === 'love') {
+    if (window.MSBReactions) return;
+    const api = String(window.API_URL || 'feed_api.php');
+    const countEl = btn.querySelector('.n');
+    fetch(api + '?ajax=react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      credentials: 'same-origin',
+      body: 'post_id=' + encodeURIComponent(String(pid)) + '&reaction=love'
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if (!res || !res.ok) return;
+      const n = res.counts && (res.counts.reaction_count != null ? res.counts.reaction_count : res.counts.love_count);
+      if (countEl && n != null) countEl.textContent = String(n);
+    }).catch(function(){});
+  }
+}, true);
+if (window.MSBReactions && typeof window.MSBReactions.bindLikePicker === 'function') {
+  window.MSBReactions.bindLikePicker('.ig-item .react-btn[data-act="love"]', function(btn, reaction){
+    const item = btn && btn.closest ? btn.closest('.ig-item') : null;
+    const pid = Number((item && item.getAttribute('data-post-id')) || 0);
+    if (!pid || !reaction) return;
+    const api = String(window.API_URL || 'feed_api.php');
+    const countEl = btn.querySelector('.n');
+    fetch(api + '?ajax=react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      credentials: 'same-origin',
+      body: 'post_id=' + encodeURIComponent(String(pid)) + '&reaction=' + encodeURIComponent(String(reaction))
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if (!res || !res.ok) return;
+      const n = res.counts && (res.counts.reaction_count != null ? res.counts.reaction_count : res.counts.love_count);
+      if (countEl && n != null) countEl.textContent = String(n);
+    }).catch(function(){});
+  });
+}
 
 // ----------------------------
 // ✅ Profile grid -> open post modal (NO post_view.php)
@@ -7496,6 +8636,7 @@ const pvMaxReplyCurveDepth = 4;
 let pvReplyToMode = 'Reply';
 let pvCurrentReaction = '';
 const PV_ME_ID = <?php echo (int)$meId; ?>;
+try { window.PV_ME_ID = PV_ME_ID; } catch (ePvMe) {}
 let PV_FRIEND_STATUS = <?php echo json_encode($isOwnProfile ? 'self' : $friendStatus, JSON_UNESCAPED_SLASHES); ?>;
 const PV_IS_PUBLISHER = <?php echo !empty($profileIsPublisher) ? 'true' : 'false'; ?>;
 const PV_CAN_FOLLOW_PUBLISHERS = <?php echo !empty($canFollowPublishers) ? 'true' : 'false'; ?>;
@@ -7753,7 +8894,7 @@ function pvGridIdsForElement(el){
     return GALLERY_GRID_IDS;
   }
   if (scope === 'tags') return TAGS_GRID_IDS;
-  if (scope === 'saved') return SAVED_GRID_IDS;
+  if (scope === 'saved' || scope === 'saved-view') return SAVED_GRID_IDS;
   return GRID_IDS;
 }
 
@@ -7853,6 +8994,11 @@ window.pvOpenById = function(postId, opts){
   if (!postId) return false;
   opts = (opts && typeof opts === 'object') ? opts : {};
   var hideNav = !!(opts.hideNav || opts.standalone || opts.fromMention || opts.fromTag);
+  var commentId = Number(opts.commentId || opts.open_comment || 0);
+  if (commentId > 0) {
+    pvAlertFocusCommentId = commentId;
+    try { window.__pvFocusCommentId = commentId; } catch (eCid) {}
+  }
   try { window.__pvHidePostNav = hideNav; } catch (eFlag) {}
   if (hideNav) {
     pvActiveGridIds = [];
@@ -8148,7 +9294,7 @@ function pvRenderMedia(post, atts){
   if (Array.isArray(atts) && atts.length > 1) {
     let slides = '';
     atts.forEach((a, i) => {
-      slides += `<div class="media-slide mf-media-slide" data-slide-index="${i}">${pvSlideInner(a)}</div>`;
+      slides += `<div class="media-slide mf-media-slide${i === 0 ? ' is-active' : ''}" data-slide-index="${i}">${pvSlideInner(a)}</div>`;
     });
     pv.media.innerHTML = `
       <div class="media-carousel mf-media-carousel" data-index="0">
@@ -8203,7 +9349,10 @@ function pvSetMediaCarouselIndex(carousel, nextIndex){
   if (idx < 0) idx = 0;
   if (idx > slideCount - 1) idx = slideCount - 1;
   carousel.setAttribute('data-index', String(idx));
-  if (slides) slides.style.transform = 'translateX(' + String(idx * -100) + '%)';
+  if (slides) slides.style.transform = 'none';
+  carousel.querySelectorAll('.mf-media-slide, .media-slide').forEach(function(el, i){
+    el.classList.toggle('is-active', i === idx);
+  });
   dots.forEach((dot) => {
     const di = Number(dot.getAttribute('data-index'));
     const on = di === idx;
@@ -8247,6 +9396,21 @@ function pvRenderComments(post, comments){
     node._replies.forEach((child) => annotateReplyDepth(child, depth + 1, nextCappedAncestorId));
   }
   roots.forEach((node) => annotateReplyDepth(node, 0, 0));
+
+  var focusId = Number(pvAlertFocusCommentId || window.__pvFocusCommentId || 0);
+  if (focusId > 0) {
+    Object.values(byId).forEach(function(c){
+      var cur = c;
+      var guard = 0;
+      if (Number(c.id || 0) !== focusId) return;
+      while (cur && guard++ < 50) {
+        pvCollapsedReplyIds.delete(Number(cur.id || 0));
+        var pid = Number(cur.parent_id || 0);
+        if (pid > 0) pvCollapsedReplyIds.delete(pid);
+        cur = pid > 0 ? byId[pid] : null;
+      }
+    });
+  }
 
   function commentHtml(c, depth){
     const cid = Number(c?.id || 0);
@@ -8313,8 +9477,7 @@ function pvFocusCommentById(commentId){
   try { row.scrollIntoView({ block:'center', behavior:'smooth' }); } catch (e) {}
   return true;
 }
-
-function pvApplyLoveReaction(my){
+try { window.pvFocusCommentById = pvFocusCommentById; } catch (ePvFocus) {}
   my = String(my || '');
   pvCurrentReaction = my;
   const btn = document.getElementById('pvLove') || pv.love;
@@ -8533,6 +9696,33 @@ function pvSyncMenu(post){
   wrap.setAttribute('data-is-publisher', isPublisher ? '1' : '0');
   wrap.setAttribute('data-is-following', isFollowing ? '1' : '0');
   wrap.setAttribute('data-my-saved', String(Number(post.my_saved || post.is_saved || 0) === 1 ? 1 : 0));
+  wrap.setAttribute('data-is-archived', String(Number(post.is_archived || 0) === 1 ? 1 : 0));
+  let vis = '';
+  if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.lookupPostVisibility === 'function') {
+    vis = window.MSBPostCardMenu.lookupPostVisibility(pid, post.visibility || '');
+  } else {
+    if (pid > 0) {
+      const postCard = document.querySelector(
+        '#profilePostsFeed .mf-card[data-post-id="'+String(pid)+'"],' +
+        '#profilePostsFeed .mf-card[data-id="'+String(pid)+'"],' +
+        '.mf-card[data-post-id="'+String(pid)+'"],' +
+        '.mf-card[data-id="'+String(pid)+'"]'
+      );
+      if (postCard) vis = String(postCard.getAttribute('data-visibility') || '').trim().toLowerCase();
+    }
+    if (!vis) {
+      const gridItem = (typeof pvFindGridItem === 'function') ? pvFindGridItem(pid) : null;
+      if (gridItem) vis = String(gridItem.getAttribute('data-visibility') || '').trim().toLowerCase();
+    }
+    if (!vis) vis = String(post.visibility || '').trim().toLowerCase();
+  }
+  if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.normalizeVisibility === 'function') {
+    vis = window.MSBPostCardMenu.normalizeVisibility(vis || 'friends');
+  } else if (vis !== 'private' && vis !== 'friends' && vis !== 'public') {
+    vis = 'friends';
+  }
+  wrap.setAttribute('data-visibility', vis);
+  if (typeof pv !== 'undefined' && pv.ov) pv.ov.setAttribute('data-visibility', vis);
   if (friendCode) wrap.setAttribute('data-peer-code', friendCode);
   else wrap.removeAttribute('data-peer-code');
   if (profileUrl) wrap.setAttribute('data-profile-url', profileUrl);
@@ -8553,6 +9743,7 @@ function pvSyncMenu(post){
     my_saved: Number(post.my_saved || post.is_saved || 0),
     is_saved: Number(post.my_saved || post.is_saved || 0),
     is_archived: Number(post.is_archived || 0),
+    visibility: vis,
     contact_id: Number(post.contact_id || 0),
     contact_name: String(post.contact_name || '')
   };
@@ -8764,14 +9955,11 @@ async function pvLoad(postId){
   }
 }
 
-// Ensure fries menu is populated before shared toggle runs.
+// Rebuild fries from the card/tile visibility before the shared toggle opens.
 document.addEventListener('click', function(e){
   const btn = e.target && e.target.closest ? e.target.closest('#pvDots, #pvMenuWrap .post-card-menu-btn') : null;
   if (!btn || !btn.closest('#pvOverlay')) return;
-  const menu = document.getElementById('pvMenu');
-  if (menu && !String(menu.innerHTML || '').trim()) {
-    pvSyncMenu(pvCurrentPost);
-  }
+  pvSyncMenu(pvCurrentPost);
 }, true);
 
 document.addEventListener('click', function(e){
@@ -8898,6 +10086,7 @@ function pvPreloadNeighbors(){
 // Grid click
 document.querySelectorAll('.ig-grid .ig-item').forEach(a => {
   a.addEventListener('click', (e) => {
+    if (e.target && e.target.closest && e.target.closest('.ig-saved-remove')) return;
     e.preventDefault();
     const postId = Number(a.getAttribute('data-post-id') || 0);
     if (!postId) return;
@@ -8908,12 +10097,29 @@ document.querySelectorAll('.ig-grid .ig-item').forEach(a => {
 window.MSBProfileRemoveFromSaved = function(postId){
   postId = Number(postId || 0);
   if (!postId) return;
-  var panel = document.getElementById('panel-saved');
-  if (!panel) return;
-  var item = panel.querySelector('.ig-item[data-post-id="'+String(postId)+'"]');
-  var wrap = item && item.closest ? item.closest('.ig-item-wrap') : null;
-  var tile = wrap || item;
-  if (tile && tile.parentNode) tile.parentNode.removeChild(tile);
+  var hosts = [];
+  var savedPanel = document.getElementById('panel-saved');
+  var gearFav = document.getElementById('gearFavoritesEmbed');
+  if (savedPanel) hosts.push(savedPanel);
+  if (gearFav) hosts.push(gearFav);
+  hosts.forEach(function(host){
+    var item = host.querySelector('.ig-item[data-post-id="'+String(postId)+'"]');
+    var wrap = item && item.closest ? item.closest('.ig-item-wrap') : null;
+    var tile = wrap || item;
+    if (tile && tile.parentNode) tile.parentNode.removeChild(tile);
+    if (!host.querySelector('.ig-item')) {
+      var grid = host.querySelector('.ig-grid');
+      if (grid) grid.remove();
+      if (!host.querySelector('.mf-feed-empty')) {
+        host.insertAdjacentHTML('beforeend',
+          '<div class="mf-feed-empty" role="status">'
+          + '<i class="icon ion-bookmark" aria-hidden="true"></i>'
+          + '<div class="mf-feed-empty-title">No saved posts yet</div>'
+          + '</div>'
+        );
+      }
+    }
+  });
   function prune(list){
     if (!Array.isArray(list)) return;
     for (var i = list.length - 1; i >= 0; i--) {
@@ -8925,22 +10131,9 @@ window.MSBProfileRemoveFromSaved = function(postId){
   if (pvActiveGridScope === 'saved' && pvPostId === postId && typeof pvClose === 'function') {
     try { pvClose(); } catch (eClose) {}
   }
-  if (!panel.querySelector('.ig-item')) {
-    var grid = panel.querySelector('.ig-grid');
-    if (grid) grid.remove();
-    if (!panel.querySelector('.mf-feed-empty')) {
-      panel.insertAdjacentHTML('beforeend',
-        '<div class="mf-feed-empty" role="status">'
-        + '<i class="icon ion-bookmark" aria-hidden="true"></i>'
-        + '<div class="mf-feed-empty-title">No saved posts yet</div>'
-        + '</div>'
-      );
-    }
-  }
 };
 
 (function(){
-  var panel = document.getElementById('panel-saved');
   var dialog = document.getElementById('savedRemoveDialog');
   var cancelBtn = document.getElementById('savedRemoveDialogCancel');
   var closeBtn = document.getElementById('savedRemoveDialogClose');
@@ -8948,10 +10141,13 @@ window.MSBProfileRemoveFromSaved = function(postId){
   var pendingPostId = 0;
   var pendingBtn = null;
   var removing = false;
-  if (!panel) return;
+  if (!dialog && !document.querySelector('.ig-saved-remove')) return;
 
   function closeDialog(){
-    if (dialog && dialog.open) dialog.close();
+    if (dialog) {
+      dialog.classList.remove('is-open');
+      dialog.setAttribute('hidden', '');
+    }
     pendingPostId = 0;
     if (pendingBtn) pendingBtn.disabled = false;
     pendingBtn = null;
@@ -8970,15 +10166,9 @@ window.MSBProfileRemoveFromSaved = function(postId){
     if (confirmBtn) confirmBtn.disabled = false;
     if (!dialog || !pendingPostId) return;
     if (dialog.parentNode !== document.body) document.body.appendChild(dialog);
-    setTimeout(function(){
-      if (!dialog || !pendingPostId) return;
-      if (typeof dialog.showModal === 'function') {
-        if (!dialog.open) dialog.showModal();
-      } else {
-        dialog.setAttribute('open', '');
-      }
-      try { if (confirmBtn) confirmBtn.focus(); } catch (eFocus) {}
-    }, 0);
+    dialog.removeAttribute('hidden');
+    dialog.classList.add('is-open');
+    try { if (confirmBtn) confirmBtn.focus(); } catch (eFocus) {}
   }
 
   function confirmRemoveNow(){
@@ -9023,14 +10213,27 @@ window.MSBProfileRemoveFromSaved = function(postId){
     });
   }
 
-  panel.addEventListener('click', function(e){
+  document.addEventListener('click', function(e){
     var btn = e.target && e.target.closest ? e.target.closest('.ig-saved-remove') : null;
     if (!btn) return;
+    if (!btn.closest('#panel-saved, #gearFavoritesEmbed')) return;
     e.preventDefault();
     e.stopPropagation();
     var postId = Number(btn.getAttribute('data-unsave-post') || 0);
     if (!postId || btn.disabled) return;
     openDialog(postId, btn);
+  }, true);
+
+  if (dialog) {
+    dialog.addEventListener('click', function(e){
+      if (e.target === dialog) closeDialog();
+    });
+  }
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && dialog && dialog.classList.contains('is-open')) {
+      e.preventDefault();
+      closeDialog();
+    }
   });
 
   if (cancelBtn) cancelBtn.addEventListener('click', function(e){
@@ -9048,11 +10251,6 @@ window.MSBProfileRemoveFromSaved = function(postId){
     e.stopPropagation();
     confirmRemoveNow();
   });
-  if (dialog) {
-    dialog.addEventListener('cancel', function(){
-      closeDialog();
-    });
-  }
 })();
 
 // Close by clicking outside
@@ -9079,7 +10277,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { e.preventDefault(); if (pvIndex < ids.length - 1) pvOpenByIndex(pvIndex + 1); }
 });
 
-// ✅ Mobile swipe (left/right) like Instagram
+// ✅ Mobile swipe (left/right) like Talsora
 let pvTouchX = 0;
 let pvTouchY = 0;
 pv.ov.addEventListener('touchstart', (e) => {
@@ -9361,7 +10559,10 @@ pv.text.addEventListener('keydown', (e)=>{
   function openAlertTarget(){
     if (typeof window.pvOpenById !== 'function') return;
     pvAlertFocusCommentId = alertCommentId;
-    window.pvOpenById(alertPostId, alertHideNav ? { hideNav: true } : {});
+    window.pvOpenById(alertPostId, {
+      hideNav: alertHideNav || alertCommentId > 0,
+      commentId: alertCommentId
+    });
     if (alertCommentId > 0) {
       let tries = 0;
       (function waitForComment(){
@@ -9692,7 +10893,7 @@ pv.text.addEventListener('keydown', (e)=>{
   }
 
   function setGearNavMetaBySelector(selector, label){
-    var item = document.querySelector('#panel-gear .gear-nav-item' + selector);
+    var item = document.querySelector('.gear-nav-item' + selector);
     if (!item) return;
     var meta = item.querySelector('.gear-nav-item-meta');
     if (!meta) {
@@ -9731,7 +10932,7 @@ pv.text.addEventListener('keydown', (e)=>{
     prefs = prefs || currentThemePrefs();
     var mode = prefs.autoEnabled ? 'system' : (prefs.appearanceMode || 'system');
     setGearNavMetaBySelector('[data-local-field="theme_auto_enabled"]', prefs.autoEnabled ? 'On' : 'Off');
-    var appearanceItems = document.querySelectorAll('#panel-gear .gear-nav-item[data-field="appearance_mode"]');
+    var appearanceItems = document.querySelectorAll('.gear-nav-item[data-field="appearance_mode"]');
     appearanceItems.forEach(function(item){
       var meta = item.querySelector('.gear-nav-item-meta');
       if (!meta) {
@@ -10036,6 +11237,69 @@ pv.text.addEventListener('keydown', (e)=>{
       .catch(function(){ flashState(state, 'Error', 'is-error'); });
     });
   });
+
+  (function wireGearHideFrom(){
+    if (!window.MSBMentionAC || typeof window.MSBMentionAC.mountTagPeople !== 'function') return;
+    document.querySelectorAll('#panel-gear .gear-except').forEach(function(box){
+      var field = box.getAttribute('data-except-field') || '';
+      var input = box.querySelector('.gear-except-input');
+      var chips = box.querySelector('.gear-except-chips');
+      var idHidden = box.querySelector('.gear-except-ids');
+      var hidden = box.querySelector('.gear-except-json');
+      var state = box.querySelector('.gear-save-state');
+      if (!field || !input || !chips || !idHidden || !hidden) return;
+      var initial = {};
+      try {
+        var parsed = JSON.parse(hidden.value || '[]');
+        if (Array.isArray(parsed)) {
+          parsed.forEach(function(p){
+            var id = String((p && p.id) || (p && p.username) || '');
+            var username = String((p && p.username) || '');
+            if (id !== '' && username !== '') initial[id] = { id: p.id || 0, username: username };
+          });
+        }
+      } catch (e) {}
+      var saveTimer = null;
+      function savePeople(selected){
+        var list = [];
+        Object.keys(selected || {}).forEach(function(key){
+          var u = selected[key] || {};
+          if (!u.username) return;
+          list.push({ id: Number(u.id || 0), username: String(u.username) });
+        });
+        hidden.value = JSON.stringify(list);
+        if (state) flashState(state, 'Saving', 'is-saving');
+        var form = new FormData();
+        form.append('field', field);
+        form.append('value', hidden.value);
+        fetch('save_privacy.php', {
+          method: 'POST',
+          body: form,
+          credentials: 'same-origin',
+          headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data || !data.ok) throw new Error('save failed');
+          if (data.value) hidden.value = data.value;
+          if (state) {
+            flashState(state, 'Saved', 'is-saved');
+            window.setTimeout(function(){ flashState(state, '', ''); }, 1300);
+          }
+        }).catch(function(){
+          if (state) flashState(state, 'Error', 'is-error');
+        });
+      }
+      window.MSBMentionAC.mountTagPeople({
+        wrap: chips,
+        hidden: idHidden,
+        input: input,
+        initial: initial,
+        onChange: function(selected){
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(function(){ savePeople(selected); }, 200);
+        }
+      });
+    });
+  })();
 
   (function wireProgressColorSave(){
     var colorCtrl = document.getElementById('gear-ctrl-progress-color');
@@ -10385,38 +11649,60 @@ pv.text.addEventListener('keydown', (e)=>{
   var dotsEl = document.getElementById('profileCoverDots');
   var delBtn = document.getElementById('profileCoverDelete');
   var index = 0;
-  var timer = null;
   var delay = 4500;
+  var lastTick = 0;
+  var rafId = 0;
+  var holdPause = false;
+  var animating = false;
+  var slideMs = 1150;
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) slideMs = 0;
+  } catch (e) {}
 
   function slides(){
     return Array.prototype.slice.call(stage.querySelectorAll('.profile-cover-slide'));
   }
 
-  function stop(){
-    if (timer) {
-      window.clearInterval(timer);
-      timer = null;
+  function canAutoplay(){
+    return !holdPause && !document.hidden && slides().length >= 2;
+  }
+
+  function tick(now){
+    rafId = window.requestAnimationFrame(tick);
+    if (!canAutoplay()) {
+      lastTick = now;
+      return;
+    }
+    if (!lastTick) lastTick = now;
+    if ((now - lastTick) >= delay) {
+      lastTick = now;
+      go(index + 1);
     }
   }
 
+  function stop(){
+    holdPause = true;
+  }
+
   function start(){
-    stop();
-    if (slides().length < 2) return;
-    timer = window.setInterval(function(){ go(index + 1); }, delay);
+    var picker = document.getElementById('coverSlideDeleteDialog');
+    holdPause = !!(picker && !picker.hidden);
+    lastTick = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (!rafId) rafId = window.requestAnimationFrame(tick);
   }
 
   function paint(){
     var list = slides();
     list.forEach(function(img, i){
+      img.classList.remove('is-sliding');
       img.classList.toggle('is-active', i === index);
+      img.style.transition = '';
+      img.style.transform = 'none';
+      img.style.opacity = '';
       if (i === index) img.id = 'profileCoverPreview';
       else img.removeAttribute('id');
     });
-    if (dotsEl) {
-      Array.prototype.forEach.call(dotsEl.querySelectorAll('button'), function(dot, i){
-        dot.classList.toggle('is-active', i === index);
-      });
-    }
+    paintDots();
     var many = list.length > 1;
     if (prevBtn) prevBtn.hidden = !many;
     if (nextBtn) nextBtn.hidden = !many;
@@ -10426,11 +11712,63 @@ pv.text.addEventListener('keydown', (e)=>{
     }
   }
 
+  function paintDots(){
+    if (!dotsEl) return;
+    Array.prototype.forEach.call(dotsEl.querySelectorAll('button'), function(dot, i){
+      dot.classList.toggle('is-active', i === index);
+    });
+  }
+
+  function wrapIndex(next, n){
+    return ((next % n) + n) % n;
+  }
+
   function go(next){
     var list = slides();
-    if (!list.length) return;
-    index = ((next % list.length) + list.length) % list.length;
-    paint();
+    if (!list.length || animating) return;
+    var dest = wrapIndex(next, list.length);
+    if (dest === index) return;
+    if (list.length < 2 || slideMs <= 0) {
+      index = dest;
+      paint();
+      return;
+    }
+    var fromEl = list[index];
+    var toEl = list[dest];
+    animating = true;
+    list.forEach(function(img){
+      img.classList.remove('is-sliding');
+      img.style.transition = '';
+      img.style.transform = 'none';
+      img.style.opacity = '';
+    });
+    fromEl.classList.add('is-sliding', 'is-active');
+    toEl.classList.add('is-sliding');
+    toEl.classList.remove('is-active');
+    window.requestAnimationFrame(function(){
+      window.requestAnimationFrame(function(){
+        fromEl.classList.remove('is-active');
+        toEl.classList.add('is-active');
+        index = dest;
+        paintDots();
+        var many = list.length > 1;
+        if (prevBtn) prevBtn.hidden = !many;
+        if (nextBtn) nextBtn.hidden = !many;
+        if (dotsEl) dotsEl.hidden = !many;
+        window.setTimeout(function(){
+          list.forEach(function(img, i){
+            img.classList.remove('is-sliding');
+            img.classList.toggle('is-active', i === dest);
+            img.style.transition = '';
+            img.style.transform = 'none';
+            img.style.opacity = '';
+            if (i === dest) img.id = 'profileCoverPreview';
+            else img.removeAttribute('id');
+          });
+          animating = false;
+        }, slideMs);
+      });
+    });
   }
 
   function rebuildDots(){
@@ -10502,14 +11840,22 @@ pv.text.addEventListener('keydown', (e)=>{
     paint();
     start();
   };
-  if (prevBtn) prevBtn.addEventListener('click', function(){ go(index - 1); start(); });
-  if (nextBtn) nextBtn.addEventListener('click', function(){ go(index + 1); start(); });
-  root.addEventListener('mouseenter', stop);
-  root.addEventListener('mouseleave', start);
+  function holdNavFocus(e){
+    e.preventDefault();
+  }
+  if (prevBtn) {
+    prevBtn.addEventListener('mousedown', holdNavFocus);
+    prevBtn.addEventListener('click', function(){ go(index - 1); start(); });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('mousedown', holdNavFocus);
+    nextBtn.addEventListener('click', function(){ go(index + 1); start(); });
+  }
   document.addEventListener('visibilitychange', function(){
-    if (document.hidden) stop();
-    else start();
+    if (!document.hidden) start();
   });
+  window.addEventListener('focus', function(){ start(); });
+  window.addEventListener('pageshow', function(){ start(); });
   if (delBtn) {
     var dialog = document.getElementById('coverSlideDeleteDialog');
     var grid = document.getElementById('coverSlideDeleteGrid');
@@ -10622,17 +11968,128 @@ pv.text.addEventListener('keydown', (e)=>{
     if (panel.getAttribute('data-gear-nav-ready') === '1') return;
     panel.setAttribute('data-gear-nav-ready', '1');
 
-    var gearNav = panel.querySelector('#gearNav');
+    var gearNav = document.getElementById('gearNav');
+    var rowPane = document.getElementById('gearRowPane');
+    var rowEmpty = document.getElementById('gearRowEmpty');
     var empty = panel.querySelector('#gearDetailEmpty');
     var main = panel.querySelector('#gearMain');
+    var editPane = document.getElementById('gearEditPane');
     var syncingHash = false;
+
+    function closeGearEditPane(){
+      if (!editPane) return;
+      editPane.classList.remove('is-open');
+      editPane.hidden = true;
+    }
+
+    function openGearEditPane(view){
+      if (!editPane) return;
+      view = String(view || 'edit_background');
+      editPane.hidden = false;
+      editPane.classList.add('is-open');
+      editPane.querySelectorAll('[data-gear-pane-view]').forEach(function(el){
+        el.hidden = el.getAttribute('data-gear-pane-view') !== view;
+      });
+      var labels = {
+        edit_background: 'Edit background',
+        edit_display_name: 'Change display name',
+        safety_center: 'Safety Center',
+        change_password: 'Change password',
+        manage_devices: 'Manage devices',
+        logout_now: 'Logout now',
+        logout_all_devices: 'Logout all devices',
+        edit_account: 'Account',
+        edit_username: 'Change username',
+        reset_settings: 'Reset account settings',
+        delete_account: 'Delete account',
+        deactivate_account: 'Deactivate account'
+      };
+      editPane.setAttribute('aria-label', labels[view] || 'Edit');
+    }
 
     function detailPanels(){
       return panel.querySelectorAll('.gear-detail-panel');
     }
 
     function navItems(){
-      return panel.querySelectorAll('.gear-nav-item');
+      return document.querySelectorAll('#gearRowPane .gear-nav-item');
+    }
+
+    function navSections(){
+      return document.querySelectorAll('#gearNav .gear-nav-section');
+    }
+
+    function hideDetails(){
+      detailPanels().forEach(function(detail){
+        detail.classList.remove('is-active');
+        detail.hidden = true;
+      });
+      navItems().forEach(function(btn){
+        btn.classList.remove('is-active');
+        btn.setAttribute('aria-current', 'false');
+      });
+      if (empty) empty.hidden = false;
+      closeGearEditPane();
+    }
+
+    function showRowGroup(slug){
+      var any = false;
+      document.querySelectorAll('#gearRowPane .gear-row-group').forEach(function(group){
+        var show = slug !== '' && group.getAttribute('data-group-slug') === slug;
+        group.hidden = !show;
+        if (show) any = true;
+      });
+      if (rowEmpty) rowEmpty.hidden = any;
+    }
+
+    var gearShell = panel.querySelector('.gear-shell');
+    var archiveEmbed = document.getElementById('gearArchiveEmbed');
+    var archiveShortcut = document.getElementById('gearArchiveShortcut');
+    var archiveSlug = archiveShortcut ? (archiveShortcut.getAttribute('data-group-slug') || 'gear-archived-posts') : 'gear-archived-posts';
+    var favoritesEmbed = document.getElementById('gearFavoritesEmbed');
+    var favoritesShortcut = document.getElementById('gearFavoritesShortcut');
+    var favoritesSlug = favoritesShortcut ? (favoritesShortcut.getAttribute('data-group-slug') || 'gear-favorites') : 'gear-favorites';
+
+    function setArchiveShortcutOpen(on){
+      if (!archiveShortcut) return;
+      archiveShortcut.classList.toggle('is-open', !!on);
+    }
+
+    function setFavoritesShortcutOpen(on){
+      if (!favoritesShortcut) return;
+      favoritesShortcut.classList.toggle('is-open', !!on);
+    }
+
+    function setArchiveView(on){
+      if (gearShell) gearShell.classList.toggle('is-archive-open', !!on);
+      if (archiveEmbed) archiveEmbed.hidden = !on;
+    }
+
+    function setFavoritesView(on){
+      if (gearShell) gearShell.classList.toggle('is-favorites-open', !!on);
+      if (favoritesEmbed) favoritesEmbed.hidden = !on;
+    }
+
+    function openArchiveGroup(keepDetail){
+      navSections().forEach(closeSection);
+      setFavoritesShortcutOpen(false);
+      setFavoritesView(false);
+      setArchiveShortcutOpen(true);
+      setArchiveView(true);
+      showRowGroup('');
+      if (rowEmpty) rowEmpty.hidden = true;
+      if (!keepDetail) hideDetails();
+    }
+
+    function openFavoritesGroup(keepDetail){
+      navSections().forEach(closeSection);
+      setArchiveShortcutOpen(false);
+      setArchiveView(false);
+      setFavoritesShortcutOpen(true);
+      setFavoritesView(true);
+      showRowGroup('');
+      if (rowEmpty) rowEmpty.hidden = true;
+      if (!keepDetail) hideDetails();
     }
 
     function closeSection(section){
@@ -10642,16 +12099,22 @@ pv.text.addEventListener('keydown', (e)=>{
       if (toggle) toggle.setAttribute('aria-expanded', 'false');
     }
 
-    function openSection(section, closeOthers){
+    function openSection(section, closeOthers, keepDetail){
       if (!section) return;
+      setArchiveShortcutOpen(false);
+      setArchiveView(false);
+      setFavoritesShortcutOpen(false);
+      setFavoritesView(false);
       if (closeOthers !== false) {
-        panel.querySelectorAll('.gear-nav-section.is-open').forEach(function(other){
+        navSections().forEach(function(other){
           if (other !== section) closeSection(other);
         });
       }
       section.classList.add('is-open');
       var toggle = section.querySelector('.gear-nav-section-toggle');
       if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      showRowGroup(section.getAttribute('data-group-slug') || '');
+      if (!keepDetail) hideDetails();
       if (gearNav) {
         window.requestAnimationFrame(function(){
           section.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -10661,12 +12124,8 @@ pv.text.addEventListener('keydown', (e)=>{
 
     function toggleSection(section){
       if (!section) return;
-      var willOpen = !section.classList.contains('is-open');
-      if (willOpen) {
-        openSection(section, true);
-        return;
-      }
-      closeSection(section);
+      if (section.classList.contains('is-open')) return;
+      openSection(section, true, false);
     }
 
     function showDetail(id){
@@ -10687,18 +12146,29 @@ pv.text.addEventListener('keydown', (e)=>{
       });
 
       if (empty) empty.hidden = true;
+      closeGearEditPane();
 
       var activeBtn = null;
       navItems().forEach(function(btn){
         if (btn.getAttribute('data-detail-id') === id) activeBtn = btn;
       });
-      if (activeBtn) openSection(activeBtn.closest('.gear-nav-section'), true);
+      if (activeBtn) {
+        var slug = activeBtn.getAttribute('data-group-slug') || '';
+        if (slug === archiveSlug) {
+          openArchiveGroup(true);
+        } else if (slug === favoritesSlug) {
+          openFavoritesGroup(true);
+        } else {
+          var section = slug ? document.querySelector('#gearNav .gear-nav-section[data-group-slug="' + slug + '"]') : null;
+          openSection(section, true, true);
+        }
+      }
 
       if (main) {
         if (window.matchMedia('(max-width: 991px)').matches) {
-          main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          main.scrollIntoView({ behavior: 'auto', block: 'start' });
         } else {
-          target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          target.scrollIntoView({ behavior: 'auto', block: 'nearest' });
         }
       }
 
@@ -10713,60 +12183,166 @@ pv.text.addEventListener('keydown', (e)=>{
       syncingHash = false;
     }
 
-    window.MSBGearNav = { showDetail: showDetail };
+    window.MSBGearNav = { showDetail: showDetail, closeEditPane: closeGearEditPane, openEditPane: openGearEditPane, bootFromHash: bootFromHash };
 
     if (gearNav) {
       gearNav.addEventListener('click', function(e){
+        var archiveBtn = e.target.closest('.gear-archive-shortcut');
+        if (archiveBtn && gearNav.contains(archiveBtn)) {
+          e.preventDefault();
+          var lib = archiveBtn.getAttribute('data-library') || 'archive';
+          if (lib === 'favorites') {
+            openFavoritesGroup(false);
+          } else {
+            openArchiveGroup(false);
+          }
+          try {
+            syncingHash = true;
+            var url = new URL(window.location.href);
+            var nextHash = lib === 'favorites' ? favoritesSlug : archiveSlug;
+            if (url.hash !== '#' + nextHash) {
+              url.hash = nextHash;
+              window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+            }
+          } catch (err) {}
+          syncingHash = false;
+          return;
+        }
         var toggle = e.target.closest('.gear-nav-section-toggle');
         if (toggle && gearNav.contains(toggle)) {
           var section = toggle.closest('.gear-nav-section');
           if (!section) return;
           toggleSection(section);
-          return;
+          try {
+            syncingHash = true;
+            var url = new URL(window.location.href);
+            var slug = section.getAttribute('data-group-slug') || '';
+            if (slug && url.hash !== '#' + slug) {
+              url.hash = slug;
+              window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+            }
+          } catch (err) {}
+          syncingHash = false;
         }
-
-        var btn = e.target.closest('.gear-nav-item');
-        if (!btn || !gearNav.contains(btn)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        showDetail(btn.getAttribute('data-detail-id') || '');
       });
 
-      gearNav.addEventListener('wheel', function(e){
-        var box = gearNav;
-        var inner = e.target.closest('.gear-nav-items');
-        if (inner && gearNav.contains(inner) && inner.scrollHeight > inner.clientHeight + 1) {
-          box = inner;
-        }
+      var sidebar = document.getElementById('gearCategoryRail');
+      if (sidebar) {
+        sidebar.addEventListener('wheel', function(e){
+          if (document.body.classList.contains('profile-flow-scroll')) return;
+          var box = e.target.closest('.gear-nav') || gearNav;
+          if (!box) return;
+          e.preventDefault();
+          e.stopPropagation();
+          box.scrollTop += e.deltaY;
+        }, { passive: false });
+      }
+    }
+
+    function gearColumnWheel(el, findBox){
+      if (!el) return;
+      el.addEventListener('wheel', function(e){
+        if (document.body.classList.contains('profile-flow-scroll')) return;
+        var box = findBox ? findBox(e) : el;
+        if (box === false) return;
+        if (!box) box = el;
         e.preventDefault();
         e.stopPropagation();
         box.scrollTop += e.deltaY;
       }, { passive: false });
     }
 
-    if (main) {
-      main.addEventListener('wheel', function(e){
+    if (rowPane) {
+      rowPane.addEventListener('click', function(e){
+        var btn = e.target.closest('.gear-nav-item');
+        if (!btn || !rowPane.contains(btn)) return;
         e.preventDefault();
         e.stopPropagation();
-        main.scrollTop += e.deltaY;
-      }, { passive: false });
-    }
+        var go = btn.getAttribute('data-href') || '';
+        if (go) {
+          window.location.href = go;
+          return;
+        }
+        showDetail(btn.getAttribute('data-detail-id') || '');
+      });
 
-    var search = document.getElementById('gearSearchInput');
-    if (search) {
-      search.addEventListener('input', function(){
-        var q = search.value.trim().toLowerCase();
-        navItems().forEach(function(btn){
-          var text = btn.getAttribute('data-search-text') || '';
-          btn.hidden = q !== '' && text.indexOf(q) === -1;
-        });
-        panel.querySelectorAll('.gear-nav-section').forEach(function(section){
-          var visible = section.querySelectorAll('.gear-nav-item:not([hidden])').length > 0;
-          section.hidden = q !== '' && !visible;
-          if (visible && q !== '') openSection(section, false);
-        });
+      gearColumnWheel(rowPane, function(e){
+        var group = rowPane.querySelector('.gear-row-group:not([hidden])');
+        return (group && group.querySelector('.gear-nav-items'))
+          || (e.target && e.target.closest ? e.target.closest('.gear-nav-items') : null)
+          || rowPane;
       });
     }
+
+    gearColumnWheel(main);
+
+    var editPaneEl = document.getElementById('gearEditPane');
+    gearColumnWheel(editPaneEl, function(e){
+      var view = editPaneEl.querySelector('[data-gear-pane-view]:not([hidden])');
+      if (view) return view;
+      return (e.target && e.target.closest ? e.target.closest('[data-gear-pane-view]') : null) || editPaneEl;
+    });
+
+    ['gearArchiveEmbed', 'gearFavoritesEmbed'].forEach(function(id){
+      var host = document.getElementById(id);
+      gearColumnWheel(host, function(e){
+        var stories = e.target && e.target.closest ? e.target.closest('.ig-stories-track') : null;
+        if (stories && stories.scrollWidth > stories.clientWidth + 1 && Math.abs(e.deltaX) >= Math.abs(e.deltaY)) {
+          e.preventDefault();
+          e.stopPropagation();
+          stories.scrollLeft += e.deltaX || e.deltaY;
+          return false;
+        }
+        if (id === 'gearFavoritesEmbed') return host;
+        return host.querySelector('.ig-archive-grid-scroll')
+          || host.querySelector('.ig-archive-body')
+          || host;
+      });
+    });
+
+    panel.addEventListener('click', function(e){
+      var openBtn = e.target.closest('[data-gear-open-pane]');
+      if (openBtn && panel.contains(openBtn)) {
+        e.preventDefault();
+        openGearEditPane(openBtn.getAttribute('data-gear-open-pane') || '');
+        return;
+      }
+      var unBtn = e.target.closest('.js-gear-unarchive');
+      if (!unBtn || !panel.contains(unBtn)) return;
+      e.preventDefault();
+      var postId = Number(unBtn.getAttribute('data-post-id') || 0);
+      if (!postId) return;
+      unBtn.disabled = true;
+      var body = new URLSearchParams({ ajax: 'archive', post_id: String(postId), archived: '0' });
+      fetch('feed_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        credentials: 'same-origin',
+        body: body
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if (!res || res.ok === false) {
+          unBtn.disabled = false;
+          return;
+        }
+        var rowBtn = document.querySelector('#gearRowPane .gear-nav-item[data-post-id="' + String(postId) + '"]');
+        var detailId = rowBtn ? (rowBtn.getAttribute('data-detail-id') || '') : '';
+        if (rowBtn) rowBtn.remove();
+        if (detailId) {
+          var det = document.getElementById(detailId);
+          if (det) det.remove();
+        }
+        hideDetails();
+        var group = document.querySelector('#gearRowPane .gear-row-group[data-group-slug="' + archiveSlug + '"] .gear-nav-items');
+        if (group && !group.querySelector('.gear-nav-item')) {
+          var emptyNote = document.createElement('p');
+          emptyNote.className = 'gear-row-group-intro';
+          emptyNote.textContent = 'No archived posts yet. Archive a post from Circle or Discover and it will show up here.';
+          group.appendChild(emptyNote);
+        }
+      }).catch(function(){
+        unBtn.disabled = false;
+      });
+    });
 
     function resolveHashTarget(){
       var hash = (window.location.hash || '').replace(/^#/, '');
@@ -10777,11 +12353,19 @@ pv.text.addEventListener('keydown', (e)=>{
         return hash;
       }
 
-      var section = panel.querySelector('#' + hash + '.gear-nav-section');
-      if (section) {
-        openSection(section, true);
-        var first = section.querySelector('.gear-nav-item:not([hidden])');
-        return first ? (first.getAttribute('data-detail-id') || '') : '';
+      if (hash === archiveSlug || hash === 'gear-archived-posts') {
+        openArchiveGroup(false);
+        return '';
+      }
+      if (hash === favoritesSlug || hash === 'gear-favorites') {
+        openFavoritesGroup(false);
+        return '';
+      }
+
+      var section = document.getElementById(hash);
+      if (section && section.classList.contains('gear-nav-section')) {
+        openSection(section, true, false);
+        return '';
       }
 
       return '';
@@ -10794,9 +12378,11 @@ pv.text.addEventListener('keydown', (e)=>{
         return;
       }
       var active = panel.querySelector('.gear-detail-panel.is-active');
-      if (!active) {
-        var firstBtn = panel.querySelector('.gear-nav-item:not([hidden])');
-        if (firstBtn) showDetail(firstBtn.getAttribute('data-detail-id') || '');
+      if (active) return;
+      var open = document.querySelector('#gearNav .gear-nav-section.is-open');
+      if (!open) {
+        var first = document.querySelector('#gearNav .gear-nav-section');
+        if (first) openSection(first, true, false);
       }
     }
 
@@ -10828,6 +12414,466 @@ pv.text.addEventListener('keydown', (e)=>{
         });
       });
     });
+
+    var editForm = document.getElementById('gearEditBackgroundForm');
+    var editState = document.getElementById('gearEditBackgroundState');
+    if (editForm) {
+      editForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = editForm.querySelector('.gear-edit-save');
+        if (submitBtn) submitBtn.disabled = true;
+        if (editState) {
+          editState.textContent = 'Saving…';
+          editState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(editForm);
+        fd.set('ajax', 'save_about');
+        fetch('user_edit.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data || !data.ok) throw new Error((data && data.error) || 'Save failed');
+          if (editState) {
+            editState.textContent = data.message || 'About details saved.';
+            editState.classList.add('is-saved');
+          }
+          var pronouns = String((data.form && data.form.pronouns) || '').trim();
+          var el = document.querySelector('.ig-avatar-col .ig-pronouns');
+          if (el) el.textContent = pronouns;
+        }).catch(function(err){
+          if (editState) {
+            editState.textContent = err.message || 'Save failed.';
+            editState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
+    var nameForm = document.getElementById('gearEditDisplayNameForm');
+    var nameState = document.getElementById('gearEditDisplayNameState');
+    if (nameForm) {
+      nameForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = nameForm.querySelector('.gear-edit-save');
+        if (submitBtn) submitBtn.disabled = true;
+        if (nameState) {
+          nameState.textContent = 'Saving…';
+          nameState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(nameForm);
+        fd.set('ajax', 'save_display_name');
+        fetch('accounts.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data || !data.ok) throw new Error((data && data.error) || 'Save failed');
+          if (nameState) {
+            nameState.textContent = data.message || 'Display name saved.';
+            nameState.classList.add('is-saved');
+          }
+          var shown = String(data.display_name || data.full_name || '').trim();
+          if (shown) {
+            document.querySelectorAll('.ig-fullname-name').forEach(function(el){
+              el.textContent = shown;
+            });
+          }
+          var badge = String(data.badge || '').trim();
+          document.querySelectorAll('.ig-avatar-col .profile-account-badge').forEach(function(el){
+            if (badge) {
+              el.textContent = badge;
+              el.hidden = false;
+            }
+          });
+        }).catch(function(err){
+          if (nameState) {
+            nameState.textContent = err.message || 'Save failed.';
+            nameState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
+    var accForm = document.getElementById('gearAccountForm');
+    var accState = document.getElementById('gearAccountState');
+    var accBio = document.getElementById('gear-acc-bio');
+    var accBioCount = document.getElementById('gearAccBioCount');
+    if (accBio && accBioCount) {
+      accBio.addEventListener('input', function(){
+        accBioCount.textContent = String((accBio.value || '').length) + '/160';
+      });
+    }
+    if (accForm) {
+      accForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = accForm.querySelector('.gear-edit-save');
+        if (submitBtn) submitBtn.disabled = true;
+        if (accState) {
+          accState.textContent = 'Saving…';
+          accState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(accForm);
+        fd.set('ajax', 'save_account');
+        fetch('accounts.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data || !data.ok) throw new Error((data && data.error) || 'Save failed');
+          if (accState) {
+            accState.textContent = data.message || 'Account details saved.';
+            accState.classList.add('is-saved');
+          }
+          var shown = String(data.display_name || (data.form && data.form.full_name) || '').trim();
+          if (shown) {
+            document.querySelectorAll('.ig-fullname-name').forEach(function(el){
+              el.textContent = shown;
+            });
+            var nameInput = document.getElementById('gear-display-full-name');
+            if (nameInput) nameInput.value = String((data.form && data.form.full_name) || shown);
+          }
+          var badge = String(data.badge || '').trim();
+          document.querySelectorAll('.ig-avatar-col .profile-account-badge').forEach(function(el){
+            if (badge) {
+              el.textContent = badge;
+              el.hidden = false;
+            }
+          });
+        }).catch(function(err){
+          if (accState) {
+            accState.textContent = err.message || 'Save failed.';
+            accState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
+    var userForm = document.getElementById('gearEditUsernameForm');
+    var userState = document.getElementById('gearEditUsernameState');
+    if (userForm) {
+      userForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = userForm.querySelector('.gear-edit-save');
+        if (submitBtn) submitBtn.disabled = true;
+        if (userState) {
+          userState.textContent = 'Saving…';
+          userState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(userForm);
+        fd.set('ajax', 'save_username');
+        fetch('accounts.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data || !data.ok) throw new Error((data && data.error) || 'Save failed');
+          if (userState) {
+            userState.textContent = data.message || 'Username saved.';
+            userState.classList.add('is-saved');
+          }
+          var username = String(data.username || '').trim();
+          var accUser = document.getElementById('gear-acc-username');
+          if (accUser && username) accUser.value = username;
+        }).catch(function(err){
+          if (userState) {
+            userState.textContent = err.message || 'Save failed.';
+            userState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
+    var resetForm = document.getElementById('gearResetSettingsForm');
+    var resetState = document.getElementById('gearResetSettingsState');
+    if (resetForm) {
+      resetForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = resetForm.querySelector('.gear-edit-save');
+        var confirmInput = resetForm.querySelector('[name="confirm_text"]');
+        var typed = String(confirmInput && confirmInput.value || '').trim();
+        if (typed.toUpperCase() !== 'RESET') {
+          if (resetState) {
+            resetState.textContent = 'Type RESET to confirm.';
+            resetState.classList.remove('is-saved');
+            resetState.classList.add('is-error');
+          }
+          return;
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        if (resetState) {
+          resetState.textContent = 'Resetting…';
+          resetState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(resetForm);
+        fd.set('ajax', 'reset_settings');
+        fd.set('action', 'reset_settings');
+        fetch('account_tools.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data) throw new Error('Save failed');
+          if (!data.ok) throw new Error(data.error || 'Could not reset settings.');
+          if (resetState) {
+            resetState.textContent = data.message || 'Account settings were reset to defaults.';
+            resetState.classList.add('is-saved');
+          }
+          if (confirmInput) confirmInput.value = '';
+        }).catch(function(err){
+          if (resetState) {
+            resetState.textContent = err.message || 'Could not reset settings.';
+            resetState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
+    var deleteForm = document.getElementById('gearDeleteAccountForm');
+    var deleteState = document.getElementById('gearDeleteAccountState');
+    if (deleteForm) {
+      deleteForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = deleteForm.querySelector('.gear-edit-save');
+        var confirmInput = deleteForm.querySelector('[name="confirm_text"]');
+        var typed = String(confirmInput && confirmInput.value || '').trim();
+        if (typed.toUpperCase() !== 'DELETE') {
+          if (deleteState) {
+            deleteState.textContent = 'Type DELETE to confirm.';
+            deleteState.classList.remove('is-saved');
+            deleteState.classList.add('is-error');
+          }
+          return;
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        if (deleteState) {
+          deleteState.textContent = 'Checking…';
+          deleteState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(deleteForm);
+        fd.set('ajax', 'delete');
+        fd.set('action', 'delete');
+        fetch('account_tools.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data) throw new Error('Save failed');
+          if (!data.ok) throw new Error(data.error || 'Could not delete account.');
+          if (deleteState) {
+            deleteState.textContent = data.message || 'Account delete request was recorded.';
+            deleteState.classList.add('is-saved');
+          }
+          if (confirmInput) confirmInput.value = '';
+        }).catch(function(err){
+          if (deleteState) {
+            deleteState.textContent = err.message || 'Could not delete account.';
+            deleteState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
+    var deactivateForm = document.getElementById('gearDeactivateAccountForm');
+    var deactivateState = document.getElementById('gearDeactivateAccountState');
+    if (deactivateForm) {
+      deactivateForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = deactivateForm.querySelector('.gear-edit-save');
+        var confirmInput = deactivateForm.querySelector('[name="confirm_text"]');
+        var typed = String(confirmInput && confirmInput.value || '').trim();
+        if (typed.toUpperCase() !== 'DEACTIVATE') {
+          if (deactivateState) {
+            deactivateState.textContent = 'Type DEACTIVATE to confirm.';
+            deactivateState.classList.remove('is-saved');
+            deactivateState.classList.add('is-error');
+          }
+          return;
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        if (deactivateState) {
+          deactivateState.textContent = 'Deactivating…';
+          deactivateState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(deactivateForm);
+        fd.set('ajax', 'deactivate');
+        fd.set('action', 'deactivate');
+        fetch('account_tools.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data) throw new Error('Save failed');
+          if (!data.ok) throw new Error(data.error || 'Could not deactivate account.');
+          if (deactivateState) {
+            deactivateState.textContent = data.message || 'Account deactivated.';
+            deactivateState.classList.add('is-saved');
+          }
+          if (data.redirect) {
+            window.location.href = data.redirect;
+          }
+        }).catch(function(err){
+          if (deactivateState) {
+            deactivateState.textContent = err.message || 'Could not deactivate account.';
+            deactivateState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
+
+    if (editPane) {
+      editPane.addEventListener('click', function(e){
+        var openBtn = e.target.closest('[data-gear-open-pane]');
+        if (!openBtn || !editPane.contains(openBtn)) return;
+        e.preventDefault();
+        openGearEditPane(openBtn.getAttribute('data-gear-open-pane') || '');
+      });
+      editPane.addEventListener('submit', function(e){
+        var allForm = e.target.closest('.gear-logout-all-form');
+        if (allForm && editPane.contains(allForm)) {
+          e.preventDefault();
+          var allBtn = allForm.querySelector('button[type="submit"]');
+          if (allBtn) allBtn.disabled = true;
+          var allState = document.getElementById('gearLogoutAllState');
+          if (allState) {
+            allState.textContent = 'Signing out other devices…';
+            allState.classList.remove('is-saved', 'is-error');
+          }
+          var allFd = new FormData(allForm);
+          allFd.set('ajax', 'logout_all');
+          allFd.set('action', 'logout_all');
+          fetch('account_tools.php', {
+            method: 'POST',
+            body: allFd,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          }).then(function(res){ return res.json(); }).then(function(data){
+            if (!data) throw new Error('Save failed');
+            if (allState) {
+              allState.textContent = data.ok ? (data.message || 'Done.') : (data.error || 'Could not update.');
+              allState.classList.toggle('is-saved', !!data.ok);
+              allState.classList.toggle('is-error', !data.ok);
+            }
+          }).catch(function(err){
+            if (allState) {
+              allState.textContent = err.message || 'Could not update.';
+              allState.classList.add('is-error');
+            }
+          }).finally(function(){
+            if (allBtn) allBtn.disabled = false;
+          });
+          return;
+        }
+        var form = e.target.closest('.gear-device-form');
+        if (!form || !editPane.contains(form)) return;
+        e.preventDefault();
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        var state = document.getElementById('gearManageDevicesState');
+        if (state) {
+          state.textContent = 'Updating…';
+          state.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(form);
+        var action = form.getAttribute('data-device-action') || 'pane';
+        fd.set('ajax', action);
+        fd.set('action', action);
+        fetch('manage_devices.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json(); }).then(function(data){
+          if (!data) throw new Error('Save failed');
+          var view = editPane.querySelector('[data-gear-pane-view="manage_devices"]');
+          if (view && data.html) view.innerHTML = data.html;
+          state = document.getElementById('gearManageDevicesState');
+          if (state) {
+            state.textContent = data.ok ? (data.message || 'Updated.') : (data.error || 'Could not update.');
+            state.classList.toggle('is-saved', !!data.ok);
+            state.classList.toggle('is-error', !data.ok);
+          }
+        }).catch(function(err){
+          var fail = document.getElementById('gearManageDevicesState');
+          if (fail) {
+            fail.textContent = err.message || 'Could not update.';
+            fail.classList.add('is-error');
+          }
+          if (btn) btn.disabled = false;
+        });
+      });
+    }
+
+    var pwdForm = document.getElementById('gearChangePasswordForm');
+    var pwdState = document.getElementById('gearChangePasswordState');
+    if (pwdForm) {
+      pwdForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var submitBtn = pwdForm.querySelector('.gear-edit-save');
+        var current = pwdForm.querySelector('[name="password"]');
+        var next = pwdForm.querySelector('[name="newpassword"]');
+        var confirm = pwdForm.querySelector('[name="confirmpassword"]');
+        if (next && confirm && String(next.value || '') !== String(confirm.value || '')) {
+          if (pwdState) {
+            pwdState.textContent = 'New password and confirm password do not match.';
+            pwdState.classList.remove('is-saved');
+            pwdState.classList.add('is-error');
+          }
+          return;
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        if (pwdState) {
+          pwdState.textContent = 'Saving…';
+          pwdState.classList.remove('is-saved', 'is-error');
+        }
+        var fd = new FormData(pwdForm);
+        fd.set('ajax', 'save_password');
+        fetch('change-password.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(res){ return res.json().then(function(data){ return { res: res, data: data }; }); }).then(function(pack){
+          var data = pack.data || {};
+          if (!data.ok) throw new Error(data.error || 'Save failed');
+          if (pwdState) {
+            pwdState.textContent = data.message || 'Your password was changed successfully.';
+            pwdState.classList.add('is-saved');
+          }
+          if (current) current.value = '';
+          if (next) next.value = '';
+          if (confirm) confirm.value = '';
+        }).catch(function(err){
+          if (pwdState) {
+            pwdState.textContent = err.message || 'Save failed.';
+            pwdState.classList.add('is-error');
+          }
+        }).finally(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
   }
 
   if (document.readyState === 'loading') {
@@ -10847,6 +12893,7 @@ pv.text.addEventListener('keydown', (e)=>{
   window.__MSB_FEED_ME_ID = ME_ID;
   var PROFILE_FRIEND_STATUS = <?php echo json_encode($isOwnProfile ? 'self' : $friendStatus); ?>;
   var PROFILE_CAN_FOLLOW_PUBLISHERS = <?php echo $canFollowPublishers ? 'true' : 'false'; ?>;
+  var PROFILE_PUBLISHER_WORKSPACE = <?php echo !empty($isPublisherWorkspaceViewer) ? 'true' : 'false'; ?>;
   var PROFILE_HIDE_PRIVATE_CONTACT = <?php echo $canViewProfilePrivateContact ? 'false' : 'true'; ?>;
   var PROFILE_IS_PUBLISHER = <?php echo $profileIsPublisher ? 'true' : 'false'; ?>;
   var API_URL = 'feed_api.php';
@@ -10895,6 +12942,7 @@ pv.text.addEventListener('keydown', (e)=>{
       if(failList) failList.innerHTML = '<div class="text-danger" style="padding:10px 6px;">Unable to load comments.</div>';
     });
   }
+  try { window.openProfileCommentsTray = openProfileCommentsTray; } catch (eTray) {}
 
   function mfOpenProfileReadMoreDrawer($card, bodyText){
     $card = $card && $card.jquery ? $card : $($card);
@@ -11186,7 +13234,9 @@ pv.text.addEventListener('keydown', (e)=>{
     var cached = profileEngagementById[pid] || {};
     return {
       comment_count: Number(cached.comment_count != null ? cached.comment_count : ($card.find('.mf-cmt, .mf-act.mf-comment .mf-num').first().text() || 0)),
-      love_count: Number(cached.love_count != null ? cached.love_count : ($card.find('.mf-act.mf-love .mf-num').first().text() || 0)),
+      love_count: Number(cached.love_count != null ? cached.love_count : 0),
+      like_count: Number(cached.like_count != null ? cached.like_count : 0),
+      reaction_count: Number(cached.reaction_count != null ? cached.reaction_count : ($card.find('.mf-act.mf-love .mf-num').first().text() || 0)),
       share_count: Number(cached.share_count != null ? cached.share_count : ($card.find('.mf-act.mf-share .mf-num').first().text() || 0)),
       save_count: Number(cached.save_count != null ? cached.save_count : ($card.find('.mf-act.mf-save .mf-num').first().text() || 0)),
       my_reaction: String(cached.my_reaction != null ? cached.my_reaction : ($card.attr('data-my-reaction') || '')),
@@ -11584,7 +13634,7 @@ pv.text.addEventListener('keydown', (e)=>{
       } else {
         inner = mfFileTileHtml(src, kind);
       }
-      slides += '<div class="media-slide mf-media-slide" data-slide-index="'+i+'" data-slide-title="'+esc(String(a.slide_title||''))+'" data-slide-body="'+esc(String(a.slide_body||''))+'">'+inner+'</div>';
+      slides += '<div class="media-slide mf-media-slide'+(i===0?' is-active':'')+'" data-slide-index="'+i+'" data-slide-title="'+esc(String(a.slide_title||''))+'" data-slide-body="'+esc(String(a.slide_body||''))+'">'+inner+'</div>';
     }
     return ''+
       '<div class="media-carousel mf-media-carousel" data-index="0">'+
@@ -11624,7 +13674,8 @@ pv.text.addEventListener('keydown', (e)=>{
     if(nextIndex >= total) nextIndex = 0;
     $carousel.attr('data-index', String(nextIndex));
     $carousel.closest('.js-media-carousel, .media-stage').attr('data-index', String(nextIndex));
-    $slides.css('transform', 'translateX(' + String(nextIndex * -100) + '%)');
+    $slides.css('transform', 'none');
+    $items.each(function(i){ this.classList.toggle('is-active', i === nextIndex); });
 
     var $dots = $carousel.find('.mf-media-dot');
     if(!$dots.length){
@@ -11773,6 +13824,7 @@ pv.text.addEventListener('keydown', (e)=>{
       var fol = Number(it.is_following || 0) === 1;
       return '<button type="button" class="'+cls+' mf-publisher-follow publisher-follow-btn mf-publisher-follow-circle mf-media-action-circle'+(fol ? ' is-following' : ' primary')+'" data-publisher-id="'+esc(uid)+'" aria-label="'+(fol ? 'Following' : 'Follow')+'" title="'+(fol ? 'Following' : 'Follow')+'">'+(fol ? '<span class="mf-media-action-label">Sent</span>' : '<i class="fa fa-plus" aria-hidden="true"></i>')+'</button>';
     }
+    if(PROFILE_PUBLISHER_WORKSPACE) return '';
     var st = String(it.friend_status || PROFILE_FRIEND_STATUS || 'none');
     if(st === 'self' || st === 'friends') return '';
     var extraCls = st === 'incoming_pending' ? ' is-accept' : (st === 'outgoing_pending' ? ' is-pending' : ' primary');
@@ -11843,7 +13895,7 @@ pv.text.addEventListener('keydown', (e)=>{
             ? window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends')
             : '')+
         '</div></div></div>'+
-      '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'" data-menu-surface="profile">'+
+      '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'" data-menu-surface="profile" data-visibility="'+esc(String((window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility) ? window.MSBPostCardMenu.normalizeVisibility(it.visibility || 'friends') : (it.visibility || 'friends')))+'">'+
         '<button type="button" class="mf-menu-btn post-card-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false">'+menuIcon+'</button>'+
         '<div class="mf-menu post-card-menu" role="menu">'+profileBuildMenuItems(it, isOwner, pid)+'</div>'+
       '</div></div>';
@@ -11917,7 +13969,7 @@ pv.text.addEventListener('keydown', (e)=>{
           (isMultiMedia
             ? ('<div class="media-carousel mf-media-carousel" data-index="0" data-pending-hydrate="1">'+
                  '<div class="media-slides mf-media-slides">'+
-                   '<div class="media-slide mf-media-slide" data-slide-index="0"><img src="'+esc(psrc)+'" alt=""></div>'+
+                   '<div class="media-slide mf-media-slide is-active" data-slide-index="0"><img src="'+esc(psrc)+'" alt=""></div>'+
                  '</div>'+
                  mfCarouselNavButtonsHtml()+
                  mfMediaDots(attCount)+
@@ -12325,12 +14377,10 @@ pv.text.addEventListener('keydown', (e)=>{
       var prev = String(snap.my_reaction || '');
       if(next === 'none' && !prev) return;
       if(next !== 'none' && prev === next) return;
-      var optimistic = Object.assign({}, snap, {
-        my_reaction: next === 'none' ? '' : next,
-        love_count: Math.max(0, Number(snap.love_count || 0)
-          + (prev === 'love' && next !== 'love' ? -1 : 0)
-          + (prev !== 'love' && next === 'love' ? 1 : 0))
-      });
+      var totals = (window.MSBPostEngagement && typeof window.MSBPostEngagement.nextReaction === 'function')
+        ? window.MSBPostEngagement.nextReaction(snap, next)
+        : { my_reaction: next === 'none' ? '' : next, love_count: snap.love_count, like_count: snap.like_count, reaction_count: Math.max(0, Number(snap.reaction_count != null ? snap.reaction_count : snap.love_count || 0) + (!prev && next !== 'none' ? 1 : 0) - (prev && next === 'none' ? 1 : 0)) };
+      var optimistic = Object.assign({}, snap, totals);
       $btn.data('busy', 1);
       commitEngagement($card, pid, optimistic);
       try {
@@ -12353,6 +14403,7 @@ pv.text.addEventListener('keydown', (e)=>{
           window.MSBPostEngagement.publish(pid, {
             love_count: merged.love_count,
             like_count: merged.like_count,
+            reaction_count: merged.reaction_count,
             my_reaction: merged.my_reaction,
             comment_count: merged.comment_count,
             save_count: merged.save_count,
@@ -12551,6 +14602,7 @@ pv.text.addEventListener('keydown', (e)=>{
     var item = target.closest('.ig-story-item[data-story-key]');
     if(!item) return;
     if(item.classList.contains('ig-story-create')) return;
+    if(item.closest && item.closest('#gearArchiveEmbed, #gearFavoritesEmbed, #panel-saved, .ig-archive')) return;
     e.preventDefault();
     var key = String(item.getAttribute('data-story-key') || '');
     if(!key || !window.TTStories) return;
@@ -12619,7 +14671,16 @@ pv.text.addEventListener('keydown', (e)=>{
     if (document.body) document.body.style.setProperty('--profile-cover-h', h);
   }
   function onWheel(e){
-    if (e.target && e.target.closest && e.target.closest('#gearNav, #gearMain, .gear-main, .ig-profile-rail')) return;
+    if (document.body.classList.contains('profile-flow-scroll')) return;
+    if (e.target && e.target.closest && e.target.closest('#panel-gear, #gearCategoryRail, .gear-sidebar, #gearNav, #gearRowPane, .gear-row-pane, #gearMain, .gear-main, #gearEditPane, .gear-edit-pane, #gearArchiveEmbed, #gearFavoritesEmbed, #panel-saved, .ig-profile-rail, .profile-gear-stage')) return;
+    var overCoverCtrl = e.target && e.target.closest && e.target.closest('.profile-cover-nav, .profile-cover-dots, .profile-cover-cam, .profile-cover-del');
+    if (overCoverCtrl) {
+      if (scroll) {
+        scroll.scrollTop += e.deltaY;
+        e.preventDefault();
+      }
+      return;
+    }
     var max = coverCollapse();
     var overCover = coverEl.contains(e.target);
     var collapsing = e.deltaY > 0 && collapseY < max;
@@ -12684,6 +14745,70 @@ if (appearance_bridge_is_named_palette($__profilePaletteMode)) {
     appearance_bridge_print_profile_palette_tail($__profilePaletteMode);
 }
 ?>
+<style id="gear-list-ui">
+html body.profile-page.profile-gear-mode .gear-shell,
+html body.profile-page.profile-gear-mode .gear-row-pane,
+html body.profile-page.profile-gear-mode .gear-wrap{
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut,
+html body.profile-page.profile-gear-mode .gear-nav-item,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-nav-section-toggle,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-archive-shortcut,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-nav-item,
+html.dark-auto body.profile-page.profile-gear-mode .gear-nav-section-toggle,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-nav-section-toggle{
+  border:0 !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-icon,
+html body.profile-page.profile-gear-mode .gear-nav-item-icon,
+html body.profile-page.profile-gear-mode .gear-detail-icon,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-nav-section-icon,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-nav-item-icon,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-detail-icon{
+  background:transparent !important;
+  background-color:transparent !important;
+  border:0 !important;
+  border-radius:0 !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle:hover,
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle:focus,
+html body.profile-page.profile-gear-mode .gear-nav-item:hover,
+html body.profile-page.profile-gear-mode .gear-nav-item:focus,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut:hover,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut:focus{
+  background:rgba(15,23,42,.06) !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section.is-open .gear-nav-section-toggle,
+html body.profile-page.profile-gear-mode .gear-nav-item.is-active,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut.is-open{
+  background:rgba(15,23,42,.08) !important;
+}
+html.dark-auto body.profile-page.profile-gear-mode .gear-nav-section-toggle:hover,
+html.dark-auto body.profile-page.profile-gear-mode .gear-nav-item:hover,
+html.dark-auto body.profile-page.profile-gear-mode .gear-archive-shortcut:hover,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-nav-section-toggle:hover,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-nav-item:hover,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-archive-shortcut:hover{
+  background:rgba(255,255,255,.08) !important;
+}
+html.dark-auto body.profile-page.profile-gear-mode .gear-nav-section.is-open .gear-nav-section-toggle,
+html.dark-auto body.profile-page.profile-gear-mode .gear-nav-item.is-active,
+html.dark-auto body.profile-page.profile-gear-mode .gear-archive-shortcut.is-open,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-nav-section.is-open .gear-nav-section-toggle,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-nav-item.is-active,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-archive-shortcut.is-open{
+  background:rgba(255,255,255,.1) !important;
+}
+</style>
 
 <style id="profile-media-head-overlay-tail-css">
 html[data-msb-appearance] body #profilePostsFeed .mf-media-shell > .mf-head--on-media,
@@ -12745,30 +14870,8 @@ html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-head:not(.mf-hea
   box-shadow:none!important;
   color:var(--msb-palette-text, #e6edf3)!important;
 }
-html[data-msb-appearance] body.profile-page .gear-nav-section-toggle,
-html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:hover,
-html[data-msb-appearance] body.profile-page .gear-nav-section-toggle:focus,
-html[data-msb-appearance] body.profile-page .gear-nav-section-icon,
-html[data-msb-appearance] body.profile-page .gear-nav-section.is-open .gear-nav-items,
-html[data-msb-appearance] body.profile-page .gear-nav-item,
-html[data-msb-appearance] body.profile-page .gear-nav-section.is-open .gear-nav-items > .gear-nav-item,
-html[data-msb-appearance] body.profile-page .gear-nav-item:hover,
-html[data-msb-appearance] body.profile-page .gear-nav-item:focus,
-html[data-msb-appearance] body.profile-page .gear-nav-item.is-active,
-html[data-msb-appearance] body.profile-page .gear-detail-icon,
 html[data-msb-appearance] body.profile-page .gear-chip,
 html[data-msb-appearance] body.profile-page .gear-tag,
-html[data-theme="dark"] body.profile-page .gear-nav-section-toggle,
-html[data-theme="dark"] body.profile-page .gear-nav-section-toggle:hover,
-html[data-theme="dark"] body.profile-page .gear-nav-section-toggle:focus,
-html[data-theme="dark"] body.profile-page .gear-nav-section-icon,
-html[data-theme="dark"] body.profile-page .gear-nav-section.is-open .gear-nav-items,
-html[data-theme="dark"] body.profile-page .gear-nav-item,
-html[data-theme="dark"] body.profile-page .gear-nav-section.is-open .gear-nav-items > .gear-nav-item,
-html[data-theme="dark"] body.profile-page .gear-nav-item:hover,
-html[data-theme="dark"] body.profile-page .gear-nav-item:focus,
-html[data-theme="dark"] body.profile-page .gear-nav-item.is-active,
-html[data-theme="dark"] body.profile-page .gear-detail-icon,
 html[data-theme="dark"] body.profile-page .gear-chip,
 html[data-theme="dark"] body.profile-page .gear-tag{
   background:var(--msb-palette-bg, #171d24)!important;
@@ -13098,10 +15201,57 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-
 
 <style id="profile-tabs-for-you-underline">
 /* Match home discover / notifications compact tabs */
+html.profile-tab-switching,
+html.profile-tab-switching body.profile-page,
+html.profile-tab-switching body.profile-page .ig-wrap,
+html.profile-tab-switching body.profile-page .ig-profile-shell,
+html.profile-tab-switching body.profile-page .ig-profile-scroll,
+html.profile-tab-switching body.profile-page .profile-panel,
+html.profile-tab-switching body.profile-page .ig-tabs,
+html.profile-tab-switching body.profile-page .ig-tab{
+  transition:none !important;
+  animation:none !important;
+  scroll-behavior:auto !important;
+}
+html body.profile-page,
+html.profile-flow-scroll,
+html:has(body.profile-page){
+  background-color:var(--msb-palette-bg, #f5f7fb);
+}
+html body.profile-page .profile-panel,
+html body.profile-page .profile-panel.active{
+  background-color:var(--msb-palette-bg, #f5f7fb);
+}
 html body.profile-page .ig-tabs{
+  position:relative;
+  z-index:110;
   align-items:stretch;
   gap:4px;
   padding:2px 8px 0;
+  pointer-events:auto;
+}
+html body.profile-page .ig-tab,
+html body.profile-page a.ig-tab{
+  pointer-events:auto;
+  cursor:pointer;
+  text-decoration:none !important;
+}
+html body.profile-page .ig-highlights{
+  position:relative;
+  z-index:110;
+  pointer-events:auto;
+}
+html body.profile-page .ig-profile-head{
+  z-index:1 !important;
+  pointer-events:none !important;
+}
+html body.profile-page .ig-profile-scroll{
+  position:relative !important;
+  z-index:20 !important;
+  pointer-events:auto !important;
+}
+html body.profile-page .profile-panel:not(.active){
+  display:none !important;
 }
 html body.profile-page .ig-tab{
   position:relative!important;
@@ -13121,6 +15271,7 @@ html body.profile-page .ig-tab i{
   line-height:1!important;
 }
 html body.profile-page .ig-tab.active,
+html body.profile-page .ig-tab.is-active,
 html[data-msb-appearance] body.profile-page .ig-tab.active,
 html.msb-palette-active body.profile-page .ig-tab.active,
 html.dark-auto body.profile-page .ig-tab.active,
@@ -13230,6 +15381,7 @@ html[data-theme="dark"] body.profile-page a.msb-mention{
   'staff_readonly' => false,
   'menu_surface' => 'profile',
   'always_portal' => true,
+  'publisher_workspace_viewer' => !empty($isPublisherWorkspaceViewer),
 ]); ?>
 <script id="profile-post-menu-outside-card-position">
 (function(){
@@ -13406,7 +15558,40 @@ html[data-theme="dark"] body.profile-page a.msb-mention{
 </script>
 <script>
 (function(){
+  var dialog = document.getElementById('asAddLogoutDialog');
+  var confirmBtn = document.getElementById('asAddLogoutConfirm');
+  var cancelBtn = document.getElementById('asAddLogoutCancel');
+  var copyEl = document.getElementById('asAddLogoutCopy');
+  var pendingType = 'personal';
+  var pendingView = '';
+  var labels = { personal: 'personal', publisher: 'publisher', commerce: 'commerce' };
+
+  function closeDialog(){
+    if (dialog && dialog.open) dialog.close();
+  }
+
+  function openDialog(type, view){
+    pendingType = labels[type] ? type : 'personal';
+    pendingView = view === 'register' ? 'register' : '';
+    if (copyEl) {
+      copyEl.textContent = pendingView === 'register'
+        ? 'You will leave this account to create a new one. Cancel to stay. Logout ends this session and you cannot come back without signing in.'
+        : ('You will leave this account to continue as ' + labels[pendingType]
+          + '. Cancel to stay. Logout ends this session and you cannot come back without signing in.');
+    }
+    if (dialog && dialog.showModal) dialog.showModal();
+  }
+
   document.addEventListener('click', function(e){
+    var addBtn = e.target.closest('.js-as-add-logout');
+    if (addBtn) {
+      e.preventDefault();
+      openDialog(
+        (addBtn.getAttribute('data-account-type') || 'personal').toLowerCase(),
+        (addBtn.getAttribute('data-auth-view') || '').toLowerCase()
+      );
+      return;
+    }
     var btn = e.target.closest('.js-account-switch');
     if (!btn) return;
     e.preventDefault();
@@ -13429,9 +15614,473 @@ html[data-theme="dark"] body.profile-page a.msb-mention{
       window.alert(err && err.message ? err.message : 'Could not switch accounts.');
     });
   });
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function(){ closeDialog(); });
+  }
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function(){
+      var type = labels[pendingType] ? pendingType : 'personal';
+      var url = 'logout.php?account_type=' + encodeURIComponent(type);
+      if (pendingView === 'register') url += '&view=register';
+      window.location.replace(url);
+    });
+  }
+  if (dialog) {
+    dialog.addEventListener('cancel', function(e){
+      e.preventDefault();
+      closeDialog();
+    });
+  }
 })();
 </script>
 <?php include __DIR__ . '/includes/profile_people_tags.js.php'; ?>
-
+<style id="gear-list-ui-tail">
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut,
+html body.profile-page.profile-gear-mode .gear-nav-item,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-nav-item,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-nav-section-toggle,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-archive-shortcut,
+html.dark-auto body.profile-page.profile-gear-mode .gear-nav-item,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-nav-item{
+  -webkit-appearance:none !important;
+  appearance:none !important;
+  outline:none !important;
+  border:0 !important;
+  border-color:transparent !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
+  box-shadow:none !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle:hover,
+html body.profile-page.profile-gear-mode .gear-nav-item:hover,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut:hover,
+html body.profile-page.profile-gear-mode .gear-nav-section.is-open .gear-nav-section-toggle,
+html body.profile-page.profile-gear-mode .gear-nav-item.is-active{
+  border-radius:8px !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-icon,
+html body.profile-page.profile-gear-mode .gear-nav-item-icon,
+html body.profile-page.profile-gear-mode .gear-detail-icon{
+  background:transparent !important;
+  border-radius:0 !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle:hover,
+html body.profile-page.profile-gear-mode .gear-nav-item:hover,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut:hover{
+  background:rgba(15,23,42,.06) !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section.is-open .gear-nav-section-toggle,
+html body.profile-page.profile-gear-mode .gear-nav-item.is-active,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut.is-open{
+  background:rgba(15,23,42,.08) !important;
+}
+html body.profile-page.profile-gear-mode .gear-main,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-main,
+html.dark-auto body.profile-page.profile-gear-mode .gear-main,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-main{
+  border:0 !important;
+  border-left:1px solid var(--msb-hairline, #d3d3d3) !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+html body.profile-page.profile-gear-mode .ig-tabs,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .ig-tabs,
+html.dark-auto body.profile-page.profile-gear-mode .ig-tabs,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .ig-tabs{
+  border-bottom:1px solid var(--msb-hairline, #d3d3d3) !important;
+}
+html body.profile-page.profile-gear-mode .gear-sidebar,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-sidebar,
+html.dark-auto body.profile-page.profile-gear-mode .gear-sidebar,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-sidebar{
+  border:0 !important;
+  border-right:1px solid var(--msb-hairline, #d3d3d3) !important;
+  overflow:hidden !important;
+  overflow-x:hidden !important;
+  overflow-y:hidden !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-nav,
+html.dark-auto body.profile-page.profile-gear-mode .gear-nav,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-nav{
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+}
+@media (max-width: 991px){
+  html body.profile-page.profile-gear-mode .gear-main{
+    border-left:0 !important;
+  }
+  html body.profile-page.profile-gear-mode .gear-sidebar{
+    border-right:0 !important;
+    border-bottom:1px solid var(--msb-hairline, #d3d3d3) !important;
+  }
+}
+<style id="gear-left-rail-no-row-border">
+#gearCategoryRail,
+#gearCategoryRail .gear-nav,
+#gearCategoryRail .gear-nav-section,
+#gearCategoryRail .gear-sidebar-head{
+  border:0 !important;
+  box-shadow:none !important;
+}
+#gearCategoryRail button,
+#gearCategoryRail .gear-nav-section-toggle,
+#gearCategoryRail .gear-archive-shortcut{
+  -webkit-appearance:none !important;
+  appearance:none !important;
+  border:0 !important;
+  border-width:0 !important;
+  border-style:none !important;
+  border-color:transparent !important;
+  outline:none !important;
+  box-shadow:none !important;
+  background-color:transparent !important;
+  background-image:none !important;
+}
+#gearCategoryRail button:hover,
+#gearCategoryRail button:focus,
+#gearCategoryRail .gear-nav-section-toggle:hover,
+#gearCategoryRail .gear-nav-section-toggle:focus,
+#gearCategoryRail .gear-archive-shortcut:hover,
+#gearCategoryRail .gear-archive-shortcut:focus,
+#gearCategoryRail .gear-nav-section.is-open .gear-nav-section-toggle,
+#gearCategoryRail .gear-archive-shortcut.is-open{
+  background-color:rgba(15,23,42,.06) !important;
+  border-radius:8px !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+#gearCategoryRail .gear-nav-section-icon,
+#gearCategoryRail .gear-nav-item-icon{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+</style>
+<style id="gear-compact-ui">
+html body.profile-page.profile-gear-mode .gear-sidebar-title{
+  font-size:25px !important;
+  line-height:1.2 !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut,
+html body.profile-page.profile-gear-mode .gear-nav-item,
+#gearCategoryRail .gear-nav-section-toggle,
+#gearCategoryRail .gear-archive-shortcut{
+  gap:8px !important;
+  padding:10px 12px !important;
+  font-size:13px !important;
+  line-height:1.25 !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav,
+#gearCategoryRail .gear-nav{
+  padding:8px 10px 16px !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-items{
+  padding:6px 10px 16px !important;
+}
+html body.profile-page.profile-gear-mode .gear-row-group-title{
+  padding:10px 12px 8px !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-toggle:hover,
+html body.profile-page.profile-gear-mode .gear-nav-item:hover,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut:hover,
+html body.profile-page.profile-gear-mode .gear-nav-section.is-open .gear-nav-section-toggle,
+html body.profile-page.profile-gear-mode .gear-nav-item.is-active,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut.is-open,
+#gearCategoryRail button:hover,
+#gearCategoryRail .gear-nav-section-toggle:hover,
+#gearCategoryRail .gear-archive-shortcut:hover,
+#gearCategoryRail .gear-nav-section.is-open .gear-nav-section-toggle,
+#gearCategoryRail .gear-archive-shortcut.is-open{
+  border-radius:6px !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-icon,
+html body.profile-page.profile-gear-mode .gear-nav-item-icon,
+html body.profile-page.profile-gear-mode .gear-detail-icon{
+  width:16px !important;
+  height:16px !important;
+  flex-basis:16px !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-section-icon i,
+html body.profile-page.profile-gear-mode .gear-nav-item-icon i,
+html body.profile-page.profile-gear-mode .gear-detail-icon i,
+html body.profile-page.profile-gear-mode .gear-archive-shortcut i{
+  font-size:15px !important;
+}
+html body.profile-page.profile-gear-mode .gear-nav-item-meta{
+  font-size:11px !important;
+}
+html body.profile-page.profile-gear-mode .gear-main{
+  padding:10px 12px 16px !important;
+}
+html body.profile-page.profile-gear-mode .gear-detail-title{
+  font-size:13px !important;
+}
+html body.profile-page.profile-gear-mode .gear-detail-desc{
+  font-size:12px !important;
+}
+html body.profile-page.profile-gear-mode .gear-detail-open-btn{
+  padding:6px 12px !important;
+  font-size:12px !important;
+  border-radius:8px !important;
+}
+html body.profile-page.profile-gear-mode .gear-control,
+html body.profile-page.profile-gear-mode .gear-except-input{
+  height:32px !important;
+  font-size:12px !important;
+  border-radius:8px !important;
+}
+html body.profile-page.profile-gear-mode .gear-edit-title{
+  font-size:16px !important;
+}
+html body.profile-page.profile-gear-mode .gear-edit-save,
+html body.profile-page.profile-gear-mode .gear-progress-save-btn{
+  height:28px !important;
+  min-height:28px !important;
+  padding:0 12px !important;
+  font-size:12px !important;
+}
+html body.profile-page.profile-gear-mode .gear-edit-card{
+  padding:10px 12px 12px !important;
+  border-radius:10px !important;
+}
+html body.profile-page.profile-gear-mode .gear-edit-field input,
+html body.profile-page.profile-gear-mode .gear-edit-field select{
+  height:32px !important;
+  font-size:13px !important;
+}
+html body.profile-page.profile-gear-mode .dz-btn{
+  padding:6px 12px !important;
+  font-size:12px !important;
+  border-radius:999px !important;
+}
+html body.profile-page .profile-cover-hairline{
+  display:none;
+  flex:0 0 1px;
+  width:100%;
+  height:1px;
+  margin:0;
+  border:0;
+  background:var(--msb-hairline, #d3d3d3);
+  position:relative;
+  z-index:120;
+}
+html body.profile-page.profile-gear-mode .profile-cover-hairline,
+html body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover-hairline{
+  display:block !important;
+}
+html body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover{
+  border-bottom:0 !important;
+  box-shadow:none !important;
+  overflow:hidden;
+}
+html body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover::after{
+  content:"" !important;
+  display:block !important;
+  position:absolute !important;
+  left:0 !important;
+  right:0 !important;
+  bottom:0 !important;
+  height:1px !important;
+  width:100% !important;
+  background:var(--msb-hairline, #d3d3d3) !important;
+  pointer-events:none !important;
+  z-index:20 !important;
+}
+html.dark-auto body.profile-page.profile-gear-mode .profile-cover-hairline,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .profile-cover-hairline,
+html.dark-auto body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover::after,
+html[data-theme="dark"] body.profile-page.profile-gear-mode .sh-pagebody > .profile-cover::after{
+  background:var(--msb-hairline, rgba(211,211,211,.45)) !important;
+}
+html body.profile-page.profile-gear-mode .ig-profile-rail,
+html[data-msb-appearance] body.profile-page.profile-gear-mode .ig-profile-rail,
+html.msb-palette-active body.profile-page.profile-gear-mode .ig-profile-rail{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+html body.profile-page .ig-rail-video-rule{
+  display:block !important;
+  height:1px !important;
+  width:100% !important;
+  margin:0 !important;
+  border:0 !important;
+  background:var(--msb-hairline, #d3d3d3) !important;
+}
+</style>
+<style id="gear-nav-row-hover">
+#gearCategoryRail button.gear-nav-section-toggle:hover,
+#gearCategoryRail button.gear-nav-section-toggle:focus,
+#gearCategoryRail button.gear-archive-shortcut:hover,
+#gearCategoryRail button.gear-archive-shortcut:focus,
+#gearRowPane button.gear-nav-item:hover,
+#gearRowPane button.gear-nav-item:focus{
+  background:var(--msb-palette-hover-bg, rgba(15,23,42,.06)) !important;
+  background-color:var(--msb-palette-hover-bg, rgba(15,23,42,.06)) !important;
+  border-radius:8px !important;
+}
+html.dark-auto #gearCategoryRail button.gear-nav-section-toggle:hover,
+html.dark-auto #gearCategoryRail button.gear-nav-section-toggle:focus,
+html.dark-auto #gearCategoryRail button.gear-archive-shortcut:hover,
+html.dark-auto #gearCategoryRail button.gear-archive-shortcut:focus,
+html.dark-auto #gearRowPane button.gear-nav-item:hover,
+html.dark-auto #gearRowPane button.gear-nav-item:focus,
+html[data-theme="dark"] #gearCategoryRail button.gear-nav-section-toggle:hover,
+html[data-theme="dark"] #gearCategoryRail button.gear-nav-section-toggle:focus,
+html[data-theme="dark"] #gearCategoryRail button.gear-archive-shortcut:hover,
+html[data-theme="dark"] #gearCategoryRail button.gear-archive-shortcut:focus,
+html[data-theme="dark"] #gearRowPane button.gear-nav-item:hover,
+html[data-theme="dark"] #gearRowPane button.gear-nav-item:focus{
+  background:var(--msb-palette-hover-bg, rgba(255,255,255,.1)) !important;
+  background-color:var(--msb-palette-hover-bg, rgba(255,255,255,.1)) !important;
+}
+#gearCategoryRail .gear-nav-section.is-open button.gear-nav-section-toggle,
+#gearCategoryRail button.gear-archive-shortcut.is-open,
+#gearRowPane button.gear-nav-item.is-active{
+  background:var(--msb-palette-nav-active-bg, rgba(15,23,42,.08)) !important;
+  background-color:var(--msb-palette-nav-active-bg, rgba(15,23,42,.08)) !important;
+  border-radius:8px !important;
+}
+html.dark-auto #gearCategoryRail .gear-nav-section.is-open button.gear-nav-section-toggle,
+html.dark-auto #gearCategoryRail button.gear-archive-shortcut.is-open,
+html.dark-auto #gearRowPane button.gear-nav-item.is-active,
+html[data-theme="dark"] #gearCategoryRail .gear-nav-section.is-open button.gear-nav-section-toggle,
+html[data-theme="dark"] #gearCategoryRail button.gear-archive-shortcut.is-open,
+html[data-theme="dark"] #gearRowPane button.gear-nav-item.is-active{
+  background:var(--msb-palette-nav-active-bg, rgba(255,255,255,.14)) !important;
+  background-color:var(--msb-palette-nav-active-bg, rgba(255,255,255,.14)) !important;
+}
+html.dark-auto #gearCategoryRail .gear-nav-section.is-open button.gear-nav-section-toggle:hover,
+html.dark-auto #gearCategoryRail button.gear-archive-shortcut.is-open:hover,
+html.dark-auto #gearRowPane button.gear-nav-item.is-active:hover,
+html[data-theme="dark"] #gearCategoryRail .gear-nav-section.is-open button.gear-nav-section-toggle:hover,
+html[data-theme="dark"] #gearCategoryRail button.gear-archive-shortcut.is-open:hover,
+html[data-theme="dark"] #gearRowPane button.gear-nav-item.is-active:hover{
+  background:var(--msb-palette-nav-active-bg, rgba(255,255,255,.16)) !important;
+  background-color:var(--msb-palette-nav-active-bg, rgba(255,255,255,.16)) !important;
+}
+</style>
+<style id="profile-flow-full-vlines">
+html.profile-flow-scroll,
+html:has(body.profile-page.profile-flow-scroll),
+html.profile-flow-scroll body.profile-page.profile-flow-scroll{
+  scroll-behavior:auto !important;
+}
+html.profile-flow-scroll,
+html:has(body.profile-page.profile-flow-scroll){
+  height:auto !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+}
+html body.profile-page.profile-flow-scroll{
+  height:auto !important;
+  max-height:none !important;
+  overflow-x:hidden !important;
+  overflow-y:visible !important;
+}
+html body.profile-page.profile-flow-scroll .sh-mainpanel,
+html body.profile-page.profile-flow-scroll .sh-pagebody{
+  height:auto !important;
+  max-height:none !important;
+  overflow-x:hidden !important;
+  overflow-y:visible !important;
+}
+html body.profile-page.profile-flow-scroll .ig-wrap,
+html body.profile-page.profile-flow-scroll .ig-profile-shell,
+html body.profile-page.profile-flow-scroll .ig-profile-head,
+html body.profile-page.profile-flow-scroll .ig-profile-scroll{
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+html body.profile-page.profile-flow-scroll .profile-panel.active,
+html body.profile-page.profile-flow-scroll #panel-posts.active,
+html body.profile-page.profile-flow-scroll #panel-gallery.active,
+html body.profile-page.profile-flow-scroll #panel-saved.active,
+html body.profile-page.profile-flow-scroll #profilePostsFeed{
+  height:auto !important;
+  max-height:none !important;
+  overflow-x:hidden !important;
+  overflow-y:visible !important;
+}
+html body.profile-page.profile-flow-scroll .ig-profile-scroll{
+  min-height:100vh !important;
+  border-left:1px solid var(--msb-hairline, var(--msb-palette-border, #d3d3d3)) !important;
+  border-right:1px solid var(--msb-hairline, var(--msb-palette-border, #d3d3d3)) !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-profile-shell{
+  overflow:visible !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-profile-scroll{
+  overflow:visible !important;
+  min-height:100vh !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-highlights,
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-tabs,
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-gallery-filter{
+  flex:0 0 auto !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active,
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-wrap{
+  flex:1 1 auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  min-height:0 !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-shell{
+  flex:1 1 auto !important;
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:stretch !important;
+  min-height:calc(100vh - 160px) !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-row-pane,
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-main{
+  align-self:stretch !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-main{
+  flex:1 1 auto !important;
+  border:0 !important;
+  border-left:1px solid var(--msb-hairline, #d3d3d3) !important;
+  overflow-x:hidden !important;
+  overflow-y:visible !important;
+  max-height:none !important;
+  height:auto !important;
+}
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-row-pane,
+html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-nav-items,
+html body.profile-page.profile-gear-mode.profile-flow-scroll #gearFavoritesEmbed,
+html body.profile-page.profile-gear-mode.profile-flow-scroll #gearArchiveEmbed,
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-archive-embed-host,
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-archive-embed-host .ig-archive,
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-archive-embed-host .ig-archive-grid-scroll,
+html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-archive-embed-host .ig-archive-body{
+  overflow-x:hidden !important;
+  overflow-y:visible !important;
+  max-height:none !important;
+  height:auto !important;
+}
+@media (max-width: 991.98px){
+  html body.profile-page.profile-flow-scroll .sh-mainpanel,
+  html body.profile-page.profile-flow-scroll .sh-pagebody{
+    height:auto !important;
+    max-height:none !important;
+  }
+}
+</style>
 </body>
 </html>

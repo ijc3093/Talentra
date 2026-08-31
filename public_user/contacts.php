@@ -1580,7 +1580,7 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
         <a href="#">Accessibility</a><span class="x-rail-footer-sep">·</span>
         <a href="#">Ads info</a><span class="x-rail-footer-sep">·</span>
         <a href="#">More...</a>
-        <div style="margin-top:4px;">© <?= date('Y') ?> Talentra</div>
+        <div style="margin-top:4px;">© <?= date('Y') ?> Talsora</div>
       </div>
     </aside>
     </div>

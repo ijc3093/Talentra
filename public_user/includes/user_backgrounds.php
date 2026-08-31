@@ -4,9 +4,8 @@ declare(strict_types=1);
 /**
  * user_backgrounds column names differ between SQL dumps.
  * Live/Data schema: born_in, lives_in, family_details, education_history,
- * work_details, hobbies, social_facebook, about_text
- * Some PHP/SQL copies: born_in, lives_in, family_details, education_history,
- * work_details, hobbies, social_facebook, about_text
+ * work_details, hobbies, profile_link, about_text
+ * Older dumps may still have extra link columns; those are mapped into profile_link.
  */
 
 function user_background_logical_defaults(): array

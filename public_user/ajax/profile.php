@@ -31,6 +31,7 @@ require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_tags.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
+require_once __DIR__ . '/includes/user_backgrounds.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
 ensurePostCategorySchema($dbh);
@@ -692,40 +693,8 @@ if (trim($me['created_at']) !== '') {
   if ($t) $joinedLabel = date('F Y', $t);
 }
 
-$about = [
-  'pronouns' => '',
-  'born_in' => '',
-  'lives_in' => '',
-  'birthday' => '',
-  'relationship_status' => '',
-  'languages' => '',
-  'family_details' => '',
-  'education_history' => '',
-  'work_details' => '',
-  'hobbies' => '',
-  'social_facebook' => '',
-  'social_instagram' => '',
-  'social_x' => '',
-  'social_linkedin' => '',
-  'about_text' => '',
-];
-$hasBackgroundTable = false;
-try {
-  $chk = $dbh->query("SHOW TABLES LIKE 'user_backgrounds'");
-  $hasBackgroundTable = (bool)($chk && $chk->fetchColumn());
-} catch (Throwable $e) {
-  $hasBackgroundTable = false;
-}
-if ($hasBackgroundTable && $viewId > 0) {
-  try {
-    $st = $dbh->prepare("SELECT pronouns, born_in, lives_in, birthday, relationship_status, languages, family_details, education_history, work_details, hobbies, social_facebook, social_instagram, social_x, social_linkedin, about_text FROM user_backgrounds WHERE user_id = :uid LIMIT 1");
-    $st->execute([':uid' => $viewId]);
-    $bg = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-    foreach ($about as $k => $v) {
-      if (array_key_exists($k, $bg)) $about[$k] = trim((string)$bg[$k]);
-    }
-  } catch (Throwable $e) {}
-}
+$about = user_background_load($dbh, $viewId);
+$hasBackgroundTable = user_background_table_exists($dbh);
 
 $profileRegistration = ($viewId > 0)
   ? profile_load_registration_fields($dbh, $viewId)
@@ -837,24 +806,9 @@ $aboutCards = [
     'value' => $about['hobbies'],
   ],
   [
-    'icon' => 'ion-social-facebook',
-    'label' => 'Facebook',
-    'value' => $about['social_facebook'],
-  ],
-  [
-    'icon' => 'ion-social-instagram',
-    'label' => 'Instagram',
-    'value' => $about['social_instagram'],
-  ],
-  [
-    'icon' => 'ion-at',
-    'label' => 'X / Twitter',
-    'value' => $about['social_x'],
-  ],
-  [
-    'icon' => 'ion-social-linkedin',
-    'label' => 'LinkedIn',
-    'value' => $about['social_linkedin'],
+    'icon' => 'ion-link',
+    'label' => 'Site',
+    'value' => $about['profile_link'] ?? '',
   ],
 ];
 if ($profileShowRegistrationAbout && $profileRegistrationAboutCards !== []) {
@@ -1110,7 +1064,7 @@ $gearGroups = [
       ['label' => 'Who can comment on posts', 'meta' => 'Limit comments to friends or approved visitors when you are ready.', 'icon' => 'ion-chatbubbles', 'tag' => 'Live', 'field' => 'comment_permission', 'options' => $privacyOptions],
       ['label' => 'Who can send friend request', 'meta' => 'Choose who is allowed to connect with you.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_permission', 'options' => $privacyOptions],
       ['label' => 'Who can message me', 'meta' => 'Control DM access before private chat opens.', 'icon' => 'ion-email', 'tag' => 'Live', 'field' => 'message_permission', 'options' => $privacyOptions],
-      ['label' => 'Allow timeline visit by approval only', 'meta' => 'Strong Talentra feature for consent-based timeline access.', 'icon' => 'ion-clock', 'tag' => 'Live', 'field' => 'timeline_visit_approval', 'options' => $yesNoOptions],
+      ['label' => 'Allow timeline visit by approval only', 'meta' => 'Strong Talsora feature for consent-based timeline access.', 'icon' => 'ion-clock', 'tag' => 'Live', 'field' => 'timeline_visit_approval', 'options' => $yesNoOptions],
     ],
   ],
   [
@@ -1120,7 +1074,6 @@ $gearGroups = [
     'desc' => 'Shape how memories appear, resurface, and stay meaningful on your life timeline.',
     'rows' => [
       ['label' => 'Archived posts', 'meta' => 'Open the private list of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited from For You, Discover, Reels, or Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Auto-show posts in timeline', 'meta' => 'Yes / No control for moving Dashboard posts into the life timeline automatically.', 'icon' => 'ion-ios-albums', 'tag' => 'Live', 'field' => 'auto_show_timeline', 'options' => $yesNoOptions],
       ['label' => 'Allow old memories to resurface', 'meta' => 'Bring older moments back later as meaningful memories.', 'icon' => 'ion-refresh', 'tag' => 'Live', 'field' => 'resurface_old_memories', 'options' => $yesNoOptions],
       ['label' => 'Show reactions in timeline', 'meta' => 'Decide whether likes and love appear on your life timeline.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'show_timeline_reactions', 'options' => $yesNoOptions],
@@ -1142,9 +1095,9 @@ $gearGroups = [
     'title' => 'Favorites',
     'nav_label' => 'Favorites',
     'icon' => 'ion-ios-bookmarks',
-    'desc' => 'Posts and stories you favorited from For You, Discover, Reels, or Profile. Only you can open this list.',
+    'desc' => 'Posts and stories you favorited from Circle, Discover, Clips, or Profile. Only you can open this list.',
     'rows' => [
-      ['label' => 'Open favorites', 'meta' => 'Review and remove favorited posts and stories.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
+      ['label' => 'Open favorites', 'meta' => 'Review and remove favorited posts and stories.', 'href' => 'profile.php?tab=gear#gear-favorites', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
     ],
   ],
   [
@@ -1199,7 +1152,7 @@ $gearGroups = [
     'desc' => 'Big account actions should stay visible, but separate from your About details.',
     'rows' => [
       ['label' => 'Archived posts', 'meta' => 'Open the private archive of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited across For You, Discover, Reels, and Profile.', 'href' => 'bookmark.php', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
+      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited across Circle, Discover, Clips, and Profile.', 'href' => 'profile.php?tab=gear#gear-favorites', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Allow download my data', 'meta' => 'Keep export tools available for your account.', 'icon' => 'ion-archive', 'tag' => 'Live', 'field' => 'allow_download_data', 'options' => $yesNoOptions],
       ['label' => 'Allow deactivate account', 'meta' => 'Control whether deactivation tools are available in your account center.', 'icon' => 'ion-pause', 'tag' => 'Live', 'field' => 'allow_deactivate_account', 'options' => $yesNoOptions],
       ['label' => 'Allow delete account', 'meta' => 'Show or hide the protected delete-account flow.', 'icon' => 'ion-trash-a', 'tag' => 'Live', 'field' => 'allow_delete_account', 'options' => $yesNoOptions],
@@ -1219,7 +1172,7 @@ $gearQuickLinks = [
   ['label' => 'Privacy', 'icon' => 'ion-locked', 'href' => '#gear-privacy-controls'],
   ['label' => 'Timeline Settings', 'icon' => 'ion-ios-book', 'href' => '#gear-timeline-memory-controls'],
   ['label' => 'Archived posts', 'icon' => 'ion-ios-box', 'href' => 'archive.php'],
-  ['label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'href' => 'bookmark.php'],
+  ['label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'href' => 'profile.php?tab=gear#gear-favorites'],
   ['label' => 'Notifications', 'icon' => 'ion-android-notifications', 'href' => '#gear-notifications'],
   ['label' => 'Security', 'icon' => 'ion-shield', 'href' => '#gear-security-and-safety'],
   ['label' => 'Blocked Users', 'icon' => 'ion-close-circled', 'href' => '#gear-security-and-safety'],
@@ -1685,7 +1638,7 @@ $galleryGrid = array_values(array_filter($gridFeedSource, static function (array
   return profile_item_has_gallery_content($it);
 }));
 
-// Tags tab = posts where this profile user was @tagged / people-tagged (Instagram-style).
+// Tags tab = posts where this profile user was @tagged / people-tagged (Talsora).
 $tagsGrid = [];
 try {
   msb_post_tags_ensure_schema($dbh);
@@ -2372,7 +2325,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     html[data-theme="dark"] .ig-tab.active::after{
       background:var(--msb-palette-text, #f3f6fb);
     }
-    /* Match feed "For You" active underline (pill bar), beat appearance !important. */
+    /* Match feed "Circle" active underline (pill bar), beat appearance !important. */
     html body.profile-page .ig-tab.active,
     html[data-msb-appearance] body.profile-page .ig-tab.active,
     html.msb-palette-active body.profile-page .ig-tab.active,
@@ -4029,7 +3982,7 @@ include __DIR__ . '/includes/header.php';
       <?php else: ?>
         <div id="profileCoverPreview"></div>
       <?php endif; ?>
-      <div class="profile-cover-badge"><i class="icon ion-image"></i> Talentra cover</div>
+      <div class="profile-cover-badge"><i class="icon ion-image"></i> Talsora cover</div>
     </div> -->
 
     <div class="ig-top ig-profile-head">
@@ -4472,7 +4425,7 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 
-<!-- ✅ Post Viewer Modal (Instagram-style) -->
+<!-- ✅ Post Viewer Modal (Talsora) -->
 <div id="pvOverlay" class="pv-overlay" aria-hidden="true">
   <button type="button" class="pv-x" id="pvClose" aria-label="Close"><i class="icon ion-close"></i></button>
   <button type="button" class="pv-nav pv-prev" id="pvPrev" aria-label="Previous"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
@@ -4566,7 +4519,7 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <style>
-  /* ✅ Modal (instagram-style)
+  /* ✅ Modal (Talsora)
      Desktop/laptop: fixed frame so next/prev never shifts the comments card.
      Mobile/tablet overrides below use their own stable dimensions. */
   .pv-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000;z-index:9999;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;isolation:isolate;}
@@ -7146,7 +7099,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { e.preventDefault(); if (pvIndex < ids.length - 1) pvOpenByIndex(pvIndex + 1); }
 });
 
-// ✅ Mobile swipe (left/right) like Instagram
+// ✅ Mobile swipe (left/right) like Talsora
 let pvTouchX = 0;
 let pvTouchY = 0;
 pv.ov.addEventListener('touchstart', (e) => {
@@ -10743,7 +10696,7 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-
 </script>
 
 <style id="profile-tabs-for-you-underline">
-/* Exact feed "For You" active indicator on profile section tabs */
+/* Exact feed "Circle" active indicator on profile section tabs */
 html body.profile-page .ig-tabs{
   align-items:stretch;
   gap:8px;

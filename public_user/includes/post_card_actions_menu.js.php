@@ -17,6 +17,45 @@
     return 'public';
   }
 
+  function readVisibilityAttr(el){
+    if(!el || !el.getAttribute) return '';
+    var vis = String(el.getAttribute('data-visibility') || '').trim().toLowerCase();
+    if(vis === 'private') return 'private';
+    if(vis === 'friends' || vis === 'friend') return 'friends';
+    if(vis === 'public') return 'public';
+    return '';
+  }
+
+  function lookupPostVisibility(postId, fallback){
+    postId = Number(postId || 0);
+    var vis = '';
+    if(postId > 0){
+      vis = readVisibilityAttr(document.querySelector(
+        '#profilePostsFeed .mf-card[data-post-id="'+String(postId)+'"],' +
+        '#profilePostsFeed .mf-card[data-id="'+String(postId)+'"]'
+      ));
+      if(!vis){
+        vis = readVisibilityAttr(document.querySelector(
+          '.mf-card[data-post-id="'+String(postId)+'"],' +
+          '.mf-card[data-id="'+String(postId)+'"]'
+        ));
+      }
+      if(!vis){
+        vis = readVisibilityAttr(document.querySelector(
+          '.ig-grid[data-grid-scope="gallery"] .ig-item[data-post-id="'+String(postId)+'"]:not(.is-vis-hidden),' +
+          '.ig-item[data-post-id="'+String(postId)+'"]'
+        ));
+      }
+    }
+    if(!vis){
+      var fb = String(fallback || '').trim().toLowerCase();
+      if(fb === 'private' || fb === 'friends' || fb === 'friend' || fb === 'public'){
+        vis = fb === 'friend' ? 'friends' : fb;
+      }
+    }
+    return vis || 'friends';
+  }
+
   function visibilityMeta(vis){
     var key = normalizeVisibility(vis);
     if(key === 'private'){
@@ -300,6 +339,10 @@
     }
 
     document.body.appendChild(clone);
+    ['data-post-id','data-peer-id','data-is-owner','data-visibility','data-is-archived'].forEach(function(attr){
+      var val = wrap.getAttribute(attr);
+      if(val != null && val !== '') clone.setAttribute(attr, val);
+    });
     positionPortal(btn, clone, wrap);
     activePortal = clone;
     activePortalWrap = wrap;
@@ -382,7 +425,7 @@
     if(card){
       title = String(card.getAttribute('data-title') || card.getAttribute('data-full-desc') || '').trim();
     }
-    if(!title) title = 'Check out this post on Talentra';
+    if(!title) title = 'Check out this post on Talsora';
     if(title.length > 120) title = title.slice(0, 117) + '…';
     return title;
   }
@@ -861,17 +904,10 @@
     window.__pcmShareUrl = url;
     window.__pcmShareTitle = title;
 
-    // Prefill real hrefs so the browser opens apps even if JS is delayed.
     var map = {
-      facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url),
-      whatsapp: 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text),
-      x: 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title),
-      twitter: 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title),
-      telegram: 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title),
       email: 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text),
       messages: 'sms:?&body=' + encodeURIComponent(text),
-      instagram: 'https://www.instagram.com/',
-      tiktok: 'https://www.tiktok.com/'
+      chat: 'messages.php'
     };
     dialog.querySelectorAll('[data-pcm-share]').forEach(function(btn){
       var key = String(btn.getAttribute('data-pcm-share') || '').toLowerCase();
@@ -998,31 +1034,19 @@
       return;
     }
 
-    if(target === 'instagram' || target === 'tiktok'){
-      // Those apps have no reliable web composer — copy the post link, then open the app/site.
+    if(target === 'chat'){
       if(evt && evt.preventDefault) evt.preventDefault();
-      href = target === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/';
       copyText(url).then(function(){
-        openExternalShare(href);
-        finish(target === 'instagram'
-          ? 'Link copied. Paste it in an Instagram post, Reel, or Story.'
-          : 'Link copied. Paste it in a TikTok post or message.');
+        window.location.href = 'messages.php';
+        finish('Link copied. Paste it in a Talsora chat.');
       }).catch(function(){
-        openExternalShare(href);
-        finish('Opened ' + (target === 'instagram' ? 'Instagram' : 'TikTok') + '. Copy the post link to share.');
+        window.location.href = 'messages.php';
+        finish('Opened chat. Copy the post link to send it.');
       });
       return;
     }
 
-    if(target === 'facebook'){
-      href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
-    } else if(target === 'whatsapp'){
-      href = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
-    } else if(target === 'x' || target === 'twitter'){
-      href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
-    } else if(target === 'telegram'){
-      href = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
-    } else if(target === 'email'){
+    if(target === 'email'){
       href = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text);
     } else if(target === 'messages' || target === 'sms' || target === 'imessage'){
       href = 'sms:?&body=' + encodeURIComponent(text);
@@ -1038,11 +1062,7 @@
         if(evt && evt.preventDefault) evt.preventDefault();
         try{ window.location.href = href; }catch(eLoc){}
       }
-      finish(target === 'facebook' ? 'Opening Facebook…'
-        : (target === 'whatsapp' ? 'Opening WhatsApp…'
-        : (target === 'x' || target === 'twitter' ? 'Opening X…'
-        : (target === 'telegram' ? 'Opening Telegram…'
-        : (target === 'email' ? 'Opening Mail…' : 'Opening Messages…')))));
+      finish(target === 'email' ? 'Opening Mail…' : 'Opening Text…');
       return;
     }
 
@@ -1052,11 +1072,7 @@
     } else {
       openExternalShare(href);
     }
-    finish(target === 'facebook' ? 'Opening Facebook…'
-      : (target === 'whatsapp' ? 'Opening WhatsApp…'
-      : (target === 'x' || target === 'twitter' ? 'Opening X…'
-      : (target === 'telegram' ? 'Opening Telegram…'
-      : (target === 'email' ? 'Opening Mail…' : 'Opening Messages…')))));
+    finish(target === 'email' ? 'Opening Mail…' : 'Opening Text…');
   }
 
   function copyText(text){
@@ -1220,6 +1236,9 @@
     html += buttonItem('pcm-mention', 'fa fa-bullhorn', 'Mention', ' data-post-id="'+esc(String(pid))+'"');
     if(vis !== 'private'){
       html += buttonItem('pcm-private', 'fa fa-lock', 'Private', ' data-post-id="'+esc(String(pid))+'" data-visibility="private"');
+    } else {
+      html += buttonItem('pcm-vis-friends', 'fa fa-users', 'Friends', ' data-post-id="'+esc(String(pid))+'" data-visibility="friends"');
+      html += buttonItem('pcm-vis-public', 'fa fa-globe', 'Public', ' data-post-id="'+esc(String(pid))+'" data-visibility="public"');
     }
     html += buttonItem(
       'pcm-archive',
@@ -1244,7 +1263,7 @@
     var isDiscoverOrReel = (menuSurface === 'public' || menuSurface === 'reel');
     var isStranger = !isOwner && friendStatus !== 'friends' && friendStatus !== 'self';
     var canSelfTag = !isOwner && (meTagged || friendStatus === 'friends' || String(it.visibility || 'friends') === 'public');
-    // Discover / Reels strangers: Mention only — no Tag / Add to Tags.
+    // Discover / Clips strangers: Mention only — no Tag / Add to Tags.
     if(isDiscoverOrReel && isStranger) canSelfTag = false;
     var html = '';
 
@@ -1295,18 +1314,63 @@
     return String(opts.menu_surface || 'public') === 'feed';
   }
 
+  var friendStatusCache = {};
+
+  function normalizeFriendStatus(st, isOwner){
+    if(isOwner) return 'self';
+    st = String(st || '').trim().toLowerCase();
+    if(st === 'self') return 'none';
+    if(st === 'friend' || st === 'accepted' || st === 'friends') return 'friends';
+    if(st === 'outgoing' || st === 'pending' || st === 'requested' || st === 'outgoing_pending') return 'outgoing_pending';
+    if(st === 'incoming' || st === 'incoming_pending') return 'incoming_pending';
+    return st || 'none';
+  }
+
+  function canShowAddFriend(st, isOwner){
+    return !isOwner && normalizeFriendStatus(st, isOwner) === 'none';
+  }
+
   function resolveIsOwner(it, isOwner){
-    isOwner = !!isOwner;
     var meId = Number(window.ME_ID || window.__MSB_FEED_ME_ID || window.PV_ME_ID || 0);
-    var userId = Number(it.user_id || it.author_id || 0);
-    // Only trust friend_status=self when it matches the signed-in user.
-    if(meId > 0 && userId > 0 && userId === meId) return true;
-    if(String(it.friend_status || '') === 'self' && meId > 0 && userId > 0 && userId === meId) return true;
-    if(String(it.friend_status || '') === 'self' && (userId <= 0 || meId <= 0)) {
-      // Keep explicit isOwner from the card/wrap when ids are missing.
-      return isOwner;
+    var userId = Number((it && (it.user_id || it.author_id)) || 0);
+    if(meId > 0 && userId > 0) return userId === meId;
+    return false;
+  }
+
+  function viewerOwnsMenuTarget(el){
+    var portal = el && el.closest ? el.closest('.pcm-menu-portal') : null;
+    var wrap = el && el.closest ? el.closest('.post-card-menu-wrap, #ttStoriesMenuWrap, .tt-stories-menu-wrap') : null;
+    if(!wrap && portal) wrap = activePortalWrap;
+    if(!wrap && activePortalWrap) wrap = activePortalWrap;
+    var meId = Number(window.ME_ID || window.__MSB_FEED_ME_ID || window.PV_ME_ID || 0);
+    var peerId = 0;
+    if(wrap){
+      peerId = Number(wrap.getAttribute('data-peer-id') || 0);
+      var card = wrap.closest ? wrap.closest('.mf-card, .reel-stage, .public-post-card, .post, [data-peer-id], [data-user-id]') : null;
+      if(!peerId && card){
+        peerId = Number(card.getAttribute('data-peer-id') || card.getAttribute('data-user-id') || 0);
+      }
     }
-    return isOwner;
+    if(wrap && String(wrap.getAttribute('data-is-owner') || '') === '1') return true;
+    if(meId > 0 && peerId > 0) return meId === peerId;
+    return false;
+  }
+
+  function menuActionPostId(el){
+    return Number(
+      (el && el.getAttribute && el.getAttribute('data-post-id')) ||
+      (activePortal && activePortal.getAttribute && activePortal.getAttribute('data-post-id')) ||
+      (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
+      0
+    );
+  }
+
+  function stripOwnerOnlyMenuItems(menu){
+    if(!menu || !menu.querySelectorAll) return;
+    menu.querySelectorAll('.pcm-edit, .pcm-delete, .pcm-archive, .pcm-private, .pcm-vis-friends, .pcm-vis-public').forEach(function(el){
+      var row = el.closest ? (el.closest('.pcm-item') || el) : el;
+      if(row && row.parentNode) row.parentNode.removeChild(row);
+    });
   }
 
   function refreshFeedCardMenus(root){
@@ -1364,8 +1428,16 @@
 
     var peerId = Number(it.user_id || 0);
     var friendCode = String(it.friend_code || '').trim();
-    var friendStatus = friendStatusFn ? String(friendStatusFn(it) || 'none') : String(it.friend_status || 'none');
-    var isPublisher = isPublisherFn ? !!isPublisherFn(it) : (Number(it.is_publisher || 0) === 1 || String(it.account_kind || '') === 'publisher');
+    var rawFriendStatus = '';
+    if(friendStatusFn && typeof friendStatusFn === 'function'){
+      rawFriendStatus = String(friendStatusFn(it) || '').trim();
+    }
+    if(!rawFriendStatus) rawFriendStatus = String(it.friend_status || '');
+    var friendStatus = normalizeFriendStatus(rawFriendStatus, isOwner);
+    var kind = String(it.account_kind || '').toLowerCase();
+    var isPublisher = Number(it.is_publisher || 0) === 1
+      || kind === 'publisher'
+      || (isPublisherFn ? !!isPublisherFn(it) : false);
     var isFollowing = isFollowingFn ? !!isFollowingFn(it) : Number(it.is_following || 0) === 1;
     var profileUrl = profileHrefFn ? String(profileHrefFn(it, pid) || '') : String(it.profile_url || '');
     if(!profileUrl && peerId > 0){
@@ -1385,7 +1457,7 @@
     // Personal users may always open a publisher profile (Posts / Gallery / Tags).
     var showPublisherView = isPublisher && (isFollowing || canFollowPublishers) && profileUrl;
 
-    // Report FIRST on every non-own fries (For You / Discover / Profile / Reel).
+    // Report FIRST on every non-own fries (Circle / Discover / Profile / Reel).
     if(!isOwner && pid > 0){
       html += buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+esc(String(pid))+'"');
       html += menuDivider();
@@ -1404,11 +1476,11 @@
       html += '<button type="button" class="pcm-item pcm-unfriend is-danger" data-peer-id="' + esc(String(peerId)) + '" role="menuitem">' +
         '<i class="fa fa-user-times" aria-hidden="true"></i><span>Unfriend</span></button>';
     }
-    if(!feedSurface && !isPublisher && peerId && friendStatus === 'none' && !staffReadonly){
+    if(!feedSurface && !isPublisher && peerId && canShowAddFriend(friendStatus, isOwner) && !staffReadonly && !publisherWorkspaceViewer){
       html += '<button type="button" class="pcm-item pcm-add-friend" data-peer-id="' + esc(String(peerId)) + '" role="menuitem">' +
         '<i class="fa fa-user-plus" aria-hidden="true"></i><span>Add Friend</span></button>';
     }
-    if(!feedSurface && isPublisher && !isFollowing && peerId && canFollowPublishers){
+    if(isPublisher && !isFollowing && peerId && canFollowPublishers){
       html += '<button type="button" class="pcm-item pcm-follow" data-publisher-id="' + esc(String(peerId)) + '" role="menuitem">' +
         '<i class="fa fa-user-plus" aria-hidden="true"></i><span>Follow</span></button>';
     }
@@ -1456,10 +1528,10 @@
       author_id: Number(host.getAttribute('data-peer-id') || card.getAttribute('data-peer-id') || (wrap && wrap.getAttribute('data-peer-id')) || 0),
       friend_code: String(host.getAttribute('data-peer-code') || card.getAttribute('data-peer-code') || (wrap && wrap.getAttribute('data-peer-code')) || ''),
       username: String(card.getAttribute('data-peer-username') || ''),
-      account_kind: String(host.getAttribute('data-account-kind') || card.getAttribute('data-account-kind') || 'personal'),
-      is_following: Number(host.getAttribute('data-is-following') || card.getAttribute('data-is-following') || 0),
+      account_kind: String(host.getAttribute('data-account-kind') || card.getAttribute('data-account-kind') || (wrap && wrap.getAttribute('data-account-kind')) || 'personal'),
+      is_following: Number(host.getAttribute('data-is-following') || card.getAttribute('data-is-following') || (wrap && wrap.getAttribute('data-is-following')) || 0),
       friend_status: String(host.getAttribute('data-friend-status') || card.getAttribute('data-friend-status') || 'none'),
-      is_publisher: Number(host.getAttribute('data-is-publisher') || card.getAttribute('data-is-publisher') || 0),
+      is_publisher: Number(host.getAttribute('data-is-publisher') || card.getAttribute('data-is-publisher') || (wrap && wrap.getAttribute('data-is-publisher')) || 0),
       contact_id: Number(card.getAttribute('data-contact-id') || 0),
       contact_name: String(card.getAttribute('data-contact-name') || ''),
       profile_url: String(host.getAttribute('data-profile-url') || card.getAttribute('data-profile-url') || ''),
@@ -1467,7 +1539,10 @@
       is_saved: Number(host.getAttribute('data-my-saved') || card.getAttribute('data-my-saved') || 0),
       is_archived: Number(host.getAttribute('data-is-archived') || card.getAttribute('data-is-archived') || 0),
       my_archived: Number(host.getAttribute('data-is-archived') || card.getAttribute('data-is-archived') || 0),
-      visibility: normalizeVisibility(host.getAttribute('data-visibility') || card.getAttribute('data-visibility') || 'friends')
+      visibility: lookupPostVisibility(
+        Number(host.getAttribute('data-post-id') || card.getAttribute('data-post-id') || card.getAttribute('data-id') || (wrap && wrap.getAttribute('data-post-id')) || 0),
+        host.getAttribute('data-visibility') || card.getAttribute('data-visibility') || (wrap && wrap.getAttribute('data-visibility')) || 'friends'
+      )
     };
   }
 
@@ -1592,6 +1667,12 @@
 
   function rebuildMenuFromWrap(wrap, menu){
     if(!wrap || !menu) return;
+    // Story-circle fries: keep Archive / Delete from the story door builder.
+    // Rebuilding as a feed card drops those items because the wrap has no peer id.
+    if(isStoryMenuWrap(wrap)){
+      ensureReportMenuItem(wrap, menu);
+      return;
+    }
     var card = wrap.closest('.mf-card, .reel-stage, .public-post-card, .post, article, [data-post-id], [data-id]') || wrap;
     var it = itemFromCard(card);
     if(!it){
@@ -1626,11 +1707,25 @@
     it.user_id = peerId;
     it.author_id = peerId;
     it.id = pid;
+    if (Number(wrap.getAttribute('data-is-publisher') || 0) === 1 || Number((card && card.getAttribute && card.getAttribute('data-is-publisher')) || 0) === 1) {
+      it.is_publisher = 1;
+      if (!it.account_kind || it.account_kind === 'personal') it.account_kind = 'publisher';
+    }
+    if (Number(wrap.getAttribute('data-is-following') || 0) === 1 || Number((card && card.getAttribute && card.getAttribute('data-is-following')) || 0) === 1) {
+      it.is_following = 1;
+    }
+    it.visibility = lookupPostVisibility(
+      pid,
+      wrap.getAttribute('data-visibility') || it.visibility || (card && card.getAttribute && card.getAttribute('data-visibility')) || 'friends'
+    );
+    wrap.setAttribute('data-visibility', it.visibility);
     if(isOwner){
       it.friend_status = 'self';
-    } else if(String(it.friend_status || '') === 'self'){
-      it.friend_status = 'none';
+    } else {
+      it.friend_status = normalizeFriendStatus(it.friend_status, false);
     }
+    wrap.setAttribute('data-friend-status', it.friend_status);
+    if(card && card.setAttribute) card.setAttribute('data-friend-status', it.friend_status);
     var html = buildItems(it, isOwner, pid, getMenuHelpers(pid));
     if(!html && !isOwner && pid > 0){
       html = buttonItem('pcm-report is-danger', 'fa fa-flag', 'Report', ' data-post-id="'+escHtml(String(pid))+'"');
@@ -1640,6 +1735,40 @@
       wrap.style.display = '';
     }
     ensureReportMenuItem(wrap, menu);
+  }
+
+  function applyFriendStatus(wrap, peerId, st){
+    peerId = Number(peerId || 0);
+    st = normalizeFriendStatus(st, false);
+    if(peerId > 0) friendStatusCache[peerId] = st;
+    if(wrap && wrap.setAttribute) wrap.setAttribute('data-friend-status', st);
+    var card = wrap && wrap.closest ? wrap.closest('.mf-card, .reel-stage, .public-post-card, .post, [data-peer-id]') : null;
+    if(card && card.setAttribute) card.setAttribute('data-friend-status', st);
+  }
+
+  function hydrateFriendStatusForMenu(wrap, done){
+    done = typeof done === 'function' ? done : function(){};
+    if(!wrap || isStoryMenuWrap(wrap)) return done();
+    var isOwner = String(wrap.getAttribute('data-is-owner') || '') === '1';
+    var peerId = Number(wrap.getAttribute('data-peer-id') || 0);
+    var card = wrap.closest ? wrap.closest('.mf-card, .reel-stage, .public-post-card, .post, [data-is-publisher]') : null;
+    var isPub = String(wrap.getAttribute('data-is-publisher') || (card && card.getAttribute('data-is-publisher')) || '') === '1';
+    if(isOwner || isPub || peerId <= 0) return done();
+    if(friendStatusCache[peerId]){
+      applyFriendStatus(wrap, peerId, friendStatusCache[peerId]);
+      return done();
+    }
+    fetch('ajax/friend_status.php?peer_id=' + encodeURIComponent(String(peerId)), { credentials: 'same-origin', cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var st = normalizeFriendStatus((data && (data.status || data.friend_status)) || 'none', false);
+        applyFriendStatus(wrap, peerId, st);
+        if(typeof window.mfSyncFriendUiForPeer === 'function'){
+          window.mfSyncFriendUiForPeer(peerId, st);
+        }
+      })
+      .catch(function(){})
+      .then(function(){ done(); });
   }
 
   function toggleMenuBtn(btn){
@@ -1654,8 +1783,6 @@
       }
       if(!menu.innerHTML.trim()) hydrateEmptyMenus(document);
     }
-    // Always recompute owner vs other from ME_ID so Report appears on others' posts.
-    rebuildMenuFromWrap(wrap, menu);
     var usePortal = shouldUsePortalMenu(wrap);
     var isOpen = usePortal
       ? (wrap.classList.contains('pcm-wrap-open') || (activePortalWrap === wrap && !!activePortal))
@@ -1664,17 +1791,20 @@
       closeMenus();
       return;
     }
-    closeMenus(menu);
-    if(isStoryMenuWrap(wrap)){
-      window.__pcmStoryMenuOpen = true;
-      pauseStoryDoorForMenu();
-    }
-    if(usePortal){
-      openPortalMenu(wrap, btn, menu);
-      return;
-    }
-    menu.classList.add('open');
-    btn.setAttribute('aria-expanded', 'true');
+    hydrateFriendStatusForMenu(wrap, function(){
+      rebuildMenuFromWrap(wrap, menu);
+      closeMenus(menu);
+      if(isStoryMenuWrap(wrap)){
+        window.__pcmStoryMenuOpen = true;
+        pauseStoryDoorForMenu();
+      }
+      if(usePortal){
+        openPortalMenu(wrap, btn, menu);
+        return;
+      }
+      menu.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    });
   }
 
   /** Guarantee Report on every non-own fries menu (friend / publisher / stranger posts). */
@@ -1692,6 +1822,7 @@
     if(meId > 0 && peerId > 0 && meId === peerId) isOwner = true;
     if(meId > 0 && peerId > 0 && meId !== peerId) isOwner = false;
     if(isOwner) return;
+    stripOwnerOnlyMenuItems(menu);
     var pid = Number(
       wrap.getAttribute('data-post-id') ||
       (card && (card.getAttribute('data-post-id') || card.getAttribute('data-id'))) ||
@@ -1818,6 +1949,7 @@
         }catch(eRep){}
       });
       var wrap = card.querySelector('.post-card-menu-wrap, .mf-menu-wrap');
+      if(wrap) wrap.setAttribute('data-visibility', visibility);
       var menu = wrap && wrap.querySelector('.post-card-menu, .mf-menu.post-card-menu');
       if(menu){
         var it = itemFromCard(card);
@@ -1828,7 +1960,22 @@
         if(html) menu.innerHTML = html;
       }
     });
+    var pvWrap = document.getElementById('pvMenuWrap');
+    if(pvWrap && Number(pvWrap.getAttribute('data-post-id') || 0) === postId){
+      pvWrap.setAttribute('data-visibility', visibility);
+      if(typeof window.pvSyncMenu === 'function'){
+        try { window.pvSyncMenu(); } catch(ePvVis){}
+      }
+    }
     return meta;
+  }
+
+  function isPrivateGallerySurface(){
+    var search = String(window.location.search || '').toLowerCase();
+    if(/gallery_vis=private/.test(search)) return true;
+    var body = document.body;
+    if(body && body.getAttribute && String(body.getAttribute('data-gallery-vis') || '') === 'private') return true;
+    return false;
   }
 
   function shouldRemoveAfterPrivate(){
@@ -1858,7 +2005,7 @@
       return 'Only you will see it. It will leave Friends and move to your Gallery → Private.';
     }
     if(onPublic || onReel){
-      return 'Only you will see it. It will leave Discover and Reels and move to your Gallery → Private.';
+      return 'Only you will see it. It will leave Discover and Clips and move to your Gallery → Private.';
     }
     if(onProfile){
       return 'Only you will see it. It will move to your Gallery → Private.';
@@ -1877,7 +2024,13 @@
     if(body) body.textContent = privateConfirmBodyText();
     window.__pcmPendingPrivateId = postId;
     window.__pcmPendingPrivateDone = typeof onConfirm === 'function' ? onConfirm : null;
-    showModal('pcmPrivateConfirmDialog');
+    setTimeout(function(){
+      if(Number(window.__pcmPendingPrivateId || 0) !== postId) return;
+      try{
+        if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
+      }catch(eMove){}
+      showModal('pcmPrivateConfirmDialog');
+    }, 0);
     return true;
   }
 
@@ -1887,6 +2040,80 @@
     window.__pcmPendingPrivateDone = null;
     var input = document.getElementById('pcmPrivatePostId');
     if(input) input.value = '0';
+  }
+
+  function visConfirmCopy(visibility){
+    visibility = normalizeVisibility(visibility);
+    if(visibility === 'public'){
+      return {
+        vis: 'public',
+        title: 'Move this to Public?',
+        body: 'Anyone on Discover can see it. It will leave Private.',
+        action: 'Public',
+        icon: 'fa-globe'
+      };
+    }
+    return {
+      vis: 'friends',
+      title: 'Move this to Friends?',
+      body: 'People in your Circle can see it again. It will leave Private.',
+      action: 'Friends',
+      icon: 'fa-users'
+    };
+  }
+
+  function openPcmVisConfirm(postId, visibility, onConfirm){
+    postId = Number(postId || 0);
+    var copy = visConfirmCopy(visibility);
+    if(!postId) return false;
+    var dialog = document.getElementById('pcmVisConfirmDialog');
+    if(!dialog) return false;
+    var input = document.getElementById('pcmVisPostId');
+    if(input) input.value = String(postId);
+    var target = document.getElementById('pcmVisTarget');
+    if(target) target.value = copy.vis;
+    var title = document.getElementById('pcmVisConfirmTitle');
+    if(title) title.textContent = copy.title;
+    var body = document.getElementById('pcmVisConfirmBody');
+    if(body) body.textContent = copy.body;
+    var action = document.getElementById('pcmGenericConfirmVisBtn');
+    if(action) action.textContent = copy.action;
+    var icon = document.querySelector('#pcmVisConfirmIcon i');
+    if(icon) icon.className = 'fa ' + copy.icon;
+    dialog.classList.toggle('is-friends', copy.vis === 'friends');
+    dialog.classList.toggle('is-public', copy.vis === 'public');
+    window.__pcmPendingVisId = postId;
+    window.__pcmPendingVisTarget = copy.vis;
+    window.__pcmPendingVisDone = typeof onConfirm === 'function' ? onConfirm : null;
+    setTimeout(function(){
+      if(Number(window.__pcmPendingVisId || 0) !== postId) return;
+      try{
+        if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
+      }catch(eMove){}
+      showModal('pcmVisConfirmDialog');
+    }, 0);
+    return true;
+  }
+
+  function closePcmVisConfirm(){
+    hideModal('pcmVisConfirmDialog');
+    window.__pcmPendingVisId = 0;
+    window.__pcmPendingVisTarget = '';
+    window.__pcmPendingVisDone = null;
+    var input = document.getElementById('pcmVisPostId');
+    if(input) input.value = '0';
+  }
+
+  function confirmSetVisibility(postId, visibility){
+    postId = Number(postId || 0);
+    visibility = normalizeVisibility(visibility);
+    if(!postId) return;
+    if(openPcmVisConfirm(postId, visibility, function(){
+      runSetVisibility(postId, visibility);
+    })) return;
+    var copy = visConfirmCopy(visibility);
+    if(!window.confirm(copy.title + ' ' + copy.body)) return;
+    runSetVisibility(postId, visibility);
   }
 
   function runSetVisibility(postId, visibility, done){
@@ -1913,6 +2140,8 @@
         syncVisibilityOnCards(postId, nextVis);
         if(nextVis === 'private' && shouldRemoveAfterPrivate()){
           removePostFromSurfaces(postId);
+        } else if(nextVis !== 'private' && isPrivateGallerySurface()){
+          removePostFromSurfaces(postId);
         }
         pcmToast(String(res.message || (nextVis === 'private'
           ? 'Moved to Private. Find it in Gallery → Private.'
@@ -1931,10 +2160,11 @@
     });
   }
 
-  function confirmMakePrivate(btn){
-    if(!btn) return;
+  function confirmMakePrivate(btn, postIdOverride){
+    if(!btn && !postIdOverride) return;
     var postId = Number(
-      btn.getAttribute('data-post-id') ||
+      postIdOverride ||
+      (btn && btn.getAttribute && btn.getAttribute('data-post-id')) ||
       (activePortalWrap && activePortalWrap.getAttribute('data-post-id')) ||
       0
     );
@@ -2190,11 +2420,13 @@
       });
   }
 
-  function confirmArchive(btn, fromStoryOverride){
-    if(!btn) return;
-    var postId = Number(btn.getAttribute('data-post-id') || 0);
+  function confirmArchive(btn, fromStoryOverride, postIdOverride, archivedOverride){
+    if(!btn && !postIdOverride) return;
+    var postId = Number(postIdOverride || (btn && btn.getAttribute && btn.getAttribute('data-post-id')) || 0);
     if(!postId) return;
-    var isArchived = String(btn.getAttribute('data-archived') || '0') === '1';
+    var isArchived = (typeof archivedOverride === 'boolean')
+      ? archivedOverride
+      : String((btn && btn.getAttribute && btn.getAttribute('data-archived')) || '0') === '1';
     var nextArchived = !isArchived;
     var storyHide = (typeof fromStoryOverride === 'boolean')
       ? fromStoryOverride
@@ -2385,6 +2617,10 @@
     if(editLink){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      if(!viewerOwnsMenuTarget(editLink)){
+        closeMenus();
+        return true;
+      }
       closeMenus();
       var href = String(editLink.getAttribute('href') || '').trim();
       if(!href || !/[?&]edit=\d+/i.test(href)){
@@ -2418,6 +2654,10 @@
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
       if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if(!viewerOwnsMenuTarget(delBtn)){
+        closeMenus();
+        return true;
+      }
       var card = closest(delBtn, '.mf-card, .public-post-card, [data-post-id], [data-id]');
       var deletePostId = Number(
         delBtn.getAttribute('data-post-id') ||
@@ -2434,10 +2674,16 @@
     if(archiveBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
-      // Capture story-door context before the portal is torn down.
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if(!viewerOwnsMenuTarget(archiveBtn)){
+        closeMenus();
+        return true;
+      }
       var fromStoryDoor = isStoryHideContext(archiveBtn);
+      var archivePostId = menuActionPostId(archiveBtn);
+      var archiveFlag = String(archiveBtn.getAttribute('data-archived') || '0') === '1';
       closeMenus();
-      confirmArchive(archiveBtn, fromStoryDoor);
+      confirmArchive(archiveBtn, fromStoryDoor, archivePostId, archiveFlag);
       return true;
     }
 
@@ -2445,8 +2691,44 @@
     if(privateBtn){
       if(e.preventDefault) e.preventDefault();
       if(e.stopPropagation) e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if(!viewerOwnsMenuTarget(privateBtn)){
+        closeMenus();
+        return true;
+      }
+      var privatePostId = menuActionPostId(privateBtn);
       closeMenus();
-      confirmMakePrivate(privateBtn);
+      confirmMakePrivate(privateBtn, privatePostId);
+      return true;
+    }
+
+    var visFriendsBtn = closest(target, menuItemSel('.pcm-vis-friends'));
+    if(visFriendsBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if(!viewerOwnsMenuTarget(visFriendsBtn)){
+        closeMenus();
+        return true;
+      }
+      var friendsPostId = menuActionPostId(visFriendsBtn);
+      closeMenus();
+      confirmSetVisibility(friendsPostId, 'friends');
+      return true;
+    }
+
+    var visPublicBtn = closest(target, menuItemSel('.pcm-vis-public'));
+    if(visPublicBtn){
+      if(e.preventDefault) e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if(!viewerOwnsMenuTarget(visPublicBtn)){
+        closeMenus();
+        return true;
+      }
+      var publicPostId = menuActionPostId(visPublicBtn);
+      closeMenus();
+      confirmSetVisibility(publicPostId, 'public');
       return true;
     }
 
@@ -2534,6 +2816,15 @@
       closeMenus();
       var peerId = Number(addFriendBtn.getAttribute('data-peer-id') || 0);
       if(!peerId) return true;
+      var known = normalizeFriendStatus(friendStatusCache[peerId] || '', false);
+      if(known === 'friends' || known === 'outgoing_pending' || known === 'incoming_pending' || known === 'self'){
+        if(typeof window.mfSyncFriendUiForPeer === 'function'){
+          window.mfSyncFriendUiForPeer(peerId, known);
+        } else {
+          syncFriendCards(peerId, known);
+        }
+        return true;
+      }
       var body = new URLSearchParams({ action: 'send', peer_id: String(peerId) });
       fetch('ajax/friend_action.php', {
         method: 'POST',
@@ -2541,6 +2832,15 @@
         body: body
       }).then(function(r){ return r.json(); }).then(function(res){
         if(!res || !res.status) return;
+        friendStatusCache[peerId] = normalizeFriendStatus(String(res.status), false);
+        if(friendStatusCache[peerId] === 'friends'){
+          if(typeof window.mfSyncFriendUiForPeer === 'function'){
+            window.mfSyncFriendUiForPeer(peerId, 'friends');
+          } else {
+            syncFriendCards(peerId, 'friends');
+          }
+          return;
+        }
         if(typeof window.mfSyncFriendUiForPeer === 'function'){
           window.mfSyncFriendUiForPeer(peerId, String(res.status));
         } else if(typeof window.applyStatusForPeer === 'function'){
@@ -2786,6 +3086,36 @@
       onGenericConfirmArchiveClick();
       return;
     }
+    if(closest(target, '#pcmGenericConfirmPrivateBtn')){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      var privateInput = document.getElementById('pcmPrivatePostId');
+      var privatePostId = Number((privateInput && privateInput.value) || window.__pcmPendingPrivateId || 0);
+      var privateDone = window.__pcmPendingPrivateDone;
+      closePcmPrivateConfirm();
+      if(privatePostId > 0){
+        if(typeof privateDone === 'function') privateDone();
+        else runSetVisibility(privatePostId, 'private');
+      }
+      return;
+    }
+    if(closest(target, '#pcmGenericConfirmVisBtn')){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      var visInput = document.getElementById('pcmVisPostId');
+      var visTarget = document.getElementById('pcmVisTarget');
+      var visPostId = Number((visInput && visInput.value) || window.__pcmPendingVisId || 0);
+      var visNext = normalizeVisibility((visTarget && visTarget.value) || window.__pcmPendingVisTarget || 'friends');
+      var visDone = window.__pcmPendingVisDone;
+      closePcmVisConfirm();
+      if(visPostId > 0){
+        if(typeof visDone === 'function') visDone();
+        else runSetVisibility(visPostId, visNext);
+      }
+      return;
+    }
     if(closest(target, '#feedDeleteDialogConfirm')){
       e.preventDefault();
       e.stopPropagation();
@@ -2805,7 +3135,7 @@
       return;
     }
     // Keep the confirm popup open — do not treat dialog clicks as outside-menu dismiss.
-    if(closest(target, '#feedDeleteDialog, #pcmDeleteConfirmDialog, #pcmArchiveConfirmDialog, #pcmShareSheet, #pcmTagSheet, #pcmMentionSheet, #msbReportDialog, #reelDeleteDialog')){
+    if(closest(target, '#feedDeleteDialog, #pcmDeleteConfirmDialog, #pcmArchiveConfirmDialog, #pcmPrivateConfirmDialog, #pcmVisConfirmDialog, #pcmShareSheet, #pcmTagSheet, #pcmMentionSheet, #msbReportDialog, #reelDeleteDialog')){
       return;
     }
 
@@ -3136,6 +3466,11 @@
   function applyPublisherFollowBtnState(el, following){
     if(!el) return;
     following = !!following;
+    var inHead = !!(el.closest && el.closest('.post-card-head-actions, .reel-top-right, .standard-text-top-actions, .standard-media-top-actions'));
+    if(following && inHead && !isMediaActionCircle(el)){
+      try { el.remove(); } catch (eRm) {}
+      return;
+    }
     el.classList.toggle('is-following', following);
     el.classList.toggle('is-pending', following);
     el.classList.toggle('primary', !following);
@@ -3186,6 +3521,7 @@
     displayTextWithoutTagHandles: displayTextWithoutTagHandles,
     textIsPeopleTagOnly: textIsPeopleTagOnly,
     normalizeVisibility: normalizeVisibility,
+    lookupPostVisibility: lookupPostVisibility,
     setVisibility: runSetVisibility,
     makePrivate: function(postId){ runSetVisibility(Number(postId || 0), 'private'); }
   };
@@ -3235,6 +3571,10 @@
       var privateConfirm = document.getElementById('pcmPrivateConfirmDialog');
       if(privateConfirm && privateConfirm.open){
         closePcmPrivateConfirm();
+      }
+      var visConfirm = document.getElementById('pcmVisConfirmDialog');
+      if(visConfirm && visConfirm.open){
+        closePcmVisConfirm();
       }
     }
   });
@@ -3353,6 +3693,42 @@
       privateConfirmModal.addEventListener('cancel', function(e){
         e.preventDefault();
         closePcmPrivateConfirm();
+      });
+    }
+    var genericConfirmVisBtn = document.getElementById('pcmGenericConfirmVisBtn');
+    if(genericConfirmVisBtn && !genericConfirmVisBtn.__pcmBound){
+      genericConfirmVisBtn.__pcmBound = true;
+      genericConfirmVisBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var visInput = document.getElementById('pcmVisPostId');
+        var visTarget = document.getElementById('pcmVisTarget');
+        var visPostId = Number((visInput && visInput.value) || window.__pcmPendingVisId || 0);
+        var visNext = normalizeVisibility((visTarget && visTarget.value) || window.__pcmPendingVisTarget || 'friends');
+        var visDone = window.__pcmPendingVisDone;
+        closePcmVisConfirm();
+        if(visPostId > 0){
+          if(typeof visDone === 'function') visDone();
+          else runSetVisibility(visPostId, visNext);
+        }
+      });
+    }
+    var visConfirmModal = document.getElementById('pcmVisConfirmDialog');
+    if(visConfirmModal && !visConfirmModal.__pcmDismissBound){
+      visConfirmModal.__pcmDismissBound = true;
+      visConfirmModal.querySelectorAll('[data-pcm-vis-dismiss]').forEach(function(btn){
+        btn.addEventListener('click', function(){ closePcmVisConfirm(); });
+      });
+      visConfirmModal.addEventListener('click', function(e){
+        if(e.target !== visConfirmModal) return;
+        var rect = visConfirmModal.getBoundingClientRect();
+        if(e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom){
+          closePcmVisConfirm();
+        }
+      });
+      visConfirmModal.addEventListener('cancel', function(e){
+        e.preventDefault();
+        closePcmVisConfirm();
       });
     }
     var shareSheet = document.getElementById('pcmShareSheet');

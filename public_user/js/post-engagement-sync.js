@@ -49,6 +49,41 @@
     return has(obj, key) && obj[key] != null;
   }
 
+  /** Combined badge next to the morphing love/thumbs icon — not love-only. */
+  function reactionBadge(patch) {
+    if (hasValue(patch, 'reaction_count')) return num(patch.reaction_count);
+    if (hasValue(patch, 'love_count') && hasValue(patch, 'like_count')) {
+      return num(patch.love_count) + num(patch.like_count);
+    }
+    return null;
+  }
+
+  function nextReaction(snap, nextKey) {
+    snap = snap || {};
+    var next = String(nextKey || '');
+    if (next === 'none') next = '';
+    var prev = String(snap.my_reaction || '');
+    var total = hasValue(snap, 'reaction_count')
+      ? num(snap.reaction_count)
+      : num(snap.love_count);
+    if (next && !prev) total += 1;
+    else if (!next && prev) total = Math.max(0, total - 1);
+    var love = num(snap.love_count);
+    var like = num(snap.like_count);
+    if (next === 'love' && prev !== 'love') love += 1;
+    else if (prev === 'love' && next !== 'love') love = Math.max(0, love - 1);
+    var prevNon = !!(prev && prev !== 'love');
+    var nextNon = !!(next && next !== 'love');
+    if (nextNon && !prevNon) like += 1;
+    else if (prevNon && !nextNon) like = Math.max(0, like - 1);
+    return {
+      my_reaction: next,
+      love_count: Math.max(0, love),
+      like_count: Math.max(0, like),
+      reaction_count: Math.max(0, total)
+    };
+  }
+
   function qsa(sel) {
     try { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
     catch (e) { return []; }
@@ -144,8 +179,9 @@
     if (has(patch, 'comment_count')) {
       setText(card.querySelectorAll('.mf-cmt, .mf-num.mf-cmt, .mf-act.mf-comment .mf-num'), patch.comment_count);
     }
-    if (has(patch, 'reaction_count') || has(patch, 'love_count')) {
-      setText(card.querySelectorAll('.mf-act.mf-love .mf-num'), has(patch, 'reaction_count') ? patch.reaction_count : patch.love_count);
+    var mfBadge = reactionBadge(patch);
+    if (mfBadge != null) {
+      setText(card.querySelectorAll('.mf-act.mf-love .mf-num'), mfBadge);
     }
     if (has(patch, 'like_count')) {
       setText(card.querySelectorAll('.mf-act.mf-like .mf-num'), patch.like_count);
@@ -209,15 +245,15 @@
     }
     if (has(patch, 'love_count')) {
       card.setAttribute('data-love-count', String(patch.love_count));
-      setText(card.querySelectorAll('.js-love-count'), patch.love_count);
-    }
-    if (has(patch, 'reaction_count')) {
-      card.setAttribute('data-reaction-count', String(patch.reaction_count));
-      setText(card.querySelectorAll('.js-reaction-count'), patch.reaction_count);
     }
     if (has(patch, 'like_count')) {
       card.setAttribute('data-like-count', String(patch.like_count));
       setText(card.querySelectorAll('.js-like-count'), patch.like_count);
+    }
+    var pubBadge = reactionBadge(patch);
+    if (pubBadge != null) {
+      card.setAttribute('data-reaction-count', String(pubBadge));
+      setText(card.querySelectorAll('.js-love-count, .js-reaction-count'), pubBadge);
     }
     if (has(patch, 'love_count') || has(patch, 'like_count')) {
       var loveN = has(patch, 'love_count') ? num(patch.love_count) : num(card.getAttribute('data-love-count'));
@@ -263,8 +299,9 @@
       shareCountSel: '[data-count="share"]',
       commentCountSel: '[data-count="comment"]'
     });
-    if (has(patch, 'reaction_count') || has(patch, 'love_count')) {
-      setText(slide.querySelectorAll('[data-count="love"]'), has(patch, 'reaction_count') ? patch.reaction_count : patch.love_count);
+    var reelBadge = reactionBadge(patch);
+    if (reelBadge != null) {
+      setText(slide.querySelectorAll('[data-count="love"]'), reelBadge);
     }
     if (has(patch, 'comment_count')) setText(slide.querySelectorAll('[data-count="comment"]'), patch.comment_count);
     if (has(patch, 'share_count')) setText(slide.querySelectorAll('[data-count="share"]'), patch.share_count);
@@ -309,9 +346,10 @@
 
     patch = protectLiveEngagement(ov, patch, {});
 
-    if (has(patch, 'reaction_count') || has(patch, 'love_count')) {
+    var ovBadge = reactionBadge(patch);
+    if (ovBadge != null) {
       var loveN = ov.querySelector('#pvLoveN');
-      if (loveN) loveN.textContent = String(has(patch, 'reaction_count') ? patch.reaction_count : patch.love_count);
+      if (loveN) loveN.textContent = String(ovBadge);
     }
     if (has(patch, 'like_count')) {
       var likeN = ov.querySelector('#pvLikeN');
@@ -508,6 +546,8 @@
     publish: publish,
     apply: applyLocal,
     normalize: normalizePatch,
+    nextReaction: nextReaction,
+    reactionBadge: reactionBadge,
     publishFromReact: publishFromReact,
     publishFromTrack: publishFromTrack,
     publishCommentCount: publishCommentCount,

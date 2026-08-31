@@ -3,6 +3,7 @@ if (!empty($GLOBALS['msb_friend_requests_door_included'])) {
   return;
 }
 $GLOBALS['msb_friend_requests_door_included'] = true;
+require_once __DIR__ . '/leftbar_door_anim.js.php';
 
 if (!isset($meId)) {
   $meId = (int)($_SESSION['user_id'] ?? 0);
@@ -25,7 +26,7 @@ $__frStandalone = !empty($msbFriendRequestsDoorStandalone);
   transform:translateX(-105%);
   opacity:0;
   pointer-events:none;
-  transition:transform .18s ease, opacity .18s ease;
+  transition:transform .6s ease-in-out, opacity .45s ease;
 }
 #ttLeftbarOverlays .tt-friend-requests-wrap.is-open,
 .msb-friend-requests-door-host .tt-friend-requests-wrap.is-open{
@@ -253,7 +254,7 @@ body.msb-friend-requests-door-open .msb-friend-requests-door-host{ pointer-event
   opacity:0;
   visibility:hidden;
   pointer-events:none;
-  transition:opacity .18s ease, visibility .18s ease;
+  transition:opacity .6s ease-in-out, visibility .6s ease-in-out;
 }
 body.msb-friend-requests-door-open .msb-friend-requests-door-backdrop{
   opacity:1;
@@ -439,11 +440,19 @@ body.msb-friend-requests-door-open .msb-friend-requests-door-backdrop{
     isOpen = false;
     $frWrap.classList.remove('is-open');
     $frWrap.setAttribute('aria-hidden', 'true');
-    if(isStandalone) document.body.classList.remove('msb-friend-requests-door-open');
-    else document.body.classList.remove('public-leftbar-open');
+    var release = function(){
+      if(isStandalone) document.body.classList.remove('msb-friend-requests-door-open');
+      else document.body.classList.remove('public-leftbar-open');
+    };
+    if(window.MSBLeftbarDoorAnim){
+      window.MSBLeftbarDoorAnim.hold('friends', function(){ return isOpen; }, release);
+    } else {
+      release();
+    }
   }
 
   function openFriendRequestsPanel(){
+    if(window.MSBLeftbarDoorAnim) window.MSBLeftbarDoorAnim.cancel('friends');
     if(!$frWrap || isOpen) return;
     isOpen = true;
     closeOtherPanels();

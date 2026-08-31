@@ -37,39 +37,62 @@ function verifyPassword(string $plain, string $dbHash): bool
     return md5($plain) === $dbHash;
 }
 
-if (isset($_POST['submit'])) {
+function change_password_json(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function change_password_apply(PDO $dbh, string $userEmail, string $currentRaw, string $newRaw, string $confirmRaw): array
+{
+    if ($newRaw !== $confirmRaw) {
+        return ['ok' => false, 'error' => 'New password and confirm password do not match.'];
+    }
+    if (strlen($newRaw) < 6) {
+        return ['ok' => false, 'error' => 'Password must be at least 6 characters.'];
+    }
+    $stmt = $dbh->prepare('SELECT id, password FROM users WHERE email = :email LIMIT 1');
+    $stmt->execute([':email' => $userEmail]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return ['ok' => false, 'error' => 'Could not verify this account.'];
+    }
+    $userId = (int)$row['id'];
+    $dbHash = (string)$row['password'];
+    if (!verifyPassword($currentRaw, $dbHash)) {
+        return ['ok' => false, 'error' => 'Your current password is not valid.'];
+    }
+    $newHash = password_hash($newRaw, PASSWORD_DEFAULT);
+    $upd = $dbh->prepare('UPDATE users SET password = :pass WHERE id = :id');
+    $upd->execute([
+        ':pass' => $newHash,
+        ':id' => $userId,
+    ]);
+    return ['ok' => true, 'message' => 'Your password was changed successfully.'];
+}
+
+$isAjaxPwd = $_SERVER['REQUEST_METHOD'] === 'POST' && trim((string)($_POST['ajax'] ?? '')) === 'save_password';
+if ($isAjaxPwd || isset($_POST['submit'])) {
     $currentRaw = (string)($_POST['password'] ?? '');
     $newRaw = (string)($_POST['newpassword'] ?? '');
     $confirmRaw = (string)($_POST['confirmpassword'] ?? '');
-
-    if ($newRaw !== $confirmRaw) {
-        $error = 'New password and confirm password do not match.';
-    } elseif (strlen($newRaw) < 6) {
-        $error = 'Password must be at least 6 characters.';
+    $result = change_password_apply($dbh, (string)$userEmail, $currentRaw, $newRaw, $confirmRaw);
+    if ($isAjaxPwd) {
+        if (empty($result['ok'])) {
+            change_password_json(['ok' => false, 'error' => (string)($result['error'] ?? 'Save failed.')], 400);
+        }
+        change_password_json(['ok' => true, 'message' => (string)($result['message'] ?? 'Saved.')]);
+    }
+    if (!empty($result['ok'])) {
+        $msg = (string)$result['message'];
     } else {
-        $stmt = $dbh->prepare('SELECT id, password FROM users WHERE email = :email LIMIT 1');
-        $stmt->execute([':email' => $userEmail]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$row) {
+        $error = (string)($result['error'] ?? 'Save failed.');
+        if ($error === 'Could not verify this account.') {
             clearUserSession();
             header('Location: index.php');
             exit;
-        }
-
-        $userId = (int)$row['id'];
-        $dbHash = (string)$row['password'];
-
-        if (!verifyPassword($currentRaw, $dbHash)) {
-            $error = 'Your current password is not valid.';
-        } else {
-            $newHash = password_hash($newRaw, PASSWORD_DEFAULT);
-            $upd = $dbh->prepare('UPDATE users SET password = :pass WHERE id = :id');
-            $upd->execute([
-                ':pass' => $newHash,
-                ':id' => $userId,
-            ]);
-            $msg = 'Your password was changed successfully.';
         }
     }
 }
