@@ -127,7 +127,7 @@ if (in_array($ajaxAction, ['revoke_one', 'revoke_others', 'pane'], true)) {
         <div class="sub">Review current and recent device sessions, then sign out one device or every other device safely.</div>
       </div>
       <div class="actions">
-        <a class="btn alt" href="profile.php?tab=gear">Back to Gear</a>
+        <a class="btn alt" href="settings.php">Back to Settings</a>
         <a class="btn alt" href="security_tools.php#login-security">Security</a>
         <a class="btn alt" href="account_tools.php?action=logout_all">Logout all devices</a>
       </div>

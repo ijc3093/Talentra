@@ -220,6 +220,7 @@ $railIsPublic = in_array($__currentPage, ['public.php', 'public_live.php'], true
 $railIsReel = ($__currentPage === 'reel.php');
 $railIsStudio = ($__currentPage === 'live_studio.php');
 $railIsCompose = in_array($__currentPage, ['compose.php', 'post_view.php'], true);
+$railIsSettings = ($__currentPage === 'settings.php');
 $railIsRequests = in_array($__currentPage, ['contact_requests.php', 'contacts.php', 'add_contact.php'], true);
 
 /**
@@ -564,19 +565,19 @@ if ($meId > 0) {
 
 $railProfileMenuItems = [
   ['href' => $railProfileHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
-  ['href' => 'profile.php?tab=gear#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
+  ['href' => 'settings.php#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
   ['href' => 'my_orders.php', 'icon' => 'ion-bag', 'label' => 'My Orders'],
   ['href' => 'cart.php', 'icon' => 'ion-ios-cart', 'label' => 'Cart'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
-  ['href' => 'profile.php?tab=gear', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
+  ['href' => 'settings.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
   ['href' => 'index.php?tab=help', 'icon' => 'ion-help-circled', 'label' => 'Help'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
 ];
 
 $topProfileMenuItems = [
   ['href' => 'profile.php?tab=about', 'icon' => 'ion-ios-person', 'label' => 'Edit Profile'],
-  ['href' => 'profile.php?tab=gear#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
-  ['href' => 'change-password.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
+  ['href' => 'settings.php#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
+  ['href' => 'settings.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
 ];
 ?>
@@ -1494,6 +1495,9 @@ iframe{
         <span class="feed-ig-badge"><?php echo $pendingFriendRequestCount > 99 ? '99+' : (string)$pendingFriendRequestCount; ?></span>
       <?php endif; ?>
     </button>
+    <a class="feed-ig-link<?php echo !empty($railIsSettings) ? ' active' : ''; ?>" href="settings.php" title="Settings" aria-label="Settings">
+      <i class="icon ion-ios-gear"></i>
+    </a>
     <a class="feed-ig-link feed-ig-reels<?php echo !empty($railIsReel) ? ' active' : ''; ?>" href="reel.php" title="Clips" aria-label="Open Clips">
       <i class="fa fa-play" aria-hidden="true"></i>
     </a>
@@ -7463,21 +7467,21 @@ span.msb-rx-face svg{
         redirectPath = 'profile.php';
         redirect = 'profile.php?tab=gallery&gallery_vis=private&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       } else if (visibility === 'public') {
-        redirectPath = 'home.php';
-        redirect = 'home.php?tab=discover&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+        redirectPath = 'public.php';
+        redirect = 'public.php?story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       } else {
-        redirectPath = 'home.php';
-        redirect = 'home.php?tab=for-you&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+        redirectPath = 'feed.php';
+        redirect = 'feed.php?story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       }
     } else if (visibility === 'private') {
       redirectPath = 'profile.php';
       redirect = 'profile.php?tab=gallery&gallery_vis=private&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     } else if (visibility === 'public') {
-      redirectPath = 'home.php';
-      redirect = 'home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      redirectPath = 'public.php';
+      redirect = 'public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     } else if (visibility === 'friends') {
-      redirectPath = 'home.php';
-      redirect = 'home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      redirectPath = 'feed.php';
+      redirect = 'feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     }
 
     var pathNow = String(window.location.pathname || '');
@@ -7512,7 +7516,7 @@ span.msb-rx-face svg{
     // fresh/pinned destination so the parent refreshes automatically and the
     // new card is guaranteed to be present at the top.
     if (onFeed && wantsFeed && !switchingSurface && !data.story && typeof window.MSBFeedOnPostCreated === 'function') {
-      var freshFeedTarget = redirect || ('home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      var freshFeedTarget = redirect || ('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
       try { window.location.replace(freshFeedTarget); }
       catch (err2) { window.location.href = freshFeedTarget; }
       return;
@@ -7523,11 +7527,11 @@ span.msb-rx-face svg{
       return;
     }
     if (wantsPublic) {
-      window.location.replace('home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else if (wantsNews) {
       window.location.replace('home.php?tab=news&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else {
-      window.location.replace('home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     }
   });
 

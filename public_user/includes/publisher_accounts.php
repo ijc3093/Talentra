@@ -1349,15 +1349,14 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
     $visibility = strtolower(trim($visibility));
 
     // Public → Discover. Friends → Circle. Private → Gallery Private.
-    // Prefer home.php so create/publish never depends on legacy feed.php/public.php hops.
     if ($visibility === 'public') {
-        return 'home.php';
+        return 'public.php';
     }
     if ($visibility === 'private') {
         return 'profile.php';
     }
 
-    return 'home.php';
+    return 'feed.php';
 }
 
 /**

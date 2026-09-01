@@ -3041,7 +3041,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   }
 
   .mf-title{
-    padding: 2px 0 14px;
+    /* padding: 2px 0 14px; */
     font-size: 24px;
     line-height: 1.25;
     font-weight: 900;
@@ -3101,7 +3101,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   .mf-card.is-single-video-post .media-stage.standard-video-stage > video{
     width:100%;
     height:auto;
-    max-height:var(--post-media-max-height, min(70vh, 580px));
+    max-height:var(--post-media-max-height, min(56vh, calc(100dvh - 220px)));
     display:block;
     object-fit:contain;
     background:transparent;
@@ -3134,8 +3134,8 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     }
     .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage:not(.phone-shot),
     .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage:not(.phone-shot){
-      width:min(100%, var(--post-media-card-width, 300px));
-      max-width:min(100%, 320px);
+      width:min(100%, var(--post-media-card-width, 100%));
+      max-width:100%;
       margin-left:0;
       margin-right:auto;
     }
@@ -4868,7 +4868,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                         ><?= htmlspecialchars($tabLabel, ENT_QUOTES, 'UTF-8') ?></a>
                       <?php endforeach; ?>
                     </nav>
-                    <a class="feed-top-search-settings" href="profile.php?tab=gear" aria-label="Feed settings" title="Settings">
+                    <a class="feed-top-search-settings" href="settings.php" aria-label="Feed settings" title="Settings">
                       <i class="fa fa-cog" aria-hidden="true"></i>
                     </a>
                   </div>
@@ -7298,28 +7298,26 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
 
         function mfMaxVideoHeight(){
-          // Slightly larger media on mobile / tablet / desktop (feed.php).
           var viewportH = Math.max(window.innerHeight || 0, 320);
           var reserved = 230;
           var fitH = Math.max(300, viewportH - reserved);
           if(window.matchMedia('(max-width: 767.98px)').matches){
-            return Math.min(Math.round(viewportH * 0.58), fitH, 620);
+            return Math.min(Math.round(viewportH * 0.46), fitH);
           }
           if(window.matchMedia('(max-width: 1024.98px)').matches){
-            return Math.min(Math.round(viewportH * 0.60), fitH, 620);
+            return Math.min(Math.round(viewportH * 0.74), fitH);
           }
-          return Math.min(Math.round(viewportH * 0.62), fitH, 640);
+          return Math.min(Math.round(viewportH * 0.78), fitH);
         }
 
         function mfMediaMaxHeightCss(){
-          // Never bake computed px (breaks DevTools Responsive).
           if(window.matchMedia('(max-width: 767.98px)').matches){
-            return 'min(58vh, 620px)';
+            return 'min(42vh, calc(100dvh - 300px))';
           }
           if(window.matchMedia('(max-width: 1024.98px)').matches){
-            return 'min(60vh, 620px)';
+            return 'min(52vh, calc(100dvh - 240px))';
           }
-          return 'min(74vh, 640px)';
+          return 'min(56vh, calc(100dvh - 220px))';
         }
 
         function mfIsMobileMedia(){
@@ -7331,99 +7329,41 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
 
         function mfDescMediaMaxHeightCss(){
-          if(window.matchMedia('(max-width: 767.98px)').matches){
-            return 'min(52vh, 580px)';
-          }
-          if(window.matchMedia('(max-width: 1024.98px)').matches){
-            return 'min(54vh, 580px)';
-          }
-          return 'min(70vh, 580px)';
+          return mfMediaMaxHeightCss();
         }
 
         /* Discover (public.php publicComputeMediaCardWidth) — caption+media only. */
-        function mfComputeDescMediaCardWidth(aspectW, aspectH, opts){
+        function mfFeedAvailableMediaWidth(opts){
           opts = opts || {};
-          aspectW = Number(aspectW || 0);
-          aspectH = Number(aspectH || 0);
-          if(!aspectW || !aspectH) return 0;
-
-          var aspect = aspectW / aspectH;
-          var viewportH = Math.max(window.innerHeight || 0, 320);
-          var reserved = 250;
-          var fitH = Math.max(280, viewportH - reserved);
-          var maxVideoH;
-          if(window.matchMedia('(max-width: 767.98px)').matches){
-            maxVideoH = Math.min(Math.round(viewportH * 0.52), fitH, 580);
-          }else if(window.matchMedia('(max-width: 1024.98px)').matches){
-            maxVideoH = Math.min(Math.round(viewportH * 0.54), fitH, 580);
-          }else{
-            maxVideoH = Math.min(Math.round(viewportH * 0.56), fitH, 580);
-          }
           var feed = opts.feedEl || document.querySelector('.mf-feed');
-          var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), 680);
+          var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.max(window.innerWidth || 0, 320);
           var cardPad = opts.cardPad != null ? Number(opts.cardPad) : 24;
-          var availableWidth = Math.max(240, (feedWidth || 680) - cardPad);
-          var isPhoneShot = !!opts.isPhoneShot;
-          var desiredWidth = Math.round(aspect * maxVideoH);
-          var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
-          var isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
+          return Math.max(240, (feedWidth || 320) - cardPad);
+        }
 
-          if(isMobile){
-            if(isPhoneShot){
-              return Math.max(220, Math.min(availableWidth, Math.round(Math.min(window.innerWidth * 0.72, 320))));
-            }
-            var mobileMax = aspect < 0.8 ? 310 : (aspect > 1.15 ? Math.min(availableWidth, 380) : 330);
-            return Math.max(220, Math.min(desiredWidth, availableWidth, mobileMax));
-          }
-
-          if(isTablet){
-            var tabletMax = aspect < 0.8 ? 400 : (aspect > 1.15 ? Math.min(availableWidth, 560) : 440);
-            return Math.max(260, Math.min(desiredWidth, availableWidth, tabletMax));
-          }
-
-          var maxByShape = aspect < 0.8 ? 400 : (aspect > 1.15 ? 680 : 520);
-          return Math.max(260, Math.min(desiredWidth, availableWidth, maxByShape));
+        function mfComputeDescMediaCardWidth(aspectW, aspectH, opts){
+          return mfComputeMediaCardWidth(aspectW, aspectH, opts);
         }
 
         function mfComputeMediaCardWidth(aspectW, aspectH, opts){
           opts = opts || {};
-          aspectW = Number(aspectW || 0);
-          aspectH = Number(aspectH || 0);
-          if(!aspectW || !aspectH) return 0;
-
-          var aspect = aspectW / aspectH;
-          var maxVideoH = mfMaxVideoHeight();
-          var feed = opts.feedEl || document.querySelector('.mf-feed');
-          var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), 680);
-          var cardPad = opts.cardPad != null ? Number(opts.cardPad) : 24;
-          var availableWidth = Math.max(240, (feedWidth || 680) - cardPad);
-          var isPhoneShot = !!opts.isPhoneShot;
-          var desiredWidth = Math.round(aspect * maxVideoH);
-          var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
-          var isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
-
-          if(isMobile){
-            if(isPhoneShot){
-              return Math.max(240, Math.min(availableWidth, Math.round(Math.min(window.innerWidth * 0.78, 340))));
-            }
-            var mobileMax = aspect < 0.8 ? 340 : (aspect > 1.15 ? Math.min(availableWidth, 400) : 360);
-            return Math.max(240, Math.min(desiredWidth, availableWidth, mobileMax));
+          var availableWidth = mfFeedAvailableMediaWidth(opts);
+          if(opts.isPhoneShot && window.matchMedia('(max-width: 767.98px)').matches){
+            return Math.max(240, Math.min(availableWidth, Math.round(window.innerWidth * 0.78)));
           }
+          return availableWidth;
+        }
 
-          if(isTablet){
-            var tabletMax = aspect < 0.8 ? 440 : (aspect > 1.15 ? Math.min(availableWidth, 600) : 480);
-            return Math.max(280, Math.min(desiredWidth, availableWidth, tabletMax));
-          }
-
-          var maxByShape = aspect < 0.8 ? 440 : (aspect > 1.15 ? 720 : 560);
-          return Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
+        function mfMediaWidthCss(isPhoneShot, safeWidth){
+          if(isPhoneShot) return String(safeWidth) + 'px';
+          return '100%';
         }
 
         function mfInitialMediaCardStyleFromDims(dims, isPhoneShot){
           if(!dims || !Number(dims.w || 0) || !Number(dims.h || 0)) return '';
           var safeWidth = mfComputeMediaCardWidth(dims.w, dims.h, { isPhoneShot: !!isPhoneShot, cardPad: 24 });
           if(!safeWidth) return '';
-          return '--post-media-card-width:'+String(safeWidth)+'px;--post-media-max-height:'+mfMediaMaxHeightCss()+';width:100%;max-width:100%;margin-left:0;margin-right:0;padding:8px 12px;box-sizing:border-box;';
+          return '--post-media-card-width:'+mfMediaWidthCss(!!isPhoneShot, safeWidth)+';--post-media-max-height:'+mfMediaMaxHeightCss()+';width:100%;max-width:100%;margin-left:0;margin-right:0;padding:8px 12px;box-sizing:border-box;';
         }
 
         function mfClearDeviceCardWidth(card){
@@ -7467,8 +7407,13 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           card.style.marginLeft = '0';
           card.style.marginRight = '0';
           card.style.setProperty('box-sizing', 'border-box', 'important');
-          card.style.setProperty('padding', (isHeadOutside || card.querySelector('.mf-head--on-media')) ? '8px 12px' : '20px', 'important');
-          card.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
+          if (isHeadOutside || card.querySelector('.mf-head--on-media')) {
+            card.style.setProperty('padding', '8px 12px', 'important');
+          } else {
+            card.style.removeProperty('padding');
+          }
+          var widthCss = mfMediaWidthCss(isPhoneShot, safeWidth);
+          card.style.setProperty('--post-media-card-width', widthCss);
           card.style.setProperty('--post-media-max-height', maxH);
 
           if(media){
@@ -7479,7 +7424,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               media.style.marginLeft = '0';
               media.style.marginRight = '0';
             }else{
-              media.style.width = 'min(100%, ' + String(safeWidth) + 'px)';
+              media.style.width = 'min(100%, ' + widthCss + ')';
               media.style.maxWidth = '100%';
               media.style.marginLeft = '0';
               media.style.marginRight = 'auto';
@@ -7487,40 +7432,46 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             media.style.height = 'auto';
             media.style.aspectRatio = 'auto';
             media.style.background = 'transparent';
-            media.style.setProperty('overflow', isHeadOutside ? 'visible' : 'hidden', 'important');
-            if(!isHeadOutside){
-              media.style.setProperty('max-height', maxH, 'important');
-            }else{
-              media.style.removeProperty('max-height');
-            }
+            media.style.setProperty('overflow', 'visible', 'important');
+            media.style.setProperty('display', 'flex', 'important');
+            media.style.setProperty('flex-direction', 'column', 'important');
+            media.style.setProperty('align-items', 'flex-start', 'important');
+            media.style.setProperty('justify-content', 'flex-start', 'important');
+            media.style.removeProperty('max-height');
             media.style.removeProperty('min-height');
             try{
               media.classList.remove('single-portrait', 'single-landscape', 'single-square');
             }catch(e){}
           }
           if(video){
-            video.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+            video.style.setProperty('width', (isPhoneShot && !isDescMedia && !isHeadOutside) ? '100%' : 'auto', 'important');
             video.style.setProperty('max-width', '100%', 'important');
             video.style.setProperty('height', 'auto', 'important');
             video.style.setProperty('max-height', maxH, 'important');
             video.style.setProperty('object-fit', 'contain', 'important');
-            video.style.setProperty('object-position', 'center center', 'important');
+            video.style.setProperty('object-position', 'left center', 'important');
             video.style.setProperty('margin-left', '0', 'important');
             video.style.setProperty('margin-right', 'auto', 'important');
-            video.style.setProperty('justify-self', 'start', 'important');
+            video.style.setProperty('align-self', 'flex-start', 'important');
+            video.style.setProperty('border-radius', '6px', 'important');
+            video.style.setProperty('overflow', 'hidden', 'important');
+            video.style.setProperty('clip-path', 'inset(0 round 6px)', 'important');
+            video.style.setProperty('-webkit-clip-path', 'inset(0 round 6px)', 'important');
             video.style.background = 'transparent';
             video.style.removeProperty('padding');
           }
           if(image){
-            image.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+            image.style.setProperty('width', (isPhoneShot && !isDescMedia && !isHeadOutside) ? '100%' : 'auto', 'important');
             image.style.setProperty('max-width', '100%', 'important');
             image.style.setProperty('height', 'auto', 'important');
             image.style.setProperty('max-height', maxH, 'important');
             image.style.setProperty('object-fit', 'contain', 'important');
-            image.style.setProperty('object-position', 'center center', 'important');
+            image.style.setProperty('object-position', 'left center', 'important');
             image.style.setProperty('margin-left', '0', 'important');
             image.style.setProperty('margin-right', 'auto', 'important');
-            image.style.setProperty('justify-self', 'start', 'important');
+            image.style.setProperty('align-self', 'flex-start', 'important');
+            image.style.setProperty('border-radius', '6px', 'important');
+            image.style.setProperty('overflow', 'hidden', 'important');
             image.style.background = 'transparent';
             image.style.removeProperty('padding');
             image.style.removeProperty('box-sizing');
@@ -14808,13 +14759,18 @@ html[data-theme="dark"] .ig-post-progress{
   }
 
   body .mf-feed .mf-card.is-single-video-post .media-stage.standard-video-stage > video{
-    width:100% !important;
+    width:auto !important;
+    max-width:100% !important;
     height:auto !important;
     display:block !important;
-    max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+    max-height:var(--post-media-max-height, 78vh) !important;
     object-fit:contain !important;
     background:transparent !important;
-    padding: 5px;
+    padding:0 !important;
+    border-radius:6px !important;
+    overflow:hidden !important;
+    clip-path:inset(0 round 6px) !important;
+    -webkit-clip-path:inset(0 round 6px) !important;
   }
 
   body .mf-feed .mf-card.mf-card-phone-shot:not(.is-multi-media-post){
@@ -14848,7 +14804,7 @@ html[data-theme="dark"] .ig-post-progress{
   body .mf-feed .mf-card.mf-card-phone-shot .media-stage.phone-shot.standard-image-stage > img{
     width:100% !important;
     height:auto !important;
-    max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+    max-height:var(--post-media-max-height, 78vh) !important;
     object-fit:contain !important;
     background:transparent !important;
   }
@@ -15277,7 +15233,7 @@ html[data-theme="dark"] .ig-post-progress{
   }
 
   body .mf-feed .mf-title{
-    padding:15px 0 12px !important;
+    /* padding:15px 0 12px !important; */
     font-size:14px !important;
     line-height:1.28 !important;
     font-weight:800 !important;
@@ -15468,11 +15424,15 @@ html[data-theme="dark"] .ig-post-progress{
 .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-video-stage > video,
 .mf-feed .mf-card:has(.mf-head--on-media) .media-stage.standard-image-stage > img,
 .mf-feed .mf-card:has(.mf-head--on-media) video.ig-smart-feed-video{
-  width:100%!important;
+  width:auto!important;
+  max-width:100%!important;
   height:auto!important;
-  max-height:var(--post-media-max-height, min(70vh, 580px))!important;
+  max-height:var(--post-media-max-height, 78vh)!important;
   object-fit:contain!important;
-  object-position:center center!important;
+  object-position:left center!important;
+  margin-left:0!important;
+  margin-right:auto!important;
+  align-self:flex-start!important;
   display:block!important;
   background:transparent!important;
   background-color:transparent!important;
@@ -15711,7 +15671,7 @@ html[data-msb-appearance] body .mf-feed .mf-card .mf-media-shell > .mf-head--on-
 <style id="feed-post-card-left-align-lock">
 /* Card full-width; media sized so header + media + actions stay visible together. */
 body .mf-feed{
-  --post-media-max-height: min(70vh, 580px);
+  --post-media-max-height: min(56vh, calc(100dvh - 220px));
 }
 body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel),
 body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel),
@@ -15724,9 +15684,9 @@ body .mf-feed .mf-card.mf-card-phone-shot:not(.is-multi-media-post):not(.mf-card
 }
 body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage,
 body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage{
-  width:min(100%, var(--post-media-card-width, var(--post-media-max, 680px))) !important;
+  width:min(100%, var(--post-media-card-width, var(--post-media-max, 100%))) !important;
   max-width:100% !important;
-  max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
+  max-height:var(--post-media-max-height, 78vh) !important;
   margin-left:0 !important;
   margin-right:auto !important;
   margin-inline:0 auto !important;
@@ -15744,42 +15704,54 @@ body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-st
 }
 body .mf-feed .mf-card.mf-card-media-head-outside.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
 body .mf-feed .mf-card.mf-card-media-head-outside.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage > img{
-  width:min(100%, var(--post-media-card-width, var(--post-media-max, 720px))) !important;
+  width:auto !important;
   max-width:100% !important;
   margin-left:0 !important;
   margin-right:auto !important;
   justify-self:start !important;
+  border-radius:6px !important;
+  overflow:hidden !important;
+  clip-path:inset(0 round 6px) !important;
+  -webkit-clip-path:inset(0 round 6px) !important;
 }
 body .mf-feed .media-stage.standard-video-stage > video,
 body .mf-feed .media-stage.standard-image-stage > img,
 body .mf-feed video.ig-smart-feed-video{
-  max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
-  width:100% !important;
-  height:auto !important;
-  object-fit:contain !important;
-  object-position:center center !important;
-}
-body .mf-feed .mf-card.mf-card-description-media.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
-body .mf-feed .mf-card.mf-card-description-media.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage > img{
-  width:min(100%, var(--post-media-card-width, 680px)) !important;
+  max-height:var(--post-media-max-height, 78vh) !important;
+  width:auto !important;
   max-width:100% !important;
   height:auto !important;
-  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
   object-fit:contain !important;
   object-position:left center !important;
   margin-left:0 !important;
   margin-right:auto !important;
+  align-self:flex-start !important;
+}
+body .mf-feed .mf-card.mf-card-description-media.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
+body .mf-feed .mf-card.mf-card-description-media.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage > img{
+  width:auto !important;
+  max-width:100% !important;
+  height:auto !important;
+  max-height:var(--post-media-max-height, 78vh) !important;
+  object-fit:contain !important;
+  object-position:left center !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  border-radius:6px !important;
+  overflow:hidden !important;
+  clip-path:inset(0 round 6px) !important;
+  -webkit-clip-path:inset(0 round 6px) !important;
 }
 @media (max-width:767.98px){
   body .mf-feed{
-    --post-media-max-height: min(58vh, 620px);
+    --post-media-max-height: min(42vh, calc(100dvh - 300px));
     --post-phone-max:340px;
     --post-portrait-max:340px;
   }
   body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage:not(.phone-shot),
   body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage:not(.phone-shot){
-    width:min(100%, var(--post-media-card-width, 340px)) !important;
-    max-width:min(100%, 360px) !important;
+    width:min(100%, var(--post-media-card-width, 100%)) !important;
+    max-width:100% !important;
   }
   body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage:not(.phone-shot),
   body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage:not(.phone-shot){
@@ -15792,16 +15764,19 @@ body .mf-feed .mf-card.mf-card-description-media.is-single-image-post:not(.mf-ca
   }
   body .mf-feed .mf-card.mf-card-media-head-outside.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage:not(.phone-shot) > video,
   body .mf-feed .mf-card.mf-card-media-head-outside.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage:not(.phone-shot) > img{
-    width:min(100%, var(--post-media-card-width, 340px)) !important;
+    width:auto !important;
     max-width:100% !important;
     height:auto !important;
-    max-height:var(--post-media-max-height, min(58vh, 620px)) !important;
+    max-height:var(--post-media-max-height, min(46vh, calc(100dvh - 270px))) !important;
     object-fit:contain !important;
-    object-position:center center !important;
+    object-position:left center !important;
     margin-left:0 !important;
     margin-right:auto !important;
     justify-self:start !important;
+    align-self:flex-start !important;
     background:transparent !important;
+    border-radius:6px !important;
+    overflow:hidden !important;
   }
   body .mf-feed .media-stage.standard-video-stage,
   body .mf-feed .media-stage.standard-image-stage,
@@ -15811,12 +15786,12 @@ body .mf-feed .mf-card.mf-card-description-media.is-single-image-post:not(.mf-ca
 }
 @media (min-width:768px) and (max-width:1024.98px){
   body .mf-feed{
-    --post-media-max-height: min(60vh, 620px);
+    --post-media-max-height: min(52vh, calc(100dvh - 240px));
   }
   body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage:not(.phone-shot),
   body .mf-feed .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage:not(.phone-shot){
-    width:min(100%, var(--post-media-card-width, 440px)) !important;
-    max-width:min(100%, 480px) !important;
+    width:min(100%, var(--post-media-card-width, 100%)) !important;
+    max-width:100% !important;
   }
 }
 </style>
@@ -15835,11 +15810,35 @@ html body .mf-feed .media-slide > img,
 html body .mf-feed .media-slide > video,
 html body .mf-feed .mf-media-slide > img,
 html body .mf-feed .mf-media-slide > video{
-  width:100% !important;
+  width:auto !important;
+  max-width:100% !important;
   height:auto !important;
-  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  max-height:var(--post-media-max-height, min(56vh, calc(100dvh - 220px))) !important;
   object-fit:contain !important;
-  object-position:center center !important;
+  object-position:left center !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  align-self:flex-start !important;
+  justify-self:start !important;
+  border-radius:6px !important;
+  overflow:hidden !important;
+  clip-path:inset(0 round 6px) !important;
+  -webkit-clip-path:inset(0 round 6px) !important;
+}
+@media (max-width:767.98px){
+  html body.feed-page .mf-feed .media-stage.standard-image-stage > img,
+  html body.feed-page .mf-feed .media-stage.standard-video-stage > video,
+  html body.feed-insta-ui .mf-feed .media-stage.standard-image-stage > img,
+  html body.feed-insta-ui .mf-feed .media-stage.standard-video-stage > video,
+  html body .mf-feed .media-stage > img,
+  html body .mf-feed .media-stage > video,
+  html body .mf-feed .media-slide > img,
+  html body .mf-feed .media-slide > video{
+    width:auto !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:min(42vh, calc(100dvh - 300px)) !important;
+  }
 }
 html body.feed-page .mf-feed .media-stage.single-portrait,
 html body.feed-page .mf-feed .media-stage.single-landscape,
@@ -15850,27 +15849,38 @@ html body.feed-insta-ui .mf-feed .media-stage.single-square,
 html body .mf-feed .media-stage.standard-image-stage,
 html body .mf-feed .media-stage.standard-video-stage{
   aspect-ratio:auto !important;
-  overflow:hidden !important;
+  overflow:visible !important;
   height:auto !important;
-  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  max-height:none !important;
 }
 </style>
 
 <style id="feed-post-media-radius-override">
   body .mf-feed{
-    --post-media-radius:18px;
+    --post-media-radius:6px;
   }
   body .mf-feed .media-stage.standard-video-stage,
   body .mf-feed .media-stage.standard-image-stage,
   body .mf-feed .media-stage{
-    overflow:hidden !important;
-    border-radius:var(--post-media-radius, 18px) !important;
-    padding:10px;
+    overflow:visible !important;
+    border-radius:0 !important;
+    padding:0 !important;
+    max-height:none !important;
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    justify-content:flex-start !important;
   }
   body .mf-feed .media-stage.standard-video-stage > video,
   body .mf-feed .media-stage.standard-image-stage > img,
   body .mf-feed video.ig-smart-feed-video{
-    border-radius:var(--post-media-radius, 18px) !important;
+    border-radius:6px !important;
+    overflow:hidden !important;
+  }
+  body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
+  body .mf-feed video.ig-smart-feed-video{
+    clip-path:inset(0 round 6px) !important;
+    -webkit-clip-path:inset(0 round 6px) !important;
   }
 </style>
 
@@ -17874,6 +17884,7 @@ body.feed-insta-ui .mf-feed .mf-card.is-single-image-post{
     max-width:100% !important;
     margin-left:0 !important;
     margin-right:auto !important;
+    margin-top:10px !important;
   }
 }
 @media (max-width:1024.98px){
@@ -17889,22 +17900,22 @@ body.feed-insta-ui .mf-feed .mf-card.is-single-image-post{
 }
 body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media,
 body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media{
-  --desc-media-max:680px;
-  --post-media-max:680px;
-  --post-media-max-height:min(70vh, 580px);
+  --desc-media-max:100%;
+  --post-media-max:100%;
+  --post-media-max-height:min(56vh, calc(100dvh - 220px));
 }
 @media (max-width:1024.98px){
   body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media,
   body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media{
-    --desc-media-max:560px;
-    --post-media-max-height:min(54vh, 580px);
+    --desc-media-max:100%;
+    --post-media-max-height:min(52vh, calc(100dvh - 240px));
   }
 }
 @media (max-width:767.98px){
   body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media,
   body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media{
-    --desc-media-max:380px;
-    --post-media-max-height:min(52vh, 580px);
+    --desc-media-max:100%;
+    --post-media-max-height:min(46vh, calc(100dvh - 270px));
   }
 }
 body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-title,
@@ -17918,22 +17929,25 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media > .mf-slide-summa
   width:100% !important;
   max-width:100% !important;
   text-align:left !important;
-  margin-left:0 !important;
+  margin-left:3px !important;
   margin-right:auto !important;
 }
 body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-video-post .media-stage.standard-video-stage > video,
 body.feed-page.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-post .media-stage.standard-image-stage > img,
 body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-video-post .media-stage.standard-video-stage > video,
 body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-post .media-stage.standard-image-stage > img{
-  width:min(100%, var(--post-media-card-width, var(--desc-media-max, 680px))) !important;
+  width:auto !important;
   max-width:100% !important;
   height:auto !important;
-  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  max-height:var(--post-media-max-height, 78vh) !important;
   object-fit:contain !important;
   object-position:left center !important;
   margin-left:0 !important;
   margin-right:auto !important;
-  border-radius:10px !important;
+  border-radius:6px !important;
+  overflow:hidden !important;
+  clip-path:inset(0 round 6px) !important;
+  -webkit-clip-path:inset(0 round 6px) !important;
 }
 </style>
 
@@ -17965,26 +17979,24 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
     var maxH = (card.style.getPropertyValue('--post-media-max-height') || getComputedStyle(feed).getPropertyValue('--post-media-max-height')).trim();
     if(!maxH || /px$/i.test(maxH)){
       // Prefer live CSS budget (public.php) — ignore leftover baked px from older applies.
-      if(window.matchMedia('(max-width: 767.98px)').matches) maxH = 'min(58vh, 620px)';
-      else if(window.matchMedia('(max-width: 1024.98px)').matches) maxH = 'min(60vh, 620px)';
-      else maxH = 'min(74vh, 640px)';
+      if(window.matchMedia('(max-width: 767.98px)').matches) maxH = 'min(42vh, calc(100dvh - 300px))';
+      else if(window.matchMedia('(max-width: 1024.98px)').matches) maxH = 'min(52vh, calc(100dvh - 240px))';
+      else maxH = 'min(56vh, calc(100dvh - 220px))';
     }
     var mediaEl = stage.querySelector(':scope > img, :scope > video');
 
     if (card.classList.contains('mf-card-description-media') && mediaEl) {
       var descW = String(w || '').trim();
-      if (!descW) descW = '680px';
+      if (!descW) descW = '100%';
       var descMaxH = (card.style.getPropertyValue('--post-media-max-height') || '').trim();
       if (!descMaxH) {
-        if (window.matchMedia('(max-width: 767.98px)').matches) descMaxH = 'min(52vh, 580px)';
-        else if (window.matchMedia('(max-width: 1024.98px)').matches) descMaxH = 'min(54vh, 580px)';
-        else descMaxH = 'min(70vh, 580px)';
+        descMaxH = (typeof mfMediaMaxHeightCss === 'function') ? mfMediaMaxHeightCss() : '78vh';
       }
       stage.style.setProperty('width', '100%', 'important');
       stage.style.setProperty('max-width', '100%', 'important');
       stage.style.setProperty('overflow', 'visible', 'important');
       stage.style.removeProperty('max-height');
-      mediaEl.style.setProperty('width', 'min(100%, ' + descW + ')', 'important');
+      mediaEl.style.setProperty('width', 'auto', 'important');
       mediaEl.style.setProperty('max-width', '100%', 'important');
       mediaEl.style.setProperty('height', 'auto', 'important');
       mediaEl.style.setProperty('max-height', descMaxH, 'important');
@@ -17992,7 +18004,12 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
       mediaEl.style.setProperty('object-position', 'left center', 'important');
       mediaEl.style.setProperty('margin-left', '0', 'important');
       mediaEl.style.setProperty('margin-right', 'auto', 'important');
-      mediaEl.style.setProperty('border-radius', '10px', 'important');
+      mediaEl.style.setProperty('border-radius', '6px', 'important');
+      mediaEl.style.setProperty('overflow', 'hidden', 'important');
+      if (mediaEl.tagName === 'VIDEO') {
+        mediaEl.style.setProperty('clip-path', 'inset(0 round 6px)', 'important');
+        mediaEl.style.setProperty('-webkit-clip-path', 'inset(0 round 6px)', 'important');
+      }
       return;
     }
 
@@ -18002,17 +18019,28 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
       stage.style.setProperty('margin-left', '0', 'important');
       stage.style.setProperty('margin-right', '0', 'important');
       stage.style.setProperty('overflow', 'visible', 'important');
+      stage.style.setProperty('display', 'flex', 'important');
+      stage.style.setProperty('flex-direction', 'column', 'important');
+      stage.style.setProperty('align-items', 'flex-start', 'important');
+      stage.style.setProperty('justify-content', 'flex-start', 'important');
       stage.style.removeProperty('max-height');
       if (mediaEl) {
-        mediaEl.style.setProperty('width', w ? ('min(100%, ' + w + ')') : '100%', 'important');
+        mediaEl.style.setProperty('width', 'auto', 'important');
         mediaEl.style.setProperty('max-width', '100%', 'important');
         mediaEl.style.setProperty('height', 'auto', 'important');
         mediaEl.style.setProperty('max-height', maxH, 'important');
         mediaEl.style.setProperty('object-fit', 'contain', 'important');
-        mediaEl.style.setProperty('object-position', 'center center', 'important');
+        mediaEl.style.setProperty('object-position', 'left center', 'important');
         mediaEl.style.setProperty('margin-left', '0', 'important');
         mediaEl.style.setProperty('margin-right', 'auto', 'important');
+        mediaEl.style.setProperty('align-self', 'flex-start', 'important');
         mediaEl.style.setProperty('justify-self', 'start', 'important');
+        mediaEl.style.setProperty('border-radius', '6px', 'important');
+      mediaEl.style.setProperty('overflow', 'hidden', 'important');
+      if (mediaEl.tagName === 'VIDEO') {
+        mediaEl.style.setProperty('clip-path', 'inset(0 round 6px)', 'important');
+        mediaEl.style.setProperty('-webkit-clip-path', 'inset(0 round 6px)', 'important');
+      }
         mediaEl.style.background = 'transparent';
       }
       return;
@@ -18020,18 +18048,32 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
 
     stage.style.setProperty('margin-left', '0', 'important');
     stage.style.setProperty('margin-right', 'auto', 'important');
-    stage.style.setProperty('overflow', 'hidden', 'important');
+    stage.style.setProperty('overflow', 'visible', 'important');
+    stage.style.setProperty('display', 'flex', 'important');
+    stage.style.setProperty('flex-direction', 'column', 'important');
+    stage.style.setProperty('align-items', 'flex-start', 'important');
+    stage.style.setProperty('justify-content', 'flex-start', 'important');
     if (w) {
       stage.style.setProperty('width', 'min(100%, ' + w + ')', 'important');
       stage.style.setProperty('max-width', '100%', 'important');
     }
-    stage.style.setProperty('max-height', maxH, 'important');
+    stage.style.removeProperty('max-height');
     if (mediaEl) {
-      mediaEl.style.setProperty('width', '100%', 'important');
+      mediaEl.style.setProperty('width', 'auto', 'important');
+      mediaEl.style.setProperty('max-width', '100%', 'important');
       mediaEl.style.setProperty('height', 'auto', 'important');
       mediaEl.style.setProperty('object-fit', 'contain', 'important');
-      mediaEl.style.setProperty('object-position', 'center center', 'important');
+      mediaEl.style.setProperty('object-position', 'left center', 'important');
       mediaEl.style.setProperty('max-height', maxH, 'important');
+      mediaEl.style.setProperty('margin-left', '0', 'important');
+      mediaEl.style.setProperty('margin-right', 'auto', 'important');
+      mediaEl.style.setProperty('align-self', 'flex-start', 'important');
+      mediaEl.style.setProperty('border-radius', '6px', 'important');
+      mediaEl.style.setProperty('overflow', 'hidden', 'important');
+      if (mediaEl.tagName === 'VIDEO') {
+        mediaEl.style.setProperty('clip-path', 'inset(0 round 6px)', 'important');
+        mediaEl.style.setProperty('-webkit-clip-path', 'inset(0 round 6px)', 'important');
+      }
     }
   }
 

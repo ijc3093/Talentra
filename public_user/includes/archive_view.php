@@ -3,41 +3,67 @@ declare(strict_types=1);
 
 $msbArchiveEmbed = !empty($msbArchiveEmbed);
 $msbArchiveMode = strtolower(trim((string)($msbArchiveMode ?? 'archive')));
-if ($msbArchiveMode !== 'favorites') {
+if (!in_array($msbArchiveMode, ['favorites', 'tags', 'archive'], true)) {
     $msbArchiveMode = 'archive';
 }
 $msbArchiveIsFav = ($msbArchiveMode === 'favorites');
+$msbArchiveIsTags = ($msbArchiveMode === 'tags');
+$msbArchiveTallTiles = true;
 $msbArchiveCanManage = array_key_exists('msbArchiveCanManage', get_defined_vars())
     ? !empty($msbArchiveCanManage)
     : true;
 $storyCircles = isset($storyCircles) && is_array($storyCircles) ? $storyCircles : [];
 $feedPosts = isset($feedPosts) && is_array($feedPosts) ? $feedPosts : [];
 $hasStories = !empty($hasStories);
-$backUrl = isset($backUrl) ? (string)$backUrl : 'profile.php?tab=gear';
+$backUrl = isset($backUrl) ? (string)$backUrl : 'settings.php';
 $uid = isset($msbArchiveUid) ? preg_replace('/[^A-Za-z0-9_\-]/', '', (string)$msbArchiveUid) : '';
 if ($uid === '') {
-    $uid = $msbArchiveIsFav ? 'fav' : 'archive';
+    $uid = $msbArchiveIsFav ? 'fav' : ($msbArchiveIsTags ? 'tags' : 'archive');
 }
 
-$pageTitle = $msbArchiveIsFav ? 'Favorites' : 'Archived posts';
-$storiesAria = $msbArchiveIsFav ? 'Favorited stories' : 'Archived stories';
-$storiesEmptyAria = $msbArchiveIsFav ? 'No favorited stories' : 'No archived stories';
-$storiesEmptyIcon = $msbArchiveIsFav ? 'ion-ios-bookmarks-outline' : 'ion-ios-book-outline';
-$storiesNote = $msbArchiveIsFav
-    ? 'Only you can see favorited stories. Favorite another person’s story from the story door fries menu to add a circle here.'
-    : 'Only you can see archived stories. Each hide from the story door fries menu adds the next circle here.';
-$postsAria = $msbArchiveIsFav ? 'Favorited posts' : 'Archived posts';
-$postsNote = $msbArchiveIsFav
-    ? 'Favorited from the feed or public post-card fries menu stay here — separate from story circles above.'
-    : 'Archived from the feed or public post-card fries menu stay here — separate from story circles above.';
-$emptyTitle = $msbArchiveIsFav ? 'No favorites yet' : 'No archived items';
-$emptyText = $msbArchiveIsFav
-    ? 'Favorite a story from the story door fries menu (adds a circle above), or favorite another person’s post from Circle / Discover (shows under Posts).'
-    : 'Archive a story from the story door fries menu (adds a circle above), or archive a post from Circle / Discover (shows under Posts).';
-$removeLabel = $msbArchiveIsFav ? 'Remove from Favorites' : 'Unarchive';
-$viewerLabel = $msbArchiveIsFav ? 'Favorited item' : 'Archived item';
-$openStoryLabel = $msbArchiveIsFav ? 'Open favorited story' : 'Open archived story';
-$openPostLabel = $msbArchiveIsFav ? 'Favorited post from' : 'Archived post from';
+if ($msbArchiveIsTags) {
+    $pageTitle = 'Tags';
+    $storiesAria = 'Tagged stories';
+    $storiesEmptyAria = 'No tagged stories';
+    $storiesEmptyIcon = 'ion-ios-pricetag-outline';
+    $storiesNote = 'Stories you were tagged in appear as circles here.';
+    $postsAria = 'Tagged posts';
+    $postsNote = 'Posts you were tagged in stay here — separate from story circles above.';
+    $emptyTitle = 'No tagged posts yet';
+    $emptyText = 'When someone tags you in a story or a post, it will show here.';
+    $removeLabel = 'Remove';
+    $viewerLabel = 'Tagged item';
+    $openStoryLabel = 'Open tagged story';
+    $openPostLabel = 'Tagged post from';
+} elseif ($msbArchiveIsFav) {
+    $pageTitle = 'Favorites';
+    $storiesAria = 'Favorited stories';
+    $storiesEmptyAria = 'No favorited stories';
+    $storiesEmptyIcon = 'ion-ios-bookmarks-outline';
+    $storiesNote = 'Only you can see favorited stories. Favorite another person’s story from the story door fries menu to add a circle here.';
+    $postsAria = 'Favorited posts';
+    $postsNote = 'Favorited from the feed or public post-card fries menu stay here — separate from story circles above.';
+    $emptyTitle = 'No favorites yet';
+    $emptyText = 'Favorite a story from the story door fries menu (adds a circle above), or favorite another person’s post from Circle / Discover (shows under Posts).';
+    $removeLabel = 'Remove from Favorites';
+    $viewerLabel = 'Favorited item';
+    $openStoryLabel = 'Open favorited story';
+    $openPostLabel = 'Favorited post from';
+} else {
+    $pageTitle = 'Archived posts';
+    $storiesAria = 'Archived stories';
+    $storiesEmptyAria = 'No archived stories';
+    $storiesEmptyIcon = 'ion-ios-book-outline';
+    $storiesNote = 'Only you can see archived stories. Each hide from the story door fries menu adds the next circle here.';
+    $postsAria = 'Archived posts';
+    $postsNote = 'Archived from the feed or public post-card fries menu stay here — separate from story circles above.';
+    $emptyTitle = 'No archived items';
+    $emptyText = 'Archive a story from the story door fries menu (adds a circle above), or archive a post from Circle / Discover (shows under Posts).';
+    $removeLabel = 'Unarchive';
+    $viewerLabel = 'Archived item';
+    $openStoryLabel = 'Open archived story';
+    $openPostLabel = 'Archived post from';
+}
 ?>
 <div class="ig-archive" data-archive-mode="<?= msb_archive_h($msbArchiveMode) ?>">
   <header class="ig-archive-top">
@@ -158,7 +184,9 @@ $openPostLabel = $msbArchiveIsFav ? 'Favorited post from' : 'Archived post from'
           $loveC = (int)($post['love_count'] ?? 0);
           $comC = (int)($post['comment_count'] ?? 0);
           $viewsC = (int)($post['views_count'] ?? 0);
+          $showFavX = $msbArchiveIsFav && $msbArchiveCanManage;
         ?>
+        <?php if ($msbArchiveTallTiles): ?><div class="ig-archive-tile-wrap"><?php endif; ?>
         <button
           type="button"
           class="ig-archive-tile"
@@ -191,6 +219,12 @@ $openPostLabel = $msbArchiveIsFav ? 'Favorited post from' : 'Archived post from'
             <span class="react-btn"><i class="icon ion-eye"></i> <span class="vnum"><?= (int)$viewsC ?></span></span>
           </div>
         </button>
+        <?php if ($showFavX): ?>
+          <button type="button" class="ig-saved-remove" data-unsave-post="<?= $pid ?>" title="Remove from Favorites" aria-label="Remove from Favorites">
+            <i class="icon ion-close" aria-hidden="true"></i>
+          </button>
+        <?php endif; ?>
+        <?php if ($msbArchiveTallTiles): ?></div><?php endif; ?>
       <?php endforeach; ?>
     </div>
     </div>

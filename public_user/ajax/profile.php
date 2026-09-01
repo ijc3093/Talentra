@@ -655,6 +655,9 @@ if ($selectedTab === 'tagged') {
   $selectedTab = 'tags';
 }
 $galleryVisParam = strtolower(trim((string)($_GET['gallery_vis'] ?? '')));
+if ($galleryVisParam === 'friend') {
+  $galleryVisParam = 'friends';
+}
 if (!in_array($galleryVisParam, ['private', 'friends', 'public'], true)) {
   $galleryVisParam = '';
 }
@@ -1009,7 +1012,7 @@ $gearGroups = [
       [
         'label' => 'Edit Profile',
         'meta' => 'Open user_edit.php for name, username, email, phone, friend code, gender, work and about details.',
-        'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear'),
+        'href' => 'user_edit.php?return=' . rawurlencode('settings.php'),
         'icon' => 'ion-edit',
         'tag'  => 'Open',
       ],
@@ -1030,14 +1033,14 @@ $gearGroups = [
       [
         'label' => 'Change display name',
         'meta' => 'Use Edit Profile to change the name shown at the top of the profile.',
-        'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear'),
+        'href' => 'user_edit.php?return=' . rawurlencode('settings.php'),
         'icon' => 'ion-person',
         'tag'  => 'Edit',
       ],
       [
         'label' => 'Change username',
         'meta' => 'Use Edit Profile to update your username.',
-        'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear'),
+        'href' => 'user_edit.php?return=' . rawurlencode('settings.php'),
         'icon' => 'ion-at',
         'tag'  => 'Edit',
       ],
@@ -1097,7 +1100,7 @@ $gearGroups = [
     'icon' => 'ion-ios-bookmarks',
     'desc' => 'Posts and stories you favorited from Circle, Discover, Clips, or Profile. Only you can open this list.',
     'rows' => [
-      ['label' => 'Open favorites', 'meta' => 'Review and remove favorited posts and stories.', 'href' => 'profile.php?tab=gear#gear-favorites', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
+      ['label' => 'Open favorites', 'meta' => 'Review and remove favorited posts and stories.', 'href' => 'settings.php#gear-favorites', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
     ],
   ],
   [
@@ -1119,7 +1122,7 @@ $gearGroups = [
     'icon' => 'ion-shield',
     'desc' => 'Protect your account, manage who you block or mute, and keep security tools close.',
     'rows' => [
-      ['label' => 'Change password', 'meta' => 'Open the password page for your account.', 'href' => 'change-password.php?return=' . rawurlencode('profile.php?tab=gear'), 'icon' => 'ion-key', 'tag' => 'Open'],
+      ['label' => 'Change password', 'meta' => 'Open the password page for your account.', 'href' => 'change-password.php?return=' . rawurlencode('settings.php'), 'icon' => 'ion-key', 'tag' => 'Open'],
       ['label' => 'Blocked users system', 'meta' => 'Turn blocked-user tools on or off for your profile.', 'icon' => 'ion-close-circled', 'tag' => 'Live', 'field' => 'blocked_users_enabled', 'options' => $yesNoOptions],
       ['label' => 'Hidden users system', 'meta' => 'Keep hidden-user controls ready when you want a quieter profile.', 'icon' => 'ion-eye-disabled', 'tag' => 'Live', 'field' => 'hidden_users_enabled', 'options' => $yesNoOptions],
       ['label' => 'Mute user system', 'meta' => 'Allow mute controls for noisy accounts and story activity.', 'icon' => 'ion-volume-mute', 'tag' => 'Live', 'field' => 'mute_users_enabled', 'options' => $yesNoOptions],
@@ -1152,7 +1155,7 @@ $gearGroups = [
     'desc' => 'Big account actions should stay visible, but separate from your About details.',
     'rows' => [
       ['label' => 'Archived posts', 'meta' => 'Open the private archive of posts you hid from feeds.', 'href' => 'archive.php', 'icon' => 'ion-ios-box', 'tag' => 'Open'],
-      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited across Circle, Discover, Clips, and Profile.', 'href' => 'profile.php?tab=gear#gear-favorites', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
+      ['label' => 'Favorites', 'meta' => 'Open posts and stories you favorited across Circle, Discover, Clips, and Profile.', 'href' => 'settings.php#gear-favorites', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Open'],
       ['label' => 'Allow download my data', 'meta' => 'Keep export tools available for your account.', 'icon' => 'ion-archive', 'tag' => 'Live', 'field' => 'allow_download_data', 'options' => $yesNoOptions],
       ['label' => 'Allow deactivate account', 'meta' => 'Control whether deactivation tools are available in your account center.', 'icon' => 'ion-pause', 'tag' => 'Live', 'field' => 'allow_deactivate_account', 'options' => $yesNoOptions],
       ['label' => 'Allow delete account', 'meta' => 'Show or hide the protected delete-account flow.', 'icon' => 'ion-trash-a', 'tag' => 'Live', 'field' => 'allow_delete_account', 'options' => $yesNoOptions],
@@ -1168,11 +1171,11 @@ $gearGroups = [
 ];
 
 $gearQuickLinks = [
-  ['label' => 'Edit Profile', 'icon' => 'ion-edit', 'href' => 'user_edit.php?return=' . rawurlencode('profile.php?tab=gear')],
+  ['label' => 'Edit Profile', 'icon' => 'ion-edit', 'href' => 'user_edit.php?return=' . rawurlencode('settings.php')],
   ['label' => 'Privacy', 'icon' => 'ion-locked', 'href' => '#gear-privacy-controls'],
   ['label' => 'Timeline Settings', 'icon' => 'ion-ios-book', 'href' => '#gear-timeline-memory-controls'],
   ['label' => 'Archived posts', 'icon' => 'ion-ios-box', 'href' => 'archive.php'],
-  ['label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'href' => 'profile.php?tab=gear#gear-favorites'],
+  ['label' => 'Favorites', 'icon' => 'ion-ios-bookmarks', 'href' => 'settings.php#gear-favorites'],
   ['label' => 'Notifications', 'icon' => 'ion-android-notifications', 'href' => '#gear-notifications'],
   ['label' => 'Security', 'icon' => 'ion-shield', 'href' => '#gear-security-and-safety'],
   ['label' => 'Blocked Users', 'icon' => 'ion-close-circled', 'href' => '#gear-security-and-safety'],
@@ -1841,7 +1844,11 @@ if (!function_exists('profile_render_post_grid_items')) {
       $loveC = (int)($it['love_count'] ?? 0);
       $categoryName = trim((string)($it['category_name'] ?? ''));
       $vis = strtolower(trim((string)($it['visibility'] ?? 'public')));
-      if ($vis !== 'private' && $vis !== 'public' && $vis !== 'friends') {
+      if (function_exists('post_visibility_normalize')) {
+        $vis = post_visibility_normalize($vis);
+      } elseif ($vis === 'friend' || $vis === 'friends') {
+        $vis = 'friends';
+      } elseif ($vis !== 'private' && $vis !== 'public') {
         $vis = 'public';
       }
       $noMedia = (!$showVideo && !$showThumb);
@@ -2383,38 +2390,91 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 26px 26px;--post-media-radius:10px;}
     @media (max-width: 992px){ .ig-grid{grid-template-columns:repeat(2,1fr);} }
 
-    /* Gallery visibility tabs — compact group near center. */
+    /* Gallery visibility tabs — same chrome as Gallery / Posts / Tags (no grey pill). */
     .ig-grid-heads{
       display:flex;
       justify-content:center;
-      align-items:center;
-      gap:10px;
-      padding:8px 26px 0;
+      align-items:stretch;
+      gap:4px;
+      padding:2px 8px 0;
       box-sizing:border-box;
+      position:relative;
+      z-index:120;
+      pointer-events:auto;
     }
-    .ig-grid-heads .ig-vis-tab{
+    .ig-grid-heads .ig-vis-tab,
+    a.ig-vis-tab{
       appearance:none;
       -webkit-appearance:none;
-      border:1px solid transparent;
+      -webkit-tap-highlight-color:transparent;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:0;
       background:transparent;
       margin:0;
-      padding:6px 12px;
-      border-radius:999px;
+      padding:6px 10px 10px;
+      min-width:max-content;
+      height:28px;
+      border-radius:0;
       text-align:center;
       font-size:12px;
-      font-weight:700;
+      font-weight:400;
+      letter-spacing:.04em;
       line-height:1.2;
+      text-transform:uppercase;
       color:var(--msb-palette-text-muted,#667085);
       flex:0 0 auto;
       cursor:pointer;
+      box-shadow:none;
+      box-sizing:border-box;
+      text-decoration:none;
+      z-index:121;
+      pointer-events:auto !important;
     }
-    .ig-grid-heads .ig-vis-tab:hover{
+    a.ig-vis-tab:hover,
+    a.ig-vis-tab:focus,
+    a.ig-vis-tab:visited{
+      color:inherit;
+      text-decoration:none;
+    }
+    .ig-grid-heads .ig-vis-tab:hover,
+    .ig-grid-heads .ig-vis-tab:focus,
+    .ig-grid-heads .ig-vis-tab:focus-visible,
+    .ig-grid-heads .ig-vis-tab:active{
       color:var(--msb-palette-text,#0b1220);
+      background:transparent;
+      outline:none;
+      box-shadow:none;
     }
     .ig-grid-heads .ig-vis-tab.is-active{
-      color:var(--msb-palette-nav-active-text,var(--msb-palette-text,#0b1220));
-      background:var(--msb-palette-nav-active-bg,var(--msb-palette-action-soft,rgba(79,70,229,.12)));
-      border-color:var(--msb-palette-border-strong,rgba(15,23,42,.12));
+      color:var(--msb-palette-text,#0b1220);
+      background:transparent;
+      border:0;
+    }
+    .ig-grid-heads .ig-vis-tab.is-active::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      bottom:0;
+      width:40px;
+      max-width:70%;
+      height:3px;
+      border-radius:999px;
+      background:var(--msb-palette-text,#0b1220);
+      transform:translateX(-50%);
+      pointer-events:none;
+    }
+    html.dark-auto .ig-grid-heads .ig-vis-tab:hover,
+    html[data-theme="dark"] .ig-grid-heads .ig-vis-tab:hover,
+    html.dark-auto .ig-grid-heads .ig-vis-tab.is-active,
+    html[data-theme="dark"] .ig-grid-heads .ig-vis-tab.is-active{
+      color:#fff;
+    }
+    html.dark-auto .ig-grid-heads .ig-vis-tab.is-active::after,
+    html[data-theme="dark"] .ig-grid-heads .ig-vis-tab.is-active::after{
+      background:#fff;
     }
     #panel-gallery .ig-grid{padding-top:8px;}
     #panel-gallery .ig-item.is-vis-hidden{display:none !important;}
@@ -2705,13 +2765,13 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     /* Posts tab feed — match feed.php card column (614px) and dimensions */
     #profilePostsFeed.mf-feed{
       width:100%;max-width:614px;margin:0 auto;padding:10px 10px 26px;box-sizing:border-box;
-      --post-media-radius:10px;
+      --post-media-radius:6px;
     }
     #profilePostsFeed .mf-card{
       width:100%;max-width:100%;
       background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, rgba(15,23,42,.08));border-radius:22px;overflow:hidden;
       margin:0 auto 16px;box-shadow:none;
-      --post-media-radius:10px;
+      --post-media-radius:6px;
     }
     #profilePostsFeed .mf-card.mf-card-text-only:not(.mf-card-phone-shot){
       width:100% !important;max-width:100% !important;
@@ -2869,12 +2929,18 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     #profilePostsFeed .media-stage.standard-video-stage > video,
     #profilePostsFeed .media-stage.standard-image-stage > img,
     #profilePostsFeed video.ig-smart-feed-video{
-      width:100% !important;height:auto !important;display:block;
+      width:auto !important;max-width:100% !important;height:auto !important;display:block;
       max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
       object-fit:contain !important;object-position:center center !important;
       border:0 !important;padding:0 !important;
-      border-radius:var(--post-media-radius) !important;
+      border-radius:6px !important;
+      overflow:hidden !important;
       background:transparent !important;background-color:transparent !important;
+    }
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
+    #profilePostsFeed video.ig-smart-feed-video{
+      clip-path:inset(0 round 6px) !important;
+      -webkit-clip-path:inset(0 round 6px) !important;
     }
     #profilePostsFeed video.ig-smart-feed-video::-webkit-media-controls-panel,
     #profilePostsFeed video.ig-smart-feed-video::-webkit-media-controls-enclosure{
@@ -2907,12 +2973,13 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     }
     #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage.standard-video-stage > video,
     #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage.standard-image-stage > img{
-      width:min(100%, var(--post-media-card-width, 440px)) !important;
+      width:auto !important;
       max-width:100% !important;
       max-height:var(--post-media-max-height, min(74vh, 640px)) !important;
       margin-left:0 !important;
       margin-right:auto !important;
       justify-self:start !important;
+      border-radius:6px !important;
     }
     @media (max-width:767.98px){
       #profilePostsFeed{
@@ -2947,8 +3014,10 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       }
       #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage.standard-video-stage:not(.phone-shot) > video,
       #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage.standard-image-stage:not(.phone-shot) > img{
-        width:min(100%, var(--post-media-card-width, 340px)) !important;
+        width:auto !important;
+        max-width:100% !important;
         max-height:var(--post-media-max-height, min(58vh, 620px)) !important;
+        border-radius:6px !important;
       }
     }
     @media (min-width:768px) and (max-width:1024.98px){
@@ -2962,8 +3031,10 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       }
       #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-video-post .media-stage.standard-video-stage > video,
       #profilePostsFeed .mf-card.mf-card-media-head-outside.is-single-image-post .media-stage.standard-image-stage > img{
-        width:min(100%, var(--post-media-card-width, 440px)) !important;
+        width:auto !important;
+        max-width:100% !important;
         max-height:var(--post-media-max-height, min(60vh, 620px)) !important;
+        border-radius:6px !important;
       }
     }
     @media (min-width:768px){
@@ -3816,17 +3887,25 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 </style>
 
 <style id="profile-post-media-radius-override">
+  #profilePostsFeed{
+    --post-media-radius:6px;
+  }
   #profilePostsFeed .media-stage.standard-video-stage,
   #profilePostsFeed .media-stage.standard-image-stage,
   #profilePostsFeed .media-stage{
-    overflow:hidden !important;
-    border-radius:var(--post-media-radius,10px) !important;
+    overflow:visible !important;
+    border-radius:0 !important;
   }
   #profilePostsFeed .media-stage.standard-video-stage > video,
   #profilePostsFeed .media-stage.standard-image-stage > img,
   #profilePostsFeed video.ig-smart-feed-video{
-    border-radius:var(--post-media-radius,10px) !important;
+    border-radius:6px !important;
     overflow:hidden !important;
+  }
+  #profilePostsFeed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
+  #profilePostsFeed video.ig-smart-feed-video{
+    clip-path:inset(0 round 6px) !important;
+    -webkit-clip-path:inset(0 round 6px) !important;
   }
 </style>
 
@@ -4188,15 +4267,30 @@ include __DIR__ . '/includes/header.php';
         }
       ?>
       <?php if (!$showPeerNotFound && !empty($galleryVisTabs)): ?>
+        <?php
+          $galleryVisHref = static function (string $vis) use ($reqId, $reqUsername, $reqFriendCode): string {
+            $q = ['tab' => 'gallery', 'gallery_vis' => $vis];
+            if ($reqId > 0) {
+              $q['id'] = (string)(int)$reqId;
+            }
+            if ($reqUsername !== '') {
+              $q['username'] = $reqUsername;
+            }
+            if ($reqFriendCode !== '') {
+              $q['friend_code'] = $reqFriendCode;
+            }
+            return 'profile.php?' . http_build_query($q);
+          };
+        ?>
         <div class="ig-grid-heads" role="tablist" aria-label="Gallery visibility">
           <?php foreach ($galleryVisTabs as $tabMeta): ?>
-            <button
-              type="button"
+            <a
+              href="<?= h($galleryVisHref($tabMeta['key'])) ?>"
               class="ig-vis-tab<?= $tabMeta['key'] === $galleryVisDefault ? ' is-active' : '' ?>"
               role="tab"
               data-vis="<?= h($tabMeta['key']) ?>"
               aria-selected="<?= $tabMeta['key'] === $galleryVisDefault ? 'true' : 'false' ?>"
-            ><?= h($tabMeta['label']) ?></button>
+            ><?= h($tabMeta['label']) ?></a>
           <?php endforeach; ?>
         </div>
       <?php endif; ?>
@@ -4214,6 +4308,74 @@ include __DIR__ . '/includes/header.php';
       <?php if (!$showPeerNotFound && !empty($galleryGrid)): ?>
         <div class="ig-gallery-empty-filter" id="galleryVisEmpty" role="status">No posts in this tab.</div>
       <?php endif; ?>
+      <script>
+      (function(){
+        if (window.__msbGalleryVisBound) return;
+        window.__msbGalleryVisBound = true;
+        function visKey(v){
+          v = String(v || '').trim().toLowerCase();
+          if (v === 'private') return 'private';
+          if (v === 'friends' || v === 'friend') return 'friends';
+          return 'public';
+        }
+        function applyGalleryVis(vis){
+          vis = visKey(vis);
+          try { window.__MSB_GALLERY_VIS = vis; } catch (eVis) {}
+          try {
+            if (document.body && document.body.setAttribute) {
+              document.body.setAttribute('data-gallery-vis', vis);
+            }
+          } catch (eBody) {}
+          var panel = document.getElementById('panel-gallery');
+          if (!panel) return vis;
+          var shown = 0;
+          var items = panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item');
+          items.forEach(function(item){
+            var match = visKey(item.getAttribute('data-visibility') || 'public') === vis;
+            item.classList.toggle('is-vis-hidden', !match);
+            if (match) {
+              shown += 1;
+              var vid = item.querySelector('video.ig-vid');
+              if (vid) {
+                try { vid.currentTime = vid.currentTime; } catch (eVid) {}
+              }
+            }
+          });
+          panel.querySelectorAll('.ig-vis-tab').forEach(function(btn){
+            var active = visKey(btn.getAttribute('data-vis') || '') === vis;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+          });
+          var emptyEl = document.getElementById('galleryVisEmpty');
+          if (emptyEl) emptyEl.classList.toggle('is-visible', shown === 0 && items.length > 0);
+          var ids = [];
+          panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item:not(.is-vis-hidden)').forEach(function(item){
+            var id = parseInt(item.getAttribute('data-post-id') || '0', 10) || 0;
+            if (id > 0) ids.push(id);
+          });
+          window.__MSB_GALLERY_VISIBLE_IDS = ids;
+          return vis;
+        }
+        window.msbApplyGalleryVisFilter = applyGalleryVis;
+        window.msbGalleryVisibleIds = function(){ return window.__MSB_GALLERY_VISIBLE_IDS || []; };
+        function onVisNav(e){
+          var btn = e.target && e.target.closest ? e.target.closest('.ig-vis-tab') : null;
+          var panel = document.getElementById('panel-gallery');
+          if (!btn || !panel || !panel.contains(btn)) return;
+          var next = visKey(btn.getAttribute('data-vis') || '');
+          if (e && e.preventDefault) e.preventDefault();
+          applyGalleryVis(next);
+          try {
+            var url = new URL(window.location.href);
+            url.searchParams.set('tab', 'gallery');
+            url.searchParams.set('gallery_vis', next);
+            history.replaceState({ msbProfileTab: 'gallery', msbGalleryVis: next }, '', url.pathname + url.search + url.hash);
+          } catch (err) {}
+        }
+        document.addEventListener('click', onVisNav, true);
+        applyGalleryVis(<?php echo json_encode($galleryVisDefault, JSON_UNESCAPED_SLASHES); ?>);
+      })();
+      </script>
     </div>
 
     <div id="panel-posts" class="profile-panel<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>">
@@ -5635,55 +5797,9 @@ let galleryVisFilter = <?php
   }
   echo json_encode($jsGalleryVis, JSON_UNESCAPED_SLASHES);
 ?>;
-
-(function initGalleryVisTabs(){
-  const panel = document.getElementById('panel-gallery');
-  if (!panel) return;
-  const heads = panel.querySelector('.ig-grid-heads');
-  const emptyEl = document.getElementById('galleryVisEmpty');
-  if (!heads) return;
-
-  function visibleGalleryIds(){
-    const ids = [];
-    panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item:not(.is-vis-hidden)').forEach(function(item){
-      const id = parseInt(item.getAttribute('data-post-id') || '0', 10) || 0;
-      if (id > 0) ids.push(id);
-    });
-    return ids;
-  }
-
-  function applyGalleryVis(vis){
-    galleryVisFilter = String(vis || 'public').toLowerCase();
-    if (galleryVisFilter !== 'private' && galleryVisFilter !== 'public' && galleryVisFilter !== 'friends') {
-      galleryVisFilter = 'public';
-    }
-    let shown = 0;
-    panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item').forEach(function(item){
-      const itemVis = String(item.getAttribute('data-visibility') || 'public').toLowerCase();
-      const match = itemVis === galleryVisFilter;
-      item.classList.toggle('is-vis-hidden', !match);
-      if (match) shown += 1;
-    });
-    heads.querySelectorAll('.ig-vis-tab').forEach(function(btn){
-      const active = String(btn.getAttribute('data-vis') || '') === galleryVisFilter;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    if (emptyEl) emptyEl.classList.toggle('is-visible', shown === 0 && panel.querySelectorAll('.ig-grid[data-grid-scope="gallery"] .ig-item').length > 0);
-    window.__MSB_GALLERY_VISIBLE_IDS = visibleGalleryIds();
-  }
-
-  heads.addEventListener('click', function(e){
-    const btn = e.target.closest('.ig-vis-tab');
-    if (!btn || !heads.contains(btn)) return;
-    e.preventDefault();
-    applyGalleryVis(btn.getAttribute('data-vis'));
-  });
-
-  applyGalleryVis(galleryVisFilter);
-  window.msbApplyGalleryVisFilter = applyGalleryVis;
-  window.msbGalleryVisibleIds = visibleGalleryIds;
-})();
+if (typeof window.msbApplyGalleryVisFilter === 'function') {
+  try { window.msbApplyGalleryVisFilter(galleryVisFilter); } catch (eVisInit) {}
+}
 
 let pvIndex = -1;
 let pvPostId = 0;
@@ -9162,7 +9278,7 @@ pv.text.addEventListener('keydown', (e)=>{
       }catch(e){}
     }
     if(video){
-      video.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+      video.style.setProperty('width', 'auto', 'important');
       video.style.setProperty('max-width', '100%', 'important');
       video.style.setProperty('height', 'auto', 'important');
       video.style.setProperty('max-height', maxH, 'important');
@@ -9171,11 +9287,15 @@ pv.text.addEventListener('keydown', (e)=>{
       video.style.setProperty('margin-left', '0', 'important');
       video.style.setProperty('margin-right', 'auto', 'important');
       video.style.setProperty('justify-self', 'start', 'important');
+      video.style.setProperty('border-radius', '6px', 'important');
+      video.style.setProperty('overflow', 'hidden', 'important');
+      video.style.setProperty('clip-path', 'inset(0 round 6px)', 'important');
+      video.style.setProperty('-webkit-clip-path', 'inset(0 round 6px)', 'important');
       video.style.background = 'transparent';
       video.style.removeProperty('padding');
     }
     if(image){
-      image.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+      image.style.setProperty('width', 'auto', 'important');
       image.style.setProperty('max-width', '100%', 'important');
       image.style.setProperty('height', 'auto', 'important');
       image.style.setProperty('max-height', maxH, 'important');
@@ -9184,6 +9304,7 @@ pv.text.addEventListener('keydown', (e)=>{
       image.style.setProperty('margin-left', '0', 'important');
       image.style.setProperty('margin-right', 'auto', 'important');
       image.style.setProperty('justify-self', 'start', 'important');
+      image.style.setProperty('border-radius', '6px', 'important');
       image.style.background = 'transparent';
       image.style.removeProperty('padding');
       image.style.removeProperty('box-sizing');

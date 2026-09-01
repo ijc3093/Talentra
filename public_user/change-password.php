@@ -99,7 +99,7 @@ if ($isAjaxPwd || isset($_POST['submit'])) {
 
 $returnUrl = trim((string)($_GET['return'] ?? ''));
 if ($returnUrl === '' || strpos($returnUrl, '://') !== false || str_starts_with($returnUrl, '//')) {
-    $returnUrl = 'profile.php?tab=gear';
+    $returnUrl = 'settings.php';
 }
 ?>
 <!doctype html>

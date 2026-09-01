@@ -83,7 +83,7 @@ if (!empty($settings['report_history_enabled'])) {
         <div class="sec-title">Security and safety</div>
         <div class="sec-sub">One place to review your current safety toggles and open the strongest account-protection actions.</div>
       </div>
-      <a class="btn alt" href="profile.php?tab=gear">Back to Gear</a>
+      <a class="btn alt" href="settings.php">Back to Settings</a>
     </div>
     <div class="sec-grid">
       <div class="stat"><span class="pill">Blocked users</span><b><?php echo (int)$counts['blocked']; ?></b><small><?php echo $settings['blocked_users_enabled'] ? 'System enabled' : 'System hidden in Gear'; ?></small></div>
@@ -130,7 +130,7 @@ if (!empty($settings['report_history_enabled'])) {
   <div class="sec-card">
     <div class="sec-title" style="font-size:22px">Safety notes</div>
     <div class="warn">Report, block, hide, and mute tools are controlled from Gear. New reports go to Admin → Reports for review.</div>
-    <a class="back" href="profile.php?tab=gear">← Back to Gear</a>
+    <a class="back" href="settings.php">← Back to Settings</a>
   </div>
 </div>
 </body>

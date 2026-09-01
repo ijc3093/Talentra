@@ -1341,11 +1341,11 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       max-height:none;
       overflow:visible;
     }
-    .media-stage video,.media-stage img{display:block;width:100%;height:auto;max-height:var(--post-media-max-height, min(70vh, 580px));background:transparent}
+    .media-stage video,.media-stage img{display:block;width:100%;height:auto;max-height:var(--post-media-max-height, 78vh);background:transparent}
     .media-stage.standard-video-stage > video{
       width:100%;
       height:auto;
-      max-height:var(--post-media-max-height, min(70vh, 580px));
+      max-height:var(--post-media-max-height, 78vh);
       background:transparent;
       border-radius:0;
     }
@@ -1357,7 +1357,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .media-stage.standard-image-stage > img{
       width:100%;
       height:auto;
-      max-height:var(--post-media-max-height, min(70vh, 580px));
+      max-height:var(--post-media-max-height, 78vh);
       background:transparent;
       border-radius:0;
       object-fit:contain;
@@ -1373,7 +1373,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       opacity:0 !important;
       pointer-events:none !important;
     }
-    .single-portrait{aspect-ratio:auto;max-height:var(--post-media-max-height, min(70vh, 580px));overflow:hidden}
+    .single-portrait{aspect-ratio:auto;max-height:var(--post-media-max-height, 78vh);overflow:hidden}
     .single-portrait img,.single-portrait video{height:auto;width:100%}
     .single-portrait img{object-fit:contain;object-position:center center}
     .single-portrait video{object-fit:contain;object-position:center center}
@@ -1392,7 +1392,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .media-stage.phone-shot.standard-image-stage > img{
       width:100%;
       height:auto;
-      max-height:var(--post-media-max-height, min(70vh, 580px));
+      max-height:var(--post-media-max-height, 78vh);
       object-fit:contain;
       border-radius:0;
       background:transparent;
@@ -3346,7 +3346,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         display:block;
       }
       body .post-card-caption-formatted.is-clamped{
-        max-height:6.6em;
+        max-height:6.0em;
         overflow:hidden;
       }
 
@@ -4620,17 +4620,17 @@ body.feed-insta-ui .avatar-thumb img{
 
   <style id="public-post-device-media-css">
     .post.public-post-card{
-      --post-media-radius:10px;
-      --post-media-max:680px;
+      --post-media-radius:6px;
+      --post-media-max:100%;
       --post-phone-max:430px;
       --post-tablet-max:620px;
-      --post-landscape-max:760px;
-      --post-square-max:620px;
-      --post-portrait-max:400px;
-      --post-media-max-height: min(70vh, 580px);
+      --post-landscape-max:100%;
+      --post-square-max:100%;
+      --post-portrait-max:100%;
+      --post-media-max-height: min(56vh, calc(100dvh - 220px));
     }
     .ig-feed{
-      --post-media-max-height: min(70vh, 580px);
+      --post-media-max-height: min(56vh, calc(100dvh - 220px));
     }
     .post.public-post-card.is-single-video-post:not(.is-reel-post),
     .post.public-post-card.is-single-image-post:not(.is-reel-post){
@@ -4649,7 +4649,7 @@ body.feed-insta-ui .avatar-thumb img{
     .post.public-post-card.is-single-image-post:not(.is-reel-post):not(.public-media-head-outside) .media-stage.standard-image-stage{
       width:min(100%, var(--post-media-card-width, var(--post-media-max))) !important;
       max-width:100% !important;
-      max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+      max-height:var(--post-media-max-height, 78vh) !important;
       margin-left:0 !important;
       margin-right:auto !important;
     }
@@ -4677,9 +4677,10 @@ body.feed-insta-ui .avatar-thumb img{
     }
     .post.public-post-card:not(.is-reel-post) .media-stage.standard-video-stage > video,
     .post.public-post-card:not(.is-reel-post) .media-stage.standard-image-stage > img{
-      width:100% !important;
+      width:auto !important;
+      max-width:100% !important;
       height:auto !important;
-      max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+      max-height:var(--post-media-max-height, min(56vh, calc(100dvh - 220px))) !important;
       object-fit:contain !important;
       object-position:center center !important;
       border:0 !important;
@@ -4690,7 +4691,7 @@ body.feed-insta-ui .avatar-thumb img{
     .post.public-post-card:not(.is-reel-post) .media-stage.single-landscape,
     .post.public-post-card:not(.is-reel-post) .media-stage.single-square{
       aspect-ratio:auto !important;
-      max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+      max-height:var(--post-media-max-height, 78vh) !important;
       overflow:hidden !important;
     }
     .post.public-post-card:not(.is-reel-post) .media-stage.single-portrait > img,
@@ -4703,26 +4704,26 @@ body.feed-insta-ui .avatar-thumb img{
     .post.public-post-card:not(.is-reel-post) .media-slide > video{
       width:100% !important;
       height:auto !important;
-      max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+      max-height:var(--post-media-max-height, 78vh) !important;
       object-fit:contain !important;
       object-position:center center !important;
     }
     @media (max-width:767.98px){
       .ig-feed,
       .post.public-post-card{
-        --post-media-max-height: min(52vh, 580px);
+        --post-media-max-height: min(42vh, calc(100dvh - 300px));
         --post-phone-max:320px;
         --post-portrait-max:310px;
       }
       .post.public-post-card.is-single-video-post:not(.is-reel-post) .media-stage.standard-video-stage:not(.phone-shot),
       .post.public-post-card.is-single-image-post:not(.is-reel-post) .media-stage.standard-image-stage:not(.phone-shot){
-        width:min(100%, var(--post-media-card-width, 310px)) !important;
-        max-width:min(100%, 330px) !important;
+        width:min(100%, var(--post-media-card-width, 100%)) !important;
+        max-width:100% !important;
       }
       .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot{
         width:min(72vw,var(--post-phone-max)) !important;
         max-width:100% !important;
-        max-height:var(--post-media-max-height, min(52vh, 580px)) !important;
+        max-height:var(--post-media-max-height, min(46vh, calc(100dvh - 270px))) !important;
         margin-inline:auto !important;
         aspect-ratio:var(--device-ar-w,375)/var(--device-ar-h,667) !important;
         border-radius:28px !important;
@@ -4747,12 +4748,12 @@ body.feed-insta-ui .avatar-thumb img{
     @media (min-width:768px) and (max-width:1024.98px){
       .ig-feed,
       .post.public-post-card{
-        --post-media-max-height: min(54vh, 580px);
+        --post-media-max-height: 74vh;
       }
       .post.public-post-card.is-single-video-post:not(.is-reel-post) .media-stage.standard-video-stage:not(.phone-shot),
       .post.public-post-card.is-single-image-post:not(.is-reel-post) .media-stage.standard-image-stage:not(.phone-shot){
-        width:min(100%, var(--post-media-card-width, 400px)) !important;
-        max-width:min(100%, 440px) !important;
+        width:min(100%, var(--post-media-card-width, 100%)) !important;
+        max-width:100% !important;
       }
     }
     @media (min-width:768px){
@@ -4773,7 +4774,7 @@ body.feed-insta-ui .avatar-thumb img{
       .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-image-stage > img{
         width:100% !important;
         height:auto !important;
-        max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+        max-height:var(--post-media-max-height, 78vh) !important;
         border-radius:var(--post-media-radius) !important;
         object-fit:contain !important;
         background:transparent !important;
@@ -4789,13 +4790,13 @@ body.feed-insta-ui .avatar-thumb img{
       .post.public-post-card.is-single-image-post:not(.is-reel-post):has(.media-stage.phone-shot) .media-stage.phone-shot{
         width:min(100%,var(--post-media-card-width,var(--post-media-max))) !important;
         max-width:100% !important;
-        max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+        max-height:var(--post-media-max-height, 78vh) !important;
         margin-left:0 !important;
         margin-right:auto !important;
       }
     }
     .post.public-post-card:not(.is-reel-post) .media-stage.has-carousel{
-      max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+      max-height:var(--post-media-max-height, 78vh) !important;
       background:transparent !important;
     }
     @media (max-width:767.98px){
@@ -4810,7 +4811,7 @@ body.feed-insta-ui .avatar-thumb img{
       }
       .post.public-post-card:not(.is-reel-post) .media-stage.standard-video-stage > video,
       .post.public-post-card:not(.is-reel-post) .media-stage.standard-image-stage > img{
-        max-height:var(--post-media-max-height, min(52vh, 580px)) !important;
+        max-height:var(--post-media-max-height, min(46vh, calc(100dvh - 270px))) !important;
       }
       .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot{
         width:min(72vw,var(--post-phone-max)) !important;
@@ -5117,7 +5118,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 ><?= h($tabLabel) ?></a>
               <?php endforeach; ?>
             </nav>
-            <a class="feed-top-search-settings" href="profile.php?tab=gear" aria-label="Explore settings" title="Settings">
+            <a class="feed-top-search-settings" href="settings.php" aria-label="Explore settings" title="Settings">
               <i class="fa fa-cog" aria-hidden="true"></i>
             </a>
           </div>
@@ -5524,12 +5525,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                   $deviceW = max(1, (int)$deviceArW[1]);
                   $deviceH = max(1, (int)$deviceArH[1]);
                   $deviceAspect = $deviceW / $deviceH;
-                  $maxVideoH = 580;
-                  $desiredWidth = (int)round($deviceAspect * $maxVideoH);
-                  $maxByShape = $deviceAspect < 0.8 ? 400 : ($deviceAspect > 1.15 ? 680 : 520);
-                  $safeCardWidth = max(260, min($desiredWidth, 680, $maxByShape));
-                  // Keep post card full-width (for dividers), constrain only the media stage.
-                  $singleMediaCardStyle = '--post-media-card-width:' . $safeCardWidth . 'px;--post-media-max-height:min(70vh, 580px);';
+                  $singleMediaCardStyle = '--post-media-card-width:100%;--post-media-max-height:78vh;';
               }
           }
 
@@ -6860,6 +6856,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   var publicAlertPostId = <?php echo (int)$publicAlertPostId; ?>;
   var publicAlertCommentId = <?php echo (int)$publicAlertCommentId; ?>;
   var publicAlertHideNav = <?php echo ((int)($_GET['hide_nav'] ?? 0) === 1) ? 'true' : 'false'; ?>;
+  var publicFreshCreate = <?php echo ((string)($_GET['fresh'] ?? '') === '1') ? 'true' : 'false'; ?>;
 
   function clearPublicAlertParams(){
     try{
@@ -7706,6 +7703,22 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 
   (function(){
     if(!publicAlertPostId) return;
+    // After create, stay on the Discover card list — do not open the viewer modal.
+    if (publicFreshCreate && !publicAlertCommentId) {
+      var attemptsFresh = 0;
+      (function waitFreshPublicCard(){
+        attemptsFresh += 1;
+        var card = document.querySelector('.public-post-card[data-post-id="'+String(publicAlertPostId)+'"], #post-'+String(publicAlertPostId));
+        if (card) {
+          highlightPublicCard(publicAlertPostId);
+          clearPublicAlertParams();
+          return;
+        }
+        if (attemptsFresh < 40) window.setTimeout(waitFreshPublicCard, 160);
+        else clearPublicAlertParams();
+      })();
+      return;
+    }
     // Prefer feed-style View-the-post modal when available.
     if (typeof window.pvOpenById === 'function') {
       window.pvOpenById(publicAlertPostId, {
@@ -7836,62 +7849,48 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   function publicMaxVideoHeight(){
-    // Numeric budget for width math only (avatar/name + reacts stay visible).
     var viewportH = Math.max(window.innerHeight || 0, 320);
     var reserved = 250;
     var fitH = Math.max(280, viewportH - reserved);
     if(window.matchMedia('(max-width: 767.98px)').matches){
-      return Math.min(Math.round(viewportH * 0.52), fitH, 580);
+            return Math.min(Math.round(viewportH * 0.46), fitH);
     }
     if(window.matchMedia('(max-width: 1024.98px)').matches){
-      return Math.min(Math.round(viewportH * 0.54), fitH, 580);
+      return Math.min(Math.round(viewportH * 0.74), fitH);
     }
-    return Math.min(Math.round(viewportH * 0.56), fitH, 580);
+    return Math.min(Math.round(viewportH * 0.78), fitH);
   }
 
   function publicMediaMaxHeightCss(){
-    // Never bake a computed px (e.g. 397px) into inline styles — use CSS min().
     if(window.matchMedia('(max-width: 767.98px)').matches){
-      return 'min(52vh, 580px)';
+      return 'min(42vh, calc(100dvh - 300px))';
     }
     if(window.matchMedia('(max-width: 1024.98px)').matches){
-      return 'min(54vh, 580px)';
+      return 'min(52vh, calc(100dvh - 240px))';
     }
-    return 'min(70vh, 580px)';
+    return 'min(56vh, calc(100dvh - 220px))';
+  }
+
+  function publicFeedAvailableMediaWidth(opts){
+    opts = opts || {};
+    var feed = opts.feedEl || document.querySelector('.ig-feed');
+    var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.max(window.innerWidth || 0, 320);
+    var cardPad = opts.cardPad != null ? Number(opts.cardPad) : 24;
+    return Math.max(240, (feedWidth || 320) - cardPad);
   }
 
   function publicComputeMediaCardWidth(aspectW, aspectH, opts){
     opts = opts || {};
-    aspectW = Number(aspectW || 0);
-    aspectH = Number(aspectH || 0);
-    if(!aspectW || !aspectH) return 0;
-
-    var aspect = aspectW / aspectH;
-    var maxVideoH = publicMaxVideoHeight();
-    var feed = opts.feedEl || document.querySelector('.ig-feed');
-    var feedWidth = feed ? Math.floor(feed.clientWidth || 0) : Math.min(Math.max(window.innerWidth || 0, 320), 680);
-    var cardPad = opts.cardPad != null ? Number(opts.cardPad) : 24;
-    var availableWidth = Math.max(240, (feedWidth || 680) - cardPad);
-    var isPhoneShot = !!opts.isPhoneShot;
-    var desiredWidth = Math.round(aspect * maxVideoH);
-    var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
-    var isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024.98px)').matches;
-
-    if(isMobile){
-      if(isPhoneShot){
-        return Math.max(220, Math.min(availableWidth, Math.round(Math.min(window.innerWidth * 0.72, 320))));
-      }
-      var mobileMax = aspect < 0.8 ? 310 : (aspect > 1.15 ? Math.min(availableWidth, 380) : 330);
-      return Math.max(220, Math.min(desiredWidth, availableWidth, mobileMax));
+    var availableWidth = publicFeedAvailableMediaWidth(opts);
+    if(opts.isPhoneShot && window.matchMedia('(max-width: 767.98px)').matches){
+      return Math.max(220, Math.min(availableWidth, Math.round(window.innerWidth * 0.72)));
     }
+    return availableWidth;
+  }
 
-    if(isTablet){
-      var tabletMax = aspect < 0.8 ? 400 : (aspect > 1.15 ? Math.min(availableWidth, 560) : 440);
-      return Math.max(260, Math.min(desiredWidth, availableWidth, tabletMax));
-    }
-
-    var maxByShape = aspect < 0.8 ? 400 : (aspect > 1.15 ? 680 : 520);
-    return Math.max(260, Math.min(desiredWidth, availableWidth, maxByShape));
+  function publicMediaWidthCss(isPhoneShot, safeWidth){
+    if(isPhoneShot) return String(safeWidth) + 'px';
+    return '100%';
   }
 
   function applyPublicVideoCardWidth(card, aspectW, aspectH){
@@ -7915,7 +7914,8 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     card.style.marginRight = '0';
     card.style.setProperty('box-sizing', 'border-box', 'important');
     card.style.setProperty('padding', '8px 12px', 'important');
-    card.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
+    var widthCss = publicMediaWidthCss(isPhoneShot, safeWidth);
+    card.style.setProperty('--post-media-card-width', widthCss);
     card.style.setProperty('--post-media-max-height', maxH);
 
     var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
@@ -7929,7 +7929,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         media.style.marginLeft = '0';
         media.style.marginRight = '0';
       }else{
-        media.style.width = 'min(100%, ' + String(safeWidth) + 'px)';
+        media.style.width = 'min(100%, ' + widthCss + ')';
         media.style.maxWidth = '100%';
         media.style.marginLeft = '0';
         media.style.marginRight = 'auto';
@@ -7944,12 +7944,15 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
         media.style.removeProperty('max-height');
       }
       media.style.removeProperty('min-height');
+      if(!isPhoneShot){
+        media.style.setProperty('border-radius', '6px', 'important');
+      }
       try{
         media.classList.remove('single-portrait', 'single-landscape', 'single-square');
       }catch(e){}
     }
     if(video){
-      video.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+      video.style.setProperty('width', isPhoneShot ? '100%' : 'auto', 'important');
       video.style.setProperty('max-width', '100%', 'important');
       video.style.setProperty('height', 'auto', 'important');
       video.style.setProperty('max-height', maxH, 'important');
@@ -7958,11 +7961,14 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       video.style.setProperty('margin-left', '0', 'important');
       video.style.setProperty('margin-right', 'auto', 'important');
       video.style.setProperty('justify-self', 'start', 'important');
+      if(!isPhoneShot){
+        video.style.setProperty('border-radius', '6px', 'important');
+      }
       video.style.background = 'transparent';
       video.style.removeProperty('padding');
     }
     if(image){
-      image.style.setProperty('width', isHeadOutside ? ('min(100%, ' + String(safeWidth) + 'px)') : '100%', 'important');
+      image.style.setProperty('width', isPhoneShot ? '100%' : 'auto', 'important');
       image.style.setProperty('max-width', '100%', 'important');
       image.style.setProperty('height', 'auto', 'important');
       image.style.setProperty('max-height', maxH, 'important');
@@ -7971,6 +7977,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       image.style.setProperty('margin-left', '0', 'important');
       image.style.setProperty('margin-right', 'auto', 'important');
       image.style.setProperty('justify-self', 'start', 'important');
+      if(!isPhoneShot){
+        image.style.setProperty('border-radius', '6px', 'important');
+      }
       image.style.background = 'transparent';
       image.style.removeProperty('padding');
       image.style.removeProperty('box-sizing');
@@ -8604,9 +8613,9 @@ body.news-page.feed-insta-ui .post.public-post-card.is-single-image-post:not(.is
 }
 body.news-page.feed-insta-ui .post.public-post-card.is-single-video-post:not(.is-reel-post) .media-stage.standard-video-stage,
 body.news-page.feed-insta-ui .post.public-post-card.is-single-image-post:not(.is-reel-post) .media-stage.standard-image-stage{
-  width:min(100%, var(--post-media-card-width, var(--post-media-max, 680px))) !important;
+  width:min(100%, var(--post-media-card-width, var(--post-media-max, 100%))) !important;
   max-width:100% !important;
-  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  max-height:var(--post-media-max-height, 78vh) !important;
   margin-left:0 !important;
   margin-right:auto !important;
 }
@@ -8903,7 +8912,7 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
     width:100%!important;
     max-width:100%!important;
     margin:0!important;
-    border-radius:var(--post-media-radius,10px)!important;
+    border-radius:var(--post-media-radius,6px)!important;
     overflow:hidden!important;
   }
   body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-video-post:not(.is-reel-post) .media-stage > video,
@@ -8915,7 +8924,7 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
     margin-left:0!important;
     margin-right:auto!important;
     justify-self:start!important;
-    border-radius:var(--post-media-radius,10px)!important;
+    border-radius:var(--post-media-radius,6px)!important;
     overflow:hidden!important;
   }
   body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standard-media-topbar{
@@ -9163,7 +9172,7 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > video,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > img,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .media-stage > .media-carousel{
-  max-height:var(--post-media-max-height, min(70vh, 580px)) !important;
+  max-height:var(--post-media-max-height, 78vh) !important;
 }
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-actions{
   position:relative !important;
@@ -9247,7 +9256,7 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-image-post:not(.is-reel-post) .media-stage > :first-child,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-video-post:not(.is-reel-post) .media-stage > video,
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-image-post:not(.is-reel-post) .media-stage > img{
-  width:min(100%, var(--post-media-card-width, var(--post-media-max, 680px))) !important;
+  width:min(100%, var(--post-media-card-width, var(--post-media-max, 100%))) !important;
   max-width:100% !important;
   margin-left:0 !important;
   margin-right:auto !important;
@@ -9531,6 +9540,23 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
   margin-right:0 !important;
   padding-right:0 !important;
 }
+@media (max-width:767.98px){
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post),
+  body.news-page.feed-insta-ui .post.public-post-card:not(.is-reel-post),
+  .ig-feed{
+    --post-media-max-height: min(42vh, calc(100dvh - 300px)) !important;
+  }
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-video-stage > video,
+  body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-image-stage > img,
+  body.news-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-video-stage > video,
+  body.news-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-image-stage > img{
+    width:auto !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:min(42vh, calc(100dvh - 300px)) !important;
+    object-fit:contain !important;
+  }
+}
 </style>
 <script id="public-post-visible-media-left-align">
 (function(){
@@ -9543,12 +9569,12 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
 
   function publicMediaMaxHeightCss(){
     if (window.matchMedia('(max-width: 767.98px)').matches) {
-      return 'min(52vh, 580px)';
+      return 'min(42vh, calc(100dvh - 300px))';
     }
     if (window.matchMedia('(max-width: 1024.98px)').matches) {
-      return 'min(54vh, 580px)';
+      return 'min(52vh, calc(100dvh - 240px))';
     }
-    return 'min(70vh, 580px)';
+    return 'min(56vh, calc(100dvh - 220px))';
   }
 
   function syncCardMedia(card){
@@ -9583,8 +9609,8 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
       stage.style.setProperty('margin-right', '0', 'important');
       stage.style.setProperty('overflow', 'visible', 'important');
       stage.style.removeProperty('max-height');
-      if (mediaEl && w) {
-        mediaEl.style.setProperty('width', 'min(100%, ' + w + ')', 'important');
+      if (mediaEl) {
+        mediaEl.style.setProperty('width', 'auto', 'important');
         mediaEl.style.setProperty('max-width', '100%', 'important');
         mediaEl.style.setProperty('margin-left', '0', 'important');
         mediaEl.style.setProperty('margin-right', 'auto', 'important');
@@ -9594,6 +9620,7 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
         mediaEl.style.setProperty('object-fit', 'contain', 'important');
         mediaEl.style.setProperty('object-position', 'center center', 'important');
         mediaEl.style.setProperty('max-height', maxH, 'important');
+        mediaEl.style.setProperty('border-radius', '6px', 'important');
       }
     } else {
       stage.style.setProperty('margin-left', '0', 'important');
@@ -9603,12 +9630,15 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
         stage.style.setProperty('max-width', '100%', 'important');
       }
       stage.style.setProperty('max-height', maxH, 'important');
+      stage.style.setProperty('border-radius', '6px', 'important');
       if (mediaEl) {
-        mediaEl.style.setProperty('width', '100%', 'important');
+        mediaEl.style.setProperty('width', 'auto', 'important');
+        mediaEl.style.setProperty('max-width', '100%', 'important');
         mediaEl.style.setProperty('height', 'auto', 'important');
         mediaEl.style.setProperty('object-fit', 'contain', 'important');
         mediaEl.style.setProperty('object-position', 'center center', 'important');
         mediaEl.style.setProperty('max-height', maxH, 'important');
+        mediaEl.style.setProperty('border-radius', '6px', 'important');
       }
     }
 

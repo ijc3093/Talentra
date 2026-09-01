@@ -1960,6 +1960,14 @@
         if(html) menu.innerHTML = html;
       }
     });
+    document.querySelectorAll('.ig-item[data-post-id="'+String(postId)+'"]').forEach(function(item){
+      item.setAttribute('data-visibility', visibility);
+    });
+    try{
+      if(typeof window.msbApplyGalleryVisFilter === 'function'){
+        window.msbApplyGalleryVisFilter(window.__MSB_GALLERY_VIS || visibility);
+      }
+    }catch(eGal){}
     var pvWrap = document.getElementById('pvMenuWrap');
     if(pvWrap && Number(pvWrap.getAttribute('data-post-id') || 0) === postId){
       pvWrap.setAttribute('data-visibility', visibility);
@@ -2141,7 +2149,9 @@
         if(nextVis === 'private' && shouldRemoveAfterPrivate()){
           removePostFromSurfaces(postId);
         } else if(nextVis !== 'private' && isPrivateGallerySurface()){
-          removePostFromSurfaces(postId);
+          if(typeof window.msbApplyGalleryVisFilter === 'function'){
+            try { window.msbApplyGalleryVisFilter(window.__MSB_GALLERY_VIS || 'private'); } catch(eFilt){}
+          }
         }
         pcmToast(String(res.message || (nextVis === 'private'
           ? 'Moved to Private. Find it in Gallery → Private.'

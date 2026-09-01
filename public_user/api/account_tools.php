@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="title">Account tools</div>
     <div class="sub">Use the protected tools below without mixing them into your About details.</div>
     <div class="top-actions">
-      <a class="btn alt" href="profile.php?tab=gear">Back to Gear</a>
+      <a class="btn alt" href="settings.php">Back to Settings</a>
       <a class="btn" href="account_tools.php?action=download">Download my data</a>
       <a class="btn alt" href="manage_devices.php">Manage devices</a>
       <a class="btn alt" href="logout.php">Logout now</a>

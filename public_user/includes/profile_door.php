@@ -12,7 +12,7 @@ if ($__profileDoorHref === '') {
 $__profileMenuItems = is_array($railProfileMenuItems ?? null) ? $railProfileMenuItems : [
   ['href' => $__profileDoorHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
-  ['href' => 'profile.php?tab=gear', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
+  ['href' => 'settings.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
   ['href' => 'index.php?tab=help', 'icon' => 'ion-help-circled', 'label' => 'Help'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
 ];

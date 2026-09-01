@@ -18,7 +18,7 @@ function post_media_stage_css(string $scope = ''): string
 
     $lines = [];
 
-    $lines[] = $card . '{--post-media-radius:10px;--post-media-max:680px;--post-phone-max:430px;--post-tablet-max:620px;--post-landscape-max:760px;--post-square-max:620px;--post-portrait-max:520px}';
+    $lines[] = $card . '{--post-media-radius:10px;--post-media-max:100%;--post-phone-max:430px;--post-tablet-max:100%;--post-landscape-max:100%;--post-square-max:100%;--post-portrait-max:100%}';
     $lines[] = $card . '.is-single-video-post:not(.mf-card-phone-shot){width:min(100%,var(--post-media-card-width,var(--post-media-max)));max-width:100%;margin-left:auto;margin-right:auto}';
     $lines[] = $card . '.is-single-image-post:not(.mf-card-phone-shot){width:min(100%,var(--post-media-card-width,var(--post-media-max)));max-width:100%;margin-left:auto;margin-right:auto}';
     $lines[] = $card . '.is-multi-media-post{width:100%;max-width:100%;margin-left:auto;margin-right:auto}';
@@ -28,10 +28,10 @@ function post_media_stage_css(string $scope = ''): string
     $lines[] = $s('.media-stage.has-carousel .media-carousel,') . $s('.media-stage.has-carousel .media-slides,') . $s('.media-stage.has-carousel .media-slide{height:100%}');
     $lines[] = $s('.media-stage.standard-video-stage{background:transparent;aspect-ratio:auto;max-height:none;overflow:visible;border-radius:var(--post-media-radius)}');
     $lines[] = $s('.media-stage.standard-image-stage{background:transparent;aspect-ratio:auto;max-height:none;overflow:visible;border-radius:var(--post-media-radius)}');
-    $lines[] = $s('.media-stage video,') . $s('.media-stage img{display:block;width:100%;height:auto;max-height:840px;background:transparent}');
-    $lines[] = $s('.media-stage.standard-video-stage > video{width:100%;height:auto;max-height:min(78svh,960px);background:transparent;border-radius:var(--post-media-radius);object-fit:contain;object-position:center center}');
+    $lines[] = $s('.media-stage video,') . $s('.media-stage img{display:block;width:100%;height:auto;max-height:78vh;background:transparent}');
+    $lines[] = $s('.media-stage.standard-video-stage > video{width:100%;height:auto;max-height:78svh;background:transparent;border-radius:var(--post-media-radius);object-fit:contain;object-position:center center}');
     $lines[] = $s('.media-stage.standard-video-stage.single-portrait,') . $s('.media-stage.standard-video-stage.single-landscape,') . $s('.media-stage.standard-video-stage.single-square{aspect-ratio:auto;max-height:none;overflow:visible}');
-    $lines[] = $s('.media-stage.standard-image-stage > img{width:100%;height:auto;max-height:min(78svh,960px);background:transparent;border-radius:var(--post-media-radius);object-fit:contain;object-position:center center}');
+    $lines[] = $s('.media-stage.standard-image-stage > img{width:100%;height:auto;max-height:78svh;background:transparent;border-radius:var(--post-media-radius);object-fit:contain;object-position:center center}');
     $lines[] = $s('.media-stage video{object-fit:contain;object-position:center center}');
     $lines[] = $s('.media-stage img{object-fit:contain;object-position:center center}');
 
@@ -72,36 +72,36 @@ function post_media_stage_css(string $scope = ''): string
 
     $lines[] = '@media (max-width:767.98px){';
     $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot),' . $card . '.is-single-image-post:not(.mf-card-phone-shot),' . $card . '.is-multi-media-post{width:100%}';
-    $lines[] = '  ' . $s('.media-stage.standard-video-stage > video{max-height:calc(100svh - 210px);border-radius:var(--post-media-radius)}');
-    $lines[] = '  ' . $s('.media-stage.standard-image-stage > img{max-height:calc(100svh - 210px);border-radius:var(--post-media-radius)}');
+    $lines[] = '  ' . $s('.media-stage.standard-video-stage > video{max-height:min(46vh,calc(100dvh - 270px));border-radius:var(--post-media-radius)}');
+    $lines[] = '  ' . $s('.media-stage.standard-image-stage > img{max-height:min(46vh,calc(100dvh - 270px));border-radius:var(--post-media-radius)}');
     $lines[] = '}';
 
     $lines[] = '@media (min-width:768px) and (max-width:1199.98px){';
-    $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot){width:min(100%,420px)}';
-    $lines[] = '  ' . $card . '.is-single-image-post:not(.mf-card-phone-shot){width:min(100%,420px)}';
+    $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot){width:100%}';
+    $lines[] = '  ' . $card . '.is-single-image-post:not(.mf-card-phone-shot){width:100%}';
     $lines[] = '  ' . $card . '.is-multi-media-post{width:100%}';
-    $lines[] = '  ' . $s('.media-stage.has-carousel{max-height:min(78vh,760px)}');
+    $lines[] = '  ' . $s('.media-stage.has-carousel{max-height:78vh}');
     $lines[] = '}';
 
     $lines[] = '@media (min-width:1200px){';
-    $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot){width:min(100%,460px)}';
-    $lines[] = '  ' . $card . '.is-single-image-post:not(.mf-card-phone-shot){width:min(100%,460px)}';
+    $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot){width:100%}';
+    $lines[] = '  ' . $card . '.is-single-image-post:not(.mf-card-phone-shot){width:100%}';
     $lines[] = '  ' . $card . '.is-multi-media-post{width:100%}';
-    $lines[] = '  ' . $s('.media-stage.has-carousel{max-height:min(82vh,900px)}');
+    $lines[] = '  ' . $s('.media-stage.has-carousel{max-height:82vh}');
     $lines[] = '}';
 
     if (strpos($scope, 'mf-feed') !== false) {
         // Feed: full-width cards; constrain + left-align media only (match public.php).
         $lines[] = $card . '.is-single-video-post:not(.mf-card-reel),' . $card . '.is-single-image-post:not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}';
-        $lines[] = $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,var(--post-media-max)))!important;max-width:100%!important;max-height:var(--post-media-max-height,min(70vh,580px))!important;margin-left:0!important;margin-right:auto!important}';
-        $lines[] = $s('.media-stage.standard-video-stage > video,') . $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,min(70vh,580px))!important}');
+        $lines[] = $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,100%))!important;max-width:100%!important;max-height:var(--post-media-max-height,78vh)!important;margin-left:0!important;margin-right:auto!important}';
+        $lines[] = $s('.media-stage.standard-video-stage > video,') . $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,78vh)!important}');
         $lines[] = '@media (max-width:767.98px){';
-        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,310px))!important;max-width:min(100%,330px)!important;margin-left:0!important;margin-right:auto!important}';
-        $lines[] = '  ' . $s('.media-stage.standard-video-stage > video,'). $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,min(52vh,500px))!important}');
+        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,100%))!important;max-width:100%!important;margin-left:0!important;margin-right:auto!important}';
+        $lines[] = '  ' . $s('.media-stage.standard-video-stage > video,'). $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,min(46vh,calc(100dvh - 270px)))!important}');
         $lines[] = '}';
         $lines[] = '@media (min-width:768px) and (max-width:1024.98px){';
-        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,400px))!important;max-width:min(100%,440px)!important;margin-left:0!important;margin-right:auto!important}';
-        $lines[] = '  ' . $s('.media-stage.standard-video-stage > video,'). $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,min(54vh,540px))!important}');
+        $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage,' . $card . '.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage{width:min(100%,var(--post-media-card-width,100%))!important;max-width:100%!important;margin-left:0!important;margin-right:auto!important}';
+        $lines[] = '  ' . $s('.media-stage.standard-video-stage > video,'). $s('.media-stage.standard-image-stage > img{max-height:var(--post-media-max-height,74vh)!important}');
         $lines[] = '}';
         $lines[] = '@media (min-width:768px) and (max-width:1199.98px){';
         $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot):not(.mf-card-reel),' . $card . '.is-single-image-post:not(.mf-card-phone-shot):not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}';
@@ -110,7 +110,7 @@ function post_media_stage_css(string $scope = ''): string
         $lines[] = '  ' . $card . '.is-single-video-post:not(.mf-card-phone-shot):not(.mf-card-reel),' . $card . '.is-single-image-post:not(.mf-card-phone-shot):not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}';
         $lines[] = '}';
         $lines[] = $s('.media-stage{background:transparent}');
-        $lines[] = $s('.media-stage.standard-video-stage{background:transparent;aspect-ratio:auto;max-height:var(--post-media-max-height,min(70vh,580px));overflow:hidden;border:0;border-radius:var(--post-media-radius)}');
+        $lines[] = $s('.media-stage.standard-video-stage{background:transparent;aspect-ratio:auto;max-height:var(--post-media-max-height,78vh);overflow:hidden;border:0;border-radius:var(--post-media-radius)}');
         $lines[] = $s('.media-stage video,') . $s('.media-stage.standard-video-stage > video{background:transparent}');
         $lines[] = $s('.mf-media-shell{position:relative;width:100%}');
         $lines[] = $s('.mf-media-shell > .mf-media-top-actions{position:absolute;top:12px;right:12px;z-index:25;display:flex;align-items:center;gap:8px;pointer-events:none}');
@@ -170,7 +170,7 @@ function post_media_stage_css(string $scope = ''): string
         $lines[] = '  ' . $card . '.mf-card-phone-shot:not(.is-multi-media-post):not(.mf-card-reel){width:100%!important;max-width:100%!important;margin-inline:0!important}';
         $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot{width:min(100%,var(--post-media-card-width,var(--post-media-max)))!important;max-width:100%!important;margin-left:0!important;margin-right:auto!important;border-radius:var(--post-media-radius);box-shadow:none;aspect-ratio:auto;max-height:none;overflow:visible;background:transparent}');
         $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot.standard-video-stage,'). $s('.mf-card-phone-shot .media-stage.phone-shot.standard-image-stage{aspect-ratio:auto;overflow:visible;border-radius:var(--post-media-radius);max-height:none;background:transparent;border:0;box-shadow:none}');
-        $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot.standard-video-stage > video,'). $s('.mf-card-phone-shot .media-stage.phone-shot.standard-image-stage > img{width:100%;height:auto;max-height:min(78svh,960px);object-fit:contain;background:transparent;border-radius:var(--post-media-radius)}');
+        $lines[] = '  ' . $s('.mf-card-phone-shot .media-stage.phone-shot.standard-video-stage > video,'). $s('.mf-card-phone-shot .media-stage.phone-shot.standard-image-stage > img{width:100%;height:auto;max-height:78svh;object-fit:contain;background:transparent;border-radius:var(--post-media-radius)}');
         $lines[] = '}';
 
         // Full media visible in card (no cover-crop zoom). Width caps stay on the page.

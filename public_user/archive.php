@@ -35,7 +35,7 @@ if ($meId <= 0) {
 
 device_profile_ensure_post_columns($dbh);
 $posts = msb_archive_fetch_posts($dbh, $meId, 200);
-$backUrl = 'profile.php?tab=gear';
+$backUrl = 'settings.php';
 $staffReadonly = function_exists('staff_pub_is_readonly') && staff_pub_is_readonly();
 
 $meUser = ['id' => $meId, 'name' => '', 'username' => '', 'image' => ''];

@@ -2572,9 +2572,9 @@ document.addEventListener('DOMContentLoaded', function(){
       return;
     }
     if (vis === 'public') {
-      returnToInput.value = isStoryCreateForm ? 'home.php?tab=discover&story=1' : 'home.php?tab=discover';
+      returnToInput.value = isStoryCreateForm ? 'public.php?story=1' : 'public.php';
     } else {
-      returnToInput.value = isStoryCreateForm ? 'home.php?tab=for-you&story=1' : 'home.php?tab=for-you';
+      returnToInput.value = isStoryCreateForm ? 'feed.php?story=1' : 'feed.php';
     }
   }
   syncReturnToFromVisibility();

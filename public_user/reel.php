@@ -48,7 +48,7 @@ $iconFries = post_card_menu_fries_icon_html();
       --reel-panel:rgba(255,255,255,.12);
       --reel-panel-hover:rgba(255,255,255,.18);
       --msb-love-color:#7c3aed;
-      --post-media-radius:10px;
+      --post-media-radius:6px;
       --post-media-max:680px;
       --post-phone-max:430px;
       --post-portrait-max:520px;
@@ -174,20 +174,22 @@ $iconFries = post_card_menu_fries_icon_html();
       width:min(100%, var(--post-media-card-width, var(--post-media-max)));
       max-width:min(100%, var(--feed-center-w));
       height:auto;
+      max-height:var(--reel-media-max-h);
       border-radius:var(--post-media-radius);
       overflow:hidden;
       background:#111;
       box-shadow:0 20px 60px rgba(0,0,0,.45);
       flex:0 0 auto;
     }
-    .reel-video{
+    .reel-video,
+    .reel-image{
       display:block;
       width:100%;
-      height:auto;
-      max-height:var(--reel-media-max-h);
+      height:100%;
+      max-height:none;
       object-fit:contain;
       object-position:center center;
-      background:#000;
+      background:transparent;
       border-radius:var(--post-media-radius);
     }
     .reel-stage.is-phone-shot{
@@ -383,6 +385,7 @@ $iconFries = post_card_menu_fries_icon_html();
       background:rgba(255,255,255,.18);
       z-index:6;
       overflow:hidden;
+      border-radius:0 0 var(--post-media-radius) var(--post-media-radius);
     }
     .reel-progress > span{
       display:block;
@@ -583,13 +586,14 @@ $iconFries = post_card_menu_fries_icon_html();
       .reel-stage.is-phone-shot{
         width:min(72vw, var(--post-phone-max)) !important;
         max-width:100%;
-        max-height:min(78svh, 900px);
-        aspect-ratio:var(--device-ar-w, 375) / var(--device-ar-h, 667);
-        border-radius:28px;
+        max-height:var(--reel-media-max-h);
+        aspect-ratio:var(--reel-ar-w, var(--device-ar-w, 375)) / var(--reel-ar-h, var(--device-ar-h, 667));
+        border-radius:var(--post-media-radius);
         overflow:hidden;
       }
-      .reel-stage.is-phone-shot .reel-video{
-        width:100%;height:100%;max-height:none;object-fit:contain;border-radius:0;
+      .reel-stage.is-phone-shot .reel-video,
+      .reel-stage.is-phone-shot .reel-image{
+        width:100%;height:100%;max-height:none;object-fit:contain;border-radius:var(--post-media-radius);
       }
       .reel-jump{right:10px;}
     }
@@ -695,12 +699,13 @@ $iconFries = post_card_menu_fries_icon_html();
     }
     @media (min-width:768px){
       .reel-stage.is-phone-shot{
-        aspect-ratio:auto;
+        aspect-ratio:var(--reel-ar-w, 9) / var(--reel-ar-h, 16);
         border-radius:var(--post-media-radius);
-        max-height:none;
+        max-height:var(--reel-media-max-h);
       }
-      .reel-stage.is-phone-shot .reel-video{
-        width:100%;height:auto;max-height:var(--reel-media-max-h);
+      .reel-stage.is-phone-shot .reel-video,
+      .reel-stage.is-phone-shot .reel-image{
+        width:100%;height:100%;max-height:none;
         object-fit:contain;border-radius:var(--post-media-radius);
       }
     }
@@ -934,8 +939,7 @@ $iconFries = post_card_menu_fries_icon_html();
       box-sizing:border-box;
     }
     body.reel-page .reel-card-main > .reel-outside-head,
-    body.reel-page .reel-card-main > .reel-caption,
-    body.reel-page .reel-card-main > .reel-stage{
+    body.reel-page .reel-card-main > .reel-caption{
       position:relative !important;
       left:0 !important;
       right:auto !important;
@@ -954,16 +958,39 @@ $iconFries = post_card_menu_fries_icon_html();
       text-indent:0 !important;
     }
     body.reel-page .reel-card-main > .reel-stage{
-      overflow:hidden;
-    }
-    body.reel-page .reel-card-main > .reel-stage > .reel-video,
-    body.reel-page .reel-card-main > .reel-stage > img{
-      display:block !important;
-      width:100% !important;
-      max-width:100% !important;
+      position:relative !important;
+      left:0 !important;
+      right:auto !important;
+      top:auto !important;
+      bottom:auto !important;
+      float:none !important;
+      clear:both !important;
       margin-left:0 !important;
       margin-right:0 !important;
-      object-position:left center !important;
+      padding-left:0 !important;
+      padding-right:0 !important;
+      transform:none !important;
+      box-sizing:border-box !important;
+      text-indent:0 !important;
+      overflow:hidden !important;
+      border-radius:var(--post-media-radius) !important;
+      max-width:100% !important;
+      max-height:var(--reel-media-max-h) !important;
+    }
+    body.reel-page .reel-card-main > .reel-stage > .reel-video,
+    body.reel-page .reel-card-main > .reel-stage > img,
+    body.reel-page .reel-card-main > .reel-stage > .reel-image{
+      display:block !important;
+      width:100% !important;
+      height:100% !important;
+      max-width:100% !important;
+      max-height:none !important;
+      margin-left:0 !important;
+      margin-right:0 !important;
+      object-fit:contain !important;
+      object-position:center center !important;
+      background:transparent !important;
+      border-radius:var(--post-media-radius) !important;
     }
     body.reel-page .reel-outside-head{
       display:flex !important;
@@ -1206,24 +1233,44 @@ $iconFries = post_card_menu_fries_icon_html();
       var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
       var viewportH = Math.max(window.innerHeight || 0, 320);
       var maxVideoH = isMobile
-        ? Math.max(viewportH - 210, 300)
-        : Math.min(Math.round(viewportH * 0.78), 960);
+        ? Math.max(viewportH - 220, 260)
+        : Math.min(Math.round(viewportH * 0.62), 720);
       var aspect = aspectW / aspectH;
-      var availableWidth = Math.max(280, reelFeedWidth());
-      var desiredWidth = Math.round(aspect * maxVideoH);
-      var maxByShape = aspect < 0.8 ? 520 : (aspect > 1.15 ? 800 : 620);
+      if(aspect >= 0.85) phoneShot = false;
+      var availableWidth = Math.max(240, reelFeedWidth());
+      var maxByShape = aspect < 0.8 ? 430 : (aspect > 1.15 ? 760 : 560);
       if(phoneShot && isMobile) maxByShape = 430;
-      var safeWidth = Math.max(280, Math.min(desiredWidth, availableWidth, maxByShape));
-      if(aspect >= 0.8 && aspect <= 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 420));
-      if(aspect > 1.15) safeWidth = Math.min(availableWidth, Math.max(safeWidth, 560));
+      var safeWidth = Math.max(240, Math.min(Math.round(aspect * maxVideoH), availableWidth, maxByShape));
+      var safeHeight = Math.round(safeWidth / aspect);
+      if(safeHeight > maxVideoH){
+        safeHeight = maxVideoH;
+        safeWidth = Math.max(240, Math.round(safeHeight * aspect));
+      }
       stageEl.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
-      stageEl.style.width = String(safeWidth) + 'px';
-      stageEl.style.maxWidth = '100%';
+      stageEl.style.setProperty('--reel-ar-w', String(Math.round(aspectW)));
+      stageEl.style.setProperty('--reel-ar-h', String(Math.round(aspectH)));
+      stageEl.style.setProperty('width', String(safeWidth) + 'px', 'important');
+      stageEl.style.setProperty('max-width', '100%', 'important');
+      stageEl.style.setProperty('height', String(safeHeight) + 'px', 'important');
+      stageEl.style.setProperty('max-height', String(maxVideoH) + 'px', 'important');
+      stageEl.style.setProperty('aspect-ratio', String(aspectW) + ' / ' + String(aspectH), 'important');
+      stageEl.style.setProperty('overflow', 'hidden', 'important');
+      stageEl.style.setProperty('border-radius', '6px', 'important');
+      var mediaEl = stageEl.querySelector('.reel-video, .reel-image');
+      if(mediaEl){
+        mediaEl.style.setProperty('width', '100%', 'important');
+        mediaEl.style.setProperty('height', '100%', 'important');
+        mediaEl.style.setProperty('max-height', 'none', 'important');
+        mediaEl.style.setProperty('object-fit', 'contain', 'important');
+        mediaEl.style.setProperty('object-position', 'center center', 'important');
+        mediaEl.style.setProperty('background', 'transparent', 'important');
+        mediaEl.style.setProperty('border-radius', '6px', 'important');
+      }
       var cardMain = stageEl.closest('.reel-card-main');
       if(cardMain){
         cardMain.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
-        cardMain.style.width = String(safeWidth) + 'px';
-        cardMain.style.maxWidth = '100%';
+        cardMain.style.setProperty('width', String(safeWidth) + 'px', 'important');
+        cardMain.style.setProperty('max-width', '100%', 'important');
       }
       if(phoneShot){
         stageEl.classList.add('is-phone-shot');
@@ -1236,11 +1283,16 @@ $iconFries = post_card_menu_fries_icon_html();
     function syncSlideSize(slide, it){
       if(!slide || !it) return;
       var stageEl = slide.querySelector('.reel-stage');
-      var video = slide.querySelector('video');
+      var video = slide.querySelector('video.reel-video');
+      var img = slide.querySelector('img.reel-image');
       if(!stageEl) return;
       var phoneShot = Number(it.phone_shot || 0) === 1;
-      var vw = Number((video && video.videoWidth) || 0);
-      var vh = Number((video && video.videoHeight) || 0);
+      var vw = Number((video && video.style.display !== 'none' && video.videoWidth) || 0);
+      var vh = Number((video && video.style.display !== 'none' && video.videoHeight) || 0);
+      if((!vw || !vh) && img && img.style.display !== 'none'){
+        vw = Number(img.naturalWidth || 0);
+        vh = Number(img.naturalHeight || 0);
+      }
       if(vw > 0 && vh > 0){
         applyPublicVideoCardWidth(stageEl, vw, vh, phoneShot);
         return;
@@ -1250,7 +1302,6 @@ $iconFries = post_card_menu_fries_icon_html();
         applyPublicVideoCardWidth(stageEl, dims.w, dims.h, phoneShot);
         return;
       }
-      applyPublicVideoCardWidth(stageEl, phoneShot ? 390 : 9, phoneShot ? 844 : 16, phoneShot);
     }
 
     function syncMuteBtn(slide, muted){
@@ -1526,11 +1577,12 @@ $iconFries = post_card_menu_fries_icon_html();
           img = document.createElement('img');
           img.className = 'reel-image';
           img.alt = '';
-          img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;background:#000;';
           stage.insertBefore(img, stage.firstChild);
         }
         img.style.display = 'block';
+        img.onload = function(){ syncSlideSize(slide, it); };
         img.src = src;
+        if(img.complete && img.naturalWidth) syncSlideSize(slide, it);
       } else {
         if(img) img.style.display = 'none';
         if(!video){

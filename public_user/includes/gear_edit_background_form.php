@@ -15,7 +15,7 @@ $gef = $gearEditForm;
   <div class="gear-edit-head">
     <div>
       <h2 class="gear-edit-title">Edit background</h2>
-      <p class="gear-edit-sub">About details only. Name, username, email, phone, bio, location, and website live on <a href="accounts.php?return=<?php echo rawurlencode('profile.php?tab=gear'); ?>">Account</a>.</p>
+      <p class="gear-edit-sub">About details only. Name, username, email, phone, bio, location, and website live on <a href="accounts.php?return=<?php echo rawurlencode('settings.php'); ?>">Account</a>.</p>
     </div>
     <button class="gear-edit-save" type="submit">Save changes</button>
   </div>

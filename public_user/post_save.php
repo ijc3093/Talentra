@@ -512,13 +512,6 @@ try {
             $queryKey => $postId,
             'fresh' => 1,
         ];
-        if ($visibility === 'public' && ($dest === 'home.php' || $dest === 'public.php')) {
-            $redirectParams = ['tab' => home_tab_url_key('public')] + $redirectParams;
-            $dest = 'home.php';
-        } elseif ($visibility === 'friends' && ($dest === 'home.php' || $dest === 'feed.php')) {
-            $redirectParams = ['tab' => 'for-you'] + $redirectParams;
-            $dest = 'home.php';
-        }
         $redirect = $dest . '?' . http_build_query($redirectParams);
     }
     if ($uploadAttempts > 0 && $uploadSaved === 0) {

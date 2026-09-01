@@ -386,7 +386,7 @@ body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-im
 body.feed-page.feed-insta-ui .mf-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized),
 body.feed-page.feed-insta-ui .mf-card.is-single-image-post .media-stage.standard-image-stage:not(.mf-media-sized){
   display:block !important;
-  width:min(100%,var(--post-media-card-width,620px)) !important;
+  width:min(100%,var(--post-media-card-width,100%)) !important;
   margin-left:0 !important;
   margin-right:auto !important;
   aspect-ratio:auto !important;
@@ -396,7 +396,7 @@ body.feed-page.feed-insta-ui .mf-card.is-single-image-post .media-stage.standard
 body.public-page.feed-insta-ui .public-post-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized),
 body.public-page.feed-insta-ui .public-post-card.is-single-image-post .media-stage.standard-image-stage:not(.mf-media-sized){
   display:block !important;
-  width:min(100%,var(--post-media-card-width,620px)) !important;
+  width:min(100%,var(--post-media-card-width,100%)) !important;
   margin-left:0 !important;
   margin-right:auto !important;
   aspect-ratio:auto !important;

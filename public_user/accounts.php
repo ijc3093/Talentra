@@ -344,9 +344,9 @@ if ($ajaxAction === 'save_account') {
     ]);
 }
 
-$returnUrl = trim((string)($_GET['return'] ?? 'profile.php?tab=gear#gear-account-tools'));
+$returnUrl = trim((string)($_GET['return'] ?? 'settings.php#gear-account-tools'));
 if (strpos($returnUrl, '://') !== false || str_starts_with($returnUrl, '//')) {
-    $returnUrl = 'profile.php?tab=gear#gear-account-tools';
+    $returnUrl = 'settings.php#gear-account-tools';
 }
 $bioLen = function_exists('mb_strlen') ? mb_strlen($form['bio']) : strlen($form['bio']);
 $phoneRequired = !publisher_is_publisher_user($dbh, $meId);

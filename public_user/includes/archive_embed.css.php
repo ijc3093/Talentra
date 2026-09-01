@@ -44,9 +44,7 @@ html.dark-auto .ig-archive-embed-host{
   flex:1 1 auto;
   min-width:0;
   min-height:0;
-  overflow-x:hidden;
-  overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
+  overflow:hidden;
   background:var(--msb-palette-bg, var(--ig-bg, #fff));
   color:var(--msb-palette-text, var(--ig-text, #0f0f0f));
 }
@@ -138,6 +136,47 @@ html.dark-auto .ig-archive-embed-host{
 .ig-archive-embed-host .ig-stories-bar:not(.is-empty) .ig-stories-next{display:inline-flex}
 .ig-archive-embed-host .ig-stories-next svg{width:12px;height:12px}
 .ig-archive-embed-host .ig-archive-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:0 1px 8px}
+.ig-archive-embed-host .ig-archive-tile-wrap{
+  position:relative;
+  aspect-ratio:3/4;
+  overflow:hidden;
+  background:var(--ig-tile);
+}
+.ig-archive-embed-host .ig-archive-tile-wrap .ig-archive-tile{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  aspect-ratio:auto;
+}
+.ig-archive-embed-host .ig-archive[data-archive-mode="favorites"] .ig-saved-remove{
+  position:absolute;
+  top:6px;
+  right:6px;
+  z-index:8;
+  width:28px;
+  height:28px;
+  padding:0;
+  border:0;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  color:#fff;
+  background:rgba(15,23,42,.72);
+  box-shadow:0 1px 4px rgba(0,0,0,.28);
+}
+.ig-archive-embed-host .ig-archive[data-archive-mode="favorites"] .ig-saved-remove:hover,
+.ig-archive-embed-host .ig-archive[data-archive-mode="favorites"] .ig-saved-remove:focus-visible{
+  background:#b42318;
+  outline:0;
+}
+.ig-archive-embed-host .ig-archive[data-archive-mode="favorites"] .ig-saved-remove i{
+  font-size:15px;
+  line-height:1;
+  margin:0;
+}
 .ig-archive-embed-host .ig-archive-tile{
   position:relative;aspect-ratio:1/1;background:var(--ig-tile);overflow:hidden;border:0;padding:0;cursor:pointer;color:#fff;
 }
@@ -184,6 +223,9 @@ html.dark-auto .ig-archive-embed-host{
 .ig-archive-embed-host .ig-archive-video-mark{
   position:absolute;top:8px;right:8px;z-index:2;width:22px;height:22px;border-radius:999px;
   background:rgba(0,0,0,.45);display:grid;place-items:center;pointer-events:none;
+}
+.ig-archive-embed-host .ig-archive[data-archive-mode="favorites"] .ig-archive-video-mark{
+  right:38px;
 }
 .ig-archive-embed-host .ig-archive-video-mark svg{width:11px;height:11px;fill:#fff}
 .ig-archive-embed-host .ig-archive-empty{padding:48px 28px 40px;text-align:center;color:var(--ig-muted)}
