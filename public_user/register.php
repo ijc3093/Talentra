@@ -881,7 +881,7 @@ if ($isPublisherReg) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en" class="<?= htmlspecialchars($registerHtmlClasses, ENT_QUOTES, 'UTF-8') ?>">
+<html <?= app_html_lang_attrs($registerHtmlClasses) ?>>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">

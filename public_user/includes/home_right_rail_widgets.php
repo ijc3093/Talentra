@@ -222,17 +222,18 @@ if (!function_exists('home_rail_birthday_events')) {
                 $name = trim((string)($row['username'] ?? 'Friend'));
             }
             $code = strtoupper(trim((string)($row['friend_code'] ?? '')));
-            $when = $days === 0 ? 'Birthday today' : ('Birthday in ' . $days . ' day' . ($days === 1 ? '' : 's'));
+            $when = $days === 0 ? 'Birthday today' : ('Birthday in ' . $days . ' days');
             $draft = 'Happy birthday, ' . $name . '!';
             $picked[] = [
                 'kind' => 'birthday',
                 'sort' => $days,
                 'id' => (int)($row['id'] ?? 0),
-                'title' => $name . '\'s birthday',
+                'title' => $name,
                 'month' => strtoupper($thisYear->format('M')),
                 'day' => $thisYear->format('d'),
                 'when' => $when,
-                'where' => 'Send a birthday message',
+                'bday_days' => $days,
+                'where' => function_exists('app_t') ? app_t('Send a birthday message') : 'Send a birthday message',
                 'href' => '',
                 'peer' => $code,
                 'peer_id' => (int)($row['id'] ?? 0),
@@ -252,6 +253,14 @@ $homeRailMeId = (int)($sfyMeId ?? $meId ?? $_SESSION['user_id'] ?? 0);
 $homeRailTags = ($homeRailDbh instanceof PDO) ? home_rail_trending_tags($homeRailDbh, 8) : [];
 $homeRailLive = ($homeRailDbh instanceof PDO) ? home_rail_upcoming_events($homeRailDbh, 6) : [];
 $homeRailBirthdays = ($homeRailDbh instanceof PDO) ? home_rail_birthday_events($homeRailDbh, $homeRailMeId, 8) : [];
+if ($homeRailDbh instanceof PDO && $homeRailMeId > 0 && function_exists('profile_user_wants_notification')) {
+    if (!profile_user_wants_notification($homeRailDbh, $homeRailMeId, 'birthday_notifications')) {
+        $homeRailBirthdays = [];
+    }
+    if (!profile_user_wants_notification($homeRailDbh, $homeRailMeId, 'event_reminder_notifications')) {
+        $homeRailLive = [];
+    }
+}
 $homeRailEvents = [];
 foreach ($homeRailBirthdays as $ev) {
     $homeRailEvents[] = $ev;
@@ -270,10 +279,10 @@ if (!$sfyModeIsPage && empty($sfyCanShowPersonal)) {
 }
 $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
 ?>
-<section class="home-right-card" aria-label="Trending">
+<section class="home-right-card" aria-label="<?= h(function_exists('app_t') ? app_t('Trending') : 'Trending') ?>">
   <header class="home-right-card-head">
-    <h2 class="home-right-card-title">Trending</h2>
-    <a class="home-right-card-see" href="<?= h($homeRailPublishers ? $homeRailSeePublishers : $homeRailTrendHref) ?>">See all</a>
+    <h2 class="home-right-card-title"><?= h(function_exists('app_t') ? app_t('Trending') : 'Trending') ?></h2>
+    <a class="home-right-card-see" href="<?= h($homeRailPublishers ? $homeRailSeePublishers : $homeRailTrendHref) ?>"><?= h(function_exists('app_t') ? app_t('See all') : 'See all') ?></a>
   </header>
   <div class="home-right-card-scroll">
   <?php if ($homeRailPublishers): ?>
@@ -289,21 +298,21 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
         <span class="home-trend-num"><?= (int)$i + 1 ?></span>
         <a class="home-trend-body" href="<?= h($homeRailTrendHref . '&q=' . rawurlencode('#' . $item['tag'])) ?>">
           <strong>#<?= h($item['tag']) ?></strong>
-          <span><?= h(home_rail_format_count((int)$item['count'])) ?> posts</span>
+          <span><?= h(home_rail_format_count((int)$item['count'])) ?> <?= h(function_exists('app_t') ? app_t('posts') : 'posts') ?></span>
         </a>
       </li>
     <?php endforeach; ?>
   </ol>
   <?php else: ?>
-  <p class="home-right-empty">No trending tags yet.</p>
+  <p class="home-right-empty"><?= h(function_exists('app_t') ? app_t('No trending tags yet.') : 'No trending tags yet.') ?></p>
   <?php endif; ?>
   </div>
 </section>
 
-<section class="home-right-card" aria-label="Upcoming Events">
+<section class="home-right-card" aria-label="<?= h(function_exists('app_t') ? app_t('Upcoming Events') : 'Upcoming Events') ?>">
   <header class="home-right-card-head">
-    <h2 class="home-right-card-title">Upcoming Events</h2>
-    <a class="home-right-card-see" href="contacts.php">See all</a>
+    <h2 class="home-right-card-title"><?= h(function_exists('app_t') ? app_t('Upcoming Events') : 'Upcoming Events') ?></h2>
+    <a class="home-right-card-see" href="contacts.php"><?= h(function_exists('app_t') ? app_t('See all') : 'See all') ?></a>
   </header>
   <div class="home-right-card-scroll">
   <?php if ($homeRailEvents): ?>
@@ -325,9 +334,24 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
             <strong><?= h((string)$event['day']) ?></strong>
           </span>
           <span class="home-event-meta">
-            <strong><?= h((string)$event['title']) ?></strong>
-            <span><?= h((string)$event['when']) ?></span>
-            <span><?= h((string)$event['where']) ?></span>
+            <strong><?php
+              if ($isBday) {
+                  echo h((string)($event['name'] ?? $event['title'] ?? ''));
+                  echo ' · ';
+                  echo h(function_exists('app_t') ? app_t('Birthday') : 'Birthday');
+              } else {
+                  echo h((string)$event['title']);
+              }
+            ?></strong>
+            <span><?php
+              if ($isBday && function_exists('app_t')) {
+                  $bDays = (int)($event['bday_days'] ?? $event['sort'] ?? 0);
+                  echo h($bDays === 0 ? app_t('Birthday today') : (app_t('Birthday in') . ' ' . $bDays . ' ' . app_t($bDays === 1 ? 'day' : 'days')));
+              } else {
+                  echo h((string)$event['when']);
+              }
+            ?></span>
+            <span><?= h(function_exists('app_t') ? app_t((string)$event['where']) : (string)$event['where']) ?></span>
           </span>
         <?php if ($isBday): ?></button><?php else: ?></a><?php endif; ?>
       </li>
@@ -338,19 +362,31 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
   <?php endif; ?>
   </div>
 </section>
-<footer class="home-right-legal" aria-label="About Talsora">
+<footer class="home-right-legal" aria-label="<?= h(function_exists('app_t') ? app_t('About Talsora') : 'About Talsora') ?>">
   <nav>
-    <a href="index.php?tab=about">About</a>
-    <a href="index.php?tab=guidance">Guidance</a>
-    <a href="index.php?tab=help">Help</a>
-    <a href="index.php?tab=policy">Policy</a>
-    <a href="index.php?tab=terms">Terms</a>
-    <a href="index.php?tab=locations">Locations</a>
-    <a href="shop.php">Shop</a>
+    <a href="index.php?tab=about"><?= h(function_exists('app_t') ? app_t('About') : 'About') ?></a>
+    <a href="index.php?tab=guidance"><?= h(function_exists('app_t') ? app_t('Guidance') : 'Guidance') ?></a>
+    <a href="index.php?tab=help"><?= h(function_exists('app_t') ? app_t('Help') : 'Help') ?></a>
+    <a href="index.php?tab=policy"><?= h(function_exists('app_t') ? app_t('Policy') : 'Policy') ?></a>
+    <a href="index.php?tab=terms"><?= h(function_exists('app_t') ? app_t('Terms') : 'Terms') ?></a>
+    <a href="index.php?tab=locations"><?= h(function_exists('app_t') ? app_t('Locations') : 'Locations') ?></a>
+    <a href="shop.php"><?= h(function_exists('app_t') ? app_t('Shop') : 'Shop') ?></a>
   </nav>
-  <p>English · © <?= (int)date('Y') ?> Talsora</p>
+  <p><?= h(function_exists('app_i18n_language_display') ? app_i18n_language_display() : 'English') ?> · © <?= (int)date('Y') ?> Talsora</p>
 </footer>
 <style>
+dialog.home-bday-dialog:not([open]){
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+dialog.home-bday-dialog[open]{
+  display:block !important;
+  position:fixed !important;
+  inset:0;
+  margin:auto;
+  z-index:2147483000;
+}
 .home-bday-dialog{
   border:1px solid var(--msb-palette-border,#e5e7eb);border-radius:16px;padding:0;max-width:420px;width:calc(100% - 32px);
   background:var(--msb-palette-bg,#fff);color:var(--msb-palette-text,#0f172a);box-shadow:0 18px 50px rgba(15,23,42,.22);
@@ -364,23 +400,26 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
   width:100%;min-height:88px;box-sizing:border-box;border:1px solid var(--msb-palette-border,#d0d5dd);border-radius:12px;
   padding:10px 12px;font:inherit;background:var(--msb-palette-surface-2,#fff);color:inherit;resize:vertical;
 }
+.home-bday-error{margin:0;min-height:1.2em;font-size:12px;font-weight:700;color:#b42318;}
 .home-bday-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
 .home-bday-cancel,.home-bday-send{
   border-radius:10px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer;
 }
 .home-bday-cancel{border:1px solid var(--msb-palette-border,#d0d5dd);background:transparent;color:inherit;}
 .home-bday-send{border:0;background:#db2777;color:#fff;}
+.home-bday-send:disabled{opacity:.6;cursor:wait;}
 </style>
 <dialog id="homeBirthdayDialog" class="home-bday-dialog">
-  <form method="get" action="messages.php" class="home-bday-form">
-    <h3 class="home-bday-title">Send a birthday message</h3>
-    <p class="home-bday-lead" id="homeBdayLead">Wish your friend a happy birthday.</p>
-    <input type="hidden" name="peer" id="homeBdayPeer" value="">
-    <label class="home-bday-label" for="homeBdayDraft">Message</label>
-    <textarea class="home-bday-text" id="homeBdayDraft" name="draft" rows="4" maxlength="2000" required></textarea>
+  <form class="home-bday-form" id="homeBdayForm" action="ajax/user_chat_send.php" method="post">
+    <h3 class="home-bday-title"><?= h(function_exists('app_t') ? app_t('Send a birthday message') : 'Send a birthday message') ?></h3>
+    <p class="home-bday-lead" id="homeBdayLead"><?= h(function_exists('app_t') ? app_t('Wish your friend a happy birthday.') : 'Wish your friend a happy birthday.') ?></p>
+    <input type="hidden" name="to" id="homeBdayPeer" value="">
+    <label class="home-bday-label" for="homeBdayDraft"><?= h(function_exists('app_t') ? app_t('Message') : 'Message') ?></label>
+    <textarea class="home-bday-text" id="homeBdayDraft" name="message" rows="4" maxlength="2000" required></textarea>
+    <p class="home-bday-error" id="homeBdayError" hidden></p>
     <div class="home-bday-actions">
-      <button type="button" class="home-bday-cancel" data-birthday-close="1">Cancel</button>
-      <button type="submit" class="home-bday-send">Open Messages</button>
+      <button type="button" class="home-bday-cancel" data-birthday-close="1"><?= h(function_exists('app_t') ? app_t('Cancel') : 'Cancel') ?></button>
+      <button type="submit" class="home-bday-send" id="homeBdaySend"><?= h(function_exists('app_t') ? app_t('Send') : 'Send') ?></button>
     </div>
   </form>
 </dialog>
@@ -388,32 +427,94 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
 (function(){
   var dlg = document.getElementById('homeBirthdayDialog');
   if (!dlg) return;
+  var form = document.getElementById('homeBdayForm');
   var peer = document.getElementById('homeBdayPeer');
   var draft = document.getElementById('homeBdayDraft');
   var lead = document.getElementById('homeBdayLead');
+  var errEl = document.getElementById('homeBdayError');
+  var sendBtn = document.getElementById('homeBdaySend');
+  var sending = false;
+
+  function closeDlg(){
+    if (typeof dlg.close === 'function') dlg.close();
+    else dlg.removeAttribute('open');
+  }
+  function openDlg(){
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+    else dlg.setAttribute('open', 'open');
+  }
+  function setError(msg){
+    if (!errEl) return;
+    var text = String(msg || '');
+    errEl.hidden = text === '';
+    errEl.textContent = text;
+  }
+
   document.addEventListener('click', function(e){
     var openBtn = e.target.closest('[data-birthday-open]');
     if (openBtn) {
       e.preventDefault();
       var name = openBtn.getAttribute('data-name') || 'your friend';
-      var code = openBtn.getAttribute('data-peer') || '';
-      var pid = openBtn.getAttribute('data-peer-id') || '';
-      if (peer) {
-        peer.name = code !== '' ? 'peer' : 'id';
-        peer.value = code !== '' ? code : pid;
-      }
+      var code = String(openBtn.getAttribute('data-peer') || '').trim();
+      if (peer) peer.value = code;
       if (draft) draft.value = openBtn.getAttribute('data-draft') || ('Happy birthday, ' + name + '!');
-      if (lead) lead.textContent = 'Wish ' + name + ' a happy birthday. This opens Messages so you can send it.';
-      if (typeof dlg.showModal === 'function') dlg.showModal();
-      else dlg.setAttribute('open', 'open');
+      if (lead) lead.textContent = 'Wish ' + name + ' a happy birthday.';
+      setError('');
+      openDlg();
       if (draft) draft.focus();
       return;
     }
     if (e.target.closest('[data-birthday-close]')) {
       e.preventDefault();
-      if (typeof dlg.close === 'function') dlg.close();
-      else dlg.removeAttribute('open');
+      closeDlg();
     }
+  });
+
+  dlg.addEventListener('click', function(e){
+    if (e.target === dlg) closeDlg();
+  });
+
+  if (!form) return;
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    if (sending) return;
+    var code = peer ? String(peer.value || '').trim() : '';
+    var text = draft ? String(draft.value || '').trim() : '';
+    if (!code) {
+      setError('This friend cannot receive a message yet.');
+      return;
+    }
+    if (!text) {
+      setError('Write a birthday message first.');
+      return;
+    }
+    sending = true;
+    if (sendBtn) sendBtn.disabled = true;
+    setError('');
+    var fd = new FormData();
+    fd.append('to', code);
+    fd.append('message', text);
+    if (window.__MSB_CSRF_TOKEN) fd.append('csrf_token', window.__MSB_CSRF_TOKEN);
+    fetch('ajax/user_chat_send.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json' }
+    }).then(function(res){
+      return res.json().catch(function(){ return null; });
+    }).then(function(data){
+      if (data && data.ok) {
+        closeDlg();
+        return;
+      }
+      setError((data && data.error) ? String(data.error) : 'Could not send the message.');
+    }).catch(function(){
+      setError('Could not send the message.');
+    }).then(function(){
+      sending = false;
+      if (sendBtn) sendBtn.disabled = false;
+    });
   });
 })();
 </script>

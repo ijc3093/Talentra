@@ -143,7 +143,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
   <?php endif; ?>
 </div>
 <?php endif; ?>
-<?php if (!$feedLeftRailEmbed): ?><aside class="feed-left-rail" aria-label="Main navigation"><?php endif; ?>
+<?php if (!$feedLeftRailEmbed): ?><aside class="feed-left-rail" aria-label="<?= app_t_attr('Main navigation') ?>"><?php endif; ?>
   <?php if ($flrPageHeadTitle !== '' && $feedLeftRailEmbed): ?>
   <div class="feed-left-rail-page-head">
     <h1 class="feed-left-rail-page-title"><?= htmlspecialchars($flrPageHeadTitle, ENT_QUOTES, 'UTF-8') ?></h1>
@@ -154,13 +154,13 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
   <?php endif; ?>
   <?php if (!$flrShopOnlyNav): ?>
   <div class="feed-left-rail-head">
-    <button class="feed-left-nav-item feed-left-nav-add-program" type="button" aria-label="Add Program" aria-haspopup="dialog" aria-controls="feedProgramManager">
+    <button class="feed-left-nav-item feed-left-nav-add-program" type="button" aria-label="<?= app_t_attr('Add Program') ?>" aria-haspopup="dialog" aria-controls="feedProgramManager">
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></svg></span>
-      <span class="feed-left-nav-label">Add Program</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Add Program') ?></span>
     </button>
   </div>
   <?php endif; ?>
-  <nav class="feed-left-nav" aria-label="Sidebar menu">
+  <nav class="feed-left-nav" aria-label="<?= app_t_attr('Sidebar menu') ?>">
     <?php if ($flrShopOnlyNav): ?>
     <?php if (!empty($feedLeftRailShopFilters)): ?>
       <?php include __DIR__ . '/feed_shop_brand_nav.php'; ?>
@@ -182,13 +182,13 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
         if ($companyName === '' || $companyHref === '') {
             continue;
         }
-        $companyLabel = 'Enterprise';
+        $companyLabel = app_t('Enterprise');
       ?>
       <a
         class="feed-left-nav-item feed-left-nav-item-publisher feed-left-nav-item-under-public is-self-publisher<?= $flrPublisherPortalActive($company) ?>"
         href="<?= htmlspecialchars($companyHref, ENT_QUOTES, 'UTF-8') ?>"
         title="<?= htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') ?>"
-        aria-label="Enterprise"
+        aria-label="<?= app_t_attr('Enterprise') ?>"
       >
         <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 21V7l6-3.5L18 7v14"/><path d="M9 21v-5h6v5"/></svg></span>
         <span class="feed-left-nav-label"><?= htmlspecialchars($companyLabel, ENT_QUOTES, 'UTF-8') ?></span>
@@ -235,46 +235,46 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
     </a> -->
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('entertainment') ?>" href="home.php?tab=entertainment" data-program-slug="entertainment" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3v18"/><path d="M16 3v18"/><path d="M3 8h18"/><path d="M3 16h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg></span>
-      <span class="feed-left-nav-label">Entertainment</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Entertainment') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('library') ?>" href="home.php?tab=library" data-program-slug="library" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg></span>
-      <span class="feed-left-nav-label">Library</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Library') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('cook') ?>" href="home.php?tab=cook" data-program-slug="cook" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v7"/><path d="M3.5 3v4.5A2.5 2.5 0 0 0 6 10"/><path d="M8.5 3v4.5A2.5 2.5 0 0 1 6 10v11"/><path d="M15 3v18"/><path d="M15 3a5 5 0 0 1 5 5v4h-5"/></svg></span>
-      <span class="feed-left-nav-label">Cook</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Cook') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('seek-around-the-world') ?>" href="home.php?tab=seek-around-the-world" data-program-slug="seek-around-the-world" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg></span>
-      <span class="feed-left-nav-label">Seek around the World</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Seek around the World') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('geology') ?>" href="home.php?tab=geology" data-program-slug="geology" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 20 6.5-11 3 5 2.5-4 6 10z"/><path d="m7.8 12 1.7 1.5 1.5-2"/><path d="M3 20h18"/></svg></span>
-      <span class="feed-left-nav-label">Geology</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Geology') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('animation') ?>" href="home.php?tab=animation" data-program-slug="animation" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/><path d="M7 5v14"/><path d="M17 5v14"/></svg></span>
-      <span class="feed-left-nav-label">Animation</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Animation') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('make-a-new-friend') ?>" href="home.php?tab=make-a-new-friend" data-program-slug="make-a-new-friend" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
-      <span class="feed-left-nav-label">Make a new Friend</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Make a new Friend') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('agents') ?>" href="home.php?tab=agents" data-program-slug="agents" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="3"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="10" cy="13" r="1"/><circle cx="14" cy="13" r="1"/><path d="M10 16h4"/></svg></span>
-      <span class="feed-left-nav-label">Agents</span>
-      <span class="feed-left-nav-badge">NEW</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Agents') ?></span>
+      <span class="feed-left-nav-badge"><?= app_t_attr('NEW') ?></span>
     </a>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive('deep-research') ?>" href="home.php?tab=deep-research" data-program-slug="deep-research" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20l6-6"/><path d="M14 4l6 6"/><path d="M9 15l-2 5 5-2 8-8-3-3-8 8z"/><circle cx="18" cy="6" r="2"/></svg></span>
-      <span class="feed-left-nav-label">Deep research</span>
+      <span class="feed-left-nav-label"><?= app_t_attr('Deep research') ?></span>
     </a>
     <?php if (function_exists('publisher_academic_categories') && function_exists('publisher_category_icon_path')): ?>
     <?php foreach (publisher_academic_categories() as $categorySlug => $categoryLabel): ?>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive($categorySlug) ?>" href="home.php?tab=<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" data-program-slug="<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><?= publisher_category_icon_path($categorySlug) ?></svg></span>
-      <span class="feed-left-nav-label"><?= htmlspecialchars($categoryLabel, ENT_QUOTES, 'UTF-8') ?></span>
+      <span class="feed-left-nav-label"><?= htmlspecialchars(app_t((string)$categoryLabel), ENT_QUOTES, 'UTF-8') ?></span>
     </a>
     <?php endforeach; ?>
     <?php endif; ?>
@@ -295,7 +295,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
     <?php foreach ($flrCustomCategories as $categorySlug => $categoryLabel): ?>
     <a class="feed-left-nav-item feed-program-nav-item<?= $flrActive($categorySlug) ?>" href="home.php?tab=<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" data-program-slug="<?= htmlspecialchars($categorySlug, ENT_QUOTES, 'UTF-8') ?>" hidden>
       <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><?= function_exists('publisher_category_icon_path') ? publisher_category_icon_path($categorySlug) : '<circle cx="12" cy="12" r="9"/><path d="M7 12h10M12 7v10"/>' ?></svg></span>
-      <span class="feed-left-nav-label"><?= htmlspecialchars($categoryLabel, ENT_QUOTES, 'UTF-8') ?></span>
+      <span class="feed-left-nav-label"><?= htmlspecialchars(app_t((string)$categoryLabel), ENT_QUOTES, 'UTF-8') ?></span>
     </a>
     <?php endforeach; ?>
     <?php if (!empty($feedLeftRailShopFilters)): ?>
@@ -315,10 +315,12 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
   ?>
   <?php if ($feedLeftRailEmbed): ?>
   <div class="feed-left-rail-footer" aria-label="Sidebar actions">
-    <a class="feed-left-nav-item js-signout-confirm" href="logout.php">
-      <span class="feed-left-nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2"/><path d="M15 12H3"/><path d="M6 9l-3 3 3 3"/></svg></span>
-      <span class="feed-left-nav-label">Sign Out</span>
-    </a>
+    <?php
+      require_once __DIR__ . '/signout_menu.php';
+      if (function_exists('msb_render_signout_group')) {
+        msb_render_signout_group('rail');
+      }
+    ?>
   </div>
   <?php endif; ?>
   <?php if ($feedProgramManagerBoot): ?>
@@ -328,16 +330,16 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
   <div class="feed-program-overlay" id="feedProgramManager" hidden aria-hidden="true">
     <div class="feed-program-dialog-card" role="dialog" aria-modal="true" aria-labelledby="feedProgramManagerTitle">
       <div class="feed-program-dialog-head">
-        <h2 id="feedProgramManagerTitle">Add Programs</h2>
-        <button type="button" class="feed-program-dialog-close" data-program-close aria-label="Close">
+        <h2 id="feedProgramManagerTitle"><?= app_t_attr('Add Programs') ?></h2>
+        <button type="button" class="feed-program-dialog-close" data-program-close aria-label="<?= app_t_attr('Close') ?>">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
         </button>
       </div>
       <div class="feed-program-search">
-        <input type="search" id="feedProgramSearch" placeholder="Search" autocomplete="off" aria-label="Search programs">
+        <input type="search" id="feedProgramSearch" placeholder="<?= app_t_attr('Search') ?>" autocomplete="off" aria-label="<?= app_t_attr('Search programs') ?>">
       </div>
       <div class="feed-program-list" id="feedProgramList" role="list"></div>
-      <div class="feed-program-empty" id="feedProgramEmpty" hidden>No programs found.</div>
+      <div class="feed-program-empty" id="feedProgramEmpty" hidden><?= app_t_attr('No programs found.') ?></div>
     </div>
   </div>
   <style id="feed-program-manager-styles">
@@ -345,6 +347,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
     .feed-program-nav-item[hidden],
     .feed-discover-tab.feed-program-tab-item[hidden]{display:none!important}
     .feed-program-nav-item .feed-left-nav-ic{display:none!important}
+    .feed-program-identity{cursor:pointer}
     .feed-program-overlay[hidden],
     .feed-program-overlay:not(.is-open){
       display:none !important;
@@ -675,14 +678,24 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       political: '<svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M6 20V10l6-4 6 4v10"/><path d="M10 20v-5h4v5"/></svg>'
     };
 
+    function pinSlug(slug) {
+      slug = String(slug || '').trim().toLowerCase();
+      if (slug === 'commerce') return 'enterprise';
+      if (slug === 'discover') return 'public';
+      if (slug === 'circle') return 'for-you';
+      return slug;
+    }
+
     function programSlugFromLink(link) {
       var slug = String(link.getAttribute('data-program-slug') || '');
-      if (slug) return slug;
-      try {
-        return String(new URL(link.href, window.location.href).searchParams.get('tab') || '');
-      } catch (eSlug) {
-        return '';
+      if (!slug) {
+        try {
+          slug = String(new URL(link.href, window.location.href).searchParams.get('tab') || '');
+        } catch (eSlug) {
+          slug = '';
+        }
       }
+      return pinSlug(slug);
     }
 
     function collectPrograms() {
@@ -727,7 +740,7 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       var out = [];
       var seen = {};
       (Array.isArray(list) ? list : []).forEach(function (raw) {
-        var slug = String(raw || '').trim().toLowerCase();
+        var slug = pinSlug(raw);
         if (!slug || seen[slug]) return;
         // Core home tabs are never "programs".
         if (slug === 'for-you' || slug === 'discover' || slug === 'public') return;
@@ -771,16 +784,76 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
 
     function save() {
       try { localStorage.setItem(storageKey, JSON.stringify(selected)); } catch (e) {}
+      window.__msbHomeTabsDirty = true;
+      window.__msbHomeTabsIgnorePullUntil = Date.now() + 60000;
+      function finish(data) {
+        var apiPins = data && Array.isArray(data.pins) ? data.pins : [];
+        var same = apiPins.map(pinSlug).filter(Boolean).join(',') === selected.map(pinSlug).filter(Boolean).join(',');
+        if (data && data.ok === true && same) {
+          window.__msbHomeTabsDirty = false;
+        }
+      }
+      if (window.msbHomeTabsSync && typeof window.msbHomeTabsSync.push === 'function') {
+        window.msbHomeTabsSync.push(selected).then(finish).catch(function () {});
+        return;
+      }
+      try {
+        var body = 'pins=' + encodeURIComponent(JSON.stringify(selected));
+        fetch('home_tabs_api.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+          body: body
+        }).then(function (res) { return res.ok ? res.json() : null; }).then(finish).catch(function () {
+          fetch('feed_api.php?ajax=home_tabs', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: body
+          }).then(function (res) { return res.ok ? res.json() : null; }).then(finish).catch(function () {});
+        });
+      } catch (eSaveApi) {}
+    }
+
+    function hydratePinsFromApi(done) {
+      var request = (window.msbHomeTabsSync && typeof window.msbHomeTabsSync.pull === 'function')
+        ? window.msbHomeTabsSync.pull()
+        : fetch('home_tabs_api.php', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (res) { return res.ok ? res.json() : null; });
+      Promise.resolve(request)
+        .then(function (data) {
+          if (!data || data.ok !== true) {
+            done(false);
+            return;
+          }
+          var apiPins = Array.isArray(data.pins) ? data.pins : [];
+          var saved = data.pins_saved === true || data.pins_saved === 1 || data.pins_saved === '1';
+          if (saved) {
+            selected = normalizeSelected(apiPins);
+            try { localStorage.setItem(storageKey, JSON.stringify(selected)); } catch (eStore) {}
+            done(true);
+            return;
+          }
+          selected = normalizeSelected(selected.concat(apiPins));
+          save();
+          done(true);
+        })
+        .catch(function () { done(false); });
     }
     function isSelected(slug) { return selected.indexOf(slug) !== -1; }
 
     function syncProgramLinks() {
       programs = collectPrograms();
+      var urlTab = pinSlug(currentDiscoverTab === 'discover' ? 'public' : currentDiscoverTab);
       Array.prototype.slice.call(document.querySelectorAll('a.feed-discover-tab.feed-program-tab-item')).forEach(function (link) {
         var slug = programSlugFromLink(link);
         if (!slug) return;
-        var on = isSelected(slug) || link.classList.contains('is-active') || slug === currentDiscoverTab || slug === activeTab;
+        var on = isSelected(slug) || (slug === urlTab && slug !== 'for-you' && slug !== 'public');
         link.hidden = !on;
+        if (!on) {
+          link.classList.remove('is-active');
+          link.removeAttribute('aria-current');
+        }
       });
       Array.prototype.slice.call(document.querySelectorAll('a.feed-program-nav-item')).forEach(function (link) {
         var slug = programSlugFromLink(link);
@@ -795,16 +868,54 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       try {
         currentDiscoverTab = String(new URL(window.location.href).searchParams.get('tab') || '').toLowerCase();
       } catch (eTab2) {}
+      if (window.__msbHomeTabsDirty) {
+        syncProgramLinks();
+        return;
+      }
       loadSelected();
-      ensureActiveInSelected();
-      save();
-      syncProgramLinks();
+      hydratePinsFromApi(function (fromApi) {
+        if (!fromApi) {
+          ensureActiveInSelected();
+        }
+        try { localStorage.setItem(storageKey, JSON.stringify(selected)); } catch (eKeep) {}
+        syncProgramLinks();
+      });
     }
 
     loadSelected();
 
-    function addProgram(slug) {
+    function openProgramTab(slug) {
       slug = String(slug || '').trim().toLowerCase();
+      if (!slug) return;
+      addProgram(slug);
+      closeModal();
+      var link = document.querySelector('a.feed-program-nav-item[data-program-slug="' + slug + '"]')
+        || document.querySelector('a.feed-discover-tab[data-program-slug="' + slug + '"]');
+      if (link && typeof window.msbSwitchHomeTabLink === 'function') {
+        window.msbSwitchHomeTabLink(link);
+        return;
+      }
+      if (link) {
+        link.click();
+        return;
+      }
+      try {
+        var next = new URL('home.php', window.location.href);
+        next.searchParams.set('tab', slug === 'public' ? 'discover' : slug);
+        if (typeof window.msbSwitchHomeTabLink === 'function') {
+          var fake = document.createElement('a');
+          fake.href = next.pathname + next.search;
+          fake.className = 'feed-program-nav-item';
+          fake.setAttribute('data-program-slug', slug);
+          window.msbSwitchHomeTabLink(fake);
+          return;
+        }
+        window.location.assign(next.pathname + next.search);
+      } catch (eOpen) {}
+    }
+
+    function addProgram(slug) {
+      slug = pinSlug(slug);
       if (!slug || isSelected(slug)) return;
       selected.push(slug);
       save();
@@ -812,9 +923,9 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       renderModal(search ? search.value : '');
     }
     function removeProgram(slug) {
-      slug = String(slug || '').trim().toLowerCase();
+      slug = pinSlug(slug);
       if (!slug) return;
-      selected = selected.filter(function (item) { return item !== slug; });
+      selected = selected.filter(function (item) { return pinSlug(item) !== slug; });
       save();
       syncProgramLinks();
       renderModal(search ? search.value : '');
@@ -839,6 +950,9 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
 
       identity.appendChild(icon);
       identity.appendChild(name);
+      identity.addEventListener('click', function () {
+        openProgramTab(program.slug);
+      });
       row.appendChild(identity);
 
       if (mode === 'available') {
@@ -847,7 +961,14 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
         addBtn.className = 'feed-program-add';
         addBtn.setAttribute('aria-label', 'Add ' + program.label);
         addBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-        addBtn.addEventListener('click', function () { addProgram(program.slug); });
+        addBtn.addEventListener('mousedown', function (event) {
+          event.preventDefault();
+        });
+        addBtn.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          addProgram(program.slug);
+        });
         row.appendChild(addBtn);
       } else if (mode === 'pinned-edit') {
         var removeBtn = document.createElement('button');
@@ -855,7 +976,14 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
         removeBtn.className = 'feed-program-remove';
         removeBtn.setAttribute('aria-label', 'Remove ' + program.label);
         removeBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>';
-        removeBtn.addEventListener('click', function () { removeProgram(program.slug); });
+        removeBtn.addEventListener('mousedown', function (event) {
+          event.preventDefault();
+        });
+        removeBtn.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          removeProgram(program.slug);
+        });
         row.appendChild(removeBtn);
       }
 
@@ -961,7 +1089,6 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       overlay.hidden = false;
       overlay.classList.add('is-open');
       overlay.setAttribute('aria-hidden', 'false');
-      window.setTimeout(function () { if (search) search.focus(); }, 0);
     }
     function closeModal() {
       overlay.classList.remove('is-open');
@@ -1009,6 +1136,19 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
       close: closeModal,
       sync: syncProgramLinks,
       restore: restoreProgramPins,
+      applyPins: function (pins) {
+        if (window.__msbHomeTabsDirty) {
+          syncProgramLinks();
+          if (list && !overlay.hidden) renderModal(search ? search.value : '');
+          return selected.slice();
+        }
+        selected = normalizeSelected(pins);
+        try { localStorage.setItem(storageKey, JSON.stringify(selected)); } catch (eApply) {}
+        syncProgramLinks();
+        if (list) renderModal(search ? search.value : '');
+        return selected.slice();
+      },
+      getPins: function () { return selected.slice(); },
       __ready: true
     };
   })();

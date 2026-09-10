@@ -64,6 +64,34 @@ require_once __DIR__ . '/leftbar_door_anim.js.php';
   line-height:1.2;
   color:var(--tt-text, var(--msb-palette-text, #101828));
 }
+.tt-notifications-head-actions{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  flex:0 0 auto;
+}
+.tt-noti-gear{
+  width:28px;
+  height:28px;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  color:var(--tt-text, var(--msb-palette-text, #101828));
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding:0;
+  line-height:1;
+  text-decoration:none;
+  box-shadow:none;
+}
+.tt-noti-gear i{ font-size:16px; line-height:1; }
+.tt-noti-gear:hover{
+  background:var(--tt-control-hover, var(--msb-palette-nav-hover, #e9edf3));
+  color:var(--tt-text, var(--msb-palette-text, #101828));
+  text-decoration:none;
+}
 .msb-notifications-door-host .tt-close,
 #ttLeftbarOverlays .tt-notifications-wrap .tt-close{
   width:28px;
@@ -101,7 +129,12 @@ require_once __DIR__ . '/leftbar_door_anim.js.php';
 .tt-notifications-summary{
   padding:2px 4px 8px;
   flex:0 0 auto;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:8px;
 }
+.tt-notifications-summary-copy{ min-width:0; flex:1 1 auto; }
 .tt-notifications-summary-main{
   font-size:13px;
   font-weight:700;
@@ -279,9 +312,14 @@ body.msb-notifications-door-open .msb-notifications-door-backdrop{
     <div>
       <span class="title">Notifications</span>
     </div>
-    <button class="tt-close" type="button" id="ttNotificationsClose" title="Close">
-      <i class="icon ion-close"></i>
-    </button>
+    <div class="tt-notifications-head-actions">
+      <a class="tt-noti-gear" href="settings.php#gear-notifications" title="Notification settings" aria-label="Notification settings">
+        <i class="icon ion-gear-a" aria-hidden="true"></i>
+      </a>
+      <button class="tt-close" type="button" id="ttNotificationsClose" title="Close">
+        <i class="icon ion-close"></i>
+      </button>
+    </div>
   </div>
   <div class="tt-notifications-body">
     <?php

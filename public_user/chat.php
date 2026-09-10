@@ -2,6 +2,8 @@
 require_once __DIR__ . '/includes/session_user.php';
 requireUserLogin();
 
+require_once __DIR__ . '/includes/profile_access.php';
+
 require_once __DIR__ . '/includes/user_identity.php';
 require_once __DIR__ . '/controller.php';
 
@@ -67,6 +69,12 @@ if ($type === 'user') {
 // SEND MESSAGE
 if (isset($_POST['send'])) {
     $text = trim($_POST['message'] ?? '');
+    if ($type === 'user' && $peer && function_exists('profile_owner_allows_interaction')) {
+        $peerIdGate = (int)($peer['id'] ?? 0);
+        if ($peerIdGate > 0 && !profile_owner_allows_interaction($dbh, $peerIdGate, $meId, 'message_permission')) {
+            $error = 'This person is not accepting messages from you.';
+        }
+    }
 
     // attachment optional (same folder style as admin)
     $attachment = null;
@@ -121,10 +129,16 @@ if (isset($_POST['send'])) {
 
         // create notification for peer or admin
         if ($type === 'user') {
-            // notify peer by email (matches your notification.php)
-            require_once __DIR__ . '/admin/controller.php';
-            $controller = new Controller();
-            $controller->addNotification($meEmail, $peer['email'], 'New chat message');
+            $peerId = (int)($peer['id'] ?? 0);
+            $allowDm = true;
+            if ($peerId > 0 && function_exists('profile_user_wants_notification')) {
+                $allowDm = profile_user_wants_notification($dbh, $peerId, 'inapp_notifications')
+                    && profile_user_wants_notification($dbh, $peerId, 'message_notifications')
+                    && !(function_exists('profile_user_in_quiet_hours') && profile_user_in_quiet_hours($dbh, $peerId));
+            }
+            if ($allowDm) {
+                $controller->addNotification($meEmail, $peer['email'], 'New chat message');
+            }
         } else {
             // support -> notify Admin (legacy receiver key)
             $controller->addNotification($meEmail, 'Admin', 'New support message');
@@ -156,7 +170,7 @@ $st->execute([':cid'=>$convId]);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
-<html lang="en" class="no-js">
+<html <?= app_html_lang_attrs('no-js') ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

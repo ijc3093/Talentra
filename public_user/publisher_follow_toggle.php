@@ -44,7 +44,9 @@ try {
         if (!function_exists('profile_user_wants_notification')) {
             require_once __DIR__ . '/includes/profile_access.php';
         }
-        if (profile_user_wants_notification($dbh, $targetId, 'followed_notifications')) {
+        if (profile_user_wants_notification($dbh, $targetId, 'followed_notifications')
+            && profile_user_wants_notification($dbh, $targetId, 'inapp_notifications')
+            && !(function_exists('profile_user_in_quiet_hours') && profile_user_in_quiet_hours($dbh, $targetId))) {
             try {
                 $stN = $dbh->prepare('SELECT id, name, username FROM users WHERE id IN (:me, :you)');
                 $stN->execute([':me' => $meId, ':you' => $targetId]);

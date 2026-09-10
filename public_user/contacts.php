@@ -284,28 +284,32 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'list') {
     foreach ($rows as $c) {
         $id = (int)($c['id'] ?? 0);
         $label = trim((string)($c['display_name'] ?? ''));
+        $username = trim((string)($c['friend_username'] ?? ''));
         $code = trim((string)($c['friend_code'] ?? ''));
         $email = trim((string)($c['friend_email'] ?? ''));
-        $sub = $code !== '' ? $code : $email;
-        $fallback = $sub !== '' ? mb_strtoupper(mb_substr($sub, 0, 2)) : 'CT';
+        $friendUserId = (int)($c['friend_user_id'] ?? 0);
+        $sub = $username !== '' ? ('@' . ltrim($username, '@')) : ($code !== '' ? $code : $email);
+        $fallback = $sub !== '' ? mb_strtoupper(mb_substr(ltrim($sub, '@'), 0, 2)) : 'CT';
         $initials = initials_from_name($label !== '' ? $label : $sub, $fallback);
-        $uniqueKey = $code !== '' ? $code : ($email !== '' ? $email : ($label !== '' ? $label : $initials));
+        $uniqueKey = $username !== '' ? $username : ($code !== '' ? $code : ($email !== '' ? $email : ($label !== '' ? $label : $initials)));
 
         $items[] = [
             'id' => $id,
             'display_name' => $label,
-            'friend_user_id' => (int)($c['friend_user_id'] ?? 0),
+            'username' => $username,
+            'handle' => $username,
+            'friend_user_id' => $friendUserId,
             'friend_code' => $code,
             'friend_email' => $email,
-            'subtitle' => $email,
+            'subtitle' => $sub,
             'initials' => $initials,
             'color' => color_from_string($uniqueKey),
-            'avatar_url' => 'avatar.php?friend_code=' . urlencode($code) . '&email=' . urlencode($email) . '&name=' . urlencode($label !== '' ? $label : $sub),
-            'profile_url' => ((int)($c['friend_user_id'] ?? 0) > 0)
-                ? ('profile.php?id=' . (int)$c['friend_user_id'] . '&tab=gallery')
+            'avatar_url' => 'avatar.php?u=' . $friendUserId . '&friend_code=' . urlencode($code) . '&name=' . urlencode($label !== '' ? $label : $sub),
+            'profile_url' => ($friendUserId > 0)
+                ? ('profile.php?id=' . $friendUserId . '&tab=gallery')
                 : ($code !== '' ? ('profile.php?friend_code=' . urlencode($code) . '&tab=gallery') : ''),
             'message_url' => 'user_sendreply.php?to=' . urlencode($code !== '' ? $code : $email),
-            'timeline_url' => ((int)($c['friend_user_id'] ?? 0) > 0) ? ('timeline.php?u=' . (int)$c['friend_user_id']) : '',
+            'timeline_url' => ($friendUserId > 0) ? ('timeline.php?u=' . $friendUserId) : '',
         ];
     }
 
@@ -324,12 +328,23 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'delete') {
     header('Pragma: no-cache');
 
     $id = (int)($_POST['contact_id'] ?? $_POST['id'] ?? 0);
-    if ($id <= 0) {
+    $peerId = (int)($_POST['friend_user_id'] ?? $_POST['peer_id'] ?? 0);
+    if ($id <= 0 && $peerId <= 0) {
         echo json_encode(['ok' => false, 'error' => 'Invalid contact.']);
         exit;
     }
 
     try {
+        if ($peerId <= 0 && $id > 0) {
+            $stPeer = $dbh->prepare('SELECT friend_user_id FROM user_contacts WHERE id = :id AND owner_user_id = :me LIMIT 1');
+            $stPeer->execute([':id' => $id, ':me' => $meId]);
+            $peerId = (int)$stPeer->fetchColumn();
+        }
+        if ($peerId > 0 && function_exists('fs_remove_friend')) {
+            $res = fs_remove_friend($dbh, $meId, $peerId);
+            echo json_encode(['ok' => (bool)($res['ok'] ?? false), 'message' => (string)($res['message'] ?? '')]);
+            exit;
+        }
         $del = $dbh->prepare("DELETE FROM user_contacts WHERE id = :id AND owner_user_id = :me");
         $del->execute([':id' => $id, ':me' => $meId]);
         echo json_encode(['ok' => $del->rowCount() > 0, 'message' => $del->rowCount() > 0 ? 'Friend removed.' : 'Contact not found.']);
@@ -419,7 +434,7 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -1396,15 +1411,6 @@ if (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'update') {
                               <i class="icon ion-ios-locked"></i> Timeline
                             </a>
                           <?php endif; ?>
-                          <button class="dropdown-item" type="button"
-                                  data-undo-id="<?= $id ?>">
-                            <i class="fa fa-undo"></i> Undo Rename
-                          </button>
-                          <button class="dropdown-item" type="button"
-                                  data-rename-id="<?= $id ?>"
-                                  data-rename-name="<?= h($label) ?>">
-                            <i class="fa fa-pencil"></i> Rename
-                          </button>
                           <div class="dropdown-divider"></div>
                           <?php if (!empty($c['friend_user_id'])): ?>
                             <button class="dropdown-item text-danger" type="button"

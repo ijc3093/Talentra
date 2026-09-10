@@ -20,6 +20,18 @@ if (!function_exists('fs_are_friends')) {
     }
 }
 
+if (!function_exists('fs_viewer_friends_with_author_sql')) {
+    /** Bidirectional friendship, matching fs_are_friends(). Bind names must be unique (PDO). */
+    function fs_viewer_friends_with_author_sql(string $authorExpr, string $meBind, string $meBind2): string
+    {
+        return "EXISTS (
+            SELECT 1 FROM user_contacts uc
+            WHERE (uc.owner_user_id = {$meBind} AND uc.friend_user_id = {$authorExpr})
+               OR (uc.owner_user_id = {$authorExpr} AND uc.friend_user_id = {$meBind2})
+        )";
+    }
+}
+
 if (!function_exists('fs_friend_count')) {
     function fs_friend_count(PDO $dbh, int $userId): int {
         if ($userId <= 0) return 0;
@@ -67,15 +79,25 @@ if (!function_exists('fs_send_friend_request')) {
         if ($status === 'friends') return ['ok' => false, 'message' => 'This user is already your friend.'];
         if ($status === 'outgoing_pending') return ['ok' => false, 'message' => 'Friend request already sent.'];
         if ($status === 'incoming_pending') return ['ok' => false, 'message' => 'This user already sent you a friend request. Open Friend Requests to accept it.'];
+        if (function_exists('profile_owner_allows_interaction') || is_file(__DIR__ . '/profile_access.php')) {
+            if (!function_exists('profile_owner_allows_interaction')) {
+                require_once __DIR__ . '/profile_access.php';
+            }
+            if (function_exists('profile_owner_allows_interaction') && !profile_owner_allows_interaction($dbh, $toUserId, $fromUserId, 'friend_request_permission')) {
+                return ['ok' => false, 'message' => 'This person is not accepting friend requests from you.'];
+            }
+        }
         try {
             $reopen = $dbh->prepare("UPDATE contact_requests SET status = 'pending', created_at = NOW(), updated_at = NOW() WHERE from_user_id = ? AND to_user_id = ? AND status <> 'pending' AND status <> 'blocked' LIMIT 1");
             $reopen->execute([$fromUserId, $toUserId]);
             if ($reopen->rowCount() > 0) {
+                fs_notify_friend_request($dbh, $fromUserId, $toUserId);
                 return ['ok' => true, 'message' => 'Friend request sent.'];
             }
 
             $st = $dbh->prepare("INSERT INTO contact_requests (from_user_id, to_user_id, status, created_at) VALUES (?, ?, 'pending', NOW())");
             $st->execute([$fromUserId, $toUserId]);
+            fs_notify_friend_request($dbh, $fromUserId, $toUserId);
             return ['ok' => true, 'message' => 'Friend request sent.'];
         } catch (Throwable $e) {
             return ['ok' => false, 'message' => 'Unable to send friend request.'];
@@ -284,6 +306,51 @@ if (!function_exists('fs_block_user')) {
                 $dbh->rollBack();
             }
             return ['ok' => false, 'message' => 'Unable to block this user.'];
+        }
+    }
+}
+
+if (!function_exists('fs_notify_friend_request')) {
+    function fs_notify_friend_request(PDO $dbh, int $fromUserId, int $toUserId): void
+    {
+        if ($fromUserId <= 0 || $toUserId <= 0 || $fromUserId === $toUserId) {
+            return;
+        }
+        if (!function_exists('profile_user_wants_notification')) {
+            $pa = __DIR__ . '/profile_access.php';
+            if (is_file($pa)) {
+                require_once $pa;
+            }
+        }
+        if (function_exists('profile_user_wants_notification')) {
+            if (!profile_user_wants_notification($dbh, $toUserId, 'inapp_notifications')) {
+                return;
+            }
+            if (!profile_user_wants_notification($dbh, $toUserId, 'friend_request_notifications')) {
+                return;
+            }
+        }
+        if (function_exists('feedAddNotification')) {
+            feedAddNotification($dbh, $fromUserId, $toUserId, 'sent you a friend request', 'friend_request');
+            return;
+        }
+        try {
+            $st = $dbh->prepare(
+                'SELECT id, username, COALESCE(NULLIF(name,\'\'), username) AS display_name FROM users WHERE id IN (?, ?)'
+            );
+            $st->execute([$fromUserId, $toUserId]);
+            $byId = [];
+            while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+                $byId[(int)$row['id']] = $row;
+            }
+            $sender = trim((string)($byId[$fromUserId]['display_name'] ?? $byId[$fromUserId]['username'] ?? ''));
+            $receiver = trim((string)($byId[$toUserId]['username'] ?? ''));
+            if ($sender === '' || $receiver === '') {
+                return;
+            }
+            $ins = $dbh->prepare('INSERT INTO notification (notiuser, notireceiver, notitype, is_read) VALUES (:s, :r, :t, 0)');
+            $ins->execute([':s' => $sender, ':r' => $receiver, ':t' => 'sent you a friend request']);
+        } catch (Throwable $e) {
         }
     }
 }

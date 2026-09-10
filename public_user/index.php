@@ -12,6 +12,11 @@ require_once __DIR__ . '/../admin/includes/admin_linked_accounts_load.php';
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 
+if (strtolower(trim((string)($_GET['ajax'] ?? $_POST['ajax'] ?? ''))) === 'help_center') {
+    require __DIR__ . '/ajax/help_center.php';
+    exit;
+}
+
 $error = '';
 $usernameValue = '';
 $authView = strtolower(trim((string)($_GET['view'] ?? 'login')));
@@ -270,12 +275,13 @@ try {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta name="robots" content="noindex,nofollow">
   <title><?= $indexTab !== '' ? htmlspecialchars(index_help_tab_title($indexTab) . ' · Talsora', ENT_QUOTES, 'UTF-8') : 'Talsora — Sign in' ?></title>
+  <?php if (function_exists('app_i18n_print_js')) { app_i18n_print_js(); } ?>
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="./css/auth-gate.css?v=80" rel="stylesheet">
   <?php
@@ -290,12 +296,22 @@ try {
       appearance_bridge_print_theme_stack($themeDbh, $themeUserId);
       appearance_bridge_print_index_gate_critical($themeDbh, $themeUserId);
   } else {
-      $guestMode = appearance_bridge_read_cookie_mode();
-      if (appearance_bridge_is_named_palette($guestMode)) {
+      $guestMode = function_exists('appearance_bridge_read_cookie_mode')
+          ? appearance_bridge_read_cookie_mode()
+          : 'system';
+      if (
+          function_exists('appearance_bridge_is_named_palette')
+          && appearance_bridge_is_named_palette($guestMode)
+          && function_exists('appearance_bridge_print_guest_index_theme')
+      ) {
           appearance_bridge_print_guest_index_theme($guestMode);
       } else {
-          appearance_bridge_print_early_dark_auto_class(true);
-          appearance_bridge_print_index_daylight_critical();
+          if (function_exists('appearance_bridge_print_early_dark_auto_class')) {
+              appearance_bridge_print_early_dark_auto_class(true);
+          }
+          if (function_exists('appearance_bridge_print_index_daylight_critical')) {
+              appearance_bridge_print_index_daylight_critical();
+          }
           if (!defined('MSB_THEME_DARK_CSS')) {
               define('MSB_THEME_DARK_CSS', true);
               echo '<link rel="stylesheet" href="./css/dark-auto.css?v=51">' . "\n";
@@ -373,13 +389,13 @@ try {
       <div class="auth-right-head">
         <p class="auth-kicker" id="authKicker"><?php
           if ($addingAccount) {
-              echo $authView === 'register' ? 'Create another account' : 'Add another account';
+              echo htmlspecialchars(app_t($authView === 'register' ? 'Create another account' : 'Add another account'), ENT_QUOTES, 'UTF-8');
           } else {
-              echo $authView === 'register' ? 'Create an account' : 'Log into Talsora';
+              echo htmlspecialchars(app_t($authView === 'register' ? 'Create an account' : 'Log into Talsora'), ENT_QUOTES, 'UTF-8');
           }
         ?></p>
-        <h2 class="auth-title sr-only" id="authTitle"><?= $authView === 'register' ? 'Join Talsora' : 'Log into Talsora' ?></h2>
-        <p class="auth-sub" id="authSub">Sign in to your personal account.</p>
+        <h2 class="auth-title sr-only" id="authTitle"><?= htmlspecialchars(app_t($authView === 'register' ? 'Join Talsora' : 'Log into Talsora'), ENT_QUOTES, 'UTF-8') ?></h2>
+        <p class="auth-sub" id="authSub"><?= htmlspecialchars(app_t('Sign in to your personal account.'), ENT_QUOTES, 'UTF-8') ?></p>
       </div>
 
       <div class="auth-right-spacer" aria-hidden="true"></div>
@@ -401,16 +417,16 @@ try {
             <?php endif; ?>
             <input type="hidden" name="account_type" id="loginAccountType" value="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>">
             <div class="auth-field">
-              <input type="text" name="username" id="loginUsernameInput" value="<?= htmlspecialchars($usernameValue, ENT_QUOTES, 'UTF-8') ?>" placeholder="Username or email" required>
+              <input type="text" name="username" id="loginUsernameInput" value="<?= htmlspecialchars($usernameValue, ENT_QUOTES, 'UTF-8') ?>" placeholder="<?= htmlspecialchars(app_t('Username or email'), ENT_QUOTES, 'UTF-8') ?>" required>
             </div>
             <div class="auth-field">
-              <input type="password" name="password" placeholder="Password" required>
+              <input type="password" name="password" placeholder="<?= htmlspecialchars(app_t('Password'), ENT_QUOTES, 'UTF-8') ?>" required>
             </div>
             <button class="auth-continue" name="login" type="submit" value="1" id="loginSubmitBtn">
-              <span id="loginSubmitLabel">Log in</span>
+              <span id="loginSubmitLabel"><?= htmlspecialchars(app_t('Log in'), ENT_QUOTES, 'UTF-8') ?></span>
             </button>
             <div class="auth-link-row">
-              <a href="forget.php">Forgot password?</a>
+              <a href="forget.php"><?= htmlspecialchars(app_t('Forgot password?'), ENT_QUOTES, 'UTF-8') ?></a>
             </div>
           </form>
         </div>
@@ -428,7 +444,7 @@ try {
               <div class="auth-mode-block" data-reg-mode="personal" id="regPersonalFields"<?= $accountType !== 'personal' ? ' hidden' : '' ?>>
                 <div class="auth-field">
                   <i class="fa fa-user-o" aria-hidden="true"></i>
-                  <input name="name" type="text" class="js-reg-personal-name" placeholder="Full name" autocomplete="name"<?= $accountType === 'personal' ? ' required' : ' disabled' ?>>
+                  <input name="name" type="text" class="js-reg-personal-name" placeholder="<?= htmlspecialchars(app_t('Full name'), ENT_QUOTES, 'UTF-8') ?>" autocomplete="name"<?= $accountType === 'personal' ? ' required' : ' disabled' ?>>
                 </div>
               </div>
 
@@ -503,11 +519,11 @@ try {
               <div class="auth-field-row">
                 <div class="auth-field">
                   <i class="fa fa-at" aria-hidden="true"></i>
-                  <input type="text" name="username" placeholder="Username" required>
+                  <input type="text" name="username" placeholder="<?= htmlspecialchars(app_t('Username'), ENT_QUOTES, 'UTF-8') ?>" required>
                 </div>
                 <div class="auth-field">
                   <i class="fa fa-envelope-o" aria-hidden="true"></i>
-                  <input name="email" type="email" placeholder="Email" required>
+                  <input name="email" type="email" placeholder="<?= htmlspecialchars(app_t('Email'), ENT_QUOTES, 'UTF-8') ?>" required>
                 </div>
               </div>
 
@@ -523,12 +539,12 @@ try {
                   </div>
                   <div class="auth-field">
                     <i class="fa fa-phone" aria-hidden="true"></i>
-                    <input name="mobile" type="tel" class="js-reg-personal" placeholder="Phone number" autocomplete="tel" inputmode="tel" pattern="[0-9+\-\s()]{7,20}"<?= $accountType === 'personal' ? ' required' : ' disabled' ?>>
+                    <input name="mobile" type="tel" class="js-reg-personal" placeholder="<?= htmlspecialchars(app_t('Phone number'), ENT_QUOTES, 'UTF-8') ?>" autocomplete="tel" inputmode="tel" pattern="[0-9+\-\s()]{7,20}"<?= $accountType === 'personal' ? ' required' : ' disabled' ?>>
                   </div>
                 </div>
                 <div class="auth-field">
                   <i class="fa fa-lock" aria-hidden="true"></i>
-                  <input type="password" name="password" class="js-reg-password-personal" placeholder="Create password" autocomplete="new-password"<?= $accountType === 'personal' ? ' required' : ' disabled' ?>>
+                  <input type="password" name="password" class="js-reg-password-personal" placeholder="<?= htmlspecialchars(app_t('Create password'), ENT_QUOTES, 'UTF-8') ?>" autocomplete="new-password"<?= $accountType === 'personal' ? ' required' : ' disabled' ?>>
                 </div>
                 <div class="auth-field-stack">
                   <span class="auth-field-label">Birthday</span>
@@ -562,7 +578,7 @@ try {
               <div class="auth-mode-block" data-reg-mode="publisher commerce" id="regProPassword"<?= $accountType === 'personal' ? ' hidden' : '' ?>>
                 <div class="auth-field">
                   <i class="fa fa-lock" aria-hidden="true"></i>
-                  <input type="password" name="password" class="js-reg-password-pro" placeholder="Create password" autocomplete="new-password"<?= $accountType !== 'personal' ? ' required' : ' disabled' ?>>
+                  <input type="password" name="password" class="js-reg-password-pro" placeholder="<?= htmlspecialchars(app_t('Create password'), ENT_QUOTES, 'UTF-8') ?>" autocomplete="new-password"<?= $accountType !== 'personal' ? ' required' : ' disabled' ?>>
                 </div>
               </div>
 
@@ -584,7 +600,7 @@ try {
             </div>
 
             <button class="auth-continue" name="submit" type="submit" value="1" id="registerSubmitBtn">
-              <span id="registerSubmitLabel">Create account</span>
+              <span id="registerSubmitLabel"><?= htmlspecialchars(app_t('Create an account'), ENT_QUOTES, 'UTF-8') ?></span>
               <i class="fa fa-arrow-right" aria-hidden="true"></i>
             </button>
           </form>
@@ -593,8 +609,8 @@ try {
       </div>
 
       <div class="auth-switch" id="authSwitch">
-        <span id="authSwitchLead">Don't have an account?</span>
-        <button type="button" id="authSwitchBtn">Create new account</button>
+        <span id="authSwitchLead"><?= htmlspecialchars(app_t("Don't have an account?"), ENT_QUOTES, 'UTF-8') ?></span>
+        <button type="button" id="authSwitchBtn"><?= htmlspecialchars(app_t('Create new account'), ENT_QUOTES, 'UTF-8') ?></button>
       </div>
       <div class="auth-meta-mark" aria-hidden="true">Talsora</div>
       </div>
@@ -604,7 +620,7 @@ try {
   <?php index_render_legal_panels($indexTab, $indexLoggedIn, $addingAccount); ?>
   <footer class="auth-page-foot">
     <?php index_render_footer_tab_nav($indexTab, $addingAccount); ?>
-    <p class="auth-page-copy">English · © <?= (int)date('Y') ?> Talsora</p>
+    <p class="auth-page-copy"><?= htmlspecialchars(function_exists('app_i18n_language_display') ? app_i18n_language_display() : 'English', ENT_QUOTES, 'UTF-8') ?> · © <?= (int)date('Y') ?> Talsora</p>
   </footer>
   </div>
 
@@ -736,36 +752,47 @@ try {
 
     var copy = {
       personal: {
-        hint: 'Friends & family — your personal story space.',
-        loginSub: 'Sign in to your personal account.',
-        registerSub: 'Create your personal Talsora account.',
-        placeholder: 'Mobile number, username or email',
-        continueLabel: 'Log in',
-        registerCta: 'Create personal account',
-        headline: 'See everyday moments from your ',
-        accent: 'close friends.'
+        hint: <?= json_encode(app_t('Friends & family — your personal story space.'), JSON_UNESCAPED_UNICODE) ?>,
+        loginSub: <?= json_encode(app_t('Sign in to your personal account.'), JSON_UNESCAPED_UNICODE) ?>,
+        registerSub: <?= json_encode(app_t('Create your personal Talsora account.'), JSON_UNESCAPED_UNICODE) ?>,
+        placeholder: <?= json_encode(app_t('Mobile number, username or email'), JSON_UNESCAPED_UNICODE) ?>,
+        continueLabel: <?= json_encode(app_t('Log in'), JSON_UNESCAPED_UNICODE) ?>,
+        registerCta: <?= json_encode(app_t('Create personal account'), JSON_UNESCAPED_UNICODE) ?>,
+        headline: <?= json_encode(app_t('See everyday moments from your '), JSON_UNESCAPED_UNICODE) ?>,
+        accent: <?= json_encode(app_t('close friends.'), JSON_UNESCAPED_UNICODE) ?>
       },
       publisher: {
-        hint: 'News & media brands — CNN, Fox, and more.',
-        loginSub: 'Sign in as a publisher brand or staff.',
-        registerSub: 'Start your publisher brand account.',
-        placeholder: 'Publisher username, email, or staff login',
-        continueLabel: 'Log in',
-        registerCta: 'Create publisher account',
-        headline: 'Share the story as it happens with your ',
-        accent: 'audience.'
+        hint: <?= json_encode(app_t('News & media brands — CNN, Fox, and more.'), JSON_UNESCAPED_UNICODE) ?>,
+        loginSub: <?= json_encode(app_t('Sign in as a publisher brand or staff.'), JSON_UNESCAPED_UNICODE) ?>,
+        registerSub: <?= json_encode(app_t('Start your publisher brand account.'), JSON_UNESCAPED_UNICODE) ?>,
+        placeholder: <?= json_encode(app_t('Publisher username, email, or staff login'), JSON_UNESCAPED_UNICODE) ?>,
+        continueLabel: <?= json_encode(app_t('Log in'), JSON_UNESCAPED_UNICODE) ?>,
+        registerCta: <?= json_encode(app_t('Create publisher account'), JSON_UNESCAPED_UNICODE) ?>,
+        headline: <?= json_encode(app_t('Share the story as it happens with your '), JSON_UNESCAPED_UNICODE) ?>,
+        accent: <?= json_encode(app_t('audience.'), JSON_UNESCAPED_UNICODE) ?>
       },
       commerce: {
-        hint: 'Brand stores and seller accounts',
-        loginSub: 'Sign in to your commerce seller account.',
-        registerSub: 'Start your commerce seller access.',
-        placeholder: 'Commerce username or email',
-        continueLabel: 'Log in',
-        registerCta: 'Create commerce account',
-        headline: 'Bring your shop into everyday ',
-        accent: 'moments.'
+        hint: <?= json_encode(app_t('Brand stores and seller accounts'), JSON_UNESCAPED_UNICODE) ?>,
+        loginSub: <?= json_encode(app_t('Sign in to your commerce seller account.'), JSON_UNESCAPED_UNICODE) ?>,
+        registerSub: <?= json_encode(app_t('Start your commerce seller access.'), JSON_UNESCAPED_UNICODE) ?>,
+        placeholder: <?= json_encode(app_t('Commerce username or email'), JSON_UNESCAPED_UNICODE) ?>,
+        continueLabel: <?= json_encode(app_t('Log in'), JSON_UNESCAPED_UNICODE) ?>,
+        registerCta: <?= json_encode(app_t('Create commerce account'), JSON_UNESCAPED_UNICODE) ?>,
+        headline: <?= json_encode(app_t('Bring your shop into everyday '), JSON_UNESCAPED_UNICODE) ?>,
+        accent: <?= json_encode(app_t('moments.'), JSON_UNESCAPED_UNICODE) ?>
       }
     };
+
+    var i18nAuth = <?= json_encode([
+      'createAnother' => app_t('Create another account'),
+      'addAnother' => app_t('Add another account'),
+      'createAccount' => app_t('Create an account'),
+      'logInto' => app_t('Log into Talsora'),
+      'logIn' => app_t('Log in'),
+      'createNew' => app_t('Create new account'),
+      'alreadyHave' => app_t('Already have an account?'),
+      'dontHave' => app_t("Don't have an account?"),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
     function setView(next) {
       view = next === 'register' ? 'register' : 'login';
@@ -773,12 +800,12 @@ try {
       if (loginPanel) loginPanel.classList.toggle('is-active', view === 'login');
       if (registerPanel) registerPanel.classList.toggle('is-active', view === 'register');
       if (kicker) {
-        if (addingAccount) kicker.textContent = view === 'register' ? 'Create another account' : 'Add another account';
-        else kicker.textContent = view === 'register' ? 'Create an account' : 'Log into Talsora';
+        if (addingAccount) kicker.textContent = view === 'register' ? i18nAuth.createAnother : i18nAuth.addAnother;
+        else kicker.textContent = view === 'register' ? i18nAuth.createAccount : i18nAuth.logInto;
       }
-      if (title) title.textContent = view === 'register' ? 'Create an account' : 'Log into Talsora';
-      if (switchLead) switchLead.textContent = view === 'register' ? 'Already have an account?' : "Don't have an account?";
-      if (switchBtn) switchBtn.textContent = view === 'register' ? 'Log in' : 'Create new account';
+      if (title) title.textContent = view === 'register' ? i18nAuth.createAccount : i18nAuth.logInto;
+      if (switchLead) switchLead.textContent = view === 'register' ? i18nAuth.alreadyHave : i18nAuth.dontHave;
+      if (switchBtn) switchBtn.textContent = view === 'register' ? i18nAuth.logIn : i18nAuth.createNew;
       syncMode();
       try {
         var u = new URL(window.location.href);

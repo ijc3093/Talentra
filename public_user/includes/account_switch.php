@@ -101,44 +101,146 @@ function account_switch_kind_label(array $user): string
     return 'Personal';
 }
 
+function account_switch_avatar_url(array $row, int $size = 96): string
+{
+    if (function_exists('user_avatar_url')) {
+        return user_avatar_url($row, $size);
+    }
+    $params = [];
+    $userId = (int)($row['id'] ?? $row['user_id'] ?? 0);
+    $email = trim((string)($row['email'] ?? ''));
+    $friendCode = strtoupper(trim((string)($row['friend_code'] ?? '')));
+    $username = trim((string)($row['username'] ?? $row['handle'] ?? ''));
+    $name = trim((string)($row['name'] ?? $row['display_name'] ?? $username));
+    if ($userId > 0) {
+        $params[] = 'u=' . $userId;
+    }
+    if ($email !== '') {
+        $params[] = 'email=' . rawurlencode($email);
+    }
+    if ($friendCode !== '') {
+        $params[] = 'friend_code=' . rawurlencode($friendCode);
+    }
+    if ($username !== '') {
+        $params[] = 'username=' . rawurlencode($username);
+    }
+    if ($name !== '') {
+        $params[] = 'name=' . rawurlencode($name);
+    }
+    $params[] = 's=' . max(32, $size);
+    return 'avatar.php?' . implode('&', $params);
+}
+
 function account_switch_list(PDO $dbh, int $userId): array
 {
     $bundle = account_switch_bundle_id($dbh, $userId);
-    if ($bundle === '') {
-        return [];
+    $rows = [];
+    if ($bundle !== '') {
+        try {
+            $st = $dbh->prepare(
+                'SELECT u.id, u.name, u.username, u.email, u.image, u.friend_code, u.account_kind, u.publisher_category, u.status
+                 FROM user_account_switch s
+                 INNER JOIN users u ON u.id = s.user_id
+                 WHERE s.bundle_id = :b
+                 ORDER BY u.account_kind ASC, u.name ASC, u.id ASC'
+            );
+            $st->execute([':b' => $bundle]);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            try {
+                $st = $dbh->prepare(
+                    'SELECT u.id, u.name, u.username, u.email, u.image, u.friend_code, u.status
+                     FROM user_account_switch s
+                     INNER JOIN users u ON u.id = s.user_id
+                     WHERE s.bundle_id = :b
+                     ORDER BY u.name ASC, u.id ASC'
+                );
+                $st->execute([':b' => $bundle]);
+                $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            } catch (Throwable $e2) {
+                $rows = [];
+            }
+        }
+    }
+    $seen = [];
+    $out = [];
+    foreach ($rows as $row) {
+        $item = account_switch_list_item($row, $userId);
+        if ($item === null) {
+            continue;
+        }
+        $seen[(int)$item['id']] = true;
+        $out[] = $item;
+    }
+    if ($userId > 0 && empty($seen[$userId])) {
+        $current = account_switch_load_user($dbh, $userId);
+        if ($current) {
+            $item = account_switch_list_item($current, $userId);
+            if ($item !== null) {
+                array_unshift($out, $item);
+            }
+        }
+    }
+    return $out;
+}
+
+function account_switch_list_item(array $row, int $currentUserId): ?array
+{
+    $id = (int)($row['id'] ?? $row['user_id'] ?? 0);
+    if ($id <= 0) {
+        return null;
+    }
+    $username = trim((string)($row['username'] ?? ''));
+    $name = trim((string)($row['name'] ?? ''));
+    $avatarUrl = account_switch_avatar_url($row, 96);
+    return [
+        'id' => $id,
+        'user_id' => $id,
+        'name' => $name,
+        'display_name' => $name,
+        'username' => $username,
+        'handle' => $username,
+        'email' => trim((string)($row['email'] ?? '')),
+        'image' => $avatarUrl,
+        'avatar_url' => $avatarUrl,
+        'friend_code' => strtoupper(trim((string)($row['friend_code'] ?? ''))),
+        'kind' => account_switch_kind_label($row),
+        'account_kind' => strtolower(trim((string)($row['account_kind'] ?? 'personal'))),
+        'status' => (int)($row['status'] ?? 1),
+        'current' => $id === $currentUserId,
+        'is_current' => $id === $currentUserId,
+    ];
+}
+
+function account_switch_first_created_at(PDO $dbh, int $userId): string
+{
+    account_switch_ensure_schema($dbh);
+    if ($userId <= 0) {
+        return '';
     }
     try {
         $st = $dbh->prepare(
-            'SELECT u.id, u.name, u.username, u.email, u.image, u.friend_code, u.account_kind, u.publisher_category, u.status
+            'SELECT MIN(u.created_at)
              FROM user_account_switch s
-             INNER JOIN users u ON u.id = s.user_id
-             WHERE s.bundle_id = :b
-             ORDER BY u.account_kind ASC, u.name ASC, u.id ASC'
+             INNER JOIN user_account_switch s2 ON s2.bundle_id = s.bundle_id
+             INNER JOIN users u ON u.id = s2.user_id
+             WHERE s.user_id = :uid'
         );
-        $st->execute([':b' => $bundle]);
-        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable $e) {
-        return [];
-    }
-    $out = [];
-    foreach ($rows as $row) {
-        $id = (int)($row['id'] ?? 0);
-        if ($id <= 0) {
-            continue;
+        $st->execute([':uid' => $userId]);
+        $min = trim((string)$st->fetchColumn());
+        if ($min !== '' && $min !== '0000-00-00 00:00:00') {
+            return $min;
         }
-        $out[] = [
-            'id' => $id,
-            'name' => trim((string)($row['name'] ?? '')),
-            'username' => trim((string)($row['username'] ?? '')),
-            'email' => trim((string)($row['email'] ?? '')),
-            'image' => trim((string)($row['image'] ?? '')),
-            'friend_code' => strtoupper(trim((string)($row['friend_code'] ?? ''))),
-            'kind' => account_switch_kind_label($row),
-            'status' => (int)($row['status'] ?? 1),
-            'current' => $id === $userId,
-        ];
+    } catch (Throwable $e) {
+        // fall through to this account
     }
-    return $out;
+    try {
+        $st = $dbh->prepare('SELECT created_at FROM users WHERE id = :uid LIMIT 1');
+        $st->execute([':uid' => $userId]);
+        return trim((string)$st->fetchColumn());
+    } catch (Throwable $e) {
+        return '';
+    }
 }
 
 function account_switch_can_use(PDO $dbh, int $fromId, int $toId): bool
@@ -156,10 +258,18 @@ function account_switch_can_use(PDO $dbh, int $fromId, int $toId): bool
     try {
         $st = $dbh->prepare('SELECT 1 FROM user_account_switch WHERE bundle_id = :b AND user_id = :u LIMIT 1');
         $st->execute([':b' => $bundle, ':u' => $toId]);
-        return (bool)$st->fetchColumn();
+        if ($st->fetchColumn()) {
+            return true;
+        }
     } catch (Throwable $e) {
-        return false;
+        // fall through
     }
+    foreach (account_switch_list($dbh, $fromId) as $row) {
+        if ((int)($row['id'] ?? 0) === $toId) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function account_switch_load_user(PDO $dbh, int $userId): ?array
@@ -230,7 +340,12 @@ function account_switch_apply(PDO $dbh, int $fromId, int $toId): array
     if (function_exists('user_is_account_removed') && user_is_account_removed($dbh, $toId)) {
         return ['ok' => false, 'error' => 'That account was removed.'];
     }
-    setUserSession($user);
+    setUserSession($user, false);
+    $_SESSION['user_id'] = $toId;
+    if (trim((string)($_SESSION['user_login'] ?? '')) === '') {
+        $_SESSION['user_login'] = trim((string)($user['username'] ?? $user['email'] ?? '')) ?: ('user' . $toId);
+    }
+    $handle = trim((string)($user['username'] ?? ''));
     try {
         require_once __DIR__ . '/account_admin_events.php';
         $fromUser = account_switch_load_user($dbh, $fromId);
@@ -246,5 +361,45 @@ function account_switch_apply(PDO $dbh, int $fromId, int $toId): array
     } catch (Throwable $e) {
         // admin notice is optional
     }
-    return ['ok' => true, 'user_id' => $toId];
+    return [
+        'ok' => true,
+        'user_id' => $toId,
+        'username' => $handle,
+        'handle' => $handle !== '' ? ('@' . ltrim($handle, '@')) : ('ID ' . $toId),
+        'name' => trim((string)($user['name'] ?? '')),
+        'redirect' => 'home.php?tab=for-you',
+    ];
+}
+
+function account_switch_next(PDO $dbh, int $fromId): array
+{
+    $accounts = array_values(array_filter(
+        account_switch_list($dbh, $fromId),
+        static function (array $row): bool {
+            return (int)($row['id'] ?? 0) > 0;
+        }
+    ));
+    if (count($accounts) < 2) {
+        return ['ok' => false, 'error' => 'No other linked account to switch to.'];
+    }
+    $currentIndex = 0;
+    foreach ($accounts as $i => $row) {
+        $id = (int)($row['id'] ?? 0);
+        if ($id === $fromId || !empty($row['current']) || !empty($row['is_current'])) {
+            $currentIndex = $i;
+            break;
+        }
+    }
+    $next = $accounts[($currentIndex + 1) % count($accounts)];
+    $toId = (int)($next['id'] ?? 0);
+    if ($toId <= 0 || $toId === $fromId) {
+        return ['ok' => false, 'error' => 'No other linked account to switch to.'];
+    }
+    $result = account_switch_apply($dbh, $fromId, $toId);
+    if (!empty($result['ok'])) {
+        $handle = trim((string)($next['username'] ?? $result['username'] ?? ''));
+        $result['username'] = $handle;
+        $result['handle'] = $handle !== '' ? ('@' . ltrim($handle, '@')) : ('ID ' . $toId);
+    }
+    return $result;
 }

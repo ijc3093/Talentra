@@ -10,6 +10,10 @@ if (function_exists('publisher_db_column_exists')) {
     return;
 }
 
+if (!function_exists('fs_viewer_friends_with_author_sql')) {
+    require_once __DIR__ . '/friend_system.php';
+}
+
 if (!function_exists('str_starts_with')) {
     function str_starts_with(string $haystack, string $needle): bool
     {
@@ -632,6 +636,14 @@ function publisher_notify_followers_of_post(PDO $dbh, int $publisherId, int $pos
             $receiverId = (int)($row['id'] ?? 0);
             $receiverUsername = trim((string)($row['username'] ?? ''));
             if ($receiverId <= 0 || $receiverUsername === '' || $receiverId === $publisherId) {
+                continue;
+            }
+            if (function_exists('profile_user_wants_notification')
+                && (!profile_user_wants_notification($dbh, $receiverId, 'inapp_notifications')
+                    || !profile_user_wants_notification($dbh, $receiverId, 'publisher_post_notifications'))) {
+                continue;
+            }
+            if (function_exists('profile_user_in_quiet_hours') && profile_user_in_quiet_hours($dbh, $receiverId)) {
                 continue;
             }
             try {
@@ -1373,15 +1385,11 @@ function publisher_workspace_feed_scope_sql(): string
     return "(
         (
             p.user_id = :wsFeedMe
-            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) IN ('friends', 'public')
         )
         OR (
-            p.visibility = 'friends'
-            AND EXISTS (
-                SELECT 1 FROM user_contacts uc
-                WHERE uc.owner_user_id = :wsFeedFriendMe
-                  AND uc.friend_user_id = p.user_id
-            )
+            LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+            AND " . fs_viewer_friends_with_author_sql('p.user_id', ':wsFeedFriendMe', ':wsFeedFriendMe2') . "
         )
         OR (
             p.visibility = 'public'
@@ -1398,13 +1406,13 @@ function publisher_feed_list_scope_sql(): string
     return "(
         (
             p.user_id = :scopeMeOwn
-            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) IN ('friends', 'public')
         )
         OR
-        (p.visibility = 'friends' AND EXISTS (
-            SELECT 1 FROM user_contacts uc
-            WHERE uc.owner_user_id = :scopeMe2 AND uc.friend_user_id = p.user_id
-        ))
+        (
+            LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+            AND " . fs_viewer_friends_with_author_sql('p.user_id', ':scopeMe2', ':scopeMe2b') . "
+        )
         OR
         (p.visibility = 'public' AND EXISTS (
             SELECT 1 FROM public_follows pf
@@ -1428,6 +1436,7 @@ function publisher_feed_list_scope_params(int $meId): array
     return [
         ':scopeMeOwn' => $meId,
         ':scopeMe2' => $meId,
+        ':scopeMe2b' => $meId,
         ':scopeMe3' => $meId,
     ];
 }
@@ -1438,6 +1447,7 @@ function publisher_feed_list_scope_params_for(PDO $dbh, int $meId): array
         return [
             ':wsFeedMe' => $meId,
             ':wsFeedFriendMe' => $meId,
+            ':wsFeedFriendMe2' => $meId,
             ':wsFeedMe2' => $meId,
         ];
     }
@@ -1449,12 +1459,13 @@ function publisher_feed_unread_scope_named_sql(): string
     return "(
         (
             p.user_id = :unreadMe4
-            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+            AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) IN ('friends', 'public')
         )
         OR
-        (p.visibility = 'friends' AND EXISTS (
-            SELECT 1 FROM user_contacts uc WHERE uc.owner_user_id = :unreadMe2 AND uc.friend_user_id = p.user_id
-        ))
+        (
+            LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
+            AND " . fs_viewer_friends_with_author_sql('p.user_id', ':unreadMe2', ':unreadMe2b') . "
+        )
         OR
         (p.visibility = 'public' AND EXISTS (
             SELECT 1 FROM public_follows pf
@@ -1479,11 +1490,13 @@ function publisher_feed_unread_scope_params_for(PDO $dbh, int $meId): array
         return [
             ':wsFeedMe' => $meId,
             ':wsFeedFriendMe' => $meId,
+            ':wsFeedFriendMe2' => $meId,
             ':wsFeedMe2' => $meId,
         ];
     }
     return [
         ':unreadMe2' => $meId,
+        ':unreadMe2b' => $meId,
         ':unreadMe3' => $meId,
         ':unreadMe4' => $meId,
     ];
@@ -1560,6 +1573,12 @@ function publisher_post_visible_on_public_surface(PDO $dbh, int $meId, array $po
     }
 
     $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
+    if ($vis === 'friends') {
+        if (!function_exists('fs_are_friends')) {
+            require_once __DIR__ . '/friend_system.php';
+        }
+        return $meId > 0 && $authorId !== $meId && fs_are_friends($dbh, $meId, $authorId);
+    }
     if ($vis !== 'public') {
         return false;
     }
@@ -1588,6 +1607,19 @@ function publisher_can_view_post(PDO $dbh, int $meId, array $post): bool
             require_once __DIR__ . '/friend_system.php';
         }
         if (function_exists('fs_block_either_way') && fs_block_either_way($dbh, $meId, $authorId)) {
+            return false;
+        }
+    }
+
+    if ($meId > 0 && $authorId > 0 && function_exists('profile_content_hidden_from_viewer')) {
+        $hideKind = 'post';
+        $visKind = strtolower(trim((string)($post['visibility'] ?? '')));
+        if (!empty($post['is_reel']) || $visKind === 'reel') {
+            $hideKind = 'reel';
+        } elseif (function_exists('post_is_story_only') && post_is_story_only($post)) {
+            $hideKind = 'story';
+        }
+        if (profile_content_hidden_from_viewer($dbh, $authorId, $meId, $hideKind)) {
             return false;
         }
     }
@@ -1732,6 +1764,43 @@ function publisher_public_surface_scope_sql(PDO $dbh, int $meId, bool $newsSurfa
     }
 
     return '(1 = 1)';
+}
+
+/** Friends' public and friends-only posts belong on Discover for personal viewers (any age). */
+function publisher_discover_friends_posts_sql(string $meBind, string $meBind2, string $notMeBind): string
+{
+    $vis = "LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public'))";
+    return "(
+        {$vis} IN ('public', 'friends')
+        AND p.user_id <> {$notMeBind}
+        AND " . fs_viewer_friends_with_author_sql('p.user_id', $meBind, $meBind2) . '
+    )';
+}
+
+function publisher_discover_list_where_sql(PDO $dbh, int $meId): string
+{
+    $sql = "(
+        LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'
+        AND (
+            COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            OR p.user_id = :discoverMeOwn
+        )
+    )";
+    if ($meId > 0 && !publisher_workspace_viewer($dbh, $meId)) {
+        $sql = '(' . $sql . ' OR ' . publisher_discover_friends_posts_sql(':discoverFriendMe', ':discoverFriendMe2', ':discoverFriendAuthorMe') . ')';
+    }
+    return $sql;
+}
+
+function publisher_discover_list_where_params(PDO $dbh, int $meId): array
+{
+    $params = [':discoverMeOwn' => $meId];
+    if ($meId > 0 && !publisher_workspace_viewer($dbh, $meId)) {
+        $params[':discoverFriendMe'] = $meId;
+        $params[':discoverFriendMe2'] = $meId;
+        $params[':discoverFriendAuthorMe'] = $meId;
+    }
+    return $params;
 }
 
 function publisher_public_surface_scope_params(PDO $dbh, int $meId, bool $newsSurface): array

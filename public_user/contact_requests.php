@@ -43,7 +43,7 @@ if (isset($_POST['decline'])) {
 }
 
 $stmt = $dbh->prepare("
-  SELECT cr.id, cr.from_user_id, cr.created_at, u.name, u.username, u.email, u.friend_code
+  SELECT cr.id, cr.from_user_id, cr.created_at, u.name, u.username, u.email, u.friend_code, u.image
   FROM contact_requests cr
   JOIN users u ON u.id = cr.from_user_id
   WHERE cr.to_user_id = :me AND cr.status='pending'
@@ -56,22 +56,34 @@ function fmt_dt($dt){ return $dt ? date('M d, Y h:i A', strtotime($dt)) : ''; }
 
 if ($ajax === 'list') {
     $items = array_map(static function(array $r): array {
+        $created = (string)($r['created_at'] ?? '');
+        $ts = $created !== '' ? strtotime($created) : false;
+        $username = trim((string)($r['username'] ?? ''));
+        $name = trim((string)($r['name'] ?? ''));
+        $fromId = (int)($r['from_user_id'] ?? 0);
+        $image = trim((string)($r['image'] ?? ''));
         return [
             'id' => (int)($r['id'] ?? 0),
-            'from_user_id' => (int)($r['from_user_id'] ?? 0),
-            'display_name' => (string)($r['name'] ?? ''),
-            'username' => (string)($r['username'] ?? ''),
+            'request_id' => (int)($r['id'] ?? 0),
+            'from_user_id' => $fromId,
+            'user_id' => $fromId,
+            'display_name' => $name,
+            'name' => $name,
+            'username' => $username,
+            'handle' => $username,
             'email' => (string)($r['email'] ?? ''),
             'friend_code' => (string)($r['friend_code'] ?? ''),
-            'created_at' => (string)($r['created_at'] ?? ''),
-            'time_label' => fmt_dt($r['created_at'] ?? ''),
+            'created_at' => $created,
+            'time_label' => fmt_dt($created),
+            'month_year' => $ts ? date('M Y', $ts) : '',
+            'avatar_url' => $image !== '' ? $image : ('avatar.php?u=' . $fromId . '&name=' . rawurlencode($name !== '' ? $name : $username)),
         ];
     }, $requests);
     contact_requests_json_response(['ok' => true, 'items' => $items, 'count' => count($items)]);
 }
 ?>
 <!doctype html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -482,9 +482,11 @@ function bumpUserLastSeenThrottled(int $minIntervalSeconds = 20): void
     $_SESSION['__last_seen_ping_ts'] = time();
 }
 
-function setUserSession(array $user): void
+function setUserSession(array $user, bool $regenerateId = true): void
 {
-    session_regenerate_id(true);
+    if ($regenerateId) {
+        session_regenerate_id(true);
+    }
 
     if (function_exists('staff_pub_clear_session_flags')) {
         staff_pub_clear_session_flags();
@@ -513,7 +515,17 @@ function setUserSession(array $user): void
     }
 
     $_SESSION['user_id']          = $userId;
-    $_SESSION['user_login']       = trim((string)($user['username'] ?? ''));
+    $login = trim((string)($user['username'] ?? ''));
+    if ($login === '') {
+        $login = trim((string)($user['email'] ?? ''));
+    }
+    if ($login === '') {
+        $login = strtoupper(trim((string)($user['friend_code'] ?? '')));
+    }
+    if ($login === '') {
+        $login = 'user' . $userId;
+    }
+    $_SESSION['user_login']       = $login;
     $_SESSION['user_email']       = trim((string)($user['email'] ?? ''));
     $_SESSION['user_friend_code'] = trim((string)($user['friend_code'] ?? ''));
     $_SESSION['user_name']        = (string)($user['name'] ?? '');
@@ -658,3 +670,19 @@ function myUserRoleId(): int
 {
     return (int)($_SESSION['user_role'] ?? 0);
 }
+
+require_once __DIR__ . '/app_i18n.php';
+$msbI18nUserId = (int)($_SESSION['user_id'] ?? 0);
+$msbI18nDbh = null;
+if ($msbI18nUserId > 0 && trim((string)($_SESSION['app_language'] ?? '')) === '') {
+    try {
+        require_once dirname(__DIR__) . '/controller.php';
+        if (class_exists('Controller')) {
+            $msbI18nDbh = (new Controller())->pdo();
+        }
+    } catch (Throwable $e) {
+        $msbI18nDbh = null;
+    }
+}
+app_i18n_boot($msbI18nDbh, $msbI18nUserId);
+

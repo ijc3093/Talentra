@@ -11,6 +11,7 @@ $controller = new Controller();
 $dbh = $controller->pdo();
 
 require_once __DIR__ . '/theme_prefs.php';
+require_once __DIR__ . '/signout_menu.php';
 require_once __DIR__ . '/staff_publisher_access.php';
 require_once __DIR__ . '/publisher_organization_bridge.php';
 $headerStaffReadonly = staff_pub_is_readonly();
@@ -20,6 +21,9 @@ if ($headerStaffRoleLabel === '') {
 }
 $meId = theme_prefs_viewer_user_id();
 $headerCanLiveStudio = live_studio_user_can_access($dbh, $meId);
+if (function_exists('app_i18n_boot')) {
+  app_i18n_boot($dbh, (int)$meId);
+}
 
 if ($meId > 0 && function_exists('publisher_session_ensure_owner_binding')) {
   try {
@@ -217,6 +221,7 @@ $showFeedRail = ($__currentPage !== 'live_studio.php');
 $railIsMessages = in_array($__currentPage, ['messages.php', 'chat.php'], true);
 $railIsAlerts = in_array($__currentPage, ['dashboard.php', 'timeline.php', 'notifications.php'], true);
 $railIsPublic = in_array($__currentPage, ['public.php', 'public_live.php'], true);
+$railIsExplore = ($__currentPage === 'explore.php');
 $railIsReel = ($__currentPage === 'reel.php');
 $railIsStudio = ($__currentPage === 'live_studio.php');
 $railIsCompose = in_array($__currentPage, ['compose.php', 'post_view.php'], true);
@@ -321,18 +326,6 @@ $headerNotificationUnread = 0;
 if (!empty($notificationReceivers)) {
   try {
     $receiverPh = implode(',', array_fill(0, count($notificationReceivers), '?'));
-    $stUnread = $dbh->prepare("
-      SELECT COUNT(*)
-      FROM notification
-      WHERE notireceiver IN ($receiverPh)
-        AND is_read = 0
-        AND notitype NOT LIKE 'New chat message%'
-        AND notitype NOT LIKE 'Internal Chat%'
-        AND notitype NOT LIKE 'New internal message%'
-    ");
-    $stUnread->execute($notificationReceivers);
-    $headerNotificationUnread = (int)$stUnread->fetchColumn();
-
     $stNoti = $dbh->prepare("
       SELECT id, notiuser, notitype, created_at, is_read
       FROM notification
@@ -342,10 +335,15 @@ if (!empty($notificationReceivers)) {
         AND notitype NOT LIKE 'Internal Chat%'
         AND notitype NOT LIKE 'New internal message%'
       ORDER BY created_at DESC, id DESC
-      LIMIT 20
+      LIMIT 200
     ");
     $stNoti->execute($notificationReceivers);
     $headerNotifications = $stNoti->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (function_exists('profile_filter_notification_rows')) {
+      $headerNotifications = profile_filter_notification_rows($dbh, (int)($_SESSION['user_id'] ?? 0), $headerNotifications);
+    }
+    $headerNotificationUnread = count($headerNotifications);
+    $headerNotifications = array_slice($headerNotifications, 0, 20);
   } catch (Throwable $e) {
     $headerNotifications = [];
     $headerNotificationUnread = 0;
@@ -438,7 +436,7 @@ if (!function_exists('render_header_chat_panel_inner')) {
       <ul class="tt-messages-footer">
         <li class="tt-messages-footer-row">
           <a href="messages.php"><i class="icon ion-chatboxes"></i> Open Inbox</a>
-          <a href="compose.php" class="tt-messages-plus" aria-label="New message" title="New message"><i class="fa fa-plus" aria-hidden="true"></i></a>
+          <a href="compose.php" class="tt-messages-plus" aria-label="<?php echo app_t_attr('New message'); ?>" title="<?php echo app_t_attr('New message'); ?>"><i class="fa fa-plus" aria-hidden="true"></i></a>
         </li>
       </ul>
     <?php
@@ -455,7 +453,9 @@ if (!function_exists('render_header_chat_dropdown')) {
 if (!function_exists('render_header_notification_panel_inner')) {
   function render_header_notification_panel_inner(array $headerNotifications, int $headerNotificationUnread, string $subId, string $listId, string $markAllId): string {
     $notificationCount = count($headerNotifications);
-    $summaryText = $headerNotificationUnread > 0 ? ($headerNotificationUnread . ' unread') : 'All caught up';
+    $summaryText = $headerNotificationUnread > 0
+      ? ($headerNotificationUnread . ' ' . (function_exists('app_t') ? app_t('unread') : 'unread'))
+      : (function_exists('app_t') ? app_t('All caught up') : 'All caught up');
     $detailText = $notificationCount > 0
       ? ($notificationCount . ' recent alert' . ($notificationCount === 1 ? '' : 's'))
       : 'Recent alerts will appear here';
@@ -463,12 +463,17 @@ if (!function_exists('render_header_notification_panel_inner')) {
     ob_start();
     ?>
       <div class="tt-notifications-summary">
-        <div class="tt-notifications-summary-main"><span id="<?php echo h($subId); ?>"><?php echo h($summaryText); ?></span></div>
-        <div class="tt-notifications-summary-sub" data-notification-detail><?php echo h($detailText); ?></div>
+        <div class="tt-notifications-summary-copy">
+          <div class="tt-notifications-summary-main"><span id="<?php echo h($subId); ?>"><?php echo h($summaryText); ?></span></div>
+          <div class="tt-notifications-summary-sub" data-notification-detail><?php echo h($detailText); ?></div>
+        </div>
+        <a class="tt-noti-gear" href="settings.php#gear-notifications" title="Notification settings" aria-label="Notification settings">
+          <i class="icon ion-gear-a" aria-hidden="true"></i>
+        </a>
       </div>
-      <div class="tt-noti-door-tabs" role="tablist" aria-label="Notification filters">
-        <button type="button" class="tt-noti-door-tab is-active" data-noti-door-tab="all" role="tab" aria-selected="true">All</button>
-        <button type="button" class="tt-noti-door-tab" data-noti-door-tab="mentions" role="tab" aria-selected="false">Mentions</button>
+      <div class="tt-noti-door-tabs" role="tablist" aria-label="<?php echo app_t_attr('Notification filters'); ?>">
+        <button type="button" class="tt-noti-door-tab is-active" data-noti-door-tab="all" role="tab" aria-selected="true"><?php echo h(app_t('All')); ?></button>
+        <button type="button" class="tt-noti-door-tab" data-noti-door-tab="mentions" role="tab" aria-selected="false"><?php echo h(app_t('Mentions')); ?></button>
       </div>
       <div class="tt-notifications-divider"></div>
       <div id="<?php echo h($listId); ?>" class="tt-notifications-list" data-noti-door-list="1">
@@ -534,7 +539,7 @@ if (!function_exists('render_header_profile_dropdown')) {
             <div class="bestprofile-email"><?php echo h($meEmail); ?></div>
           <?php endif; ?>
           <?php if ($meCode !== ''): ?>
-            <div class="bestprofile-code">Code: <b><?php echo h($meCode); ?></b></div>
+            <div class="bestprofile-code"><?php echo h(function_exists('app_t') ? app_t('Code') : 'Code'); ?>: <b><?php echo h($meCode); ?></b></div>
           <?php endif; ?>
         </div>
       </div>
@@ -544,8 +549,19 @@ if (!function_exists('render_header_profile_dropdown')) {
           $href = trim((string)($item['href'] ?? '#'));
           $icon = trim((string)($item['icon'] ?? 'ion-ios-arrow-right'));
           $label = trim((string)($item['label'] ?? 'Open'));
+          if (function_exists('app_t')) {
+            $label = app_t($label);
+          }
+          if (stripos($href, 'logout.php') !== false) {
+            echo '<li>';
+            if (function_exists('msb_render_signout_group')) {
+              msb_render_signout_group('nav');
+            }
+            echo '</li>';
+            continue;
+          }
         ?>
-          <li><a href="<?php echo h($href !== '' ? $href : '#'); ?>"<?php echo (stripos($href, 'logout.php') !== false) ? ' class="js-signout-confirm"' : ''; ?>><i class="icon <?php echo h($icon); ?>"></i> <?php echo h($label); ?></a></li>
+          <li><a href="<?php echo h($href !== '' ? $href : '#'); ?>"><i class="icon <?php echo h($icon); ?>"></i> <?php echo h($label); ?></a></li>
         <?php endforeach; ?>
       </ul>
     </div>
@@ -565,7 +581,6 @@ if ($meId > 0) {
 
 $railProfileMenuItems = [
   ['href' => $railProfileHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
-  ['href' => 'settings.php#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
   ['href' => 'my_orders.php', 'icon' => 'ion-bag', 'label' => 'My Orders'],
   ['href' => 'cart.php', 'icon' => 'ion-ios-cart', 'label' => 'Cart'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
@@ -576,7 +591,6 @@ $railProfileMenuItems = [
 
 $topProfileMenuItems = [
   ['href' => 'profile.php?tab=about', 'icon' => 'ion-ios-person', 'label' => 'Edit Profile'],
-  ['href' => 'settings.php#gear-switch-accounts', 'icon' => 'ion-loop', 'label' => 'Switch accounts'],
   ['href' => 'settings.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
   ['href' => 'logout.php', 'icon' => 'ion-power', 'label' => 'Sign Out'],
 ];
@@ -660,6 +674,8 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <?php if (empty($skipHeaderThemeBootstrap)): ?>
 <!-- ✅ AUTO DARK MODE (Public User) — per-account theme prefs -->
 <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
+<?php if (function_exists('app_i18n_print_js')) { app_i18n_print_js(); } ?>
+<?php if (function_exists('profile_viewer_prefs_print_js')) { profile_viewer_prefs_print_js($dbh, (int)$meId); } ?>
 <?php if (!defined('MSB_THEME_DARK_CSS')): ?>
 <link rel="stylesheet" href="./css/dark-auto.css?v=52">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
@@ -673,7 +689,7 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <script src="./js/dark-auto.js?v=6" defer></script>
 <?php define('MSB_THEME_DARK_JS', true); endif; ?>
 <?php if (!defined('MSB_POST_ENGAGEMENT_JS')): ?>
-<script src="./js/post-engagement-sync.js?v=8"></script>
+<script src="./js/post-engagement-sync.js?v=11"></script>
 <script src="./js/post-video-loop.js?v=1"></script>
 <style>
 video.msb-clean-loop-video::-webkit-media-controls,
@@ -692,6 +708,14 @@ video.msb-clean-loop-video{
 </style>
 <?php define('MSB_POST_ENGAGEMENT_JS', true); endif; ?>
 <?php endif; ?>
+<?php if (function_exists('msb_type_prefs_print')) { msb_type_prefs_print($dbh, (int)$meId); } ?>
+<?php
+require_once __DIR__ . '/missing_media.php';
+if (function_exists('msb_missing_media_print_assets')) {
+  msb_missing_media_print_assets();
+}
+include __DIR__ . '/resume_post_position.js.php';
+?>
 
 <!-- ✅ Brand Fonts (Logo + UI) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1288,6 +1312,21 @@ iframe{
   html[data-msb-appearance] .feed-ig-reels .icon{
     color:var(--msb-palette-action) !important;
   }
+  .feed-ig-explore,
+  .feed-ig-explore:not(:hover):not(:focus):not(.active),
+  html[data-msb-appearance] .feed-ig-explore:not(:hover):not(:focus):not(.active){
+    background:transparent !important;
+    box-shadow:none !important;
+    overflow:visible;
+  }
+  .feed-ig-explore-img{
+    width:22px;
+    height:22px;
+    object-fit:contain;
+    display:block;
+    pointer-events:none;
+    background:transparent;
+  }
   .feed-ig-dot{position:absolute; right:11px; top:11px; width:8px; height:8px; border-radius:50%; background:#ff3040}
   .feed-ig-badge{
     position:absolute;
@@ -1449,57 +1488,60 @@ iframe{
 <?php endif; ?>
 
 <?php if ($showFeedRail): ?>
-<aside class="feed-ig-rail" aria-label="Feed navigation">
-  <a href="home.php?tab=for-you" class="feed-ig-logo" aria-label="Talsora">
+<aside class="feed-ig-rail" aria-label="<?php echo app_t_attr('Feed navigation'); ?>">
+  <a href="home.php?tab=for-you&amp;top=1" class="feed-ig-logo" aria-label="Open Circle from the top">
     <span class="feed-ig-logo-ring" aria-hidden="true"></span>
     <span class="feed-ig-logo-glow" aria-hidden="true"></span>
     <span class="feed-ig-logo-mark">t</span>
   </a>
-  <a href="home.php?tab=for-you" class="feed-ig-logo-label">Talsora</a>
+  <a href="home.php?tab=for-you&amp;top=1" class="feed-ig-logo-label" aria-label="Open Circle from the top">Talsora</a>
 
   <div class="feed-ig-avatar">
-    <button type="button" class="feed-ig-btn js-open-profile-door" aria-label="Profile" title="Profile">
+    <button type="button" class="feed-ig-btn js-open-profile-door" aria-label="<?php echo app_t_attr('Profile'); ?>" title="<?php echo app_t_attr('Profile'); ?>">
       <span class="bestprofile-avatar" data-avatar-key="<?php echo h($meKey); ?>" style="<?php echo h($meGrad); ?>" aria-hidden="true"><img src="<?php echo h($meAvatarUrl); ?>" data-live-avatar="1" data-avatar-base="<?php echo h($meAvatarUrl); ?>" alt=""></span>
     </button>
   </div>
 
   <nav class="feed-ig-nav">
-    <button type="button" class="feed-ig-btn ig-stories-menu-btn feed-ig-menu-mobile js-open-menu-door" aria-label="Menu" title="Menu">
+    <button type="button" class="feed-ig-btn ig-stories-menu-btn feed-ig-menu-mobile js-open-menu-door" aria-label="<?php echo app_t_attr('Menu'); ?>" title="<?php echo app_t_attr('Menu'); ?>">
       <i class="icon ion-navicon"></i>
     </button>
-    <button type="button" class="feed-ig-btn js-open-messages-door<?php echo $railIsMessages ? ' active' : ''; ?>" aria-label="Messages" title="Messages">
+    <button type="button" class="feed-ig-btn js-open-messages-door<?php echo $railIsMessages ? ' active' : ''; ?>" aria-label="<?php echo app_t_attr('Messages'); ?>" title="<?php echo app_t_attr('Messages'); ?>">
       <i class="icon ion-chatboxes"></i>
       <span data-chat-badge class="chatBadge"<?php echo $totalUnread > 0 ? '' : ' style="display:none;"'; ?>><?php echo $totalUnread > 99 ? '99+' : (string)$totalUnread; ?></span>
     </button>
 
-    <button type="button" class="feed-ig-btn js-open-notifications-door<?php echo $railIsAlerts ? ' active' : ''; ?>" aria-label="Notifications" title="Notifications">
+    <button type="button" class="feed-ig-btn js-open-notifications-door<?php echo $railIsAlerts ? ' active' : ''; ?>" aria-label="<?php echo app_t_attr('Notifications'); ?>" title="<?php echo app_t_attr('Notifications'); ?>">
       <i class="icon ion-ios-bell-outline"></i>
       <span id="headerNotificationDot" class="feed-ig-dot"<?php echo $headerNotificationUnread > 0 ? '' : ' style="display:none;"'; ?>></span>
       <span id="headerNotificationBadge" class="feed-ig-badge"<?php echo $headerNotificationUnread > 0 ? '' : ' style="display:none;"'; ?>><?php echo $headerNotificationUnread > 99 ? '99+' : (string)$headerNotificationUnread; ?></span>
     </button>
 
-    <a class="feed-ig-link" href="dashboard.php?modal=1" id="headerCreatePostTrigger" data-create-post-modal="1" title="Create Post" aria-label="Create Post"><i class="icon ion-plus-round"></i></a>
+    <a class="feed-ig-link" href="dashboard.php?modal=1" id="headerCreatePostTrigger" data-create-post-modal="1" title="<?php echo app_t_attr('Create Post'); ?>" aria-label="<?php echo app_t_attr('Create Post'); ?>"><i class="icon ion-plus-round"></i></a>
     <?php /* Public/world icon hidden — Discover tab already covers public.php */ ?>
     <?php if ($meId > 0): ?>
-    <button type="button" class="feed-ig-link js-open-live-studio-browse<?php echo $railIsStudio ? ' active' : ''; ?>" title="Live" aria-label="Live"><i class="icon ion-ios-videocam"></i></button>
+    <button type="button" class="feed-ig-link js-open-live-studio-browse<?php echo $railIsStudio ? ' active' : ''; ?>" title="<?php echo app_t_attr('Live'); ?>" aria-label="<?php echo app_t_attr('Live'); ?>"><i class="icon ion-ios-videocam"></i></button>
     <?php if ($headerCanLiveStudio): ?>
-    <button type="button" class="feed-ig-link js-open-live-software-browse" title="Streaming software" aria-label="Streaming software"><i class="icon ion-wand"></i></button>
+    <button type="button" class="feed-ig-link js-open-live-software-browse" title="<?php echo app_t_attr('Streaming software'); ?>" aria-label="<?php echo app_t_attr('Streaming software'); ?>"><i class="icon ion-wand"></i></button>
     <?php endif; ?>
     <?php endif; ?>
     <?php if (!$headerStaffReadonly): ?>
-    <a class="feed-ig-link<?php echo $railIsCompose ? ' active' : ''; ?>" href="compose.php" title="New Compose"><i class="icon ion-compose"></i></a>
+    <a class="feed-ig-link<?php echo $railIsCompose ? ' active' : ''; ?>" href="compose.php" title="<?php echo app_t_attr('New Compose'); ?>" aria-label="<?php echo app_t_attr('New Compose'); ?>"><i class="icon ion-compose"></i></a>
     <?php endif; ?>
-    <button type="button" class="feed-ig-link js-open-friend-requests-door" title="Friend Requests" aria-label="Friend Requests">
+    <button type="button" class="feed-ig-link js-open-friend-requests-door" title="<?php echo app_t_attr('Friend Requests'); ?>" aria-label="<?php echo app_t_attr('Friend Requests'); ?>">
       <i class="icon ion-person-add"></i>
       <?php if ($pendingFriendRequestCount > 0): ?>
         <span class="feed-ig-badge"><?php echo $pendingFriendRequestCount > 99 ? '99+' : (string)$pendingFriendRequestCount; ?></span>
       <?php endif; ?>
     </button>
-    <a class="feed-ig-link<?php echo !empty($railIsSettings) ? ' active' : ''; ?>" href="settings.php" title="Settings" aria-label="Settings">
+    <a class="feed-ig-link<?php echo !empty($railIsSettings) ? ' active' : ''; ?>" href="settings.php" title="<?php echo app_t_attr('Settings'); ?>" aria-label="<?php echo app_t_attr('Settings'); ?>">
       <i class="icon ion-ios-gear"></i>
     </a>
-    <a class="feed-ig-link feed-ig-reels<?php echo !empty($railIsReel) ? ' active' : ''; ?>" href="reel.php" title="Clips" aria-label="Open Clips">
+    <a class="feed-ig-link feed-ig-reels<?php echo !empty($railIsReel) ? ' active' : ''; ?>" href="reel.php" title="<?php echo app_t_attr('Clips'); ?>" aria-label="<?php echo app_t_attr('Open Clips'); ?>">
       <i class="fa fa-play" aria-hidden="true"></i>
+    </a>
+    <a class="feed-ig-link feed-ig-explore<?php echo !empty($railIsExplore) ? ' active' : ''; ?>" href="explore.php" title="<?php echo app_t_attr('Explore'); ?>" aria-label="<?php echo app_t_attr('Explore'); ?>">
+      <img class="feed-ig-explore-img" src="assets/explore-binoculars.svg" alt="" width="22" height="22">
     </a>
   </nav>
 
@@ -1517,7 +1559,7 @@ iframe{
 ?>
 <?php else: ?>
 <div class="sh-logopanel">
-  <a href="" class="sh-logo-text" aria-label="Talsora">
+  <a href="home.php?tab=for-you&amp;top=1" class="sh-logo-text" aria-label="Open Circle from the top">
     <span class="logo-book">Talsora.</span>
   </a>
 </div><!-- sh-logopanel -->
@@ -1537,8 +1579,8 @@ iframe{
   </div><!-- sh-headpanel-left -->
 
   <div class="sh-headpanel-right">
-    <button type="button" class="dropdown-link dropdown-link-notification dropdown-bestchat-link topicon-btn js-open-messages-door" aria-label="Messages" title="Messages"><i class="icon ion-chatboxes tx-24"></i><span data-chat-badge class="chatBadge"<?php echo $totalUnread > 0 ? '' : ' style="display:none;"'; ?>><?php echo $totalUnread > 99 ? '99+' : (string)$totalUnread; ?></span></button>
-    <button type="button" class="dropdown-link dropdown-link-notification topicon-btn js-open-notifications-door" aria-label="Notifications" title="Notifications"><i class="icon ion-ios-bell-outline tx-24"></i><span id="headerNotificationSquare" class="square-8"<?php echo $headerNotificationUnread > 0 ? '' : ' style="display:none;"'; ?>></span><span id="headerNotificationTopBadge" class="chatBadge"<?php echo $headerNotificationUnread > 0 ? '' : ' style="display:none;"'; ?>><?php echo $headerNotificationUnread > 99 ? '99+' : (string)$headerNotificationUnread; ?></span></button>
+    <button type="button" class="dropdown-link dropdown-link-notification dropdown-bestchat-link topicon-btn js-open-messages-door" aria-label="<?php echo app_t_attr('Messages'); ?>" title="<?php echo app_t_attr('Messages'); ?>"><i class="icon ion-chatboxes tx-24"></i><span data-chat-badge class="chatBadge"<?php echo $totalUnread > 0 ? '' : ' style="display:none;"'; ?>><?php echo $totalUnread > 99 ? '99+' : (string)$totalUnread; ?></span></button>
+    <button type="button" class="dropdown-link dropdown-link-notification topicon-btn js-open-notifications-door" aria-label="<?php echo app_t_attr('Notifications'); ?>" title="<?php echo app_t_attr('Notifications'); ?>"><i class="icon ion-ios-bell-outline tx-24"></i><span id="headerNotificationSquare" class="square-8"<?php echo $headerNotificationUnread > 0 ? '' : ' style="display:none;"'; ?>></span><span id="headerNotificationTopBadge" class="chatBadge"<?php echo $headerNotificationUnread > 0 ? '' : ' style="display:none;"'; ?>><?php echo $headerNotificationUnread > 99 ? '99+' : (string)$headerNotificationUnread; ?></span></button>
     <div class="dropdown dropdown-profile dropdown-bestprofile"><a href="" data-toggle="dropdown" class="dropdown-link dropdown-bestprofile-link topicon-btn" aria-haspopup="true" aria-expanded="false"><span class="bestprofile-avatar" data-avatar-key="<?php echo h($meKey); ?>" style="<?php echo h($meGrad); ?>" aria-hidden="true"><img src="<?php echo h($meAvatarUrl); ?>" data-live-avatar="1" data-avatar-base="<?php echo h($meAvatarUrl); ?>" alt="Avatar"></span></a><?php echo render_header_profile_dropdown($meKey, $meGrad, $meAvatarUrl, $meMenuDisplayName, $meEmail, $meCode, $topProfileMenuItems, $meMenuAccountBadge); ?></div>
   </div><!-- sh-headpanel-right -->
 </div><!-- sh-headpanel -->
@@ -1751,7 +1793,7 @@ iframe{
       </div>
       <aside class="global-live-sidebar" id="globalLiveSidebar" aria-label="Live chat sidebar">
         <div class="global-live-side-head">
-          <div class="global-live-side-title"><strong id="globalLiveSidebarTitleText">Comments</strong><span id="globalLiveSidebarTitleCount">0</span></div>
+          <div class="global-live-side-title"><strong id="globalLiveSidebarTitleText"><?php echo h(app_t('Comments')); ?></strong><span id="globalLiveSidebarTitleCount">0</span></div>
           <!-- <button type="button" class="global-live-side-close" id="globalLiveSidebarClose" aria-label="Close chat sidebar">&times;</button> -->
         </div>
         <div class="global-live-side-stats">
@@ -1851,7 +1893,7 @@ iframe{
         <div class="global-live-compose" id="globalLiveCompose">
           <div class="global-live-compose-row">
             <div class="global-live-compose-inputwrap">
-              <textarea id="globalLiveCommentInput" placeholder="Add comment..."></textarea>
+              <textarea id="globalLiveCommentInput" placeholder="<?php echo app_t_attr('Add comment...'); ?>"></textarea>
               <a type="button" class="global-live-compose-tool" aria-label="Mention">@</a>
               <a type="button" class="global-live-compose-tool" aria-label="Emoji"><i class="fa fa-smile-o" aria-hidden="true"></i></a>
             </div>
@@ -1865,7 +1907,7 @@ iframe{
       <div class="global-live-controls">
         <a type="button" class="global-live-control" id="globalLiveMicToggle" aria-label="Turn microphone on">
             <i class="fa fa-microphone has-off-slash" aria-hidden="true"></i>
-          <span class="studio-live-control-label">Microphone</span>
+          <span class="studio-live-control-label"><?php echo h(app_t('Microphone')); ?></span>
         </a>
         <a type="button" class="global-live-control" id="globalLiveCameraToggle" aria-label="Turn camera off">
             <i class="fa fa-video-camera" aria-hidden="true"></i>
@@ -1873,7 +1915,7 @@ iframe{
         </a>
         <a type="button" class="global-live-control" aria-label="Share">
           <i class="icon ion-monitor"></i>
-          <span class="global-live-control-label">Share</span>
+          <span class="global-live-control-label"><?php echo h(app_t('Share')); ?></span>
         </a>
         <a type="button" class="global-live-control" id="globalLiveSettingsToggle" aria-label="Settings">
           <i class="icon ion-gear-a"></i>
@@ -1898,7 +1940,7 @@ iframe{
       </div>
       <div class="global-live-controls-right">
         <div class="global-live-quick-reactions" id="globalLiveQuickReactions" aria-label="Quick reactions">
-          <a type="button" class="global-live-quick-reaction" data-live-room-reaction="like" aria-label="Like">👍</a>
+          <a type="button" class="global-live-quick-reaction" data-live-room-reaction="like" aria-label="<?php echo app_t_attr('Like'); ?>">👍</a>
           <a type="button" class="global-live-quick-reaction is-love" data-live-room-reaction="love" aria-label="Love"><span class="live-love-heart" aria-hidden="true">&#10084;</span></a>
           <a type="button" class="global-live-quick-reaction" data-live-room-reaction="clap" aria-label="Clap">🥰</a>
           <a type="button" class="global-live-quick-reaction" data-live-room-reaction="wow" aria-label="Wow">😮</a>
@@ -3503,6 +3545,21 @@ html #createPostModal.create-post-modal.is-open{
   background:var(--msb-dd-surface);
   color:var(--msb-dd-text);
 }
+.tt-noti-gear{
+  width:28px;
+  height:28px;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  color:inherit;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  text-decoration:none;
+}
+.tt-noti-gear:hover{ background:var(--msb-dd-hover); color:inherit; text-decoration:none; }
+.tt-noti-gear i{ font-size:16px; line-height:1; }
 .bestnoti-profile-top{
   background: var(--msb-dd-head-bg);
   color: var(--msb-dd-head-text);
@@ -4334,8 +4391,8 @@ span.msb-rx-face svg{
   };
 
   const defs = {
-    love:    { key:'love',    label:'Love',    emoji:'❤️', color:'#ff4d6d' },
-    like:    { key:'like',    label:'Like',    emoji:'👍', color:'#2563eb' },
+    love:    { key:'love',    label:(typeof msbT==='function'?msbT('Love'):'Love'),    emoji:'❤️', color:'#ff4d6d' },
+    like:    { key:'like',    label:(typeof msbT==='function'?msbT('Like'):'Like'),    emoji:'👍', color:'#2563eb' },
     dislike: { key:'dislike', label:'Dislike', emoji:'👎', color:'#475569' },
     smile:   { key:'smile',   label:'Smile',   emoji:'☺', color:'#FACC15' },
     laugh:   { key:'laugh',   label:'Laugh',   emoji:'😂', color:'#f97316' },
@@ -6530,7 +6587,7 @@ span.msb-rx-face svg{
       if (liveSidebarTitleCount) liveSidebarTitleCount.textContent = '';
       return;
     }
-    if (liveSidebarTitleText) liveSidebarTitleText.textContent = 'Comments';
+    if (liveSidebarTitleText) liveSidebarTitleText.textContent = (typeof window.msbT === 'function') ? window.msbT('Comments') : 'Comments';
     if (liveSidebarTitleCount && liveCommentCount) liveSidebarTitleCount.textContent = liveCommentCount.textContent || '0';
   }
 
@@ -8064,3 +8121,9 @@ span.msb-rx-face svg{
 })();
 </script>
 <?php include __DIR__ . '/logout_confirm.php'; ?>
+<?php
+require_once __DIR__ . '/switch_accounts_ui.php';
+if (function_exists('msb_mount_switch_accounts_modal')) {
+  msb_mount_switch_accounts_modal($dbh ?? null, (int)($meId ?? 0));
+}
+?>

@@ -77,6 +77,9 @@ if (!function_exists('home_redirect_legacy_entry')) {
         if ((string)($_GET['ajax_discover'] ?? '') === '1') {
             return;
         }
+        if ((string)($_GET['tab_embed'] ?? '') === '1') {
+            return;
+        }
         $xrw = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
         if ($xrw === 'xmlhttprequest') {
             return;

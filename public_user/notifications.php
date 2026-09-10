@@ -7,6 +7,8 @@ requireUserLogin();
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/user_identity.php';
 require_once __DIR__ . '/includes/friend_system.php';
+require_once __DIR__ . '/includes/profile_access.php';
+require_once __DIR__ . '/includes/app_notification_api.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 
@@ -359,6 +361,10 @@ if (empty($error) && !empty($receivers)) {
         ");
         $st->execute(array_merge($receivers, ['New chat message%', 'Internal Chat%', 'New internal message%']));
         $notifications = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (function_exists('profile_filter_notification_rows')) {
+            $notifications = profile_filter_notification_rows($dbh, $meId, $notifications);
+        }
+        $unreadCount = 0;
         foreach ($notifications as $row) {
             if ((int)($row['is_read'] ?? 0) === 0) {
                 $unreadCount++;
@@ -370,6 +376,23 @@ if (empty($error) && !empty($receivers)) {
     }
 }
 
+$ajax = strtolower(trim((string)($_GET['ajax'] ?? $_POST['ajax'] ?? '')));
+if (in_array($ajax, ['list', 'mark_one', 'mark_all', 'mark'], true)) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    $items = [];
+    foreach ($notifications as $row) {
+        $items[] = app_notification_item_from_row($row);
+    }
+    echo json_encode([
+        'ok' => $error === '',
+        'unread' => $unreadCount,
+        'items' => $items,
+        'error' => $error,
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $activeTab = strtolower(trim((string)($_GET['tab'] ?? 'all')));
 $allowedTabs = ['all', 'mentions', 'tags', 'reacts', 'shares', 'saves', 'whats-up'];
 if (!in_array($activeTab, $allowedTabs, true)) {
@@ -377,8 +400,8 @@ if (!in_array($activeTab, $allowedTabs, true)) {
 }
 
 $unreadLabel = $unreadCount > 0
-    ? ($unreadCount . ' unread')
-    : 'All caught up';
+    ? ($unreadCount . ' ' . (function_exists('app_t') ? app_t('unread') : 'unread'))
+    : (function_exists('app_t') ? app_t('All caught up') : 'All caught up');
 
 // What’s up — recent posts from publishers this user follows (+ existing notify rows).
 require_once __DIR__ . '/includes/publisher_accounts.php';
@@ -606,7 +629,7 @@ try {
         $happeningItems[] = [
             'id' => $postId,
             'title' => $title,
-            'meta' => $catLabel . ' · ' . $publisherName,
+            'meta' => (function_exists('app_t') ? app_t($catLabel) : $catLabel) . ' · ' . $publisherName,
             'href' => 'public.php?post=' . $postId,
         ];
     }
@@ -615,7 +638,7 @@ try {
 }
 ?>
 <!doctype html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1389,24 +1412,21 @@ try {
           <div class="noti-head-chrome">
             <div class="x-topbar">
               <div class="x-top-meta">
-                <h1 class="x-top-name">Notifications</h1>
+                <h1 class="x-top-name"><?= h(function_exists('app_t') ? app_t('Notifications') : 'Notifications') ?></h1>
                 <p class="x-top-sub"><?= h($unreadLabel) ?></p>
               </div>
-              <form method="post" class="mb-0">
-                <input type="hidden" name="action" value="mark_all">
-                <button type="submit" class="x-settings-btn" title="Mark all as read" aria-label="Mark all as read"<?= empty($notifications) || $unreadCount <= 0 ? ' disabled' : '' ?>>
-                  <i class="fa fa-cog" aria-hidden="true"></i>
-                </button>
-              </form>
+              <a class="x-settings-btn" href="settings.php#gear-notifications" title="Notification settings" aria-label="Notification settings">
+                <i class="icon ion-gear-a" aria-hidden="true"></i>
+              </a>
             </div>
             <nav class="x-tabs" aria-label="Notification filters">
-              <button type="button" class="x-tab<?= $activeTab === 'all' ? ' is-active' : '' ?>" data-noti-tab="all"<?= $activeTab === 'all' ? ' aria-current="page"' : '' ?>>All</button>
-              <button type="button" class="x-tab<?= $activeTab === 'whats-up' ? ' is-active' : '' ?>" data-noti-tab="whats-up"<?= $activeTab === 'whats-up' ? ' aria-current="page"' : '' ?>>What’s up</button>
-              <button type="button" class="x-tab<?= $activeTab === 'mentions' ? ' is-active' : '' ?>" data-noti-tab="mentions"<?= $activeTab === 'mentions' ? ' aria-current="page"' : '' ?>>Mentions</button>
-              <button type="button" class="x-tab<?= $activeTab === 'tags' ? ' is-active' : '' ?>" data-noti-tab="tags"<?= $activeTab === 'tags' ? ' aria-current="page"' : '' ?>>Tags</button>
-              <button type="button" class="x-tab<?= $activeTab === 'reacts' ? ' is-active' : '' ?>" data-noti-tab="reacts"<?= $activeTab === 'reacts' ? ' aria-current="page"' : '' ?>>Reacts</button>
-              <button type="button" class="x-tab<?= $activeTab === 'shares' ? ' is-active' : '' ?>" data-noti-tab="shares"<?= $activeTab === 'shares' ? ' aria-current="page"' : '' ?>>Shares</button>
-              <button type="button" class="x-tab<?= $activeTab === 'saves' ? ' is-active' : '' ?>" data-noti-tab="saves"<?= $activeTab === 'saves' ? ' aria-current="page"' : '' ?>>Saves</button>
+              <button type="button" class="x-tab<?= $activeTab === 'all' ? ' is-active' : '' ?>" data-noti-tab="all"<?= $activeTab === 'all' ? ' aria-current="page"' : '' ?>><?= h(app_t('All')) ?></button>
+              <button type="button" class="x-tab<?= $activeTab === 'whats-up' ? ' is-active' : '' ?>" data-noti-tab="whats-up"<?= $activeTab === 'whats-up' ? ' aria-current="page"' : '' ?>><?= h(app_t("What's up")) ?></button>
+              <button type="button" class="x-tab<?= $activeTab === 'mentions' ? ' is-active' : '' ?>" data-noti-tab="mentions"<?= $activeTab === 'mentions' ? ' aria-current="page"' : '' ?>><?= h(app_t('Mentions')) ?></button>
+              <button type="button" class="x-tab<?= $activeTab === 'tags' ? ' is-active' : '' ?>" data-noti-tab="tags"<?= $activeTab === 'tags' ? ' aria-current="page"' : '' ?>><?= h(app_t('Tags')) ?></button>
+              <button type="button" class="x-tab<?= $activeTab === 'reacts' ? ' is-active' : '' ?>" data-noti-tab="reacts"<?= $activeTab === 'reacts' ? ' aria-current="page"' : '' ?>><?= h(app_t('Reacts')) ?></button>
+              <button type="button" class="x-tab<?= $activeTab === 'shares' ? ' is-active' : '' ?>" data-noti-tab="shares"<?= $activeTab === 'shares' ? ' aria-current="page"' : '' ?>><?= h(app_t('Shares')) ?></button>
+              <button type="button" class="x-tab<?= $activeTab === 'saves' ? ' is-active' : '' ?>" data-noti-tab="saves"<?= $activeTab === 'saves' ? ' aria-current="page"' : '' ?>><?= h(app_t('Saves')) ?></button>
             </nav>
           </div>
           <?php if ($error): ?><div class="alert alert-danger"><?= h($error) ?></div><?php endif; ?>
@@ -1472,7 +1492,7 @@ try {
                         <span class="x-noti-time" title="<?= h($timeAgo) ?>"><?= h($dateLabel) ?></span>
                       <?php endif; ?>
                     </div>
-                    <p class="x-noti-body"><?= h($text) ?></p>
+                    <p class="x-noti-body"><?= h(function_exists('app_t') ? app_t($text) : $text) ?></p>
                   </div>
                   <div class="x-noti-more dropdown">
                     <button type="button" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="More">
@@ -1538,24 +1558,24 @@ try {
         <div class="x-rail-search">
           <form class="x-rail-search-field" action="public.php" method="get" role="search">
             <i class="fa fa-search" aria-hidden="true"></i>
-            <input class="x-rail-search-input" type="search" name="q" placeholder="Search" autocomplete="off">
+            <input class="x-rail-search-input" type="search" name="q" placeholder="<?= h(function_exists('app_t') ? app_t('Search') : 'Search') ?>" autocomplete="off">
           </form>
         </div>
 
         <div class="x-rail-main">
           <div class="x-rail-card">
             <div class="x-rail-card-pad">
-              <h2 class="x-rail-card-title">What’s happening</h2>
+              <h2 class="x-rail-card-title"><?= h(function_exists('app_t') ? app_t("What's happening") : "What's happening") ?></h2>
             </div>
             <?php if ($happeningItems): ?>
               <?php foreach ($happeningItems as $item): ?>
                 <a class="x-trend" href="<?= h((string)$item['href']) ?>">
-                  <span class="x-trend-meta"><?= h((string)$item['meta']) ?></span>
+                  <span class="x-trend-meta"><?= h(function_exists('app_t') ? app_t((string)$item['meta']) : (string)$item['meta']) ?></span>
                   <span class="x-trend-title"><?= h((string)$item['title']) ?></span>
                   <span class="x-trend-more" aria-hidden="true"><?= post_card_menu_fries_icon_html() ?></span>
                 </a>
               <?php endforeach; ?>
-              <a class="x-rail-show-more" href="home.php?tab=discover">Show more</a>
+              <a class="x-rail-show-more" href="home.php?tab=discover"><?= h(function_exists('app_t') ? app_t('Show more') : 'Show more') ?></a>
             <?php else: ?>
               <p class="x-trend" style="cursor:default;pointer-events:none;">
                 <span class="x-trend-meta">Publishers</span>

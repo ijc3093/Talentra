@@ -75,11 +75,11 @@ if ($msbArchiveIsTags) {
         </svg>
       </a>
       <?php endif; ?>
-      <h1 class="ig-archive-title"><?= msb_archive_h($pageTitle) ?></h1>
+      <h1 class="ig-archive-title"><?= msb_archive_h(function_exists('app_t') ? app_t($pageTitle) : $pageTitle) ?></h1>
     </div>
 
     <div class="ig-archive-stories-block">
-      <div class="ig-archive-stories-label">Moments</div>
+      <div class="ig-archive-stories-label"><?= msb_archive_h(function_exists('app_t') ? app_t('Moments') : 'Moments') ?></div>
       <div class="ig-stories-wrap">
       <div class="ig-stories-bar<?= $hasStories ? '' : ' is-empty' ?>" aria-label="<?= msb_archive_h($storiesAria) ?>">
         <div class="ig-stories-track<?= $hasStories ? '' : ' is-empty' ?>" id="<?= $uid ?>StoriesTrack">
@@ -95,6 +95,9 @@ if ($msbArchiveIsTags) {
                 $cid = (int)$circle['postId'];
                 $cSrc = (string)$circle['src'];
                 $cType = (string)$circle['type'];
+                if ($cSrc !== '' && function_exists('msb_archive_media_file_exists') && !msb_archive_media_file_exists($cSrc)) {
+                    $cSrc = '';
+                }
                 $cCap = (string)$circle['caption'];
                 $cLabel = (string)$circle['label'];
                 $cRing = (string)$circle['ringSrc'];
@@ -151,7 +154,7 @@ if ($msbArchiveIsTags) {
         <?php endif; ?>
       </div>
       </div>
-      <p class="ig-archive-note ig-archive-note--stories"><?= msb_archive_h($storiesNote) ?></p>
+      <p class="ig-archive-note ig-archive-note--stories"><?= msb_archive_h(function_exists('app_t') ? app_t($storiesNote) : $storiesNote) ?></p>
     </div>
   </header>
 
@@ -160,8 +163,8 @@ if ($msbArchiveIsTags) {
   <?php if ($feedPosts): ?>
     <section class="ig-archive-section" aria-label="<?= msb_archive_h($postsAria) ?>">
     <div class="ig-archive-posts-meta">
-      <div class="ig-archive-section-title">Posts</div>
-      <p class="ig-archive-note" style="margin-top:0;margin-bottom:12px;"><?= msb_archive_h($postsNote) ?></p>
+      <div class="ig-archive-section-title"><?= msb_archive_h(function_exists('app_t') ? app_t('Posts') : 'Posts') ?></div>
+      <p class="ig-archive-note" style="margin-top:0;margin-bottom:12px;"><?= msb_archive_h(function_exists('app_t') ? app_t($postsNote) : $postsNote) ?></p>
     </div>
     <div class="ig-archive-grid-scroll">
     <div class="ig-archive-grid" id="<?= $uid ?>PostList">
@@ -172,8 +175,11 @@ if ($msbArchiveIsTags) {
               continue;
           }
           $previewSrc = (string)($post['preview_src'] ?? '');
+          if ($previewSrc !== '' && function_exists('msb_archive_media_file_exists') && !msb_archive_media_file_exists($previewSrc)) {
+              $previewSrc = '';
+          }
           $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
-          $isVideo = ($thumbType === 'video');
+          $isVideo = ($thumbType === 'video' && $previewSrc !== '');
           $caption = trim((string)($post['preview_text'] ?? ''));
           $title = trim((string)($post['title'] ?? ''));
           if ($title === '' || strcasecmp($title, 'post') === 0) {

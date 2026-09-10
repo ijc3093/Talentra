@@ -722,7 +722,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 
     <div class="tt-comments-head">
       <div>
-        <span class="title">Comments</span>
+        <span class="title"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Comments') : 'Comments', ENT_QUOTES, 'UTF-8'); ?></span>
         <span class="count" id="ttCommentsCount">0</span>
       </div>
       <button class="tt-close" type="button" id="ttCommentsClose" title="Close">
@@ -731,13 +731,13 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     </div>
 
     <div class="tt-comments-list" id="ttCommentsList">
-      <div class="text-muted tt-comments-empty">Select a post to load comments.</div>
+      <div class="text-muted tt-comments-empty"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Select a post to load comments.') : 'Select a post to load comments.', ENT_QUOTES, 'UTF-8'); ?></div>
     </div>
 
     <div class="tt-comments-foot">
       <div class="tt-replying" id="ttReplyingRow">
-        <div id="ttReplyingTo">Replying…</div>
-        <div class="x" id="ttCancelReply">Cancel</div>
+        <div id="ttReplyingTo"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Replying…') : 'Replying…', ENT_QUOTES, 'UTF-8'); ?></div>
+        <div class="x" id="ttCancelReply"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Cancel') : 'Cancel', ENT_QUOTES, 'UTF-8'); ?></div>
       </div>
 
       <div class="tt-comment-media-preview" id="ttCommentMediaPreview">
@@ -749,7 +749,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
         <input type="hidden" id="ttPostId" value="0">
         <input type="hidden" id="ttParentId" value="0">
         <div class="tt-input-row">
-          <input class="tt-input" id="ttCommentText" type="text" placeholder="Add comment..." />
+          <input class="tt-input" id="ttCommentText" type="text" placeholder="<?php echo app_t_attr('Add comment...'); ?>" />
           <button type="button" class="tt-iconbtn" id="ttMediaBtn" title="GIF" aria-label="GIF" aria-expanded="false" aria-controls="ttCommentGifPicker">
             <i class="icon ion-image"></i>
           </button>
@@ -820,6 +820,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
 <script>
 <?php require __DIR__ . '/comment_gifs.js.php'; ?>
 (function(){
+  function tUi(s){ return (typeof window.msbT === 'function') ? window.msbT(s) : String(s == null ? '' : s); }
   const $wrap = document.getElementById('tt-comments-wrap');
   const $list = document.getElementById('ttCommentsList');
   const $count = document.getElementById('ttCommentsCount');
@@ -838,7 +839,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
   const $cancelReply = document.getElementById('ttCancelReply');
   const $close = document.getElementById('ttCommentsClose');
   let focusCommentId = 0;
-  const defaultPlaceholder = 'Add comment...';
+    const defaultPlaceholder = <?= json_encode(function_exists('app_t') ? app_t('Add comment...') : 'Add comment...', JSON_UNESCAPED_UNICODE) ?>;
   let currentCommentsPostId = 0;
   let currentComments = [];
   let currentByParent = {};
@@ -1396,7 +1397,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     }
 
     window.TTComments.setPost(postId, [], false);
-    if($list) $list.innerHTML = '<div class="text-muted tt-comments-empty">Loading comments...</div>';
+    if($list) $list.innerHTML = '<div class="text-muted tt-comments-empty">'+tUi('Loading...')+'</div>';
 
     fetchCommentsForPost(postId).then(function(items){
       if(Number(currentCommentsPostId) !== postId) return;
@@ -1404,7 +1405,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
       if(typeof opts.onLoaded === 'function') opts.onLoaded(items);
     }).catch(function(){
       if(Number(currentCommentsPostId) !== postId) return;
-      if($list) $list.innerHTML = '<div class="text-danger tt-comments-empty">Unable to load comments.</div>';
+      if($list) $list.innerHTML = '<div class="text-danger tt-comments-empty">'+tUi('Unable to load comments.')+'</div>';
     });
   }
 
@@ -1413,13 +1414,13 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
       return window.MSBReactions.label(reaction || 'love');
     }
     var key = String(reaction || '').trim().toLowerCase();
-    if(key === 'like') return 'Like';
-    if(key === 'smile') return 'Smile';
-    if(key === 'laugh') return 'Laugh';
-    if(key === 'wow') return 'Wow';
-    if(key === 'sad') return 'Sad';
-    if(key === 'angry') return 'Angry';
-    return 'Love';
+    if(key === 'like') return tUi('Like');
+    if(key === 'smile') return tUi('Smile');
+    if(key === 'laugh') return tUi('Laugh');
+    if(key === 'wow') return tUi('Wow');
+    if(key === 'sad') return tUi('Sad');
+    if(key === 'angry') return tUi('Angry');
+    return tUi('Love');
   }
 
   function commentHtml(c, depth, childrenHtml){
@@ -1435,7 +1436,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
     const repliesOpen = !collapsedReplyIds.has(c.id);
     const depthClamped = depth > MAX_REPLY_CURVE_DEPTH;
     const childDepthCapped = (depth + 1) > MAX_REPLY_CURVE_DEPTH;
-    const replyActionLabel = c._reply_action_label || 'Reply';
+    const replyActionLabel = c._reply_action_label || tUi('Reply');
     const replyTargetId = Number(c._reply_target_id || c.id);
     const mediaPath = String(c.media_path || '').replace(/"/g, '');
     const textHtml = String(c.comment_text || '').trim()
@@ -1455,7 +1456,7 @@ html[data-theme="dark"][data-msb-appearance] #ttLeftbarOverlays{
             </div>
             <div class="tt-meta">
               <span>${esc(when)}</span>
-              <button type="button" class="tt-inlinebtn tt-likebtn tt-reactbtn ${liked ? 'liked' : ''}" data-heart="${c.id}" data-reaction="${esc(myReaction)}"><i class="fa fa-heart-o"></i><span data-reaction-label>${esc(liked ? currentLabel : 'Love')}</span></button>
+              <button type="button" class="tt-inlinebtn tt-likebtn tt-reactbtn ${liked ? 'liked' : ''}" data-heart="${c.id}" data-reaction="${esc(myReaction)}"><i class="fa fa-heart-o"></i><span data-reaction-label>${esc(liked ? currentLabel : tUi('Love'))}</span></button>
               <button type="button" class="tt-inlinebtn tt-reply-link" data-reply="${replyTargetId}" data-who="${esc(dn)}" data-mode="${esc(replyActionLabel)}">${esc(replyActionLabel)}</button>
               ${replyCount > 0 ? replyToggleHtml(threadCount, repliesOpen, c.id) : ``}
               ${likeCount > 0 ? `<span class="tt-likepill"><i class="icon ion-thumbsup"></i>${likeCount}</span>` : ``}

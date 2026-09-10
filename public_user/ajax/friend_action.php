@@ -65,32 +65,12 @@ if ($action === 'send') {
         ]);
         exit;
     }
-    if (fs_are_friends($dbh, $meId, $peerId)) {
-        echo json_encode(['ok'=>true,'message'=>'This user is already your friend.','status'=>'friends','request_id'=>0,'from_user_id'=>$meId,'to_user_id'=>$peerId]);
-        exit;
-    }
-
-    $existing = $dbh->prepare("SELECT id FROM contact_requests WHERE from_user_id = :from_id AND to_user_id = :to_id ORDER BY id DESC LIMIT 1");
-    $existing->execute([':from_id' => $meId, ':to_id' => $peerId]);
-    $requestId = (int)($existing->fetchColumn() ?: 0);
-    if ($requestId > 0) {
-        $up = $dbh->prepare("UPDATE contact_requests SET status = 'pending', created_at = NOW() WHERE id = :id LIMIT 1");
-        $up->execute([':id' => $requestId]);
-    } else {
-        $ins = $dbh->prepare("INSERT INTO contact_requests (from_user_id, to_user_id, status, created_at) VALUES (:from_id, :to_id, 'pending', NOW())");
-        $ins->execute([':from_id' => $meId, ':to_id' => $peerId]);
-        $requestId = (int)$dbh->lastInsertId();
-    }
-
+    $res = fs_send_friend_request($dbh, $meId, $peerId);
     $status = fs_friend_status($dbh, $meId, $peerId);
-    $verifiedRequestId = fs_pending_request_id($dbh, $meId, $peerId);
-    if ($verifiedRequestId > 0) {
-        $requestId = $verifiedRequestId;
-    }
-    $ok = $requestId > 0 && $status === 'outgoing_pending';
+    $requestId = fs_pending_request_id($dbh, $meId, $peerId);
     echo json_encode([
-        'ok'=>$ok,
-        'message'=>$ok ? 'Friend request sent.' : 'Unable to save friend request.',
+        'ok'=>(bool)($res['ok'] ?? false),
+        'message'=>(string)($res['message'] ?? ''),
         'status'=>$status,
         'request_id'=>$requestId,
         'from_user_id'=>$meId,

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/session_user.php';
 requireUserLogin();
 require_once __DIR__ . '/../controller.php';
 require_once __DIR__ . '/../includes/friend_system.php';
+require_once __DIR__ . '/../includes/publisher_accounts.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -73,28 +74,19 @@ try {
     if ($meId === $peerId) {
         j(['ok' => false, 'error' => 'You cannot add yourself.', 'from_user_id' => $meId, 'to_user_id' => $peerId]);
     }
-    if (fs_are_friends($dbh, $meId, $peerId)) {
-        j(['ok' => true, 'message' => 'This user is already your friend.', 'status' => 'friends', 'request_id' => 0, 'from_user_id' => $meId, 'to_user_id' => $peerId]);
+    if (function_exists('publisher_is_publisher_user') && publisher_is_publisher_user($dbh, $peerId)) {
+        j([
+            'ok' => false,
+            'error' => 'This is a publisher page. Tap Follow to see their updates in your Feed.',
+            'status' => 'publisher',
+            'from_user_id' => $meId,
+            'to_user_id' => $peerId,
+        ]);
     }
 
-    $existing = $dbh->prepare("SELECT id FROM contact_requests WHERE from_user_id = :from_id AND to_user_id = :to_id ORDER BY id DESC LIMIT 1");
-    $existing->execute([':from_id' => $meId, ':to_id' => $peerId]);
-    $requestId = (int)($existing->fetchColumn() ?: 0);
-
-    if ($requestId > 0) {
-        $up = $dbh->prepare("UPDATE contact_requests SET status = 'pending', created_at = NOW() WHERE id = :id LIMIT 1");
-        $up->execute([':id' => $requestId]);
-    } else {
-        $ins = $dbh->prepare("INSERT INTO contact_requests (from_user_id, to_user_id, status, created_at) VALUES (:from_id, :to_id, 'pending', NOW())");
-        $ins->execute([':from_id' => $meId, ':to_id' => $peerId]);
-        $requestId = (int)$dbh->lastInsertId();
-    }
-
+    $res = fs_send_friend_request($dbh, $meId, $peerId);
     $status = fs_friend_status($dbh, $meId, $peerId);
-    $verifiedRequestId = fs_pending_request_id($dbh, $meId, $peerId);
-    if ($verifiedRequestId > 0) {
-        $requestId = $verifiedRequestId;
-    }
+    $requestId = fs_pending_request_id($dbh, $meId, $peerId);
 
     $stPeer = $dbh->prepare("SELECT id, name, username, email, friend_code FROM users WHERE id = :id LIMIT 1");
     $stPeer->execute([':id' => $peerId]);
@@ -104,11 +96,11 @@ try {
     $stCount->execute([':peer' => $peerId]);
     $recipientPendingCount = (int)($stCount->fetchColumn() ?: 0);
 
-    $ok = $requestId > 0 && $status === 'outgoing_pending';
+    $ok = !empty($res['ok']) || $status === 'outgoing_pending' || $status === 'friends';
     j([
         'ok' => $ok,
-        'error' => $ok ? '' : 'Unable to save friend request.',
-        'message' => $ok ? 'Friend request sent.' : 'Unable to save friend request.',
+        'error' => $ok ? '' : (string)($res['message'] ?? 'Unable to save friend request.'),
+        'message' => (string)($res['message'] ?? ($ok ? 'Friend request sent.' : 'Unable to save friend request.')),
         'status' => $status,
         'request_id' => $requestId,
         'from_user_id' => $meId,

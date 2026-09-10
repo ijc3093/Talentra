@@ -32,11 +32,15 @@ require_once __DIR__ . '/includes/post_tags.php';
 require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/bookmark_posts.php';
 require_once __DIR__ . '/includes/archive_posts.php';
+require_once __DIR__ . '/includes/missing_media.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/user_backgrounds.php';
+require_once __DIR__ . '/includes/app_languages.php';
+require_once __DIR__ . '/includes/app_i18n.php';
 require_once __DIR__ . '/includes/profile_people_tags.php';
 require_once __DIR__ . '/includes/account_switch.php';
+require_once __DIR__ . '/includes/switch_accounts_ui.php';
 require_once __DIR__ . '/includes/profile_cover_slides.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
@@ -55,6 +59,18 @@ $profileAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 $reqId = (int)($_GET['id'] ?? 0);
 $reqUsername = trim((string)($_GET['username'] ?? $_GET['u'] ?? ''));
 $reqFriendCode = strtoupper(trim((string)($_GET['friend_code'] ?? '')));
+$profileResumeFrom = strtolower(trim((string)($_GET['from'] ?? '')));
+$profileResumePostId = (int)($_GET['post_id'] ?? 0);
+$profileBackHref = 'home.php?tab=for-you';
+if ($profileResumePostId > 0) {
+  if ($profileResumeFrom === 'reel') {
+    $profileBackHref = 'reel.php?post=' . $profileResumePostId;
+  } elseif ($profileResumeFrom === 'public' || $profileResumeFrom === 'discover') {
+    $profileBackHref = 'home.php?tab=discover&from_post=' . $profileResumePostId;
+  } else {
+    $profileBackHref = 'home.php?tab=for-you&from_post=' . $profileResumePostId;
+  }
+}
 $requestedPeer = ($reqFriendCode !== '' || $reqUsername !== '' || $reqId > 0);
 $peerFound = false;
 
@@ -373,6 +389,7 @@ if (!function_exists('profile_gear_row_value_label')) {
   {
     $val = profile_gear_row_value($row, $profileSettings, $themeAutoDefault);
     $controlType = strtolower(trim((string)($row['control'] ?? 'select')));
+    $field = trim((string)($row['field'] ?? ''));
     if ($controlType === 'color') {
       $hex = appearance_palette_parse_custom_hex($val);
       if ($hex !== null) {
@@ -382,6 +399,12 @@ if (!function_exists('profile_gear_row_value_label')) {
         return strtoupper(appearance_palette_hex_for_slug($val));
       }
       return strtoupper((string)($row['default_value'] ?? '#8D514F'));
+    }
+    if (trim((string)($row['layout'] ?? '')) === 'font_bundle') {
+      return profile_gear_font_summary($profileSettings);
+    }
+    if ($field === 'app_language') {
+      return app_language_label($val);
     }
     foreach ((array)($row['options'] ?? []) as $ov => $ol) {
       if ((string)$ov === $val) {
@@ -528,71 +551,57 @@ if (!function_exists('profile_gear_render_danger_zone')) {
 if (!function_exists('profile_gear_render_account_switch')) {
   function profile_gear_render_account_switch(array $row): void
   {
-    $accounts = (array)($row['accounts'] ?? []);
-    $staffBlocked = !empty($row['staff_blocked']);
-    $csrf = csrfToken();
-    if ($staffBlocked) {
-      ?>
-      <p class="as-lead">You are in a staff publisher session. Switch accounts from a personal or owner login.</p>
-      <?php
-      return;
+    msb_render_switch_accounts_picker(
+      (array)($row['accounts'] ?? []),
+      !empty($row['staff_blocked']),
+      false
+    );
+  }
+}
+
+if (!function_exists('profile_gear_font_summary')) {
+  function profile_gear_font_summary(array $profileSettings): string
+  {
+    $sizeMap = ['small' => 'Small', 'medium' => 'Normal', 'large' => 'Larger'];
+    $headerSize = strtolower(trim((string)($profileSettings['header_type_size'] ?? 'small')));
+    if (!isset($sizeMap[$headerSize])) {
+      $headerSize = 'small';
     }
-    ?>
-    <div class="as-wrap">
-      <p class="as-lead">Keep more than one account on this device — personal, publisher, or commerce — and switch without signing the others out of the list.</p>
-      <?php if (empty($accounts)): ?>
-        <p class="as-empty">This account is ready. Add another login to switch between them.</p>
-      <?php endif; ?>
-      <ul class="as-list">
-        <?php foreach ($accounts as $acc): ?>
-          <?php
-            $aid = (int)($acc['id'] ?? 0);
-            $aname = trim((string)($acc['name'] ?? ''));
-            $auser = trim((string)($acc['username'] ?? ''));
-            $akind = trim((string)($acc['kind'] ?? 'Personal'));
-            $current = !empty($acc['current']);
-            $av = 'avatar.php?u=' . $aid . '&name=' . rawurlencode($aname !== '' ? $aname : $auser);
-          ?>
-          <li class="as-row<?php echo $current ? ' is-current' : ''; ?>">
-            <img class="as-avatar" src="<?php echo h($av); ?>" alt="" width="40" height="40">
-            <div class="as-copy">
-              <div class="as-name"><?php echo h($aname !== '' ? $aname : $auser); ?></div>
-              <div class="as-meta"><?php echo h($akind); ?><?php echo $auser !== '' ? ' · @' . h($auser) : ''; ?></div>
-            </div>
-            <?php if ($current): ?>
-              <span class="as-using">Using now</span>
-            <?php else: ?>
-              <button type="button" class="as-btn js-account-switch" data-user-id="<?php echo (int)$aid; ?>" data-csrf="<?php echo h($csrf); ?>">Switch</button>
-            <?php endif; ?>
-          </li>
-        <?php endforeach; ?>
-      </ul>
-      <div class="as-add">
-        <div class="as-add-title">Add another account</div>
-        <p class="as-add-copy">Sign in or create a second account. It stays linked on this device so you can switch later.</p>
-        <div class="as-add-row">
-          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=personal" data-account-type="personal">Add personal</a>
-          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=publisher" data-account-type="publisher">Add publisher</a>
-          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=commerce" data-account-type="commerce">Add commerce</a>
-          <a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=personal&amp;view=register" data-account-type="personal" data-auth-view="register">Create new</a>
-        </div>
-      </div>
-      <dialog class="as-logout-dialog" id="asAddLogoutDialog" aria-labelledby="asAddLogoutTitle">
-        <h2 id="asAddLogoutTitle">Log out to continue?</h2>
-        <p id="asAddLogoutCopy">You will leave this account. Cancel to stay, or log out. After logout you cannot come back to this session.</p>
-        <div class="as-logout-actions">
-          <button type="button" class="as-btn as-btn-ghost" id="asAddLogoutCancel">Cancel</button>
-          <button type="button" class="as-btn as-logout-confirm" id="asAddLogoutConfirm">Logout</button>
-        </div>
-      </dialog>
-    </div>
-    <?php
+    $headerFont = trim((string)($profileSettings['header_font_family'] ?? 'Arial')) ?: 'Arial';
+    $bodyPt = (int)($profileSettings['body_font_size_pt'] ?? 9);
+    if ($bodyPt < 8) {
+      $bodyPt = 9;
+    }
+    $bodyFont = trim((string)($profileSettings['body_font_family'] ?? 'Arial')) ?: 'Arial';
+    $textColor = function_exists('msb_type_text_color_normalize')
+      ? msb_type_text_color_normalize((string)($profileSettings['text_color'] ?? '#000000'))
+      : '#000000';
+    $summary = $sizeMap[$headerSize] . ' · ' . $headerFont . ' / ' . $bodyPt . ' pt · ' . $bodyFont;
+    if ($textColor !== 'theme') {
+      $summary .= ' · ' . strtoupper($textColor);
+    }
+    return $summary;
   }
 }
 
 if (!function_exists('profile_gear_render_detail_action')) {
   function profile_gear_render_detail_action(array $row, array $profileSettings, string $themeAutoDefault, bool $isPublisher = false): void
   {
+    if (trim((string)($row['layout'] ?? '')) === 'font_bundle') {
+      echo '<div class="gear-font-bundle">';
+      foreach ((array)($row['controls'] ?? []) as $child) {
+        if (!is_array($child)) {
+          continue;
+        }
+        $child['bundle_child'] = true;
+        echo '<div class="gear-font-bundle-item">';
+        profile_gear_render_detail_action($child, $profileSettings, $themeAutoDefault, $isPublisher);
+        echo '</div>';
+      }
+      echo '<button type="button" class="gear-font-default-all" data-gear-font-default-all="1">' . h(app_t('Default all')) . '</button>';
+      echo '</div>';
+      return;
+    }
     if (trim((string)($row['layout'] ?? '')) === 'danger_zone') {
       profile_gear_render_danger_zone($profileSettings, $isPublisher, trim((string)($row['danger_action'] ?? '')));
       return;
@@ -602,6 +611,9 @@ if (!function_exists('profile_gear_render_detail_action')) {
       $pid = (int)($post['id'] ?? $row['post_id'] ?? 0);
       $preview = trim((string)($post['preview_text'] ?? $row['meta'] ?? ''));
       $previewSrc = trim((string)($post['preview_src'] ?? ''));
+      if ($previewSrc !== '' && function_exists('msb_public_media_usable')) {
+        $previewSrc = msb_public_media_usable($previewSrc);
+      }
       $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
       $when = function_exists('msb_archive_time_ago')
         ? msb_archive_time_ago((string)($post['updated_at'] ?? $post['created_at'] ?? ''))
@@ -666,7 +678,8 @@ if (!function_exists('profile_gear_render_detail_action')) {
     $controlType = strtolower(trim((string)($row['control'] ?? 'select')));
     $mediaKind = trim((string)($row['media_kind'] ?? ''));
     $hasColor = (!$isLink && $field !== '' && $controlType === 'color');
-    $hasControl = (!$isLink && ($field !== '' || $fieldLocal !== '') && (!$hasColor) && (!empty($options) || !empty($optionGroups)));
+    $hasTextColor = (!$isLink && $field !== '' && $controlType === 'text_color');
+    $hasControl = (!$isLink && ($field !== '' || $fieldLocal !== '') && (!$hasColor) && (!$hasTextColor) && (!empty($options) || !empty($optionGroups)));
     $hasUpload = (!$isLink && in_array($mediaKind, ['avatar', 'cover'], true));
     $currentValue = profile_gear_row_value($row, $profileSettings, $themeAutoDefault);
     $tag = trim((string)($row['tag'] ?? ''));
@@ -725,13 +738,157 @@ if (!function_exists('profile_gear_render_detail_action')) {
         </div>
         <p class="gear-progress-save-hint">Move the compass on the color screen, or slide hue. Press Save to apply across the app.</p>
       </div>
+    <?php elseif ($hasTextColor):
+      $storedTextColor = function_exists('msb_type_text_color_normalize')
+        ? msb_type_text_color_normalize((string)$currentValue)
+        : 'theme';
+      $textColorIsTheme = ($storedTextColor === 'theme');
+      $textColorPreview = $textColorIsTheme ? '#202124' : $storedTextColor;
+      $textColorPresets = function_exists('msb_type_text_color_presets')
+        ? msb_type_text_color_presets()
+        : ['#000000', '#434343', '#666666', '#ff0000', '#4a86e8'];
+      $textColorLabel = !empty($row['bundle_child']) ? (string)($row['label'] ?? 'Text color') : 'Text color';
+    ?>
+      <div class="gear-detail-control gear-text-color" data-text-color="1">
+        <label class="gear-detail-control-label" for="<?php echo h('gear-ctrl-' . $field); ?>"><?php echo h(app_t($textColorLabel)); ?></label>
+        <div class="gear-text-color-bar">
+          <input
+            type="hidden"
+            id="<?php echo h('gear-ctrl-' . $field); ?>"
+            class="gear-control"
+            data-field="<?php echo h($field); ?>"
+            value="<?php echo h($storedTextColor); ?>"
+          >
+          <label class="gear-text-color-swatch-wrap" title="<?php echo h(app_t('Custom color')); ?>">
+            <input type="color" class="gear-text-color-swatch" value="<?php echo h($textColorPreview); ?>" aria-label="<?php echo h(app_t('Text color')); ?>">
+          </label>
+          <input type="text" class="gear-text-color-hex" maxlength="7" spellcheck="false" value="<?php echo $textColorIsTheme ? 'Theme' : h(strtoupper($storedTextColor)); ?>" aria-label="<?php echo h(app_t('Hex color')); ?>">
+          <button type="button" class="gear-text-color-theme<?php echo $textColorIsTheme ? ' is-active' : ''; ?>"><?php echo h(app_t('Theme')); ?></button>
+          <span class="gear-save-state" aria-live="polite"></span>
+        </div>
+        <div class="gear-text-color-grid" role="listbox" aria-label="<?php echo h(app_t('Text color')); ?>">
+          <?php foreach ($textColorPresets as $preset): ?>
+            <button
+              type="button"
+              class="gear-text-color-chip<?php echo (!$textColorIsTheme && $storedTextColor === $preset) ? ' is-selected' : ''; ?>"
+              data-value="<?php echo h($preset); ?>"
+              style="background:<?php echo h($preset); ?>"
+              title="<?php echo h(strtoupper($preset)); ?>"
+              aria-label="<?php echo h(strtoupper($preset)); ?>"
+            ></button>
+          <?php endforeach; ?>
+        </div>
+      </div>
     <?php elseif ($hasControl): ?>
-      <div class="gear-detail-control">
-        <label class="gear-detail-control-label" for="<?php echo h('gear-ctrl-' . ($field !== '' ? $field : $fieldLocal)); ?>">Choose setting</label>
-        <div class="gear-control-wrap gear-control-wrap--detail">
+      <?php
+        $docsFields = ['theme_auto_enabled', 'appearance_mode', 'gallery_grid_size', 'header_type_size', 'header_font_family', 'body_font_size_pt', 'body_font_family', 'autoplay_videos', 'sound_enabled', 'app_language', 'date_format'];
+        $useDocsUi = in_array($field, $docsFields, true) || in_array($fieldLocal, $docsFields, true);
+        $docsKind = trim((string)($row['docs_kind'] ?? ''));
+        if ($docsKind === '') {
+          if ($field === 'gallery_grid_size') $docsKind = 'grid';
+          elseif ($field === 'header_type_size') $docsKind = 'header';
+          elseif ($field === 'body_font_size_pt') $docsKind = 'pt';
+          elseif (in_array($field, ['header_font_family', 'body_font_family'], true)) $docsKind = 'font';
+          else $docsKind = 'list';
+        }
+        $docsShowStepper = in_array($docsKind, ['grid', 'header', 'pt'], true);
+        $docsCurrentLabel = trim((string)profile_gear_row_value_label($row, $profileSettings, $themeAutoDefault));
+        if ($docsCurrentLabel === '') {
+          $docsCurrentLabel = (string)($options[$currentValue] ?? $currentValue);
+        }
+        $docsItems = [];
+        if (!empty($optionGroups)) {
+          foreach ($optionGroups as $group) {
+            $gLabel = trim((string)($group['label'] ?? ''));
+            if ($gLabel !== '') {
+              $docsItems[] = ['type' => 'heading', 'label' => $gLabel];
+            }
+            foreach ((array)($group['options'] ?? []) as $ov => $ol) {
+              $docsItems[] = ['type' => 'option', 'value' => (string)$ov, 'label' => (string)$ol];
+            }
+          }
+        } else {
+          foreach ($options as $ov => $ol) {
+            $docsItems[] = ['type' => 'option', 'value' => (string)$ov, 'label' => (string)$ol];
+          }
+        }
+        $gridOrder = ['small', 'medium', 'large'];
+        $gridStep = array_search((string)$currentValue, $gridOrder, true);
+        if ($gridStep === false) {
+          $gridStep = 1;
+        }
+        $docsStepDisplay = ($docsKind === 'pt')
+          ? (string)max(8, (int)$currentValue)
+          : (string)((int)$gridStep + 1);
+        $docsTriggerFont = ($docsKind === 'font' && function_exists('msb_type_font_stack'))
+          ? msb_type_font_stack((string)$currentValue)
+          : '';
+        $docsTriggerSizeClass = '';
+        if ($docsKind === 'header') {
+          if ($currentValue === 'small') $docsTriggerSizeClass = ' is-small';
+          elseif ($currentValue === 'large') $docsTriggerSizeClass = ' is-large';
+          else $docsTriggerSizeClass = ' is-normal';
+        }
+      ?>
+      <div class="gear-detail-control<?php echo $useDocsUi ? ' gear-detail-control--docs' : ''; ?>">
+        <label class="gear-detail-control-label" for="<?php echo h('gear-ctrl-' . ($field !== '' ? $field : $fieldLocal)); ?>"><?php echo h(app_t(!empty($row['bundle_child']) ? (string)($row['label'] ?? 'Choose setting') : 'Choose setting')); ?></label>
+        <div class="gear-control-wrap gear-control-wrap--detail<?php echo $useDocsUi ? ' gear-docs-wrap' : ''; ?>">
+          <?php if ($useDocsUi): ?>
+          <div class="gear-docs-ui" data-docs-kind="<?php echo h($docsKind); ?>" data-docs-field="<?php echo h($field !== '' ? $field : $fieldLocal); ?>">
+            <div class="gear-docs-bar" role="toolbar" aria-label="<?php echo h(app_t($row['label'] ?? 'Choose setting')); ?>">
+              <button type="button" class="gear-docs-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="gear-docs-trigger-label<?php echo h($docsTriggerSizeClass); ?>"<?php echo $docsTriggerFont !== '' ? ' style="font-family:' . h($docsTriggerFont) . '"' : ''; ?>><?php echo h($docsCurrentLabel); ?></span>
+                <span class="gear-docs-caret" aria-hidden="true"></span>
+              </button>
+              <?php if ($docsShowStepper): ?>
+              <span class="gear-docs-divider" aria-hidden="true"></span>
+              <button type="button" class="gear-docs-step" data-dir="-1" aria-label="<?php echo h(app_t('Smaller')); ?>">−</button>
+              <input class="gear-docs-step-value<?php echo $docsKind === 'pt' ? ' is-pt' : ''; ?>" type="text" inputmode="numeric" <?php echo $docsKind === 'pt' ? '' : 'readonly '; ?>value="<?php echo h($docsStepDisplay); ?>" aria-label="<?php echo h($docsKind === 'pt' ? app_t('Point size') : app_t('Size')); ?>">
+              <button type="button" class="gear-docs-step" data-dir="1" aria-label="<?php echo h(app_t('Larger')); ?>">+</button>
+              <?php endif; ?>
+            </div>
+            <div class="gear-docs-menu" hidden role="listbox">
+              <?php foreach ($docsItems as $item): ?>
+                <?php if (($item['type'] ?? '') === 'heading'): ?>
+                  <div class="gear-docs-heading"><?php echo h((string)$item['label']); ?></div>
+                <?php else:
+                  $iv = (string)($item['value'] ?? '');
+                  $il = (string)($item['label'] ?? '');
+                  $isSel = ($field === 'app_language')
+                    ? (app_language_normalize($currentValue) === app_language_normalize($iv))
+                    : ((string)$currentValue === $iv);
+                  $sizeClass = '';
+                  if ($docsKind === 'grid' || $docsKind === 'header') {
+                    if ($iv === 'small') $sizeClass = ' is-small';
+                    elseif ($iv === 'large') $sizeClass = ' is-large';
+                    else $sizeClass = ' is-normal';
+                  }
+                  $optFont = ($docsKind === 'font' && function_exists('msb_type_font_stack'))
+                    ? msb_type_font_stack($iv)
+                    : '';
+                ?>
+                  <button type="button" class="gear-docs-option<?php echo $sizeClass; ?><?php echo $isSel ? ' is-selected' : ''; ?>" role="option" data-value="<?php echo h($iv); ?>" aria-selected="<?php echo $isSel ? 'true' : 'false'; ?>">
+                    <span class="gear-docs-check" aria-hidden="true"></span>
+                    <span class="gear-docs-option-label"<?php echo $optFont !== '' ? ' style="font-family:' . h($optFont) . '"' : ''; ?>><?php echo h($il); ?></span>
+                    <?php if ($docsKind === 'grid'): ?>
+                      <span class="gear-docs-tiles" aria-hidden="true">
+                        <?php
+                          $tileN = $iv === 'small' ? 4 : ($iv === 'large' ? 2 : 3);
+                          for ($ti = 0; $ti < $tileN; $ti++):
+                        ?>
+                          <i></i>
+                        <?php endfor; ?>
+                      </span>
+                    <?php endif; ?>
+                  </button>
+                <?php endif; ?>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endif; ?>
           <select
             id="<?php echo h('gear-ctrl-' . ($field !== '' ? $field : $fieldLocal)); ?>"
-            class="gear-control<?php echo $fieldLocal !== '' ? ' js-theme-local-control' : ''; ?><?php echo $field === 'appearance_mode' ? ' gear-appearance-select' : ''; ?>"
+            class="gear-control<?php echo $useDocsUi ? ' gear-control--sr' : ''; ?><?php echo $fieldLocal !== '' ? ' js-theme-local-control' : ''; ?><?php echo $field === 'appearance_mode' ? ' gear-appearance-select' : ''; ?>"
             <?php if ($field !== ''): ?>data-field="<?php echo h($field); ?>"<?php endif; ?>
             <?php if ($fieldLocal !== ''): ?>data-local-field="<?php echo h($fieldLocal); ?>"<?php endif; ?>
           >
@@ -745,7 +902,17 @@ if (!function_exists('profile_gear_render_detail_action')) {
               <?php endforeach; ?>
             <?php else: ?>
               <?php foreach ($options as $ov => $ol): ?>
-                <option value="<?php echo h((string)$ov); ?>" <?php echo $currentValue === (string)$ov ? 'selected' : ''; ?>><?php echo h((string)$ol); ?></option>
+                <?php
+                  $ov = (string)$ov;
+                  $optionSelected = ($field === 'app_language')
+                    ? (app_language_normalize($currentValue) === app_language_normalize($ov))
+                    : ($currentValue === $ov);
+                ?>
+                <option
+                  value="<?php echo h($ov); ?>"
+                  <?php if ($field === 'app_language'): ?>data-html-lang="<?php echo h(app_language_html_tag($ov)); ?>" data-dir="<?php echo h(app_language_dir($ov)); ?>"<?php endif; ?>
+                  <?php echo $optionSelected ? 'selected' : ''; ?>
+                ><?php echo h((string)$ol); ?></option>
               <?php endforeach; ?>
             <?php endif; ?>
           </select>
@@ -984,6 +1151,9 @@ $profileSettings = [
   'archive_memory_enabled' => 0,
   'pin_memory_enabled' => 0,
   'email_notifications' => 1,
+  'inapp_notifications' => 1,
+  'push_notifications' => 1,
+  'email_digest_notifications' => 0,
   'friend_request_notifications' => 1,
   'comment_notifications' => 1,
   'reaction_notifications' => 1,
@@ -994,6 +1164,12 @@ $profileSettings = [
   'followed_notifications' => 1,
   'event_reminder_notifications' => 1,
   'memory_notifications' => 1,
+  'mention_notifications' => 1,
+  'message_notifications' => 1,
+  'publisher_post_notifications' => 1,
+  'product_update_notifications' => 0,
+  'tips_notifications' => 0,
+  'quiet_hours' => 'off',
   'blocked_users_enabled' => 1,
   'hidden_users_enabled' => 1,
   'mute_users_enabled' => 1,
@@ -1005,6 +1181,11 @@ $profileSettings = [
   'appearance_mode' => 'system',
   'theme_auto_enabled' => 1,
   'gallery_grid_size' => 'medium',
+  'header_type_size' => 'small',
+  'header_font_family' => 'Arial',
+  'body_font_size_pt' => 9,
+  'body_font_family' => 'Arial',
+  'text_color' => '#000000',
   'autoplay_videos' => 1,
   'sound_enabled' => 1,
   'app_language' => 'English',
@@ -1020,6 +1201,7 @@ try {
 }
 if ($hasProfileSettingsTable) {
   profile_settings_ensure_tab_privacy_columns($dbh);
+  app_language_ensure_column($dbh);
 }
 if ($hasProfileSettingsTable && $viewId > 0) {
   $settingsUserId = $canManageProfilePrivate ? $sessionOwnerId : $viewId;
@@ -1034,10 +1216,34 @@ if ($hasProfileSettingsTable && $viewId > 0) {
     }
   } catch (Throwable $e) {}
 }
+$profileSettings['app_language'] = app_language_normalize((string)($profileSettings['app_language'] ?? 'English'));
+app_i18n_use((string)$profileSettings['app_language']);
+$msbAppLangTag = app_language_html_tag((string)$profileSettings['app_language']);
+$msbAppLangDir = app_language_dir((string)$profileSettings['app_language']);
 
 $profileShowTagsTab = $canManageProfilePrivate || profile_setting_is_on($profileSettings, 'show_tags_tab', 1);
-$profileShowAboutTab = $canManageProfilePrivate || profile_setting_is_on($profileSettings, 'show_about_tab', 1);
+$profileShowAboutTab = $canManageProfilePrivate || (
+  profile_setting_is_on($profileSettings, 'show_about_tab', 1)
+  && profile_audience_allows_viewer($dbh, $viewId, $meId, (string)($profileSettings['about_visibility'] ?? 'friends'))
+);
 $profileShowSavedTab = $canManageProfilePrivate || (!$liveVisitorMode && profile_setting_is_on($profileSettings, 'show_saved_tab', 0));
+$profileShowGalleryTab = $canManageProfilePrivate || profile_audience_allows_viewer($dbh, $viewId, $meId, (string)($profileSettings['gallery_visibility'] ?? 'friends'));
+$profileVisitorAllowed = $isOwnProfile || profile_audience_allows_viewer($dbh, $viewId, $meId, (string)($profileSettings['profile_visibility'] ?? 'public'));
+if (!$profileVisitorAllowed) {
+  $liveVisitorMode = true;
+  $profileShowAboutTab = false;
+  $profileShowTagsTab = false;
+  $profileShowSavedTab = false;
+  $profileShowGalleryTab = false;
+}
+$profileShowTimelineComments = profile_setting_is_on($profileSettings, 'show_timeline_comments', 1);
+$profileShowTimelineReactions = profile_setting_is_on($profileSettings, 'show_timeline_reactions', 1);
+$GLOBALS['profileShowTimelineComments'] = $profileShowTimelineComments;
+$GLOBALS['profileShowTimelineReactions'] = $profileShowTimelineReactions;
+$profileGalleryGridSize = trim((string)($profileSettings['gallery_grid_size'] ?? 'medium'));
+if (!in_array($profileGalleryGridSize, ['small', 'medium', 'large'], true)) {
+  $profileGalleryGridSize = 'medium';
+}
 $msbSettingsPage = !empty($msbSettingsStandalone)
   || strtolower(basename((string)($_SERVER['PHP_SELF'] ?? ''))) === 'settings.php';
 $profileCanGear = !$liveVisitorMode && $canManageProfilePrivate;
@@ -1080,6 +1286,9 @@ if ($selectedTab === 'about' && !$profileShowAboutTab) {
 if ($selectedTab === 'saved' && !$profileShowSavedTab) {
   $selectedTab = 'posts';
 }
+if ($selectedTab === 'gallery' && empty($profileShowGalleryTab) && !$canManageProfilePrivate) {
+  $selectedTab = 'posts';
+}
 if ($msbSettingsPage) {
   if (!$profileCanGear) {
     header('Location: profile.php', true, 302);
@@ -1115,7 +1324,23 @@ $profileHandleLabel = $username !== ''
 $joinedLabel = '—';
 if (trim($me['created_at']) !== '') {
   $t = strtotime($me['created_at']);
-  if ($t) $joinedLabel = date('F Y', $t);
+  if ($t) $joinedLabel = function_exists('profile_format_user_date')
+    ? profile_format_user_date($dbh, $viewId, $t, 'F Y')
+    : date('F Y', $t);
+}
+$profileFirstJoinedAt = '';
+if ($viewId > 0 && function_exists('account_switch_first_created_at')) {
+  $profileFirstJoinedAt = account_switch_first_created_at($dbh, (int)$viewId);
+}
+if ($profileFirstJoinedAt === '') {
+  $profileFirstJoinedAt = trim((string)($me['created_at'] ?? ''));
+}
+$profileFirstJoinedLabel = '';
+$firstJoinedTs = $profileFirstJoinedAt !== '' ? strtotime($profileFirstJoinedAt) : false;
+if ($firstJoinedTs) {
+  $profileFirstJoinedLabel = function_exists('profile_format_user_date')
+    ? profile_format_user_date($dbh, $viewId, (int)$firstJoinedTs, 'F j, Y')
+    : date('F j, Y', $firstJoinedTs);
 }
 
 $about = user_background_logical_defaults();
@@ -1306,7 +1531,10 @@ if (!$canViewProfilePrivateContact) {
 $aboutSidebarPins = user_background_load_sidebar_pins($dbh, (int)$viewId);
 $aboutSidebarPinSet = array_fill_keys($aboutSidebarPins, true);
 
-if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about_pin') {
+if (
+    (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about_pin')
+    || (isset($_POST['ajax']) && (string)$_POST['ajax'] === 'about_pin')
+) {
   header('Content-Type: application/json; charset=utf-8');
   header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
   if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$canManageProfilePrivate) {
@@ -1328,7 +1556,18 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about_pin') {
 if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about_people') {
   header('Content-Type: application/json; charset=utf-8');
   header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-  if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$canManageProfilePrivate) {
+  if (!$canManageProfilePrivate) {
+    echo json_encode(['ok' => false, 'error' => 'Not allowed']);
+    exit;
+  }
+  if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    echo json_encode(array_merge(
+      ['ok' => true],
+      profile_people_tags_public_payload($dbh, (int)$viewId)
+    ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'error' => 'Not allowed']);
     exit;
   }
@@ -1397,13 +1636,24 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about') {
   foreach ($aboutCards as $card) {
     $label = trim((string)($card['label'] ?? ''));
     if ($label === '') continue;
+    $pinKey = trim((string)($card['key'] ?? ''));
     $items[] = [
       'icon' => trim((string)($card['icon'] ?? '')),
       'label' => $label,
       'value' => trim((string)($card['value'] ?? '')),
+      'key' => $pinKey,
+      'pinned' => ($pinKey !== '' && !empty($aboutSidebarPinSet[$pinKey])) ? 1 : 0,
       'is_link' => !empty($card['is_link']),
       'empty_text' => trim((string)($card['empty_text'] ?? 'No background added yet')),
     ];
+  }
+
+  $ajaxCoverPath = ltrim(str_replace('\\', '/', trim((string)($profileSettings['cover_image_path'] ?? ''))), '/');
+  $ajaxCoverSlides = function_exists('profile_cover_slides_for_user')
+    ? profile_cover_slides_for_user($dbh, (int)$viewId, $ajaxCoverPath)
+    : [];
+  if ($ajaxCoverPath === '' && $ajaxCoverSlides) {
+    $ajaxCoverPath = (string)($ajaxCoverSlides[0]['url'] ?? '');
   }
 
   echo json_encode([
@@ -1416,7 +1666,11 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'about') {
       'handle' => $profileHandleLabel,
       'friend_code' => $canViewProfilePrivateContact ? trim((string)($me['friend_code'] ?? '')) : '',
       'avatar_url' => $avatarUrl,
+      'cover_url' => $ajaxCoverPath,
+      'cover_slides' => $ajaxCoverSlides,
       'joined_label' => $joinedLabel,
+      'following_count' => (int)$statFollowing,
+      'friend_count' => (int)$statSocialCount,
     ],
     'items' => $items,
   ], JSON_UNESCAPED_SLASHES);
@@ -1434,21 +1688,27 @@ if ($coverUrl === '' && $coverSlides) {
   $coverUrl = (string)($coverSlides[0]['url'] ?? '');
 }
 
-$privacyOptions = [
+$privacyOptions = app_t_map([
   'everyone' => 'Everyone',
   'public' => 'Public',
   'friends' => 'Friends',
   'only_me' => 'Only me',
   'approved_visitors' => 'Approved visitors',
-];
-$yesNoOptions = [
+]);
+$yesNoOptions = app_t_map([
   '1' => 'Yes',
   '0' => 'No',
-];
-$themeAutoOptions = [
+]);
+$quietHoursOptions = app_t_map([
+  'off' => 'Off',
+  '22-07' => '10:00 PM – 7:00 AM',
+  '21-08' => '9:00 PM – 8:00 AM',
+  '23-06' => '11:00 PM – 6:00 AM',
+]);
+$themeAutoOptions = app_t_map([
   '1' => 'On',
   '0' => 'Off',
-];
+]);
 $appearanceModeOptionGroups = appearance_palette_groups_for_select();
 $storedAppearanceMode = appearance_palette_normalize_mode((string)($profileSettings['appearance_mode'] ?? 'system'));
 $progressColorDefault = appearance_palette_parse_custom_hex($storedAppearanceMode)
@@ -1457,23 +1717,19 @@ $progressColorDefault = appearance_palette_parse_custom_hex($storedAppearanceMod
       ? strtolower(appearance_palette_hex_for_slug($storedAppearanceMode))
       : '#8d514f'
   );
-$appearanceModeOptions = [
+$appearanceModeOptions = app_t_map([
   'light' => 'Light',
   'dark' => 'Dark',
-];
-$gridSizeOptions = [
+]);
+$gridSizeOptions = app_t_map([
   'small' => 'Small',
-  'medium' => 'Medium',
-  'large' => 'Large',
-];
-$languageOptions = [
-  'English' => 'English',
-  'French' => 'French',
-  'Spanish' => 'Spanish',
-  'German' => 'German',
-  'Portuguese' => 'Portuguese',
-  'Arabic' => 'Arabic',
-];
+  'medium' => 'Normal',
+  'large' => 'Larger',
+]);
+$headerSizeOptions = $gridSizeOptions;
+$fontFamilyOptions = function_exists('msb_type_font_options') ? msb_type_font_options() : ['Arial' => 'Arial'];
+$bodyPtOptions = function_exists('msb_type_body_pt_options') ? msb_type_body_pt_options() : ['9' => '9'];
+$languageOptions = app_language_options();
 $dateFormatOptions = [
   'F j, Y' => 'March 8, 2026',
   'm/d/Y' => '03/08/2026',
@@ -1506,8 +1762,10 @@ $gearArchiveView = [
   'feedPosts' => [],
   'avatarUrl' => '',
 ];
+$gearArchivePosts = [];
 if ($canManageProfilePrivate && $meId > 0) {
-  $gearArchiveView = msb_archive_prepare_view(msb_archive_fetch_posts($dbh, $meId, 200), is_array($me) ? $me : []);
+  $gearArchivePosts = msb_archive_fetch_posts($dbh, $meId, 200);
+  $gearArchiveView = msb_archive_prepare_view($gearArchivePosts, is_array($me) ? $me : []);
 }
 
 $gearFavoritesView = [
@@ -1625,21 +1883,30 @@ $gearGroups = [
   [
     'title' => 'Notifications',
     'nav_label' => 'Notifications',
-    'nav_desc' => 'Alerts for friends and posts',
+    'nav_desc' => 'Choose how you want to be notified.',
     'icon' => 'ion-android-notifications',
-    'desc' => 'Choose Yes or No for each alert: friends, tags, favorites, birthdays, follows, events, and memories.',
+    'desc' => 'Choose how you want to be notified.',
     'rows' => [
+      ['label' => 'In-app notifications', 'meta' => 'Show notifications in the app.', 'icon' => 'ion-android-notifications', 'tag' => 'Live', 'field' => 'inapp_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Push notifications', 'meta' => 'Allow push-style alerts on this device when the app is open.', 'icon' => 'ion-iphone', 'tag' => 'Live', 'field' => 'push_notifications', 'options' => $yesNoOptions],
       ['label' => 'Email notifications', 'meta' => 'Updates from profile, timeline, and activity by email.', 'icon' => 'ion-android-mail', 'tag' => 'Live', 'field' => 'email_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Friend request notifications', 'meta' => 'Know when somebody wants to connect.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Tagged notifications', 'meta' => 'Know when someone tags you in a post, story, or About.', 'icon' => 'ion-ios-pricetag', 'tag' => 'Live', 'field' => 'tagged_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Saved notifications', 'meta' => 'Know when someone favorites or saves your post or story.', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Live', 'field' => 'saved_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Email digest', 'meta' => 'Receive a daily summary of activity by email.', 'icon' => 'ion-ios-paper', 'tag' => 'Live', 'field' => 'email_digest_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Likes', 'meta' => 'When someone likes or reacts to your post or comment.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'reaction_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Comments', 'meta' => 'When someone comments on your post or story.', 'icon' => 'ion-chatbox', 'tag' => 'Live', 'field' => 'comment_notifications', 'options' => $yesNoOptions],
+      ['label' => 'New followers', 'meta' => 'When someone follows your publisher or public page.', 'icon' => 'ion-android-star', 'tag' => 'Live', 'field' => 'followed_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Mentions', 'meta' => 'When someone mentions you in a post, story, or comment.', 'icon' => 'ion-at', 'tag' => 'Live', 'field' => 'mention_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Direct messages', 'meta' => 'When you receive a new private message.', 'icon' => 'ion-ios-chatbubble', 'tag' => 'Live', 'field' => 'message_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Shares', 'meta' => 'When someone shares your post.', 'icon' => 'ion-forward', 'tag' => 'Live', 'field' => 'share_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Tags', 'meta' => 'When someone tags you in a post, story, or About.', 'icon' => 'ion-ios-pricetag', 'tag' => 'Live', 'field' => 'tagged_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Saves', 'meta' => 'When someone favorites or saves your post or story.', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Live', 'field' => 'saved_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Friend requests', 'meta' => 'When somebody wants to connect.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_notifications', 'options' => $yesNoOptions],
+      ['label' => 'New posts from publishers', 'meta' => 'Highlights from publishers you follow (What\'s up).', 'icon' => 'ion-ios-world', 'tag' => 'Live', 'field' => 'publisher_post_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Product updates', 'meta' => 'News and updates about Talsora.', 'icon' => 'ion-cube', 'tag' => 'Live', 'field' => 'product_update_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Tips and recommendations', 'meta' => 'Personalized tips to help you get more from Talsora.', 'icon' => 'ion-lightbulb', 'tag' => 'Live', 'field' => 'tips_notifications', 'options' => $yesNoOptions],
       ['label' => 'Birthday notifications', 'meta' => 'Reminders when a friend or family birthday is coming up.', 'icon' => 'ion-cake', 'tag' => 'Live', 'field' => 'birthday_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Followed notifications', 'meta' => 'Know when someone follows your publisher or public page.', 'icon' => 'ion-android-star', 'tag' => 'Live', 'field' => 'followed_notifications', 'options' => $yesNoOptions],
       ['label' => 'Event reminder notifications', 'meta' => 'Reminders about events you are part of or invited to.', 'icon' => 'ion-ios-calendar', 'tag' => 'Live', 'field' => 'event_reminder_notifications', 'options' => $yesNoOptions],
       ['label' => 'Memory notifications', 'meta' => 'See memories about what you posted on this day in the past.', 'icon' => 'ion-ios-clock', 'tag' => 'Live', 'field' => 'memory_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Comment notifications', 'meta' => 'Get notified when someone comments on your story.', 'icon' => 'ion-chatbox', 'tag' => 'Live', 'field' => 'comment_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Reaction notifications', 'meta' => 'See likes and love on your posts.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'reaction_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Share notifications', 'meta' => 'Track when your posts are shared.', 'icon' => 'ion-forward', 'tag' => 'Live', 'field' => 'share_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Quiet hours', 'meta' => 'Pause non-essential in-app alerts for a set time.', 'icon' => 'ion-ios-moon', 'tag' => 'Live', 'field' => 'quiet_hours', 'options' => $quietHoursOptions],
     ],
   ],
   [
@@ -1674,7 +1941,21 @@ $gearGroups = [
       ['label' => 'Dark auto', 'meta' => 'Turn automatic day/night theme switching on or off. When On, Appearance color is set to Off.', 'icon' => 'ion-ios-moon', 'tag' => 'Live', 'field_local' => 'theme_auto_enabled', 'options' => $themeAutoOptions, 'default_value' => $themeAutoDefault],
       ['label' => 'Appearance color', 'meta' => 'Pick Off, Light, Dark, or any HTML color. Choosing a color turns Dark auto Off to avoid conflicts.', 'icon' => 'ion-contrast', 'tag' => 'Live', 'field' => 'appearance_mode', 'option_groups' => $appearanceModeOptionGroups, 'default_value' => $manualAppearanceDefault],
       ['label' => 'Progress color', 'meta' => 'Pick any background color, then press Save to apply it across the app. Turns Dark auto Off.', 'icon' => 'ion-android-color-palette', 'tag' => 'Live', 'field' => 'appearance_mode', 'control' => 'color', 'default_value' => $progressColorDefault],
-      ['label' => 'Grid size for gallery', 'meta' => 'Control how many columns or tile sizes appear in your gallery.', 'icon' => 'ion-grid', 'tag' => 'Live', 'field' => 'gallery_grid_size', 'options' => $gridSizeOptions],
+      ['label' => 'Grid size for gallery', 'meta' => 'Choose Small, Normal, or Larger tiles for the profile gallery.', 'icon' => 'ion-grid', 'tag' => 'Live', 'field' => 'gallery_grid_size', 'options' => $gridSizeOptions, 'docs_kind' => 'grid'],
+      [
+        'label' => 'Font',
+        'meta' => 'Header and body type, plus text color.',
+        'icon' => 'ion-ios-compose',
+        'tag' => 'Live',
+        'layout' => 'font_bundle',
+        'controls' => [
+          ['label' => 'Header size', 'meta' => 'Small, Normal, or Larger for titles and headers only.', 'field' => 'header_type_size', 'options' => $headerSizeOptions, 'docs_kind' => 'header'],
+          ['label' => 'Header font', 'meta' => 'Font family for titles and headers.', 'field' => 'header_font_family', 'options' => $fontFamilyOptions, 'docs_kind' => 'font'],
+          ['label' => 'Body text size', 'meta' => 'Point size for body copy, independent of header size.', 'field' => 'body_font_size_pt', 'options' => $bodyPtOptions, 'docs_kind' => 'pt'],
+          ['label' => 'Body font', 'meta' => 'Font family for body text.', 'field' => 'body_font_family', 'options' => $fontFamilyOptions, 'docs_kind' => 'font'],
+          ['label' => 'Text color', 'meta' => 'Color for headers and body text. Theme follows Appearance color.', 'field' => 'text_color', 'control' => 'text_color'],
+        ],
+      ],
       ['label' => 'Autoplay videos on / off', 'meta' => 'Choose whether videos start automatically.', 'icon' => 'ion-videocamera', 'tag' => 'Live', 'field' => 'autoplay_videos', 'options' => $yesNoOptions],
       ['label' => 'Sound on / off', 'meta' => 'Control sound for video posts and reels.', 'icon' => 'ion-volume-high', 'tag' => 'Live', 'field' => 'sound_enabled', 'options' => $yesNoOptions],
       ['label' => 'Language', 'meta' => 'Set your app language in one place.', 'icon' => 'ion-chatbubbles', 'tag' => 'Live', 'field' => 'app_language', 'options' => $languageOptions],
@@ -1686,14 +1967,16 @@ $gearGroups = [
     'nav_label' => 'Switch accounts',
     'nav_desc' => 'Move between linked accounts',
     'icon' => 'ion-loop',
-    'desc' => 'Use more than one account on this device and switch between them.',
+    'nav_href' => 'switch_accounts.php',
+    'desc' => 'Select a unique account to replace the one you are using. Usernames stay distinct so you can tell them apart.',
     'rows' => [
       [
         'label' => 'Switch accounts',
-        'meta' => 'Add a personal, publisher, or commerce account, then switch without losing the linked set.',
+        'meta' => 'Select a unique account to replace the one you are using. Usernames stay distinct so you can tell them apart.',
         'icon' => 'ion-loop',
         'tag' => 'Open',
         'layout' => 'account_switch',
+        'nav_href' => 'switch_accounts.php',
         'accounts' => $accountSwitchAccounts,
         'staff_blocked' => $accountSwitchStaffBlocked,
       ],
@@ -1843,7 +2126,7 @@ $gearQuickLinks = [
   ['label' => 'Blocked Users', 'icon' => 'ion-close-circled', 'href' => '#gear-security-and-safety'],
   ['label' => 'Manage Devices', 'icon' => 'ion-iphone', 'href' => 'manage_devices.php'],
   ['label' => 'Appearance', 'icon' => 'ion-android-color-palette', 'href' => '#gear-appearance-and-app-preferences'],
-  ['label' => 'Switch accounts', 'icon' => 'ion-loop', 'href' => '#gear-switch-accounts'],
+  ['label' => 'Switch accounts', 'icon' => 'ion-loop', 'href' => 'switch_accounts.php'],
   ['label' => 'Account', 'icon' => 'ion-android-settings', 'href' => '#gear-account-tools'],
   ['label' => 'Terms', 'icon' => 'ion-ios-paper', 'href' => '#gear-terms'],
   ['label' => 'Danger Zone', 'icon' => 'ion-alert-circled', 'href' => '#gear-danger-zone'],
@@ -1881,10 +2164,10 @@ $gearNavTips = [
     ['tone' => 'amber', 'icon' => 'ion-close', 'title' => 'Easy to clear', 'text' => 'Remove a favorite any time without deleting the original post.'],
   ],
   'gear-notifications' => [
-    ['tone' => 'green', 'icon' => 'ion-android-notifications', 'title' => 'Only what you need', 'text' => 'Turn off noisy alerts and keep the ones that matter.'],
-    ['tone' => 'purple', 'icon' => 'ion-android-mail', 'title' => 'Email is optional', 'text' => 'In-app alerts can stay on even when email is off.'],
-    ['tone' => 'blue', 'icon' => 'ion-person-add', 'title' => 'Friend requests', 'text' => 'Know when someone wants to connect so nothing sits unread.'],
-    ['tone' => 'amber', 'icon' => 'ion-ios-clock', 'title' => 'Memory pings', 'text' => 'On-this-day notes are easy to miss if this toggle is off.'],
+    ['tone' => 'green', 'icon' => 'ion-android-notifications', 'title' => 'Only what you need', 'text' => 'Turn off noisy alerts and keep likes, comments, and messages that matter.'],
+    ['tone' => 'purple', 'icon' => 'ion-android-mail', 'title' => 'Email is optional', 'text' => 'In-app alerts can stay on even when email or the daily digest is off.'],
+    ['tone' => 'blue', 'icon' => 'ion-at', 'title' => 'Mentions and DMs', 'text' => 'Mentions and direct messages have their own switches so chat stays quiet if you want.'],
+    ['tone' => 'amber', 'icon' => 'ion-ios-moon', 'title' => 'Quiet hours', 'text' => 'Pause non-essential in-app alerts overnight. Friend-critical mail still follows the email toggle.'],
   ],
   'gear-security-and-safety' => [
     ['tone' => 'green', 'icon' => 'ion-locked', 'title' => 'Strong password', 'text' => 'Change it if this device is shared or you reused an old password.'],
@@ -1898,12 +2181,7 @@ $gearNavTips = [
     ['tone' => 'blue', 'icon' => 'ion-grid', 'title' => 'Gallery density', 'text' => 'Choose a grid size that matches how you browse photos.'],
     ['tone' => 'amber', 'icon' => 'ion-volume-high', 'title' => 'Sound and autoplay', 'text' => 'Keep videos quiet in public, or let them play when you want.'],
   ],
-  'gear-switch-accounts' => [
-    ['tone' => 'green', 'icon' => 'ion-loop', 'title' => 'Stay linked', 'text' => 'Switch without dropping the set of accounts on this device.'],
-    ['tone' => 'purple', 'icon' => 'ion-person', 'title' => 'Personal vs publisher', 'text' => 'Each account keeps its own profile, posts, and settings.'],
-    ['tone' => 'blue', 'icon' => 'ion-briefcase', 'title' => 'Commerce too', 'text' => 'Shop accounts can sit beside personal and publisher logins.'],
-    ['tone' => 'amber', 'icon' => 'ion-locked', 'title' => 'Staff stays scoped', 'text' => 'Publisher staff cannot add or switch personal accounts from here.'],
-  ],
+  'gear-switch-accounts' => [],
   'gear-account-tools' => [
     ['tone' => 'green', 'icon' => 'ion-android-person', 'title' => 'Keep contact current', 'text' => 'Email and phone are how we reach you for recovery and alerts.'],
     ['tone' => 'purple', 'icon' => 'ion-at', 'title' => 'Username is public', 'text' => 'People use it to find you, tag you, and send friend requests.'],
@@ -1923,6 +2201,36 @@ $gearNavTips = [
     ['tone' => 'amber', 'icon' => 'ion-trash-a', 'title' => 'Delete is final', 'text' => 'Permanent removal cannot be undone. Confirm only if you mean it.'],
   ],
 ];
+
+if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'help_center') {
+  require_once __DIR__ . '/includes/index_footer_tabs.php';
+  require __DIR__ . '/ajax/help_center.php';
+  exit;
+}
+
+if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'safety_center') {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
+
+  profile_require_edit_access($dbh, $sessionOwnerId);
+
+  if (!$canManageProfilePrivate) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'You cannot open Safety Center on this profile.']);
+    exit;
+  }
+
+  $meId = (int)$sessionOwnerId;
+  include __DIR__ . '/includes/security_center_load.php';
+  echo json_encode([
+    'ok' => true,
+    'settings' => $securityCenterSettings ?? [],
+    'counts' => $securityCenterCounts ?? ['blocked' => 0, 'hidden' => 0, 'muted' => 0, 'reports' => 0],
+    'reports' => array_values($securityCenterReports ?? []),
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  exit;
+}
 
 if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gear') {
   header('Content-Type: application/json; charset=utf-8');
@@ -1961,16 +2269,108 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gear') {
         ];
       }
 
+      $optionGroups = [];
+      foreach (($row['option_groups'] ?? []) as $group) {
+        $groupOptions = [];
+        foreach (($group['options'] ?? []) as $optionValue => $optionLabel) {
+          $groupOptions[] = [
+            'value' => (string)$optionValue,
+            'label' => (string)$optionLabel,
+          ];
+        }
+        if ($groupOptions) {
+          $optionGroups[] = [
+            'label' => trim((string)($group['label'] ?? '')),
+            'options' => $groupOptions,
+          ];
+          if (!$options) {
+            $options = array_merge($options, $groupOptions);
+          }
+        }
+      }
+
+      $layout = trim((string)($row['layout'] ?? ''));
+      $docsKind = trim((string)($row['docs_kind'] ?? ''));
+      if ($docsKind === '') {
+        if ($field === 'gallery_grid_size') $docsKind = 'grid';
+        elseif ($field === 'header_type_size') $docsKind = 'header';
+        elseif ($field === 'body_font_size_pt') $docsKind = 'pt';
+        elseif (in_array($field, ['header_font_family', 'body_font_family'], true)) $docsKind = 'font';
+        elseif ($field === 'text_color' || strtolower(trim((string)($row['control'] ?? ''))) === 'text_color') $docsKind = 'text_color';
+      }
+      if ($layout === 'font_bundle') {
+        $defaultValue = function_exists('profile_gear_font_summary')
+          ? profile_gear_font_summary($profileSettings)
+          : $defaultValue;
+      }
+
+      $controls = [];
+      foreach ((array)($row['controls'] ?? []) as $child) {
+        if (!is_array($child)) {
+          continue;
+        }
+        $cField = trim((string)($child['field'] ?? ''));
+        $cOptions = [];
+        foreach ((array)($child['options'] ?? []) as $optionValue => $optionLabel) {
+          $cOptions[] = [
+            'value' => (string)$optionValue,
+            'label' => (string)$optionLabel,
+          ];
+        }
+        $cKind = trim((string)($child['docs_kind'] ?? ''));
+        $cControl = strtolower(trim((string)($child['control'] ?? '')));
+        if ($cKind === '') {
+          if ($cField === 'header_type_size') $cKind = 'header';
+          elseif ($cField === 'body_font_size_pt') $cKind = 'pt';
+          elseif (in_array($cField, ['header_font_family', 'body_font_family'], true)) $cKind = 'font';
+          elseif ($cField === 'text_color' || $cControl === 'text_color') $cKind = 'text_color';
+        }
+        $cValue = $cField !== '' ? (string)($profileSettings[$cField] ?? '') : '';
+        $controls[] = [
+          'label' => trim((string)($child['label'] ?? '')),
+          'meta' => trim((string)($child['meta'] ?? '')),
+          'icon' => trim((string)($child['icon'] ?? '')),
+          'tag' => '',
+          'href' => '',
+          'embed' => '',
+          'media_kind' => '',
+          'control' => $cControl,
+          'field' => $cField,
+          'field_local' => '',
+          'value' => $cValue,
+          'options' => $cOptions,
+          'option_groups' => [],
+          'layout' => '',
+          'docs_kind' => $cKind,
+          'controls' => [],
+          'staff_blocked' => false,
+          'accounts' => [],
+          'danger_action' => '',
+          'copy_sections' => [],
+        ];
+      }
+
       $rows[] = [
         'label' => trim((string)($row['label'] ?? '')),
         'meta' => trim((string)($row['meta'] ?? '')),
         'icon' => trim((string)($row['icon'] ?? '')),
         'tag' => trim((string)($row['tag'] ?? '')),
         'href' => trim((string)($row['href'] ?? '')),
+        'embed' => trim((string)($row['embed'] ?? '')),
+        'media_kind' => trim((string)($row['media_kind'] ?? '')),
+        'control' => strtolower(trim((string)($row['control'] ?? ''))),
         'field' => $field,
         'field_local' => $localField,
         'value' => $defaultValue,
         'options' => $options,
+        'option_groups' => $optionGroups,
+        'layout' => $layout,
+        'docs_kind' => $docsKind,
+        'controls' => $controls,
+        'staff_blocked' => !empty($row['staff_blocked']),
+        'accounts' => array_values((array)($row['accounts'] ?? [])),
+        'danger_action' => trim((string)($row['danger_action'] ?? '')),
+        'copy_sections' => array_values((array)($row['copy_sections'] ?? [])),
       ];
     }
 
@@ -1996,6 +2396,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gear') {
     ['key' => 'switch_accounts', 'label' => 'Switch accounts', 'icon' => 'ion-loop', 'group' => 'Switch accounts'],
     ['key' => 'account', 'label' => 'Account', 'icon' => 'ion-android-settings', 'group' => 'Account tools'],
     ['key' => 'terms', 'label' => 'Terms', 'icon' => 'ion-ios-paper', 'group' => 'Terms'],
+    ['key' => 'danger_zone', 'label' => 'Danger Zone', 'icon' => 'ion-alert-circled', 'group' => 'Danger Zone'],
   ];
 
   foreach ($mobileItems as $idx => $item) {
@@ -2347,12 +2748,12 @@ foreach ($gridStorySource as $it) {
   $src = '';
   $type = $atype !== '' ? $atype : 'image';
   if ($atype === 'video' && $filePath !== '' && is_video_path($filePath)) {
-    $src = $filePath;
-    $type = 'video';
+    $src = function_exists('msb_public_media_usable') ? msb_public_media_usable($filePath) : $filePath;
+    $type = $src !== '' ? 'video' : 'image';
   } elseif ($thumb !== '') {
-    $src = $thumb;
+    $src = function_exists('msb_public_media_usable') ? msb_public_media_usable($thumb) : $thumb;
   } elseif ($filePath !== '') {
-    $src = $filePath;
+    $src = function_exists('msb_public_media_usable') ? msb_public_media_usable($filePath) : $filePath;
   }
   $caption = post_story_caption($it);
   $storyWhen = trim((string)($it['updated_at'] ?? $it['created_at'] ?? ''));
@@ -2383,12 +2784,12 @@ foreach ($gridStorySource as $it) {
     $slideSrc = '';
     $slideType = $attType !== '' ? $attType : 'image';
     if ($attType === 'video' && $attFile !== '' && is_video_path($attFile)) {
-      $slideSrc = $attFile;
-      $slideType = 'video';
+      $slideSrc = function_exists('msb_public_media_usable') ? msb_public_media_usable($attFile) : $attFile;
+      $slideType = $slideSrc !== '' ? 'video' : 'image';
     } elseif ($attFile !== '') {
-      $slideSrc = $attFile;
+      $slideSrc = function_exists('msb_public_media_usable') ? msb_public_media_usable($attFile) : $attFile;
     } elseif ($attThumb !== '') {
-      $slideSrc = $attThumb;
+      $slideSrc = function_exists('msb_public_media_usable') ? msb_public_media_usable($attThumb) : $attThumb;
     }
     $slideSrcNorm = $slideSrc !== '' ? ltrim(preg_replace('~^\./~', '', $slideSrc), '/') : '';
     if ($slideSrcNorm === '') {
@@ -2418,8 +2819,15 @@ foreach ($gridStorySource as $it) {
     continue;
   }
   $ringSrc = trim((string)($slides[0]['src'] ?? ''));
+  if ($ringSrc !== '' && function_exists('msb_public_media_usable')) {
+    $ringSrc = msb_public_media_usable($ringSrc);
+  }
   if ($ringSrc === '') {
     $ringSrc = $avatarUrl;
+  }
+  $ringType = (string)($slides[0]['type'] ?? 'image');
+  if ($ringSrc === $avatarUrl || ($ringType === 'video' && function_exists('msb_public_media_usable') && msb_public_media_usable($ringSrc) === '')) {
+    $ringType = 'image';
   }
   $profileStoryCatalog[] = [
     'key' => 's' . $postId,
@@ -2431,7 +2839,7 @@ foreach ($gridStorySource as $it) {
     'isPublisher' => $profileIsPublisher,
     'avatarUrl' => $ringSrc,
     'ringSrc' => $ringSrc,
-    'ringType' => (string)($slides[0]['type'] ?? 'image'),
+    'ringType' => $ringType,
     'subtitle' => $whenLabel,
     'slides' => $slides,
   ];
@@ -2474,7 +2882,7 @@ if (!function_exists('profile_item_has_gallery_content')) {
   }
 }
 
-$postsGrid = $gridFeedSource;
+$postsGrid = array_values(array_filter($gridFeedSource, static fn(array $it): bool => !post_is_slideshow_photos($it)));
 $galleryGrid = array_values(array_filter($gridFeedSource, static function (array $it): bool {
   return profile_item_has_gallery_content($it);
 }));
@@ -2525,6 +2933,9 @@ $profileTopVideos = [];
 foreach ($gridFeedSource as $it) {
   $atype = strtolower(trim((string)($it['atype'] ?? '')));
   $filePath = trim((string)($it['file_path'] ?? ''));
+  if (function_exists('msb_public_media_usable')) {
+    $filePath = msb_public_media_usable($filePath);
+  }
   if ($atype !== 'video' || $filePath === '' || !is_video_path($filePath)) {
     continue;
   }
@@ -2796,9 +3207,56 @@ if ($profileShowSavedTab || ($profileCanGear && !empty($canManageProfilePrivate)
       'love_count' => (int)($savedPost['love_count'] ?? 0),
       'visibility' => 'public',
       'category_name' => '',
+      'created_at' => (string)($savedPost['saved_at'] ?? ($savedPost['created_at'] ?? '')),
+      'updated_at' => (string)($savedPost['updated_at'] ?? ($savedPost['created_at'] ?? '')),
+      'author_id' => (int)($savedPost['user_id'] ?? 0),
+      'author_name' => (string)($savedPost['author_name'] ?? ''),
+      'author_username' => (string)($savedPost['author_username'] ?? ''),
+      'my_saved' => 1,
+      'is_story' => (!empty($savedPost['is_story']) || !empty($savedPost['saved_as_story'])) ? 1 : 0,
     ];
     $savedGridIds[] = $pid;
   }
+}
+
+$archivedGrid = [];
+foreach ($gearArchivePosts as $archivePost) {
+  $pid = (int)($archivePost['id'] ?? 0);
+  if ($pid <= 0) {
+    continue;
+  }
+  $thumbType = strtolower(trim((string)($archivePost['thumb_type'] ?? '')));
+  $filePath = trim((string)($archivePost['preview_src'] ?? ''));
+  if ($filePath === '') {
+    $filePath = function_exists('msb_archive_media_src')
+      ? msb_archive_media_src((string)($archivePost['thumb_file'] ?? ''))
+      : trim((string)($archivePost['thumb_file'] ?? ''));
+  }
+  $thumb = trim((string)($archivePost['thumb_path'] ?? ''));
+  if ($thumb !== '' && function_exists('msb_archive_media_src')) {
+    $thumb = msb_archive_media_src($thumb);
+  }
+  $archivedGrid[] = [
+    'post_id' => $pid,
+    'title' => (string)($archivePost['title'] ?? ''),
+    'descr' => (string)($archivePost['description'] ?? ''),
+    'body' => (string)($archivePost['body'] ?? ''),
+    'atype' => $thumbType,
+    'thumb' => $thumb,
+    'file_path' => $filePath,
+    'views_count' => (int)($archivePost['views_count'] ?? 0),
+    'comment_count' => (int)($archivePost['comment_count'] ?? 0),
+    'love_count' => (int)($archivePost['love_count'] ?? 0),
+    'visibility' => 'public',
+    'category_name' => '',
+    'created_at' => (string)($archivePost['updated_at'] ?? ($archivePost['created_at'] ?? '')),
+    'updated_at' => (string)($archivePost['updated_at'] ?? ($archivePost['created_at'] ?? '')),
+    'author_id' => (int)($archivePost['user_id'] ?? $meId),
+    'author_name' => (string)($me['name'] ?? ''),
+    'author_username' => (string)($me['username'] ?? ''),
+    'is_archived' => 1,
+    'is_story' => (!empty($archivePost['is_story']) || !empty($archivePost['archived_as_story'])) ? 1 : 0,
+  ];
 }
 
 if (!function_exists('profile_render_gallery_filter')) {
@@ -2821,12 +3279,12 @@ if (!function_exists('profile_render_gallery_filter')) {
         <?php if ($reqFriendCode !== ''): ?><input type="hidden" name="friend_code" value="<?php echo h($reqFriendCode); ?>"><?php endif; ?>
         <input type="hidden" name="tab" value="<?php echo h($tab); ?>">
         <input type="hidden" name="gallery_category" value="<?php echo (int)$selectedGalleryCategoryId; ?>" id="gallerySearchCategoryMirror">
-        <input type="search" name="gallery_search" value="<?php echo h($gallerySearch); ?>" placeholder="Search photo, video, topic, or date like 2026, April, or 12">
-        <button type="submit">Search</button>
+        <input type="search" name="gallery_search" value="<?php echo h($gallerySearch); ?>" placeholder="<?php echo h(app_t('Search photo, video, topic, or date like 2026, April, or 12')); ?>">
+        <button type="submit"><?php echo h(app_t('Search')); ?></button>
       </form>
       <div class="ig-gallery-right">
-        <select id="galleryCategoryFilter" aria-label="Gallery category">
-          <option value="0">All categories</option>
+        <select id="galleryCategoryFilter" aria-label="<?php echo h(app_t('Gallery category')); ?>">
+          <option value="0"><?php echo h(app_t('All categories')); ?></option>
           <?php foreach ($galleryCategories as $cat): ?>
             <option value="<?php echo (int)($cat['id'] ?? 0); ?>" <?php echo $selectedGalleryCategoryId === (int)($cat['id'] ?? 0) ? 'selected' : ''; ?>>
               <?php echo h((string)($cat['name'] ?? 'Category')); ?> (<?php echo h(postCategoryTypeLabel((string)($cat['category_type'] ?? 'topic'))); ?>)
@@ -2869,7 +3327,13 @@ if (!function_exists('profile_render_post_grid_items')) {
       $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 3, $isMobile ? 110 : 170);
 
       $showVideo = ($atype === 'video' && $filePath !== '' && is_video_path($filePath));
+      if ($showVideo && function_exists('msb_public_media_usable') && msb_public_media_usable($filePath) === '') {
+        $showVideo = false;
+      }
       $imgSrc = $thumb !== '' ? $thumb : $filePath;
+      if ($imgSrc !== '' && function_exists('msb_public_media_usable')) {
+        $imgSrc = msb_public_media_usable($imgSrc);
+      }
       $showThumb = (!$showVideo && $imgSrc !== '');
 
       $capTitle = $ttl;
@@ -2934,8 +3398,12 @@ if (!function_exists('profile_render_post_grid_items')) {
           <div class="ig-tag-pill" title="Category"><?php echo h($categoryName); ?></div>
         <?php endif; ?>
         <div class="react-overlay" aria-label="Reacts">
+          <?php if (!isset($GLOBALS['profileShowTimelineReactions']) || !empty($GLOBALS['profileShowTimelineReactions'])): ?>
           <span class="react-btn" data-act="love" title="Love" aria-label="Love"><i class="icon ion-heart"></i> <span class="n"><?php echo $loveC; ?></span></span>
+          <?php endif; ?>
+          <?php if (!isset($GLOBALS['profileShowTimelineComments']) || !empty($GLOBALS['profileShowTimelineComments'])): ?>
           <span class="react-btn" data-act="comment" title="Comment" aria-label="Comment"><i class="icon ion-chatbubble"></i> <span class="n"><?php echo $comC; ?></span></span>
+          <?php endif; ?>
           <span class="react-btn" data-act="views" title="Views" aria-label="Views"><i class="icon ion-eye"></i> <span class="vnum"><?php echo $viewsC; ?></span></span>
         </div>
       </div>
@@ -2963,14 +3431,38 @@ if (!function_exists('profile_render_post_grid')) {
   }
 }
 
-if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
+$galleryAjaxName = isset($_GET['ajax']) ? (string)$_GET['ajax'] : '';
+if ($galleryAjaxName === 'gallery' || $galleryAjaxName === 'archive_list') {
   header('Content-Type: application/json; charset=utf-8');
   header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
   header('Pragma: no-cache');
 
+  $ajaxTab = $galleryAjaxName === 'archive_list'
+    ? 'archived'
+    : strtolower(trim((string)($_GET['tab'] ?? 'gallery')));
+  if ($ajaxTab === 'tags') {
+    $galleryAjaxSource = $tagsGrid;
+  } elseif ($ajaxTab === 'saved') {
+    $galleryAjaxSource = array_values(array_filter($savedGrid, static function (array $it): bool {
+      return empty($it['is_story']);
+    }));
+  } elseif ($ajaxTab === 'archived') {
+    if (!$canManageProfilePrivate) {
+      echo json_encode([
+        'ok' => false,
+        'error' => 'Sign in to view archived posts.',
+      ], JSON_UNESCAPED_SLASHES);
+      exit;
+    }
+    $galleryAjaxSource = $archivedGrid;
+  } else {
+    $ajaxTab = 'gallery';
+    $galleryAjaxSource = $gridFeedSource;
+  }
+
   $items = [];
-  foreach ($gridFeedSource as $it) {
-    $pid = (int)($it['post_id'] ?? 0);
+  foreach ($galleryAjaxSource as $it) {
+    $pid = (int)($it['post_id'] ?? $it['id'] ?? 0);
     if ($pid <= 0) continue;
 
     $atype = strtolower(trim((string)($it['atype'] ?? '')));
@@ -2983,22 +3475,47 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 3, $isMobile ? 110 : 170);
     $isVideo = ($atype === 'video' && $filePath !== '' && is_video_path($filePath));
     $hasMedia = ($filePath !== '' || $thumb !== '');
+    $previewPath = $thumb !== '' ? $thumb : $filePath;
+    $previewMissing = 0;
+    if ($previewPath !== '' && function_exists('msb_media_is_missing')) {
+      if (msb_media_is_missing($previewPath)) {
+        if ($thumb !== '' && $filePath !== '' && $filePath !== $previewPath && !msb_media_is_missing($filePath)) {
+          $previewPath = $filePath;
+        } else {
+          $previewMissing = 1;
+        }
+      }
+    }
 
     $attachments = [];
     if ($hasMedia) {
-      $attachments[] = [
+      $att = [
         'type' => $isVideo ? 'video' : ($atype !== '' ? $atype : 'image'),
         'file_path' => $filePath,
         'thumb_path' => $thumb,
       ];
+      if (function_exists('msb_attachment_apply_missing')) {
+        $att = msb_attachment_apply_missing($att);
+      }
+      $attachments[] = $att;
+    }
+
+    $itemDisplayName = trim((string)($it['author_name'] ?? ''));
+    $itemUsername = trim((string)($it['author_username'] ?? ''));
+    $itemUserId = (int)($it['author_id'] ?? $it['user_id'] ?? $viewId);
+    if ($itemDisplayName === '') {
+      $itemDisplayName = $displayName;
+    }
+    if ($itemUsername === '') {
+      $itemUsername = $username;
     }
 
     $items[] = [
       'id' => $pid,
       'post_id' => $pid,
-      'user_id' => $viewId,
-      'display_name' => $displayName,
-      'username' => $username,
+      'user_id' => $itemUserId,
+      'display_name' => $itemDisplayName,
+      'username' => $itemUsername,
       'account_kind' => $profileIsPublisher ? 'publisher' : (trim((string)($me['account_kind'] ?? 'personal')) ?: 'personal'),
       'is_publisher' => $profileIsPublisher ? 1 : 0,
       'friend_code' => $canViewProfilePrivateContact ? trim((string)($me['friend_code'] ?? '')) : '',
@@ -3011,7 +3528,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       'category_name' => trim((string)($it['category_name'] ?? '')),
       'category_type' => trim((string)($it['category_type'] ?? '')),
       'preview_type' => $isVideo ? 'video' : ($hasMedia ? 'image' : 'text'),
-      'preview_path' => $thumb !== '' ? $thumb : $filePath,
+      'preview_path' => $previewPath,
+      'preview_missing' => $previewMissing,
       'file_path' => $filePath,
       'thumb_path' => $thumb,
       'attachments' => $attachments,
@@ -3024,7 +3542,10 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       'save_count' => (int)($it['save_count'] ?? 0),
       'my_reaction' => trim((string)($it['my_reaction'] ?? '')),
       'my_shared' => !empty($it['my_shared']) ? 1 : 0,
-      'my_saved' => !empty($it['my_saved']) ? 1 : 0,
+      'my_saved' => !empty($it['my_saved']) || $ajaxTab === 'saved' ? 1 : 0,
+      'me_tagged' => $ajaxTab === 'tags' ? 1 : 0,
+      'is_archived' => !empty($it['is_archived']) || $ajaxTab === 'archived' ? 1 : 0,
+      'is_story' => !empty($it['is_story']) ? 1 : 0,
       'attachment_count' => (int)($it['attachment_count'] ?? count($attachments)),
       'created_at' => (string)($it['created_at'] ?? ''),
       'updated_at' => (string)($it['updated_at'] ?? $it['created_at'] ?? ''),
@@ -3033,15 +3554,49 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     ];
   }
 
+  $archiveStoriesOut = [];
+  $archiveStoryItemsOut = [];
+  if ($ajaxTab === 'archived') {
+    $feedOnly = [];
+    foreach ($items as $row) {
+      if (!empty($row['is_story'])) {
+        $archiveStoryItemsOut[] = $row;
+      } else {
+        $feedOnly[] = $row;
+      }
+    }
+    $items = $feedOnly;
+    foreach (($gearArchiveView['storyCircles'] ?? []) as $circle) {
+      $cid = (int)($circle['postId'] ?? 0);
+      if ($cid <= 0) {
+        continue;
+      }
+      $archiveStoriesOut[] = [
+        'post_id' => $cid,
+        'src' => (string)($circle['src'] ?? ''),
+        'type' => (string)($circle['type'] ?? ''),
+        'caption' => (string)($circle['caption'] ?? ''),
+        'label' => (string)($circle['label'] ?? ''),
+        'author_name' => (string)($circle['authorName'] ?? ''),
+        'username' => (string)($circle['username'] ?? ''),
+        'avatar_url' => (string)($circle['avatarUrl'] ?? ''),
+        'created_at' => (string)($circle['createdAt'] ?? ''),
+        'ring_src' => (string)($circle['ringSrc'] ?? ''),
+      ];
+    }
+  }
+
   echo json_encode([
     'ok' => true,
-    'tab' => 'gallery',
+    'tab' => $ajaxTab,
     'user' => [
       'id' => $viewId,
       'display_name' => $displayName,
       'username' => $username,
       'friend_code' => $canViewProfilePrivateContact ? trim((string)($me['friend_code'] ?? '')) : '',
       'avatar_url' => $avatarUrl,
+      'cover_url' => $coverUrl,
+      'cover_slides' => $coverSlides,
       'post_count' => $statPosts,
       'friend_count' => $statSocialCount,
       'friend_count_label' => $statSocialLabel,
@@ -3049,6 +3604,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     ],
     'count' => count($items),
     'items' => $items,
+    'stories' => $archiveStoriesOut,
+    'story_items' => $archiveStoryItemsOut,
   ], JSON_UNESCAPED_SLASHES);
   exit;
 }
@@ -3056,7 +3613,7 @@ $profileFlowScrollTabs = ['gallery', 'posts', 'tags', 'about', 'saved', 'gear'];
 $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profileFlowScrollTabs, true);
 ?>
 <!DOCTYPE html>
-<html lang="en"<?php echo $profileIsFlowScroll ? ' class="profile-flow-scroll"' : ''; ?>>
+<html <?= app_html_lang_attrs(!empty($profileIsFlowScroll) ? 'profile-flow-scroll' : '') ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -3081,6 +3638,19 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
 
   <script defer src="assets/layout-fixed.js"></script>
   <script defer src="assets/ui_best.js"></script>
+
+  <?php if (!empty($msbSettingsPage)): ?>
+  <style id="settings-ui-boot-lock">
+    html.msb-settings-ui-boot body{visibility:hidden !important;}
+    @view-transition{navigation:none;}
+  </style>
+  <script>
+    document.documentElement.classList.add('msb-settings-ui-boot');
+    window.setTimeout(function(){
+      document.documentElement.classList.remove('msb-settings-ui-boot');
+    }, 3000);
+  </script>
+  <?php endif; ?>
 
   <style>
     .ig-wrap{max-width:720px;width:100%;margin:0 auto;overflow:visible;}
@@ -3233,7 +3803,7 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     }
     body.profile-page #panel-gallery .ig-grid{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(var(--msb-gallery-cols, 3), minmax(0,1fr));
       grid-auto-rows:auto;
       align-content:start;
       align-items:start;
@@ -4331,9 +4901,30 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       border:1px solid rgba(255,255,255,.12);
     }
 
-    /* Desktop: 3 cols | Mobile/Tablet: 2 cols */
-    .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 5px 26px;--post-media-radius:10px;}
-    @media (max-width: 992px){ .ig-grid{grid-template-columns:repeat(2,1fr);} }
+    /* Gallery grid size: Small 4 / Normal 3 / Larger 2 (phone: 3 / 2 / 1). */
+    body.profile-page{
+      --msb-gallery-cols: 3;
+    }
+    html[data-msb-gallery-grid="small"] body.profile-page,
+    body.profile-page[data-gallery-grid="small"]{
+      --msb-gallery-cols: 4;
+    }
+    html[data-msb-gallery-grid="medium"] body.profile-page,
+    body.profile-page[data-gallery-grid="medium"]{
+      --msb-gallery-cols: 3;
+    }
+    html[data-msb-gallery-grid="large"] body.profile-page,
+    body.profile-page[data-gallery-grid="large"]{
+      --msb-gallery-cols: 2;
+    }
+    .ig-grid{display:grid;grid-template-columns:repeat(var(--msb-gallery-cols, 3), minmax(0,1fr));gap:8px;padding:16px 5px 26px;--post-media-radius:10px;}
+    @media (max-width: 992px){
+      body.profile-page{ --msb-gallery-cols: 2; }
+      html[data-msb-gallery-grid="small"] body.profile-page,
+      body.profile-page[data-gallery-grid="small"]{ --msb-gallery-cols: 3; }
+      html[data-msb-gallery-grid="large"] body.profile-page,
+      body.profile-page[data-gallery-grid="large"]{ --msb-gallery-cols: 1; }
+    }
 
     /* Gallery visibility tabs — same chrome as Gallery / Posts / Tags (no grey pill). */
     .ig-grid-heads{
@@ -4853,7 +5444,7 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       .txtcap{left:8px;right:8px;bottom:8px;padding:9px 12px;border-radius:14px;}
       .txtreact{left:8px;right:8px;top:8px;padding:7px 10px;}
     }
-  
+
     /* ✅ Mobile/Tablet ONLY: smaller description text in grid captions */
     @media (max-width: 991px){
       .cap .cap-desc,
@@ -4914,22 +5505,33 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       width:100% !important;max-width:100% !important;
     }
     #profilePostsFeed .mf-card.mf-card-text-only.mf-card-phone-shot{border-radius:28px;}
-    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-video-ready),
-    #profilePostsFeed .mf-card.is-single-video-post.mf-video-error,
-    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-image-ready),
-    #profilePostsFeed .mf-card.is-single-image-post.mf-image-error{display:none !important;}
-    #profilePostsFeed .mf-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized){display:none !important;}
-    #profilePostsFeed .mf-card.is-single-video-post .mf-media,
-    #profilePostsFeed .mf-card.is-single-image-post .mf-media,
-    #profilePostsFeed .mf-card.is-single-video-post .media-stage,
-    #profilePostsFeed .mf-card.is-single-image-post .media-stage,
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-video-ready):not(.mf-media-missing),
+    #profilePostsFeed .mf-card.is-single-video-post.mf-video-error:not(.mf-media-missing),
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-media-missing),
+    #profilePostsFeed .mf-card.is-single-image-post.mf-image-error:not(.mf-media-missing){display:none !important;}
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-media-missing) .media-stage.standard-video-stage:not(.mf-media-sized){display:none !important;}
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-media-missing) .mf-media,
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-media-missing) .mf-media,
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-media-missing) .media-stage,
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-media-missing) .media-stage,
     #profilePostsFeed .mf-card.is-single-video-post .media-stage video,
     #profilePostsFeed .mf-card.is-single-image-post .media-stage img{background:transparent !important;}
-    #profilePostsFeed .media-stage{
+    #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage{
       border-radius:0 !important;
       background:transparent !important;
       overflow:visible !important;
       position:relative;
+    }
+    #profilePostsFeed .mf-card.mf-media-missing .mf-media:has(> .msb-no-image),
+    #profilePostsFeed .mf-card.mf-media-missing .media-stage:has(> .msb-no-image),
+    #profilePostsFeed .mf-card .media-slide:has(> .msb-no-image),
+    #profilePostsFeed .mf-card .mf-media-slide:has(> .msb-no-image){
+      display:block !important;
+      visibility:visible !important;
+      min-height:240px !important;
+      background:transparent !important;
+      border-radius:0 !important;
+      overflow:visible !important;
     }
     #profilePostsFeed .mf-media-carousel,
     #profilePostsFeed .media-carousel{
@@ -5068,8 +5670,8 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       background:#3897f0 !important;
       transform:none;
     }
-    #profilePostsFeed .media-stage.standard-video-stage,
-    #profilePostsFeed .media-stage.standard-image-stage{
+    #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.standard-video-stage,
+    #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.standard-image-stage{
       padding:0;box-sizing:border-box;
       border:0 !important;
       overflow:visible !important;
@@ -5298,6 +5900,22 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     #profilePostsFeed .mf-card:has(.mf-head--on-media) > .mf-actions{padding:8px 0 6px!important;}
     #profilePostsFeed .mf-actions .mf-left{display:flex;gap:12px;align-items:center;}
     #profilePostsFeed .mf-actions .mf-right{display:flex;align-items:center;margin-left:auto;}
+    #panel-posts .profile-joined-note{
+      display:block;
+      width:100%;
+      max-width:614px;
+      margin:8px auto 0;
+      padding:20px 16px 56px;
+      box-sizing:border-box;
+      text-align:center;
+      font-size:12px;
+      font-weight:500;
+      line-height:1.35;
+      color:var(--msb-palette-text-muted, #8a919c);
+    }
+    #panel-posts:has(.profile-joined-note) #profilePostsFeed.mf-feed{
+      padding-bottom:8px !important;
+    }
     #profilePostsFeed .mf-act{
       border:0;background:transparent;display:flex;align-items:center;gap:5px;padding:0;cursor:pointer;
       color:var(--msb-palette-icon, var(--msb-palette-text, #101828));text-decoration:none;
@@ -5672,31 +6290,44 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       border:1px solid rgba(185,28,28,.28);background:rgba(185,28,28,.08);
       color:#991b1b;font-size:13px;line-height:1.5;
     }
-    .gear-detail-panel:has(.as-wrap) .gear-detail-body{max-width:760px;}
-    .as-wrap{display:flex;flex-direction:column;gap:10px;}
-    .as-lead,.as-empty,.as-add-copy{margin:0;font-size:12px;line-height:1.4;color:var(--msb-palette-text-muted,#667085);}
-    .as-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
-    .as-row{
-      display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:8px;align-items:center;
-      padding:8px 10px;border-radius:10px;border:1px solid var(--msb-palette-border,#c0c2c4);
-      background:var(--msb-palette-bg,transparent);
+    .gear-detail-panel:has(.as-wrap) .gear-detail-body{max-width:640px;}
+    .gear-detail-panel:has(.as-wrap) .gear-detail-icon{display:none;}
+    .gear-detail-panel:has(.as-wrap) .gear-detail-desc{display:none;}
+    .gear-detail-panel:has(.as-wrap) .gear-detail-head{border-bottom:0;padding-bottom:0;margin-bottom:8px;}
+    .gear-tips-card[data-tips-group="gear-switch-accounts"]{display:none !important;}
+    .as-wrap{display:flex;flex-direction:column;gap:16px;}
+    .as-lead,.as-empty,.as-add-copy{margin:0;font-size:14px;line-height:1.45;font-weight:500;color:var(--msb-palette-text-muted,#667085);}
+    .as-list{
+      list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;
+      border-radius:14px;overflow:hidden;
+      background:var(--msb-palette-surface, var(--msb-palette-hover-bg, rgba(148,163,184,.12)));
     }
-    .as-row.is-current{border-color:var(--msb-palette-link,#4338ca);}
-    .as-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--msb-palette-hover-bg,#eef2ff);}
-    .as-name{font-size:13px;font-weight:700;color:var(--msb-palette-text,#0b1220);}
-    .as-meta{font-size:11px;color:var(--msb-palette-text-muted,#667085);}
-    .as-using{font-size:10px;font-weight:800;color:var(--msb-palette-link,#4338ca);}
+    .as-row{
+      display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;
+      padding:12px 14px;border:0;border-radius:0;background:transparent;
+    }
+    .as-row + .as-row{border-top:1px solid var(--msb-palette-border, rgba(148,163,184,.18));}
+    .as-row.is-current{border-color:transparent;}
+    .as-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;background:var(--msb-palette-hover-bg,#eef2ff);}
+    .as-name{font-size:16px;font-weight:700;line-height:1.2;color:var(--msb-palette-text,#0b1220);}
+    .as-meta{font-size:13px;font-weight:500;margin-top:3px;color:var(--msb-palette-text-muted,#667085);}
+    .as-using{font-size:12px;font-weight:800;color:var(--msb-palette-text-muted,#667085);}
     .as-btn{
       display:inline-flex;align-items:center;justify-content:center;
-      padding:5px 10px;border-radius:999px;border:1px solid var(--msb-palette-link,#4338ca);
-      color:var(--msb-palette-link,#4338ca);background:transparent;font-weight:700;font-size:12px;
+      padding:0 14px;height:34px;border-radius:10px;border:0;
+      color:#fff;background:#2563eb;font-weight:700;font-size:13px;
       text-decoration:none;cursor:pointer;
     }
-    .as-btn:hover{background:var(--msb-palette-hover-bg,#eef2ff);}
-    .as-btn-ghost{border-color:var(--msb-palette-border,#c0c2c4);color:var(--msb-palette-text,#0b1220);}
-    .as-add{padding-top:6px;border-top:1px solid var(--msb-palette-border,#c0c2c4);}
-    .as-add-title{font-size:13px;font-weight:800;margin:0 0 4px;color:var(--msb-palette-text,#0b1220);}
-    .as-add-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+    .as-btn:hover{background:#1d4ed8;color:#fff;}
+    .as-btn.as-btn-ghost{
+      width:100%;height:42px;border-radius:12px;border:1px solid var(--msb-palette-border,#c0c2c4);
+      color:var(--msb-palette-text,#0b1220);background:var(--msb-palette-surface, var(--msb-palette-hover-bg, #f3f4f6));
+      font-weight:700;font-size:14px;
+    }
+    .as-btn.as-btn-ghost:hover{background:var(--msb-palette-hover-bg,#eef2ff);color:inherit;}
+    .as-add{padding-top:4px;border-top:0;}
+    .as-add-title{font-size:15px;font-weight:800;margin:0 0 6px;color:var(--msb-palette-text,#0b1220);}
+    .as-add-row{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
     .as-logout-dialog{
       width:min(360px, calc(100vw - 32px));
       max-width:360px;
@@ -5752,6 +6383,190 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     .gear-control-wrap--detail{align-items:flex-start;flex-direction:column;}
     .gear-control{width:100%;max-width:360px;min-width:160px;height:32px;border-radius:8px;border:1px solid var(--msb-palette-border-strong, #c0c2c4);background:var(--msb-palette-bg, #f5f7fb);color:var(--msb-palette-text, #0b1220);font-size:12px;font-weight:700;padding:0 10px;outline:none;}
     .gear-control:focus{border-color:#4f46e5;box-shadow:0 0 0 4px rgba(79,70,229,.12);}
+    .gear-control--sr{
+      position:absolute !important;
+      width:1px !important;
+      height:1px !important;
+      padding:0 !important;
+      margin:-1px !important;
+      overflow:hidden !important;
+      clip:rect(0,0,0,0) !important;
+      white-space:nowrap !important;
+      border:0 !important;
+    }
+    .gear-docs-wrap{position:relative;width:100%;max-width:420px;}
+    .gear-font-bundle{display:flex;flex-direction:column;gap:18px;max-width:420px;}
+    .gear-font-default-all{
+      align-self:flex-start;
+      min-height:34px;
+      padding:7px 14px;
+      border:1px solid var(--msb-palette-border-strong, #c0c2c4);
+      border-radius:999px;
+      background:var(--msb-palette-surface-2, #fff);
+      color:var(--msb-palette-text, #0b1220);
+      font-size:12px;
+      font-weight:700;
+      line-height:1;
+      cursor:pointer;
+    }
+    .gear-font-default-all:hover,
+    .gear-font-default-all:focus{
+      border-color:var(--msb-palette-accent, #2563eb);
+      box-shadow:0 0 0 3px rgba(37,99,235,.12);
+      outline:none;
+    }
+    .gear-font-bundle-item .gear-detail-control-label{
+      text-transform:none;letter-spacing:0;font-size:12px;font-weight:700;
+      color:var(--msb-palette-text, #0b1220);margin-bottom:8px;
+    }
+    .gear-text-color-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .gear-text-color-swatch-wrap{
+      width:32px;height:32px;border-radius:6px;overflow:hidden;
+      border:1px solid var(--msb-palette-border-strong, #c0c2c4);
+      flex:0 0 32px;
+    }
+    .gear-text-color-swatch{
+      display:block;width:40px;height:40px;margin:-4px;padding:0;border:0;cursor:pointer;background:transparent;
+    }
+    .gear-text-color-hex{
+      width:88px;height:32px;padding:0 8px;border:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, #c0c2c4));
+      border-radius:6px;background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)));color:var(--msb-palette-text, inherit);font:600 12px/32px ui-monospace,monospace;
+    }
+    .gear-text-color-theme{
+      height:32px;padding:0 10px;border:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, #c0c2c4));
+      border-radius:6px;background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)));color:var(--msb-palette-text, inherit);font:700 12px/1 inherit;cursor:pointer;
+    }
+    .gear-text-color-theme.is-active{
+      background:var(--msb-palette-action-soft, var(--msb-palette-hover-bg, var(--msb-palette-surface-2)));border-color:var(--msb-palette-action, #1a73e8);color:var(--msb-palette-action, #174ea6);
+    }
+    .gear-text-color-grid{
+      display:grid;grid-template-columns:repeat(8, 22px);gap:6px;margin-top:10px;
+    }
+    .gear-text-color-chip{
+      width:22px;height:22px;padding:0;border:1px solid rgba(15,23,42,.18);border-radius:4px;cursor:pointer;
+    }
+    .gear-text-color-chip.is-selected{outline:2px solid #1a73e8;outline-offset:1px;}
+    .gear-docs-ui{position:relative;width:100%;}
+    .gear-docs-bar{
+      display:flex;
+      align-items:center;
+      gap:0;
+      min-height:36px;
+      padding:2px 4px;
+      border:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, #d0d3d8));
+      border-radius:4px;
+      background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)));
+      color:var(--msb-palette-text, inherit);
+      box-sizing:border-box;
+    }
+    .gear-docs-trigger{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:32px;
+      margin:0;
+      padding:0 10px;
+      border:0;
+      border-radius:3px;
+      background:transparent;
+      color:var(--msb-palette-text, #202124);
+      font:600 13px/1.2 inherit;
+      cursor:pointer;
+    }
+    .gear-docs-trigger:hover,
+    .gear-docs-trigger[aria-expanded="true"]{
+      background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, rgba(255,255,255,.08)));
+    }
+    .gear-docs-trigger-label{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .gear-docs-trigger-label.is-small{font-size:13px;font-weight:400;}
+    .gear-docs-trigger-label.is-normal{font-size:16px;font-weight:600;}
+    .gear-docs-trigger-label.is-large{font-size:20px;font-weight:700;}
+    .gear-docs-caret{
+      width:0;height:0;
+      border-left:4px solid transparent;
+      border-right:4px solid transparent;
+      border-top:5px solid currentColor;
+      opacity:.7;
+    }
+    .gear-docs-divider{
+      width:1px;
+      height:20px;
+      margin:0 4px;
+      background:var(--msb-palette-border-strong, #c0c2c4);
+    }
+    .gear-docs-step{
+      width:28px;height:28px;margin:0;padding:0;border:0;border-radius:3px;
+      background:transparent;color:inherit;font:700 16px/1 inherit;cursor:pointer;
+    }
+    .gear-docs-step:hover{background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, rgba(255,255,255,.08)));}
+    .gear-docs-step-value{
+      width:28px;height:28px;margin:0;padding:0;border:1px solid transparent;border-radius:3px;
+      background:transparent;color:inherit;font:700 13px/28px inherit;text-align:center;
+    }
+    .gear-docs-step-value.is-pt{width:36px;}
+    .gear-docs-step-value:focus{border-color:var(--msb-palette-action, #1a73e8);outline:none;background:var(--msb-palette-input-bg, var(--msb-palette-bg));color:var(--msb-palette-text, inherit);}
+    .gear-docs-menu{
+      position:absolute;
+      left:0;top:calc(100% + 4px);
+      z-index:40;
+      min-width:240px;
+      max-width:360px;
+      max-height:min(420px, 70vh);
+      overflow:auto;
+      padding:6px 0;
+      border:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, #dadce0));
+      border-radius:4px;
+      background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)));
+      color:var(--msb-palette-text, inherit);
+      box-shadow:0 8px 24px rgba(15,23,42,.18);
+    }
+    .gear-docs-heading{
+      padding:10px 16px 4px 40px;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      color:var(--msb-palette-text-muted, #80868b);
+    }
+    .gear-docs-option{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      width:100%;
+      margin:0;
+      padding:8px 16px 8px 12px;
+      border:0;
+      border-top:1px solid var(--msb-palette-border, #eee);
+      background:transparent;
+      color:var(--msb-palette-text, #202124);
+      text-align:left;
+      cursor:pointer;
+      font:400 14px/1.3 inherit;
+    }
+    .gear-docs-option:first-of-type,
+    .gear-docs-heading + .gear-docs-option{border-top:0;}
+    .gear-docs-option:hover,
+    .gear-docs-option.is-selected{background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, rgba(255,255,255,.08)));}
+    .gear-docs-check{
+      flex:0 0 18px;
+      height:14px;
+      width:18px;
+    }
+    .gear-docs-option.is-selected .gear-docs-check{
+      background:currentColor;
+      -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M9.2 16.6 4.8 12.2l1.4-1.4 3 3 8.6-8.6 1.4 1.4z'/%3E%3C/svg%3E") center/16px no-repeat;
+      mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M9.2 16.6 4.8 12.2l1.4-1.4 3 3 8.6-8.6 1.4 1.4z'/%3E%3C/svg%3E") center/16px no-repeat;
+    }
+    .gear-docs-option-label{flex:1 1 auto;}
+    .gear-docs-option.is-small .gear-docs-option-label{font-size:13px;font-weight:400;}
+    .gear-docs-option.is-normal .gear-docs-option-label{font-size:16px;font-weight:600;color:var(--msb-palette-action, #1a73e8);}
+    .gear-docs-option.is-large .gear-docs-option-label{font-size:22px;font-weight:700;color:var(--msb-palette-action-strong, var(--msb-palette-action, #174ea6));}
+    .gear-docs-tiles{display:flex;gap:3px;margin-left:8px;}
+    .gear-docs-tiles i{
+      display:block;width:10px;height:12px;border-radius:1px;background:#9aa0a6;
+    }
+    .gear-docs-option.is-small .gear-docs-tiles i{width:7px;height:9px;}
+    .gear-docs-option.is-large .gear-docs-tiles i{width:14px;height:16px;}
     .gear-control-wrap--color{flex-direction:row;align-items:center;gap:12px;}
     .gear-progress-picker{
       width:100%;
@@ -6262,6 +7077,11 @@ body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
     html[data-theme="dark"] body.profile-page .gear-main,
     html[data-theme="dark"] body.profile-page .gear-search,
     html[data-theme="dark"] body.profile-page .gear-control,
+    html[data-theme="dark"] body.profile-page .gear-docs-bar,
+    html[data-theme="dark"] body.profile-page .gear-docs-menu,
+    html[data-theme="dark"] body.profile-page .gear-docs-step-value,
+    html[data-theme="dark"] body.profile-page .gear-text-color-hex,
+    html[data-theme="dark"] body.profile-page .gear-text-color-theme,
     html[data-theme="dark"] body.profile-page .gear-upload-btn,
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-card,
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-head:not(.mf-head--on-media),
@@ -6295,6 +7115,11 @@ body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
     html.dark-auto body.profile-page .gear-main,
     html.dark-auto body.profile-page .gear-search,
     html.dark-auto body.profile-page .gear-control,
+    html.dark-auto body.profile-page .gear-docs-bar,
+    html.dark-auto body.profile-page .gear-docs-menu,
+    html.dark-auto body.profile-page .gear-docs-step-value,
+    html.dark-auto body.profile-page .gear-text-color-hex,
+    html.dark-auto body.profile-page .gear-text-color-theme,
     html.dark-auto body.profile-page .gear-upload-btn,
     html.dark-auto body.profile-page #profilePostsFeed .mf-card,
     html.dark-auto body.profile-page #profilePostsFeed .mf-head:not(.mf-head--on-media),
@@ -6560,13 +7385,45 @@ body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
   #profilePostsFeed{
     --post-media-radius:6px;
   }
-  #profilePostsFeed .media-stage.standard-video-stage,
-  #profilePostsFeed .media-stage.standard-image-stage,
-  #profilePostsFeed .media-stage{
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.standard-video-stage,
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.standard-image-stage,
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage{
     overflow:visible !important;
     border-radius:0 !important;
     padding:0 !important;
     max-height:none !important;
+  }
+  #profilePostsFeed .mf-card.mf-media-missing .media-stage,
+  #profilePostsFeed .mf-card.mf-media-missing .media-stage.standard-image-stage,
+  #profilePostsFeed .mf-card.mf-media-missing .media-stage.standard-video-stage,
+  #profilePostsFeed .mf-card.mf-media-missing .mf-media{
+    background:transparent !important;
+    border-radius:0 !important;
+    overflow:visible !important;
+  }
+  html body.profile-page #profilePostsFeed .msb-no-image,
+  html body.profile-page #profilePostsFeed .media-stage > .msb-no-image,
+  html body.profile-page #profilePostsFeed .mf-media > .msb-no-image,
+  html body.profile-page #profilePostsFeed .media-slide > .msb-no-image,
+  html body.profile-page #profilePostsFeed .mf-media-slide > .msb-no-image{
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:10px !important;
+    width:100% !important;
+    max-width:100% !important;
+    height:100% !important;
+    min-height:240px !important;
+    margin:0 !important;
+    padding:16px 12px !important;
+    color:#c8cdd3 !important;
+    background:#3d434b !important;
+    border:1px solid #2f343b !important;
+    border-radius:12px !important;
+    overflow:hidden !important;
+    clip-path:none !important;
+    -webkit-clip-path:none !important;
   }
   #profilePostsFeed .media-stage.standard-video-stage > video,
   #profilePostsFeed .media-stage.standard-image-stage > img,
@@ -6606,10 +7463,10 @@ body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
     }
   }
   /* Ignore phone/device-frame sizing on Posts tab so all media share one size. */
-  #profilePostsFeed .mf-card.mf-card-phone-shot,
-  #profilePostsFeed .media-stage.phone-shot,
-  #profilePostsFeed .media-stage.phone-shot.standard-video-stage,
-  #profilePostsFeed .media-stage.phone-shot.standard-image-stage{
+  #profilePostsFeed .mf-card:not(.mf-media-missing).mf-card-phone-shot,
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.phone-shot,
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.phone-shot.standard-video-stage,
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.phone-shot.standard-image-stage{
     width:100% !important;
     max-width:100% !important;
     aspect-ratio:auto !important;
@@ -6768,7 +7625,7 @@ body.profile-page #globalLiveModal:not(.is-open) aside{
 }
 </style>
 
-<body class="profile-page<?php echo $selectedTab === 'posts' ? ' profile-posts-mode' : ''; ?><?php echo $selectedTab === 'gear' ? ' profile-gear-mode' : ''; ?><?php echo !empty($msbSettingsPage) ? ' settings-page' : ''; ?><?php echo $profileIsFlowScroll ? ' profile-flow-scroll' : ''; ?>">
+<body class="profile-page<?php echo $selectedTab === 'posts' ? ' profile-posts-mode' : ''; ?><?php echo $selectedTab === 'gear' ? ' profile-gear-mode' : ''; ?><?php echo !empty($msbSettingsPage) ? ' settings-page' : ''; ?><?php echo $profileIsFlowScroll ? ' profile-flow-scroll' : ''; ?>" data-gallery-grid="<?php echo h($profileGalleryGridSize); ?>">
 <style>
 body.profile-page.settings-page .ig-tabs{
   display:none !important;
@@ -6849,8 +7706,8 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 <?php if (!empty($msbSettingsPage)): ?>
   <header class="settings-page-head" id="settingsPageHead">
     <div class="settings-page-head-meta">
-      <h1 class="settings-page-head-title">Settings</h1>
-      <p class="settings-page-head-sub">Account, privacy, and appearance</p>
+      <h1 class="settings-page-head-title"><?php echo h(app_t('Settings')); ?></h1>
+      <p class="settings-page-head-sub"><?php echo h(app_t('Account, privacy, and appearance')); ?></p>
     </div>
     <div class="settings-page-head-tools">
       <button type="button" class="settings-page-head-gear" id="settingsPageGear" title="Browse categories" aria-label="Browse settings categories">
@@ -6858,7 +7715,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
       </button>
       <label class="settings-page-head-search">
         <span class="sr-only">Search settings</span>
-        <input type="search" id="gearSearchInput" class="settings-page-head-search-input" placeholder="Search" autocomplete="off">
+        <input type="search" id="gearSearchInput" class="settings-page-head-search-input" placeholder="<?php echo h(app_t('Search')); ?>" autocomplete="off">
         <i class="fa fa-search" aria-hidden="true"></i>
       </label>
     </div>
@@ -6873,15 +7730,15 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
       <button type="button" class="gear-archive-shortcut" id="gearArchiveShortcut" data-library="archive" data-group-slug="gear-archived-posts" data-search-text="archived posts posts only you can see archive">
         <span class="gear-nav-section-icon"><i class="icon ion-ios-box" aria-hidden="true"></i></span>
         <span class="gear-nav-copy">
-          <span class="gear-nav-section-label">Archived posts</span>
-          <span class="gear-nav-section-desc">Posts only you can see</span>
+          <span class="gear-nav-section-label"><?php echo h(app_t('Archived posts')); ?></span>
+          <span class="gear-nav-section-desc"><?php echo h(app_t('Posts only you can see')); ?></span>
         </span>
       </button>
       <button type="button" class="gear-archive-shortcut" id="gearFavoritesShortcut" data-library="favorites" data-group-slug="gear-favorites" data-search-text="favorites saved posts and stories bookmark">
         <span class="gear-nav-section-icon"><i class="icon ion-ios-bookmarks" aria-hidden="true"></i></span>
         <span class="gear-nav-copy">
-          <span class="gear-nav-section-label">Favorites</span>
-          <span class="gear-nav-section-desc">Saved posts and stories</span>
+          <span class="gear-nav-section-label"><?php echo h(app_t('Favorites')); ?></span>
+          <span class="gear-nav-section-desc"><?php echo h(app_t('Saved posts and stories')); ?></span>
         </span>
       </button>
       <?php foreach ($gearGroups as $gi => $group): ?>
@@ -6894,12 +7751,12 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
           $navDesc = trim((string)($group['nav_desc'] ?? ''));
         ?>
         <div class="gear-nav-section" id="<?php echo h($slug); ?>" data-group-slug="<?php echo h($slug); ?>">
-          <button type="button" class="gear-nav-section-toggle" aria-expanded="false" data-search-text="<?php echo h(strtolower($navLabel . ' ' . $navDesc)); ?>">
+          <button type="button" class="gear-nav-section-toggle" aria-expanded="false" data-search-text="<?php echo h(strtolower($navLabel . ' ' . $navDesc)); ?>"<?php if (!empty($group['nav_href'])): ?> data-href="<?php echo h((string)$group['nav_href']); ?>"<?php endif; ?>>
             <span class="gear-nav-section-icon"><i class="icon <?php echo h((string)$group['icon']); ?>"></i></span>
             <span class="gear-nav-copy">
-              <span class="gear-nav-section-label"><?php echo h($navLabel); ?></span>
+              <span class="gear-nav-section-label"><?php echo h(app_t($navLabel)); ?></span>
               <?php if ($navDesc !== ''): ?>
-                <span class="gear-nav-section-desc"><?php echo h($navDesc); ?></span>
+                <span class="gear-nav-section-desc"><?php echo h(app_t($navDesc)); ?></span>
               <?php endif; ?>
             </span>
             <span class="gear-nav-section-chevron"><i class="icon ion-chevron-down"></i></span>
@@ -6924,20 +7781,20 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
           <?php endif; ?>
         </div>
         <div class="ig-id-stats">
-          <div class="ig-stat ig-stat-posts" data-profile-stat="posts"><b><?php echo (int)$statPosts; ?></b> posts</div>
-          <div class="ig-stat ig-stat-social"><b><?php echo (int)$statSocialCount; ?></b> <?php echo h($profileIsPublisher ? (($statSocialCount === 1) ? 'follower' : 'followers') : $statSocialLabel); ?></div>
-          <div class="ig-stat ig-stat-following"><b><?php echo (int)$statFollowing; ?></b> following</div>
+          <div class="ig-stat ig-stat-posts" data-profile-stat="posts"><b><?php echo (int)$statPosts; ?></b> <?php echo h(app_t('posts')); ?></div>
+          <div class="ig-stat ig-stat-social"><b><?php echo (int)$statSocialCount; ?></b> <?php echo h($profileIsPublisher ? app_t(($statSocialCount === 1) ? 'follower' : 'followers') : app_t($statSocialLabel)); ?></div>
+          <div class="ig-stat ig-stat-following"><b><?php echo (int)$statFollowing; ?></b> <?php echo h(app_t('following')); ?></div>
         </div>
         <div class="ig-row1">
-          <a class="ig-btn back" href="#" onclick="if(window.history.length > 1){ history.back(); return false; } window.location.href='home.php?tab=for-you'; return false;"><i class="icon ion-arrow-left-c"></i>&nbsp;Back</a>
+          <a class="ig-btn back" id="msbProfileBack" href="<?php echo h($profileBackHref); ?>"><i class="icon ion-arrow-left-c"></i>&nbsp;<?php echo h(app_t('Back')); ?></a>
           <?php if ($isOwnProfile): ?>
-            <a class="ig-btn edit" href="user_edit.php?return=<?php echo rawurlencode('profile.php'); ?>"><i class="icon ion-edit"></i>&nbsp;Edit</a>
+            <a class="ig-btn edit" href="user_edit.php?return=<?php echo rawurlencode('profile.php'); ?>"><i class="icon ion-edit"></i>&nbsp;<?php echo h(app_t('Edit')); ?></a>
             <a class="ig-btn icon" href="messages.php" title="Messages"><i class="icon ion-chatboxes"></i></a>
             <a class="ig-btn icon" href="contacts.php" title="Friends"><i class="icon ion-person-stalker"></i></a>
             <a class="ig-btn" href="contact_requests.php"><i class="icon ion-person-add"></i>&nbsp;</a>
           <?php elseif ($isViewedPublisher && $canFollowPublishers): ?>
             <button type="button" class="ig-btn publisher-follow-btn<?= $isFollowingPublisher ? ' is-following' : '' ?>" data-publisher-id="<?= (int)$viewId ?>">
-              <?= $isFollowingPublisher ? 'Following' : 'Follow' ?>
+              <?= h(app_t($isFollowingPublisher ? 'Following' : 'Follow')) ?>
             </button>
           <?php elseif ($isPublisherWorkspaceViewer): ?>
           <?php else: ?>
@@ -6950,14 +7807,18 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                 <a class="ig-btn" href="add_contact.php?friend=<?php echo rawurlencode($me['friend_code'] !== '' ? strtoupper($me['friend_code']) : ($username !== '' ? $username : (string)$viewId)); ?>"><i class="icon ion-person-add"></i>&nbsp;Add Friend</a>
               <?php endif; ?>
             <?php elseif ($friendStatus === 'friends'): ?>
+              <?php if (profile_owner_allows_interaction($dbh, $viewId, $meId, 'message_permission')): ?>
               <a class="ig-btn icon" href="messages.php?<?php echo $me['friend_code'] !== '' ? 'peer=' . rawurlencode(strtoupper($me['friend_code'])) : 'id=' . (int)$viewId; ?>" title="Message"><i class="icon ion-chatboxes"></i></a>
+              <?php endif; ?>
               <a class="ig-btn" href="contacts.php"><i class="icon ion-checkmark"></i>&nbsp;Friends</a>
             <?php elseif ($friendStatus === 'outgoing_pending'): ?>
               <a class="ig-btn" href="contact_requests.php"><i class="icon ion-paper-airplane"></i>&nbsp;Request Sent</a>
             <?php elseif ($friendStatus === 'incoming_pending'): ?>
-              <a class="ig-btn" href="contact_requests.php"><i class="icon ion-checkmark-circled"></i>&nbsp;Accept Friend</a>
+              <a class="ig-btn" href="contact_requests.php"><i class="icon ion-checkmark-circled"></i>&nbsp;<?php echo h(app_t('Accept Friend')); ?></a>
             <?php else: ?>
-              <a class="ig-btn" href="add_contact.php?friend=<?php echo rawurlencode($me['friend_code'] !== '' ? strtoupper($me['friend_code']) : ($username !== '' ? $username : (string)$viewId)); ?>"><i class="icon ion-person-add"></i>&nbsp;Add Friend</a>
+              <?php if (profile_owner_allows_interaction($dbh, $viewId, $meId, 'friend_request_permission')): ?>
+              <a class="ig-btn" href="add_contact.php?friend=<?php echo rawurlencode($me['friend_code'] !== '' ? strtoupper($me['friend_code']) : ($username !== '' ? $username : (string)$viewId)); ?>"><i class="icon ion-person-add"></i>&nbsp;<?php echo h(app_t('Add Friend')); ?></a>
+              <?php endif; ?>
             <?php endif; ?>
           <?php endif; ?>
         </div>
@@ -6989,7 +7850,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
         <?php if ($profileShowAboutTab): ?>
         <section class="ig-rail-card">
           <div class="ig-rail-head">
-            <h3 class="ig-rail-title">About me</h3>
+            <h3 class="ig-rail-title"><?php echo h(app_t('About me')); ?></h3>
           </div>
           <?php if ($profileRailBio !== ''): ?>
             <p class="ig-rail-bio"><?php echo nl2br(h($profileRailBio)); ?></p>
@@ -7013,43 +7874,46 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 
         <section class="ig-rail-card">
           <div class="ig-rail-head">
-            <h3 class="ig-rail-title">Stats</h3>
+            <h3 class="ig-rail-title"><?php echo h(app_t('Stats')); ?></h3>
           </div>
           <div class="ig-rail-stats">
             <div class="ig-rail-stat ig-rail-stat-posts">
               <i class="icon ion-grid" aria-hidden="true"></i>
               <b><?php echo h(profile_rail_compact_count((int)$statPosts)); ?></b>
-              <span>Posts</span>
+              <span><?php echo h(app_t('Posts')); ?></span>
             </div>
             <div class="ig-rail-stat ig-rail-stat-followers">
               <i class="icon ion-ios-people" aria-hidden="true"></i>
               <b><?php echo h(profile_rail_compact_count((int)$statSocialCount)); ?></b>
-              <span><?php echo $profileIsPublisher ? 'Followers' : 'Friends'; ?></span>
+              <span><?php echo h($profileIsPublisher ? app_t('Followers') : app_t('Friends')); ?></span>
             </div>
             <div class="ig-rail-stat ig-rail-stat-following">
               <i class="icon ion-person-stalker" aria-hidden="true"></i>
               <b><?php echo h(profile_rail_compact_count((int)$statFollowing)); ?></b>
-              <span>Following</span>
+              <span><?php echo h(app_t('Following')); ?></span>
             </div>
             <div class="ig-rail-stat ig-rail-stat-likes">
               <i class="icon ion-ios-heart-outline" aria-hidden="true"></i>
               <b><?php echo h(profile_rail_compact_count((int)$statLikes)); ?></b>
-              <span>Likes</span>
+              <span><?php echo h(app_t('Likes')); ?></span>
             </div>
           </div>
         </section>
 
         <section class="ig-rail-card">
           <div class="ig-rail-head">
-            <h3 class="ig-rail-title">Top Videos</h3>
-            <a class="ig-rail-viewall" href="<?php echo h($profileRailViewAll); ?>">View all</a>
+            <h3 class="ig-rail-title"><?php echo h(app_t('Top Videos')); ?></h3>
+            <a class="ig-rail-viewall" href="<?php echo h($profileRailViewAll); ?>"><?php echo h(app_t('View all')); ?></a>
           </div>
           <?php if ($profileTopVideos): ?>
             <div class="ig-rail-videos">
               <?php foreach ($profileTopVideos as $vidIndex => $vid): ?>
                 <?php
                   $vidId = (int)($vid['post_id'] ?? 0);
-                  $vidTitle = trim((string)($vid['title'] ?? 'Video'));
+                  $vidTitle = trim((string)($vid['title'] ?? ''));
+                  if ($vidTitle === '' || strcasecmp($vidTitle, 'Video') === 0) {
+                    $vidTitle = app_t('Video');
+                  }
                   $vidThumb = trim((string)($vid['thumb'] ?? ''));
                   $vidVideo = trim((string)($vid['video'] ?? ''));
                   $vidHref = $vidId > 0 ? ($profileRailViewAll . '&open_post=' . $vidId) : $profileRailViewAll;
@@ -7075,7 +7939,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
               <?php endforeach; ?>
             </div>
           <?php else: ?>
-            <p class="ig-rail-empty">No videos yet.</p>
+            <p class="ig-rail-empty"><?php echo h(app_t('No videos yet.')); ?></p>
           <?php endif; ?>
         </section>
       </aside>
@@ -7151,30 +8015,32 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
     <?php endif; ?>
 
     <div class="ig-tabs" role="tablist" aria-label="Profile sections">
+      <?php if (!empty($profileShowGalleryTab) || $canManageProfilePrivate): ?>
       <a class="ig-tab<?php echo $selectedTab === 'gallery' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('gallery')); ?>" data-panel="gallery" role="tab" tabindex="<?php echo $selectedTab === 'gallery' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'gallery' ? 'true' : 'false'; ?>">
-        <i class="icon ion-images"></i>Gallery
+        <i class="icon ion-images"></i><?php echo h(app_t('Gallery')); ?>
       </a>
+      <?php endif; ?>
       <a class="ig-tab<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('posts')); ?>" data-panel="posts" role="tab" tabindex="<?php echo $selectedTab === 'posts' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'posts' ? 'true' : 'false'; ?>">
-        <i class="icon ion-grid"></i>Posts
+        <i class="icon ion-grid"></i><?php echo h(app_t('Posts')); ?>
       </a>
       <?php if ($profileShowTagsTab): ?>
       <a class="ig-tab<?php echo $selectedTab === 'tags' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('tags')); ?>" data-panel="tags" role="tab" tabindex="<?php echo $selectedTab === 'tags' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'tags' ? 'true' : 'false'; ?>">
-        <i class="icon ion-ios-pricetag"></i>Tags
+        <i class="icon ion-ios-pricetag"></i><?php echo h(app_t('Tags')); ?>
       </a>
       <?php endif; ?>
       <?php if (!empty($profileHasShop)): ?>
       <a class="ig-tab<?php echo $selectedTab === 'shop' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('shop')); ?>" data-panel="shop" role="tab" tabindex="<?php echo $selectedTab === 'shop' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'shop' ? 'true' : 'false'; ?>">
-        <i class="icon ion-bag"></i>Shop
+        <i class="icon ion-bag"></i><?php echo h(app_t('Shop')); ?>
       </a>
       <?php endif; ?>
       <?php if ($profileShowAboutTab): ?>
       <a class="ig-tab<?php echo $selectedTab === 'about' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('about')); ?>" data-panel="about" role="tab" tabindex="<?php echo $selectedTab === 'about' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'about' ? 'true' : 'false'; ?>">
-        <i class="icon ion-ios-person"></i>About Me
+        <i class="icon ion-ios-person"></i><?php echo h(app_t('About Me')); ?>
       </a>
       <?php endif; ?>
       <?php if ($profileShowSavedTab): ?>
         <a class="ig-tab<?php echo $selectedTab === 'saved' ? ' active' : ''; ?>" href="<?php echo h($profileTabUrl('saved')); ?>" data-panel="saved" role="tab" tabindex="<?php echo $selectedTab === 'saved' ? '0' : '-1'; ?>" aria-selected="<?php echo $selectedTab === 'saved' ? 'true' : 'false'; ?>">
-          <i class="icon ion-bookmark"></i>Favorites
+          <i class="icon ion-bookmark"></i><?php echo h(app_t('Favorites')); ?>
         </a>
       <?php endif; ?>
     </div>
@@ -7443,6 +8309,9 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 
     <div id="panel-posts" class="profile-panel<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>">
       <div id="profilePostsFeed" class="mf-feed" aria-live="polite"></div>
+      <?php if (trim((string)($profileFirstJoinedLabel ?? '')) !== ''): ?>
+        <p class="profile-joined-note" id="profileJoinedNote">Joined Talsora <?php echo h($profileFirstJoinedLabel); ?></p>
+      <?php endif; ?>
     </div>
 
     <?php if ($profileShowTagsTab): ?>
@@ -7540,14 +8409,14 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
     <div id="panel-about" class="profile-panel<?php echo $selectedTab === 'about' ? ' active' : ''; ?>">
       <div class="about-wrap">
         <div class="about-topbar">
-          <div class="about-title">About Me</div>
+          <div class="about-title"><?php echo h(app_t('About Me')); ?></div>
           <div class="about-actions">
             <?php if ($showUpdated): ?>
               <div class="about-flash"><i class="icon ion-checkmark-circled"></i> Background details updated successfully.</div>
             <?php endif; ?>
             <?php if ($canManageProfilePrivate): ?>
               <a class="about-edit-btn" href="user_edit.php?tab=about&amp;return=<?php echo rawurlencode('profile.php?tab=about&updated=1'); ?>">
-                <i class="icon ion-edit"></i> Open user_edit.php
+                <i class="icon ion-edit"></i> <?php echo h(app_t('Edit')); ?>
               </a>
             <?php endif; ?>
           </div>
@@ -7585,13 +8454,13 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
             <div class="about-card"<?php echo $pinKey !== '' ? ' data-pin-key="' . h($pinKey) . '"' : ''; ?> data-pin-label="<?php echo h($label); ?>" data-pin-value="<?php echo h($val); ?>" data-pin-icon="<?php echo h((string)($card['icon'] ?? '')); ?>" data-pin-link="<?php echo !empty($card['is_link']) ? '1' : '0'; ?>">
               <div class="about-ico"><i class="icon <?php echo h((string)$card['icon']); ?>"></i></div>
               <div>
-                <div class="k"><?php echo h($label); ?></div>
+                <div class="k"><?php echo h(app_t($label)); ?></div>
                 <?php if ($peopleValueHtml !== ''): ?>
                   <div class="v<?php echo $val === '' ? ' empty' : ''; ?>" data-people-value><?php echo $peopleValueHtml; ?></div>
                 <?php elseif ($val !== '' && !empty($card['is_link'])): ?>
                   <div class="v"><a class="about-link" href="<?php echo h($val); ?>" target="_blank" rel="noopener noreferrer"><?php echo h($val); ?></a></div>
                 <?php else: ?>
-                  <div class="v<?php echo $val === '' ? ' empty' : ''; ?>"<?php echo in_array($pinKey, ['relationship', 'family'], true) ? ' data-people-value' : ''; ?>><?php echo $val !== '' ? nl2br(h($val)) : h(trim((string)($card['empty_text'] ?? 'No background added yet'))); ?></div>
+                  <div class="v<?php echo $val === '' ? ' empty' : ''; ?>"<?php echo in_array($pinKey, ['relationship', 'family'], true) ? ' data-people-value' : ''; ?>><?php echo $val !== '' ? nl2br(h($val)) : h(app_t(trim((string)($card['empty_text'] ?? 'No background added yet')))); ?></div>
                 <?php endif; ?>
                 <?php if ($canManageProfilePrivate && $pinKey === 'relationship'): ?>
                   <?php profile_people_tags_render_relationship_editor($peopleRelationship ?? null); ?>
@@ -7668,7 +8537,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                   $rows = (array)($group['rows'] ?? []);
                 ?>
                 <div class="gear-row-group" data-group-slug="<?php echo h($slug); ?>" hidden>
-                  <h3 class="gear-row-group-title"><?php echo h($navLabel); ?></h3>
+                  <h3 class="gear-row-group-title"><?php echo h(app_t($navLabel)); ?></h3>
                   <?php
                     $rowIntro = trim((string)($group['list_intro'] ?? ''));
                     if ($rowIntro === '') {
@@ -7676,7 +8545,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                     }
                   ?>
                   <?php if ($rowIntro !== ''): ?>
-                    <p class="gear-row-group-intro"><?php echo h($rowIntro); ?></p>
+                    <p class="gear-row-group-intro"><?php echo h(app_t($rowIntro)); ?></p>
                   <?php endif; ?>
                   <div class="gear-nav-items">
                     <?php foreach ($rows as $ri => $row): ?>
@@ -7687,10 +8556,11 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                         $rowLocalField = trim((string)($row['field_local'] ?? ''));
                         $rowControl = strtolower(trim((string)($row['control'] ?? '')));
                         $rowIcon = trim((string)($row['icon'] ?? 'ion-ios-gear'));
+                        $rowLayout = trim((string)($row['layout'] ?? ''));
                         $rowMeta = profile_gear_row_value_label($row, $profileSettings, $themeAutoDefault);
                         $navSub = $rowMeta;
-                        $isDangerRow = trim((string)($row['layout'] ?? '')) === 'danger_zone';
-                        $isArchiveRow = trim((string)($row['layout'] ?? '')) === 'archived_post';
+                        $isDangerRow = $rowLayout === 'danger_zone';
+                        $isArchiveRow = $rowLayout === 'archived_post';
                         if ($isDangerRow || $isArchiveRow) {
                           $navSub = '';
                         } elseif ($navSub === '' && !empty($row['tag'])) {
@@ -7701,6 +8571,11 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                         $rowPostId = (int)($row['post_id'] ?? 0);
                         $rowNavHref = trim((string)($row['nav_href'] ?? ''));
                         $searchBits = strtolower($navLabel . ' ' . $rowLabel . ' ' . (string)($row['meta'] ?? '') . ' ' . $navSub);
+                        if ($rowLayout === 'font_bundle') {
+                          foreach ((array)($row['controls'] ?? []) as $fontCtrl) {
+                            $searchBits .= ' ' . strtolower((string)($fontCtrl['label'] ?? ''));
+                          }
+                        }
                       ?>
                       <button
                         type="button"
@@ -7712,13 +8587,14 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                         <?php if ($rowField !== ''): ?>data-field="<?php echo h($rowField); ?>"<?php endif; ?>
                         <?php if ($rowLocalField !== ''): ?>data-local-field="<?php echo h($rowLocalField); ?>"<?php endif; ?>
                         <?php if ($rowControl === 'color'): ?>data-progress-color="1"<?php endif; ?>
+                        <?php if ($rowLayout === 'font_bundle'): ?>data-font-bundle="1"<?php endif; ?>
                         data-search-text="<?php echo h($searchBits); ?>"
                       >
                         <span class="gear-nav-section-icon gear-nav-item-icon"><i class="icon <?php echo h($rowIcon); ?>"></i></span>
                         <span class="gear-nav-copy">
-                          <span class="gear-nav-section-label"><?php echo h($rowLabel); ?></span>
+                          <span class="gear-nav-section-label"><?php echo h(app_t($rowLabel)); ?></span>
                           <?php if (trim((string)($row['meta'] ?? '')) !== ''): ?>
-                            <span class="gear-nav-item-desc"><?php echo h(trim((string)$row['meta'])); ?></span>
+                            <span class="gear-nav-item-desc"><?php echo h(app_t(trim((string)$row['meta']))); ?></span>
                           <?php endif; ?>
                         </span>
                         <?php if ($navSub !== '' && $navSub !== trim((string)($row['meta'] ?? ''))): ?>
@@ -7743,7 +8619,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
             </div>
 
             <main class="gear-main" id="gearMain">
-              <div class="gear-detail-empty" id="gearDetailEmpty">Select a row to choose Yes, No, or another option.</div>
+              <div class="gear-detail-empty" id="gearDetailEmpty"><?php echo h(app_t('Select a row to choose Yes, No, or another option.')); ?></div>
 
               <?php foreach ($gearGroups as $gi => $group): ?>
                 <?php
@@ -7759,8 +8635,8 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
                     <div class="gear-detail-head">
                       <div class="gear-detail-icon"><i class="icon <?php echo h((string)($row['icon'] ?? 'ion-ios-gear')); ?>"></i></div>
                       <div>
-                        <h3 class="gear-detail-title" id="<?php echo h($rowId); ?>-title"><?php echo h((string)($row['label'] ?? '')); ?></h3>
-                        <p class="gear-detail-desc"><?php echo h((string)($row['meta'] ?? '')); ?></p>
+                        <h3 class="gear-detail-title" id="<?php echo h($rowId); ?>-title"><?php echo h(app_t((string)($row['label'] ?? ''))); ?></h3>
+                        <p class="gear-detail-desc"><?php echo h(app_t((string)($row['meta'] ?? ''))); ?></p>
                       </div>
                     </div>
 
@@ -7782,7 +8658,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
               <?php endforeach; ?>
 
               <div class="gear-note">
-                Gear live-saves privacy, timeline, notifications, security, appearance, and account settings from this tab. <b>Danger Zone</b> uses confirmation pages for delete, export, reset, and deactivate.
+                <?php echo h(app_t('Gear live-saves privacy, timeline, notifications, security, appearance, and account settings from this tab. Danger Zone uses confirmation pages for delete, export, reset, and deactivate.')); ?>
               </div>
             </main>
             <div id="gearArchiveEmbed" class="ig-archive-embed-host" hidden>
@@ -7837,7 +8713,7 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
         'hobbies' => trim((string)($about['hobbies'] ?? '')),
       ];
     ?>
-    <aside class="gear-edit-pane<?php echo !empty($msbSettingsPage) ? ' is-tips' : ''; ?>" id="gearEditPane"<?php echo empty($msbSettingsPage) ? ' hidden' : ''; ?> aria-label="<?php echo !empty($msbSettingsPage) ? 'Tips' : 'Edit'; ?>">
+    <aside class="gear-edit-pane<?php echo !empty($msbSettingsPage) ? ' is-tips' : ''; ?>" id="gearEditPane"<?php echo empty($msbSettingsPage) ? ' hidden' : ''; ?> aria-label="<?php echo h(app_t(!empty($msbSettingsPage) ? 'Tips' : 'Edit')); ?>">
       <div data-gear-pane-view="tips" id="gearTipsPane"<?php echo empty($msbSettingsPage) ? ' hidden' : ''; ?>>
         <?php
           $tipGroups = $gearNavTips;
@@ -7849,18 +8725,21 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
             }
           }
           foreach ($tipGroups as $tipSlug => $tipItems):
+            if ($tipItems === [] || $tipItems === null) {
+              continue;
+            }
         ?>
           <section class="gear-tips-card" data-tips-group="<?php echo h((string)$tipSlug); ?>"<?php echo ($tipSlug !== $firstTipSlug) ? ' hidden' : ''; ?>>
             <div class="gear-tips-head">
-              <h3 class="gear-tips-title">Tips</h3>
+              <h3 class="gear-tips-title"><?php echo h(app_t('Tips')); ?></h3>
             </div>
             <ul class="gear-tips-list">
               <?php foreach ((array)$tipItems as $tip): ?>
                 <li class="gear-tip gear-tip--<?php echo h((string)($tip['tone'] ?? 'purple')); ?>">
                   <span class="gear-tip-ico" aria-hidden="true"><i class="icon <?php echo h((string)($tip['icon'] ?? 'ion-ios-lightbulb')); ?>"></i></span>
                   <span class="gear-tip-copy">
-                    <strong><?php echo h((string)($tip['title'] ?? '')); ?></strong>
-                    <span><?php echo h((string)($tip['text'] ?? '')); ?></span>
+                    <strong><?php echo h(app_t((string)($tip['title'] ?? ''))); ?></strong>
+                    <span><?php echo h(app_t((string)($tip['text'] ?? ''))); ?></span>
                   </span>
                 </li>
               <?php endforeach; ?>
@@ -10061,6 +10940,8 @@ function pvFocusCommentById(commentId){
   return true;
 }
 try { window.pvFocusCommentById = pvFocusCommentById; } catch (ePvFocus) {}
+
+function pvApplyLoveReaction(my){
   my = String(my || '');
   pvCurrentReaction = my;
   const btn = document.getElementById('pvLove') || pv.love;
@@ -10874,7 +11755,7 @@ document.addEventListener('keydown', (e) => {
 // ✅ Mobile swipe (left/right) like Talsora
 let pvTouchX = 0;
 let pvTouchY = 0;
-pv.ov.addEventListener('touchstart', (e) => {
+if (pv.ov) pv.ov.addEventListener('touchstart', (e) => {
   if (!pv.ov.classList.contains('show')) return;
   // Don't hijack scrolling inside comments
   const t = e.target;
@@ -10885,7 +11766,7 @@ pv.ov.addEventListener('touchstart', (e) => {
   pvTouchY = p.screenY;
 }, { passive: true });
 
-pv.ov.addEventListener('touchend', (e) => {
+if (pv.ov) pv.ov.addEventListener('touchend', (e) => {
   if (!pv.ov.classList.contains('show')) return;
   const t = e.target;
   if (t && t.closest && t.closest('.pv-comments')) return;
@@ -10902,7 +11783,7 @@ pv.ov.addEventListener('touchend', (e) => {
 }, { passive: true });
 
 // Reply click
-pv.comments.addEventListener('click', (e) => {
+if (pv.comments) pv.comments.addEventListener('click', (e) => {
   const toggleBtn = e.target.closest('.pv-toggle-replies');
   if (toggleBtn) {
     const cid = Number(toggleBtn.getAttribute('data-toggle-replies') || 0);
@@ -10935,10 +11816,10 @@ pv.comments.addEventListener('click', (e) => {
   pvSetReply(cid, nm, mode);
   pv.text.focus();
 });
-pv.replyCancel.addEventListener('click', () => pvSetReply(0,''));
+if (pv.replyCancel) pv.replyCancel.addEventListener('click', () => pvSetReply(0,''));
 
 // Focus comment
-pv.focusComment.addEventListener('click', () => pv.text.focus());
+if (pv.focusComment) pv.focusComment.addEventListener('click', () => { if (pv.text) pv.text.focus(); });
 if (pv.commentsLink) {
   pv.commentsLink.addEventListener('click', () => {
     try {
@@ -10951,7 +11832,7 @@ if (pv.commentsLink) {
 }
 
 // React (love/like) — picker owns this button when MSBReactions is present
-pv.love.addEventListener('click', async () => {
+if (pv.love) pv.love.addEventListener('click', async () => {
   if (window.MSBReactions) return;
   if (!pvPostId) return;
   const next = pvCurrentReaction === 'love' ? 'none' : 'love';
@@ -10967,7 +11848,7 @@ pv.love.addEventListener('click', async () => {
   } catch (e) {}
 });
 
-pv.like.addEventListener('click', async () => {
+if (pv.like) pv.like.addEventListener('click', async () => {
   if (window.MSBReactions) return;
   if (!pvPostId) return;
   const next = pvCurrentReaction === 'like' ? 'none' : 'like';
@@ -11035,7 +11916,7 @@ if(window.MSBReactions){
 }
 
 // Share / Save
-pv.share.addEventListener('click', async () => {
+if (pv.share) pv.share.addEventListener('click', async () => {
   if (!pvPostId) return;
   if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.openShare === 'function') {
     window.MSBPostCardMenu.openShare(pvPostId);
@@ -11053,7 +11934,7 @@ pv.share.addEventListener('click', async () => {
   } catch (e) {}
 });
 
-pv.save.addEventListener('click', async () => {
+if (pv.save) pv.save.addEventListener('click', async () => {
   if (!pvPostId) return;
   try {
     const res = await pvJson('feed_api.php?ajax=save', {
@@ -11080,7 +11961,7 @@ pv.save.addEventListener('click', async () => {
 
 // Post comment / reply
 async function pvPostComment(){
-  if (!pvPostId) return;
+  if (!pvPostId || !pv.text || !pv.postBtn) return;
   const text = (pv.text.value || '').trim();
   if (!text) return;
   pv.postBtn.disabled = true;
@@ -11106,8 +11987,8 @@ async function pvPostComment(){
     pv.postBtn.disabled = false;
   }
 }
-pv.postBtn.addEventListener('click', pvPostComment);
-pv.text.addEventListener('keydown', (e)=>{
+if (pv.postBtn) pv.postBtn.addEventListener('click', pvPostComment);
+if (pv.text) pv.text.addEventListener('keydown', (e)=>{
   if (e.key === 'Enter') { e.preventDefault(); pvPostComment(); }
 });
 
@@ -11672,6 +12553,20 @@ pv.text.addEventListener('keydown', (e)=>{
     }
     syncThemeNavMeta(prefs);
     applyThemePrefs(prefs);
+    document.querySelectorAll('#panel-gear .gear-docs-ui').forEach(function(ui){
+      var wrap = ui.closest('.gear-docs-wrap');
+      var sel = wrap && wrap.querySelector('select.gear-control');
+      if (!sel) return;
+      var triggerLabel = ui.querySelector('.gear-docs-trigger-label');
+      if (triggerLabel && sel.selectedIndex >= 0 && sel.options[sel.selectedIndex]) {
+        triggerLabel.textContent = String(sel.options[sel.selectedIndex].textContent || '').trim();
+      }
+      ui.querySelectorAll('.gear-docs-option').forEach(function(opt){
+        var on = String(opt.getAttribute('data-value') || '') === String(sel.value || '');
+        opt.classList.toggle('is-selected', on);
+        opt.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    });
 
     // Persist heal so reload does not reintroduce the conflict.
     if (beforeAuto && hasFixedAppearance && !prefs.autoEnabled) {
@@ -11709,6 +12604,405 @@ pv.text.addEventListener('keydown', (e)=>{
 
   syncThemeGearControls();
   document.addEventListener('DOMContentLoaded', syncThemeGearControls);
+
+  function wireGearDocsPickers(){
+    var panel = document.getElementById('panel-gear');
+    if (!panel || panel.getAttribute('data-docs-wired') === '1') return;
+    panel.setAttribute('data-docs-wired', '1');
+    var gridOrder = ['small', 'medium', 'large'];
+    var ptOrder = [8, 9, 10, 11, 12, 14, 16, 17, 18, 20, 24, 30, 36];
+    var headerPx = { small: '16px', medium: '20px', large: '28px' };
+
+    function fontStack(name){
+      var map = window.MSB_TYPE_FONTS || {};
+      return map[name] || (String(name || 'Arial') + ', sans-serif');
+    }
+
+    function closeAll(except){
+      panel.querySelectorAll('.gear-docs-ui').forEach(function(ui){
+        if (except && ui === except) return;
+        var menu = ui.querySelector('.gear-docs-menu');
+        var trigger = ui.querySelector('.gear-docs-trigger');
+        if (menu) menu.hidden = true;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    function selectOf(ui){
+      var wrap = ui.closest('.gear-docs-wrap') || ui.parentElement;
+      return wrap ? wrap.querySelector('select.gear-control') : null;
+    }
+
+    function kindOf(ui){
+      return String(ui.getAttribute('data-docs-kind') || 'list');
+    }
+
+    function nearestPt(n){
+      n = Number(n) || 14;
+      var best = ptOrder[0];
+      var dist = Math.abs(best - n);
+      ptOrder.forEach(function(p){
+        var d = Math.abs(p - n);
+        if (d < dist) { best = p; dist = d; }
+      });
+      return best;
+    }
+
+    function syncUi(ui){
+      var sel = selectOf(ui);
+      if (!sel) return;
+      var kind = kindOf(ui);
+      var value = String(sel.value || '');
+      var label = '';
+      if (sel.selectedIndex >= 0 && sel.options[sel.selectedIndex]) {
+        label = String(sel.options[sel.selectedIndex].textContent || '').trim();
+      }
+      if (kind === 'pt' && !label) label = value;
+      var triggerLabel = ui.querySelector('.gear-docs-trigger-label');
+      if (triggerLabel && label) triggerLabel.textContent = label;
+      if (triggerLabel) {
+        triggerLabel.classList.remove('is-small', 'is-normal', 'is-large');
+        if (kind === 'header') {
+          triggerLabel.classList.add(value === 'small' ? 'is-small' : (value === 'large' ? 'is-large' : 'is-normal'));
+        }
+        if (kind === 'font') {
+          triggerLabel.style.fontFamily = fontStack(value);
+        } else {
+          triggerLabel.style.fontFamily = '';
+        }
+      }
+      ui.querySelectorAll('.gear-docs-option').forEach(function(opt){
+        var on = String(opt.getAttribute('data-value') || '') === value;
+        opt.classList.toggle('is-selected', on);
+        opt.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      var stepVal = ui.querySelector('.gear-docs-step-value');
+      if (stepVal) {
+        if (kind === 'pt') {
+          stepVal.value = String(value || '14');
+        } else {
+          var idx = gridOrder.indexOf(value);
+          stepVal.value = String((idx < 0 ? 1 : idx) + 1);
+        }
+      }
+    }
+
+    function commit(ui, value){
+      var sel = selectOf(ui);
+      if (!sel) return;
+      if (String(sel.value) === String(value)) {
+        closeAll();
+        syncUi(ui);
+        return;
+      }
+      var found = false;
+      [].forEach.call(sel.options, function(opt){
+        if (String(opt.value) === String(value)) found = true;
+      });
+      if (!found && kindOf(ui) === 'pt') {
+        var opt = document.createElement('option');
+        opt.value = String(value);
+        opt.textContent = String(value);
+        sel.appendChild(opt);
+      }
+      sel.value = String(value);
+      syncUi(ui);
+      closeAll();
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    panel.addEventListener('click', function(e){
+      var trigger = e.target.closest('.gear-docs-trigger');
+      if (trigger) {
+        var ui = trigger.closest('.gear-docs-ui');
+        if (!ui) return;
+        var menu = ui.querySelector('.gear-docs-menu');
+        var open = trigger.getAttribute('aria-expanded') === 'true';
+        closeAll(open ? null : ui);
+        if (menu) menu.hidden = open;
+        trigger.setAttribute('aria-expanded', open ? 'false' : 'true');
+        return;
+      }
+      var step = e.target.closest('.gear-docs-step');
+      if (step) {
+        var uiStep = step.closest('.gear-docs-ui');
+        var selStep = uiStep ? selectOf(uiStep) : null;
+        if (!selStep) return;
+        var kind = kindOf(uiStep);
+        var dir = Number(step.getAttribute('data-dir') || 0);
+        if (kind === 'pt') {
+          var cur = Number(selStep.value || 14);
+          var i = ptOrder.indexOf(nearestPt(cur));
+          if (i < 0) i = ptOrder.indexOf(14);
+          i += dir;
+          if (i < 0) i = 0;
+          if (i > ptOrder.length - 1) i = ptOrder.length - 1;
+          commit(uiStep, String(ptOrder[i]));
+        } else {
+          var idx = gridOrder.indexOf(String(selStep.value || 'medium'));
+          if (idx < 0) idx = 1;
+          idx += dir;
+          if (idx < 0) idx = 0;
+          if (idx > gridOrder.length - 1) idx = gridOrder.length - 1;
+          commit(uiStep, gridOrder[idx]);
+        }
+        return;
+      }
+      var option = e.target.closest('.gear-docs-option');
+      if (option) {
+        var uiOpt = option.closest('.gear-docs-ui');
+        if (uiOpt) commit(uiOpt, option.getAttribute('data-value') || '');
+      }
+    });
+
+    panel.addEventListener('change', function(e){
+      var input = e.target.closest('.gear-docs-step-value.is-pt');
+      if (!input) return;
+      var ui = input.closest('.gear-docs-ui');
+      if (!ui) return;
+      var n = parseInt(String(input.value || ''), 10);
+      if (!n || n < 8) n = 8;
+      if (n > 72) n = 72;
+      commit(ui, String(n));
+    });
+
+    document.addEventListener('click', function(e){
+      if (!e.target.closest || e.target.closest('.gear-docs-ui')) return;
+      closeAll();
+    });
+
+    panel.querySelectorAll('.gear-docs-ui').forEach(syncUi);
+  }
+  wireGearDocsPickers();
+  document.addEventListener('DOMContentLoaded', wireGearDocsPickers);
+
+  function wireGearTextColorPickers(){
+    var panel = document.getElementById('panel-gear');
+    if (!panel || panel.getAttribute('data-text-color-wired') === '1') return;
+    panel.setAttribute('data-text-color-wired', '1');
+
+    function normalizeHex(raw){
+      raw = String(raw || '').trim();
+      if (!raw || /^theme$/i.test(raw) || /^default$/i.test(raw)) return 'theme';
+      if (raw.charAt(0) !== '#') raw = '#' + raw;
+      if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
+      return '';
+    }
+
+    function syncBox(box, value){
+      var hexEl = box.querySelector('.gear-text-color-hex');
+      var swatch = box.querySelector('.gear-text-color-swatch');
+      var themeBtn = box.querySelector('.gear-text-color-theme');
+      var isTheme = value === 'theme';
+      if (hexEl) hexEl.value = isTheme ? 'Theme' : String(value).toUpperCase();
+      if (swatch && !isTheme) swatch.value = value;
+      if (themeBtn) themeBtn.classList.toggle('is-active', isTheme);
+      box.querySelectorAll('.gear-text-color-chip').forEach(function(chip){
+        chip.classList.toggle('is-selected', !isTheme && String(chip.getAttribute('data-value') || '') === value);
+      });
+    }
+
+    function commit(box, value){
+      var sel = box.querySelector('input.gear-control[data-field="text_color"]');
+      if (!sel) return;
+      if (String(sel.value) === String(value)) {
+        syncBox(box, value);
+        return;
+      }
+      sel.value = value;
+      syncBox(box, value);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    panel.addEventListener('click', function(e){
+      var themeBtn = e.target.closest('.gear-text-color-theme');
+      if (themeBtn) {
+        var boxTheme = themeBtn.closest('.gear-text-color');
+        if (boxTheme) commit(boxTheme, 'theme');
+        return;
+      }
+      var chip = e.target.closest('.gear-text-color-chip');
+      if (chip) {
+        var boxChip = chip.closest('.gear-text-color');
+        if (boxChip) commit(boxChip, chip.getAttribute('data-value') || 'theme');
+      }
+    });
+
+    panel.addEventListener('change', function(e){
+      var swatch = e.target.closest('.gear-text-color-swatch');
+      if (swatch) {
+        var boxSwatch = swatch.closest('.gear-text-color');
+        if (boxSwatch) commit(boxSwatch, normalizeHex(swatch.value) || 'theme');
+        return;
+      }
+      var hexEl = e.target.closest('.gear-text-color-hex');
+      if (!hexEl) return;
+      var box = hexEl.closest('.gear-text-color');
+      if (!box) return;
+      var next = normalizeHex(hexEl.value);
+      commit(box, next || 'theme');
+    });
+  }
+  wireGearTextColorPickers();
+  document.addEventListener('DOMContentLoaded', wireGearTextColorPickers);
+
+  function wireGearFontDefaultAll(){
+    var panel = document.getElementById('panel-gear');
+    if (!panel || panel.getAttribute('data-font-default-wired') === '1') return;
+    panel.setAttribute('data-font-default-wired', '1');
+    panel.addEventListener('click', function(e){
+      var button = e.target.closest('[data-gear-font-default-all="1"]');
+      if (!button) return;
+      var bundle = button.closest('.gear-font-bundle');
+      if (!bundle) return;
+
+      var defaults = {
+        header_type_size: 'small',
+        header_font_family: 'Arial',
+        body_font_size_pt: '9',
+        body_font_family: 'Arial'
+      };
+      Object.keys(defaults).forEach(function(field){
+        var ui = bundle.querySelector('.gear-docs-ui[data-docs-field="' + field + '"]');
+        var option = ui && ui.querySelector('.gear-docs-option[data-value="' + defaults[field] + '"]');
+        if (option) option.click();
+      });
+
+      var colorBox = bundle.querySelector('.gear-text-color');
+      var swatch = colorBox && colorBox.querySelector('.gear-text-color-swatch');
+      if (swatch) {
+        swatch.value = '#000000';
+        swatch.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      var original = button.textContent;
+      button.textContent = 'Defaults applied';
+      button.disabled = true;
+      window.setTimeout(function(){
+        button.textContent = original;
+        button.disabled = false;
+      }, 1300);
+    });
+  }
+  wireGearFontDefaultAll();
+  document.addEventListener('DOMContentLoaded', wireGearFontDefaultAll);
+
+  function applyTypeLive(prefs){
+    prefs = prefs || {};
+    var headerPx = { small: '16px', medium: '20px', large: '28px' };
+    var root = document.documentElement;
+    var fonts = window.MSB_TYPE_FONTS || {};
+    var headerSize = (prefs.headerSize === 'small' || prefs.headerSize === 'medium' || prefs.headerSize === 'large') ? prefs.headerSize : 'small';
+    var headerFont = prefs.headerFont || 'Arial';
+    var bodyFont = prefs.bodyFont || 'Arial';
+    var bodyPt = Number(prefs.bodyPt || 9);
+    if (bodyPt < 8) bodyPt = 8;
+    if (bodyPt > 72) bodyPt = 72;
+    var textColor = String(prefs.textColor || '#000000');
+    if (textColor !== 'theme' && !/^#[0-9a-fA-F]{6}$/.test(textColor)) textColor = '#000000';
+    root.setAttribute('data-msb-type', '1');
+    root.setAttribute('data-msb-header-size', headerSize);
+    root.style.setProperty('--msb-header-size', headerPx[headerSize] || '16px');
+    root.style.setProperty('--msb-header-font', fonts[headerFont] || (headerFont + ', sans-serif'));
+    root.style.setProperty('--msb-body-font', fonts[bodyFont] || (bodyFont + ', sans-serif'));
+    root.style.setProperty('--msb-body-size', bodyPt + 'pt');
+    if (textColor !== 'theme') {
+      root.setAttribute('data-msb-text-color', '1');
+      root.style.setProperty('--msb-text-color', textColor);
+    } else {
+      root.removeAttribute('data-msb-text-color');
+      root.style.removeProperty('--msb-text-color');
+    }
+    window.MSB_TYPE_PREFS = {
+      headerSize: headerSize,
+      headerFont: headerFont,
+      bodyFont: bodyFont,
+      bodyPt: bodyPt,
+      textColor: textColor
+    };
+    var sizeLabel = headerSize === 'small' ? 'Small' : (headerSize === 'large' ? 'Larger' : 'Normal');
+    var fontSummary = sizeLabel + ' · ' + headerFont + ' / ' + bodyPt + ' pt · ' + bodyFont;
+    if (textColor !== 'theme') fontSummary += ' · ' + textColor.toUpperCase();
+    document.querySelectorAll('.gear-nav-item[data-font-bundle="1"]').forEach(function(item){
+      var meta = item.querySelector('.gear-nav-item-meta');
+      if (!meta) {
+        meta = document.createElement('span');
+        meta.className = 'gear-nav-item-meta';
+        item.appendChild(meta);
+      }
+      meta.textContent = fontSummary;
+    });
+  }
+
+  function applyAppearanceLivePref(field, value, label){
+    field = String(field || '');
+    value = String(value || '');
+    var prefs = window.MSB_VIEWER_PREFS || {};
+    var typePrefs = window.MSB_TYPE_PREFS || {};
+    if (field === 'gallery_grid_size') {
+      var size = (value === 'small' || value === 'large') ? value : 'medium';
+      prefs.galleryGrid = size;
+      document.documentElement.setAttribute('data-msb-gallery-grid', size);
+      if (document.body) document.body.setAttribute('data-gallery-grid', size);
+    }
+    if (field === 'header_type_size') {
+      typePrefs.headerSize = (value === 'small' || value === 'large') ? value : 'medium';
+      applyTypeLive(typePrefs);
+    }
+    if (field === 'header_font_family') {
+      typePrefs.headerFont = value || 'Arial';
+      applyTypeLive(typePrefs);
+    }
+    if (field === 'body_font_size_pt') {
+      typePrefs.bodyPt = Number(value || 9);
+      applyTypeLive(typePrefs);
+    }
+    if (field === 'body_font_family') {
+      typePrefs.bodyFont = value || 'Arial';
+      applyTypeLive(typePrefs);
+    }
+    if (field === 'text_color') {
+      typePrefs.textColor = value || '#000000';
+      applyTypeLive(typePrefs);
+    }
+    if (field === 'autoplay_videos') {
+      var autoOn = value === '1';
+      prefs.autoplay = autoOn;
+      document.documentElement.setAttribute('data-msb-autoplay', autoOn ? '1' : '0');
+      if (!autoOn) {
+        document.querySelectorAll('video').forEach(function(v){
+          try { v.removeAttribute('autoplay'); v.pause(); } catch (e) {}
+        });
+      }
+    }
+    if (field === 'sound_enabled') {
+      var soundOn = value === '1';
+      prefs.sound = soundOn;
+      document.documentElement.setAttribute('data-msb-sound', soundOn ? '1' : '0');
+      if (!soundOn) {
+        document.querySelectorAll('video').forEach(function(v){
+          try { v.muted = true; v.defaultMuted = true; } catch (e) {}
+        });
+      }
+    }
+    if (field === 'date_format') prefs.dateFormat = value;
+    window.MSB_VIEWER_PREFS = prefs;
+    if (!label) return;
+    var selector = field
+      ? '.gear-nav-item[data-field="' + field + '"]'
+      : '';
+    if (!selector) return;
+    document.querySelectorAll(selector).forEach(function(item){
+      if (item.getAttribute('data-progress-color') === '1') return;
+      var meta = item.querySelector('.gear-nav-item-meta');
+      if (!meta) {
+        meta = document.createElement('span');
+        meta.className = 'gear-nav-item-meta';
+        item.appendChild(meta);
+      }
+      meta.textContent = label;
+    });
+  }
 
   document.querySelectorAll('#panel-gear .gear-control').forEach(function(ctrl){
     ctrl.addEventListener('change', function(){
@@ -11816,6 +13110,33 @@ pv.text.addEventListener('keydown', (e)=>{
       var form = new FormData();
       form.append('field', field);
       form.append('value', ctrl.value || '');
+      var pickedLabel = '';
+      if (ctrl.tagName === 'SELECT' && ctrl.selectedIndex >= 0 && ctrl.options[ctrl.selectedIndex]) {
+        pickedLabel = String(ctrl.options[ctrl.selectedIndex].textContent || '').trim();
+      } else if (ctrl.value === '1') {
+        pickedLabel = 'Yes';
+      } else if (ctrl.value === '0') {
+        pickedLabel = 'No';
+      }
+      var prevValue = '';
+      if (field === 'gallery_grid_size') {
+        prevValue = document.documentElement.getAttribute('data-msb-gallery-grid') || 'medium';
+      } else if (field === 'header_type_size') {
+        prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.headerSize) || 'small';
+      } else if (field === 'header_font_family') {
+        prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.headerFont) || 'Arial';
+      } else if (field === 'body_font_size_pt') {
+        prevValue = String((window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.bodyPt) || 9);
+      } else if (field === 'body_font_family') {
+        prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.bodyFont) || 'Arial';
+      } else if (field === 'text_color') {
+        prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.textColor) || '#000000';
+      } else if (field === 'autoplay_videos') {
+        prevValue = document.documentElement.getAttribute('data-msb-autoplay') === '0' ? '0' : '1';
+      } else if (field === 'sound_enabled') {
+        prevValue = document.documentElement.getAttribute('data-msb-sound') === '0' ? '0' : '1';
+      }
+      applyAppearanceLivePref(field, ctrl.value || '', pickedLabel);
       fetch('save_privacy.php', {
         method: 'POST',
         body: form,
@@ -11825,10 +13146,35 @@ pv.text.addEventListener('keydown', (e)=>{
       .then(function(res){ return res.json(); })
       .then(function(data){
         if (!data || !data.ok) throw new Error((data && data.message) ? data.message : 'Save failed');
+        if (field === 'app_language') {
+          var picked = ctrl.options[ctrl.selectedIndex];
+          var langLabel = picked ? String(picked.textContent || '').trim() : '';
+          document.querySelectorAll('.gear-nav-item[data-field="app_language"]').forEach(function(btn){
+            var meta = btn.querySelector('.gear-nav-item-meta');
+            if (!meta) {
+              meta = document.createElement('span');
+              meta.className = 'gear-nav-item-meta';
+              btn.appendChild(meta);
+            }
+            if (langLabel) meta.textContent = langLabel;
+          });
+          if (picked) {
+            document.documentElement.lang = picked.getAttribute('data-html-lang') || 'en';
+            document.documentElement.dir = picked.getAttribute('data-dir') || 'ltr';
+          }
+          window.location.reload();
+          return;
+        }
         flashState(state, 'Saved', 'is-saved');
         window.setTimeout(function(){ flashState(state, '', ''); }, 1300);
       })
-      .catch(function(){ flashState(state, 'Error', 'is-error'); });
+      .catch(function(){
+        if (prevValue !== '') {
+          applyAppearanceLivePref(field, prevValue, '');
+          ctrl.value = prevValue;
+        }
+        flashState(state, 'Error', 'is-error');
+      });
     });
   });
 
@@ -12835,6 +14181,14 @@ pv.text.addEventListener('keydown', (e)=>{
         }
         var toggle = e.target.closest('.gear-nav-section-toggle');
         if (toggle && gearNav.contains(toggle)) {
+          var goHref = toggle.getAttribute('data-href') || '';
+          if (goHref) {
+            if (/switch_accounts\.php/i.test(goHref) && typeof window.msbOpenSwitchAccounts === 'function' && window.msbOpenSwitchAccounts()) {
+              return;
+            }
+            window.location.href = goHref;
+            return;
+          }
           var section = toggle.closest('.gear-nav-section');
           if (!section) return;
           toggleSection(section);
@@ -12935,6 +14289,9 @@ pv.text.addEventListener('keydown', (e)=>{
         e.stopPropagation();
         var go = btn.getAttribute('data-href') || '';
         if (go) {
+          if (/switch_accounts\.php/i.test(go) && typeof window.msbOpenSwitchAccounts === 'function' && window.msbOpenSwitchAccounts()) {
+            return;
+          }
           window.location.href = go;
           return;
         }
@@ -13707,7 +15064,10 @@ pv.text.addEventListener('keydown', (e)=>{
     return /\[\[layout:story\]\]/i.test(desc);
   }
   function profileFeedItems(items){
-    return (Array.isArray(items) ? items : []).filter(function(it){ return !isProfileStoryPost(it); });
+    return (Array.isArray(items) ? items : []).filter(function(it){
+      if(isProfileStoryPost(it)) return false;
+      return Number(it.attachment_count || it.media_count || 0) <= 1;
+    });
   }
   function parseDate(dt){
     if(!dt) return null;
@@ -13800,8 +15160,8 @@ pv.text.addEventListener('keydown', (e)=>{
         display = text.slice(0, maxChars).trim();
         var sp = display.lastIndexOf(' ');
         if(sp > Math.floor(maxChars * 0.6)) display = display.slice(0, sp);
-        display = display.replace(/[.,;:\s]+$/,'') + '…';
       }
+      display = display.replace(/…+\s*$/,'').trimEnd() + '…';
     }
     var formatted = formatPostCardTextHtml(display);
     if(needsMore){
@@ -14230,6 +15590,10 @@ pv.text.addEventListener('keydown', (e)=>{
       }
       video.dataset.ppMediaSized = '1';
       video.addEventListener('error', function(){
+        if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+          window.MSBNoImage.replace(video);
+          return;
+        }
         var card = video.closest('.mf-card.is-single-video-post');
         if(card) card.classList.add('mf-video-error');
       }, { once:true });
@@ -14247,6 +15611,10 @@ pv.text.addEventListener('keydown', (e)=>{
       img.dataset.ppMediaSized = '1';
       img.addEventListener('load', sync);
       img.addEventListener('error', function(){
+        if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+          window.MSBNoImage.replace(img);
+          return;
+        }
         var card = img.closest('.mf-card.is-single-image-post');
         if(card) card.classList.add('mf-image-error');
       }, { once:true });
@@ -14289,6 +15657,16 @@ pv.text.addEventListener('keydown', (e)=>{
       '</div>'+
     '</div>';
   }
+  function mfNoImageHtml(){
+    if(window.MSBNoImage && typeof window.MSBNoImage.html === 'function'){
+      return window.MSBNoImage.html({ variant: 'circle' });
+    }
+    return '<div class="msb-no-image msb-media-unavailable" role="img" aria-label="Media unavailable" style="border-radius:12px;overflow:hidden;background:#3d434b;"><span>Media unavailable</span></div>';
+  }
+  function mfAttIsMissing(a){
+    if(!a) return false;
+    return Number(a.missing || a.file_missing || 0) === 1;
+  }
   function mfBuildHydratedCarousel(atts){
     atts = Array.isArray(atts) ? atts : [];
     if(atts.length <= 1) return '';
@@ -14298,7 +15676,9 @@ pv.text.addEventListener('keydown', (e)=>{
       var src = srcOf(a);
       var kind = detectKind(src, a.type);
       var inner = '';
-      if(kind === 'image' || kind === 'gif'){
+      if(mfAttIsMissing(a) && (kind === 'image' || kind === 'gif' || kind === 'video')){
+        inner = mfNoImageHtml();
+      } else if(kind === 'image' || kind === 'gif'){
         inner = '<img src="'+esc(src)+'" alt="">';
       } else if(kind === 'video'){
         inner = '<video class="msb-clean-loop-video" src="'+esc(src)+'" autoplay loop muted playsinline webkit-playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"></video>';
@@ -14591,6 +15971,7 @@ pv.text.addEventListener('keydown', (e)=>{
     var psrc = String(it.preview_path || '').trim();
     var pthumb = String(it.preview_thumb_path || '').trim().replace(/^public_user\//, '');
     var pkind = detectKind(psrc, it.preview_type);
+    var previewMissing = Number(it.preview_missing || 0) === 1;
     var bodySrc = String(it.body || it.description || '').trim();
     if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function') {
       var taggedForHide = Array.isArray(it.tagged_people) ? it.tagged_people : [];
@@ -14625,30 +16006,40 @@ pv.text.addEventListener('keydown', (e)=>{
 
     var mediaHtml = '';
     if(hasMedia){
+      var previewInner = previewMissing ? mfNoImageHtml() : '';
+      if(previewMissing){
+        cardClass += ' mf-media-missing mf-frame-painted';
+        if(pkind === 'image' || pkind === 'gif') cardClass += ' mf-image-ready';
+        if(pkind === 'video') cardClass += ' mf-video-ready';
+      }
       if(pkind === 'image' || pkind === 'gif'){
         if(isMultiMedia) cardClass += ' is-multi-media-post mf-card-multi-media';
         else cardClass += ' is-single-image-post mf-card-single-image';
-        mediaHtml = '<div class="'+buildMediaClassList({ standardImage:isSingleMedia, isSingleMedia:isSingleMedia, isPhoneShot:isPhoneShot, isMultiMedia:isMultiMedia })+'"'+mediaStyleAttr+' data-shape-ready="1" data-count="'+attCount+'" data-index="0">'+
+        var imageMediaClass = buildMediaClassList({ standardImage:isSingleMedia, isSingleMedia:isSingleMedia, isPhoneShot:isPhoneShot, isMultiMedia:isMultiMedia });
+        if(previewMissing) imageMediaClass += ' mf-media-sized';
+        mediaHtml = '<div class="'+imageMediaClass+'"'+mediaStyleAttr+' data-shape-ready="1" data-count="'+attCount+'" data-index="0">'+
           (isMultiMedia
             ? ('<div class="media-carousel mf-media-carousel" data-index="0" data-pending-hydrate="1">'+
                  '<div class="media-slides mf-media-slides">'+
-                   '<div class="media-slide mf-media-slide is-active" data-slide-index="0"><img src="'+esc(psrc)+'" alt=""></div>'+
+                   '<div class="media-slide mf-media-slide is-active" data-slide-index="0">'+(previewInner || ('<img src="'+esc(psrc)+'" alt="">'))+'</div>'+
                  '</div>'+
                  mfCarouselNavButtonsHtml()+
                  mfMediaDots(attCount)+
                '</div>')
-            : ('<img src="'+esc(psrc)+'" alt="">'))+
+            : (previewInner || ('<img src="'+esc(psrc)+'" alt="">')))+
           '</div>';
       } else if(pkind === 'video'){
         cardClass += ' is-single-video-post mf-card-single-video';
         if(isMultiMedia) cardClass += ' is-multi-media-post mf-card-multi-media';
-        var poster = pthumb ? (' poster="'+esc(pthumb)+'"') : '';
-        mediaHtml = '<div class="'+buildMediaClassList({ standardVideo:true, isPhoneShot:isPhoneShot, isSingleMedia:isSingleMedia, isMultiMedia:isMultiMedia })+'"'+mediaStyleAttr+' data-shape-ready="0" data-count="'+attCount+'" data-index="0">'+
-          '<video class="ig-smart-feed-video msb-clean-loop-video" src="'+esc(psrc)+'"'+poster+' autoplay loop muted playsinline webkit-playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen" data-smart-video="1"></video>'+
+        var poster = (!previewMissing && pthumb) ? (' poster="'+esc(pthumb)+'"') : '';
+        var videoMediaClass = buildMediaClassList({ standardVideo:true, isPhoneShot:isPhoneShot, isSingleMedia:isSingleMedia, isMultiMedia:isMultiMedia });
+        if(previewMissing) videoMediaClass += ' mf-media-sized';
+        mediaHtml = '<div class="'+videoMediaClass+'"'+mediaStyleAttr+' data-shape-ready="0" data-count="'+attCount+'" data-index="0">'+
+          (previewInner || ('<video class="ig-smart-feed-video msb-clean-loop-video" src="'+esc(psrc)+'"'+poster+' autoplay loop muted playsinline webkit-playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen" data-smart-video="1"></video>'))+
           (isMultiMedia ? mfMediaDots(attCount) : '')+
           '</div>';
       } else {
-        mediaHtml = '<div class="mf-media"><a href="'+esc(psrc)+'" target="_blank" rel="noopener">Open attachment</a></div>';
+        mediaHtml = previewMissing ? mfNoImageHtml() : '<div class="mf-media"><a href="'+esc(psrc)+'" target="_blank" rel="noopener">Open attachment</a></div>';
       }
     }
 
@@ -14976,6 +16367,9 @@ pv.text.addEventListener('keydown', (e)=>{
     openProfileCommentsTray(pid);
   });
   $(document).on('click', '#profilePostsFeed .mf-body .mf-readmore, #profilePostsFeed .js-open-readmore', function(e){
+    // The shared leftbar capture listener may already have opened this post.
+    // Avoid immediately toggling the same Read more drawer closed again.
+    if(e.originalEvent && e.originalEvent.defaultPrevented) return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -15231,7 +16625,13 @@ pv.text.addEventListener('keydown', (e)=>{
 
 <script>
 (function(){
-  var catalog = <?php echo json_encode($profileStoryCatalog, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+  var catalog = <?php
+    $__profileStoryCatalogJson = json_encode(
+      $profileStoryCatalog,
+      JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    );
+    echo is_string($__profileStoryCatalogJson) ? $__profileStoryCatalogJson : '[]';
+  ?>;
   var openStoryPostId = <?php echo (int)$profileStoryPostId; ?>;
 
   if(window.TTStories && typeof window.TTStories.setCatalog === 'function'){
@@ -15789,6 +17189,18 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media
   margin-left:0 !important;
   margin-right:auto !important;
 }
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-stage > .msb-no-image,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .msb-no-image{
+  width:100% !important;
+  max-width:100% !important;
+  height:100% !important;
+  min-height:240px !important;
+  max-height:none !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  border-radius:12px !important;
+  object-fit:unset !important;
+}
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage > video,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .mf-media-slide > video,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside .media-slide > video{
@@ -15862,6 +17274,41 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-media-head-outside > .mf-
   margin-right:0 !important;
   margin-inline:0 !important;
   transform:none !important;
+}
+</style>
+
+<style id="profile-posts-no-image-radius">
+html body.profile-page #profilePostsFeed .msb-no-image,
+html[data-msb-appearance] body.profile-page #profilePostsFeed .msb-no-image,
+html[data-theme="dark"] body.profile-page #profilePostsFeed .msb-no-image,
+html.dark-auto body.profile-page #profilePostsFeed .msb-no-image,
+html body.profile-page #profilePostsFeed .mf-card .media-stage > .msb-no-image,
+html body.profile-page #profilePostsFeed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage > .msb-no-image,
+html body.profile-page #profilePostsFeed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage > .msb-no-image{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:10px !important;
+  width:100% !important;
+  max-width:100% !important;
+  height:100% !important;
+  min-height:240px !important;
+  margin:0 !important;
+  padding:16px 12px !important;
+  color:#c8cdd3 !important;
+  background:#3d434b !important;
+  border:1px solid #2f343b !important;
+  border-radius:12px !important;
+  overflow:hidden !important;
+  clip-path:none !important;
+  -webkit-clip-path:none !important;
+}
+html body.profile-page #profilePostsFeed .mf-card.mf-media-missing .media-stage,
+html body.profile-page #profilePostsFeed .mf-card.mf-media-missing .mf-media{
+  background:transparent !important;
+  border-radius:0 !important;
+  overflow:visible !important;
 }
 </style>
 
@@ -16047,6 +17494,22 @@ html[data-theme="dark"] body.profile-page a.msb-mention{
   color:var(--msb-palette-text, #f3f6fb)!important;
   -webkit-text-fill-color:var(--msb-palette-text, #f3f6fb)!important;
 }
+
+/* Match Discover: keep the continuation link on the final preview line. */
+body.profile-page #profilePostsFeed .mf-body-has-more > .mf-body-formatted.is-clamped{
+  display:contents!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+body.profile-page #profilePostsFeed .mf-body-has-more > .mf-body-formatted.is-clamped .post-card-paragraph:last-child{
+  display:inline!important;
+  margin-bottom:0!important;
+}
+body.profile-page #profilePostsFeed .mf-body-has-more > .mf-body-formatted.is-clamped + .mf-readmore{
+  display:inline!important;
+  margin-left:.28em!important;
+  white-space:nowrap!important;
+}
 </style>
 
 <?php post_card_actions_menu_render_modals(); ?>
@@ -16231,84 +17694,6 @@ html[data-theme="dark"] body.profile-page a.msb-mention{
   });
 })();
 </script>
-<script>
-(function(){
-  var dialog = document.getElementById('asAddLogoutDialog');
-  var confirmBtn = document.getElementById('asAddLogoutConfirm');
-  var cancelBtn = document.getElementById('asAddLogoutCancel');
-  var copyEl = document.getElementById('asAddLogoutCopy');
-  var pendingType = 'personal';
-  var pendingView = '';
-  var labels = { personal: 'personal', publisher: 'publisher', commerce: 'commerce' };
-
-  function closeDialog(){
-    if (dialog && dialog.open) dialog.close();
-  }
-
-  function openDialog(type, view){
-    pendingType = labels[type] ? type : 'personal';
-    pendingView = view === 'register' ? 'register' : '';
-    if (copyEl) {
-      copyEl.textContent = pendingView === 'register'
-        ? 'You will leave this account to create a new one. Cancel to stay. Logout ends this session and you cannot come back without signing in.'
-        : ('You will leave this account to continue as ' + labels[pendingType]
-          + '. Cancel to stay. Logout ends this session and you cannot come back without signing in.');
-    }
-    if (dialog && dialog.showModal) dialog.showModal();
-  }
-
-  document.addEventListener('click', function(e){
-    var addBtn = e.target.closest('.js-as-add-logout');
-    if (addBtn) {
-      e.preventDefault();
-      openDialog(
-        (addBtn.getAttribute('data-account-type') || 'personal').toLowerCase(),
-        (addBtn.getAttribute('data-auth-view') || '').toLowerCase()
-      );
-      return;
-    }
-    var btn = e.target.closest('.js-account-switch');
-    if (!btn) return;
-    e.preventDefault();
-    var uid = parseInt(btn.getAttribute('data-user-id') || '0', 10);
-    if (!uid) return;
-    btn.disabled = true;
-    var body = new FormData();
-    body.append('target_user_id', String(uid));
-    body.append('csrf_token', btn.getAttribute('data-csrf') || '');
-    fetch('ajax/account_switch.php', {
-      method: 'POST',
-      body: body,
-      credentials: 'same-origin',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    }).then(function(res){ return res.json(); }).then(function(data){
-      if (!data || !data.ok) throw new Error((data && data.error) || 'switch failed');
-      window.location.href = 'home.php?tab=for-you';
-    }).catch(function(err){
-      btn.disabled = false;
-      window.alert(err && err.message ? err.message : 'Could not switch accounts.');
-    });
-  });
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', function(){ closeDialog(); });
-  }
-  if (confirmBtn) {
-    confirmBtn.addEventListener('click', function(){
-      var type = labels[pendingType] ? pendingType : 'personal';
-      var url = 'logout.php?account_type=' + encodeURIComponent(type);
-      if (pendingView === 'register') url += '&view=register';
-      window.location.replace(url);
-    });
-  }
-  if (dialog) {
-    dialog.addEventListener('cancel', function(e){
-      e.preventDefault();
-      closeDialog();
-    });
-  }
-})();
-</script>
 <?php include __DIR__ . '/includes/profile_people_tags.js.php'; ?>
 <style id="gear-list-ui-tail">
 html body.profile-page.profile-gear-mode .gear-nav-section-toggle,
@@ -16353,10 +17738,10 @@ html body.profile-page.profile-gear-mode .gear-nav-item.is-active,
 html body.profile-page.profile-gear-mode .gear-archive-shortcut.is-open{
   background:rgba(15,23,42,.08) !important;
 }
-html body.profile-page.profile-gear-mode .gear-main,
-html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-main,
-html.dark-auto body.profile-page.profile-gear-mode .gear-main,
-html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-main{
+html body.profile-page.profile-gear-mode:not(.settings-page) .gear-main,
+html[data-msb-appearance] body.profile-page.profile-gear-mode:not(.settings-page) .gear-main,
+html.dark-auto body.profile-page.profile-gear-mode:not(.settings-page) .gear-main,
+html[data-theme="dark"] body.profile-page.profile-gear-mode:not(.settings-page) .gear-main{
   border:0 !important;
   border-left:1px solid var(--msb-hairline, #d3d3d3) !important;
   background:transparent !important;
@@ -16368,10 +17753,10 @@ html.dark-auto body.profile-page.profile-gear-mode .ig-tabs,
 html[data-theme="dark"] body.profile-page.profile-gear-mode .ig-tabs{
   border-bottom:1px solid var(--msb-hairline, #d3d3d3) !important;
 }
-html body.profile-page.profile-gear-mode .gear-sidebar,
-html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-sidebar,
-html.dark-auto body.profile-page.profile-gear-mode .gear-sidebar,
-html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-sidebar{
+html body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar,
+html[data-msb-appearance] body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar,
+html.dark-auto body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar,
+html[data-theme="dark"] body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar{
   border:0 !important;
   border-right:1px solid var(--msb-hairline, #d3d3d3) !important;
   overflow:hidden !important;
@@ -16767,12 +18152,12 @@ html body.profile-page.profile-gear-mode .ig-wrap,
 html body.profile-page.profile-gear-mode.profile-flow-scroll .ig-wrap{
   min-height:var(--gear-stage-h) !important;
 }
-html body.profile-page.profile-gear-mode .gear-sidebar,
-html body.profile-page.profile-gear-mode.profile-flow-scroll .gear-sidebar,
-html body.profile-page.profile-gear-mode #gearCategoryRail.gear-sidebar,
-html[data-msb-appearance] body.profile-page.profile-gear-mode .gear-sidebar,
-html.dark-auto body.profile-page.profile-gear-mode .gear-sidebar,
-html[data-theme="dark"] body.profile-page.profile-gear-mode .gear-sidebar{
+html body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar,
+html body.profile-page.profile-gear-mode.profile-flow-scroll:not(.settings-page) .gear-sidebar,
+html body.profile-page.profile-gear-mode:not(.settings-page) #gearCategoryRail.gear-sidebar,
+html[data-msb-appearance] body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar,
+html.dark-auto body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar,
+html[data-theme="dark"] body.profile-page.profile-gear-mode:not(.settings-page) .gear-sidebar{
   top:8px !important;
   bottom:0 !important;
   height:auto !important;
@@ -16787,14 +18172,14 @@ html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active 
   min-height:var(--gear-col-box-h) !important;
   align-items:stretch !important;
 }
-html body.profile-page.profile-gear-mode #panel-gear.active .gear-row-pane,
-html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-row-pane,
-html body.profile-page.profile-gear-mode #panel-gear.active .gear-main,
-html body.profile-page.profile-gear-mode.profile-flow-scroll #panel-gear.active .gear-main,
-html body.profile-page.profile-gear-mode .gear-edit-pane,
-html body.profile-page.profile-gear-mode .gear-edit-pane.is-open,
-html body.profile-page.profile-gear-mode.profile-flow-scroll .gear-edit-pane,
-html body.profile-page.profile-gear-mode.profile-flow-scroll .gear-edit-pane.is-open{
+html body.profile-page.profile-gear-mode:not(.settings-page) #panel-gear.active .gear-row-pane,
+html body.profile-page.profile-gear-mode.profile-flow-scroll:not(.settings-page) #panel-gear.active .gear-row-pane,
+html body.profile-page.profile-gear-mode:not(.settings-page) #panel-gear.active .gear-main,
+html body.profile-page.profile-gear-mode.profile-flow-scroll:not(.settings-page) #panel-gear.active .gear-main,
+html body.profile-page.profile-gear-mode:not(.settings-page) .gear-edit-pane,
+html body.profile-page.profile-gear-mode:not(.settings-page) .gear-edit-pane.is-open,
+html body.profile-page.profile-gear-mode.profile-flow-scroll:not(.settings-page) .gear-edit-pane,
+html body.profile-page.profile-gear-mode.profile-flow-scroll:not(.settings-page) .gear-edit-pane.is-open{
   border:1px solid var(--msb-hairline, var(--msb-palette-border, #d3d3d3)) !important;
   border-bottom:1px solid var(--msb-hairline, var(--msb-palette-border, #d3d3d3)) !important;
   box-sizing:border-box !important;
@@ -16839,7 +18224,7 @@ html body.profile-page.settings-page .ig-profile-shell{
 html body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
 html body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar{
   background:var(--set-card) !important;
-  border:1px solid var(--set-line) !important;
+  border:0 !important;
   border-radius:var(--set-radius) !important;
   box-shadow:0 18px 40px rgba(0,0,0,.18) !important;
   overflow:hidden !important;
@@ -16938,7 +18323,7 @@ html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-
 html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane,
 html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane.is-open{
   background:var(--set-card) !important;
-  border:1px solid var(--set-line) !important;
+  border:0 !important;
   border-radius:var(--set-radius) !important;
   box-shadow:0 18px 40px rgba(0,0,0,.16) !important;
 }
@@ -17143,9 +18528,24 @@ html body.profile-page.settings-page .gear-tip-copy span{
   line-height:1.4;
   color:var(--set-muted);
 }
-html body.profile-page.settings-page .dz-card,
-html body.profile-page.settings-page .as-row{
+html body.profile-page.settings-page .dz-card{
   border-radius:12px !important;
+}
+html body.profile-page.settings-page .as-row{
+  border-radius:0 !important;
+}
+html body.profile-page.settings-page .as-list{
+  background:var(--set-chip, var(--msb-palette-hover-bg, rgba(148,163,184,.12))) !important;
+}
+html body.profile-page.settings-page .as-btn:not(.as-btn-ghost){
+  background:#2563eb !important;
+  color:#fff !important;
+  border:0 !important;
+  border-radius:10px !important;
+}
+html body.profile-page.settings-page .as-using{
+  font-weight:800 !important;
+  color:var(--set-muted) !important;
 }
 html body.profile-page.settings-page.profile-gear-mode #gearCategoryRail .gear-sidebar-title,
 html body.profile-page.settings-page.profile-gear-mode .gear-sidebar-title{
@@ -17284,7 +18684,7 @@ html body.profile-page.settings-page.profile-gear-mode.profile-flow-scroll .ig-w
   grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
   grid-template-rows:auto minmax(0, 1fr) !important;
   align-items:stretch !important;
-  gap:14px !important;
+  gap:0 !important;
   width:100% !important;
   max-width:none !important;
   margin:0 !important;
@@ -17305,6 +18705,7 @@ html body.profile-page.settings-page .settings-page-head{
   padding:2px 4px 10px;
   box-sizing:border-box;
   z-index:3;
+  border-bottom:1px solid var(--set-line, var(--msb-hairline, #d3d3d3));
 }
 html body.profile-page.settings-page .settings-page-head-meta{
   min-width:0;
@@ -17422,7 +18823,7 @@ html body.profile-page.settings-page #panel-gear.active .gear-shell{
   grid-template-columns:minmax(0, 1fr) minmax(0, 1fr) !important;
   grid-template-rows:minmax(0, 1fr) !important;
   align-items:stretch !important;
-  gap:14px !important;
+  gap:0 !important;
 }
 html body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar,
 html body.profile-page.settings-page.profile-gear-mode .gear-sidebar{
@@ -17627,6 +19028,93 @@ html body.profile-page.settings-page .gear-edit-pane [data-gear-pane-view]:not([
   }
 }
 </style>
+<style id="settings-columns-grid">
+html body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar,
+html body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html body.profile-page.settings-page .ig-profile-shell,
+html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-shell,
+html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-row-pane,
+html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-main,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane.is-open,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane.is-tips,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-row-pane,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-main,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gear-edit-pane,
+html.dark-auto body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html[data-theme="dark"] body.profile-page.settings-page.profile-gear-mode .gear-sidebar{
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  outline:none !important;
+}
+html body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar,
+html body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-row-pane,
+html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-main,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane.is-open,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane.is-tips,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-row-pane,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-main,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gear-edit-pane,
+html.dark-auto body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html[data-theme="dark"] body.profile-page.settings-page.profile-gear-mode .gear-sidebar{
+  border-bottom:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+}
+html body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar,
+html body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar{
+  border-left:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+  border-right:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+}
+html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-row-pane,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-row-pane{
+  border-right:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+}
+html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-main,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-main{
+  border-right:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+}
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane.is-open,
+html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane.is-tips,
+html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gear-edit-pane{
+  border-right:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+}
+@media (max-width: 991.98px){
+  html body.profile-page.settings-page.profile-gear-mode #gearCategoryRail.gear-sidebar,
+  html body.profile-page.settings-page.profile-gear-mode .gear-sidebar,
+  html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-row-pane,
+  html body.profile-page.settings-page.profile-gear-mode #panel-gear.active .gear-main,
+  html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane{
+    border-right:0 !important;
+    border-bottom:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+  }
+}
+</style>
 <script src="js/profile_grid_modal.js?v=20260831b"></script>
+<?php if (!empty($msbSettingsPage)): ?>
+<script>
+(function(){
+  function revealSettingsUi(){
+    window.requestAnimationFrame(function(){
+      window.requestAnimationFrame(function(){
+        document.documentElement.classList.remove('msb-settings-ui-boot');
+      });
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', revealSettingsUi, {once:true});
+  }else{
+    revealSettingsUi();
+  }
+})();
+</script>
+<?php endif; ?>
 </body>
 </html>

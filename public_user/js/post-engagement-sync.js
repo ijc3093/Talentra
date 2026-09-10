@@ -556,3 +556,143 @@
     __ready: true
   };
 })(window);
+
+/*! Home tab pin sync — talsora.com <-> Swift via home_tabs_api.php */
+(function () {
+  if (window.__msbHomeTabsLiveSync) return;
+  window.__msbHomeTabsLiveSync = true;
+
+  var lastKey = '';
+
+  function normalizePins(list) {
+    var out = [];
+    var seen = {};
+    (Array.isArray(list) ? list : []).forEach(function (raw) {
+      var slug = String(raw || '').trim().toLowerCase();
+      if (slug === 'discover') slug = 'public';
+      if (slug === 'commerce') slug = 'enterprise';
+      if (slug === 'circle') slug = 'for-you';
+      if (!slug || seen[slug]) return;
+      if (slug === 'for-you' || slug === 'public' || slug === 'discover' || slug === 'feed' || slug === 'circle') return;
+      seen[slug] = true;
+      out.push(slug);
+    });
+    return out;
+  }
+
+  function pinsKey(list) {
+    return normalizePins(list).join(',');
+  }
+
+  function readLocalPins() {
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i) || '';
+        if (key.indexOf('msb.feed.programs.v2.') === 0 || key.indexOf('msb.feed.programs.v1.') === 0) {
+          var parsed = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(parsed) && parsed.length) return normalizePins(parsed);
+        }
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  function applyPins(pins) {
+    var selected = normalizePins(pins);
+    lastKey = pinsKey(selected);
+    var urlTab = '';
+    try {
+      urlTab = String(new URL(window.location.href).searchParams.get('tab') || '').toLowerCase();
+    } catch (eTab) {}
+    if (urlTab === 'discover') urlTab = 'public';
+    if (urlTab === 'commerce') urlTab = 'enterprise';
+    document.querySelectorAll('a.feed-discover-tab.feed-program-tab-item').forEach(function (link) {
+      var slug = String(link.getAttribute('data-program-slug') || '').toLowerCase();
+      if (!slug) {
+        try { slug = String(new URL(link.href, window.location.href).searchParams.get('tab') || '').toLowerCase(); }
+        catch (err) { slug = ''; }
+      }
+      if (slug === 'discover') slug = 'public';
+      if (slug === 'commerce') slug = 'enterprise';
+      var on = selected.indexOf(slug) !== -1
+        || (slug === urlTab && slug !== 'for-you' && slug !== 'public');
+      link.hidden = !on;
+      if (!on) {
+        link.classList.remove('is-active');
+        link.removeAttribute('aria-current');
+      }
+    });
+    document.querySelectorAll('a.feed-program-nav-item').forEach(function (link) {
+      var slug = String(link.getAttribute('data-program-slug') || '').toLowerCase();
+      if (!slug) return;
+      link.hidden = selected.indexOf(slug) === -1;
+    });
+    if (window.MSBFeedPrograms && typeof window.MSBFeedPrograms.applyPins === 'function') {
+      window.MSBFeedPrograms.applyPins(selected);
+    }
+  }
+
+  function request(method, body) {
+    var opts = { method: method, credentials: 'same-origin', cache: 'no-store', headers: {} };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+      opts.body = body;
+    }
+    return fetch('home_tabs_api.php', opts).then(function (res) {
+      if (!res.ok) throw new Error('home tabs http');
+      return res.json();
+    }).then(function (data) {
+      if (!data || data.ok !== true) throw new Error('home tabs api');
+      return data;
+    });
+  }
+
+  function pull() {
+    if (window.__msbHomeTabsDirty) {
+      var localPins = [];
+      if (window.MSBFeedPrograms && typeof window.MSBFeedPrograms.getPins === 'function') {
+        localPins = normalizePins(window.MSBFeedPrograms.getPins());
+      } else {
+        localPins = readLocalPins();
+      }
+      lastKey = pinsKey(localPins);
+      if (!localPins.length && !readLocalPins().length) {
+        return Promise.resolve(null);
+      }
+      return request('POST', 'pins=' + encodeURIComponent(JSON.stringify(localPins))).then(function (data) {
+        var apiPins = normalizePins(data.pins || localPins);
+        if (pinsKey(apiPins) === lastKey) {
+          window.__msbHomeTabsDirty = false;
+        }
+        return data;
+      }).catch(function () { return null; });
+    }
+    if (Date.now() < (window.__msbHomeTabsIgnorePullUntil || 0)) {
+      return Promise.resolve(null);
+    }
+    return request('GET').then(function (data) {
+      var apiPins = normalizePins(data.pins);
+      var saved = data.pins_saved === true || data.pins_saved === 1 || data.pins_saved === '1';
+      if (saved) {
+        if (pinsKey(apiPins) !== lastKey) applyPins(apiPins);
+        return data;
+      }
+      var localPins = readLocalPins();
+      if (localPins.length) {
+        return request('POST', 'pins=' + encodeURIComponent(JSON.stringify(localPins))).then(function (savedData) {
+          applyPins(normalizePins(savedData.pins || localPins));
+          return savedData;
+        });
+      }
+      return data;
+    }).catch(function () { return null; });
+  }
+
+  pull();
+  window.setInterval(pull, 1500);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) pull();
+  });
+  window.addEventListener('focus', pull);
+})();
+

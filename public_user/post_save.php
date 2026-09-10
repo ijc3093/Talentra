@@ -194,10 +194,26 @@ $postId = (int)($_POST['post_id'] ?? 0);
 $title = trim((string)($_POST['title'] ?? ''));
 $description = trim((string)($_POST['description'] ?? ''));
 $body = trim((string)($_POST['body'] ?? ''));
-$visibility = (string)($_POST['visibility'] ?? 'public');
+$visibility = (string)($_POST['visibility'] ?? '');
 $layoutOverride = post_allowed_layout_override((string)($_POST['layout_override'] ?? ''));
 $categoryId = (int)($_POST['category_id'] ?? 0);
 $isStoryPost = ($layoutOverride === 'story');
+if ($visibility === '') {
+    if (!function_exists('profile_setting_text')) {
+        require_once __DIR__ . '/includes/profile_access.php';
+    }
+    $prefVis = 'friends';
+    if (function_exists('profile_setting_text')) {
+        $prefVis = strtolower(profile_setting_text($dbh, $meId, $isStoryPost ? 'story_visibility' : 'post_visibility', 'friends'));
+    }
+    if ($prefVis === 'only_me' || $prefVis === 'private') {
+        $visibility = 'private';
+    } elseif ($prefVis === 'everyone' || $prefVis === 'public' || $prefVis === 'approved_visitors') {
+        $visibility = 'public';
+    } else {
+        $visibility = 'friends';
+    }
+}
 $isPublisherPoster = ((string)($_POST['publisher_account'] ?? '') === '1')
     || (!empty($_SESSION['account_kind']) && strtolower((string)$_SESSION['account_kind']) === 'publisher');
 if (!$isPublisherPoster && !$fastPath) {

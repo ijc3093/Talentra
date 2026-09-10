@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/session_user.php';
 requireUserLogin();
 require_once __DIR__ . '/includes/home_tabs.php';
+require_once __DIR__ . '/includes/home_feed_tabs.php';
 home_redirect_legacy_entry((defined('MSB_PUBLIC_FEED_SURFACE') && MSB_PUBLIC_FEED_SURFACE === 'news') ? 'news' : 'public');
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/friend_system.php';
@@ -13,6 +14,7 @@ require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/post_upload.php';
 require_once __DIR__ . '/includes/post_layout.php';
+require_once __DIR__ . '/includes/missing_media.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
@@ -22,6 +24,7 @@ require_once __DIR__ . '/includes/msb_feed_engagement.php';
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 $discoverFragmentRequest = (string)($_GET['ajax_discover'] ?? '') === '1';
+$tabEmbed = (string)($_GET['tab_embed'] ?? '') === '1';
 $discoverFragmentBaseObLevel = ob_get_level();
 if ($discoverFragmentRequest) {
     ob_start();
@@ -44,6 +47,13 @@ publisher_ensure_schema($dbh);
 device_profile_ensure_post_columns($dbh);
 msb_feed_engagement_ensure_schema($dbh);
 $meId = (int)($_SESSION['user_id'] ?? 0);
+$publicProgramPinsState = function_exists('home_feed_load_pins_state')
+    ? home_feed_load_pins_state($dbh, $meId)
+    : ['pins' => [], 'saved' => false];
+$publicProgramPinSet = array_fill_keys((array)($publicProgramPinsState['pins'] ?? []), true);
+if (function_exists('app_i18n_boot')) {
+    app_i18n_boot($dbh, $meId);
+}
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $isPublisherWorkspaceViewer = publisher_workspace_viewer($dbh, $meId);
 $canFollowOnPublicMenu = $canFollowPublishers || $isPublisherWorkspaceViewer;
@@ -61,9 +71,9 @@ $isNewsSurface = ($feedSurface === 'news');
 $q = trim((string)($_GET['q'] ?? ''));
 $discoverTab = home_tab_internal(strtolower(trim((string)($_GET['tab'] ?? ($isNewsSurface ? 'news' : 'public')))));
 $pageTitle = $isNewsSurface
-    ? 'News'
-    : ($discoverTab === 'for-you' ? 'Circle' : ($discoverTab === 'public' ? 'Discover' : 'Public'));
-$discoverTabs = [
+    ? app_t('News')
+    : ($discoverTab === 'for-you' ? app_t('Circle') : ($discoverTab === 'public' ? app_t('Discover') : app_t('Public')));
+$discoverTabs = app_t_map([
     'for-you' => 'Circle',
     'public' => 'Discover',
     'enterprise' => 'Commerce',
@@ -77,7 +87,7 @@ $discoverTabs = [
     'agriculture' => 'Agriculture',
     'auto' => 'Auto',
     'political' => 'Political',
-];
+]);
 // These stay in Add Program until the user adds them to the top tabs
 $optionalDiscoverTabs = [
     'enterprise' => true,
@@ -92,7 +102,7 @@ $optionalDiscoverTabs = [
     'auto' => true,
     'political' => true,
 ];
-$publicNavTabs = [
+$publicNavTabs = app_t_map([
     'entertainment' => 'Entertainment',
     'library' => 'Library',
     'cook' => 'Cook',
@@ -102,7 +112,7 @@ $publicNavTabs = [
     'make-a-new-friend' => 'Make a new Friend',
     'agents' => 'Agents',
     'deep-research' => 'Deep research',
-] + publisher_academic_categories() + publisher_custom_categories($dbh);
+] + publisher_academic_categories() + publisher_custom_categories($dbh));
 if (!isset($discoverTabs[$discoverTab]) && !isset($publicNavTabs[$discoverTab])) {
     $discoverTab = $isNewsSurface ? 'news' : 'public';
 }
@@ -189,7 +199,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $postId = (int)($_POST['post_id'] ?? 0);
         if ($postId > 0 && $meId > 0) {
             try {
-                $stDel = $dbh->prepare("UPDATE public_posts SET is_deleted = 1, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
+                $stDel = $dbh->prepare("UPDATE public_posts SET is_deleted = 1, updated_at = NOW() WHERE id = :id AND user_id = :uid AND COALESCE(is_deleted, 0) = 0 LIMIT 1");
                 $stDel->execute([':id' => $postId, ':uid' => $meId]);
             } catch (Throwable $e) {
                 // keep page usable even if delete fails
@@ -426,13 +436,10 @@ if ($isForYouTab) {
     $where .= ' AND ' . publisher_feed_list_scope_sql_for($dbh, $meId);
     $params = array_merge($params, publisher_feed_list_scope_params_for($dbh, $meId));
 } else {
-    // Discover: public posts from the last 24h, plus the viewer's own public posts
-    // (so a fresh create without media/title still appears after publish).
-    $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND p.visibility = 'public' AND (
-        COALESCE(p.updated_at,p.created_at) >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-        OR p.user_id = :discoverMeOwn
-    )";
-    $params[':discoverMeOwn'] = $meId;
+    // Discover: stranger public posts from the last 24h, own public posts,
+    // plus friends' public and friends-only posts (friendship already grants access).
+    $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND " . publisher_discover_list_where_sql($dbh, $meId);
+    $params = array_merge($params, publisher_discover_list_where_params($dbh, $meId));
     if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
         $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
         $params[':fsBlockMe'] = $meId;
@@ -609,7 +616,6 @@ JOIN users u ON u.id = p.user_id
 WHERE p.id = :pinId
   AND p.is_deleted = 0
   AND COALESCE(p.is_archived,0) = 0
-  " . ($isForYouTab ? '' : "AND (p.visibility = 'public' OR p.user_id = :pinOwnerMe)\n  ") . "
 LIMIT 1";
             $stPin = $dbh->prepare($pinSql);
             $pinParams = [
@@ -619,20 +625,12 @@ LIMIT 1";
                 ':me2Pin' => $meId,
                 ':me3Pin' => $meId,
             ];
-            if (!$isForYouTab) {
-                $pinParams[':pinOwnerMe'] = $meId;
-            }
             $stPin->execute($pinParams);
             $pinRow = $stPin->fetch(PDO::FETCH_ASSOC) ?: null;
             $pinOwnerId = (int)($pinRow['user_id'] ?? 0);
             $pinIsOwn = ($pinOwnerId > 0 && $pinOwnerId === $meId);
             $pinVisible = is_array($pinRow) && (
-                $pinIsOwn
-                || (
-                    $isForYouTab
-                        ? publisher_can_view_post($dbh, $meId, $pinRow)
-                        : publisher_post_visible_on_public_surface($dbh, $meId, $pinRow)
-                )
+                $pinIsOwn || publisher_can_view_post($dbh, $meId, $pinRow)
             );
             if ($pinVisible) {
                 $authorKind = strtolower((string)($pinRow['account_kind'] ?? 'personal'));
@@ -680,14 +678,25 @@ foreach ($posts as $postIndex => &$post) {
         $stA->execute([':pid' => $pid]);
         $attachments = $stA->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
+    $mediaCount = 0;
+    $photoCount = 0;
     foreach ($attachments as &$a) {
         $a['file_path'] = media_src((string)($a['file_path'] ?? ''));
         $a['thumb_path'] = media_src((string)($a['thumb_path'] ?? ''));
         $a['slide_title'] = (string)($a['slide_title'] ?? '');
         $a['slide_body'] = (string)($a['slide_body'] ?? '');
+        $attType = strtolower(trim((string)($a['type'] ?? '')));
+        if (in_array($attType, ['image', 'video', 'gif'], true)) {
+            $mediaCount++;
+        }
+        if ($attType === 'image' || $attType === 'gif') {
+            $photoCount++;
+        }
     }
     unset($a);
     $post['attachments'] = $attachments;
+    $post['attachment_count'] = $mediaCount;
+    $post['slideshow_photo_count'] = $photoCount;
     $post['friend_status'] = fs_friend_status($dbh, $meId, (int)$post['user_id']);
     $contactRow = post_card_contact_for_peer($dbh, $meId, (int)$post['user_id']);
     $post['contact_id'] = (int)($contactRow['contact_id'] ?? 0);
@@ -747,7 +756,7 @@ foreach ($posts as $post) {
     }
     if (post_is_story_only($post)) {
         $storyPosts[] = $post;
-    } else {
+    } elseif (!post_is_slideshow_photos($post)) {
         $feedPosts[] = $post;
     }
 }
@@ -789,7 +798,7 @@ require_once __DIR__ . '/includes/story_catalog_build.php';
 $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_time_ago');
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs(!empty($tabEmbed) ? 'tab-embed' : '') ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -799,6 +808,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
   </script>
   <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
+  <?php if (!empty($tabEmbed)): ?>
+  <style id="home-tab-embed-css"><?php include __DIR__ . '/includes/home_tab_embed.css.php'; ?></style>
+  <?php endif; ?>
   <style id="modal-fouc-lock-css"><?php include __DIR__ . '/includes/modal_fouc_lock.css.php'; ?></style>
   <link rel="stylesheet" href="./css/dark-auto.css">
   <script src="./js/dark-auto.js?v=6" defer></script>
@@ -878,7 +890,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     }
     /* Match feed.php .mf-card: full-width bottom divider under the post (under action icons). */
     body.feed-insta-ui .post.public-post-card{
-      margin:0 !important;
+      /* margin:0 !important; */
       border:0 !important;
       border-bottom:1px solid var(--feed-post-divider, var(--public-border-strong, #c0c2c4)) !important;
       border-radius:0 !important;
@@ -967,6 +979,14 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .post-header{display:flex;align-items:center;gap:12px;padding:14px 16px}
     .post.public-post-card:not(.is-reel-post) .post-header{
       display:none;
+    }
+    .post.public-post-card:not(.is-reel-post).mf-media-missing > .post-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:0 0 12px;
+      background:transparent;
     }
     .post-author-link{display:flex;align-items:center;gap:12px;min-width:0;flex:1;color:inherit;text-decoration:none}
     .post-author-link:hover .name{text-decoration:none}
@@ -1216,6 +1236,24 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       color:var(--public-muted);
       font-weight:800;
     }
+    /* Keep the continuation control attached to the final preview line. */
+    .standard-text-caption > .post-card-caption-formatted.is-clamped,
+    .standard-media-caption > .post-card-caption-formatted.is-clamped{
+      display:contents;
+      max-height:none;
+      overflow:visible;
+    }
+    .standard-text-caption > .post-card-caption-formatted.is-clamped .post-card-paragraph:last-child,
+    .standard-media-caption > .post-card-caption-formatted.is-clamped .post-card-paragraph:last-child{
+      display:inline;
+      margin-bottom:0;
+    }
+    .standard-text-caption > .post-card-caption-formatted.is-clamped + .open-inline,
+    .standard-media-caption > .post-card-caption-formatted.is-clamped + .open-inline{
+      display:inline;
+      margin-left:.28em;
+      white-space:nowrap;
+    }
     .standard-text-actions{
       display:flex;
       align-items:center;
@@ -1373,7 +1411,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       opacity:0 !important;
       pointer-events:none !important;
     }
-    .single-portrait{aspect-ratio:auto;max-height:var(--post-media-max-height, 78vh);overflow:hidden}
+    .single-portrait{aspect-ratio:auto;
+    /* max-height:var(--post-media-max-height, 78vh); */
+    overflow:hidden}
     .single-portrait img,.single-portrait video{height:auto;width:100%}
     .single-portrait img{object-fit:contain;object-position:center center}
     .single-portrait video{object-fit:contain;object-position:center center}
@@ -4324,7 +4364,8 @@ body.feed-insta-ui .avatar-thumb img{
     padding:0;
     box-sizing:border-box;
   }
-  body.public-page.feed-insta-ui.public-suggestions-visible .feed-right-rail{
+  body.public-page.feed-insta-ui.public-suggestions-visible .feed-right-rail,
+  body.feed-page.feed-insta-ui.public-suggestions-visible .feed-right-rail{
     display:flex !important;
     flex-direction:column !important;
     visibility:visible !important;
@@ -4825,6 +4866,10 @@ body.feed-insta-ui .avatar-thumb img{
 </style>
 <style><?php include __DIR__ . '/includes/feed_page_chrome.css.php'; ?></style>
 <style id="shared-feed-public-chrome-lock-css"><?php include __DIR__ . '/includes/feed_public_chrome_lock.css.php'; ?></style>
+<?php if (empty($tabEmbed)): ?>
+<style id="home-tab-switch-host-css"><?php include __DIR__ . '/includes/home_tab_embed.css.php'; ?></style>
+<?php include __DIR__ . '/includes/home_tab_frame.js.php'; ?>
+<?php endif; ?>
 <?php post_card_actions_menu_render_css(); ?>
 <?php include __DIR__ . '/includes/post_viewer_gallery_chrome.css.php'; ?>
 <?php post_action_thin_icons_render_css(); ?>
@@ -5021,34 +5066,19 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 }
 </style>
 <style id="public-media-load-screen-fix">
-/* In head so refresh/nav never flash empty brown media boxes before JS runs. */
-.post.public-post-card.is-single-video-post:not(.mf-video-ready),
-.post.public-post-card.is-single-image-post:not(.mf-image-ready){
-  display:none !important;
-}
-.post.public-post-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized),
-.post.public-post-card.is-single-image-post .media-stage.standard-image-stage:not(.mf-media-sized){
-  display:none !important;
-}
+/* Keep cards in layout while media decodes. display:none on the card/stage
+   blocks video load in the Discover iframe, so clips never reach play(). */
 .post.public-post-card.is-single-video-post:not(.mf-video-ready) .media-stage.standard-video-stage > video,
 .post.public-post-card.is-single-image-post:not(.mf-image-ready) .media-stage.standard-image-stage > img{
-  visibility:hidden !important;
-  opacity:0 !important;
+  visibility:hidden;
+  opacity:0;
 }
-@media (max-width:767.98px){
-  .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot:not(.mf-media-sized),
-  .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-video-stage:not(.mf-media-sized),
-  .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-image-stage:not(.mf-media-sized),
-  .media-stage.phone-shot:not(.mf-media-sized){
-    aspect-ratio:auto !important;
-    max-height:none !important;
-    box-shadow:none !important;
-    width:100% !important;
-  }
+body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-card.is-single-video-post{
+  visibility:visible !important;
 }
 </style>
 </head>
-<body class="public-page feed-insta-ui public-suggestions-visible<?= $isNewsSurface ? ' news-page' : '' ?><?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
+<body class="public-page feed-insta-ui public-suggestions-visible<?= $isNewsSurface ? ' news-page' : '' ?><?= $discoverTab === 'public' ? ' home-tab-discover' : '' ?><?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
 <?php require __DIR__ . '/includes/register_welcome_modal.php'; ?>
 <?php $GLOBALS['msb_skip_header_leftbar'] = true; $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
 <?php $feedLeftRailActive = isset($publicNavTabs[$discoverTab]) ? $discoverTab : $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__ . '/includes/feed_left_rail.php'; ?>
@@ -5076,11 +5106,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
     </div>
     <div class="feed-desktop-layout">
-      <div class="feed-side-search" aria-label="Search posts">
+      <div class="feed-side-search" aria-label="<?= app_t_attr('Search posts') ?>">
         <form class="feed-top-search-form feed-side-search-form" method="get" action="<?= h($selfPage) ?>">
           <input type="hidden" name="tab" value="<?= h(home_tab_url_key($discoverTab)) ?>">
           <div class="feed-top-search-field">
-            <button type="submit" class="feed-top-search-icon" aria-label="Search">
+            <button type="submit" class="feed-top-search-icon" aria-label="<?= app_t_attr('Search') ?>">
               <i class="fa fa-search" aria-hidden="true"></i>
             </button>
             <input
@@ -5088,7 +5118,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               name="q"
               class="feed-top-search-input"
               value="<?= h($q) ?>"
-              placeholder="<?= $isNewsSurface ? 'Search news' : 'Search' ?>"
+              placeholder="<?= h($isNewsSurface ? app_t('Search news') : app_t('Search')) ?>"
               autocomplete="off"
               enterkeyhint="search"
             >
@@ -5098,7 +5128,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       <div class="feed-desktop-center">
         <div class="feed-top-search feed-top-search--tabs-only" aria-label="Explore posts">
           <div class="feed-top-search-row feed-top-tabs-row">
-            <nav class="feed-discover-tabs" aria-label="Explore categories">
+            <nav class="feed-discover-tabs" aria-label="<?= app_t_attr('Explore categories') ?>">
               <?php foreach ($discoverTabs as $tabKey => $tabLabel): ?>
                 <?php
                   $tabQuery = [];
@@ -5106,7 +5136,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       $tabQuery['q'] = $q;
                   }
                   $isOptionalDiscoverTab = isset($optionalDiscoverTabs[$tabKey]);
-                  $optionalTabActive = $isOptionalDiscoverTab && $discoverTab === $tabKey;
+                  $optionalTabActive = $isOptionalDiscoverTab && ($discoverTab === $tabKey || isset($publicProgramPinSet[$tabKey]));
                   $tabHref = home_tab_url($tabKey, $tabQuery);
                 ?>
                 <a
@@ -5118,11 +5148,13 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 ><?= h($tabLabel) ?></a>
               <?php endforeach; ?>
             </nav>
-            <a class="feed-top-search-settings" href="settings.php" aria-label="Explore settings" title="Settings">
+            <?php include __DIR__ . '/includes/home_tabs_live_sync.js.php'; ?>
+            <a class="feed-top-search-settings" href="settings.php" aria-label="<?= app_t_attr('Explore settings') ?>" title="<?= app_t_attr('Settings') ?>">
               <i class="fa fa-cog" aria-hidden="true"></i>
             </a>
           </div>
         </div>
+        <?php include __DIR__ . '/includes/feed_posted_pill.php'; ?>
         <script>
         (function(){
           var tabs = document.querySelector('.feed-discover-tabs');
@@ -5150,6 +5182,52 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           function isCircleTabKey(tab){
             return tab === 'for-you';
           }
+          function discoverFeedEl(){
+            return document.querySelector('.feed-desktop-center > .ig-feed');
+          }
+          function circleHostEl(){
+            return document.getElementById('homeCircleHost');
+          }
+          function circleFrameEl(){
+            return document.getElementById('homeCircleFrame');
+          }
+          function postedPillEl(){
+            return document.querySelector('.feed-desktop-center > .feed-posted-pill');
+          }
+          function circleEmbedSrc(){
+            var u = new URL('home.php', window.location.href);
+            u.searchParams.set('tab', 'for-you');
+            u.searchParams.set('tab_embed', '1');
+            try{
+              var q = new URL(window.location.href).searchParams.get('q') || '';
+              if(q) u.searchParams.set('q', q);
+            }catch(err){}
+            return u.pathname + u.search;
+          }
+          function showCirclePanel(){
+            var feed = discoverFeedEl();
+            var host = circleHostEl();
+            var frame = circleFrameEl();
+            var postedPill = postedPillEl();
+            if(feed) feed.hidden = true;
+            if(host) host.hidden = false;
+            if(postedPill) postedPill.hidden = true;
+            if(frame && !frame.getAttribute('src')) frame.src = circleEmbedSrc();
+            var jumpRail = document.querySelector('.jump-rail');
+            if(jumpRail) jumpRail.classList.add('is-hidden');
+            requestAnimationFrame(function(){
+              if(typeof window.msbWatchHomeTabFrame === 'function') window.msbWatchHomeTabFrame(frame);
+              if(typeof window.msbFitHomeTabFrame === 'function') window.msbFitHomeTabFrame(frame);
+            });
+          }
+          function showDiscoverPanel(){
+            var feed = discoverFeedEl();
+            var host = circleHostEl();
+            var postedPill = postedPillEl();
+            if(host) host.hidden = true;
+            if(feed) feed.hidden = false;
+            if(postedPill) postedPill.hidden = false;
+          }
           function activateDiscoverTabs(selected){
             if(!tabs) return;
             tabs.querySelectorAll('.feed-discover-tab').forEach(function(tab){
@@ -5174,7 +5252,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           }
           function prefetchTab(link){
             if(!link || !window.fetch || tabHtmlCache[link.href] || tabHtmlRequests[link.href]) return;
-            if(isCircleTabKey(tabKeyFromLink(link))) return;
+            if(isCircleTabKey(tabKeyFromLink(link))){
+              var frame = circleFrameEl();
+              if(frame && !frame.getAttribute('src')) frame.src = circleEmbedSrc();
+              return;
+            }
             var prefetchUrl = new URL(link.href, window.location.href);
             prefetchUrl.searchParams.set('ajax_discover', '1');
             tabHtmlRequests[link.href] = fetch(prefetchUrl.href, {
@@ -5207,16 +5289,50 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               window.setTimeout(function(){ prefetchTab(link); }, 120 * index);
             });
           }
+          function isHomeTabHref(href){
+            try{
+              var path = String(new URL(href, window.location.href).pathname || '').toLowerCase();
+              return /\/home\.php$/.test(path) || /\/feed\.php$/.test(path) || /\/public\.php$/.test(path) || /\/news\.php$/.test(path);
+            }catch(err){
+              return false;
+            }
+          }
           function softSwapCenter(link){
             if(!link || !window.fetch || !window.DOMParser){
               window.location.assign(link.href);
               return;
             }
-            var selectedTab = tabKeyFromLink(link);
-            if(isCircleTabKey(selectedTab)){
-              window.location.assign(link.href);
+            if(!isHomeTabHref(link.href)){
+              try{
+                if(window.top && window.top !== window) window.top.location.assign(link.href);
+                else window.location.assign(link.href);
+              }catch(errGo){
+                window.location.assign(link.href);
+              }
               return;
             }
+            var selectedTab = tabKeyFromLink(link);
+            if(isCircleTabKey(selectedTab)){
+              if(tabs){
+                try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
+              }
+              activateChromeForTab(selectedTab);
+              showCirclePanel();
+              var searchForm = document.querySelector('.feed-top-search-form');
+              if(searchForm){
+                searchForm.action = new URL(link.href, window.location.href).pathname;
+                var tabInput = searchForm.querySelector('input[name="tab"]');
+                if(tabInput) tabInput.value = selectedTab;
+              }
+              history.pushState({msbDiscover:true}, '', link.href);
+              document.title = 'Circle';
+              document.body.classList.remove('home-tab-discover');
+              if(window.MSBFeedPrograms && typeof window.MSBFeedPrograms.restore === 'function'){
+                window.MSBFeedPrograms.restore();
+              }
+              return;
+            }
+            showDiscoverPanel();
             var currentTab = new URL(window.location.href).searchParams.get('tab') || 'discover';
             if(selectedTab === currentTab && link.classList.contains('is-active')) return;
             if(tabs){
@@ -5268,12 +5384,26 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 if(tabInput) tabInput.value = selectedTab;
               }
               document.body.classList.toggle('news-page', selectedTab === 'news' || new URL(link.href, window.location.href).pathname.endsWith('/news.php'));
+              document.body.classList.toggle('home-tab-discover', selectedTab === 'discover' || selectedTab === 'public');
               document.body.classList.add('public-suggestions-visible');
               history.pushState({msbDiscover:true}, '', link.href);
               document.title = nextDoc.title || document.title;
-              currentFeed.scrollTop = 0;
+              var keepResume = false;
+              try{
+                keepResume = Number((new URL(window.location.href)).searchParams.get('from_post') || 0) > 0
+                  || (window.MSBResumePost && window.MSBResumePost.read && window.MSBResumePost.read());
+              }catch(eKeep){}
+              if(!keepResume) currentFeed.scrollTop = 0;
               currentFeed.style.scrollBehavior = previousScrollBehavior;
               prefetchNeighbors();
+              if(window.MSBFeedPrograms && typeof window.MSBFeedPrograms.restore === 'function'){
+                window.MSBFeedPrograms.restore();
+              }
+              try{
+                if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
+                  window.MSBResumePost.restoreHome();
+                }
+              }catch(eResumeSwap){}
             }).catch(function(error){
               if(error && error.name === 'AbortError') return;
               window.location.assign(link.href);
@@ -5281,6 +5411,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               if(tabs) tabs.classList.remove('is-loading');
             });
           }
+          window.msbSwitchHomeTabLink = softSwapCenter;
           if(tabs){
             tabs.addEventListener('pointerover', function(e){
               prefetchTab(e.target.closest('.feed-discover-tab'));
@@ -5295,7 +5426,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               }
               if(isCircleTabKey(tabKeyFromLink(link))){
                 e.preventDefault();
-                window.location.assign(link.href);
+                softSwapCenter(link);
                 return;
               }
               e.preventDefault();
@@ -5318,7 +5449,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             }
             if(isCircleTabKey(tabKeyFromLink(link))){
               e.preventDefault();
-              window.location.assign(link.href);
+              softSwapCenter(link);
               return;
             }
             e.preventDefault();
@@ -5515,6 +5646,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           );
           $isMultiStandardMedia = (!$isReelOnly && count($attachments) > 1);
           $isStandardMediaPost = (!$isReelOnly && !empty($attachments));
+          $mediaMissing = false;
+          if (($isSingleStandardImage || $isSingleStandardVideo || $isReelOnly) && !empty($attachments[0]) && function_exists('msb_media_is_missing')) {
+              $mediaMissing = msb_media_is_missing((string)($attachments[0]['file_path'] ?? ''));
+          }
           $liveMeta = (is_array($post['live_meta'] ?? null) ? $post['live_meta'] : null);
           $isPublicLivePost = is_array($liveMeta) && (int)($liveMeta['id'] ?? 0) > 0;
 
@@ -5545,7 +5680,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
               $followBtnClass .= ' primary';
           }
         ?>
-        <?php $peerProfileHref = public_profile_href($post); ?>
+        <?php $peerProfileHref = public_profile_href($post, (int)($post['id'] ?? 0)); ?>
         <?php
           $postTimeLabel = (string)date('M j', strtotime((string)$post['updated_at']));
           $authorAfterHtml = '';
@@ -5560,7 +5695,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 'muted_class' => 'msb-sharing-with',
                 'after_author_html' => $authorAfterHtml,
               ])
-            : ('<a class="msb-sharing-who" href="' . h($peerProfileHref) . '">' . h($postAuthorText) . '</a>' . $authorAfterHtml);
+            : ('<a class="msb-sharing-who" href="' . h($peerProfileHref) . '" target="_top" rel="noopener">' . h($postAuthorText) . '</a>' . $authorAfterHtml);
           $authorNameClass = $hasSharingWith ? ' is-sharing-with' : '';
           $pcmCtx = post_card_actions_menu_context($post, $meId, $dbh, $peerProfileHref, $staffReadonly, 'public');
           $pcmCtx['menu_surface'] = 'public';
@@ -5575,7 +5710,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           $isPublicTextOnly = (!$isPublicLivePost && !$isReelOnly && !$isStandardMediaPost);
         ?>
         <article
-          class="post public-post-card<?= $isStandardMediaPost ? ' public-media-head-outside' : '' ?><?= $isPublicTextOnly ? ' public-text-only' : '' ?><?= $isPublicLivePost ? ' is-live-post' : '' ?><?= $isReelOnly ? ' is-reel-post' : '' ?><?= $isSingleStandardVideo ? ' is-single-video-post' : '' ?><?= $isSingleStandardImage ? ' is-single-image-post' : '' ?><?= ($isSingleStandardVideo || $isSingleStandardImage) ? ' ' . h($shapeClass) : '' ?><?= $isMultiStandardMedia ? ' is-multi-media-post' : '' ?>"
+          class="post public-post-card<?= $isStandardMediaPost ? ' public-media-head-outside' : '' ?><?= $isPublicTextOnly ? ' public-text-only' : '' ?><?= $isPublicLivePost ? ' is-live-post' : '' ?><?= $isReelOnly ? ' is-reel-post' : '' ?><?= $isSingleStandardVideo ? ' is-single-video-post' : '' ?><?= $isSingleStandardImage ? ' is-single-image-post' : '' ?><?= ($isSingleStandardVideo || $isSingleStandardImage) ? ' ' . h($shapeClass) : '' ?><?= $isMultiStandardMedia ? ' is-multi-media-post' : '' ?><?= $mediaMissing ? ' mf-media-missing mf-frame-painted' : '' ?><?= ($mediaMissing && $isSingleStandardImage) ? ' mf-image-ready' : '' ?><?= ($mediaMissing && $isSingleStandardVideo) ? ' mf-video-ready' : '' ?>"
           id="post-<?= (int)$post['id'] ?>"
           data-index="<?= (int)$index ?>"
           data-post-id="<?= (int)$post['id'] ?>"
@@ -5604,10 +5739,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           </div>
           <?php endif; ?>
 
-          <?php if (!$isPublicLivePost && !$isReelOnly && !$isStandardMediaPost): ?>
+          <?php if (!$isPublicLivePost && !$isReelOnly && (!$isStandardMediaPost || !empty($mediaMissing))): ?>
             <div class="post-header">
               <div class="post-author-link<?= $authorNameClass ?>">
-                <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
+                <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" target="_top" rel="noopener" aria-label="Open <?= h($postAuthorText) ?> profile">
                   <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                 </a>
                 <div class="head-meta">
@@ -5649,7 +5784,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           <?php elseif (!$isPublicLivePost && $isReelOnly): ?>
             <div class="post-header">
               <div class="post-author-link<?= $authorNameClass ?>">
-                <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
+                <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" target="_top" rel="noopener" aria-label="Open <?= h($postAuthorText) ?> profile">
                   <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                 </a>
                 <div class="head-meta">
@@ -5670,7 +5805,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             <div class="standard-text-card">
               <div class="standard-text-topbar">
                 <div class="standard-text-author<?= $authorNameClass ?>">
-                  <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
+                  <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" target="_top" rel="noopener" aria-label="Open <?= h($postAuthorText) ?> profile">
                     <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                   </a>
                   <div class="standard-text-meta">
@@ -5745,7 +5880,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       </a>
                       <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                     </span>
-                    <!-- <a class="standard-text-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
+                    <!-- <a class="standard-text-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="<?= app_t_attr('Like') ?>" data-post-id="<?= (int)$post['id'] ?>">
                       <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
                       <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
                     </a> -->
@@ -5837,7 +5972,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                             </a>
                             <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                           </span>
-                          <a class="public-live-action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
+                          <a class="public-live-action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="<?= app_t_attr('Like') ?>" data-post-id="<?= (int)$post['id'] ?>">
                             <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
                             <span class="action-count js-like-count js-open-reactors" data-rx-tab="like" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who liked"><?= (int)$post['like_count'] ?></span>
                           </a>
@@ -5874,7 +6009,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             <div class="reel-topbar">
               <div class="reel-top-left">
                 <div class="reel-top-author<?= $authorNameClass ?>">
-                  <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
+                  <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" target="_top" rel="noopener" aria-label="Open <?= h($postAuthorText) ?> profile">
                     <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                   </a>
                   <div class="reel-top-meta">
@@ -5905,22 +6040,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             </div>
 
             <div class="reel-stage">
-              <?php if ((string)$a['type'] === 'video'): ?>
-                <video
-                  class="reel-video js-reel-video"
-                  src="<?= $src ?>"
-                  muted
-                  loop
-                  playsinline
-                  preload="metadata"
-                ></video>
-              <?php else: ?>
-                <img
-                  class="reel-video"
-                  src="<?= $src ?>"
-                  alt=""
-                >
-              <?php endif; ?>
+              <?= msb_post_attachment_html($a, [
+                'img_class' => 'reel-video',
+                'video_class' => 'reel-video js-reel-video',
+                'video_attrs' => 'muted loop playsinline preload="metadata"',
+              ]) ?>
             </div>
 
             <div class="reel-bottom">
@@ -5952,7 +6076,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                       </a>
                       <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                     </span>
-                    <a class="reel-inline-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
+                    <a class="reel-inline-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="<?= app_t_attr('Like') ?>" data-post-id="<?= (int)$post['id'] ?>">
                       <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
                       <span class="action-count js-like-count js-open-reactors" data-rx-tab="like" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who liked"><?= (int)$post['like_count'] ?></span>
                     </a>
@@ -5985,46 +6109,21 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           <?php elseif (!empty($attachments)): ?>
             <?php $hasMultiMedia = count($attachments) > 1; ?>
             <?php $mediaStageShape = ($isSingleStandardVideo || $isSingleStandardImage) ? '' : $shapeClass; ?>
-            <div class="media-stage <?= h($mediaStageShape) ?><?= !empty($isPhoneShot) ? ' phone-shot' : '' ?><?= $isSingleStandardVideo ? ' standard-video-stage' : '' ?><?= $isSingleStandardImage ? ' standard-image-stage' : '' ?><?= $hasMultiMedia ? ' has-carousel js-media-carousel' : '' ?>"<?= $deviceStageStyle !== '' ? ' style="' . h($deviceStageStyle) . '"' : '' ?><?= $hasMultiMedia ? ' data-count="' . (int)count($attachments) . '" data-index="0" data-legacy-title="' . h($legacyTitle) . '" data-legacy-body="' . h($legacyCaption) . '" data-slide-presentation="' . ($slidePresentation ? '1' : '0') . '"' : '' ?>>
+            <div class="media-stage <?= h($mediaStageShape) ?><?= !empty($isPhoneShot) ? ' phone-shot' : '' ?><?= $isSingleStandardVideo ? ' standard-video-stage' : '' ?><?= $isSingleStandardImage ? ' standard-image-stage' : '' ?><?= $hasMultiMedia ? ' has-carousel js-media-carousel' : '' ?><?= !empty($mediaMissing) ? ' mf-media-sized' : '' ?>"<?= $deviceStageStyle !== '' ? ' style="' . h($deviceStageStyle) . '"' : '' ?><?= $hasMultiMedia ? ' data-count="' . (int)count($attachments) . '" data-index="0" data-legacy-title="' . h($legacyTitle) . '" data-legacy-body="' . h($legacyCaption) . '" data-slide-presentation="' . ($slidePresentation ? '1' : '0') . '"' : '' ?>>
               <?php if (!$hasMultiMedia): ?>
-                <?php $a = $attachments[0]; $src = h((string)$a['file_path']); ?>
-                <?php if ((string)$a['type'] === 'image'): ?>
-                  <img src="<?= $src ?>" alt="" loading="eager" decoding="sync" fetchpriority="high">
-                <?php elseif ((string)$a['type'] === 'video'): ?>
-                  <?php
-                    $videoPosterPath = trim((string)($a['thumb_path'] ?? ''));
-                    $videoPosterAttr = $videoPosterPath !== '' ? (' poster="' . h($videoPosterPath) . '"') : '';
-                  ?>
-                  <video src="<?= $src ?>"<?= $videoPosterAttr ?> playsinline preload="auto" muted loop></video>
-                <?php else: ?>
-                  <div class="file-tile">
-                    <div>
-                      <i class="icon ion-document-text" style="font-size:48px"></i>
-                      <div style="margin-top:12px"><a href="<?= $src ?>" target="_blank" style="color:#fff;font-weight:700">Open file</a></div>
-                    </div>
-                  </div>
-                <?php endif; ?>
+                <?php $a = $attachments[0]; ?>
+                <?= msb_post_attachment_html($a, [
+                  'img_attrs' => 'loading="eager" decoding="sync" fetchpriority="high"',
+                  'video_attrs' => 'playsinline preload="auto" muted loop',
+                ]) ?>
               <?php else: ?>
                 <div class="media-carousel">
                   <div class="media-slides">
-                    <?php foreach ($attachments as $slideIndex => $a): $src = h((string)$a['file_path']); ?>
+                    <?php foreach ($attachments as $slideIndex => $a): ?>
                       <div class="media-slide<?= $slideIndex === 0 ? ' is-active' : '' ?>" data-slide-index="<?= (int)$slideIndex ?>" data-slide-title="<?= h((string)($a['slide_title'] ?? '')) ?>" data-slide-body="<?= h((string)($a['slide_body'] ?? '')) ?>">
-                        <?php if ((string)$a['type'] === 'image'): ?>
-                          <img src="<?= $src ?>" alt="">
-                        <?php elseif ((string)$a['type'] === 'video'): ?>
-                          <?php
-                            $slidePosterPath = trim((string)($a['thumb_path'] ?? ''));
-                            $slidePosterAttr = $slidePosterPath !== '' ? (' poster="' . h($slidePosterPath) . '"') : '';
-                          ?>
-                          <video src="<?= $src ?>"<?= $slidePosterAttr ?> playsinline preload="metadata" muted loop></video>
-                        <?php else: ?>
-                          <div class="file-tile">
-                            <div>
-                              <i class="icon ion-document-text" style="font-size:48px"></i>
-                              <div style="margin-top:12px"><a href="<?= $src ?>" target="_blank" style="color:#fff;font-weight:700">Open file</a></div>
-                            </div>
-                          </div>
-                        <?php endif; ?>
+                        <?= msb_post_attachment_html($a, [
+                          'video_attrs' => 'playsinline preload="metadata" muted loop',
+                        ]) ?>
                       </div>
                     <?php endforeach; ?>
                   </div>
@@ -6042,9 +6141,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                 <div class="public-auto-progress public-auto-progress--media" aria-hidden="true">
                   <div class="public-auto-progress-bar"></div>
                 </div>
+                <?php if (empty($mediaMissing)): ?>
                 <div class="standard-media-topbar">
                   <div class="standard-media-author<?= $authorNameClass ?>">
-                    <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" aria-label="Open <?= h($postAuthorText) ?> profile">
+                    <a class="post-author-avatar-link" href="<?= h($peerProfileHref) ?>" target="_top" rel="noopener" aria-label="Open <?= h($postAuthorText) ?> profile">
                       <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                     </a>
                     <div class="standard-media-meta">
@@ -6084,6 +6184,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                   </button>
                   <?php endif; ?>
                 </div>
+                <?php endif; ?>
                 <?php endif; ?>
 
                 <div class="standard-media-bottom">
@@ -6129,7 +6230,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                           </a>
                           <span class="action-count js-love-count js-open-reactors" data-rx-tab="love" data-post-id="<?= (int)$post['id'] ?>" role="button" tabindex="0" aria-label="See who reacted"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                         </span>
-                        <!-- <a class="standard-media-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
+                        <!-- <a class="standard-media-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="<?= app_t_attr('Like') ?>" data-post-id="<?= (int)$post['id'] ?>">
                           <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
                           <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
                         </a> -->
@@ -6172,7 +6273,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
                     <span class="action-count js-love-count"><?= (int)$post['love_count'] + (int)$post['like_count'] ?></span>
                   </a>
 
-                  <a class="action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="Like" data-post-id="<?= (int)$post['id'] ?>">
+                  <a class="action-btn js-react-like<?= public_reaction_is_like_lane((string)($post['my_reaction'] ?? '')) ? ' is-like' : '' ?>" type="button" aria-label="<?= app_t_attr('Like') ?>" data-post-id="<?= (int)$post['id'] ?>">
                     <i class="fa <?= ((string)($post['my_reaction'] ?? '') === 'like') ? 'fa-thumbs-up' : 'fa-thumbs-o-up' ?>"></i>
                     <span class="action-count js-like-count"><?= (int)$post['like_count'] ?></span>
                   </a>
@@ -6219,6 +6320,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
           }
           echo $discoverFeedFragment;
         ?>
+        <?php if (empty($tabEmbed)): ?>
+        <div class="home-tab-frame-host" id="homeCircleHost" hidden>
+          <iframe class="home-tab-frame" id="homeCircleFrame" title="Circle"></iframe>
+        </div>
+        <?php endif; ?>
       </div>
     </div>
     <?php
@@ -6367,12 +6473,18 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       }
     }
     var pid = card ? Number(card.getAttribute('data-post-id') || 0) : 0;
-    window.location.href = pid > 0 ? ('reel.php?post=' + encodeURIComponent(String(pid))) : 'reel.php';
+    if(pid > 0 && window.MSBResumePost && typeof window.MSBResumePost.save === 'function'){
+      window.MSBResumePost.save(pid);
+      if(typeof window.MSBResumePost.stampHomeUrl === 'function') window.MSBResumePost.stampHomeUrl(pid);
+    }
+    window.location.href = pid > 0
+      ? ('reel.php?post=' + encodeURIComponent(String(pid)) + '&from=discover')
+      : 'reel.php?from=discover';
   });
 
 <?php if (empty($isNewsSurface)): ?>
-  if(!window.__msbDiscoverVideoToReelBound){
-    window.__msbDiscoverVideoToReelBound = true;
+  if(!window.__msbDiscoverMediaToReelBound){
+    window.__msbDiscoverMediaToReelBound = true;
     document.addEventListener('click', function(e){
       var tabNow = '';
       try{ tabNow = String((new URL(window.location.href)).searchParams.get('tab') || ''); }catch(eTab){ tabNow = ''; }
@@ -6380,27 +6492,19 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       var t = e.target;
       if(!t || !t.closest) return;
       if(t.closest('a, button, input, textarea, select, .post-card-menu-wrap, .standard-media-top-actions, .standard-media-topbar, .standard-media-actions, .standard-media-bottom, .standard-text-actions, .reel-inline-actions, .reel-mute, .media-dots, .js-media-prev, .js-media-next, .public-live-actionbar, .js-open-reactors, .js-open-comments')) return;
-      if(t.closest('img')) return;
       var card = t.closest('.post.public-post-card');
       if(!card) return;
-      var slide = t.closest('.media-slide');
-      if(slide && !slide.querySelector('video')) return;
-      var hitVideo = t.closest('video');
-      var videoStage = t.closest('.media-stage.standard-video-stage');
-      var reelStage = t.closest('.reel-stage');
-      var isVideoHit = !!hitVideo;
-      if(!isVideoHit && videoStage && !videoStage.classList.contains('has-carousel')) isVideoHit = true;
-      if(!isVideoHit && slide && slide.querySelector('video')) isVideoHit = true;
-      if(!isVideoHit && reelStage){
-        var reelVid = reelStage.querySelector('video');
-        isVideoHit = !!(reelVid && reelVid.parentNode === reelStage);
-      }
-      if(!isVideoHit) return;
+      var hitMedia = t.closest('.media-stage img, .media-stage video, .reel-stage img, .reel-stage video');
+      if(!hitMedia) return;
       var pid = Number(card.getAttribute('data-post-id') || 0);
       if(!pid) return;
       e.preventDefault();
       e.stopPropagation();
-      window.location.href = 'reel.php?post=' + encodeURIComponent(String(pid));
+      if(window.MSBResumePost && typeof window.MSBResumePost.save === 'function'){
+        window.MSBResumePost.save(pid);
+        if(typeof window.MSBResumePost.stampHomeUrl === 'function') window.MSBResumePost.stampHomeUrl(pid);
+      }
+      window.location.href = 'reel.php?post=' + encodeURIComponent(String(pid)) + '&from=discover';
     });
   }
 <?php endif; ?>
@@ -6569,6 +6673,14 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 
     try {
       video.muted = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      if(video.getAttribute('preload') === 'none'){
+        video.setAttribute('preload', 'auto');
+      }
+    } catch(errMute){}
+    try { revealPublicVideoCard(video); } catch(errReveal){}
+    try {
       video.play().catch(function(){});
     } catch(err){}
   }
@@ -7090,6 +7202,9 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   });
 
   $(document).on('click', '.js-open-readmore', function(e){
+    // The shared leftbar capture handler owns this interaction. When it has
+    // already handled the click, do not toggle the same drawer closed again.
+    if(e.originalEvent && e.originalEvent.defaultPrevented) return;
     e.preventDefault();
     e.stopPropagation();
     if(!(window.TTReadMore && typeof window.TTReadMore.toggle === 'function')) return;
@@ -8061,7 +8176,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
 
   function revealPublicVideoCard(video){
     if(!video) return;
-    if(Number(video.readyState || 0) < 2) return;
+    if(Number(video.readyState || 0) < 1) return;
     var card = video.closest('.is-single-video-post');
     var stage = video.closest('.media-stage.standard-video-stage');
     syncStandardMediaCard(video);
@@ -8120,37 +8235,48 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   }
 
   function primePublicStandardVideos(){
-    document.querySelectorAll('.is-single-video-post .media-stage.standard-video-stage > video').forEach(function(video){
+    var videos = document.querySelectorAll('.is-single-video-post .media-stage.standard-video-stage > video');
+    videos.forEach(function(video, i){
       var stage = video.closest('.media-stage.standard-video-stage');
       var card = video.closest('.is-single-video-post');
       var reveal = function(){ revealPublicVideoCard(video); };
-      if(video.readyState >= 2){
+      if(Number(video.readyState || 0) >= 1){
         reveal();
-        return;
       }
       try{
-        if(video.getAttribute('preload') !== 'auto'){
-          video.setAttribute('preload', 'auto');
-        }
-        video.load();
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('preload', i < 2 ? 'auto' : 'metadata');
       }catch(e){}
+      video.addEventListener('loadedmetadata', reveal, { once:true });
       video.addEventListener('loadeddata', reveal, { once:true });
       video.addEventListener('canplay', reveal, { once:true });
       video.addEventListener('error', function(){
         var retries = Number(video.dataset.publicLoadRetries || 0);
-        if(retries >= 2){
-          if(card) card.classList.add('mf-video-error');
+        if(retries < 2){
+          video.dataset.publicLoadRetries = String(retries + 1);
+          window.setTimeout(function(){
+            try{ video.load(); }catch(e){}
+          }, 180 * (retries + 1));
           return;
         }
-        video.dataset.publicLoadRetries = String(retries + 1);
-        window.setTimeout(function(){
-          try{ video.load(); }catch(e){}
-        }, 180 * (retries + 1));
+        if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+          window.MSBNoImage.replace(video);
+          return;
+        }
+        if(card) card.classList.add('mf-video-error');
       });
     });
   }
 
   function bindPublicStandardImages(){
+    document.querySelectorAll('.is-single-image-post .media-stage.standard-image-stage .msb-no-image').forEach(function(ph){
+      var card = ph.closest('.is-single-image-post');
+      var stage = ph.closest('.media-stage.standard-image-stage');
+      markPublicMediaReady(card, stage);
+      if(card) card.classList.add('mf-media-missing');
+    });
     document.querySelectorAll('.is-single-image-post .media-stage.standard-image-stage > img').forEach(function(img){
       var card = img.closest('.is-single-image-post');
       var stage = img.closest('.media-stage.standard-image-stage');
@@ -8159,6 +8285,10 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
       }
       img.addEventListener('load', function(){ revealPublicImageCard(img); });
       img.addEventListener('error', function(){
+        if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+          window.MSBNoImage.replace(img);
+          return;
+        }
         var retries = Number(img.dataset.publicLoadRetries || 0);
         if(retries >= 2){
           if(card) card.classList.add('mf-image-error');
@@ -8188,7 +8318,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
     if(!feed) return true;
     var card = feed.querySelector('.public-post-card');
     if(!card) return true;
-    if(card.classList.contains('mf-video-error') || card.classList.contains('mf-image-error')) return true;
+    if(card.classList.contains('mf-video-error') || card.classList.contains('mf-image-error') || card.classList.contains('mf-media-missing')) return true;
     if(card.classList.contains('is-single-video-post')){
       // Prefer a painted frame; fall back to decoded media so we do not
       // linger on a blank hydrating feed after create-post redirects.
@@ -8226,6 +8356,11 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
             }
           }catch(_u){}
         }
+        try{
+          if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
+            window.MSBResumePost.restoreHome();
+          }
+        }catch(eResumePub){}
         return;
       }
       window.requestAnimationFrame(tick);
@@ -8251,6 +8386,7 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   document.querySelectorAll('.is-single-video-post .media-stage.standard-video-stage > video').forEach(function(video){
     video.addEventListener('loadedmetadata', function(){
       syncStandardVideoCard(video);
+      revealPublicVideoCard(video);
       var card = video.closest('.public-post-card');
       if(card && card === currentCard()) bindPublicAutoAdvance(card);
     });
@@ -9750,55 +9886,8 @@ include __DIR__ . '/includes/post_viewer_modal.js.php';
 
   window.addEventListener('click', openPublicDeleteDialog, true);
 
-  function placePublicPostMenu(){
-    var menu = document.querySelector('body.public-page > .pcm-menu-portal.open')
-      || document.querySelector('body.public-page .post.public-post-card .post-card-menu.open');
-    var center = document.querySelector('body.public-page .feed-desktop-center');
-    if(!menu || !center) return;
-    var centerRect = center.getBoundingClientRect();
-    var menuWidth = menu.offsetWidth || 220;
-    var menuHeight = menu.offsetHeight || 275;
-    var viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-    var viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-    var outsideLeft = centerRect.right + 8;
-    var suggestions = document.querySelector('body.public-page .feed-right-rail .sfy-panel');
-    var suggestionsRect = suggestions ? suggestions.getBoundingClientRect() : null;
-    if(suggestionsRect && suggestionsRect.height > 0){
-      var baseOverlapsSuggestions = outsideLeft < suggestionsRect.right && outsideLeft + menuWidth > suggestionsRect.left;
-      var rightOfSuggestions = suggestionsRect.right + 12;
-      if(baseOverlapsSuggestions && rightOfSuggestions + menuWidth <= viewportWidth - 10){
-        outsideLeft = rightOfSuggestions;
-      }
-    }
-    if(outsideLeft + menuWidth <= viewportWidth - 10){
-      var menuButton = menu.closest('.post-card-menu-wrap');
-      menuButton = menuButton ? menuButton.querySelector('.post-card-menu-btn') : null;
-      if(!menuButton){
-        menuButton = document.querySelector('body.public-page .post-card-menu-btn[aria-expanded="true"]');
-      }
-      var currentTop = parseFloat(menu.style.top || '') || 10;
-      var desiredTop = menuButton ? Math.max(10, menuButton.getBoundingClientRect().top) : currentTop;
-      desiredTop = Math.max(10, Math.min(desiredTop, viewportHeight - menuHeight - 10));
-      menu.style.setProperty('top', desiredTop + 'px', 'important');
-      menu.style.setProperty('position', 'fixed', 'important');
-      menu.style.setProperty('left', outsideLeft + 'px', 'important');
-      menu.style.setProperty('right', 'auto', 'important');
-      menu.style.setProperty('z-index', '100000', 'important');
-    }
-  }
-  document.addEventListener('click', function(){
-    requestAnimationFrame(placePublicPostMenu);
-  }, true);
-  window.addEventListener('resize', placePublicPostMenu, {passive:true});
-  window.addEventListener('scroll', placePublicPostMenu, {passive:true, capture:true});
-  new MutationObserver(function(records){
-    for(var i=0;i<records.length;i++){
-      if((records[i].addedNodes && records[i].addedNodes.length) || records[i].type === 'attributes'){
-        requestAnimationFrame(placePublicPostMenu);
-        break;
-      }
-    }
-  }).observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['class']});
+  /* Do not shove the fries menu into the right rail. Home Discover clips the
+   * iframe to the center column, so that placement hid the popup entirely. */
 })();
 </script>
 <?php include __DIR__ . '/includes/post_reactors_modal.php'; ?>

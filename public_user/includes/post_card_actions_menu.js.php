@@ -109,8 +109,9 @@
     var linkAuthor = opts.linkAuthor !== false;
     var afterAuthorHtml = String(opts.afterAuthorHtml || '');
     var authorHtml = escHtml(authorName);
+    var targetAttr = ' target="_top" rel="noopener"';
     if (linkAuthor && authorHref && authorHref !== '#') {
-      authorHtml = '<a class="'+escHtml(linkClass)+'" href="'+escHtml(authorHref)+'">'+authorHtml+'</a>';
+      authorHtml = '<a class="'+escHtml(linkClass)+'" href="'+escHtml(authorHref)+'"'+targetAttr+'>'+authorHtml+'</a>';
     }
     var people = Array.isArray(taggedPeople) ? taggedPeople.filter(function(p){
       return p && (personLabel(p) !== '');
@@ -120,14 +121,14 @@
       var label = escHtml(personLabel(p));
       var href = personProfileHref(p);
       if (!href || href === '#') return label;
-      return '<a class="'+escHtml(linkClass)+'" href="'+escHtml(href)+'">'+label+'</a>';
+      return '<a class="'+escHtml(linkClass)+'" href="'+escHtml(href)+'" target="_top" rel="noopener">'+label+'</a>';
     }
     function othersDropdownHtml(rest){
       var items = rest.map(function(p){
         var label = escHtml(personLabel(p));
         var href = personProfileHref(p);
         var un = escHtml(String(p.username || '').trim());
-        return '<a class="msb-sharing-others-item" role="option" href="'+escHtml(href)+'">'
+        return '<a class="msb-sharing-others-item" role="option" href="'+escHtml(href)+'" target="_top" rel="noopener">'
           + '<span class="msb-sharing-others-name">'+label+'</span>'
           + (un ? '<span class="msb-sharing-others-user">@'+un+'</span>' : '')
           + '</a>';
@@ -262,26 +263,37 @@
           top = rect.bottom + gap;
         }
       }
-    // Feed and Public menus open outside their center column, including posts
-    // whose header/fries button is above (rather than over) the media.
+    // Circle / Discover: drop below the fries button and stay in the center
+    // column so the menu never covers the right rail (or the home-tab clip).
     } else if(menuSurface === 'feed' || menuSurface === 'public' || isPublicPage){
-      var centerCard = btn.closest('.mf-card, .post, article');
-      if(centerCard){
-        var centerCardRect = centerCard.getBoundingClientRect();
-        var centerColumn = centerCard.closest('.feed-desktop-center');
-        var centerAnchorRect = centerColumn ? centerColumn.getBoundingClientRect() : centerCardRect;
-        top = Math.max(10, rect.top);
-        left = centerAnchorRect.right + gap;
-        if(left + mw > vw - 10){
-          left = centerAnchorRect.left - mw - gap;
+      top = rect.bottom + gap;
+      left = rect.right - mw;
+      var colRight = vw;
+      var colLeft = 10;
+      try {
+        var center = document.querySelector('.feed-desktop-center');
+        if (center) {
+          var cr = center.getBoundingClientRect();
+          if (cr.width > 40) {
+            colLeft = Math.max(10, cr.left + 8);
+            colRight = cr.right;
+          }
         }
-        // On narrow viewports neither side has enough room. Keep the menu in
-        // the viewport and below the button instead of covering the media.
-        if(left < 10 || left + mw > vw - 10){
-          left = Math.max(10, Math.min(rect.right - mw, vw - mw - 10));
-          top = rect.bottom + gap;
+        var rail = document.querySelector('.feed-right-rail');
+        if (rail) {
+          var rs = window.getComputedStyle(rail);
+          var railHidden = rs.display === 'none' || rs.visibility === 'hidden' || rail.hidden
+            || (document.documentElement && document.documentElement.classList.contains('tab-embed'));
+          if (!railHidden) {
+            var rr = rail.getBoundingClientRect();
+            if (rr.width > 8 && rr.left < colRight) colRight = rr.left;
+          }
         }
+      } catch (eRail) {}
+      if (left + mw > colRight - 8) {
+        left = Math.max(colLeft, colRight - mw - 8);
       }
+      if (left < colLeft) left = colLeft;
     }
 
     if(left < 10) left = 10;
@@ -373,14 +385,21 @@
     }
   }
 
+  function tLabel(label){
+    try{
+      if (typeof window.msbT === 'function') return window.msbT(String(label || ''));
+    }catch(e){}
+    return String(label || '');
+  }
+
   function linkItem(cls, href, icon, label, extraAttrs){
     return '<a class="pcm-item ' + cls + '" href="' + escHtml(href) + '" role="menuitem"' + (extraAttrs || '') + '>' +
-      '<i class="' + escHtml(icon) + '" aria-hidden="true"></i><span>' + escHtml(label) + '</span></a>';
+      '<i class="' + escHtml(icon) + '" aria-hidden="true"></i><span>' + escHtml(tLabel(label)) + '</span></a>';
   }
 
   function buttonItem(cls, icon, label, extraAttrs){
     return '<button type="button" class="pcm-item ' + cls + '" role="menuitem"' + (extraAttrs || '') + '>' +
-      '<i class="' + escHtml(icon) + '" aria-hidden="true"></i><span>' + escHtml(label) + '</span></button>';
+      '<i class="' + escHtml(icon) + '" aria-hidden="true"></i><span>' + escHtml(tLabel(label)) + '</span></button>';
   }
 
   function menuDivider(){
@@ -2229,9 +2248,48 @@
     }catch(eUrl){}
   }
 
+  function rememberDeletedPostId(postId){
+    postId = Number(postId || 0);
+    if(postId <= 0) return;
+    window.__MSB_FEED_DELETED_IDS = window.__MSB_FEED_DELETED_IDS || {};
+    window.__MSB_FEED_DELETED_IDS[String(postId)] = 1;
+    var cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    function writeStore(storage){
+      if(!storage) return;
+      var map = {};
+      try{ map = JSON.parse(storage.getItem('msbFeedDeletedPostIds') || '{}') || {}; }catch(e0){ map = {}; }
+      map[String(postId)] = Date.now();
+      var pruned = {};
+      Object.keys(map).forEach(function(k){
+        var ts = Number(map[k] || 0);
+        if(Number(k || 0) > 0 && ts >= cutoff) pruned[k] = ts;
+      });
+      storage.setItem('msbFeedDeletedPostIds', JSON.stringify(pruned));
+    }
+    try{ writeStore(window.sessionStorage); }catch(e1){}
+    try{ writeStore(window.localStorage); }catch(e2){}
+  }
+  window.MSBRememberDeletedPost = rememberDeletedPostId;
+  window.MSBDeletedPostIdMap = function(){
+    var ids = Object.assign({}, window.__MSB_FEED_DELETED_IDS || {});
+    function merge(storage){
+      if(!storage) return;
+      try{
+        var map = JSON.parse(storage.getItem('msbFeedDeletedPostIds') || '{}') || {};
+        Object.keys(map).forEach(function(k){
+          if(Number(k || 0) > 0) ids[String(k)] = 1;
+        });
+      }catch(e){}
+    }
+    try{ merge(window.sessionStorage); }catch(eS){}
+    try{ merge(window.localStorage); }catch(eL){}
+    return ids;
+  };
+
   function removePostFromSurfaces(postId){
     postId = Number(postId || 0);
     if(!postId) return;
+    rememberDeletedPostId(postId);
     try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e0){}
     if(typeof window.MSBReelAfterPostDeleted === 'function'){
       try { window.MSBReelAfterPostDeleted(postId); } catch(eReel){}
@@ -2249,7 +2307,9 @@
       '.mf-card[data-post-id="'+String(postId)+'"],' +
       '.public-post-card[data-post-id="'+String(postId)+'"],' +
       '.public-post-card[data-id="'+String(postId)+'"],' +
-      '.ig-item[data-post-id="'+String(postId)+'"]'
+      '.ig-item[data-post-id="'+String(postId)+'"],' +
+      'a.explore-tile[data-post-id="'+String(postId)+'"],' +
+      '.reel-slide[data-post-id="'+String(postId)+'"]'
     ).forEach(function(el){
       try {
         if(el.closest && el.closest('#profilePostsFeed')) removedProfileCard = true;
@@ -2544,6 +2604,7 @@
       return;
     }
     if(mode === 'public'){
+      rememberDeletedPostId(postId);
       var input = document.getElementById('deletePostId');
       var form = document.getElementById('deletePostForm');
       if(input) input.value = String(postId);

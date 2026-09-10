@@ -25,8 +25,10 @@ declare(strict_types=1);
 .feed-discover-tab,
 .feed-discover-tab.is-active{
   position:relative !important;
-  flex:1 0 auto !important;
-  min-width:max-content !important;
+  flex:0 0 25% !important;
+  width:25% !important;
+  min-width:112px !important;
+  max-width:none !important;
   height:28px !important;
   margin:0 !important;
   padding:6px 10px 10px !important;

@@ -228,7 +228,7 @@ if (!function_exists('sfy_friend_rows')) {
             if ($mutualCount > 0) {
                 $subtitle = $mutualCount . ' mutual friend' . ($mutualCount === 1 ? '' : 's');
             } else {
-                $subtitle = $query !== '' ? 'People' : 'Suggested friend';
+                $subtitle = $query !== '' ? (function_exists('app_t') ? app_t('People') : 'People') : (function_exists('app_t') ? app_t('Suggested friend') : 'Suggested friend');
             }
             $out[] = sfy_user_row($row, 'friend', $subtitle, 'Add Friend');
         }
@@ -497,13 +497,13 @@ if (!function_exists('sfy_render_row')) {
             <div class="sfy-sub"><?= h((string)($row['subtitle'] ?? '')) ?></div>
           </div>
           <?php if ($kind === 'friend'): ?>
-            <button type="button" class="sfy-action friend-btn primary" data-peer-id="<?= $rowId ?>" data-status="none" aria-label="Add Friend">
+            <button type="button" class="sfy-action friend-btn primary" data-peer-id="<?= $rowId ?>" data-status="none" aria-label="<?= h(function_exists('app_t') ? app_t('Add Friend') : 'Add Friend') ?>">
               +
             </button>
             <button type="button" class="sfy-dismiss" data-sfy-dismiss="<?= $rowId ?>" aria-label="Dismiss suggestion">×</button>
           <?php else: ?>
             <button type="button" class="sfy-action publisher-follow-btn" data-publisher-id="<?= $rowId ?>">
-              <?= h((string)($row['action_label'] ?? 'Follow')) ?>
+              <?= h(function_exists('app_t') ? app_t((string)($row['action_label'] ?? 'Follow')) : (string)($row['action_label'] ?? 'Follow')) ?>
             </button>
           <?php endif; ?>
         </li>
@@ -943,12 +943,12 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
             class="sfy-search-input js-sfy-search-input"
             name="q"
             value="<?= h($sfySearchQ) ?>"
-            placeholder="<?= $sfyPageTab === 'publishers' || $sfyIsPublisherWorkspace ? 'Search publishers…' : 'Search personal users…' ?>"
+            placeholder="<?= h(function_exists('app_t') ? app_t($sfyPageTab === 'publishers' || $sfyIsPublisherWorkspace ? 'Search publishers…' : 'Search personal users…') : ($sfyPageTab === 'publishers' || $sfyIsPublisherWorkspace ? 'Search publishers…' : 'Search personal users…')) ?>"
             autocomplete="off"
             enterkeyhint="search"
-            aria-label="<?= $sfyPageTab === 'publishers' || $sfyIsPublisherWorkspace ? 'Search publishers' : 'Search personal users' ?>"
+            aria-label="<?= h(function_exists('app_t') ? app_t($sfyPageTab === 'publishers' || $sfyIsPublisherWorkspace ? 'Search publishers' : 'Search personal users') : ($sfyPageTab === 'publishers' || $sfyIsPublisherWorkspace ? 'Search publishers' : 'Search personal users')) ?>"
           >
-          <button type="submit" class="sfy-search-icon" aria-label="Search">
+          <button type="submit" class="sfy-search-icon" aria-label="<?= h(function_exists('app_t') ? app_t('Search') : 'Search') ?>">
             <i class="fa fa-search" aria-hidden="true"></i>
           </button>
         </div>
@@ -958,13 +958,13 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <div class="sfy-panel sfy-page-panel">
   <div class="sfy-panel-body js-sfy-panel-scroll">
 <?php else: ?>
-<aside class="feed-right-rail" aria-label="Explore">
+<aside class="feed-right-rail" aria-label="<?= h(function_exists('app_t') ? app_t('Explore') : 'Explore') ?>">
   <?php if ($sfyCanShowPersonal): ?>
   <div class="sfy-panel">
     <div class="sfy-panel-head">
       <header class="sfy-head">
-        <h2 class="sfy-title">People You May Know</h2>
-        <a class="sfy-see" href="suggested_for_you.php?tab=people">See all</a>
+        <h2 class="sfy-title"><?= h(function_exists('app_t') ? app_t('People You May Know') : 'People You May Know') ?></h2>
+        <a class="sfy-see" href="suggested_for_you.php?tab=people"><?= h(function_exists('app_t') ? app_t('See all') : 'See all') ?></a>
       </header>
     </div>
     <div class="sfy-panel-body js-sfy-panel-scroll">
@@ -1050,8 +1050,8 @@ $sfyScope = $sfyModeIsPage ? 'body.sfy-page' : 'body.feed-insta-ui';
   <div class="sfy-panel">
     <div class="sfy-panel-head">
       <header class="sfy-head">
-        <h2 class="sfy-title">Publishers</h2>
-        <a class="sfy-see" href="suggested_for_you.php?tab=publishers">See all</a>
+        <h2 class="sfy-title"><?= h(function_exists('app_t') ? app_t('Publishers') : 'Publishers') ?></h2>
+        <a class="sfy-see" href="suggested_for_you.php?tab=publishers"><?= h(function_exists('app_t') ? app_t('See all') : 'See all') ?></a>
       </header>
     </div>
     <div class="sfy-panel-body js-sfy-panel-scroll">

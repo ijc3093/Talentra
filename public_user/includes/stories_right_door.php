@@ -1431,7 +1431,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
       <div class="tt-story-cmt-panel" role="dialog" aria-modal="true" aria-labelledby="ttStoryCmtTitle">
         <div class="tt-story-cmt-grab" aria-hidden="true"></div>
         <div class="tt-story-cmt-head">
-          <h3 id="ttStoryCmtTitle">Comments</h3>
+          <h3 id="ttStoryCmtTitle"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Comments') : 'Comments', ENT_QUOTES, 'UTF-8'); ?></h3>
           <button type="button" class="tt-story-cmt-close" id="ttStoryCmtClose" title="Close" aria-label="Close comments">
             <i class="icon ion-close"></i>
           </button>
@@ -1509,7 +1509,7 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
   var closeBtn = document.getElementById('ttStoriesClose');
   var storyMenuWrap = document.getElementById('ttStoriesMenuWrap');
   var storyMenu = document.getElementById('ttStoriesMenu');
-  var STORY_DOOR_MENU_SURFACE = <?= json_encode($storyDoorMenuSurface, JSON_UNESCAPED_UNICODE) ?>;
+  var STORY_DOOR_MENU_SURFACE = <?= json_encode($storyDoorMenuSurface, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
   var STORY_DOOR_STAFF_READONLY = <?= $storyDoorStaffReadonly ? 'true' : 'false' ?>;
   var pauseBtn = document.getElementById('ttStoriesPause');
   var prevBtn = document.getElementById('ttStoriesPrev');
@@ -1549,8 +1549,8 @@ html.dark-auto #tt-stories-wrap .tt-stories-nav{
   var storyCollapsedReplyIds = {};
   var STORY_CMT_PLACEHOLDER = 'Join the conversation...';
   var STORY_SHEET_ME_ID = <?= (int)$storySheetMeId ?>;
-  var STORY_SHEET_ME_NAME = <?= json_encode($storySheetMeName !== '' ? $storySheetMeName : 'You', JSON_UNESCAPED_UNICODE) ?>;
-  var STORY_SHEET_ME_EMAIL = <?= json_encode($storySheetMeEmail, JSON_UNESCAPED_UNICODE) ?>;
+  var STORY_SHEET_ME_NAME = <?= json_encode($storySheetMeName !== '' ? $storySheetMeName : 'You', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  var STORY_SHEET_ME_EMAIL = <?= json_encode($storySheetMeEmail, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
   var catalog = [];
   var storyIndex = -1;

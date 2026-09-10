@@ -137,6 +137,53 @@ if (!function_exists('msb_archive_media_src')) {
     }
 }
 
+if (!function_exists('msb_archive_media_file_exists')) {
+    function msb_archive_media_file_exists(string $src): bool
+    {
+        $src = trim($src);
+        if ($src === '') {
+            return false;
+        }
+        $src = preg_replace('~[?#].*$~', '', $src) ?? $src;
+        if (preg_match('~^(https?:)?//~i', $src) && !preg_match('~/uploads/~', $src)) {
+            return true;
+        }
+        $norm = str_replace('\\', '/', $src);
+        if (preg_match('~(^|/)uploads/(.+)$~', $norm, $m)) {
+            $rel = 'uploads/' . $m[2];
+        } else {
+            $rel = ltrim($norm, './');
+            $rel = ltrim($rel, '/');
+        }
+        $pub = dirname(__DIR__);
+        $candidates = [
+            $pub . '/' . $rel,
+            dirname($pub) . '/' . $rel,
+        ];
+        foreach ($candidates as $file) {
+            $file = str_replace('\\', '/', $file);
+            @clearstatcache(true, $file);
+            if (is_file($file) && is_readable($file) && filesize($file) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+if (!function_exists('msb_public_media_usable')) {
+    function msb_public_media_usable(string $src): string
+    {
+        $src = trim($src);
+        if ($src === '') {
+            return '';
+        }
+        // Keep a playable URL even when PHP cannot stat the file (open_basedir,
+        // CDN, nested public_user paths). The browser 404 handler shows the plate.
+        return $src;
+    }
+}
+
 if (!function_exists('msb_archive_time_ago')) {
     function msb_archive_time_ago(string $dt): string
     {
@@ -209,6 +256,9 @@ if (!function_exists('msb_archive_render_list_html')) {
             $attachCount = (int)($post['attachment_count'] ?? 0);
 
             $thumbHtml = '<i class="icon ion-document-text" style="font-size:28px;"></i>';
+            if ($previewSrc !== '' && function_exists('msb_archive_media_file_exists') && !msb_archive_media_file_exists($previewSrc)) {
+                $previewSrc = '';
+            }
             if ($previewSrc !== '' && $thumbType === 'video') {
                 $thumbHtml = '<video src="' . msb_archive_h($previewSrc) . '" muted playsinline preload="metadata"></video>';
             } elseif ($previewSrc !== '') {

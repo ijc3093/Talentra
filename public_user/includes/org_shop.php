@@ -258,7 +258,42 @@ function org_shop_cover_url(?string $path): string
     if (preg_match('#^https?://#i', $path)) {
         return $path;
     }
-    return '../organization/' . ltrim($path, '/');
+    $rel = ltrim($path, '/');
+    if (stripos($rel, 'organization/') === 0) {
+        $rel = substr($rel, strlen('organization/'));
+    }
+    $file = dirname(__DIR__, 2) . '/organization/' . $rel;
+    if (!is_file($file)) {
+        $alt = dirname(__DIR__) . '/../organization/' . $rel;
+        if (!is_file($alt)) {
+            return '';
+        }
+    }
+    return '../organization/' . $rel;
+}
+
+function org_shop_cover_missing_html(): string
+{
+    $label = function_exists('app_t') ? app_t('Photo unavailable') : 'Photo unavailable';
+    return '<span class="shop-cover-missing" role="img" aria-label="' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '">'
+        . '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+        . '<rect x="3.25" y="5.25" width="17.5" height="13.5" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.55"/>'
+        . '<circle cx="8.15" cy="9.35" r="1.2" fill="currentColor"/>'
+        . '<path d="M4.4 16.55l4.55-4.25 2.85 2.75 3.45-4.2 4.35 5.7" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>'
+        . '</svg>'
+        . '</span>';
+}
+
+function org_shop_cover_img_html(string $url, string $alt = '', string $imgClass = ''): string
+{
+    $missing = org_shop_cover_missing_html();
+    $url = trim($url);
+    if ($url === '') {
+        return $missing;
+    }
+    $cls = $imgClass !== '' ? ' class="' . htmlspecialchars($imgClass, ENT_QUOTES, 'UTF-8') . '"' : '';
+    return '<img' . $cls . ' src="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '">'
+        . $missing;
 }
 
 function org_shop_gen_order_code(int $orgId): string

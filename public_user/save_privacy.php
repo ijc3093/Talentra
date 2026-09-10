@@ -8,6 +8,8 @@ require_once __DIR__ . '/includes/staff_publisher_access.php';
 require_once __DIR__ . '/includes/profile_access.php';
 require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
+require_once __DIR__ . '/includes/app_languages.php';
+require_once __DIR__ . '/includes/type_prefs.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -25,6 +27,10 @@ profile_require_edit_access($dbh, $userId);
 
 $field = trim((string)($_POST['field'] ?? ''));
 $value = trim((string)($_POST['value'] ?? ''));
+if ($field === 'app_language') {
+    app_language_ensure_column($dbh);
+    $value = app_language_normalize($value);
+}
 
 $privacyEnum = profile_privacy_audience_values();
 $allowed = [
@@ -53,6 +59,9 @@ $allowed = [
     'pin_memory_enabled' => ['type' => 'bool'],
 
     'email_notifications' => ['type' => 'bool'],
+    'inapp_notifications' => ['type' => 'bool'],
+    'push_notifications' => ['type' => 'bool'],
+    'email_digest_notifications' => ['type' => 'bool'],
     'friend_request_notifications' => ['type' => 'bool'],
     'comment_notifications' => ['type' => 'bool'],
     'reaction_notifications' => ['type' => 'bool'],
@@ -63,6 +72,12 @@ $allowed = [
     'followed_notifications' => ['type' => 'bool'],
     'event_reminder_notifications' => ['type' => 'bool'],
     'memory_notifications' => ['type' => 'bool'],
+    'mention_notifications' => ['type' => 'bool'],
+    'message_notifications' => ['type' => 'bool'],
+    'publisher_post_notifications' => ['type' => 'bool'],
+    'product_update_notifications' => ['type' => 'bool'],
+    'tips_notifications' => ['type' => 'bool'],
+    'quiet_hours' => ['type' => 'enum', 'values' => profile_quiet_hours_values()],
 
 
     'blocked_users_enabled' => ['type' => 'bool'],
@@ -73,9 +88,14 @@ $allowed = [
     'appearance_mode' => ['type' => 'appearance_palette'],
     'theme_auto_enabled' => ['type' => 'bool'],
     'gallery_grid_size' => ['type' => 'enum', 'values' => ['small','medium','large']],
+    'header_type_size' => ['type' => 'enum', 'values' => ['small','medium','large']],
+    'header_font_family' => ['type' => 'enum', 'values' => msb_type_font_values()],
+    'body_font_size_pt' => ['type' => 'int', 'min' => 8, 'max' => 72],
+    'body_font_family' => ['type' => 'enum', 'values' => msb_type_font_values()],
+    'text_color' => ['type' => 'text_color'],
     'autoplay_videos' => ['type' => 'bool'],
     'sound_enabled' => ['type' => 'bool'],
-    'app_language' => ['type' => 'enum', 'values' => ['English','French','Spanish','German','Portuguese','Arabic']],
+    'app_language' => ['type' => 'enum', 'values' => app_language_values()],
     'date_format' => ['type' => 'enum', 'values' => ['F j, Y','m/d/Y','d/m/Y','Y-m-d','M j, Y']],
     'theme_color' => ['type' => 'enum', 'values' => ['indigo','blue','emerald','rose','amber']],
 
@@ -97,6 +117,18 @@ if ($rule['type'] === 'bool') {
     $value = ($value === '1') ? '1' : '0';
 } elseif ($rule['type'] === 'people_json') {
     $value = profile_privacy_hide_people_encode($dbh, $userId, $value);
+} elseif ($rule['type'] === 'int') {
+    $n = (int)$value;
+    $min = (int)($rule['min'] ?? 0);
+    $max = (int)($rule['max'] ?? 0);
+    if ($max > 0 && ($n < $min || $n > $max)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'message' => 'Invalid value']);
+        exit;
+    }
+    $value = (string)$n;
+} elseif ($rule['type'] === 'text_color') {
+    $value = msb_type_text_color_normalize($value);
 } elseif ($rule['type'] === 'appearance_palette') {
     appearance_palette_ensure_schema($dbh);
     if ($value === 'system') {
@@ -130,6 +162,10 @@ try {
     $st = $dbh->prepare($sql);
     $st->execute([':val' => $value, ':uid' => $userId]);
 
+    if ($field === 'app_language') {
+        $_SESSION['app_language'] = $value;
+    }
+
     if ($st->rowCount() < 1 && $field === 'appearance_mode') {
         $verify = $dbh->prepare('SELECT appearance_mode FROM user_profile_settings WHERE user_id = :uid LIMIT 1');
         $verify->execute([':uid' => $userId]);
@@ -137,6 +173,10 @@ try {
         if ($saved !== $value) {
             throw new RuntimeException('Appearance setting was not saved for this account.');
         }
+    }
+
+    if (function_exists('profile_settings_row_forget')) {
+        profile_settings_row_forget($userId);
     }
 
     echo json_encode(['ok' => true, 'field' => $field, 'value' => $value, 'user_id' => $userId]);

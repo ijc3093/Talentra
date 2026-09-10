@@ -161,7 +161,7 @@ if ($featured) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

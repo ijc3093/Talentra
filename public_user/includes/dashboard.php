@@ -243,7 +243,7 @@ if ($editPost) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en"<?php echo $isModalCreate ? $modalAppearanceAttr : ''; ?>>
+<html <?= app_html_lang_attrs() ?><?php echo $isModalCreate ? $modalAppearanceAttr : ''; ?>>
   <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">

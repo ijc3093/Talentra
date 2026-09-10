@@ -16,11 +16,11 @@ declare(strict_types=1);
           name="q"
           class="feed-top-search-input"
           value="<?= h($shopSearchQ ?? '') ?>"
-          placeholder="Search products…"
+          placeholder="<?= h(function_exists('app_t') ? app_t('Search products…') : 'Search products…') ?>"
           autocomplete="off"
           enterkeyhint="search"
         >
-        <button type="submit" class="feed-top-search-icon" aria-label="Search">
+        <button type="submit" class="feed-top-search-icon" aria-label="<?= h(function_exists('app_t') ? app_t('Search') : 'Search') ?>">
           <i class="fa fa-search" aria-hidden="true"></i>
         </button>
       </div>

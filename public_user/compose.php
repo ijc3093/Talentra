@@ -71,15 +71,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$res['ok']) {
         $error = (string)($res['error'] ?? 'Invalid recipient.');
     } else {
-        // ✅ IMPORTANT: send friend_code to sendreply
-        header("Location: user_sendreply.php?to=" . urlencode($res['peerCode']));
-
-        exit;
+        $peerId = 0;
+        try {
+            $stPeer = $dbh->prepare('SELECT id FROM users WHERE friend_code = ? LIMIT 1');
+            $stPeer->execute([(string)$res['peerCode']]);
+            $peerId = (int)($stPeer->fetchColumn() ?: 0);
+        } catch (Throwable $e) {
+            $peerId = 0;
+        }
+        if ($peerId > 0) {
+            if (!function_exists('profile_owner_allows_interaction')) {
+                require_once __DIR__ . '/includes/profile_access.php';
+            }
+            if (function_exists('profile_owner_allows_interaction') && !profile_owner_allows_interaction($dbh, $peerId, $meId, 'message_permission')) {
+                $error = 'This person is not accepting messages from you.';
+            }
+        }
+        if ($error === '') {
+            header("Location: user_sendreply.php?to=" . urlencode($res['peerCode']));
+            exit;
+        }
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en" class="compose-page">
+<html <?= app_html_lang_attrs('compose-page') ?>>
   <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
@@ -177,23 +193,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="compose-card-wrap">
         <div class="card bd-primary">
-          <div class="card-header bg-primary tx-white">Required Input Validation</div>
+          <div class="card-header bg-primary tx-white"><?php echo htmlspecialchars(app_t('New message'), ENT_QUOTES, 'UTF-8'); ?></div>
           <div class="card-body pd-sm-30">
-            <p class="mg-b-20 mg-sm-b-30">This is a demo of a required field that must not leave empty.</p>
+            <p class="mg-b-20 mg-sm-b-30"><?php echo htmlspecialchars(app_t('Enter a friend code to start a chat.'), ENT_QUOTES, 'UTF-8'); ?></p>
 
             <form method="post" autocomplete="off">
               <div class="wd-300">
                 <div class="d-md-flex mg-b-30">
                   <div class="form-group mg-b-0">
-                    <label>To: <span class="tx-danger">*</span></label>
+                    <label><?php echo htmlspecialchars(app_t('To:'), ENT_QUOTES, 'UTF-8'); ?> <span class="tx-danger">*</span></label>
                     <input type="text" name="to" class="form-control wd-200 wd-sm-250"
                     value="<?php echo htmlspecialchars($prefillTo, ENT_QUOTES, 'UTF-8'); ?>"
-                           placeholder="Friend code only (ex: USR-AB12-CD34)" required>
+                           placeholder="<?php echo htmlspecialchars(app_t('Friend code only (ex: USR-AB12-CD34)'), ENT_QUOTES, 'UTF-8'); ?>" required>
                   </div><!-- form-group -->
                 </div><!-- d-flex -->
-                <p class="mg-b-20 mg-sm-b-30">Allowed: Friend code only.</p>
-                <button type="submit" class="btn btn-success">Start Chat</button>
-                <a class="btn btn-success" href="contacts.php" style="margin-left:8px;">View Friends</a>
+                <p class="mg-b-20 mg-sm-b-30"><?php echo htmlspecialchars(app_t('Allowed: Friend code only.'), ENT_QUOTES, 'UTF-8'); ?></p>
+                <button type="submit" class="btn btn-success"><?php echo htmlspecialchars(app_t('Start Chat'), ENT_QUOTES, 'UTF-8'); ?></button>
+                <a class="btn btn-success" href="contacts.php" style="margin-left:8px;"><?php echo htmlspecialchars(app_t('View Friends'), ENT_QUOTES, 'UTF-8'); ?></a>
               </div>
             </form>
           </div><!-- card-body -->

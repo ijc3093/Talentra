@@ -400,6 +400,13 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . 'html[data-msb-appearance] body.profile-page .gear-detail-panel,'
         . 'html[data-msb-appearance] body.profile-page .gear-detail-head,'
         . 'html[data-msb-appearance] body.profile-page .gear-detail-body,'
+        . 'html[data-msb-appearance] body.profile-page .gear-docs-bar,'
+        . 'html[data-msb-appearance] body.profile-page .gear-docs-menu,'
+        . 'html[data-msb-appearance] body.profile-page .gear-docs-step-value,'
+        . 'html[data-msb-appearance] body.profile-page .gear-text-color-hex,'
+        . 'html[data-msb-appearance] body.profile-page .gear-text-color-theme,'
+        . 'html[data-msb-appearance] body.profile-page .gear-text-color-swatch-wrap,'
+        . 'html[data-msb-appearance] body.profile-page .gear-control,'
         . 'html.msb-palette-active body.profile-page,'
         . 'html.msb-palette-active body.profile-page .sh-mainpanel,'
         . 'html.msb-palette-active body.profile-page .sh-pagebody,'
@@ -430,6 +437,22 @@ function appearance_bridge_print_profile_palette_critical(string $mode): void
         . $surfaces . '{'
         . 'background-color:var(--msb-palette-bg,' . $pageBgAttr . ')!important;background-image:none!important;'
         . 'color:var(--msb-palette-text,' . $textAttr . ')!important;border-color:var(--msb-palette-border,' . $borderAttr . ')!important;}'
+        . 'html[data-msb-appearance] body.profile-page .gear-docs-bar,'
+        . 'html[data-msb-appearance] body.profile-page .gear-docs-menu,'
+        . 'html[data-msb-appearance] body.profile-page .gear-docs-step-value,'
+        . 'html[data-msb-appearance] body.profile-page .gear-text-color-hex,'
+        . 'html[data-msb-appearance] body.profile-page .gear-text-color-theme,'
+        . 'html[data-msb-appearance] body.profile-page .gear-text-color-swatch-wrap,'
+        . 'html[data-msb-appearance] body.profile-page .gear-control,'
+        . 'html.msb-palette-active body.profile-page .gear-docs-bar,'
+        . 'html.msb-palette-active body.profile-page .gear-docs-menu,'
+        . 'html.msb-palette-active body.profile-page .gear-docs-step-value,'
+        . 'html.msb-palette-active body.profile-page .gear-text-color-hex,'
+        . 'html.msb-palette-active body.profile-page .gear-text-color-theme,'
+        . 'html.msb-palette-active body.profile-page .gear-control{'
+        . 'background-color:var(--msb-palette-input-bg,var(--msb-palette-surface-2,var(--msb-palette-bg,' . $pageBgAttr . ')))!important;'
+        . 'color:var(--msb-palette-text,' . $textAttr . ')!important;'
+        . 'border-color:var(--msb-palette-border-strong,var(--msb-palette-border,' . $borderStrongAttr . '))!important;}'
         . 'html[data-msb-appearance] body.profile-page .profile-account-badge,'
         . 'html[data-msb-appearance] body.profile-page span.profile-account-badge,'
         . 'html.msb-palette-active body.profile-page .profile-account-badge{'
@@ -954,7 +977,7 @@ function appearance_bridge_print_css_link(string $assetPrefix = './'): void
     }
     $GLOBALS['__MSB_APPEARANCE_BRIDGE_CSS'] = true;
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
-    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=65', ENT_QUOTES, 'UTF-8');
+    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=68', ENT_QUOTES, 'UTF-8');
     echo '<link rel="stylesheet" href="' . $href . '">' . "\n";
 }
 

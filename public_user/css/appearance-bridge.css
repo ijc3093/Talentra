@@ -1768,6 +1768,41 @@ html[data-msb-appearance] select:focus {
   box-shadow: none !important;
 }
 
+html[data-msb-appearance] body.profile-page .gear-docs-bar,
+html[data-msb-appearance] body.profile-page .gear-docs-menu,
+html[data-msb-appearance] body.profile-page .gear-docs-step-value,
+html[data-msb-appearance] body.profile-page .gear-text-color-hex,
+html[data-msb-appearance] body.profile-page .gear-text-color-theme,
+html[data-msb-appearance] body.profile-page .gear-text-color-swatch-wrap,
+html[data-msb-appearance] body.profile-page .gear-control,
+html.dark-auto body.profile-page .gear-docs-bar,
+html.dark-auto body.profile-page .gear-docs-menu,
+html.dark-auto body.profile-page .gear-docs-step-value,
+html.dark-auto body.profile-page .gear-text-color-hex,
+html.dark-auto body.profile-page .gear-text-color-theme,
+html.dark-auto body.profile-page .gear-control,
+html[data-theme="dark"] body.profile-page .gear-docs-bar,
+html[data-theme="dark"] body.profile-page .gear-docs-menu,
+html[data-theme="dark"] body.profile-page .gear-docs-step-value,
+html[data-theme="dark"] body.profile-page .gear-text-color-hex,
+html[data-theme="dark"] body.profile-page .gear-text-color-theme,
+html[data-theme="dark"] body.profile-page .gear-control {
+  background-color: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg))) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border)) !important;
+}
+
+html[data-msb-appearance] body.profile-page .gear-docs-option:hover,
+html[data-msb-appearance] body.profile-page .gear-docs-option.is-selected,
+html.dark-auto body.profile-page .gear-docs-option:hover,
+html.dark-auto body.profile-page .gear-docs-option.is-selected,
+html[data-theme="dark"] body.profile-page .gear-docs-option:hover,
+html[data-theme="dark"] body.profile-page .gear-docs-option.is-selected {
+  background: var(--msb-palette-hover-bg, var(--msb-palette-action-soft)) !important;
+  color: var(--msb-palette-text) !important;
+}
+
 /* Appearance color wins over Dark auto org-light canvas on all org surfaces */
 html[data-msb-appearance] body.org-app,
 html[data-msb-appearance] body.org-app .sh-mainpanel,
@@ -2184,5 +2219,57 @@ select:focus-visible,
 .btn-outline-primary,
 .btn-outline-info {
   border-color: var(--msb-hairline, #2a2f36) !important;
+}
+
+/* Viewer type prefs: headers use Small/Normal/Larger; body uses pt + own font. */
+html[data-msb-type] body .mf-title,
+html[data-msb-type] body .ig-insta-caption-block .ig-title,
+html[data-msb-type] body .ig-fullname-name {
+  font-family: var(--msb-header-font) !important;
+  font-size: var(--msb-header-size) !important;
+}
+html[data-msb-type] body .mf-card > .mf-body,
+html[data-msb-type] body .mf-card > .mf-video-body,
+html[data-msb-type] body .mf-card > .mf-reel-body,
+html[data-msb-type] body .mf-card > .mf-body .mf-body-formatted,
+html[data-msb-type] body .mf-card > .mf-body .post-card-paragraph,
+html[data-msb-type] body .mf-card > .mf-body p,
+html[data-msb-type] body .mf-feed .mf-card > .mf-body,
+html[data-msb-type] body #profilePostsFeed .mf-card > .mf-body,
+html[data-msb-type] body #profilePostsFeed .mf-card > .mf-body .mf-body-formatted,
+html[data-msb-type] body #profilePostsFeed .mf-card > .mf-body .post-card-paragraph,
+html[data-msb-type] body .ig-insta-caption-block .ig-body,
+html[data-msb-type] body .post.public-post-card .standard-text-caption,
+html[data-msb-type] body .post.public-post-card .standard-media-caption,
+html[data-msb-type] body .post.public-post-card .standard-text-caption .post-card-paragraph,
+html[data-msb-type] body .post.public-post-card .standard-media-caption .post-card-paragraph,
+html[data-msb-type] body .post.public-post-card .standard-text-caption .post-card-caption-formatted,
+html[data-msb-type] body .post.public-post-card .standard-media-caption .post-card-caption-formatted,
+html[data-msb-type] body .post.public-post-card .standard-media-summary {
+  font-family: var(--msb-body-font) !important;
+  font-size: var(--msb-body-size) !important;
+}
+html[data-msb-text-color] body .mf-title,
+html[data-msb-text-color] body .ig-insta-caption-block .ig-title,
+html[data-msb-text-color] body .ig-fullname-name,
+html[data-msb-text-color] body .mf-card > .mf-body,
+html[data-msb-text-color] body .mf-card > .mf-video-body,
+html[data-msb-text-color] body .mf-card > .mf-reel-body,
+html[data-msb-text-color] body .mf-card > .mf-body .mf-body-formatted,
+html[data-msb-text-color] body .mf-card > .mf-body .post-card-paragraph,
+html[data-msb-text-color] body .mf-card > .mf-body p,
+html[data-msb-text-color] body .mf-feed .mf-card > .mf-body,
+html[data-msb-text-color] body #profilePostsFeed .mf-card > .mf-body,
+html[data-msb-text-color] body #profilePostsFeed .mf-card > .mf-body .mf-body-formatted,
+html[data-msb-text-color] body #profilePostsFeed .mf-card > .mf-body .post-card-paragraph,
+html[data-msb-text-color] body .ig-insta-caption-block .ig-body,
+html[data-msb-text-color] body .post.public-post-card .standard-text-caption,
+html[data-msb-text-color] body .post.public-post-card .standard-media-caption,
+html[data-msb-text-color] body .post.public-post-card .standard-text-caption .post-card-paragraph,
+html[data-msb-text-color] body .post.public-post-card .standard-media-caption .post-card-paragraph,
+html[data-msb-text-color] body .post.public-post-card .standard-text-caption .post-card-caption-formatted,
+html[data-msb-text-color] body .post.public-post-card .standard-media-caption .post-card-caption-formatted,
+html[data-msb-text-color] body .post.public-post-card .standard-media-summary {
+  color: var(--msb-text-color) !important;
 }
 

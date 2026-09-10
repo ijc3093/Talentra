@@ -32,6 +32,8 @@ require_once __DIR__ . '/includes/post_tags.php';
 require_once __DIR__ . '/includes/appearance_palettes.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/user_backgrounds.php';
+require_once dirname(__DIR__) . '/includes/app_languages.php';
+require_once dirname(__DIR__) . '/includes/missing_media.php';
 $controller = new Controller();
 $dbh = $controller->pdo();
 ensurePostCategorySchema($dbh);
@@ -896,10 +898,25 @@ $profileSettings = [
   'archive_memory_enabled' => 0,
   'pin_memory_enabled' => 0,
   'email_notifications' => 1,
+  'inapp_notifications' => 1,
+  'push_notifications' => 1,
+  'email_digest_notifications' => 0,
   'friend_request_notifications' => 1,
   'comment_notifications' => 1,
   'reaction_notifications' => 1,
   'share_notifications' => 1,
+  'tagged_notifications' => 1,
+  'saved_notifications' => 1,
+  'birthday_notifications' => 1,
+  'followed_notifications' => 1,
+  'event_reminder_notifications' => 1,
+  'memory_notifications' => 1,
+  'mention_notifications' => 1,
+  'message_notifications' => 1,
+  'publisher_post_notifications' => 1,
+  'product_update_notifications' => 0,
+  'tips_notifications' => 0,
+  'quiet_hours' => 'off',
   'blocked_users_enabled' => 1,
   'hidden_users_enabled' => 1,
   'mute_users_enabled' => 1,
@@ -911,6 +928,11 @@ $profileSettings = [
   'appearance_mode' => 'system',
   'theme_auto_enabled' => 1,
   'gallery_grid_size' => 'medium',
+  'header_type_size' => 'small',
+  'header_font_family' => 'Arial',
+  'body_font_size_pt' => 9,
+  'body_font_family' => 'Arial',
+  'text_color' => '#000000',
   'autoplay_videos' => 1,
   'sound_enabled' => 1,
   'app_language' => 'English',
@@ -953,6 +975,12 @@ $yesNoOptions = [
   '1' => 'Yes',
   '0' => 'No',
 ];
+$quietHoursOptions = [
+  'off' => 'Off',
+  '22-07' => '10:00 PM – 7:00 AM',
+  '21-08' => '9:00 PM – 8:00 AM',
+  '23-06' => '11:00 PM – 6:00 AM',
+];
 $themeAutoOptions = [
   '1' => 'On',
   '0' => 'Off',
@@ -971,17 +999,13 @@ $appearanceModeOptions = [
 ];
 $gridSizeOptions = [
   'small' => 'Small',
-  'medium' => 'Medium',
-  'large' => 'Large',
+  'medium' => 'Normal',
+  'large' => 'Larger',
 ];
-$languageOptions = [
-  'English' => 'English',
-  'French' => 'French',
-  'Spanish' => 'Spanish',
-  'German' => 'German',
-  'Portuguese' => 'Portuguese',
-  'Arabic' => 'Arabic',
-];
+$headerSizeOptions = $gridSizeOptions;
+$fontFamilyOptions = function_exists('msb_type_font_options') ? msb_type_font_options() : ['Arial' => 'Arial'];
+$bodyPtOptions = function_exists('msb_type_body_pt_options') ? msb_type_body_pt_options() : ['9' => '9'];
+$languageOptions = app_language_options();
 $dateFormatOptions = [
   'F j, Y' => 'March 8, 2026',
   'm/d/Y' => '03/08/2026',
@@ -1107,13 +1131,28 @@ $gearGroups = [
     'title' => 'Notifications',
     'nav_label' => 'Notifications',
     'icon' => 'ion-android-notifications',
-    'desc' => 'Keep one place for alerts from friends, reactions, comments, shares, and email.',
+    'desc' => 'Choose how you want to be notified.',
     'rows' => [
+      ['label' => 'In-app notifications', 'meta' => 'Show notifications in the app.', 'icon' => 'ion-android-notifications', 'tag' => 'Live', 'field' => 'inapp_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Push notifications', 'meta' => 'Allow push-style alerts on this device when the app is open.', 'icon' => 'ion-iphone', 'tag' => 'Live', 'field' => 'push_notifications', 'options' => $yesNoOptions],
       ['label' => 'Email notifications', 'meta' => 'Updates from profile, timeline, and activity by email.', 'icon' => 'ion-android-mail', 'tag' => 'Live', 'field' => 'email_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Friend request notifications', 'meta' => 'Know when somebody wants to connect.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Comment notifications', 'meta' => 'Get notified when someone comments on your story.', 'icon' => 'ion-chatbox', 'tag' => 'Live', 'field' => 'comment_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Reaction notifications', 'meta' => 'See likes and love on your posts.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'reaction_notifications', 'options' => $yesNoOptions],
-      ['label' => 'Share notifications', 'meta' => 'Track when your posts are shared.', 'icon' => 'ion-forward', 'tag' => 'Live', 'field' => 'share_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Email digest', 'meta' => 'Receive a daily summary of activity by email.', 'icon' => 'ion-ios-paper', 'tag' => 'Live', 'field' => 'email_digest_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Likes', 'meta' => 'When someone likes or reacts to your post or comment.', 'icon' => 'ion-heart', 'tag' => 'Live', 'field' => 'reaction_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Comments', 'meta' => 'When someone comments on your post or story.', 'icon' => 'ion-chatbox', 'tag' => 'Live', 'field' => 'comment_notifications', 'options' => $yesNoOptions],
+      ['label' => 'New followers', 'meta' => 'When someone follows your publisher or public page.', 'icon' => 'ion-android-star', 'tag' => 'Live', 'field' => 'followed_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Mentions', 'meta' => 'When someone mentions you in a post, story, or comment.', 'icon' => 'ion-at', 'tag' => 'Live', 'field' => 'mention_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Direct messages', 'meta' => 'When you receive a new private message.', 'icon' => 'ion-ios-chatbubble', 'tag' => 'Live', 'field' => 'message_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Shares', 'meta' => 'When someone shares your post.', 'icon' => 'ion-forward', 'tag' => 'Live', 'field' => 'share_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Tags', 'meta' => 'When someone tags you in a post, story, or About.', 'icon' => 'ion-ios-pricetag', 'tag' => 'Live', 'field' => 'tagged_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Saves', 'meta' => 'When someone favorites or saves your post or story.', 'icon' => 'ion-ios-bookmarks', 'tag' => 'Live', 'field' => 'saved_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Friend requests', 'meta' => 'When somebody wants to connect.', 'icon' => 'ion-person-add', 'tag' => 'Live', 'field' => 'friend_request_notifications', 'options' => $yesNoOptions],
+      ['label' => 'New posts from publishers', 'meta' => 'Highlights from publishers you follow (What\'s up).', 'icon' => 'ion-ios-world', 'tag' => 'Live', 'field' => 'publisher_post_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Product updates', 'meta' => 'News and updates about Talsora.', 'icon' => 'ion-cube', 'tag' => 'Live', 'field' => 'product_update_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Tips and recommendations', 'meta' => 'Personalized tips to help you get more from Talsora.', 'icon' => 'ion-lightbulb', 'tag' => 'Live', 'field' => 'tips_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Birthday notifications', 'meta' => 'Reminders when a friend or family birthday is coming up.', 'icon' => 'ion-cake', 'tag' => 'Live', 'field' => 'birthday_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Event reminder notifications', 'meta' => 'Reminders about events you are part of or invited to.', 'icon' => 'ion-ios-calendar', 'tag' => 'Live', 'field' => 'event_reminder_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Memory notifications', 'meta' => 'See memories about what you posted on this day in the past.', 'icon' => 'ion-ios-clock', 'tag' => 'Live', 'field' => 'memory_notifications', 'options' => $yesNoOptions],
+      ['label' => 'Quiet hours', 'meta' => 'Pause non-essential in-app alerts for a set time.', 'icon' => 'ion-ios-moon', 'tag' => 'Live', 'field' => 'quiet_hours', 'options' => $quietHoursOptions],
     ],
   ],
   [
@@ -1141,7 +1180,21 @@ $gearGroups = [
       ['label' => 'Dark auto', 'meta' => 'Turn automatic day/night theme switching on or off. When On, Appearance color is set to Off.', 'icon' => 'ion-ios-moon', 'tag' => 'Live', 'field_local' => 'theme_auto_enabled', 'options' => $themeAutoOptions, 'default_value' => $themeAutoDefault],
       ['label' => 'Appearance color', 'meta' => 'Pick Off, Light, Dark, or any HTML color. Choosing a color turns Dark auto Off to avoid conflicts.', 'icon' => 'ion-contrast', 'tag' => 'Live', 'field' => 'appearance_mode', 'option_groups' => $appearanceModeOptionGroups, 'default_value' => $manualAppearanceDefault],
       ['label' => 'Progress color', 'meta' => 'Pick any background color, then press Save to apply it across the app. Turns Dark auto Off.', 'icon' => 'ion-android-color-palette', 'tag' => 'Live', 'field' => 'appearance_mode', 'control' => 'color', 'default_value' => $progressColorDefault],
-      ['label' => 'Grid size for gallery', 'meta' => 'Control how many columns or tile sizes appear in your gallery.', 'icon' => 'ion-grid', 'tag' => 'Live', 'field' => 'gallery_grid_size', 'options' => $gridSizeOptions],
+      ['label' => 'Grid size for gallery', 'meta' => 'Choose Small, Normal, or Larger tiles for the profile gallery.', 'icon' => 'ion-grid', 'tag' => 'Live', 'field' => 'gallery_grid_size', 'options' => $gridSizeOptions],
+      [
+        'label' => 'Font',
+        'meta' => 'Header size and font, plus body point size and font.',
+        'icon' => 'ion-ios-compose',
+        'tag' => 'Live',
+        'layout' => 'font_bundle',
+        'controls' => [
+          ['label' => 'Header size', 'field' => 'header_type_size', 'options' => $headerSizeOptions],
+          ['label' => 'Header font', 'field' => 'header_font_family', 'options' => $fontFamilyOptions],
+          ['label' => 'Body text size', 'field' => 'body_font_size_pt', 'options' => $bodyPtOptions],
+          ['label' => 'Body font', 'field' => 'body_font_family', 'options' => $fontFamilyOptions],
+          ['label' => 'Text color', 'field' => 'text_color', 'control' => 'text_color'],
+        ],
+      ],
       ['label' => 'Autoplay videos on / off', 'meta' => 'Choose whether videos start automatically.', 'icon' => 'ion-videocamera', 'tag' => 'Live', 'field' => 'autoplay_videos', 'options' => $yesNoOptions],
       ['label' => 'Sound on / off', 'meta' => 'Control sound for video posts and reels.', 'icon' => 'ion-volume-high', 'tag' => 'Live', 'field' => 'sound_enabled', 'options' => $yesNoOptions],
       ['label' => 'Language', 'meta' => 'Set your app language in one place.', 'icon' => 'ion-chatbubbles', 'tag' => 'Live', 'field' => 'app_language', 'options' => $languageOptions],
@@ -1636,7 +1689,7 @@ if (!function_exists('profile_item_has_gallery_content')) {
   }
 }
 
-$postsGrid = $gridFeedSource;
+$postsGrid = array_values(array_filter($gridFeedSource, static fn(array $it): bool => !post_is_slideshow_photos($it)));
 $galleryGrid = array_values(array_filter($gridFeedSource, static function (array $it): bool {
   return profile_item_has_gallery_content($it);
 }));
@@ -1939,14 +1992,29 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
     $snippet = sentence_snippet($snippetSource, $isMobile ? 2 : 3, $isMobile ? 110 : 170);
     $isVideo = ($atype === 'video' && $filePath !== '' && is_video_path($filePath));
     $hasMedia = ($filePath !== '' || $thumb !== '');
+    $previewPath = $thumb !== '' ? $thumb : $filePath;
+    $previewMissing = 0;
+    if ($previewPath !== '' && function_exists('msb_media_is_missing')) {
+      if (msb_media_is_missing($previewPath)) {
+        if ($thumb !== '' && $filePath !== '' && $filePath !== $previewPath && !msb_media_is_missing($filePath)) {
+          $previewPath = $filePath;
+        } else {
+          $previewMissing = 1;
+        }
+      }
+    }
 
     $attachments = [];
     if ($hasMedia) {
-      $attachments[] = [
+      $att = [
         'type' => $isVideo ? 'video' : ($atype !== '' ? $atype : 'image'),
         'file_path' => $filePath,
         'thumb_path' => $thumb,
       ];
+      if (function_exists('msb_attachment_apply_missing')) {
+        $att = msb_attachment_apply_missing($att);
+      }
+      $attachments[] = $att;
     }
 
     $items[] = [
@@ -1967,7 +2035,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       'category_name' => trim((string)($it['category_name'] ?? '')),
       'category_type' => trim((string)($it['category_type'] ?? '')),
       'preview_type' => $isVideo ? 'video' : ($hasMedia ? 'image' : 'text'),
-      'preview_path' => $thumb !== '' ? $thumb : $filePath,
+      'preview_path' => $previewPath,
+      'preview_missing' => $previewMissing,
       'file_path' => $filePath,
       'thumb_path' => $thumb,
       'attachments' => $attachments,
@@ -2010,7 +2079,7 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -2386,9 +2455,8 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       border:1px solid rgba(255,255,255,.12);
     }
 
-    /* Desktop: 3 cols | Mobile/Tablet: 2 cols */
-    .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 26px 26px;--post-media-radius:10px;}
-    @media (max-width: 992px){ .ig-grid{grid-template-columns:repeat(2,1fr);} }
+    /* Gallery grid size follows html[data-msb-gallery-grid] / body[data-gallery-grid]. */
+    .ig-grid{display:grid;grid-template-columns:repeat(var(--msb-gallery-cols, 3), minmax(0,1fr));gap:8px;padding:16px 26px 26px;--post-media-radius:10px;}
 
     /* Gallery visibility tabs — same chrome as Gallery / Posts / Tags (no grey pill). */
     .ig-grid-heads{
@@ -2777,15 +2845,15 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       width:100% !important;max-width:100% !important;
     }
     #profilePostsFeed .mf-card.mf-card-text-only.mf-card-phone-shot{border-radius:28px;}
-    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-video-ready),
-    #profilePostsFeed .mf-card.is-single-video-post.mf-video-error,
-    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-image-ready),
-    #profilePostsFeed .mf-card.is-single-image-post.mf-image-error{display:none !important;}
-    #profilePostsFeed .mf-card.is-single-video-post .media-stage.standard-video-stage:not(.mf-media-sized){display:none !important;}
-    #profilePostsFeed .mf-card.is-single-video-post .mf-media,
-    #profilePostsFeed .mf-card.is-single-image-post .mf-media,
-    #profilePostsFeed .mf-card.is-single-video-post .media-stage,
-    #profilePostsFeed .mf-card.is-single-image-post .media-stage,
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-video-ready):not(.mf-media-missing),
+    #profilePostsFeed .mf-card.is-single-video-post.mf-video-error:not(.mf-media-missing),
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-media-missing),
+    #profilePostsFeed .mf-card.is-single-image-post.mf-image-error:not(.mf-media-missing){display:none !important;}
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-media-missing) .media-stage.standard-video-stage:not(.mf-media-sized){display:none !important;}
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-media-missing) .mf-media,
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-media-missing) .mf-media,
+    #profilePostsFeed .mf-card.is-single-video-post:not(.mf-media-missing) .media-stage,
+    #profilePostsFeed .mf-card.is-single-image-post:not(.mf-media-missing) .media-stage,
     #profilePostsFeed .mf-card.is-single-video-post .media-stage video,
     #profilePostsFeed .mf-card.is-single-image-post .media-stage img{background:transparent !important;}
     #profilePostsFeed .media-stage{
@@ -2793,6 +2861,17 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
       background:transparent !important;
       overflow:hidden !important;
       position:relative;
+    }
+    #profilePostsFeed .mf-card.mf-media-missing .mf-media:has(> .msb-no-image),
+    #profilePostsFeed .mf-card.mf-media-missing .media-stage:has(> .msb-no-image),
+    #profilePostsFeed .mf-card .media-slide:has(> .msb-no-image),
+    #profilePostsFeed .mf-card .mf-media-slide:has(> .msb-no-image){
+      display:block !important;
+      visibility:visible !important;
+      min-height:240px !important;
+      background:#fff !important;
+      border-radius:6px !important;
+      overflow:hidden !important;
     }
     #profilePostsFeed .mf-media-carousel,
     #profilePostsFeed .media-carousel{
@@ -3890,11 +3969,43 @@ if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'gallery') {
   #profilePostsFeed{
     --post-media-radius:6px;
   }
-  #profilePostsFeed .media-stage.standard-video-stage,
-  #profilePostsFeed .media-stage.standard-image-stage,
-  #profilePostsFeed .media-stage{
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.standard-video-stage,
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.standard-image-stage,
+  #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage{
     overflow:visible !important;
     border-radius:0 !important;
+  }
+  #profilePostsFeed .mf-card.mf-media-missing .media-stage,
+  #profilePostsFeed .mf-card.mf-media-missing .media-stage.standard-image-stage,
+  #profilePostsFeed .mf-card.mf-media-missing .media-stage.standard-video-stage,
+  #profilePostsFeed .mf-card.mf-media-missing .mf-media{
+    background:transparent !important;
+    border-radius:0 !important;
+    overflow:visible !important;
+  }
+  #profilePostsFeed .msb-no-image,
+  #profilePostsFeed .media-stage > .msb-no-image,
+  #profilePostsFeed .mf-media > .msb-no-image,
+  #profilePostsFeed .media-slide > .msb-no-image,
+  #profilePostsFeed .mf-media-slide > .msb-no-image{
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:10px !important;
+    width:100% !important;
+    max-width:100% !important;
+    height:100% !important;
+    min-height:240px !important;
+    margin:0 !important;
+    padding:16px 12px !important;
+    color:#c8cdd3 !important;
+    background:#3d434b !important;
+    border:1px solid #2f343b !important;
+    border-radius:12px !important;
+    overflow:hidden !important;
+    clip-path:none !important;
+    -webkit-clip-path:none !important;
   }
   #profilePostsFeed .media-stage.standard-video-stage > video,
   #profilePostsFeed .media-stage.standard-image-stage > img,
@@ -8831,7 +8942,10 @@ pv.text.addEventListener('keydown', (e)=>{
     return /\[\[layout:story\]\]/i.test(desc);
   }
   function profileFeedItems(items){
-    return (Array.isArray(items) ? items : []).filter(function(it){ return !isProfileStoryPost(it); });
+    return (Array.isArray(items) ? items : []).filter(function(it){
+      if(isProfileStoryPost(it)) return false;
+      return Number(it.attachment_count || it.media_count || 0) <= 1;
+    });
   }
   function parseDate(dt){
     if(!dt) return null;
@@ -9354,6 +9468,10 @@ pv.text.addEventListener('keydown', (e)=>{
       }
       video.dataset.ppMediaSized = '1';
       video.addEventListener('error', function(){
+        if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+          window.MSBNoImage.replace(video);
+          return;
+        }
         var card = video.closest('.mf-card.is-single-video-post');
         if(card) card.classList.add('mf-video-error');
       }, { once:true });
@@ -9371,6 +9489,10 @@ pv.text.addEventListener('keydown', (e)=>{
       img.dataset.ppMediaSized = '1';
       img.addEventListener('load', sync);
       img.addEventListener('error', function(){
+        if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+          window.MSBNoImage.replace(img);
+          return;
+        }
         var card = img.closest('.mf-card.is-single-image-post');
         if(card) card.classList.add('mf-image-error');
       }, { once:true });
@@ -9413,6 +9535,16 @@ pv.text.addEventListener('keydown', (e)=>{
       '</div>'+
     '</div>';
   }
+  function mfNoImageHtml(){
+    if(window.MSBNoImage && typeof window.MSBNoImage.html === 'function'){
+      return window.MSBNoImage.html({ variant: 'circle' });
+    }
+    return '<div class="msb-no-image msb-media-unavailable" role="img" aria-label="Media unavailable" style="border-radius:12px;overflow:hidden;background:#3d434b;"><span>Media unavailable</span></div>';
+  }
+  function mfAttIsMissing(a){
+    if(!a) return false;
+    return Number(a.missing || a.file_missing || 0) === 1;
+  }
   function mfBuildHydratedCarousel(atts){
     atts = Array.isArray(atts) ? atts : [];
     if(atts.length <= 1) return '';
@@ -9422,7 +9554,9 @@ pv.text.addEventListener('keydown', (e)=>{
       var src = srcOf(a);
       var kind = detectKind(src, a.type);
       var inner = '';
-      if(kind === 'image' || kind === 'gif'){
+      if(mfAttIsMissing(a) && (kind === 'image' || kind === 'gif' || kind === 'video')){
+        inner = mfNoImageHtml();
+      } else if(kind === 'image' || kind === 'gif'){
         inner = '<img src="'+esc(src)+'" alt="">';
       } else if(kind === 'video'){
         inner = '<video class="msb-clean-loop-video" src="'+esc(src)+'" autoplay loop muted playsinline webkit-playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"></video>';
@@ -9713,6 +9847,7 @@ pv.text.addEventListener('keydown', (e)=>{
     var psrc = String(it.preview_path || '').trim();
     var pthumb = String(it.preview_thumb_path || '').trim().replace(/^public_user\//, '');
     var pkind = detectKind(psrc, it.preview_type);
+    var previewMissing = Number(it.preview_missing || 0) === 1;
     var bodySrc = String(it.body || it.description || '').trim();
     if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.displayTextWithoutTagHandles === 'function') {
       var taggedForHide = Array.isArray(it.tagged_people) ? it.tagged_people : [];
@@ -9755,30 +9890,40 @@ pv.text.addEventListener('keydown', (e)=>{
 
     var mediaHtml = '';
     if(hasMedia){
+      var previewInner = previewMissing ? mfNoImageHtml() : '';
+      if(previewMissing){
+        cardClass += ' mf-media-missing mf-frame-painted';
+        if(pkind === 'image' || pkind === 'gif') cardClass += ' mf-image-ready';
+        if(pkind === 'video') cardClass += ' mf-video-ready';
+      }
       if(pkind === 'image' || pkind === 'gif'){
         if(isMultiMedia) cardClass += ' is-multi-media-post mf-card-multi-media';
         else cardClass += ' is-single-image-post mf-card-single-image';
-        mediaHtml = '<div class="'+buildMediaClassList({ standardImage:isSingleMedia, isSingleMedia:isSingleMedia, isPhoneShot:isPhoneShot, isMultiMedia:isMultiMedia })+'"'+mediaStyleAttr+' data-shape-ready="1" data-count="'+attCount+'" data-index="0">'+
+        var imageMediaClass = buildMediaClassList({ standardImage:isSingleMedia, isSingleMedia:isSingleMedia, isPhoneShot:isPhoneShot, isMultiMedia:isMultiMedia });
+        if(previewMissing) imageMediaClass += ' mf-media-sized';
+        mediaHtml = '<div class="'+imageMediaClass+'"'+mediaStyleAttr+' data-shape-ready="1" data-count="'+attCount+'" data-index="0">'+
           (isMultiMedia
             ? ('<div class="media-carousel mf-media-carousel" data-index="0" data-pending-hydrate="1">'+
                  '<div class="media-slides mf-media-slides">'+
-                   '<div class="media-slide mf-media-slide" data-slide-index="0"><img src="'+esc(psrc)+'" alt=""></div>'+
+                   '<div class="media-slide mf-media-slide" data-slide-index="0">'+(previewInner || ('<img src="'+esc(psrc)+'" alt="">'))+'</div>'+
                  '</div>'+
                  mfCarouselNavButtonsHtml()+
                  mfMediaDots(attCount)+
                '</div>')
-            : ('<img src="'+esc(psrc)+'" alt="">'))+
+            : (previewInner || ('<img src="'+esc(psrc)+'" alt="">')))+
           '</div>';
       } else if(pkind === 'video'){
         cardClass += ' is-single-video-post mf-card-single-video';
         if(isMultiMedia) cardClass += ' is-multi-media-post mf-card-multi-media';
-        var poster = pthumb ? (' poster="'+esc(pthumb)+'"') : '';
-        mediaHtml = '<div class="'+buildMediaClassList({ standardVideo:true, isPhoneShot:isPhoneShot, isSingleMedia:isSingleMedia, isMultiMedia:isMultiMedia })+'"'+mediaStyleAttr+' data-shape-ready="0" data-count="'+attCount+'" data-index="0">'+
-          '<video class="ig-smart-feed-video msb-clean-loop-video" src="'+esc(psrc)+'"'+poster+' autoplay loop muted playsinline webkit-playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen" data-smart-video="1"></video>'+
+        var poster = (!previewMissing && pthumb) ? (' poster="'+esc(pthumb)+'"') : '';
+        var videoMediaClass = buildMediaClassList({ standardVideo:true, isPhoneShot:isPhoneShot, isSingleMedia:isSingleMedia, isMultiMedia:isMultiMedia });
+        if(previewMissing) videoMediaClass += ' mf-media-sized';
+        mediaHtml = '<div class="'+videoMediaClass+'"'+mediaStyleAttr+' data-shape-ready="0" data-count="'+attCount+'" data-index="0">'+
+          (previewInner || ('<video class="ig-smart-feed-video msb-clean-loop-video" src="'+esc(psrc)+'"'+poster+' autoplay loop muted playsinline webkit-playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen" data-smart-video="1"></video>'))+
           (isMultiMedia ? mfMediaDots(attCount) : '')+
           '</div>';
       } else {
-        mediaHtml = '<div class="mf-media"><a href="'+esc(psrc)+'" target="_blank" rel="noopener">Open attachment</a></div>';
+        mediaHtml = previewMissing ? mfNoImageHtml() : '<div class="mf-media"><a href="'+esc(psrc)+'" target="_blank" rel="noopener">Open attachment</a></div>';
       }
     }
 

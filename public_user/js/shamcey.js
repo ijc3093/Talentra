@@ -8,8 +8,14 @@
 
  $(document).ready(function(){
 
-  // custom scrollbar style
-  $('.sh-sideleft-menu').perfectScrollbar();
+  // custom scrollbar style (plugin is optional; many pages omit it)
+  if (typeof $.fn.perfectScrollbar === 'function') {
+    $('.sh-sideleft-menu').perfectScrollbar();
+  } else if (typeof window.PerfectScrollbar === 'function') {
+    $('.sh-sideleft-menu').each(function(){
+      try { new window.PerfectScrollbar(this); } catch (ePs) {}
+    });
+  }
 
   // showing sub navigation to nav with sub nav.
   $('.with-sub.active + .nav-sub').slideDown();

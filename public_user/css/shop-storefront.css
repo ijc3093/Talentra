@@ -316,12 +316,20 @@ body.shop-page .shop-featured-section .shop-market-grid:not(.is-list-view) .shop
   padding:0 !important;
   overflow:hidden !important;
 }
-body.shop-page .shop-featured-section .shop-market-grid:not(.is-list-view) .shop-market-cover img,
-body.shop-page .shop-featured-section .shop-market-grid:not(.is-list-view) .shop-market-cover-fallback{
+body.shop-page .shop-featured-section .shop-market-grid:not(.is-list-view) .shop-market-cover img{
   width:100% !important;
   height:100% !important;
   object-fit:cover !important;
   object-position:center !important;
+}
+body.shop-page .shop-featured-section .shop-market-grid:not(.is-list-view) .shop-market-cover .shop-cover-missing{
+  width:100% !important;
+  height:100% !important;
+}
+body.shop-page .shop-featured-section .shop-market-grid:not(.is-list-view) .shop-market-cover .shop-cover-missing svg{
+  width:40px !important;
+  height:40px !important;
+  object-fit:none !important;
 }
 body.shop-page .shop-featured-section .shop-market-grid:not(.is-list-view) .shop-market-body{
   width:100% !important;

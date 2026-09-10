@@ -129,6 +129,15 @@ $form['bio'] = trim((string)($bg['about_text'] ?? ''));
 $form['location'] = trim((string)($bg['lives_in'] ?? ''));
 $form['website'] = trim((string)($bg['profile_link'] ?? ''));
 
+$ajaxAction = trim((string)($_REQUEST['ajax'] ?? ''));
+if ($ajaxAction === 'account_form') {
+    accounts_json([
+        'ok' => true,
+        'form' => $form,
+        'phone_required' => !publisher_is_publisher_user($dbh, $meId),
+    ]);
+}
+
 function accounts_json(array $payload, int $status = 200): void
 {
     http_response_code($status);
@@ -352,7 +361,7 @@ $bioLen = function_exists('mb_strlen') ? mb_strlen($form['bio']) : strlen($form[
 $phoneRequired = !publisher_is_publisher_user($dbh, $meId);
 ?>
 <!doctype html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

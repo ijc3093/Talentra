@@ -154,6 +154,56 @@ function post_is_story_only(array $post): bool
     return post_declared_layout($post) === 'story';
 }
 
+function post_media_attachment_count_sql(string $postAlias = 'p'): string
+{
+    $alias = preg_replace('/[^a-zA-Z0-9_]/', '', $postAlias) ?: 'p';
+    return "(SELECT COUNT(*) FROM public_post_attachments a_ss WHERE a_ss.post_id = {$alias}.id AND LOWER(TRIM(COALESCE(a_ss.type,''))) IN ('image','video','gif'))";
+}
+
+function post_story_layout_sql(PDO $dbh, string $postAlias = 'p'): string
+{
+    $alias = preg_replace('/[^a-zA-Z0-9_]/', '', $postAlias) ?: 'p';
+    $story = "COALESCE({$alias}.description,'') LIKE '%[[layout:story]]%' OR COALESCE({$alias}.body,'') LIKE '%[[layout:story]]%' OR COALESCE({$alias}.title,'') LIKE '%[[layout:story]]%'";
+    $layoutCol = post_layout_column($dbh);
+    if ($layoutCol) {
+        $safe = preg_replace('/[^a-z0-9_]/i', '', (string)$layoutCol);
+        if ($safe !== '') {
+            $story = "LOWER(TRIM(COALESCE({$alias}.`{$safe}`,''))) = 'story' OR " . $story;
+        }
+    }
+    return $story;
+}
+
+function post_exclude_slideshow_photos_sql(PDO $dbh, string $postAlias = 'p'): string
+{
+    return '((' . post_story_layout_sql($dbh, $postAlias) . ') OR ' . post_media_attachment_count_sql($postAlias) . ' <= 1)';
+}
+
+function post_is_slideshow_photos(array $post): bool
+{
+    if (post_is_story_only($post)) {
+        return false;
+    }
+    if (isset($post['slideshow_photo_count'])) {
+        return (int)$post['slideshow_photo_count'] > 1;
+    }
+    if (!empty($post['attachments']) && is_array($post['attachments'])) {
+        $photos = 0;
+        foreach ($post['attachments'] as $att) {
+            $type = strtolower(trim((string)($att['type'] ?? '')));
+            if ($type === 'image' || $type === 'gif') {
+                $photos++;
+            }
+        }
+        return $photos > 1;
+    }
+    $kind = strtolower(trim((string)($post['preview_type'] ?? $post['atype'] ?? '')));
+    if ($kind === 'video') {
+        return false;
+    }
+    return (int)($post['attachment_count'] ?? $post['media_count'] ?? 0) > 1;
+}
+
 function post_normalize_card_plain_text(string $text): string
 {
     $text = post_strip_layout_marker($text);
@@ -319,8 +369,11 @@ function post_caption_card_html(string $caption, int $maxSentences = 3, int $max
                 $cut = mb_substr($cut, 0, $sp);
             }
             $display = rtrim($cut) . '…';
-        } elseif ($display !== $caption && !preg_match('/[.!?…]$/u', $display)) {
-            $display .= '…';
+        } elseif ($display !== $caption) {
+            // Make it visually clear that the caption continues before the
+            // inline Read more control, even when the last shown sentence
+            // already ends in punctuation.
+            $display = rtrim($display, " \t\n\r\0\x0B…") . '…';
         }
     }
 

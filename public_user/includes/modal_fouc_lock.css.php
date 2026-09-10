@@ -9,6 +9,8 @@ declare(strict_types=1);
 ?>
 /* Closed native dialogs (share / tag / mention / confirm) */
 dialog:not([open]),
+dialog.home-bday-dialog:not([open]),
+dialog.home-bday-dialog:not([open]),
 dialog.pcm-share-dialog:not([open]),
 dialog.pcm-delete-dialog:not([open]),
 dialog.pcm-tag-dialog:not([open]),

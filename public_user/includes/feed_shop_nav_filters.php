@@ -119,21 +119,21 @@ $shopFilterSections = [
         aria-expanded="<?= $isOpen ? 'true' : 'false' ?>"
         aria-controls="<?= h($panelId) ?>"
       >
-        <span class="shop-nav-filter-label"><?= h($section['label']) ?></span>
+        <span class="shop-nav-filter-label"><?= h(function_exists('app_t') ? app_t((string)$section['label']) : (string)$section['label']) ?></span>
         <span class="shop-nav-filter-chevron" aria-hidden="true"></span>
       </button>
       <div class="shop-nav-filter-panel" id="<?= h($panelId) ?>"<?= $isOpen ? '' : ' hidden' ?>>
         <?php if ($isLocation): ?>
           <button type="button" class="shop-nav-location-link" id="shopNavLocationOpen" aria-haspopup="dialog">
-            <?= h($shopLocationSummary ?? 'Set your location') ?>
+            <?= h(function_exists('app_t') ? app_t((string)($shopLocationSummary ?? 'Set your location')) : (string)($shopLocationSummary ?? 'Set your location')) ?>
           </button>
-          <p class="shop-nav-location-hint">Products near you · tap to change</p>
+          <p class="shop-nav-location-hint"><?= h(function_exists('app_t') ? app_t('Products near you - tap to change') : 'Products near you - tap to change') ?></p>
         <?php elseif ($section['options']): ?>
           <?php foreach ($section['options'] as $option): ?>
             <a
               href="<?= h($option['url']) ?>"
               class="shop-nav-filter-option<?= !empty($option['active']) ? ' is-active' : '' ?>"
-            ><?= h($option['label']) ?></a>
+              ><?= h(function_exists('app_t') ? app_t((string)$option['label']) : (string)$option['label']) ?></a>
           <?php endforeach; ?>
           <?php if (!empty($section['active'])): ?>
             <a href="<?= h(shop_filter_build_url([], [$section['id'] === 'pickup' ? 'pickup' : $section['id']])) ?>" class="shop-nav-filter-clear">Clear</a>
@@ -146,24 +146,24 @@ $shopFilterSections = [
   <?php endforeach; ?>
 </div>
 <a class="shop-nav-preferences-link" href="Your_Shopping_preferences.php">
-  <span class="shop-nav-preferences-label">Shopping Preferences</span>
+  <span class="shop-nav-preferences-label"><?= h(function_exists('app_t') ? app_t('Shopping Preferences') : 'Shopping Preferences') ?></span>
 </a>
 <nav class="shop-nav-utility-links" aria-label="Shop help and account links">
   <a href="Your_Shopping_preferences.php#order-history">
     <i class="fa fa-cube" aria-hidden="true"></i>
-    <span>Track Order</span>
+    <span><?= h(function_exists('app_t') ? app_t('Track Order') : 'Track Order') ?></span>
   </a>
   <a href="index.php?tab=help">
     <i class="fa fa-question-circle-o" aria-hidden="true"></i>
-    <span>Help Center</span>
+    <span><?= h(function_exists('app_t') ? app_t('Help Center') : 'Help Center') ?></span>
   </a>
   <a href="register.php?account_type=publisher&amp;publisher_mode=commerce">
     <i class="fa fa-shopping-bag" aria-hidden="true"></i>
-    <span>Sell on Talsora</span>
+    <span><?= h(function_exists('app_t') ? app_t('Sell on Talsora') : 'Sell on Talsora') ?></span>
   </a>
-  <button type="button" class="shop-nav-locale" aria-label="Language and currency: English, USD">
+  <button type="button" class="shop-nav-locale" aria-label="<?= h((function_exists('app_i18n_language_display') ? app_i18n_language_display() : 'English') . ', USD') ?>">
     <i class="fa fa-globe" aria-hidden="true"></i>
-    <span>English <b aria-hidden="true"></b> USD</span>
+    <span><?= h(function_exists('app_i18n_language_display') ? app_i18n_language_display() : 'English') ?> <b aria-hidden="true"></b> USD</span>
     <i class="fa fa-angle-down" aria-hidden="true"></i>
   </button>
 </nav>

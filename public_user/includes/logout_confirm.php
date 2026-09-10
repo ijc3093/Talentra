@@ -45,11 +45,11 @@ $GLOBALS['msb_logout_confirm_included'] = true;
 .msb-logout-go:hover{background:#b91c1c;border-color:#b91c1c;}
 </style>
 <dialog class="msb-logout-dialog" id="msbLogoutConfirmDialog" aria-labelledby="msbLogoutConfirmTitle">
-  <h2 id="msbLogoutConfirmTitle">Log out?</h2>
-  <p>Cancel to stay. Logout ends this session and you cannot come back without signing in.</p>
+  <h2 id="msbLogoutConfirmTitle"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Log out?') : 'Log out?', ENT_QUOTES, 'UTF-8'); ?></h2>
+  <p><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Cancel to stay. Logout ends this session and you cannot come back without signing in.') : 'Cancel to stay. Logout ends this session and you cannot come back without signing in.', ENT_QUOTES, 'UTF-8'); ?></p>
   <div class="msb-logout-actions">
-    <button type="button" class="msb-logout-cancel" id="msbLogoutConfirmCancel">Cancel</button>
-    <button type="button" class="msb-logout-go" id="msbLogoutConfirmGo">Logout</button>
+    <button type="button" class="msb-logout-cancel" id="msbLogoutConfirmCancel"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Cancel') : 'Cancel', ENT_QUOTES, 'UTF-8'); ?></button>
+    <button type="button" class="msb-logout-go" id="msbLogoutConfirmGo"><?php echo htmlspecialchars(function_exists('app_t') ? app_t('Logout') : 'Logout', ENT_QUOTES, 'UTF-8'); ?></button>
   </div>
 </dialog>
 <script>

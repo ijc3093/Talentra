@@ -20,6 +20,55 @@ $dbh = $controller->pdo();
 publisher_ensure_schema($dbh);
 $themeUserId = theme_prefs_viewer_user_id();
 
+// Gear Appearance drives Messages canvas (Dark auto / Appearance color / Progress color).
+appearance_bridge_heal_auto_appearance_conflict($dbh, $themeUserId);
+$msgAppearanceMode = appearance_bridge_user_mode($dbh, $themeUserId);
+$msgAutoEnabled = appearance_bridge_theme_auto_enabled($dbh, $themeUserId);
+$msgHasNamedPalette = appearance_bridge_is_named_palette($msgAppearanceMode);
+$msgLocalHour = (int)(new DateTimeImmutable('now', new DateTimeZone('America/Chicago')))->format('G');
+$msgIsNightNow = ($msgLocalHour >= 17 || $msgLocalHour < 6);
+if ($msgHasNamedPalette) {
+    $msgPageBg = appearance_palette_unified_bg_hex($msgAppearanceMode);
+} elseif ($msgAppearanceMode === 'light') {
+    $msgPageBg = appearance_palette_light_hex();
+} elseif ($msgAppearanceMode === 'system') {
+    // Dark auto On: night canvas 5pm–6am; otherwise light.
+    $msgPageBg = ($msgAutoEnabled && $msgIsNightNow)
+        ? appearance_palette_dark_hex()
+        : appearance_palette_light_hex();
+} elseif ($msgAppearanceMode === 'dark') {
+    $msgPageBg = appearance_palette_dark_hex();
+} else {
+    $msgPageBg = appearance_palette_light_hex();
+}
+if (!is_string($msgPageBg) || $msgPageBg === '') {
+    $msgPageBg = appearance_palette_light_hex();
+}
+$msgPageBgAttr = htmlspecialchars($msgPageBg, ENT_QUOTES, 'UTF-8');
+$msgColorScheme = 'light';
+if ($msgHasNamedPalette) {
+    $msgColorScheme = appearance_palette_uses_dark_chrome($msgAppearanceMode) ? 'dark' : 'light';
+} elseif ($msgAppearanceMode === 'dark') {
+    $msgColorScheme = 'dark';
+} elseif ($msgAppearanceMode === 'system' && $msgAutoEnabled && $msgIsNightNow) {
+    $msgColorScheme = 'dark';
+} elseif (appearance_palette_relative_luminance($msgPageBg) < 0.45) {
+    $msgColorScheme = 'dark';
+}
+$msgPageText = appearance_palette_contrast_text_on($msgPageBg);
+$msgPageMuted = ($msgColorScheme === 'dark') ? '#94a3b8' : '#475569';
+if ($msgHasNamedPalette) {
+    $msgAction = appearance_palette_chromatic_action_hex($msgAppearanceMode);
+    $msgBtnBg = appearance_palette_btn_bg_hex($msgAppearanceMode);
+} else {
+    $msgAction = '#2563eb';
+    $msgBtnBg = '#2563eb';
+}
+$msgActionAttr = htmlspecialchars($msgAction, ENT_QUOTES, 'UTF-8');
+$msgBtnBgAttr = htmlspecialchars($msgBtnBg, ENT_QUOTES, 'UTF-8');
+$msgPageTextAttr = htmlspecialchars($msgPageText, ENT_QUOTES, 'UTF-8');
+$msgPageMutedAttr = htmlspecialchars($msgPageMuted, ENT_QUOTES, 'UTF-8');
+
 // ✅ bump MY last_seen whenever page loads
 try {
     $sid = (int)($_SESSION['user_id'] ?? 0);
@@ -312,6 +361,8 @@ if (!in_array($chatType, ['private', 'group'], true)) {
     $chatType = 'private';
 }
 $isGroupChatView = ($chatType === 'group');
+
+$messagesFragmentRequest = (string)($_GET['ajax_messages'] ?? '') === '1';
 
 // ---------------- peer resolve ----------------
 function resolvePeerByCode(PDO $dbh, int $meId, string $peerCode): array {
@@ -1315,13 +1366,6 @@ if ($peerRaw !== '') {
     }
 }
 
-if ($commerceDraft === '') {
-    $incomingDraft = trim((string)($_GET['draft'] ?? ''));
-    if ($incomingDraft !== '') {
-        $commerceDraft = function_exists('mb_substr') ? mb_substr($incomingDraft, 0, 2000) : substr($incomingDraft, 0, 2000);
-    }
-}
-
 // ---------------- page data ----------------
 $groupFeatureReady = $isGroupChatView;
 $groupNoticeType = strtolower(trim((string)($_GET['group_notice_type'] ?? '')));
@@ -1476,7 +1520,7 @@ if ($isGroupChatView) {
 }
 
 $privateChatUrl = 'messages.php' . ($peerRaw !== '' ? '?peer=' . urlencode($peerRaw) : '');
-$groupChatUrl = 'messages.php?chat_type=group';
+$groupChatUrl = 'messages.php?chat_type=group' . (($isGroupChatView && is_array($selectedGroup) && !empty($selectedGroup['id'])) ? ('&group_id=' . (int)$selectedGroup['id']) : '');
 
 $attachmentItems = [];
 if (!empty($messages)) {
@@ -1537,32 +1581,313 @@ if (!empty($messages)) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="msb-msg-booting<?php echo (empty($msgHasNamedPalette) && $msgColorScheme === 'dark') ? ' dark-auto' : ''; ?>" data-theme="<?php echo h($msgColorScheme); ?>"<?php echo $msgColorScheme === 'light' ? ' data-msb-org-light="1"' : ''; ?><?php echo !empty($msgHasNamedPalette) ? ' data-msb-appearance="' . h($msgAppearanceMode) . '"' : ''; ?> style="background:<?php echo $msgPageBgAttr; ?> !important;background-color:<?php echo $msgPageBgAttr; ?> !important;color-scheme:<?php echo h($msgColorScheme); ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="color-scheme" content="<?php echo h($msgColorScheme); ?>">
+  <meta name="theme-color" content="<?php echo $msgPageBgAttr; ?>">
   <title>Messages</title>
-  <?php theme_prefs_print_head_bootstrap($dbh, $themeUserId); ?>
+  <?php /* Critical first paint from Gear Appearance; then follow live --msb-palette-* */ ?>
+  <style id="msb-msg-critical-paint">
+    html, body, .sh-pagebody, .sh-mainpanel, .messages-shell, .messages-shell.customer-msg-ui {
+      background: <?php echo $msgPageBgAttr; ?> !important;
+      background-color: <?php echo $msgPageBgAttr; ?> !important;
+      color: <?php echo $msgPageTextAttr; ?> !important;
+      color-scheme: <?php echo h($msgColorScheme); ?>;
+    }
+    html {
+      --msb-palette-bg: <?php echo $msgPageBgAttr; ?>;
+      --msb-palette-surface: <?php echo $msgPageBgAttr; ?>;
+      --msb-palette-surface-2: <?php echo $msgPageBgAttr; ?>;
+      --msb-palette-text: <?php echo $msgPageTextAttr; ?>;
+      --msb-palette-text-muted: <?php echo $msgPageMutedAttr; ?>;
+      --msb-palette-action: <?php echo $msgActionAttr; ?>;
+      --msb-palette-btn-bg: <?php echo $msgBtnBgAttr; ?>;
+      --bg-main: <?php echo $msgPageBgAttr; ?>;
+      --msg-bg: <?php echo $msgPageBgAttr; ?>;
+      --msg-text: <?php echo $msgPageTextAttr; ?>;
+      --msg-muted: <?php echo $msgPageMutedAttr; ?>;
+      --cm-bg: <?php echo $msgPageBgAttr; ?>;
+      --cm-panel: <?php echo $msgPageBgAttr; ?>;
+      --cm-panel-2: <?php echo $msgPageBgAttr; ?>;
+      --cm-text: <?php echo $msgPageTextAttr; ?>;
+      --cm-muted: <?php echo $msgPageMutedAttr; ?>;
+      --cm-me: <?php echo $msgBtnBgAttr; ?>;
+    }
+    html, html *, body, body * {
+      transition: none !important;
+    }
+    html.msg-soft-nav, html.msg-soft-nav *,
+    html.msg-mode-switching, html.msg-mode-switching * {
+      transition: none !important;
+      animation: none !important;
+    }
+    /* Opaque Gear cover until JS removes it — hides refresh black flash in main panel */
+    html.msb-msg-booting,
+    html.msb-msg-booting body {
+      background: <?php echo $msgPageBgAttr; ?> !important;
+      background-color: <?php echo $msgPageBgAttr; ?> !important;
+    }
+    #msb-msg-boot-cover {
+      position: fixed !important;
+      inset: 0 !important;
+      background: <?php echo $msgPageBgAttr; ?> !important;
+      background-color: <?php echo $msgPageBgAttr; ?> !important;
+      z-index: 2147483000 !important;
+      pointer-events: none !important;
+      display: block !important;
+      opacity: 1 !important;
+      transition: none !important;
+    }
+  </style>
   <script>
-  /* Keep messages paint locked across hard nav (no white/dark flash). */
+  /* Messages canvas follows Gear Dark auto / Appearance color / Progress color. */
   (function(){
     try{
-      var raw = sessionStorage.getItem('msb_msg_paint_lock');
-      if(!raw) return;
-      sessionStorage.removeItem('msb_msg_paint_lock');
-      var parts = String(raw).split('|');
-      var bg = parts[0] || '#171d24';
-      var scheme = parts[1] === 'light' ? 'light' : 'dark';
+      if(!window.__msbMsgEvtHooked){
+        window.__msbMsgEvtHooked = true;
+        window.__msbMsgEvt = [];
+        function track(proto){
+          var orig = proto.addEventListener;
+          proto.addEventListener = function(type, fn, opts){
+            try{
+              if(typeof fn === 'function'){
+                window.__msbMsgEvt.push({ target: this, type: type, fn: fn, opts: opts });
+              }
+            }catch(_e){}
+            return orig.call(this, type, fn, opts);
+          };
+        }
+        try{ track(Document.prototype); }catch(_e){}
+        try{ track(Window.prototype); }catch(_e){}
+      }
+      var MSG_BG = <?php echo json_encode($msgPageBg); ?>;
+      var MSG_SCHEME = <?php echo json_encode($msgColorScheme); ?>;
+      var MSG_TEXT = <?php echo json_encode($msgPageText); ?>;
+      var MSG_MUTED = <?php echo json_encode($msgPageMuted); ?>;
+      var MSG_NAMED = <?php echo !empty($msgHasNamedPalette) ? 'true' : 'false'; ?>;
+      window.MSG_BG = MSG_BG;
+      window.MSG_SCHEME = MSG_SCHEME;
+      window.MSG_TEXT = MSG_TEXT;
+      window.MSG_MUTED = MSG_MUTED;
+      try{ sessionStorage.removeItem('msb_msg_paint_lock'); }catch(_e){}
       var root = document.documentElement;
-      root.style.setProperty('--msb-nav-lock-bg', bg);
-      root.style.setProperty('--msb-nav-lock-scheme', scheme);
-      root.style.background = bg;
-      root.style.colorScheme = scheme;
+      try{
+        var _sb = sessionStorage.getItem('msb_msg_boot_bg');
+        if(_sb) window.__MSB_MSG_SAVED_BG = _sb;
+      }catch(_e){}
+      function readCss(name){
+        try{ return (getComputedStyle(root).getPropertyValue(name) || '').trim(); }catch(_e){ return ''; }
+      }
+      function isHex(v){ return /^#[0-9a-f]{3,8}$/i.test(v || ''); }
+      try{
+        var savedBg = window.__MSB_MSG_SAVED_BG || sessionStorage.getItem('msb_msg_boot_bg');
+        if(isHex(savedBg) && !(savedBg.toLowerCase() === '#171d24' && MSG_BG.toLowerCase() !== '#171d24')){
+          MSG_BG = savedBg;
+          window.MSG_BG = MSG_BG;
+        }
+      }catch(_e){}
+      function syncAntiFlash(bg, scheme, text){
+        var s = document.getElementById('msb-anti-flash');
+        if(!s){
+          s = document.createElement('style');
+          s.id = 'msb-anti-flash';
+          (document.head || root).appendChild(s);
+        }
+        s.textContent =
+          'html,body,.sh-pagebody,.sh-mainpanel,.messages-shell,.messages-shell.customer-msg-ui,' +
+          '.messages-shell.customer-msg-ui .messages-shell-head,' +
+          'html.dark-auto,html.dark-auto body,html.dark-auto .sh-pagebody,html.dark-auto .sh-mainpanel,' +
+          'html.dark-auto .messages-shell,html.dark-auto .messages-shell.customer-msg-ui,' +
+          'html.dark-auto .messages-shell.customer-msg-ui .messages-shell-head,' +
+          'body.dark-auto .sh-pagebody,body.dark-auto .sh-mainpanel,body.dark-auto .messages-shell{' +
+          'background:' + bg + ' !important;background-color:' + bg + ' !important;' +
+          'color:' + text + ' !important;color-scheme:' + scheme + ' !important;}' +
+          'html.msg-soft-nav,html.msg-soft-nav *,html.msg-mode-switching,html.msg-mode-switching *{' +
+          'transition:none!important;animation:none!important;}';
+        if(s.parentNode) s.parentNode.appendChild(s);
+      }
+      function applyMsgPaint(nextBg, nextScheme, nextText, nextMuted){
+        var bg = isHex(nextBg) ? nextBg : MSG_BG;
+        var scheme = (nextScheme === 'light' || nextScheme === 'dark') ? nextScheme : MSG_SCHEME;
+        var text = nextText || MSG_TEXT;
+        var muted = nextMuted || MSG_MUTED;
+        MSG_BG = bg;
+        MSG_SCHEME = scheme;
+        MSG_TEXT = text;
+        MSG_MUTED = muted;
+        window.MSG_BG = bg;
+        window.MSG_SCHEME = scheme;
+        window.MSG_TEXT = text;
+        window.MSG_MUTED = muted;
+        root.style.setProperty('--msg-bg', bg, 'important');
+        root.style.setProperty('--cm-bg', bg, 'important');
+        root.style.setProperty('--msb-palette-bg', bg);
+        root.style.setProperty('--msg-text', text);
+        root.style.setProperty('--msg-muted', muted);
+        root.style.setProperty('--cm-text', text);
+        root.style.setProperty('--cm-muted', muted);
+        root.style.background = bg;
+        root.style.backgroundColor = bg;
+        root.style.color = text;
+        root.style.colorScheme = scheme;
+        root.setAttribute('data-theme', scheme);
+        if(MSG_NAMED){
+          root.classList.remove('dark-auto');
+          if(scheme === 'light') root.setAttribute('data-msb-org-light', '1');
+          else root.removeAttribute('data-msb-org-light');
+        } else if(scheme === 'dark'){
+          root.classList.add('dark-auto');
+          root.removeAttribute('data-msb-org-light');
+        } else {
+          root.classList.remove('dark-auto');
+          root.setAttribute('data-msb-org-light', '1');
+        }
+        if(document.body){
+          document.body.style.background = bg;
+          document.body.style.backgroundColor = bg;
+          document.body.style.color = text;
+          document.body.style.colorScheme = scheme;
+          document.body.setAttribute('data-theme', scheme);
+          if(MSG_NAMED || scheme !== 'dark') document.body.classList.remove('dark-auto');
+          else document.body.classList.add('dark-auto');
+        }
+        syncAntiFlash(bg, scheme, text);
+      }
       root.classList.add('msg-soft-nav');
-      var s = document.createElement('style');
-      s.id = 'msb-anti-flash';
-      s.textContent = 'html,body,.sh-pagebody,.messages-shell{background:' + bg + ' !important;color-scheme:' + scheme + ';}';
-      (document.head || root).appendChild(s);
+      applyMsgPaint(MSG_BG, MSG_SCHEME, MSG_TEXT, MSG_MUTED);
+      function keepPaint(ev){
+        try{
+          var liveBg = readCss('--msb-palette-bg');
+          var liveText = readCss('--msb-palette-text');
+          var liveMuted = readCss('--msb-palette-text-muted');
+          var nextScheme = MSG_SCHEME;
+          if(ev && ev.detail && typeof ev.detail.dark === 'boolean'){
+            nextScheme = ev.detail.dark ? 'dark' : 'light';
+          } else if(root.getAttribute('data-theme') === 'light' || root.getAttribute('data-theme') === 'dark'){
+            nextScheme = root.getAttribute('data-theme');
+          } else if(root.classList.contains('dark-auto')){
+            nextScheme = 'dark';
+          } else {
+            nextScheme = 'light';
+          }
+          if(!isHex(liveBg) || (!ev && liveBg.toLowerCase() === '#171d24' && MSG_BG.toLowerCase() !== '#171d24')){
+            liveBg = MSG_BG;
+            if(MSG_SCHEME === 'light') nextScheme = 'light';
+          }
+          if(MSG_NAMED){
+            nextScheme = MSG_SCHEME;
+          }
+          applyMsgPaint(liveBg, nextScheme, liveText || MSG_TEXT, liveMuted || MSG_MUTED);
+        }catch(_e){}
+      }
+      document.addEventListener('DOMContentLoaded', keepPaint, { once: true });
+      window.addEventListener('msb-theme-change', keepPaint);
+      window.addEventListener('load', function(){
+        keepPaint();
+        try{ root.classList.remove('msg-soft-nav'); }catch(_e){}
+        try{ sessionStorage.setItem('msb_msg_boot_bg', MSG_BG); }catch(_e){}
+      }, { once: true });
+      function stashBoot(){
+        try{
+          var bg = readCss('--msb-palette-bg');
+          if(!isHex(bg) || (bg.toLowerCase() === '#171d24' && MSG_BG.toLowerCase() !== '#171d24')) bg = MSG_BG;
+          sessionStorage.setItem('msb_msg_boot_bg', bg);
+          root.style.setProperty('--msg-bg', bg, 'important');
+        }catch(_e){}
+      }
+      window.addEventListener('pagehide', stashBoot);
+      window.addEventListener('beforeunload', stashBoot);
+    }catch(_e){}
+  })();
+  </script>
+  <script>window.__MSB_THEME_DISABLE_LOCAL = true;window.__MSB_MSG_PAGE = true;</script>
+  <?php
+  // Messages already resolved Gear canvas in PHP — do not inject early dark-auto (black flash).
+  $GLOBALS['__MSB_EARLY_DARK_AUTO_PRINTED'] = true;
+  theme_prefs_print_head_bootstrap($dbh, $themeUserId);
+  ?>
+  <script>
+  /* After theme stack: lock orange-zone (main panel) to Gear color; kill dark-auto race. */
+  (function(){
+    try{
+      var bg = window.MSG_BG || <?php echo json_encode($msgPageBg); ?>;
+      var scheme = window.MSG_SCHEME || <?php echo json_encode($msgColorScheme); ?>;
+      var r = document.documentElement;
+      function lockMain(){
+        r.style.setProperty('--msg-bg', bg, 'important');
+        r.style.setProperty('--cm-bg', bg, 'important');
+        r.style.setProperty('--msb-palette-bg', bg);
+        r.style.setProperty('background', bg, 'important');
+        r.style.setProperty('background-color', bg, 'important');
+        if(scheme === 'light' || <?php echo !empty($msgHasNamedPalette) ? 'true' : 'false'; ?>){
+          r.classList.remove('dark-auto');
+          if(document.body) document.body.classList.remove('dark-auto');
+          r.setAttribute('data-theme', scheme === 'dark' && <?php echo !empty($msgHasNamedPalette) ? 'true' : 'false'; ?> ? 'dark' : (scheme || 'light'));
+          if(scheme === 'light') r.setAttribute('data-msb-org-light', '1');
+        }
+        if(document.body){
+          document.body.style.setProperty('background', bg, 'important');
+          document.body.style.setProperty('background-color', bg, 'important');
+        }
+        ['sh-mainpanel','sh-pagebody','messagesShell'].forEach(function(id){
+          var el = id === 'messagesShell' ? document.getElementById(id) : document.querySelector('.' + id);
+          if(!el) return;
+          el.style.setProperty('background', bg, 'important');
+          el.style.setProperty('background-color', bg, 'important');
+        });
+        var s = document.getElementById('msb-anti-flash');
+        if(s && s.parentNode) s.parentNode.appendChild(s);
+        var fp = document.getElementById('msb-msg-final-paint');
+        if(fp && fp.parentNode) fp.parentNode.appendChild(fp);
+      }
+      lockMain();
+      setTimeout(lockMain, 0);
+      document.addEventListener('DOMContentLoaded', lockMain, { once: true });
+      window.addEventListener('msb-theme-change', function(){
+        // This is an intentional Gear change, so accept light, dark, or a named palette.
+        var live = (getComputedStyle(r).getPropertyValue('--msb-palette-bg') || '').trim();
+        if(/^#[0-9a-f]{3,8}$/i.test(live)){
+          bg = live;
+          window.MSG_BG = bg;
+        }
+        lockMain();
+      });
+      var __msgBootDone = false;
+      function endMsgBootCover(){
+        if(__msgBootDone) return;
+        try{
+          lockMain();
+          var finish = function(){
+            if(__msgBootDone) return;
+            __msgBootDone = true;
+            try{
+              lockMain();
+              document.documentElement.classList.remove('msb-msg-booting');
+              var cover = document.getElementById('msb-msg-boot-cover');
+              if(cover && cover.parentNode) cover.parentNode.removeChild(cover);
+            }catch(_e){}
+          };
+          // Let Gear paint commit under the cover, then reveal.
+          if(window.requestAnimationFrame){
+            requestAnimationFrame(function(){
+              requestAnimationFrame(function(){ setTimeout(finish, 32); });
+            });
+          } else {
+            setTimeout(finish, 48);
+          }
+        }catch(_e){
+          __msgBootDone = true;
+          try{ document.documentElement.classList.remove('msb-msg-booting'); }catch(_e2){}
+        }
+      }
+      window.addEventListener('load', function(){
+        lockMain();
+        endMsgBootCover();
+      }, { once: true });
+      // Safety: never leave cover forever
+      setTimeout(endMsgBootCover, 4000);
     }catch(_e){}
   })();
   </script>
@@ -1570,11 +1895,70 @@ if (!empty($messages)) {
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="./lib/Ionicons/css/ionicons.css" rel="stylesheet">
   <link href="./lib/perfect-scrollbar/css/perfect-scrollbar.css" rel="stylesheet">
-  
-  <!-- css -->
-  <link rel="stylesheet" href="./css/dark-auto.css">
-  <script src="./js/dark-auto.js?v=4" defer></script>
+
+  <!-- css (dark-auto comes from theme stack above — do not load twice) -->
   <link rel="stylesheet" href="./css/shamcey.css">
+  <link rel="stylesheet" href="./css/messages-customer-ui.css?v=43">
+
+  <?php /* Follow Gear palette after CSS; fallback = server Appearance/Progress color. */ ?>
+  <style id="msb-msg-final-paint">
+    html:has(.messages-shell),
+    html:has(.messages-shell) body,
+    html:has(.messages-shell) .sh-pagebody,
+    html:has(.messages-shell) .sh-mainpanel,
+    html:has(.messages-shell) .messages-shell,
+    html:has(.messages-shell) .messages-shell.customer-msg-ui,
+    html.dark-auto:has(.messages-shell) .sh-pagebody,
+    html.dark-auto:has(.messages-shell) .sh-mainpanel,
+    html.dark-auto:has(.messages-shell) .messages-shell,
+    body:has(.messages-shell),
+    body:has(.messages-shell) .sh-pagebody,
+    body:has(.messages-shell) .sh-mainpanel,
+    body:has(.messages-shell) .messages-shell,
+    body.dark-auto:has(.messages-shell) .sh-pagebody,
+    body.dark-auto:has(.messages-shell) .sh-mainpanel {
+      background: <?php echo $msgPageBgAttr; ?> !important;
+      background-color: <?php echo $msgPageBgAttr; ?> !important;
+      color: <?php echo $msgPageTextAttr; ?> !important;
+    }
+    html:has(.messages-shell), html:has(.messages-shell) *,
+    body:has(.messages-shell), body:has(.messages-shell) * {
+      transition: none !important;
+    }
+  </style>
+  <script>
+  (function(){
+    try{
+      var r = document.documentElement;
+      function adoptGear(){
+        try{
+          var bg = (getComputedStyle(r).getPropertyValue('--msb-palette-bg') || '').trim();
+          var serverBg = <?php echo json_encode($msgPageBg); ?>;
+          if(!/^#[0-9a-f]{3,8}$/i.test(bg) || (bg.toLowerCase() === '#171d24' && String(serverBg).toLowerCase() !== '#171d24')){
+            bg = serverBg;
+          }
+          r.style.setProperty('--msg-bg', bg, 'important');
+          r.style.setProperty('--cm-bg', bg, 'important');
+          r.style.background = bg;
+          r.style.backgroundColor = bg;
+          if(document.body){
+            document.body.style.background = bg;
+            document.body.style.backgroundColor = bg;
+          }
+          var shell = document.querySelector('.messages-shell');
+          if(shell){ shell.style.background = ''; shell.style.backgroundColor = ''; }
+          var pb = document.querySelector('.sh-pagebody');
+          if(pb){ pb.style.background = ''; pb.style.backgroundColor = ''; }
+        }catch(_e){}
+      }
+      adoptGear();
+      setTimeout(adoptGear, 0);
+      document.addEventListener('DOMContentLoaded', adoptGear, { once: true });
+      window.addEventListener('msb-theme-change', adoptGear);
+      window.addEventListener('load', adoptGear, { once: true });
+    }catch(_e){}
+  })();
+  </script>
 
   <!-- Script -->
   <script src="./lib/jquery/jquery.js"></script>
@@ -1585,20 +1969,20 @@ if (!empty($messages)) {
   <?php require_once __DIR__ . '/includes/msb_report_client.js.php'; ?>
   <style>
     :root{
-      --bg:#f4f6fb;
-      --card:#fff;
-      --text:#0f172a;
-      --muted:rgba(17,24,39,.65);
-      --border:rgba(17,24,39,.10);
+      --bg:var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>);
+      --card:var(--msb-palette-surface-2, var(--msb-palette-surface, var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>)));
+      --text:var(--msb-palette-text, <?php echo $msgPageTextAttr; ?>);
+      --muted:var(--msb-palette-text-muted, <?php echo $msgPageMutedAttr; ?>);
+      --border:rgba(148,163,184,.16);
       --brand:#1e40af;
       --brand2:#2563eb;
-      --shadow:0 12px 40px rgba(15,23,42,.08);
-      --shadow2:0 10px 28px rgba(15,23,42,.10);
+      --shadow:0 12px 40px rgba(2,6,23,.35);
+      --shadow2:0 10px 28px rgba(2,6,23,.40);
       --radius:16px;
     }
 
-    html,body{height:100%;}
-    .sh-pagebody{background:var(--bg);}
+    html,body{height:100%;background:var(--msb-palette-bg,<?php echo $msgPageBgAttr; ?>)!important;background-color:var(--msb-palette-bg,<?php echo $msgPageBgAttr; ?>)!important;}
+    .sh-pagebody{background:var(--msb-palette-bg,var(--bg,<?php echo $msgPageBgAttr; ?>))!important;}
 
     /* two-panels fixed height like org/messages.php */
     .chat-layout{align-items:stretch; margin-top: 20px;}
@@ -1664,7 +2048,7 @@ if (!empty($messages)) {
       border:1px solid var(--border);
       /* border-radius:14px; */
       overflow:auto;
-      background:#fff;
+      background:var(--msg-bg, var(--msb-palette-bg, var(--cm-bg, transparent)));
       flex:1;
       min-height:0;
     }
@@ -2037,12 +2421,16 @@ body { overflow: hidden !important; }
   margin-left: 340px;
 }
 
-/* Page body takes remaining height */
+/* Page body takes remaining height and stretches the shell to the bottom */
 .sh-pagebody{
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow: hidden !important;
-  padding-bottom: env(safe-area-inset-bottom) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
 }
 
 /* Row becomes full-height */
@@ -2066,7 +2454,7 @@ body { overflow: hidden !important; }
 .chat-card,
 .chat-card-right{
   width: 100% !important;
-  height: 90% !important;
+  height: 100% !important;
   margin-left: 0 !important;
 }
 
@@ -2216,50 +2604,80 @@ img, video, iframe { max-width: 100% !important; }
 
 <style>
   :root{
-    --msg-bg:#f4f4f6;
-    --msg-panel:var(--msb-palette-bg, #f4f4f6);
-    --msg-panel-2:var(--msb-palette-hover-bg, #fafafa);
-    --msg-panel-3:var(--msb-palette-hover-bg, #f2f4f7);
-    --msg-border:#e7e7eb;
-    --msg-text:#1f1f1f;
-    --msg-muted:#757b85;
-    --msg-muted-2:#a1a7b3;
-    --msg-accent:#635bff;
-    --msg-accent-2:#6f67ff;
-    --msg-blue:#635bff;
+    --msg-bg:var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>);
+    --msg-panel:var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>);
+    --msg-panel-2:var(--msb-palette-surface-2, var(--msb-palette-hover-bg, <?php echo $msgPageBgAttr; ?>));
+    --msg-panel-3:var(--msb-palette-hover-bg, <?php echo $msgPageBgAttr; ?>);
+    --msg-border:var(--msb-palette-border, rgba(148,163,184,.16));
+    --msg-text:var(--msb-palette-text, <?php echo $msgPageTextAttr; ?>);
+    --msg-muted:var(--msb-palette-text-muted, <?php echo $msgPageMutedAttr; ?>);
+    --msg-muted-2:var(--msb-palette-text-muted, <?php echo $msgPageMutedAttr; ?>);
+    --msg-accent:var(--msb-palette-action, #635bff);
+    --msg-accent-2:var(--msb-palette-action-strong, #6f67ff);
+    --msg-blue:var(--msb-palette-action, #635bff);
     --msg-green:#22a66f;
   }
 
   body{
-    background:var(--msg-bg, var(--msb-palette-bg, #f4f4f6)) !important;
-    color:var(--msg-text, var(--msb-palette-text, #1f1f1f));
+    background:var(--msg-bg, var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>)) !important;
+    background-color:var(--msg-bg, var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>)) !important;
+    color:var(--msg-text, var(--msb-palette-text, <?php echo $msgPageTextAttr; ?>));
   }
   html.dark-auto,
-  html.dark-auto body{
-    background:#171d24 !important;
+  html.dark-auto body,
+  html.dark-auto .sh-pagebody,
+  html.dark-auto .sh-mainpanel{
+    background:var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>) !important;
+    background-color:var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>) !important;
+  }
+  /* Light mode: never flash dark canvas on refresh */
+  html:not(.dark-auto):not([data-theme="dark"]),
+  html:not(.dark-auto):not([data-theme="dark"]) body,
+  html[data-theme="light"],
+  html[data-theme="light"] body,
+  html[data-msb-org-light],
+  html[data-msb-org-light] body{
+    background:var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>) !important;
+    background-color:var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>) !important;
+    color-scheme:light;
   }
   /* Lock paint during soft chat open — use current theme bg (never force dark). */
+  /* Soft tab switch must NOT retarget backgrounds (that was the visible flash). */
   html.msg-soft-nav,
-  html.msg-soft-nav body,
-  html.msg-soft-nav .sh-pagebody,
-  html.msg-soft-nav .messages-shell{
-    background:var(--msb-nav-lock-bg, #171d24) !important;
-    color-scheme:var(--msb-nav-lock-scheme, dark);
+  html.msg-mode-switching,
+  .messages-shell.is-mode-switching{
+    transition:none !important;
+    animation:none !important;
+  }
+  /* Permanent: no background animation on Messages chrome (Private↔Group). */
+  html, body, .sh-pagebody, .sh-mainpanel, .messages-shell,
+  .messages-shell-head, .chat-card, .chat-card-right, .chat-left-head,
+  .chat-info-panel, #chatBox, .composer{
+    transition:none !important;
   }
   html.msg-soft-nav .messages-shell{
     opacity:1;
   }
   .sh-pagebody{
-    background:var(--msg-bg, var(--msb-palette-bg, #f4f4f6)) !important;
-    padding:34px 18px 16px !important;
+    background:var(--msb-palette-bg, var(--msg-bg, <?php echo $msgPageBgAttr; ?>)) !important;
+    background-color:var(--msb-palette-bg, var(--msg-bg, <?php echo $msgPageBgAttr; ?>)) !important;
+    /* padding:34px 18px 16px !important; */
+    margin-right: 1%;
+  }
+  .messages-shell,
+  .messages-shell.customer-msg-ui{
+    background:var(--msb-palette-bg, var(--cm-bg, <?php echo $msgPageBgAttr; ?>)) !important;
+    background-color:var(--msb-palette-bg, var(--cm-bg, <?php echo $msgPageBgAttr; ?>)) !important;
   }
   .messages-shell{
-    background:var(--msg-panel, var(--msb-palette-bg, #f4f4f6));
-    border:1px solid var(--msg-border, var(--msb-palette-border, #e7e7eb));
+    background:var(--msg-panel, var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>));
+    border:1px solid var(--msg-border, var(--msb-palette-border, rgba(148,163,184,.16)));
     /* border-radius:34px; */
     overflow:hidden;
-    height:calc(100dvh - 138px);
-    min-height:680px;
+    flex:1 1 auto;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
     display:flex;
     flex-direction:column;
   }
@@ -2267,20 +2685,28 @@ img, video, iframe { max-width: 100% !important; }
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:16px;
+    gap:14px;
     padding:22px 28px;
     border-bottom:1px solid var(--msg-border);
-    background:var(--msg-panel, var(--msb-palette-bg, #f4f4f6));
+    background:var(--msg-panel, var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>));
   }
   .messages-shell-title{
     font-size:20px;
     font-weight:900;
     color:var(--msg-text, var(--msb-palette-text, #222));
+    flex:0 0 auto;
+  }
+  .messages-shell-head .msg-stories.msg-stories--top{
+    flex:1 1 auto;
+    min-width:0;
+    margin:0;
   }
   .messages-shell-tools{
     display:flex;
     align-items:center;
     gap:14px;
+    flex:0 0 auto;
+    margin-left:auto;
   }
   .messages-shell-action-btn{
     display:inline-flex;
@@ -2308,6 +2734,10 @@ img, video, iframe { max-width: 100% !important; }
     border-radius:999px;
     background:var(--msg-panel-3, var(--msb-palette-hover-bg, #f5f6fa));
     border:1px solid var(--msg-border);
+  }
+  .messages-shell-tabs.is-loading{
+    pointer-events:none;
+    opacity:.92;
   }
   .messages-shell-tab{
     display:inline-flex;
@@ -2448,7 +2878,7 @@ img, video, iframe { max-width: 100% !important; }
   .group-form-grid input[type="text"]{
     width:100%;
     min-height:44px;
-    border:1px solid var(--msg-border, var(--msb-palette-border, #e7e7eb));
+    border:1px solid var(--msg-border, var(--msb-palette-border, rgba(148,163,184,.16)));
     border-radius:14px;
     padding:10px 14px;
     outline:none;
@@ -2471,7 +2901,7 @@ img, video, iframe { max-width: 100% !important; }
     align-items:center;
     gap:10px;
     padding:10px 12px;
-    border:1px solid var(--msg-border, var(--msb-palette-border, #e7e7eb));
+    border:1px solid var(--msg-border, var(--msb-palette-border, rgba(148,163,184,.16)));
     border-radius:14px;
     background:var(--msg-panel-3, var(--msb-palette-hover-bg, #fafafa));
   }
@@ -2653,8 +3083,8 @@ img, video, iframe { max-width: 100% !important; }
     width:min(620px, 96vw);
     max-height:min(86vh, 860px);
     overflow:auto;
-    background:var(--msg-panel, var(--msb-palette-bg, #f4f4f6));
-    border:1px solid var(--msg-border, var(--msb-palette-border, #e7e7eb));
+    background:var(--msg-panel, var(--msb-palette-bg, <?php echo $msgPageBgAttr; ?>));
+    border:1px solid var(--msg-border, var(--msb-palette-border, rgba(148,163,184,.16)));
     border-radius:24px;
     box-shadow:0 24px 60px rgba(15,23,42,.22);
     padding:22px;
@@ -2681,7 +3111,7 @@ img, video, iframe { max-width: 100% !important; }
     width:40px;
     height:40px;
     border-radius:999px;
-    border:1px solid var(--msg-border, var(--msb-palette-border, #e7e7eb));
+    border:1px solid var(--msg-border, var(--msb-palette-border, rgba(148,163,184,.16)));
     background:var(--msg-panel-3, var(--msb-palette-hover-bg, #f5f6fa));
     color:var(--msg-text, var(--msb-palette-text, #111827));
     cursor:pointer;
@@ -2978,7 +3408,7 @@ img, video, iframe { max-width: 100% !important; }
     background:transparent !important;
     border:0 !important;
     box-shadow:none !important;
-    color:#7b8088 !important;
+    color:var(--msb-palette-text-muted, var(--msg-muted, #7b8088)) !important;
     font-size:12px !important;
     padding:6px 0 !important;
     margin:20px auto !important;
@@ -2991,7 +3421,7 @@ img, video, iframe { max-width: 100% !important; }
     top:50%;
     width:38%;
     height:1px;
-    background:#e9e9ef;
+    background:var(--msb-palette-border, #e9e9ef);
   }
   .day-divider::before{left:0;}
   .day-divider::after{right:0;}
@@ -3467,19 +3897,25 @@ img, video, iframe { max-width: 100% !important; }
     font-size:17px;
     padding:0 !important;
   }
-  .group-send-form button[type="submit"]{
+  .messages-shell.customer-msg-ui .group-send-form button[type="submit"]{
     width:68px !important;
+    min-width:68px !important;
+    max-width:68px !important;
     height:68px !important;
-    border-radius:999px !important;
-    background:var(--msb-palette-nav-hover, #635bff) !important;
-    color:var(--msb-palette-action, #fff) !important;
+    min-height:68px !important;
+    max-height:68px !important;
+    flex:0 0 68px !important;
+    aspect-ratio:1 / 1;
+    border-radius:50% !important;
+    background:#2563eb !important;
+    color:#fff !important;
     box-shadow:none !important;
     display:inline-flex !important;
     align-items:center !important;
     justify-content:center !important;
   }
-  .group-send-form button[type="submit"] i{
-    color:var(--msb-palette-action, #fff) !important;
+  .messages-shell.customer-msg-ui .group-send-form button[type="submit"] i{
+    color:#fff !important;
     font-size:24px !important;
   }
   #gifBtn{display:none !important;}
@@ -3514,15 +3950,21 @@ img, video, iframe { max-width: 100% !important; }
     padding:10px 12px;
   }
   #sendForm button[type="submit"]{
-    background:var(--msb-palette-nav-hover, #635bff) !important;
-    color:var(--msb-palette-action, #fff) !important;
-    border-radius:999px !important;
+    background:#2563eb !important;
+    color:#fff !important;
+    border-radius:50% !important;
     width:34px !important;
+    min-width:34px !important;
+    max-width:34px !important;
     height:34px !important;
+    min-height:34px !important;
+    max-height:34px !important;
+    flex:0 0 34px !important;
+    aspect-ratio:1 / 1;
     font-size:13px;
   }
   #sendForm button[type="submit"] i{
-    color:var(--msb-palette-action, #fff) !important;
+    color:#fff !important;
   }
   .chat-info-panel{
     background:var(--msg-panel);
@@ -3829,7 +4271,7 @@ img, video, iframe { max-width: 100% !important; }
     display:none;
   }
   .vcall-shell.group-mode .vcall-meeting-badge::before{
-    content:"Talsora";
+    content:"Talentra";
   }
   .vcall-shell.group-mode .vcall-meta{
     height:48px;
@@ -6241,12 +6683,289 @@ img, video, iframe { max-width: 100% !important; }
   .vcall-shell.group-mode.host-layout.dodeca-primary-layout .vcall-remote-grid[data-tile-count="13"][data-primary-count="12"] .vcall-primary-10{grid-column:7 / 9 !important;grid-row:2 !important;}
   .vcall-shell.group-mode.host-layout.dodeca-primary-layout .vcall-remote-grid[data-tile-count="13"][data-primary-count="12"] .vcall-primary-11{grid-column:9 / 11 !important;grid-row:2 !important;}
   .vcall-shell.group-mode.host-layout.dodeca-primary-layout .vcall-remote-grid[data-tile-count="13"][data-primary-count="12"] .vcall-primary-12{grid-column:11 / 13 !important;grid-row:2 !important;}
-</style>
-<link rel="stylesheet" href="./css/messages-customer-ui.css?v=6">
+  /* Compact, consistent sizing for both Private and Group chat. */
+  .messages-shell.customer-msg-ui .messages-shell-head{padding:8px 12px!important;gap:10px!important;}
+  .messages-shell.customer-msg-ui .messages-shell-title{font-size:15px!important;}
+  .messages-shell.customer-msg-ui .messages-shell-subtitle{font-size:10px!important;}
+  .messages-shell.customer-msg-ui .messages-shell-tabs{padding:3px!important;}
+  .messages-shell.customer-msg-ui .messages-shell-tab{font-size:10px!important;padding:6px 10px!important;}
+  .messages-shell.customer-msg-ui .messages-shell-action-btn{font-size:10px!important;min-height:30px!important;padding:0 10px!important;}
+  .messages-shell.customer-msg-ui .messages-shell-icon,
+  .messages-shell.customer-msg-ui .messages-shell-avatar,
+  .messages-shell.customer-msg-ui .chat-compose-btn{width:32px!important;height:32px!important;min-width:32px!important;}
 
+  .messages-shell.customer-msg-ui .chat-left-head{padding:10px 12px 8px!important;}
+  .messages-shell.customer-msg-ui .chat-left-head-row{margin-bottom:9px!important;gap:8px!important;}
+  .messages-shell.customer-msg-ui .chat-left-title{font-size:20px!important;}
+  .messages-shell.customer-msg-ui .chat-left-subtitle{font-size:10px!important;margin-top:2px!important;}
+  .messages-shell.customer-msg-ui .chat-filter-tabs{gap:5px!important;margin-bottom:8px!important;}
+  .messages-shell.customer-msg-ui .chat-filter-tab{font-size:10px!important;padding:5px 9px!important;gap:4px!important;}
+  .messages-shell.customer-msg-ui .chat-search-wrap{height:34px!important;padding:0 9px!important;margin-top:7px!important;}
+  .messages-shell.customer-msg-ui #chatSearch{font-size:11px!important;}
+
+  .messages-shell.customer-msg-ui .chat-list{padding:4px 6px 10px!important;}
+  .messages-shell.customer-msg-ui .chat-item{padding:7px 8px!important;border-radius:10px!important;gap:8px!important;margin-bottom:2px!important;}
+  .messages-shell.customer-msg-ui .chat-left{gap:8px!important;}
+  .messages-shell.customer-msg-ui .chat-item .avatar{width:45px!important;height:38px!important;min-width:38px!important;}
+  .messages-shell.customer-msg-ui .chat-item .presenceDot{width:9px!important;height:9px!important;}
+  .messages-shell.customer-msg-ui .chat-name{font-size:12px!important;}
+  .messages-shell.customer-msg-ui a.chatItem[data-group-name] .chat-left > div:last-child{
+    flex:1 1 auto!important;
+    width:0!important;
+  }
+  .messages-shell.customer-msg-ui a.chatItem[data-group-name] .chatName{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    color:var(--cm-text)!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .messages-shell.customer-msg-ui .chat-meta,
+  .messages-shell.customer-msg-ui .chatLastMsg{font-size:10px!important;margin-top:2px!important;}
+  .messages-shell.customer-msg-ui .unreadBadge{min-width:18px!important;height:18px!important;font-size:9px!important;padding:0 5px!important;}
+
+  .messages-shell.customer-msg-ui .chat-topbar{padding:8px 12px!important;gap:8px!important;}
+  .messages-shell.customer-msg-ui .peerTitle{font-size:13px!important;gap:8px!important;}
+  .messages-shell.customer-msg-ui .peerAvatar{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;max-width:34px!important;max-height:34px!important;}
+  .messages-shell.customer-msg-ui .peerSub{font-size:10px!important;}
+  .messages-shell.customer-msg-ui .iconbar a,
+  .messages-shell.customer-msg-ui .iconbar .chat-info-toggle{width:30px!important;height:30px!important;}
+  .messages-shell.customer-msg-ui .iconbar i{font-size:13px!important;}
+
+  .messages-shell.customer-msg-ui #chatStream{padding:10px!important;gap:6px!important;}
+  .messages-shell.customer-msg-ui .day-divider{font-size:9px!important;padding:3px 8px!important;margin:5px auto!important;}
+  .messages-shell.customer-msg-ui .msg-row{gap:6px!important;}
+  .messages-shell.customer-msg-ui .msg-avatar-mini{width:24px!important;height:24px!important;}
+  .messages-shell.customer-msg-ui .bubble{padding:7px 9px!important;border-radius:12px!important;font-size:12px!important;}
+  .messages-shell.customer-msg-ui .msgText{font-size:12px!important;line-height:1.35!important;}
+  .messages-shell.customer-msg-ui .msg-meta{font-size:9px!important;margin-top:3px!important;}
+
+  .messages-shell.customer-msg-ui .composer,
+  .messages-shell.customer-msg-ui .group-chat-composer{padding:8px 10px!important;}
+  .messages-shell.customer-msg-ui .composer-bar,
+  .messages-shell.customer-msg-ui .group-chat-composer .composer-bar{min-height:42px!important;gap:6px!important;padding:4px 8px!important;align-items:center!important;}
+  .messages-shell.customer-msg-ui #messageInput,
+  .messages-shell.customer-msg-ui .group-message-input{
+    box-sizing:border-box!important;
+    font-size:12px!important;
+    line-height:20px!important;
+    height:32px!important;
+    min-height:32px!important;
+    max-height:64px!important;
+    padding:6px 3px!important;
+    margin:0!important;
+    overflow-y:auto!important;
+  }
+  .messages-shell.customer-msg-ui .composer-input-wrap{
+    display:flex!important;
+    align-items:center!important;
+    min-height:34px!important;
+  }
+  .messages-shell.customer-msg-ui .composer-right,
+  .messages-shell.customer-msg-ui .composer-left{gap:5px!important;}
+  .messages-shell.customer-msg-ui .composer-right a,
+  .messages-shell.customer-msg-ui .composer-left button,
+  .messages-shell.customer-msg-ui .composer-right button:not([type="submit"]){width:30px!important;height:30px!important;font-size:14px!important;}
+  .messages-shell.customer-msg-ui #sendForm button[type="submit"],
+  .messages-shell.customer-msg-ui .group-send-form button[type="submit"]{width:34px!important;min-width:34px!important;max-width:34px!important;height:34px!important;min-height:34px!important;max-height:34px!important;flex:0 0 34px!important;border-radius:50%!important;}
+  .messages-shell.customer-msg-ui #sendForm button[type="submit"] i,
+  .messages-shell.customer-msg-ui .group-send-form button[type="submit"] i{font-size:14px!important;color:#fff!important;}
+
+  /* Every Messages surface follows Gear: Dark auto, Appearance and Progress color. */
+  .messages-shell.customer-msg-ui .messages-shell-head,
+  .messages-shell.customer-msg-ui .group-panel-card,
+  .messages-shell.customer-msg-ui .group-member-chip,
+  .messages-shell.customer-msg-ui .group-member-option,
+  .messages-shell.customer-msg-ui .group-list-empty,
+  .messages-shell.customer-msg-ui .group-chat-composer,
+  .messages-shell.customer-msg-ui .composer-bar{
+    background:var(--msb-palette-surface-2, var(--msb-palette-bg, var(--msg-bg)))!important;
+    background-color:var(--msb-palette-surface-2, var(--msb-palette-bg, var(--msg-bg)))!important;
+    color:var(--msb-palette-text, var(--msg-text))!important;
+    border-color:var(--msb-palette-border, var(--msg-border))!important;
+  }
+  .messages-shell.customer-msg-ui .group-member-text strong,
+  .messages-shell.customer-msg-ui .group-panel-card strong,
+  .messages-shell.customer-msg-ui .group-panel-card label{
+    color:var(--msb-palette-text, var(--msg-text))!important;
+  }
+  .messages-shell.customer-msg-ui .group-member-text span,
+  .messages-shell.customer-msg-ui .group-panel-card small,
+  .messages-shell.customer-msg-ui .group-panel-card p{
+    color:var(--msb-palette-text-muted, var(--msg-muted))!important;
+  }
+  .messages-shell.customer-msg-ui .group-member-row-actions button,
+  .messages-shell.customer-msg-ui .group-inline-actions button,
+  .messages-shell.customer-msg-ui .group-inline-actions a{
+    background:var(--msb-palette-surface-2, var(--msb-palette-bg, var(--msg-bg)))!important;
+    color:var(--msb-palette-text, var(--msg-text))!important;
+    border-color:var(--msb-palette-border, var(--msg-border))!important;
+  }
+  .messages-shell.customer-msg-ui .group-panel-card input,
+  .messages-shell.customer-msg-ui .group-panel-card select,
+  .messages-shell.customer-msg-ui .group-form-grid input[type="text"]{
+    background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)))!important;
+    color:var(--msb-palette-input-text, var(--msb-palette-text, var(--msg-text)))!important;
+    border-color:var(--msb-palette-border, var(--msg-border))!important;
+  }
+
+  /* Readable contrast on dark and dark-chrome Gear palettes. */
+  html[data-theme="dark"] .messages-shell.customer-msg-ui,
+  html.dark-auto .messages-shell.customer-msg-ui{
+    --cm-text:#f1f5f9;
+    --cm-muted:#cbd5e1;
+    --msg-text:#f1f5f9;
+    --msg-muted:#cbd5e1;
+  }
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .chat-name,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .chat-filter-tab,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .messages-shell-tab,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui button,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .iconbar i,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .composer-right i,
+  html.dark-auto .messages-shell.customer-msg-ui .chat-name,
+  html.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab,
+  html.dark-auto .messages-shell.customer-msg-ui .messages-shell-tab,
+  html.dark-auto .messages-shell.customer-msg-ui button,
+  html.dark-auto .messages-shell.customer-msg-ui .iconbar i,
+  html.dark-auto .messages-shell.customer-msg-ui .composer-right i{
+    color:#f1f5f9!important;
+  }
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .chat-meta,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .chatLastMsg,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .peerSub,
+  html[data-theme="dark"] .messages-shell.customer-msg-ui .group-member-text span,
+  html.dark-auto .messages-shell.customer-msg-ui .chat-meta,
+  html.dark-auto .messages-shell.customer-msg-ui .chatLastMsg,
+  html.dark-auto .messages-shell.customer-msg-ui .peerSub,
+  html.dark-auto .messages-shell.customer-msg-ui .group-member-text span{
+    color:#cbd5e1!important;
+  }
+  .messages-shell.customer-msg-ui .chat-filter-tab:disabled,
+  .messages-shell.customer-msg-ui .chat-filter-tab.is-disabled{
+    opacity:.78!important;
+  }
+  .messages-shell.customer-msg-ui .chat-filter-tab.active,
+  .messages-shell.customer-msg-ui .messages-shell-tab.active,
+  .messages-shell.customer-msg-ui #sendForm button[type="submit"],
+  .messages-shell.customer-msg-ui .group-send-form button[type="submit"]{
+    background:#2563eb!important;
+    color:#fff!important;
+    border-color:#2563eb!important;
+  }
+  .messages-shell.customer-msg-ui .chat-filter-tab.active i,
+  .messages-shell.customer-msg-ui .messages-shell-tab.active i,
+  .messages-shell.customer-msg-ui #sendForm button[type="submit"] i,
+  .messages-shell.customer-msg-ui .group-send-form button[type="submit"] i{
+    color:#fff!important;
+  }
+
+  html body dialog.msg-delete-group-dialog{
+    position:fixed!important;
+    inset:0!important;
+    width:min(360px, calc(100vw - 32px))!important;
+    height:max-content!important;
+    max-height:calc(100dvh - 32px)!important;
+    margin:auto!important;
+    padding:20px 18px 16px!important;
+    overflow:auto!important;
+    border:1px solid var(--msb-palette-border, rgba(148,163,184,.28))!important;
+    border-radius:16px!important;
+    background:var(--msb-palette-surface, var(--msb-palette-bg, #fff))!important;
+    color:var(--msb-palette-text, #111827)!important;
+    box-shadow:0 22px 60px rgba(0,0,0,.34)!important;
+    text-align:center!important;
+    box-sizing:border-box!important;
+    z-index:2147483647!important;
+  }
+  .msg-delete-group-dialog::backdrop{
+    background:rgba(15,23,42,.64);
+    backdrop-filter:blur(5px);
+    -webkit-backdrop-filter:blur(5px);
+  }
+  html body dialog.msg-delete-group-dialog:not([open]){display:none!important;}
+  html body dialog.msg-delete-group-dialog[open]{display:block!important;}
+  .msg-delete-group-close{
+    position:absolute!important;top:10px!important;right:10px!important;
+    width:28px!important;height:28px!important;padding:0!important;
+    border:0!important;border-radius:50%!important;background:transparent!important;
+    color:var(--msb-palette-text-muted, #64748b)!important;
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    cursor:pointer!important;
+  }
+  .msg-delete-group-close:hover{background:var(--msb-palette-hover-bg, rgba(148,163,184,.14))!important;}
+  .msg-delete-group-icon{
+    display:grid;place-items:center;width:42px;height:42px;margin:0 auto 10px;
+    border-radius:50%;background:rgba(239,68,68,.14);color:#ef4444;font-size:16px;
+  }
+  .msg-rename-group-icon{background:rgba(37,99,235,.14)!important;color:#2563eb!important;}
+  .msg-delete-group-dialog h2{margin:0 28px 6px!important;font-size:15px!important;font-weight:800!important;color:inherit!important;}
+  .msg-delete-group-dialog p{margin:0!important;font-size:12px!important;line-height:1.5!important;color:var(--msb-palette-text-muted, #64748b)!important;}
+  .msg-delete-group-dialog p strong{color:var(--msb-palette-text, #111827)!important;}
+  .msg-delete-group-actions{display:flex;gap:8px;margin-top:16px;}
+  .msg-delete-group-actions button{
+    position:static!important;flex:1 1 0!important;width:auto!important;height:34px!important;
+    padding:0 12px!important;border-radius:999px!important;font-size:12px!important;font-weight:700!important;
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;
+  }
+  .msg-delete-group-cancel{
+    border:1px solid var(--msb-palette-border, rgba(148,163,184,.35))!important;
+    background:var(--msb-palette-hover-bg, rgba(148,163,184,.12))!important;
+    color:var(--msb-palette-text, #111827)!important;
+  }
+  .msg-delete-group-confirm{border:1px solid #dc2626!important;background:#dc2626!important;color:#fff!important;}
+  .msg-rename-group-form{margin-top:14px;text-align:left;}
+  .msg-rename-group-form label{
+    display:block;margin:0 0 6px;font-size:11px;font-weight:700;
+    color:var(--msb-palette-text, #111827)!important;
+  }
+  .msg-rename-group-form input[type="text"]{
+    display:block;width:100%;height:38px;box-sizing:border-box;padding:0 11px;
+    border:1px solid var(--msb-palette-border, rgba(148,163,184,.35));border-radius:10px;
+    outline:0;background:var(--msb-palette-input-bg, var(--msb-palette-surface-2, #fff));
+    color:var(--msb-palette-input-text, var(--msb-palette-text, #111827));font-size:12px;font-weight:600;
+  }
+  .msg-rename-group-form input[type="text"]:focus{
+    border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.16);
+  }
+  .msg-rename-group-form .msg-delete-group-actions{margin-top:14px;}
+  .msg-rename-group-confirm{border:1px solid #2563eb!important;background:#2563eb!important;color:#fff!important;}
+  .msg-add-peers-icon{background:rgba(37,99,235,.14)!important;color:#2563eb!important;}
+  .msg-add-peers-form{margin-top:14px;text-align:left;}
+  .msg-add-peers-dialog .group-member-picker{
+    max-height:min(300px, 42vh);padding:2px 3px 2px 0;gap:7px;
+  }
+  .msg-add-peers-dialog .group-member-option{
+    position:relative;padding:9px 10px!important;border-radius:11px!important;cursor:pointer;
+    transition:border-color .15s ease, background-color .15s ease;
+  }
+  .msg-add-peers-dialog .group-member-option:hover{
+    border-color:#2563eb!important;background:rgba(37,99,235,.10)!important;
+  }
+  .msg-add-peers-dialog .group-member-option input[type="checkbox"]{
+    width:16px;height:16px;accent-color:#2563eb;flex:0 0 auto;
+  }
+  .msg-add-peers-dialog .group-member-option:has(input:checked){
+    border-color:#2563eb!important;background:rgba(37,99,235,.14)!important;
+  }
+  .msg-add-peers-form .msg-delete-group-actions{margin-top:14px;}
+  .msg-add-peers-confirm{border:1px solid #2563eb!important;background:#2563eb!important;color:#fff!important;}
+  .msg-add-peers-confirm:disabled{opacity:.48!important;cursor:not-allowed!important;}
+  .msg-member-action-icon{background:rgba(245,158,11,.14)!important;color:#d97706!important;}
+  .msg-member-action-dialog.is-block-action .msg-member-action-icon{
+    background:rgba(239,68,68,.14)!important;color:#ef4444!important;
+  }
+  .msg-member-action-confirm{border:1px solid #d97706!important;background:#d97706!important;color:#fff!important;}
+  .msg-member-action-dialog.is-block-action .msg-member-action-confirm{
+    border-color:#dc2626!important;background:#dc2626!important;color:#fff!important;
+  }
+</style>
 </head>
 
-<body>
+<body class="<?php echo (empty($msgHasNamedPalette) && $msgColorScheme === 'dark') ? 'dark-auto' : ''; ?>" style="background:<?php echo $msgPageBgAttr; ?>;background-color:<?php echo $msgPageBgAttr; ?>;color-scheme:<?php echo h($msgColorScheme); ?>">
+<div id="msb-msg-boot-cover" aria-hidden="true" style="position:fixed;inset:0;background:<?php echo $msgPageBgAttr; ?> !important;background-color:<?php echo $msgPageBgAttr; ?> !important;z-index:2147483000;pointer-events:none;display:block;opacity:1;"></div>
 <?php $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
   <!-- <div class="sh-pagetitle">
     <div class="input-group"></div>
@@ -6262,17 +6981,67 @@ img, video, iframe { max-width: 100% !important; }
 
 <div class="sh-mainpanel">
   <div class="sh-pagebody">
-    <div class="messages-shell customer-msg-ui">
+<?php if (!empty($messagesFragmentRequest)) { if (!isset($messagesFragmentBaseObLevel)) { $messagesFragmentBaseObLevel = ob_get_level(); } ob_start(); } ?>
+    <div class="messages-shell customer-msg-ui" id="messagesShell" data-msb-mode="<?php echo $isGroupChatView ? 'group' : 'private'; ?>" style="background:<?php echo $msgPageBgAttr; ?>;background-color:<?php echo $msgPageBgAttr; ?>;">
+      <?php
+        $storyPeers = [];
+        if (!empty($threads)) {
+          foreach ($threads as $_st) {
+            $storyPeers[] = $_st;
+            if (count($storyPeers) >= 8) break;
+          }
+        }
+        $inboxUnreadTotal = 0;
+        if (!empty($threads)) {
+          foreach ($threads as $_ut) {
+            $inboxUnreadTotal += max(0, (int)($_ut['unread_count'] ?? 0));
+          }
+        }
+        $chatSearchPlaceholder = $isGroupChatView
+          ? 'Search groups...'
+          : 'Search messages or people...';
+      ?>
       <div class="messages-shell-head">
-        <div class="messages-shell-title">Messages</div>
+        <div class="messages-shell-brand">
+          <div class="messages-shell-brand-copy">
+            <div class="messages-shell-title">Messages</div>
+            <div class="messages-shell-subtitle">Stay connected, anytime.</div>
+          </div>
+          <?php if ($isGroupChatView): ?>
+            <button type="button" class="chat-compose-btn" id="openGroupCreateBtn" aria-label="Create group" title="Create group"><i class="fa fa-plus"></i></button>
+          <?php else: ?>
+            <a href="compose.php" class="chat-compose-btn" aria-label="New message" title="New message"><i class="fa fa-edit"></i></a>
+          <?php endif; ?>
+          <button type="button" class="chat-compose-btn messages-shell-search-btn" id="messagesShellSearchBtn" aria-label="Search messages" title="Search" aria-expanded="false" aria-controls="chatSearchWrap"><i class="fa fa-search"></i></button>
+        </div>
+        <div class="msg-stories msg-stories--top" aria-label="Stories">
+          <div class="msg-stories-row">
+            <a class="msg-story-item" href="home.php?tab=for-you" title="Your story">
+              <div class="msg-story-avatar is-add" aria-hidden="true"><i class="fa fa-plus"></i></div>
+              <div class="msg-story-name">Your story</div>
+            </a>
+            <?php foreach ($storyPeers as $_sp):
+              $_spKey = strtoupper((string)($_sp['peer_key'] ?? ''));
+              $_spDisp = (string)($_sp['peer_display'] ?? $_spKey);
+              $_spFirst = trim((string)preg_replace('/\s+.*/', '', $_spDisp));
+              if ($_spFirst === '') $_spFirst = 'Friend';
+              $_spOnline = ((int)($_sp['peer_age_seconds'] ?? 999999) <= 300);
+            ?>
+              <a class="msg-story-item" href="home.php?tab=for-you&amp;peer=<?php echo urlencode($_spKey); ?>" title="<?php echo h($_spDisp); ?>">
+                <div class="msg-story-avatar">
+                  <img src="avatar.php?friend_code=<?php echo urlencode($_spKey); ?>&name=<?php echo urlencode($_spDisp); ?>" alt="">
+                  <?php if ($_spOnline): ?><span class="presence"></span><?php endif; ?>
+                </div>
+                <div class="msg-story-name"><?php echo h($_spFirst); ?></div>
+              </a>
+            <?php endforeach; ?>
+          </div>
+        </div>
         <div class="messages-shell-tools">
           <div class="messages-shell-tabs" aria-label="Chat type tabs" id="messagesModeTabs">
             <a href="<?php echo h($privateChatUrl); ?>" class="messages-shell-tab <?php echo !$isGroupChatView ? 'active' : ''; ?>" data-mode="private" data-url="<?php echo h($privateChatUrl); ?>">Private Chat</a>
             <a href="<?php echo h($groupChatUrl); ?>" class="messages-shell-tab <?php echo $isGroupChatView ? 'active' : ''; ?>" data-mode="group" data-url="<?php echo h($groupChatUrl); ?>">Group Chat</a>
           </div>
-          <?php if ($isGroupChatView): ?>
-            <button type="button" class="messages-shell-action-btn" id="openGroupCreateBtn">Create Group Name</button>
-          <?php endif; ?>
           <span class="messages-shell-icon" aria-hidden="true"><i class="fa fa-bell"></i></span>
           <span class="messages-shell-avatar">
             <img src="avatar.php?friend_code=<?php echo urlencode((string)$meCode); ?>&name=<?php echo urlencode((string)$meDisplay); ?>" alt="Your avatar">
@@ -6285,22 +7054,15 @@ img, video, iframe { max-width: 100% !important; }
       <div class="col-12 col-sm-4 col-md-4 col-lg-3 chat-left-col">
         <div class="chat-card">
           <div class="chat-left-head">
-            <div class="chat-left-head-row">
-              <div class="chat-left-title">Chats</div>
-              <div class="chat-left-tools">
-                <button type="button" class="chat-round-btn" aria-label="More"><i class="fa fa-ellipsis-h"></i></button>
-                <button type="button" class="chat-round-btn" aria-label="Compose"><i class="fa fa-edit"></i></button>
-              </div>
+            <div class="chat-filter-tabs" aria-label="Filters" id="chatFilterTabs">
+              <a href="<?php echo h($privateChatUrl); ?>" class="chat-filter-tab active" data-filter="all" data-mode="private" data-url="<?php echo h($privateChatUrl); ?>" style="text-decoration:none;">All</a>
+              <button type="button" class="chat-filter-tab<?php echo $isGroupChatView ? ' is-disabled' : ''; ?>" data-filter="unread"<?php echo $isGroupChatView ? ' disabled aria-disabled="true"' : ''; ?>>Unread<?php if ($inboxUnreadTotal > 0): ?><span class="badge"><?php echo h($inboxUnreadTotal > 99 ? '99+' : (string)$inboxUnreadTotal); ?></span><?php endif; ?></button>
             </div>
-            <div class="chat-search-wrap">
+
+            <div class="chat-search-wrap is-collapsed" id="chatSearchWrap" hidden>
               <i class="fa fa-search"></i>
-              <input id="chatSearch" type="text" class="form-control" placeholder="Search Messenger" autocomplete="off">
-            </div>
-            <div class="chat-filter-tabs" aria-label="Filters">
-              <button type="button" class="chat-filter-tab active">All</button>
-              <button type="button" class="chat-filter-tab">Unread</button>
-              <button type="button" class="chat-filter-tab">Groups</button>
-              <button type="button" class="chat-filter-tab">Communities</button>
+              <input id="chatSearch" type="text" class="form-control" placeholder="<?php echo h($chatSearchPlaceholder); ?>" autocomplete="off">
+              <button type="button" class="chat-search-filter" id="chatSearchCloseBtn" aria-label="Close search"><i class="fa fa-times"></i></button>
             </div>
           </div>
           <div class="chat-card-body">
@@ -6312,6 +7074,7 @@ img, video, iframe { max-width: 100% !important; }
                     <?php
                       $groupThreadId = (int)($groupThread['id'] ?? 0);
                       $groupThreadName = trim((string)($groupThread['name'] ?? 'Untitled Group'));
+                      if ($groupThreadName === '') $groupThreadName = 'Untitled Group';
                       $groupThreadMembers = (int)($groupThread['member_count'] ?? 0);
                       $groupThreadRole = trim((string)($groupThread['my_role'] ?? 'member'));
                       $groupActive = ($selectedGroup && (int)($selectedGroup['id'] ?? 0) === $groupThreadId);
@@ -6321,6 +7084,7 @@ img, video, iframe { max-width: 100% !important; }
                     <a
                       href="messages.php?chat_type=group&amp;group_id=<?php echo $groupThreadId; ?>"
                       class="chat-item chatItem <?php echo $groupActive ? 'active' : ''; ?>"
+                      data-group-name="<?php echo h($groupThreadName !== '' ? $groupThreadName : 'Untitled Group'); ?>"
                       data-name="<?php echo h(mb_strtolower($groupThreadName)); ?>"
                       data-code="<?php echo h((string)$groupThreadId); ?>"
                       data-lastmsg="<?php echo h(mb_strtolower($groupThreadRole . ' ' . $groupThreadMembers . ' members')); ?>"
@@ -6387,6 +7151,7 @@ img, video, iframe { max-width: 100% !important; }
                   data-orig-name="<?php echo h($tDisp); ?>"
                   data-orig-code="<?php echo h($tPeerKey); ?>"
                   data-orig-lastmsg="<?php echo h($tLastMsg); ?>"
+                  data-unread="<?php echo (int)$tUnread; ?>"
                 >
                   <div class="chat-left">
                     <div class="avatar" style="<?php echo h($avatarStyle); ?>" title="<?php echo $isOnline ? 'Online' : 'Offline'; ?>">
@@ -6439,7 +7204,7 @@ img, video, iframe { max-width: 100% !important; }
       <!-- RIGHT -->
       <div class="col-12 col-sm-8 col-md-8 col-lg-9 chat-right-col">
         <div class="chat-card-right" id="conversationPanel">
-          <div class="chat-stage<?php echo ($peerRow || ($isGroupChatView && $selectedGroup)) ? ' is-info-collapsed' : ''; ?>" id="chatStage">
+          <div class="chat-stage<?php echo ($peerRow || ($isGroupChatView && $selectedGroup)) ? '' : ' is-info-collapsed'; ?>" id="chatStage">
           <div class="chat-main-pane">
           <div class="chat-topbar">
             <div style="min-width:0;">
@@ -6482,7 +7247,7 @@ img, video, iframe { max-width: 100% !important; }
                 <?php endif; ?>
                 <?php if ($peerRow && !$isGroupChatView): ?>
                   <span style="opacity:.55;">•</span>
-                  <span id="peerOnlineBadge"><?php echo h($peerOnlineInfo['online'] ? 'Online' : $peerOnlineInfo['label']); ?></span>
+                  <span id="peerOnlineBadge"><?php echo h($peerOnlineInfo['online'] ? 'Online now' : $peerOnlineInfo['label']); ?></span>
                 <?php endif; ?>
               </div>
               <?php if (!empty($isCommerceChat) && $peerRow && !$isGroupChatView): ?>
@@ -6496,7 +7261,7 @@ img, video, iframe { max-width: 100% !important; }
                 <a href="javascript:void(0)" id="btnVideoCall" title="Video"><i class="ion ion-ios-videocam"></i></a>
               <?php endif; ?>
               <?php if ($peerRow || ($isGroupChatView && $selectedGroup)): ?>
-                <a type="button" id="peerInfoToggle" class="chat-info-toggle" title="<?php echo h($isGroupChatView && $selectedGroup ? 'Group details' : 'Peer details'); ?>" aria-label="<?php echo h($isGroupChatView && $selectedGroup ? 'Open group details' : 'Open peer details'); ?>" aria-expanded="false">
+                <a type="button" id="peerInfoToggle" class="chat-info-toggle" title="<?php echo h($isGroupChatView && $selectedGroup ? 'Group details' : 'Peer details'); ?>" aria-label="<?php echo h($isGroupChatView && $selectedGroup ? 'Open group details' : 'Open peer details'); ?>" aria-expanded="<?php echo ($peerRow || ($isGroupChatView && $selectedGroup)) ? 'true' : 'false'; ?>">
                   <i class="icon ion-information-circled"></i>
                 </a>
               <?php endif; ?>
@@ -6673,7 +7438,7 @@ img, video, iframe { max-width: 100% !important; }
                         <button type="button" id="composerMicBtn" class="group-composer-btn" title="Voice"><i class="fa fa-microphone"></i></button>
                       </div>
                       <div class="composer-input-wrap">
-                        <textarea id="messageInput" name="group_message" class="group-message-input" placeholder="Type your message here"></textarea>
+                        <textarea id="messageInput" name="group_message" class="group-message-input" placeholder="Type a message..."></textarea>
                       </div>
                       <div class="composer-right">
                         <a type="button" id="msgPlusBtn" class="group-composer-btn" title="Attach"><i class="fa fa-picture-o"></i></a>
@@ -6688,10 +7453,12 @@ img, video, iframe { max-width: 100% !important; }
                   </form>
                 </div>
               <?php else: ?>
-                <div class="group-panel-wrap">
+                <div class="chat-empty-state group-panel-wrap" id="chatEmptyState">
                   <div class="group-panel-card">
-                    <h3>Group Chat</h3>
-                    <p class="group-panel-copy">Click <strong>Create Group Name</strong> at the top right to start a new group, then select it from the left to begin chatting.</p>
+                    <div class="chat-empty-state-title">Group Chat</div>
+                    <div class="chat-empty-state-copy group-panel-copy">
+                      Click the <strong>+</strong> button at the top to create a group, then select it from the left to begin chatting.
+                    </div>
                   </div>
                 </div>
               <?php endif; ?>
@@ -6910,6 +7677,7 @@ img, video, iframe { max-width: 100% !important; }
           <aside class="chat-info-panel" id="chatInfoPanel">
             <?php if ($isGroupChatView && $selectedGroup): ?>
               <?php $isGroupOwner = ((string)($selectedGroup['my_role'] ?? '') === 'owner'); ?>
+              <div class="chat-info-cover" aria-hidden="true"></div>
               <div class="chat-info-head">
                 <button type="button" class="chat-info-close" id="chatInfoClose" aria-label="Close details">
                   <i class="fa fa-times"></i>
@@ -6927,19 +7695,40 @@ img, video, iframe { max-width: 100% !important; }
                   <i class="fa fa-angle-down" aria-hidden="true"></i>
                 </div>
                 <?php if ($isGroupOwner): ?>
-                  <form method="post" class="group-form-grid" style="margin-top:12px;">
-                    <input type="hidden" name="group_action" value="rename_group">
-                    <input type="hidden" name="group_id" value="<?php echo (int)($selectedGroup['id'] ?? 0); ?>">
-                    <input type="text" name="group_name" value="<?php echo h((string)($selectedGroup['name'] ?? '')); ?>" maxlength="150" required>
-                    <div class="group-form-actions">
-                      <button type="submit" class="btn btn-outline-primary btn-sm">Edit Group Name</button>
-                    </div>
-                  </form>
-                  <form method="post" onsubmit="return confirm('Delete this group?');" style="margin-top:12px;">
+                  <div style="margin-top:12px;">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="openGroupRenameDialog">Edit Group Name</button>
+                  </div>
+                  <dialog class="msg-delete-group-dialog msg-rename-group-dialog" id="renameGroupDialog" aria-labelledby="renameGroupDialogTitle">
+                    <button type="button" class="msg-delete-group-close" data-rename-group-cancel aria-label="Close"><i class="fa fa-times"></i></button>
+                    <div class="msg-delete-group-icon msg-rename-group-icon" aria-hidden="true"><i class="fa fa-pencil"></i></div>
+                    <h2 id="renameGroupDialogTitle">Edit group name</h2>
+                    <p>Choose a clear name that everyone in the group will recognize.</p>
+                    <form method="post" class="msg-rename-group-form" id="renameGroupForm">
+                      <input type="hidden" name="group_action" value="rename_group">
+                      <input type="hidden" name="group_id" value="<?php echo (int)($selectedGroup['id'] ?? 0); ?>">
+                      <label for="renameGroupName">Group name</label>
+                      <input id="renameGroupName" type="text" name="group_name" value="<?php echo h((string)($selectedGroup['name'] ?? '')); ?>" maxlength="150" autocomplete="off" required>
+                      <div class="msg-delete-group-actions">
+                        <button type="button" class="msg-delete-group-cancel" data-rename-group-cancel>Cancel</button>
+                        <button type="submit" class="msg-rename-group-confirm">Save changes</button>
+                      </div>
+                    </form>
+                  </dialog>
+                  <form method="post" id="deleteGroupForm" style="margin-top:12px;">
                     <input type="hidden" name="group_action" value="delete_group">
                     <input type="hidden" name="group_id" value="<?php echo (int)($selectedGroup['id'] ?? 0); ?>">
-                    <button type="submit" class="btn btn-danger btn-sm">Delete Group</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="openGroupDeleteDialog">Delete Group</button>
                   </form>
+                  <dialog class="msg-delete-group-dialog" id="deleteGroupDialog" aria-labelledby="deleteGroupDialogTitle">
+                    <button type="button" class="msg-delete-group-close" data-delete-group-cancel aria-label="Close"><i class="fa fa-times"></i></button>
+                    <div class="msg-delete-group-icon" aria-hidden="true"><i class="fa fa-trash"></i></div>
+                    <h2 id="deleteGroupDialogTitle">Delete group?</h2>
+                    <p>This permanently deletes <strong><?php echo h((string)($selectedGroup['name'] ?? 'this group')); ?></strong> and its conversation for everyone.</p>
+                    <div class="msg-delete-group-actions">
+                      <button type="button" class="msg-delete-group-cancel" data-delete-group-cancel>Keep group</button>
+                      <button type="button" class="msg-delete-group-confirm" id="confirmGroupDelete">Delete group</button>
+                    </div>
+                  </dialog>
                 <?php else: ?>
                   <div class="group-panel-copy" style="margin-top:12px;">Only the group owner can edit or delete this group.</div>
                 <?php endif; ?>
@@ -6951,11 +7740,19 @@ img, video, iframe { max-width: 100% !important; }
                   <i class="fa fa-angle-down" aria-hidden="true"></i>
                 </div>
                 <?php if ($isGroupOwner): ?>
-                  <form method="post" class="group-form-grid" style="margin-top:12px;">
-                    <input type="hidden" name="group_action" value="add_group_members">
-                    <input type="hidden" name="group_id" value="<?php echo (int)($selectedGroup['id'] ?? 0); ?>">
-                    <div class="group-member-picker">
-                      <?php if (!empty($groupAddableFriends)): ?>
+                  <?php if (!empty($groupAddableFriends)): ?>
+                    <div style="margin-top:12px;">
+                      <button type="button" class="btn btn-primary btn-sm" id="openAddPeersDialog"><i class="fa fa-user-plus"></i> Add Selected Peers</button>
+                    </div>
+                    <dialog class="msg-delete-group-dialog msg-add-peers-dialog" id="addPeersDialog" aria-labelledby="addPeersDialogTitle">
+                      <button type="button" class="msg-delete-group-close" data-add-peers-cancel aria-label="Close"><i class="fa fa-times"></i></button>
+                      <div class="msg-delete-group-icon msg-add-peers-icon" aria-hidden="true"><i class="fa fa-user-plus"></i></div>
+                      <h2 id="addPeersDialogTitle">Add peers</h2>
+                      <p>Select one or more people to add to <strong><?php echo h((string)($selectedGroup['name'] ?? 'this group')); ?></strong>.</p>
+                      <form method="post" class="msg-add-peers-form" id="addPeersForm">
+                        <input type="hidden" name="group_action" value="add_group_members">
+                        <input type="hidden" name="group_id" value="<?php echo (int)($selectedGroup['id'] ?? 0); ?>">
+                        <div class="group-member-picker">
                         <?php foreach ($groupAddableFriends as $friendOption): ?>
                           <label class="group-member-option">
                             <input type="checkbox" name="member_ids[]" value="<?php echo (int)($friendOption['id'] ?? 0); ?>">
@@ -6965,14 +7762,16 @@ img, video, iframe { max-width: 100% !important; }
                             </span>
                           </label>
                         <?php endforeach; ?>
-                      <?php else: ?>
-                        <div class="group-list-empty" style="margin:0;">No available peers to add.</div>
-                      <?php endif; ?>
-                    </div>
-                    <div class="group-form-actions">
-                      <button type="submit" class="btn btn-primary btn-sm">Add Selected Peers</button>
-                    </div>
-                  </form>
+                        </div>
+                        <div class="msg-delete-group-actions">
+                          <button type="button" class="msg-delete-group-cancel" data-add-peers-cancel>Cancel</button>
+                          <button type="submit" class="msg-add-peers-confirm" id="confirmAddPeers" disabled>Add selected</button>
+                        </div>
+                      </form>
+                    </dialog>
+                  <?php else: ?>
+                    <div class="group-list-empty" style="margin:12px 0 0;">No available peers to add.</div>
+                  <?php endif; ?>
                 <?php else: ?>
                   <div class="group-panel-copy" style="margin-top:12px;">Only the group owner can add peers.</div>
                 <?php endif; ?>
@@ -7000,37 +7799,86 @@ img, video, iframe { max-width: 100% !important; }
                       </span>
                       <?php if ($canModerateMember): ?>
                         <span class="group-member-row-actions">
-                          <form method="post" onsubmit="return confirm('Remove this peer from the group?');">
+                          <form method="post">
                             <input type="hidden" name="group_action" value="remove_group_member">
                             <input type="hidden" name="group_id" value="<?php echo (int)($selectedGroup['id'] ?? 0); ?>">
                             <input type="hidden" name="member_user_id" value="<?php echo $memberUserId; ?>">
-                            <button type="submit">Remove</button>
+                            <button type="button" data-member-action="remove" data-member-name="<?php echo h($memberName); ?>">Remove</button>
                           </form>
-                          <form method="post" onsubmit="return confirm('Block this peer from the group?');">
+                          <form method="post">
                             <input type="hidden" name="group_action" value="block_group_member">
                             <input type="hidden" name="group_id" value="<?php echo (int)($selectedGroup['id'] ?? 0); ?>">
                             <input type="hidden" name="member_user_id" value="<?php echo $memberUserId; ?>">
-                            <button type="submit" class="danger">Block</button>
+                            <button type="button" class="danger" data-member-action="block" data-member-name="<?php echo h($memberName); ?>">Block</button>
                           </form>
                         </span>
                       <?php endif; ?>
                     </div>
                   <?php endforeach; ?>
                 </div>
+                <dialog class="msg-delete-group-dialog msg-member-action-dialog" id="memberActionDialog" aria-labelledby="memberActionDialogTitle">
+                  <button type="button" class="msg-delete-group-close" data-member-action-cancel aria-label="Close"><i class="fa fa-times"></i></button>
+                  <div class="msg-delete-group-icon msg-member-action-icon" id="memberActionDialogIcon" aria-hidden="true"><i class="fa fa-user-times"></i></div>
+                  <h2 id="memberActionDialogTitle">Remove member?</h2>
+                  <p id="memberActionDialogText">This member will be removed from the group.</p>
+                  <div class="msg-delete-group-actions">
+                    <button type="button" class="msg-delete-group-cancel" data-member-action-cancel>Cancel</button>
+                    <button type="button" class="msg-member-action-confirm" id="confirmMemberAction">Remove member</button>
+                  </div>
+                </dialog>
               </div>
             <?php elseif ($peerRow): ?>
-              <div class="chat-info-head">
-                <button type="button" class="chat-info-close" id="chatInfoClose" aria-label="Close details">
-                  <i class="fa fa-times"></i>
-                </button>
+              <div class="chat-info-cover">
+                <div class="chat-info-head">
+                  <button type="button" class="chat-info-close" id="chatInfoClose" aria-label="Close details">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </div>
               </div>
               <div class="chat-info-avatar">
                 <img src="avatar.php?friend_code=<?php echo urlencode((string)$peerCode); ?>&name=<?php echo urlencode((string)$peerDisplay); ?>" alt="<?php echo h($peerDisplay); ?>">
               </div>
               <div class="chat-info-name"><?php echo h($peerDisplay); ?></div>
               <div class="chat-info-handle">@<?php echo h(strtolower(str_replace(' ', '_', $peerDisplay))); ?></div>
+              <div class="chat-info-status"><?php echo h(!empty($peerOnlineInfo['online']) ? 'Online now' : ($peerOnlineInfo['label'] ?? '')); ?></div>
+              <div class="chat-info-bio">Good vibes only ✨ Exploring the world, one day at a time.</div>
+              <div class="chat-info-actions">
+                <a class="chat-info-action" href="javascript:void(0)" id="infoBtnVoiceCall"><span class="icon"><i class="ion ion-ios-telephone"></i></span>Call</a>
+                <a class="chat-info-action" href="javascript:void(0)" id="infoBtnVideoCall"><span class="icon"><i class="ion ion-ios-videocam"></i></span>Video</a>
+                <a class="chat-info-action" href="add_contact.php"><span class="icon"><i class="fa fa-user-plus"></i></span>Add</a>
+                <a class="chat-info-action" href="javascript:void(0)" onclick="var s=document.getElementById('chatSearch'); if(s){s.focus();}"><span class="icon"><i class="fa fa-search"></i></span>Search</a>
+              </div>
+              <div class="chat-info-tabs" role="tablist">
+                <button type="button" class="chat-info-tab active" data-info-tab="media">Media</button>
+                <button type="button" class="chat-info-tab" data-info-tab="files">Files</button>
+                <button type="button" class="chat-info-tab" data-info-tab="links">Links</button>
+                <button type="button" class="chat-info-tab" data-info-tab="voice">Voice</button>
+              </div>
 
-              <div class="chat-info-section">
+              <div class="chat-info-section" data-info-panel="media">
+                <div class="chat-media-grid">
+                  <?php
+                    $mediaTiles = array_slice($attachmentItems ?? [], 0, 5);
+                    foreach ($mediaTiles as $mitem):
+                  ?>
+                    <a href="<?php echo h((string)($mitem['url'] ?? '#')); ?>" target="_blank" rel="noopener" title="<?php echo h((string)($mitem['name'] ?? 'File')); ?>">
+                      <i class="fa fa-file-o"></i>
+                    </a>
+                  <?php endforeach; ?>
+                  <?php for ($i = count($mediaTiles); $i < 5; $i++): ?>
+                    <div class="tile"><i class="fa fa-image"></i></div>
+                  <?php endfor; ?>
+                  <div class="tile">+<?php echo max(3, max(0, count($attachmentItems ?? []) - 5)); ?></div>
+                </div>
+              </div>
+
+              <div class="chat-settings-list">
+                <a class="chat-settings-row" href="javascript:void(0)"><span>Starred Messages</span><i class="fa fa-angle-right"></i></a>
+                <a class="chat-settings-row" href="javascript:void(0)"><span>Disappearing Messages</span><span class="meta">Off <i class="fa fa-angle-right"></i></span></a>
+                <a class="chat-settings-row is-danger" href="javascript:void(0)"><span>Block or Report</span><i class="fa fa-angle-down"></i></a>
+              </div>
+
+              <div class="chat-info-section" data-info-panel="files" style="display:none;">
                 <div class="chat-info-section-head">
                   <span>Attachments</span>
                   <i class="fa fa-angle-down" aria-hidden="true"></i>
@@ -7063,7 +7911,14 @@ img, video, iframe { max-width: 100% !important; }
                 <?php endif; ?>
               </div>
 
-              <div class="chat-info-section">
+              <div class="chat-info-section" data-info-panel="links" style="display:none;">
+                <div class="chat-file-meta" style="padding:8px 16px;">No shared links yet.</div>
+              </div>
+              <div class="chat-info-section" data-info-panel="voice" style="display:none;">
+                <div class="chat-file-meta" style="padding:8px 16px;">No voice messages yet.</div>
+              </div>
+
+              <div class="chat-info-section" data-info-panel="members" style="display:none;">
                 <div class="chat-info-section-head">
                   <span>Members</span>
                   <i class="fa fa-angle-down" aria-hidden="true"></i>
@@ -7089,9 +7944,9 @@ img, video, iframe { max-width: 100% !important; }
             <?php endif; ?>
           </aside>
           </div>
-          <?php if (!$peerRow && !$isGroupChatView): ?>
+          <!-- <?php if (!$peerRow && !$isGroupChatView): ?>
             <a href="compose.php" class="chat-empty-plus" aria-label="Start a new message" title="Start a new message"><i class="fa fa-plus"></i></a>
-          <?php endif; ?>
+          <?php endif; ?> -->
 
     </div>
   </div>
@@ -7373,6 +8228,19 @@ img, video, iframe { max-width: 100% !important; }
   <input type="hidden" name="group_message_id" value="">
   <input type="hidden" name="group_message_text" value="">
 </form>
+
+<?php
+if (!empty($messagesFragmentRequest)) {
+    $messagesShellFragment = (string)ob_get_clean();
+    while (isset($messagesFragmentBaseObLevel) && ob_get_level() > $messagesFragmentBaseObLevel) {
+        ob_end_clean();
+    }
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo $messagesShellFragment;
+    exit;
+}
+?>
 
 <script>
 (function(){
@@ -10381,7 +11249,95 @@ img, video, iframe { max-width: 100% !important; }
   const chatSearch = document.getElementById('chatSearch');
   const noChatsMatch = document.getElementById('noChatsMatch');
 
+  function setChatSearchOpen(open){
+    var wrap = document.getElementById('chatSearchWrap');
+    var btn = document.getElementById('messagesShellSearchBtn');
+    var input = document.getElementById('chatSearch');
+    if(!wrap) return;
+    if(open){
+      wrap.hidden = false;
+      wrap.classList.remove('is-collapsed');
+      if(btn){
+        btn.classList.add('is-active');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+      if(input){
+        setTimeout(function(){
+          try{ input.focus(); }catch(_e){}
+          try{ input.select(); }catch(_e){}
+        }, 20);
+      }
+    } else {
+      wrap.hidden = true;
+      wrap.classList.add('is-collapsed');
+      if(btn){
+        btn.classList.remove('is-active');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+      if(input && !(input.value || '').trim()){
+        /* keep filter results if user typed something */
+      }
+    }
+  }
+
+  document.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('#messagesShellSearchBtn') : null;
+    if(btn){
+      e.preventDefault();
+      var wrap = document.getElementById('chatSearchWrap');
+      var isOpen = wrap && !wrap.hidden && !wrap.classList.contains('is-collapsed');
+      setChatSearchOpen(!isOpen);
+      return;
+    }
+    var closeBtn = e.target && e.target.closest ? e.target.closest('#chatSearchCloseBtn') : null;
+    if(closeBtn){
+      e.preventDefault();
+      setChatSearchOpen(false);
+    }
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Escape') return;
+    var wrap = document.getElementById('chatSearchWrap');
+    if(!wrap || wrap.hidden) return;
+    setChatSearchOpen(false);
+  });
+
+  var shellSearchBtn = document.getElementById('messagesShellSearchBtn');
+  if(shellSearchBtn) shellSearchBtn.setAttribute('aria-expanded', 'false');
+  var chatSearchWrapInit = document.getElementById('chatSearchWrap');
+  if(chatSearchWrapInit){
+    chatSearchWrapInit.hidden = true;
+    chatSearchWrapInit.classList.add('is-collapsed');
+  }
+
   function items(){ return Array.from(document.querySelectorAll('a.chatItem')); }
+
+  /* Remove Groups/Requests leftovers from cached soft-swap markup. */
+  (function stripObsoleteInboxFilters(){
+    try{
+      document.querySelectorAll('.chat-filter-tab[data-filter="groups"], .chat-filter-tab[data-filter="requests"]').forEach(function(el){
+        if(el && el.parentNode) el.parentNode.removeChild(el);
+      });
+    }catch(_e){}
+  })();
+
+  let activeInboxFilter = 'all';
+
+  function syncInboxFilterChrome(){
+    const tabs = document.getElementById('chatFilterTabs');
+    if(!tabs) return;
+    tabs.querySelectorAll('.chat-filter-tab').forEach(function(el){
+      const f = el.getAttribute('data-filter') || '';
+      const on = (f === activeInboxFilter);
+      el.classList.toggle('active', on);
+      if(f === 'unread'){
+        el.classList.toggle('is-disabled', !!isGroupChatView);
+        if(isGroupChatView) el.setAttribute('disabled', 'disabled');
+        else el.removeAttribute('disabled');
+      }
+    });
+  }
 
   function applySearch(){
     const q = (chatSearch ? (chatSearch.value || '') : '').trim().toLowerCase();
@@ -10390,14 +11346,116 @@ img, video, iframe { max-width: 100% !important; }
       const name = (a.getAttribute('data-name') || '');
       const code = (a.getAttribute('data-code') || '');
       const last = (a.getAttribute('data-lastmsg') || '');
-      const ok = (q === '' || name.includes(q) || code.includes(q) || last.includes(q));
+      const unread = parseInt(a.getAttribute('data-unread') || '0', 10) || 0;
+      const matchesQuery = (q === '' || name.includes(q) || code.includes(q) || last.includes(q));
+      const matchesFilter = (activeInboxFilter !== 'unread') || unread > 0;
+      const ok = matchesQuery && matchesFilter;
       a.style.display = ok ? '' : 'none';
       if(ok) visible++;
     }
-    if(noChatsMatch) noChatsMatch.style.display = (q !== '' && visible === 0) ? '' : 'none';
+    if(noChatsMatch) noChatsMatch.style.display = ((q !== '' || activeInboxFilter === 'unread') && visible === 0) ? '' : 'none';
+  }
+
+  const filterTabs = document.getElementById('chatFilterTabs');
+  if(filterTabs){
+    filterTabs.addEventListener('pointerenter', function(e){
+      const tab = e.target.closest('[data-mode]');
+      if(!tab || !filterTabs.contains(tab)) return;
+      const mode = tab.getAttribute('data-mode') || '';
+      if((mode === 'private' || mode === 'group') && window.MSBMessagesMode && typeof window.MSBMessagesMode.prefetch === 'function'){
+        window.MSBMessagesMode.prefetch(mode);
+      }
+    }, true);
+
+    filterTabs.addEventListener('click', function(e){
+      const btn = e.target.closest('[data-filter]');
+      if(!btn || !filterTabs.contains(btn)) return;
+      if(e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+      const filter = btn.getAttribute('data-filter') || 'all';
+      if(filter === 'requests') return; // keep normal navigation
+
+      // All / Groups: same soft Private ↔ Group switch as shell tabs
+      if(filter === 'all' || filter === 'groups'){
+        const mode = btn.getAttribute('data-mode') || (filter === 'groups' ? 'group' : 'private');
+        const url = btn.getAttribute('data-url') || btn.getAttribute('href') || (mode === 'group' ? 'messages.php?chat_type=group' : 'messages.php');
+        const modeApi = window.MSBMessagesMode;
+        const current = modeApi && typeof modeApi.getCurrent === 'function' ? modeApi.getCurrent() : (isGroupChatView ? 'group' : 'private');
+        if(mode === current){
+          e.preventDefault();
+          activeInboxFilter = filter;
+          filterTabs.querySelectorAll('.chat-filter-tab').forEach(function(el){
+            el.classList.toggle('active', el === btn);
+          });
+          if(filter === 'all') applySearch();
+          return;
+        }
+        e.preventDefault();
+        if(modeApi && typeof modeApi.switchMode === 'function'){
+          modeApi.switchMode(mode, url);
+        } else {
+          window.location.href = url;
+        }
+        return;
+      }
+
+      // Unread stays a private-inbox filter
+      e.preventDefault();
+      if(isGroupChatView){
+        const allTab = document.querySelector('.chat-filter-tab[data-filter="all"]');
+        const privateTab = document.querySelector('.messages-shell-tab[data-mode="private"]');
+        const privateUrl = (allTab && (allTab.getAttribute('data-url') || allTab.getAttribute('href')))
+          || (privateTab && (privateTab.getAttribute('data-url') || privateTab.getAttribute('href')))
+          || 'messages.php';
+        if(window.MSBMessagesMode && typeof window.MSBMessagesMode.switchMode === 'function'){
+          window.MSBMessagesMode.switchMode('private', privateUrl);
+        } else {
+          window.location.href = privateUrl;
+        }
+        return;
+      }
+      activeInboxFilter = filter;
+      filterTabs.querySelectorAll('.chat-filter-tab').forEach(function(el){
+        el.classList.toggle('active', el === btn);
+      });
+      applySearch();
+    });
+  }
+
+  const infoVoice = document.getElementById('infoBtnVoiceCall');
+  const infoVideo = document.getElementById('infoBtnVideoCall');
+  if(infoVoice){
+    infoVoice.addEventListener('click', function(){
+      const t = document.getElementById('btnVoiceCall');
+      if(t) t.click();
+    });
+  }
+  if(infoVideo){
+    infoVideo.addEventListener('click', function(){
+      const t = document.getElementById('btnVideoCall');
+      if(t) t.click();
+    });
+  }
+
+  const infoTabs = document.querySelector('.chat-info-tabs');
+  if(infoTabs){
+    infoTabs.addEventListener('click', function(e){
+      const tab = e.target.closest('[data-info-tab]');
+      if(!tab) return;
+      e.preventDefault();
+      const key = tab.getAttribute('data-info-tab') || 'media';
+      infoTabs.querySelectorAll('.chat-info-tab').forEach(function(el){
+        el.classList.toggle('active', el === tab);
+      });
+      document.querySelectorAll('#chatInfoPanel [data-info-panel]').forEach(function(panel){
+        const match = panel.getAttribute('data-info-panel') === key;
+        panel.style.display = match ? '' : 'none';
+      });
+    });
   }
 
   if(chatSearch) chatSearch.addEventListener('input', applySearch);
+  syncInboxFilterChrome();
   applySearch();
 
   // ===== Send (AJAX to your existing endpoint) =====
@@ -10767,14 +11825,24 @@ img, video, iframe { max-width: 100% !important; }
         tab.setAttribute('href', url);
         tab.setAttribute('data-url', url);
       }
-      sessionStorage.removeItem('msb_msg_mode_html_private');
-      sessionStorage.removeItem('msb_msg_mode_url_private');
-    }catch(_e){}
-    if(window.MSBMessagesMode && typeof window.MSBMessagesMode.invalidate === 'function'){
-      window.MSBMessagesMode.invalidate('private');
-      if(typeof window.MSBMessagesMode.prefetch === 'function'){
-        window.MSBMessagesMode.prefetch('private');
+      var allTab = document.querySelector('.chat-filter-tab[data-filter="all"]');
+      if(allTab){
+        allTab.setAttribute('href', url);
+        allTab.setAttribute('data-url', url);
       }
+    }catch(_e){}
+    if(window.MSBMessagesMode){
+      try{
+        if(typeof window.MSBMessagesMode.rememberUrl === 'function'){
+          window.MSBMessagesMode.rememberUrl('private', window.MSBMessages.getPrivateUrl());
+        }
+        if(typeof window.MSBMessagesMode.invalidate === 'function'){
+          window.MSBMessagesMode.invalidate('private');
+        }
+        if(typeof window.MSBMessagesMode.prefetch === 'function'){
+          window.MSBMessagesMode.prefetch('private');
+        }
+      }catch(_e){}
     }
   };
 })();
@@ -10861,45 +11929,45 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script>
 (function(){
-  document.addEventListener('DOMContentLoaded', function(){
-    var openBtn = document.getElementById('openGroupCreateBtn');
-    var modal = document.getElementById('groupCreateModal');
-    var closeBtn = document.getElementById('closeGroupCreateBtn');
-    var chatBox = document.getElementById('chatBox');
-    var hasSelectedGroup = <?php echo ($isGroupChatView && $selectedGroup) ? 'true' : 'false'; ?>;
-
-    if(chatBox && hasSelectedGroup){
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    if(!openBtn || !modal) return;
-
-    function openModal(){
+  /* Delegated so Private↔Group soft-swap keeps Create Group working. */
+  document.addEventListener('click', function(e){
+    var openBtn = e.target && e.target.closest ? e.target.closest('#openGroupCreateBtn') : null;
+    if(openBtn){
+      var modal = document.getElementById('groupCreateModal');
+      if(!modal) return;
+      e.preventDefault();
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       var firstInput = modal.querySelector('input[name="group_name"]');
       if(firstInput) firstInput.focus();
+      return;
     }
-
-    function closeModal(){
+    var closeBtn = e.target && e.target.closest ? e.target.closest('#closeGroupCreateBtn') : null;
+    var modal = document.getElementById('groupCreateModal');
+    if(closeBtn && modal){
+      e.preventDefault();
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    if(modal && e.target === modal){
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
     }
-
-    openBtn.addEventListener('click', openModal);
-    if(closeBtn){
-      closeBtn.addEventListener('click', closeModal);
+  });
+  document.addEventListener('keydown', function(event){
+    var modal = document.getElementById('groupCreateModal');
+    if(event.key === 'Escape' && modal && modal.classList.contains('is-open')){
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
     }
-    modal.addEventListener('click', function(event){
-      if(event.target === modal){
-        closeModal();
-      }
-    });
-    document.addEventListener('keydown', function(event){
-      if(event.key === 'Escape' && modal.classList.contains('is-open')){
-        closeModal();
-      }
-    });
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    var chatBox = document.getElementById('chatBox');
+    var hasSelectedGroup = <?php echo ($isGroupChatView && $selectedGroup) ? 'true' : 'false'; ?>;
+    if(chatBox && hasSelectedGroup){
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
   });
 })();
 </script>
@@ -11054,7 +12122,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
   document.addEventListener('DOMContentLoaded', function(){
     restoreListScroll();
-    document.documentElement.classList.remove('msg-soft-nav');
+    // Keep paint lock until mode-cover drops / load settles (avoids bg flash on Private↔Group).
+    (function releaseSoftNavPaint(){
+      function unlock(){
+        try{
+          if(document.getElementById('msb-mode-cover')) return;
+          document.documentElement.classList.remove('msg-soft-nav');
+          setTimeout(function(){
+            var s = document.getElementById('msb-anti-flash');
+            if(s) s.remove();
+          }, 120);
+        }catch(_e){}
+      }
+      function afterPaint(fn){
+        if(typeof requestAnimationFrame === 'function') requestAnimationFrame(function(){ requestAnimationFrame(fn); });
+        else setTimeout(fn, 32);
+      }
+      window.addEventListener('load', function(){ afterPaint(function(){ setTimeout(unlock, 120); }); }, { once: true });
+      setTimeout(unlock, 1800);
+    })();
 
     var list = document.getElementById('chatList');
     if(!list) return;
@@ -11124,34 +12210,120 @@ document.addEventListener('DOMContentLoaded', function () {
   var memoryCache = Object.create(null);
   var inflight = Object.create(null);
   var busy = false;
+  var queuedMode = null;
+  var queuedUrl = null;
   var currentMode = <?php echo $isGroupChatView ? "'group'" : "'private'"; ?>;
+  var MODE_CACHE_VER = 'v19';
+  var LAST_URL_KEY = 'msb_msg_mode_' + MODE_CACHE_VER + '_last_url_';
+  try{
+    ['v16', 'v17', 'v18'].forEach(function(oldVer){
+      ['private', 'group'].forEach(function(mode){
+        sessionStorage.removeItem('msb_msg_mode_' + oldVer + '_html_' + mode);
+        sessionStorage.removeItem('msb_msg_mode_' + oldVer + '_url_' + mode);
+      });
+      sessionStorage.removeItem('msb_msg_mode_' + oldVer + '_last_url_');
+    });
+  }catch(_e){}
 
-  function defaultUrl(mode){
-    if(mode === 'group') return 'messages.php?chat_type=group';
-    try{
-      if(window.MSBMessages && typeof window.MSBMessages.getPrivateUrl === 'function'){
-        return window.MSBMessages.getPrivateUrl();
-      }
-    }catch(_e){}
-    var tab = document.querySelector('.messages-shell-tab[data-mode="private"]');
-    return (tab && (tab.getAttribute('data-url') || tab.getAttribute('href'))) || 'messages.php';
+  /* Track document/window listeners so Private↔Group soft-swap can reboot cleanly (home-style). */
+  if(!window.__msbMsgEvtHooked){
+    window.__msbMsgEvtHooked = true;
+    window.__msbMsgEvt = [];
+    function __msbTrack(proto){
+      var orig = proto.addEventListener;
+      proto.addEventListener = function(type, fn, opts){
+        try{
+          if(typeof fn === 'function'){
+            window.__msbMsgEvt.push({ target: this, type: type, fn: fn, opts: opts });
+          }
+        }catch(_e){}
+        return orig.call(this, type, fn, opts);
+      };
+    }
+    try{ __msbTrack(Document.prototype); }catch(_e){}
+    try{ __msbTrack(Window.prototype); }catch(_e){}
   }
 
-  function storageKey(mode){ return 'msb_msg_mode_html_' + mode; }
-  function storageUrlKey(mode){ return 'msb_msg_mode_url_' + mode; }
+  function normMode(mode){ return mode === 'group' ? 'group' : 'private'; }
 
-  function readStored(mode, url){
+  function readLastUrl(mode){
+    try{ return sessionStorage.getItem(LAST_URL_KEY + mode) || ''; }catch(_e){ return ''; }
+  }
+  function writeLastUrl(mode, url){
+    try{ if(url) sessionStorage.setItem(LAST_URL_KEY + mode, url); }catch(_e){}
+  }
+
+  function tabUrl(mode){
+    var tab = document.querySelector('.messages-shell-tab[data-mode="' + mode + '"]');
+    return (tab && (tab.getAttribute('data-url') || tab.getAttribute('href'))) || '';
+  }
+
+  function defaultUrl(mode){
+    mode = normMode(mode);
+    if(mode === 'group'){
+      return tabUrl('group') || readLastUrl('group') || 'messages.php?chat_type=group';
+    }
     try{
-      var storedUrl = sessionStorage.getItem(storageUrlKey(mode));
-      var html = sessionStorage.getItem(storageKey(mode));
-      if(html && storedUrl === url) return html;
+      if(window.MSBMessages && typeof window.MSBMessages.getPrivateUrl === 'function'){
+        var u = window.MSBMessages.getPrivateUrl();
+        if(u) return u;
+      }
     }catch(_e){}
-    return '';
+    return tabUrl('private') || readLastUrl('private') || 'messages.php';
+  }
+
+  function storageKey(mode){ return 'msb_msg_mode_' + MODE_CACHE_VER + '_html_' + mode; }
+  function storageUrlKey(mode){ return 'msb_msg_mode_' + MODE_CACHE_VER + '_url_' + mode; }
+
+  try{
+    ['private','group'].forEach(function(mode){
+      sessionStorage.removeItem('msb_msg_mode_html_' + mode);
+      sessionStorage.removeItem('msb_msg_mode_url_' + mode);
+      sessionStorage.removeItem('msb_msg_mode_v9_html_' + mode);
+      sessionStorage.removeItem('msb_msg_mode_v9_url_' + mode);
+      sessionStorage.removeItem('msb_msg_mode_v10_html_' + mode);
+      sessionStorage.removeItem('msb_msg_mode_v10_url_' + mode);
+      sessionStorage.removeItem('msb_msg_mode_v10_last_url_' + mode);
+    });
+  }catch(_e){}
+
+  function isFreshMessagesHtml(html, mode){
+    if(!html) return false;
+    if(html.indexOf('messages-shell') === -1) return false;
+    if(html.indexOf('customer-msg-ui') === -1) return false;
+    if(html.indexOf('Stay connected') === -1) return false;
+    if(html.indexOf('Search Messenger') !== -1) return false;
+    /* Drop cached shells that still include removed Groups/Requests filters. */
+    if(html.indexOf('data-filter="groups"') !== -1) return false;
+    if(html.indexOf('data-filter="requests"') !== -1) return false;
+    mode = mode || '';
+    if(mode === 'group'){
+      if(html.indexOf('data-msb-mode="group"') === -1 && html.indexOf('chat_type=group') === -1) return false;
+    }
+    if(mode === 'private'){
+      if(html.indexOf('messages-shell-tab') === -1) return false;
+      /* Fragment/group pages include Create Group Name — allow private only when mode attr says so or groups filter inactive. */
+      if(html.indexOf('data-msb-mode="group"') !== -1) return false;
+    }
+    return true;
+  }
+
+  function readStored(mode){
+    try{
+      var html = sessionStorage.getItem(storageKey(mode));
+      var storedUrl = sessionStorage.getItem(storageUrlKey(mode)) || '';
+      if(html && isFreshMessagesHtml(html, mode)) return { html: html, url: storedUrl };
+      if(html){
+        sessionStorage.removeItem(storageKey(mode));
+        sessionStorage.removeItem(storageUrlKey(mode));
+      }
+    }catch(_e){}
+    return null;
   }
 
   function writeStored(mode, url, html){
     try{
-      sessionStorage.setItem(storageUrlKey(mode), url);
+      sessionStorage.setItem(storageUrlKey(mode), url || '');
       sessionStorage.setItem(storageKey(mode), html);
     }catch(_e){
       try{
@@ -11162,23 +12334,27 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function getCached(mode, url){
+    mode = normMode(mode);
     var mem = memoryCache[mode];
-    if(mem && mem.url === url && mem.html) return mem.html;
-    var stored = readStored(mode, url);
-    if(stored){
-      memoryCache[mode] = { url: url, html: stored };
-      return stored;
+    if(mem && isFreshMessagesHtml(mem.html, mode)){
+      return mem.html;
     }
+    if(mem) delete memoryCache[mode];
+    /* Do not reuse shell HTML across browser loads. Group names and membership
+       are live data; a persisted snapshot is what made rows incomplete until
+       the next hard refresh. The per-page memory cache still keeps switching instant. */
     return '';
   }
 
   function setCached(mode, url, html){
-    if(!html || html.indexOf('messages-shell') === -1) return;
-    memoryCache[mode] = { url: url, html: html };
-    writeStored(mode, url, html);
+    mode = normMode(mode);
+    if(!isFreshMessagesHtml(html, mode)) return;
+    memoryCache[mode] = { url: url || '', html: html };
+    if(url) writeLastUrl(mode, url);
   }
 
   function invalidate(mode){
+    mode = normMode(mode);
     delete memoryCache[mode];
     delete inflight[mode];
     try{
@@ -11187,74 +12363,199 @@ document.addEventListener('DOMContentLoaded', function () {
     }catch(_e){}
   }
 
-  function isDarkTheme(){
-    var root = document.documentElement;
+  function setSwitching(on){
     try{
-      if(root.classList.contains('dark-auto')) return true;
-      if(root.getAttribute('data-theme') === 'dark') return true;
-      if(document.body && document.body.classList.contains('dark-auto')) return true;
+      var tabs = document.getElementById('messagesModeTabs');
+      if(tabs) tabs.classList.toggle('is-loading', !!on);
+      var shell = document.getElementById('messagesShell') || document.querySelector('.messages-shell');
+      if(shell) shell.classList.toggle('is-mode-switching', !!on);
     }catch(_e){}
-    return false;
   }
 
-  function lockPaintTheme(){
-    var root = document.documentElement;
-    var dark = isDarkTheme();
-    var bg = dark ? '#171d24' : '#f4f4f6';
+  function dropModeCover(){
     try{
-      var cs = getComputedStyle(root).backgroundColor;
-      if(cs && cs !== 'rgba(0, 0, 0, 0)' && cs !== 'transparent') bg = cs;
+      var c = document.getElementById('msb-mode-cover');
+      if(c) c.remove();
+      document.documentElement.classList.remove('msg-soft-nav', 'msg-mode-switching');
+      var tabs = document.getElementById('messagesModeTabs');
+      if(tabs) tabs.classList.remove('is-loading');
     }catch(_e){}
-    root.style.setProperty('--msb-nav-lock-bg', bg);
-    root.style.setProperty('--msb-nav-lock-scheme', dark ? 'dark' : 'light');
-    root.style.background = bg;
-    root.style.colorScheme = dark ? 'dark' : 'light';
-    root.classList.add('msg-soft-nav');
-    return { bg: bg, scheme: dark ? 'dark' : 'light' };
   }
 
-  function htmlAttrEscape(v){
-    return String(v || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  }
-
-  function writeWithAntiFlash(html, paint){
-    var root = document.documentElement;
-    var cls = (root.className || '').replace(/\s+/g, ' ').trim();
-    if(cls.indexOf('msg-soft-nav') === -1) cls = (cls + ' msg-soft-nav').trim();
-    var attrBits = [
-      'lang="' + htmlAttrEscape(root.getAttribute('lang') || 'en') + '"',
-      'class="' + htmlAttrEscape(cls) + '"',
-      'style="background:' + htmlAttrEscape(paint.bg) + ';color-scheme:' + paint.scheme + '"'
-    ];
-    ['data-theme', 'data-msb-appearance'].forEach(function(name){
-      var v = root.getAttribute(name);
-      if(v != null && v !== '') attrBits.push(name + '="' + htmlAttrEscape(v) + '"');
+  function syncOutsideShellNodes(nextDoc){
+    ['groupCreateModal', 'groupMessageActionForm'].forEach(function(id){
+      try{
+        var next = nextDoc.getElementById(id);
+        var cur = document.getElementById(id);
+        if(next && cur){
+          cur.replaceWith(document.importNode(next, true));
+        } else if(next && !cur){
+          document.body.appendChild(document.importNode(next, true));
+        } else if(!next && cur){
+          cur.remove();
+        }
+      }catch(_e){}
     });
-    var headMatch = html.match(/<head[^>]*>/i);
-    var rest = headMatch ? html.slice(html.indexOf(headMatch[0]) + headMatch[0].length) : null;
-    var boot =
-      '<!DOCTYPE html><html ' + attrBits.join(' ') + '><head>' +
-      '<meta charset="utf-8">' +
-      '<meta name="color-scheme" content="' + paint.scheme + '">' +
-      '<style id="msb-anti-flash">html,body,.sh-pagebody,.messages-shell{background:' +
-        paint.bg + ' !important;color-scheme:' + paint.scheme + ';}</style>';
-    document.open();
-    if(rest !== null){
-      document.write(boot);
-      document.write(rest);
-    } else {
-      document.write(html);
-    }
-    document.close();
   }
 
-  function prefetch(mode){
-    mode = mode === 'group' ? 'group' : 'private';
-    var url = defaultUrl(mode);
+  function installListenerTracker(){
+    if(window.__msbMsgEvtHooked) return;
+    window.__msbMsgEvtHooked = true;
+    window.__msbMsgEvt = [];
+    function track(proto){
+      var orig = proto.addEventListener;
+      proto.addEventListener = function(type, fn, opts){
+        try{
+          if(typeof fn === 'function'){
+            window.__msbMsgEvt.push({ target: this, type: type, fn: fn, opts: opts });
+          }
+        }catch(_e){}
+        return orig.call(this, type, fn, opts);
+      };
+    }
+    try{ track(Document.prototype); }catch(_e){}
+    try{ track(Window.prototype); }catch(_e){}
+  }
+
+  function purgeTrackedListeners(){
+    var list = window.__msbMsgEvt || [];
+    window.__msbMsgEvt = [];
+    list.forEach(function(e){
+      try{ e.target.removeEventListener(e.type, e.fn, e.opts); }catch(_e){}
+      try{ e.target.removeEventListener(e.type, e.fn, !!(e.opts && e.opts.capture)); }catch(_e){}
+      try{ e.target.removeEventListener(e.type, e.fn, true); }catch(_e){}
+      try{ e.target.removeEventListener(e.type, e.fn, false); }catch(_e){}
+    });
+  }
+
+  function rebootChatBoot(nextDoc){
+    installListenerTracker();
+    purgeTrackedListeners();
+    try{
+      document.querySelectorAll('script[data-msb-runtime="1"]').forEach(function(n){ n.remove(); });
+    }catch(_e){}
+    var scripts = Array.prototype.slice.call(nextDoc.querySelectorAll('script'));
+    var boot = null;
+    for(var i = 0; i < scripts.length; i++){
+      var t = scripts[i].textContent || '';
+      if(!t) continue;
+      if(t.indexOf('isGroupChatView') !== -1 && t.indexOf('selectedGroupId') !== -1){
+        boot = t;
+        break;
+      }
+    }
+    if(!boot) return;
+    var s = document.createElement('script');
+    s.setAttribute('data-msb-runtime', '1');
+    s.textContent = boot;
+    document.body.appendChild(s);
+  }
+
+  /* Exact home.php pattern: keep shell node painted, swap innerHTML only. No document.open, no page cover. */
+  function softSwapMessagesMode(html, paint, mode, url){
+    if(!window.DOMParser){
+      window.location.href = url;
+      return false;
+    }
+    var nextDoc;
+    try{
+      nextDoc = new DOMParser().parseFromString(html, 'text/html');
+    }catch(_e){
+      window.location.href = url;
+      return false;
+    }
+    var nextShell = nextDoc.querySelector('.messages-shell') || nextDoc.querySelector('#messagesShell');
+    var curShell = document.getElementById('messagesShell') || document.querySelector('.messages-shell');
+    if(!nextShell || !curShell){
+      window.location.href = url;
+      return false;
+    }
+
+    // Preserve shell background by mutating the same node (home does this with .ig-feed).
+    var prevBehavior = curShell.style.scrollBehavior;
+    curShell.style.scrollBehavior = 'auto';
+    curShell.className = nextShell.className || curShell.className;
+    curShell.setAttribute('data-msb-mode', mode);
+    var paintBg = (typeof MSG_BG === 'string' && MSG_BG) ? MSG_BG : <?php echo json_encode($msgPageBg); ?>;
+    try{
+      var liveBg = (getComputedStyle(document.documentElement).getPropertyValue('--msb-palette-bg') || '').trim();
+      if(/^#[0-9a-f]{3,8}$/i.test(liveBg)) paintBg = liveBg;
+    }catch(_e){}
+    curShell.style.background = paintBg;
+    curShell.style.backgroundColor = paintBg;
+    if(document.body){
+      document.body.style.background = paintBg;
+      document.body.style.backgroundColor = paintBg;
+    }
+    var pagebody = document.querySelector('.sh-pagebody');
+    if(pagebody){
+      pagebody.style.background = paintBg;
+      pagebody.style.backgroundColor = paintBg;
+    }
+    /* Swap children only — never unmount the shell (home.php .ig-feed pattern). */
+    curShell.innerHTML = nextShell.innerHTML;
+    curShell.style.scrollBehavior = prevBehavior;
+    /* Soft swaps retain the current page runtime. Re-assert group-row labels so
+       stale private-chat presentation state cannot hide or empty the name. */
+    try{
+      curShell.querySelectorAll('a.chatItem[data-group-name]').forEach(function(item){
+        var label = item.querySelector('.chatName');
+        var name = (item.getAttribute('data-group-name') || '').trim();
+        if(label && name){
+          label.textContent = name;
+          label.style.removeProperty('display');
+          label.style.removeProperty('visibility');
+          label.style.removeProperty('opacity');
+        }
+      });
+    }catch(_e){}
+    try{
+      curShell.querySelectorAll('.chat-filter-tab[data-filter="groups"], .chat-filter-tab[data-filter="requests"]').forEach(function(el){
+        el.parentNode && el.parentNode.removeChild(el);
+      });
+    }catch(_e){}
+
+    syncOutsideShellNodes(nextDoc);
+    if(nextDoc.title) document.title = nextDoc.title;
+
+    currentMode = mode;
+    markTabActive(mode);
+    syncTabUrls();
+    /* Do not reboot full chat scripts here — that reflows theme/paint and flashes.
+       Conversation clicks still navigate/soft-open with the correct mode URL. */
+    try{
+      window.__MSB_MSG_MODE = mode;
+      document.dispatchEvent(new CustomEvent('msb:messages-mode', { detail: { mode: mode, url: url } }));
+    }catch(_e){}
+
+    try{
+      var tabs = document.getElementById('messagesModeTabs');
+      if(tabs) tabs.__msbModeBound = false;
+    }catch(_e){}
+    bindTabs();
+    dropModeCover();
+    finishBusy();
+    return true;
+  }
+
+
+  function prefetch(mode, url){
+    mode = normMode(mode);
+    url = url || defaultUrl(mode);
     var existing = getCached(mode, url);
-    if(existing) return Promise.resolve(existing);
-    if(inflight[mode]) return inflight[mode];
-    inflight[mode] = fetch(url, {
+    if(existing){
+      writeLastUrl(mode, url);
+      return Promise.resolve(existing);
+    }
+    if(inflight[mode] && inflight[mode]._url === url) return inflight[mode];
+    var fetchUrl = url;
+    try{
+      var uu = new URL(url, window.location.href);
+      uu.searchParams.set('ajax_messages', '1');
+      fetchUrl = uu.pathname.replace(/^.*\//, '') + uu.search;
+      if(fetchUrl.indexOf('messages.php') === -1) fetchUrl = 'messages.php' + uu.search;
+    }catch(_e){}
+    var req = fetch(fetchUrl, {
       credentials: 'same-origin',
       cache: 'no-store',
       headers: { 'Accept': 'text/html', 'X-Requested-With': 'MSBMessagesMode' }
@@ -11267,54 +12568,104 @@ document.addEventListener('DOMContentLoaded', function () {
     }).catch(function(){
       return '';
     }).finally(function(){
-      delete inflight[mode];
+      if(inflight[mode] === req) delete inflight[mode];
     });
-    return inflight[mode];
+    req._url = url;
+    inflight[mode] = req;
+    return req;
   }
 
   function markTabActive(mode){
+    mode = normMode(mode);
+    // Only shell tabs before soft-write — mutating left filters here flashes wrong inbox state.
     document.querySelectorAll('.messages-shell-tab').forEach(function(tab){
       tab.classList.toggle('active', tab.getAttribute('data-mode') === mode);
     });
   }
 
+  function syncTabUrls(){
+    try{
+      var priv = defaultUrl('private');
+      var grp = defaultUrl('group');
+      var pTab = document.querySelector('.messages-shell-tab[data-mode="private"]');
+      var gTab = document.querySelector('.messages-shell-tab[data-mode="group"]');
+      if(pTab && priv){ pTab.setAttribute('href', priv); pTab.setAttribute('data-url', priv); }
+      if(gTab && grp){ gTab.setAttribute('href', grp); gTab.setAttribute('data-url', grp); }
+      var allTab = document.querySelector('.chat-filter-tab[data-filter="all"]');
+      var groupsTab = document.querySelector('.chat-filter-tab[data-filter="groups"]');
+      if(allTab && priv){ allTab.setAttribute('href', priv); allTab.setAttribute('data-url', priv); }
+      if(groupsTab && grp){ groupsTab.setAttribute('href', grp); groupsTab.setAttribute('data-url', grp); }
+    }catch(_e){}
+  }
+
+  function afterPaint(fn){
+    if(typeof requestAnimationFrame === 'function'){
+      requestAnimationFrame(function(){ requestAnimationFrame(fn); });
+    } else {
+      setTimeout(fn, 16);
+    }
+  }
+
+  function finishBusy(){
+    busy = false;
+    setSwitching(false);
+    if(queuedMode && queuedMode !== currentMode){
+      var m = queuedMode, u = queuedUrl;
+      queuedMode = null;
+      queuedUrl = null;
+      switchMode(m, u);
+    } else {
+      queuedMode = null;
+      queuedUrl = null;
+    }
+  }
+
   function switchMode(mode, url){
-    mode = mode === 'group' ? 'group' : 'private';
+    mode = normMode(mode);
     url = url || defaultUrl(mode);
-    if(mode === currentMode) return;
-    if(busy) return;
+    if(mode === currentMode){
+      markTabActive(mode);
+      return;
+    }
+    if(busy){
+      queuedMode = mode;
+      queuedUrl = url;
+      return;
+    }
     busy = true;
     markTabActive(mode);
-    var paint = lockPaintTheme();
+    setSwitching(true);
     var leaveMode = currentMode;
+    var leaveUrl = defaultUrl(leaveMode);
+    writeLastUrl(leaveMode, leaveUrl);
+    writeLastUrl(mode, url);
 
     var go = function(html){
-      if(!html || html.indexOf('messages-shell') === -1){
-        busy = false;
-        document.documentElement.classList.remove('msg-soft-nav');
-        try{ sessionStorage.setItem('msb_msg_paint_lock', paint.bg + '|' + paint.scheme); }catch(_e){}
+      if(!isFreshMessagesHtml(html, mode)){
+        finishBusy();
         window.location.href = url;
         return;
       }
-      setCached(mode, url, html);
-      try{ history.pushState({}, '', url); }catch(_e){}
-      writeWithAntiFlash(html, paint);
+      var mem = memoryCache[mode];
+      var finalUrl = (mem && mem.url) ? mem.url : url;
+      setCached(mode, finalUrl, html);
+      prefetch(leaveMode, leaveUrl);
+      try{ history.pushState({ msbMessagesMode: true }, '', finalUrl); }catch(_e){}
+      softSwapMessagesMode(html, null, mode, finalUrl);
     };
 
     var targetCached = getCached(mode, url);
     if(targetCached){
-      // Instant path: target already warm. Cache leave-page in background for return trip.
-      prefetch(leaveMode);
+      prefetch(leaveMode, leaveUrl);
       go(targetCached);
       return;
     }
 
-    // Target not ready yet — warm leave + target, then open.
-    Promise.all([prefetch(leaveMode), prefetch(mode)]).then(function(results){
-      go((results && results[1]) || getCached(mode, url) || '');
+    prefetch(leaveMode, leaveUrl);
+    prefetch(mode, url).then(function(html){
+      go(html || getCached(mode, url) || '');
     }).catch(function(){
-      busy = false;
-      document.documentElement.classList.remove('msg-soft-nav');
+      finishBusy();
       window.location.href = url;
     });
   }
@@ -11323,48 +12674,271 @@ document.addEventListener('DOMContentLoaded', function () {
     invalidate: invalidate,
     prefetch: prefetch,
     switchMode: switchMode,
-    getCurrent: function(){ return currentMode; }
+    getCurrent: function(){ return currentMode; },
+    rememberUrl: function(mode, url){
+      mode = normMode(mode);
+      if(url){
+        writeLastUrl(mode, url);
+        var tab = document.querySelector('.messages-shell-tab[data-mode="' + mode + '"]');
+        if(tab){ tab.setAttribute('href', url); tab.setAttribute('data-url', url); }
+      }
+    }
   };
 
-  // Start warming caches immediately (script is at end of body).
-  prefetch(currentMode);
-  prefetch(currentMode === 'group' ? 'private' : 'group');
+  // Remember current URL + warm both modes ASAP.
+  try{
+    var here = (location.pathname.split('/').pop() || 'messages.php') + (location.search || '');
+    if(here.indexOf('messages.php') === -1) here = defaultUrl(currentMode);
+    writeLastUrl(currentMode, here.indexOf('messages.php') === 0 ? here : defaultUrl(currentMode));
+  }catch(_e){}
+  syncTabUrls();
+  prefetch(currentMode, defaultUrl(currentMode));
+  prefetch(currentMode === 'group' ? 'private' : 'group', defaultUrl(currentMode === 'group' ? 'private' : 'group'));
+
+  function bindWarm(el){
+    if(!el || el.__msbModeWarmBound) return;
+    el.__msbModeWarmBound = true;
+    function warmFrom(e){
+      var node = e.target && e.target.closest ? e.target.closest('[data-mode]') : null;
+      if(!node || !el.contains(node)) return;
+      var mode = node.getAttribute('data-mode') || '';
+      if(mode === 'private' || mode === 'group'){
+        prefetch(mode, node.getAttribute('data-url') || node.getAttribute('href') || defaultUrl(mode));
+      }
+    }
+    el.addEventListener('pointerenter', warmFrom, true);
+    el.addEventListener('pointerdown', warmFrom, true);
+  }
 
   function bindTabs(){
     var tabs = document.getElementById('messagesModeTabs');
-    if(!tabs || tabs.__msbModeBound) return;
-    tabs.__msbModeBound = true;
-
-    tabs.addEventListener('pointerenter', function(e){
-      var tab = e.target && e.target.closest ? e.target.closest('a.messages-shell-tab') : null;
-      if(!tab || !tabs.contains(tab)) return;
-      var mode = tab.getAttribute('data-mode') || '';
-      if(mode === 'private' || mode === 'group') prefetch(mode);
-    }, true);
-
-    tabs.addEventListener('click', function(e){
-      var tab = e.target && e.target.closest ? e.target.closest('a.messages-shell-tab') : null;
-      if(!tab || !tabs.contains(tab)) return;
-      if(e.defaultPrevented) return;
-      if(e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      var mode = tab.getAttribute('data-mode') || '';
-      if(mode !== 'private' && mode !== 'group') return;
-      var url = tab.getAttribute('data-url') || tab.getAttribute('href') || defaultUrl(mode);
-      if(mode === currentMode){
+    if(tabs && !tabs.__msbModeBound){
+      tabs.__msbModeBound = true;
+      bindWarm(tabs);
+      tabs.addEventListener('click', function(e){
+        var tab = e.target && e.target.closest ? e.target.closest('a.messages-shell-tab') : null;
+        if(!tab || !tabs.contains(tab)) return;
+        if(e.defaultPrevented) return;
+        if(e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        var mode = tab.getAttribute('data-mode') || '';
+        if(mode !== 'private' && mode !== 'group') return;
+        var url = tab.getAttribute('data-url') || tab.getAttribute('href') || defaultUrl(mode);
         e.preventDefault();
-        markTabActive(mode);
-        return;
-      }
-      e.preventDefault();
-      switchMode(mode, url);
-    }, true);
+        switchMode(mode, url);
+      }, true);
+    }
+    bindWarm(document.getElementById('chatFilterTabs'));
   }
+
+  // Keep group tab URL in sync when opening a group thread (full navigation still works).
+  document.addEventListener('click', function(e){
+    var item = e.target && e.target.closest ? e.target.closest('a.chatItem') : null;
+    if(!item) return;
+    try{
+      var href = item.getAttribute('href') || '';
+      if(href.indexOf('chat_type=group') !== -1){
+        window.MSBMessagesMode.rememberUrl('group', href);
+        // Soft-open group threads when already in group mode would require more plumbing;
+        // remembering URL makes Private→Group restore the last group smoothly.
+      }
+    }catch(_e){}
+  }, true);
 
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', bindTabs);
   } else {
     bindTabs();
   }
+
+  // Idle re-warm opposite mode so return trips stay instant.
+  function rewarmOpposite(){
+    var other = currentMode === 'group' ? 'private' : 'group';
+    prefetch(other, defaultUrl(other));
+  }
+  if(typeof requestIdleCallback === 'function'){
+    requestIdleCallback(rewarmOpposite, { timeout: 1200 });
+  } else {
+    setTimeout(rewarmOpposite, 400);
+  }
+})();
+</script>
+
+<script>
+/* Fries-style group deletion confirmation (works after full load and soft chat switches). */
+(function(){
+  var pendingMemberForm = null;
+  function dialog(){ return document.getElementById('deleteGroupDialog'); }
+  function renameDialog(){ return document.getElementById('renameGroupDialog'); }
+  function addPeersDialog(){ return document.getElementById('addPeersDialog'); }
+  function memberActionDialog(){ return document.getElementById('memberActionDialog'); }
+  function closeDialog(){
+    var d = dialog();
+    if(!d) return;
+    try{ d.close(); }catch(_e){ d.removeAttribute('open'); }
+  }
+  function closeRenameDialog(){
+    var d = renameDialog();
+    if(!d) return;
+    try{ d.close(); }catch(_e){ d.removeAttribute('open'); }
+  }
+  function closeAddPeersDialog(){
+    var d = addPeersDialog();
+    if(!d) return;
+    try{ d.close(); }catch(_e){ d.removeAttribute('open'); }
+  }
+  function closeMemberActionDialog(){
+    var d = memberActionDialog();
+    if(!d) return;
+    try{ d.close(); }catch(_e){ d.removeAttribute('open'); }
+    pendingMemberForm = null;
+  }
+  function syncAddPeersButton(){
+    var form = document.getElementById('addPeersForm');
+    var btn = document.getElementById('confirmAddPeers');
+    if(!form || !btn) return;
+    btn.disabled = !form.querySelector('input[name="member_ids[]"]:checked');
+  }
+
+  document.addEventListener('click', function(e){
+    var memberAction = e.target && e.target.closest ? e.target.closest('[data-member-action]') : null;
+    if(memberAction){
+      e.preventDefault();
+      var md = memberActionDialog();
+      if(!md) return;
+      var action = memberAction.getAttribute('data-member-action') === 'block' ? 'block' : 'remove';
+      var name = (memberAction.getAttribute('data-member-name') || 'this member').trim();
+      pendingMemberForm = memberAction.closest('form');
+      md.classList.toggle('is-block-action', action === 'block');
+      var title = document.getElementById('memberActionDialogTitle');
+      var text = document.getElementById('memberActionDialogText');
+      var confirm = document.getElementById('confirmMemberAction');
+      var icon = document.getElementById('memberActionDialogIcon');
+      if(title) title.textContent = action === 'block' ? 'Block member?' : 'Remove member?';
+      if(text) text.textContent = action === 'block'
+        ? name + ' will be blocked and removed from this group.'
+        : name + ' will be removed from this group.';
+      if(confirm) confirm.textContent = action === 'block' ? 'Block member' : 'Remove member';
+      if(icon) icon.innerHTML = action === 'block' ? '<i class="fa fa-ban"></i>' : '<i class="fa fa-user-times"></i>';
+      try{ md.showModal(); }catch(_e){ md.setAttribute('open', 'open'); }
+      return;
+    }
+
+    if(e.target && e.target.closest && e.target.closest('[data-member-action-cancel]')){
+      e.preventDefault();
+      closeMemberActionDialog();
+      return;
+    }
+
+    if(e.target && e.target.closest && e.target.closest('#confirmMemberAction')){
+      e.preventDefault();
+      var memberForm = pendingMemberForm;
+      closeMemberActionDialog();
+      if(memberForm){
+        if(typeof memberForm.requestSubmit === 'function') memberForm.requestSubmit();
+        else memberForm.submit();
+      }
+      return;
+    }
+
+    var openPeers = e.target && e.target.closest ? e.target.closest('#openAddPeersDialog') : null;
+    if(openPeers){
+      e.preventDefault();
+      var ad = addPeersDialog();
+      if(!ad) return;
+      syncAddPeersButton();
+      try{ ad.showModal(); }catch(_e){ ad.setAttribute('open', 'open'); }
+      return;
+    }
+
+    if(e.target && e.target.closest && e.target.closest('[data-add-peers-cancel]')){
+      e.preventDefault();
+      closeAddPeersDialog();
+      return;
+    }
+
+    var openRename = e.target && e.target.closest ? e.target.closest('#openGroupRenameDialog') : null;
+    if(openRename){
+      e.preventDefault();
+      var rd = renameDialog();
+      if(!rd) return;
+      try{ rd.showModal(); }catch(_e){ rd.setAttribute('open', 'open'); }
+      requestAnimationFrame(function(){
+        var input = document.getElementById('renameGroupName');
+        if(input){ try{ input.focus(); input.select(); }catch(_e){} }
+      });
+      return;
+    }
+
+    if(e.target && e.target.closest && e.target.closest('[data-rename-group-cancel]')){
+      e.preventDefault();
+      closeRenameDialog();
+      return;
+    }
+
+    var open = e.target && e.target.closest ? e.target.closest('#openGroupDeleteDialog') : null;
+    if(open){
+      e.preventDefault();
+      var d = dialog();
+      if(!d) return;
+      try{ d.showModal(); }catch(_e){ d.setAttribute('open', 'open'); }
+      return;
+    }
+
+    if(e.target && e.target.closest && e.target.closest('[data-delete-group-cancel]')){
+      e.preventDefault();
+      closeDialog();
+      return;
+    }
+
+    if(e.target && e.target.closest && e.target.closest('#confirmGroupDelete')){
+      e.preventDefault();
+      var form = document.getElementById('deleteGroupForm');
+      closeDialog();
+      if(form){
+        if(typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      }
+    }
+  });
+
+  document.addEventListener('cancel', function(e){
+    if(e.target && e.target.id === 'memberActionDialog'){
+      e.preventDefault();
+      closeMemberActionDialog();
+      return;
+    }
+    if(e.target && e.target.id === 'addPeersDialog'){
+      e.preventDefault();
+      closeAddPeersDialog();
+      return;
+    }
+    if(e.target && e.target.id === 'renameGroupDialog'){
+      e.preventDefault();
+      closeRenameDialog();
+      return;
+    }
+    if(e.target && e.target.id === 'deleteGroupDialog'){
+      e.preventDefault();
+      closeDialog();
+    }
+  });
+
+  document.addEventListener('click', function(e){
+    var d = dialog();
+    if(d && e.target === d) closeDialog();
+    var rd = renameDialog();
+    if(rd && e.target === rd) closeRenameDialog();
+    var ad = addPeersDialog();
+    if(ad && e.target === ad) closeAddPeersDialog();
+    var md = memberActionDialog();
+    if(md && e.target === md) closeMemberActionDialog();
+  });
+
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.matches && e.target.matches('#addPeersForm input[name="member_ids[]"]')){
+      syncAddPeersButton();
+    }
+  });
 })();
 </script>
 

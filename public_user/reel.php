@@ -12,6 +12,9 @@ require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
 require_once __DIR__ . '/includes/msb_feed_engagement.php';
+require_once __DIR__ . '/includes/missing_media.php';
+require_once __DIR__ . '/includes/post_layout.php';
+require_once __DIR__ . '/includes/friend_system.php';
 requireUserLogin();
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -23,6 +26,130 @@ msb_feed_engagement_ensure_schema($dbh);
 $meId = (int)($_SESSION['user_id'] ?? 0);
 $q = trim((string)($_GET['q'] ?? ''));
 $reelViewerIsPublisher = $meId > 0 && publisher_workspace_viewer($dbh, $meId);
+
+function reel_boot_media_src(string $path): string
+{
+    $path = trim($path);
+    if ($path === '') {
+        return '';
+    }
+    $path = (string)preg_replace('#^(/+)?public_user/#', '', $path);
+    if (preg_match('~^(https?:)?//~i', $path) || str_starts_with($path, 'data:') || str_starts_with($path, 'blob:')) {
+        return $path;
+    }
+    if ($path[0] === '/') {
+        return preg_match('#^/uploads/#i', $path) ? ('.' . $path) : $path;
+    }
+    return './' . ltrim($path, './');
+}
+
+function reel_boot_media_kind(string $type, string $path): string
+{
+    $type = strtolower(trim($type));
+    if (preg_match('/\.(jpe?g|png|gif|webp|bmp|svg)(\?|#|$)/i', $path)) {
+        return $type === 'gif' ? 'gif' : 'image';
+    }
+    if (preg_match('/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i', $path)) {
+        return 'video';
+    }
+    return in_array($type, ['image', 'gif', 'video'], true) ? $type : '';
+}
+
+$openPostId = (int)($_GET['post'] ?? 0);
+$reelBootPost = null;
+if ($openPostId > 0) {
+    try {
+        $stBoot = $dbh->prepare("
+          SELECT p.id, p.user_id, COALESCE(p.title,'') AS title, COALESCE(p.body,'') AS body,
+                 COALESCE(p.description,'') AS description, p.created_at,
+                 COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
+                 COALESCE(p.sound_id,0) AS sound_id,
+                 COALESCE(p.visibility,'public') AS visibility,
+                 COALESCE(p.is_archived,0) AS is_archived,
+                 u.username, COALESCE(u.name, u.username) AS display_name,
+                 COALESCE(u.friend_code,'') AS friend_code
+          FROM public_posts p
+          JOIN users u ON u.id = p.user_id
+          WHERE p.id = :id AND COALESCE(p.is_deleted,0) = 0
+          LIMIT 1
+        ");
+        $stBoot->execute([':id' => $openPostId]);
+        $bootRow = $stBoot->fetch(PDO::FETCH_ASSOC) ?: null;
+        $authorId = (int)($bootRow['user_id'] ?? 0);
+        $vis = function_exists('post_visibility_normalize')
+            ? post_visibility_normalize((string)($bootRow['visibility'] ?? 'public'))
+            : strtolower(trim((string)($bootRow['visibility'] ?? 'public')));
+        $canView = is_array($bootRow);
+        if ($canView && (int)($bootRow['is_archived'] ?? 0) === 1 && $authorId !== $meId) {
+            $canView = false;
+        }
+        if ($canView && $vis === 'private' && $authorId !== $meId) {
+            $canView = false;
+        }
+        if ($canView && $vis === 'friends' && $authorId !== $meId && function_exists('fs_are_friends') && !fs_are_friends($dbh, $meId, $authorId)) {
+            $canView = false;
+        }
+        if ($canView && $authorId > 0 && $meId > 0 && function_exists('fs_block_either_way') && fs_block_either_way($dbh, $meId, $authorId)) {
+            $canView = false;
+        }
+        if ($canView && is_array($bootRow)) {
+            $stAtt = $dbh->prepare('SELECT type, file_path, thumb_path FROM public_post_attachments WHERE post_id = :pid ORDER BY id ASC');
+            $stAtt->execute([':pid' => $openPostId]);
+            $bootAtts = $stAtt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $media = null;
+            $photoCount = 0;
+            $mediaCount = 0;
+            $bootAttsNorm = [];
+            foreach ($bootAtts as $att) {
+                $file = trim((string)($att['file_path'] ?? ''));
+                $kind = reel_boot_media_kind((string)($att['type'] ?? ''), $file);
+                if ($kind === '') {
+                    continue;
+                }
+                $att['type'] = $kind;
+                $att['file_path'] = $file;
+                $bootAttsNorm[] = $att;
+                if ($kind === 'image' || $kind === 'gif') {
+                    $photoCount++;
+                }
+                $mediaCount++;
+                if ($media === null) {
+                    $media = $att;
+                }
+            }
+            $firstKind = $media ? reel_boot_media_kind((string)($media['type'] ?? ''), (string)($media['file_path'] ?? '')) : '';
+            if ($media && !($photoCount > 1 && $firstKind !== 'video')) {
+                $src = reel_boot_media_src((string)($media['file_path'] ?? ''));
+                $thumb = reel_boot_media_src(trim((string)($media['thumb_path'] ?? '')));
+                if ($src !== '') {
+                    $reelBootPost = [
+                        'id' => (int)$bootRow['id'],
+                        'user_id' => $authorId,
+                        'title' => (string)$bootRow['title'],
+                        'body' => (string)$bootRow['body'],
+                        'description' => (string)$bootRow['description'],
+                        'created_at' => (string)$bootRow['created_at'],
+                        'music_title' => (string)$bootRow['music_title'],
+                        'music_artist' => (string)$bootRow['music_artist'],
+                        'sound_id' => (int)$bootRow['sound_id'],
+                        'username' => (string)$bootRow['username'],
+                        'display_name' => (string)$bootRow['display_name'],
+                        'friend_code' => (string)$bootRow['friend_code'],
+                        'preview_path' => $src,
+                        'preview_type' => $firstKind,
+                        'preview_missing' => 0,
+                        'preview_thumb_path' => $thumb,
+                        'attachment_count' => $mediaCount,
+                        '_attachments' => $bootAttsNorm,
+                    ];
+                }
+            }
+        }
+    } catch (Throwable $eBoot) {
+        $reelBootPost = null;
+    }
+}
+
 $iconHeart = post_action_thin_icon('heart');
 $iconComment = post_action_thin_icon('comment');
 $iconShare = post_action_thin_icon('share');
@@ -30,7 +157,7 @@ $iconBookmark = post_action_thin_icon('bookmark');
 $iconFries = post_card_menu_fries_icon_html();
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -50,8 +177,8 @@ $iconFries = post_card_menu_fries_icon_html();
       --msb-love-color:#7c3aed;
       --post-media-radius:6px;
       --post-media-max:680px;
-      --post-phone-max:430px;
-      --post-portrait-max:520px;
+      --post-phone-max:500px;
+      --post-portrait-max:560px;
       --post-square-max:620px;
       --post-landscape-max:760px;
       --feed-center-w:800px;
@@ -162,9 +289,8 @@ $iconFries = post_card_menu_fries_icon_html();
       gap:16px;
       max-width:100%;
     }
-    /* Do not expose the black reel shell, author/menu, or action rail before
-       the browser has painted the first video frame. */
-    .reel-slide:not(.reel-media-ready) .reel-card-row{
+    /* Hide video cards until the first frame paints. Image reels stay visible. */
+    .reel-slide:not(.is-image-reel):not(.reel-media-ready):not(.mf-media-missing):not(:has(.msb-no-image)) .reel-card-row{
       visibility:hidden;
       opacity:0;
       pointer-events:none;
@@ -185,8 +311,8 @@ $iconFries = post_card_menu_fries_icon_html();
     .reel-image{
       display:block;
       width:100%;
-      height:100%;
-      max-height:none;
+      height:auto;
+      max-height:var(--reel-media-max-h, 78vh);
       object-fit:contain;
       object-position:center center;
       background:transparent;
@@ -518,6 +644,35 @@ $iconFries = post_card_menu_fries_icon_html();
     .reel-jump button:hover{background:rgba(255,255,255,.32);}
     .reel-jump i{font-size:22px;line-height:1;color:#fff !important;}
 
+    .reel-back{
+      position:fixed;
+      left:calc(var(--feedRailW, 84px) + 14px);
+      top:16px;
+      z-index:130;
+      width:42px;
+      height:42px;
+      border:0;
+      border-radius:50%;
+      padding:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(0,0,0,.45);
+      color:#fff !important;
+      cursor:pointer;
+      box-shadow:0 1px 6px rgba(0,0,0,.35);
+    }
+    .reel-back.is-on{display:inline-flex;}
+    .reel-back:hover{background:rgba(0,0,0,.58);}
+    .reel-back i,
+    .reel-back .icon{
+      font-size:22px;
+      line-height:1;
+      color:#fff !important;
+    }
+    @media (max-width:767.98px){
+      .reel-back{left:12px;top:12px;}
+    }
     .reel-loading{
       position:fixed;
       inset:0;
@@ -584,7 +739,7 @@ $iconFries = post_card_menu_fries_icon_html();
       .reel-card-row{width:100%;justify-content:center;gap:10px;}
       .reel-stage{max-width:100%;}
       .reel-stage.is-phone-shot{
-        width:min(72vw, var(--post-phone-max)) !important;
+        width:min(86vw, var(--post-phone-max)) !important;
         max-width:100%;
         max-height:var(--reel-media-max-h);
         aspect-ratio:var(--reel-ar-w, var(--device-ar-w, 375)) / var(--reel-ar-h, var(--device-ar-h, 667));
@@ -717,6 +872,9 @@ $iconFries = post_card_menu_fries_icon_html();
   $skipHeaderThemeBootstrap = true;
   include __DIR__ . '/includes/header.php';
 ?>
+  <button type="button" class="reel-back" id="reelBackExplore" aria-label="<?= h(function_exists('app_t') ? app_t('Back') : 'Back') ?>" title="<?= h(function_exists('app_t') ? app_t('Back') : 'Back') ?>">
+    <i class="icon ion-arrow-left-c" aria-hidden="true"></i>
+  </button>
   <div class="feed-side-search" aria-label="Search posts">
     <form class="feed-top-search-form feed-side-search-form" method="get" action="public.php">
       <div class="feed-top-search-field">
@@ -728,7 +886,7 @@ $iconFries = post_card_menu_fries_icon_html();
           name="q"
           class="feed-top-search-input"
           value="<?= h($q) ?>"
-          placeholder="Search"
+          placeholder="<?= h(function_exists('app_t') ? app_t('Search') : 'Search') ?>"
           autocomplete="off"
           enterkeyhint="search"
         >
@@ -972,19 +1130,40 @@ $iconFries = post_card_menu_fries_icon_html();
       transform:none !important;
       box-sizing:border-box !important;
       text-indent:0 !important;
+      max-width:100% !important;
+      max-height:var(--reel-media-max-h) !important;
+    }
+    body.reel-page .reel-card-main > .reel-stage:not(:has(> .msb-no-image)){
       overflow:hidden !important;
       border-radius:var(--post-media-radius) !important;
       max-width:100% !important;
       max-height:var(--reel-media-max-h) !important;
     }
-    body.reel-page .reel-card-main > .reel-stage > .reel-video,
-    body.reel-page .reel-card-main > .reel-stage > img,
-    body.reel-page .reel-card-main > .reel-stage > .reel-image{
-      display:block !important;
+    body.reel-page .reel-card-main > .reel-stage:has(> .msb-no-image){
+      background:transparent !important;
+      box-shadow:none !important;
+      overflow:visible !important;
+      border-radius:0 !important;
+    }
+    body.reel-page .reel-card-main > .reel-stage > .msb-no-image{
+      display:flex !important;
       width:100% !important;
       height:100% !important;
+      min-height:240px !important;
+      border-radius:6px !important;
+      overflow:hidden !important;
+      background:#fff !important;
+      clip-path:inset(0 round 6px) !important;
+      -webkit-clip-path:inset(0 round 6px) !important;
+    }
+    body.reel-page .reel-card-main > .reel-stage:not(:has(> .msb-no-image)) > .reel-video,
+    body.reel-page .reel-card-main > .reel-stage:not(:has(> .msb-no-image)) > img,
+    body.reel-page .reel-card-main > .reel-stage:not(:has(> .msb-no-image)) > .reel-image{
+      display:block !important;
+      width:100% !important;
+      height:auto !important;
       max-width:100% !important;
-      max-height:none !important;
+      max-height:var(--reel-media-max-h) !important;
       margin-left:0 !important;
       margin-right:0 !important;
       object-fit:contain !important;
@@ -1079,6 +1258,23 @@ $iconFries = post_card_menu_fries_icon_html();
     var ME = <?= (int)$meId ?>;
     window.ME_ID = ME;
     var viewerIsPublisher = <?= !empty($reelViewerIsPublisher) ? 'true' : 'false' ?>;
+    var bootPost = <?= json_encode($reelBootPost, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    var fromExplore = false;
+    var fromDiscover = false;
+    try{
+      var fromParam = String((new URL(window.location.href)).searchParams.get('from') || '').toLowerCase();
+      fromExplore = fromParam === 'explore';
+      fromDiscover = fromParam === 'discover' || fromParam === 'public';
+      if(!fromExplore && !fromDiscover){
+        try{ fromExplore = !!sessionStorage.getItem('msbExploreResume'); }catch(eEx){}
+        if(!fromExplore){
+          try{
+            var homeResume = JSON.parse(sessionStorage.getItem('msbResumePostHome') || 'null');
+            fromDiscover = !!(homeResume && Number(homeResume.postId || 0) > 0);
+          }catch(eHome){}
+        }
+      }
+    }catch(eFrom){ fromExplore = false; fromDiscover = false; }
     var ICON = {
       heart: <?= json_encode($iconHeart, JSON_UNESCAPED_SLASHES) ?>,
       comment: <?= json_encode($iconComment, JSON_UNESCAPED_SLASHES) ?>,
@@ -1093,6 +1289,7 @@ $iconFries = post_card_menu_fries_icon_html();
     var scroller = document.getElementById('reelScroller');
     var track = document.getElementById('reelTrack');
     var loadingEl = document.getElementById('reelLoading');
+    var backExploreBtn = document.getElementById('reelBackExplore');
     var slideEls = [];
     var animating = false;
     var wheelLockUntil = 0;
@@ -1104,10 +1301,73 @@ $iconFries = post_card_menu_fries_icon_html();
     }catch(e){}
     try{ window.scrollTo(0, 0); }catch(e){}
 
+    function goBackToExplore(){
+      try{
+        var ref = String(document.referrer || '');
+        if(ref && /explore\.php(\?|$)/i.test(ref) && window.history.length > 1){
+          window.history.back();
+          return;
+        }
+      }catch(eRef){}
+      window.location.href = 'explore.php';
+    }
+    function goBackToDiscover(){
+      if(window.MSBResumePost && typeof window.MSBResumePost.goBack === 'function'){
+        window.MSBResumePost.goBack('home.php?tab=discover');
+        return;
+      }
+      try{
+        var ref = String(document.referrer || '');
+        if(ref && /(public\.php|home\.php)(\?|$)/i.test(ref) && window.history.length > 1){
+          window.history.back();
+          return;
+        }
+      }catch(eRef2){}
+      window.location.href = 'home.php?tab=discover';
+    }
+    if(backExploreBtn){
+      if(fromExplore || fromDiscover) backExploreBtn.classList.add('is-on');
+      if(fromExplore){
+        backExploreBtn.setAttribute('aria-label', 'Back to Explore');
+        backExploreBtn.setAttribute('title', 'Back to Explore');
+      } else if(fromDiscover){
+        backExploreBtn.setAttribute('aria-label', 'Back to Discover');
+        backExploreBtn.setAttribute('title', 'Back to Discover');
+      }
+      backExploreBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(fromExplore) goBackToExplore();
+        else goBackToDiscover();
+      });
+    }
     function esc(s){
       return String(s == null ? '' : s)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;');
+    }
+    function reelMediaSrc(path){
+      path = String(path || '').trim();
+      if(!path) return '';
+      path = path.replace(/^(?:\/+)?public_user\//i, '');
+      if(/^(https?:)?\/\//i.test(path) || /^data:/i.test(path) || /^blob:/i.test(path)) return path;
+      path = path.replace(/ /g, '%20');
+      if(path.charAt(0) === '/'){
+        if(/^\/uploads\//i.test(path)) return '.' + path;
+        return path;
+      }
+      return './' + path.replace(/^\.\//, '');
+    }
+    function reelAbsSrc(path){
+      var rel = reelMediaSrc(path);
+      if(!rel) return '';
+      try{ return new URL(rel, window.location.href).href; }catch(e){ return rel; }
+    }
+    function reelPreviewIsImage(it, src){
+      src = String(src || (it && it.preview_path) || '');
+      if(/\.(jpe?g|png|gif|webp|bmp|svg)(\?|#|$)/i.test(src)) return true;
+      var kind = String((it && it.preview_type) || '').toLowerCase();
+      return kind === 'image' || kind === 'gif';
     }
     function fmtCount(n){
       n = Number(n || 0);
@@ -1119,10 +1379,18 @@ $iconFries = post_card_menu_fries_icon_html();
       if(!it) return false;
       var path = String(it.preview_path || '').trim().replace(/^public_user\//, '');
       if(path === '') return false;
+      if(/\.(jpe?g|png|gif|webp|bmp|svg)(\?|#|$)/i.test(path)) return false;
       var kind = String(it.preview_type || '').toLowerCase();
       if(kind === 'image' || kind === 'gif' || kind === 'file') return false;
       if(kind === 'video') return true;
-      return /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(path);
+      return /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(path);
+    }
+    function isSlideshowPhotoPost(it){
+      if(!it) return false;
+      if(Number(it.is_story || 0) === 1) return false;
+      var kind = String(it.preview_type || '').toLowerCase();
+      if(kind === 'video') return false;
+      return Number(it.attachment_count || it.media_count || 0) > 1;
     }
     function avatarUrl(it){
       var uid = Number((it && it.user_id) || 0);
@@ -1172,6 +1440,38 @@ $iconFries = post_card_menu_fries_icon_html();
     function captionText(it){
       return captionPlain(it).replace(/\s+/g, ' ').trim();
     }
+    function reelNoImageHtml(){
+      return '';
+    }
+    function reelAttIsMissing(a){
+      if(!a) return false;
+      return Number(a.missing || a.file_missing || 0) === 1;
+    }
+    function reelPreviewMissing(it){
+      return !!(it && Number(it.preview_missing || 0) === 1);
+    }
+    function clearReelNoImage(slide){
+      if(!slide) return;
+      var stage = slide.querySelector('.reel-stage');
+      if(stage){
+        var ph = stage.querySelector('.msb-no-image');
+        if(ph && ph.parentNode) ph.parentNode.removeChild(ph);
+      }
+      slide.classList.remove('mf-media-missing');
+    }
+    function dropBrokenReelSlide(slide){
+      if(!slide) return;
+      var at = Number(slide.getAttribute('data-index'));
+      if(!isFinite(at) || at < 0){
+        at = slideEls.indexOf(slide);
+      }
+      if(at < 0) return;
+      removeBrokenSlide(at);
+    }
+    function showReelNoImage(slide, it){
+      // Clips never shows "No Image" / unavailable plates — drop the broken item.
+      dropBrokenReelSlide(slide);
+    }
     function formatPostDate(it){
       var raw = String((it && (it.updated_at || it.created_at || it.created_at_label || it.time_ago)) || '').trim();
       if(!raw) return '';
@@ -1201,7 +1501,7 @@ $iconFries = post_card_menu_fries_icon_html();
       if(title && artist) return title + ' · ' + artist;
       if(title) return title;
       if(artist) return artist;
-      if(name) return name + ' · Original audio';
+      if(name) return name + ' · ' + ((typeof window.msbT === 'function') ? window.msbT('Original audio') : 'Original audio');
       return '';
     }
     function parseDeviceAspect(style){
@@ -1222,7 +1522,7 @@ $iconFries = post_card_menu_fries_icon_html();
       var right = isMobile ? 58 : 88;
       var actions = 72;
       var available = vw - left - right - actions;
-      var maxCardWidth = isMobile ? 430 : 800;
+      var maxCardWidth = isMobile ? 500 : 800;
       return Math.max(280, Math.min(maxCardWidth, available));
     }
     function applyPublicVideoCardWidth(stageEl, aspectW, aspectH, phoneShot){
@@ -1232,14 +1532,17 @@ $iconFries = post_card_menu_fries_icon_html();
       if(!aspectW || !aspectH) return;
       var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
       var viewportH = Math.max(window.innerHeight || 0, 320);
-      var maxVideoH = isMobile
-        ? Math.max(viewportH - 220, 260)
-        : Math.min(Math.round(viewportH * 0.62), 720);
       var aspect = aspectW / aspectH;
       if(aspect >= 0.85) phoneShot = false;
+      var isTall = phoneShot || aspect < 0.8;
+      var maxVideoH = isMobile
+        ? Math.max(viewportH - 180, 300)
+        : (isTall
+            ? Math.min(Math.round(viewportH * 0.78), 860)
+            : Math.min(Math.round(viewportH * 0.62), 720));
       var availableWidth = Math.max(240, reelFeedWidth());
-      var maxByShape = aspect < 0.8 ? 430 : (aspect > 1.15 ? 760 : 560);
-      if(phoneShot && isMobile) maxByShape = 430;
+      var maxByShape = aspect < 0.8 ? 500 : (aspect > 1.15 ? 760 : 560);
+      if(phoneShot) maxByShape = 500;
       var safeWidth = Math.max(240, Math.min(Math.round(aspect * maxVideoH), availableWidth, maxByShape));
       var safeHeight = Math.round(safeWidth / aspect);
       if(safeHeight > maxVideoH){
@@ -1527,7 +1830,7 @@ $iconFries = post_card_menu_fries_icon_html();
           ' data-avatar="'+esc(nameInitial)+'"'+
           ' data-avatar-url="'+esc(avatarUrl(it))+'"'+
           ' data-body="'+esc(fullCap)+'"'+
-          '>See more</a>';
+          '">'+((typeof window.msbT === 'function') ? window.msbT('See more') : 'See more')+'</a>';
       } else {
         capEl.innerHTML = cap.short ? esc(cap.short) : '';
       }
@@ -1562,8 +1865,13 @@ $iconFries = post_card_menu_fries_icon_html();
     function applyReelMediaAttachment(slide, it, att){
       var stage = slide.querySelector('.reel-stage');
       if(!stage || !att) return;
-      var src = String(att.file_path || '').trim().replace(/^public_user\//, '');
+      var src = reelAbsSrc(att.file_path || att.url || '');
       var kind = String(att.type || '').toLowerCase();
+      if(!src){
+        showReelNoImage(slide, it);
+        return;
+      }
+      clearReelNoImage(slide);
       var video = stage.querySelector('video.reel-video');
       var img = stage.querySelector('img.reel-image');
       if(kind === 'image' || kind === 'gif' || /\.(jpe?g|png|gif|webp|bmp)(\?|$)/i.test(src)){
@@ -1580,9 +1888,18 @@ $iconFries = post_card_menu_fries_icon_html();
           stage.insertBefore(img, stage.firstChild);
         }
         img.style.display = 'block';
-        img.onload = function(){ syncSlideSize(slide, it); };
+        img.onload = function(){
+          slide.classList.add('reel-media-ready');
+          syncSlideSize(slide, it);
+        };
+        img.onerror = function(){ showReelNoImage(slide, it); };
         img.src = src;
-        if(img.complete && img.naturalWidth) syncSlideSize(slide, it);
+        if(img.complete && img.naturalWidth){
+          slide.classList.add('reel-media-ready');
+          syncSlideSize(slide, it);
+        }
+        var muteImg = slide.querySelector('.reel-mute');
+        if(muteImg) muteImg.hidden = true;
       } else {
         if(img) img.style.display = 'none';
         if(!video){
@@ -1592,9 +1909,12 @@ $iconFries = post_card_menu_fries_icon_html();
           video.setAttribute('loop','');
           video.muted = true;
           video.preload = 'metadata';
+          video.addEventListener('error', function(){ showReelNoImage(slide, it); }, { once:true });
           stage.insertBefore(video, stage.firstChild);
         }
         video.style.display = '';
+        var muteVid = slide.querySelector('.reel-mute');
+        if(muteVid) muteVid.hidden = false;
         if(video.getAttribute('src') !== src){
           video.setAttribute('src', src);
           video.load();
@@ -1634,7 +1954,7 @@ $iconFries = post_card_menu_fries_icon_html();
     }
 
         function buildSlide(it, i){
-      var src = String(it.preview_path || '').trim().replace(/^public_user\//, '');
+      var src = reelAbsSrc(it.preview_path || '');
       var href = profileUrl(it);
       var name = String(it.display_name || it.username || 'User');
       var fullCap = captionPlain(it);
@@ -1653,7 +1973,7 @@ $iconFries = post_card_menu_fries_icon_html();
           ' data-avatar="'+esc(nameInitial)+'"'+
           ' data-avatar-url="'+esc(avatarUrl(it))+'"'+
           ' data-body="'+esc(fullCap)+'"'+
-          '>See more</a>';
+          '">'+((typeof window.msbT === 'function') ? window.msbT('See more') : 'See more')+'</a>';
       } else if(cap.short){
         capHtml = esc(cap.short);
       }
@@ -1682,14 +2002,23 @@ $iconFries = post_card_menu_fries_icon_html();
       it._slideIndex = 0;
       var multiCount = Number(it.attachment_count || it.media_count || 0);
       if (multiCount > 1) slide.classList.add('has-slides');
+      var previewMissing = !src;
+      var previewIsImage = reelPreviewIsImage(it, src);
+      if(previewMissing){
+        return null;
+      }
+      if(previewIsImage) slide.classList.add('is-image-reel');
+      var stageMediaHtml = previewIsImage
+            ? '<img class="reel-image" alt="" src="'+esc(src)+'" decoding="async">'
+            : '<video class="reel-video" playsinline loop muted preload="none"></video>';
       slide.innerHTML =
         '<div class="reel-card-row">'+
           '<div class="reel-card-main">'+
             '<div class="reel-outside-head">'+
               '<div class="reel-top">'+
                 '<div class="reel-author">'+
-                  '<a class="reel-avatar" href="'+esc(href)+'" aria-label="Open profile"><img src="'+esc(avatarUrl(it))+'" alt=""></a>'+
-                  '<a class="reel-author-name" href="'+esc(href)+'">'+esc(name)+'</a>'+
+                  '<a class="reel-avatar" href="'+esc(href)+'" target="_top" rel="noopener" aria-label="Open profile"><img src="'+esc(avatarUrl(it))+'" alt=""></a>'+
+                  '<a class="reel-author-name" href="'+esc(href)+'" target="_top" rel="noopener">'+esc(name)+'</a>'+
                   '<button type="button" class="reel-follow" hidden>Follow</button>'+
                 '</div>'+
                 '<div'+musicAttrs+'><i class="fa fa-music" aria-hidden="true"></i><span class="reel-music-text">'+esc(music)+'</span></div>'+
@@ -1704,11 +2033,11 @@ $iconFries = post_card_menu_fries_icon_html();
             '<div class="reel-caption">'+capHtml+'</div>'+
             productsHtml+
             '<div class="reel-stage" data-post-id="'+esc(String(it.id || 0))+'" data-slide-index="0">'+
-              '<video class="reel-video" playsinline loop muted preload="none" src="'+esc(src)+'"></video>'+
+              stageMediaHtml+
               '<button type="button" class="reel-slide-nav prev js-reel-slide-prev" aria-label="Previous slide"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>'+
               '<button type="button" class="reel-slide-nav next js-reel-slide-next" aria-label="Next slide"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>'+
               '<div class="reel-slide-dots" aria-hidden="true"></div>'+
-              '<button type="button" class="reel-mute" aria-label="Unmute"><i class="fa fa-volume-off" aria-hidden="true"></i></button>'+
+              '<button type="button" class="reel-mute"'+(previewIsImage ? ' hidden' : '')+' aria-label="Unmute"><i class="fa fa-volume-off" aria-hidden="true"></i></button>'+
               '<div class="reel-bottom-fade" aria-hidden="true"></div>'+
               '<div class="reel-progress" aria-hidden="true"><span></span></div>'+
             '</div>'+
@@ -1721,14 +2050,56 @@ $iconFries = post_card_menu_fries_icon_html();
           '</div>'+
         '</div>';
 
-      var video = slide.querySelector('video');
-      video.muted = globalMuted;
-      // Only the active reel should load — bulk preload was erroring later slides
-      // and removeBrokenSlide(i) jumped the viewer to those indices after ~1s.
-      video.preload = 'none';
       syncMuteBtn(slide, globalMuted);
       syncSlideActions(slide, it);
       syncSlideMenu(slide, it);
+      var img = slide.querySelector('img.reel-image');
+      if(previewIsImage && img){
+        function revealImageReel(){
+          if(slide.classList.contains('mf-media-missing')) return;
+          slide.classList.add('reel-media-ready');
+          syncSlideSize(slide, it);
+        }
+        img.addEventListener('load', revealImageReel);
+        img.addEventListener('error', function(){
+          var retries = Number(img.dataset.reelImgRetries || 0);
+          if(retries < 1){
+            img.dataset.reelImgRetries = '1';
+            var thumb = reelAbsSrc(it.preview_thumb_path || '');
+            var retrySrc = thumb && thumb !== src ? thumb : src;
+            img.removeAttribute('src');
+            img.src = retrySrc + (retrySrc.indexOf('?') >= 0 ? '&' : '?') + 'r=' + Date.now();
+            return;
+          }
+          // Keep the card if the browser already decoded pixels.
+          if(img.naturalWidth > 0){
+            revealImageReel();
+            return;
+          }
+          showReelNoImage(slide, it);
+        });
+        if(!img.getAttribute('src')) img.src = src;
+        if(img.complete && img.naturalWidth > 0){
+          revealImageReel();
+        } else if(typeof img.decode === 'function'){
+          img.decode().then(revealImageReel).catch(function(){});
+        }
+        window.setTimeout(function(){
+          if(slide.classList.contains('reel-media-ready') || slide.classList.contains('mf-media-missing')) return;
+          revealImageReel();
+        }, 400);
+        return slide;
+      }
+      var video = slide.querySelector('video.reel-video');
+      if(!video){
+        showReelNoImage(slide, it);
+        return slide;
+      }
+      video.muted = globalMuted;
+      video.setAttribute('src', src);
+      // Only the active reel should load — bulk preload was erroring later slides
+      // and removeBrokenSlide(i) jumped the viewer to those indices after ~1s.
+      video.preload = 'none';
       syncSlideSize(slide, it);
 
       function revealPaintedReel(){
@@ -1753,9 +2124,7 @@ $iconFries = post_card_menu_fries_icon_html();
       if(video.readyState >= 2) revealPaintedReel();
       window.setTimeout(function(){ revealPaintedReel(); }, 1800);
       video.addEventListener('error', function(){
-        var at = slideEls.indexOf(slide);
-        if(at < 0) at = Number(slide.getAttribute('data-index') || -1);
-        removeBrokenSlide(at);
+        showReelNoImage(slide, it);
       });
       video.addEventListener('timeupdate', function(){
         if(!video.duration) return;
@@ -1832,9 +2201,9 @@ $iconFries = post_card_menu_fries_icon_html();
     }
 
     function warmVideo(slide){
-      if(!slide) return null;
+      if(!slide || slide.classList.contains('mf-media-missing')) return null;
       var video = slide.querySelector('video');
-      if(!video) return null;
+      if(!video || !video.getAttribute('src') || video.style.display === 'none') return null;
       try{
         if(video.preload !== 'metadata' && video.preload !== 'auto'){
           video.preload = 'metadata';
@@ -1862,7 +2231,7 @@ $iconFries = post_card_menu_fries_icon_html();
       var slide = slideEls[index];
       if(!slide) return;
       var it = items[index];
-      if(it && Number(it.attachment_count || it.media_count || 0) > 1){
+      if(it && Number(it.attachment_count || it.media_count || 0) > 1 && !reelPreviewIsImage(it)){
         setReelSlideIndex(slide, it, it._slideIndex || 0);
       }
       // Warm current ±1 only — avoids mass video errors on distant slides.
@@ -1881,6 +2250,26 @@ $iconFries = post_card_menu_fries_icon_html();
       }
     }
 
+    function stampReelUrl(at){
+      at = Number(at);
+      if(!isFinite(at) || at < 0 || at >= items.length) return;
+      var pid = Number((items[at] && items[at].id) || 0);
+      if(!pid) return;
+      try{
+        var u = new URL(window.location.href);
+        if(String(u.searchParams.get('post') || '') === String(pid)) return;
+        u.searchParams.set('post', String(pid));
+        if(String(u.searchParams.get('from') || '') === 'explore'){
+          u.searchParams.set('from', 'explore');
+        } else if(String(u.searchParams.get('from') || '') === 'discover' || String(u.searchParams.get('from') || '') === 'public'){
+          u.searchParams.set('from', 'discover');
+        }
+        history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+      }catch(e){}
+      if(window.MSBResumePost && typeof window.MSBResumePost.save === 'function'){
+        window.MSBResumePost.save(pid);
+      }
+    }
     function goTo(at, animate){
       if(!items.length) return;
       at = Math.max(0, Math.min(items.length - 1, Number(at || 0)));
@@ -1890,6 +2279,7 @@ $iconFries = post_card_menu_fries_icon_html();
       }
       applyTrackTransform(at, !!animate);
       activateIndex(at, true);
+      stampReelUrl(at);
     }
 
     function go(step){
@@ -1902,6 +2292,9 @@ $iconFries = post_card_menu_fries_icon_html();
     window.MSBReelAfterPostDeleted = function(postId){
       postId = Number(postId || 0);
       if(!postId) return;
+      try{
+        if(typeof window.MSBRememberDeletedPost === 'function') window.MSBRememberDeletedPost(postId);
+      }catch(eMem){}
       var at = -1;
       for(var i = 0; i < items.length; i++){
         if(Number(items[i] && items[i].id || 0) === postId){
@@ -1927,11 +2320,28 @@ $iconFries = post_card_menu_fries_icon_html();
         return;
       }
       startAt = Math.max(0, Math.min(items.length - 1, Number(startAt || 0)));
-      items.forEach(function(it, i){
-        var slide = buildSlide(it, i);
+      var kept = [];
+      var startId = Number((items[startAt] && items[startAt].id) || 0);
+      items.forEach(function(it){
+        var slide = buildSlide(it, kept.length);
+        if(!slide) return;
+        kept.push(it);
         track.appendChild(slide);
         slideEls.push(slide);
       });
+      items = kept;
+      if(!items.length){
+        loadingEl.hidden = false;
+        loadingEl.textContent = 'No videos yet';
+        applyTrackTransform(0, false);
+        return;
+      }
+      startAt = 0;
+      if(startId > 0){
+        for(var si = 0; si < items.length; si += 1){
+          if(Number(items[si].id || 0) === startId){ startAt = si; break; }
+        }
+      }
       sizeSlides();
       // Always land on newest (or deep-linked) reel — no overflow scroll to restore.
       goTo(startAt, false);
@@ -2215,6 +2625,10 @@ $iconFries = post_card_menu_fries_icon_html();
       }
     });
 
+    window.addEventListener('pagehide', function(){
+      stampReelUrl(index);
+    });
+
     scroller.addEventListener('wheel', function(e){
       if(!items.length) return;
       e.preventDefault();
@@ -2274,7 +2688,10 @@ $iconFries = post_card_menu_fries_icon_html();
       try{
         want = Number((new URL(window.location.href)).searchParams.get('post') || 0);
       }catch(e){ want = 0; }
-      // No deep link → always newest (index 0).
+      if(!(want > 0) && window.MSBResumePost && typeof window.MSBResumePost.read === 'function'){
+        var rec = window.MSBResumePost.read();
+        if(rec && rec.kind === 'reel') want = Number(rec.postId || 0);
+      }
       if(!(want > 0)) return 0;
       for(var i = 0; i < items.length; i += 1){
         if(Number(items[i].id || 0) === want) return i;
@@ -2282,80 +2699,140 @@ $iconFries = post_card_menu_fries_icon_html();
       return 0;
     }
 
-    fetch(API + '?ajax=list&filter=all&page=public&limit=80&exclude_stories=1&order=created&media=video', { credentials:'same-origin' })
-      .then(function(r){ return r.json(); })
-      .then(function(res){
+    function deletedPostIdMap(){
+      if(typeof window.MSBDeletedPostIdMap === 'function') return window.MSBDeletedPostIdMap() || {};
+      var ids = {};
+      function merge(storage){
+        if(!storage) return;
+        try{
+          var map = JSON.parse(storage.getItem('msbFeedDeletedPostIds') || '{}') || {};
+          Object.keys(map).forEach(function(k){ if(Number(k || 0) > 0) ids[String(k)] = 1; });
+        }catch(e){}
+      }
+      try{ merge(window.sessionStorage); }catch(eS){}
+      try{ merge(window.localStorage); }catch(eL){}
+      return ids;
+    }
+    function dropDeletedItems(list){
+      var ids = deletedPostIdMap();
+      return (list || []).filter(function(it){
+        return !ids[String((it && it.id) || 0)];
+      });
+    }
+    function attachmentMediaKind(a){
+      var t = String((a && a.type) || '').toLowerCase();
+      var p = String((a && (a.file_path || a.url)) || '');
+      if(/\.(jpe?g|png|gif|webp|bmp|svg)(\?|#|$)/i.test(p)) return t === 'gif' ? 'gif' : 'image';
+      if(/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(p)) return 'video';
+      if(t === 'image' || t === 'gif' || t === 'video') return t;
+      return '';
+    }
+    function mapViewItem(resView){
+      var post = (resView && resView.post) ? resView.post : null;
+      if(!post) return null;
+      var atts = Array.isArray(resView.attachments) ? resView.attachments : [];
+      var media = null;
+      var photoCount = 0;
+      var mediaCount = 0;
+      for(var i = 0; i < atts.length; i += 1){
+        var kindA = attachmentMediaKind(atts[i]);
+        if(kindA === 'image' || kindA === 'gif') photoCount += 1;
+        if(kindA === 'video' || kindA === 'image' || kindA === 'gif'){
+          mediaCount += 1;
+          if(!media) media = atts[i];
+        }
+      }
+      if(photoCount > 1 && attachmentMediaKind(media) !== 'video'){
+        return null;
+      }
+      if(!media) return null;
+      var path = reelMediaSrc(media.file_path || media.url || '');
+      if(!path) return null;
+      var kind = attachmentMediaKind(media);
+      if(kind !== 'video' && kind !== 'image' && kind !== 'gif') return null;
+      post.preview_path = path;
+      post.preview_type = kind;
+      post.preview_missing = 0;
+      post.attachment_count = mediaCount;
+      post._attachments = atts;
+      if(media.thumb_path) post.preview_thumb_path = reelMediaSrc(media.thumb_path || media.thumb_url || '');
+      return post;
+    }
+
+    var listUrl = API + '?ajax=list&filter=all&page=public&limit=80&exclude_stories=1&order=created&media=video';
+    var want = 0;
+    try{ want = Number((new URL(window.location.href)).searchParams.get('post') || 0); }catch(eW){ want = 0; }
+    if(bootPost && Number(bootPost.id || 0) > 0) want = Number(bootPost.id);
+    if(want > 0 && deletedPostIdMap()[String(want)]){
+      want = 0;
+      bootPost = null;
+    }
+    if(!(want > 0) && window.MSBResumePost && typeof window.MSBResumePost.read === 'function'){
+      var recWant = window.MSBResumePost.read();
+      if(recWant && recWant.kind === 'reel') want = Number(recWant.postId || 0);
+      if(want > 0 && deletedPostIdMap()[String(want)]) want = 0;
+    }
+    if(bootPost && Number(bootPost.id || 0) > 0){
+      items = dropDeletedItems([bootPost]);
+      if(items.length){
+        loadingEl.hidden = true;
+        rebuildSlides(0);
+      }
+    }
+    var listReq = fetch(listUrl, { credentials:'same-origin', cache:'no-store' }).then(function(r){ return r.json(); });
+    var viewReq = (want > 0 && !(bootPost && Number(bootPost.id || 0) === want))
+      ? fetch(API + '?ajax=view&id=' + encodeURIComponent(String(want)) + '&count_view=0&_=' + Date.now(), { credentials:'same-origin', cache:'no-store' }).then(function(r){ return r.json(); })
+      : Promise.resolve(null);
+
+    Promise.all([listReq, viewReq])
+      .then(function(pair){
+        var res = pair[0];
+        var one = pair[1];
         var list = (res && res.ok && Array.isArray(res.items)) ? res.items : [];
-        items = sortNewestVideosFirst(list.filter(isVideoItem));
+        var videos = dropDeletedItems(sortNewestVideosFirst(list.filter(isVideoItem).filter(function(it){ return !isSlideshowPhotoPost(it); })));
         if (viewerIsPublisher) {
-          items = items.filter(function(it){
+          videos = videos.filter(function(it){
             return Number(it.is_publisher || 0) === 1
               || String(it.account_kind || '').toLowerCase() === 'publisher';
           });
         }
-        var want = 0;
-        try{ want = Number((new URL(window.location.href)).searchParams.get('post') || 0); }catch(eW){ want = 0; }
-        function startTheater(){
-          loadingEl.hidden = true;
-          if(!items.length){
-            loadingEl.hidden = false;
-            loadingEl.textContent = 'No videos yet';
-            return;
-          }
-          rebuildSlides(resolveStartIndex());
-          try{
-            var nextUrl = new URL(window.location.href);
-            if(nextUrl.searchParams.has('post')){
-              nextUrl.searchParams.delete('post');
-              history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
-            }
-          }catch(eClear){}
-        }
-        function mapViewItem(resView){
-          var post = (resView && resView.post) ? resView.post : null;
-          if(!post) return null;
-          var atts = Array.isArray(resView.attachments) ? resView.attachments : [];
-          var video = null;
-          for(var i = 0; i < atts.length; i += 1){
-            if(String(atts[i].type || '').toLowerCase() === 'video'){ video = atts[i]; break; }
-          }
-          if(!video) return null;
-          var vType = String(video.type || '').toLowerCase();
-          var vPath = String(video.file_path || post.preview_path || '').replace(/^public_user\//, '');
-          if(vType === 'image' || vType === 'gif' || vType === 'file') return null;
-          if(vType !== 'video' && !/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(vPath)) return null;
-          post.preview_path = vPath;
-          post.preview_type = 'video';
-          return post;
-        }
-        var already = items.some(function(it){ return Number(it.id || 0) === want; });
-        if(want > 0 && !already){
-          fetch(API + '?ajax=view&id=' + encodeURIComponent(String(want)), { credentials:'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(function(one){
-              var mapped = (one && one.ok) ? mapViewItem(one) : null;
-              if(mapped && isVideoItem(mapped)){
-                items = [mapped].concat(items.filter(function(it){ return Number(it.id || 0) !== Number(mapped.id || 0); }));
-              }
-              startTheater();
-            })
-            .catch(startTheater);
+        var mapped = (one && one.ok) ? mapViewItem(one) : null;
+        if(mapped && deletedPostIdMap()[String(mapped.id || 0)]) mapped = null;
+        var opener = mapped || (bootPost && Number(bootPost.id || 0) > 0 ? bootPost : null);
+        if(opener && deletedPostIdMap()[String(opener.id || 0)]) opener = null;
+        items = opener
+          ? dropDeletedItems([opener].concat(videos.filter(function(it){ return Number(it.id || 0) !== Number(opener.id || 0); })))
+          : videos;
+        loadingEl.hidden = true;
+        if(!items.length){
+          loadingEl.hidden = false;
+          loadingEl.textContent = 'No videos yet';
           return;
         }
-        startTheater();
+        rebuildSlides(resolveStartIndex());
+        if(window.MSBResumePost && typeof window.MSBResumePost.clear === 'function'){
+          var rec = window.MSBResumePost.read ? window.MSBResumePost.read() : null;
+          if(rec && rec.kind === 'reel') window.MSBResumePost.clear();
+        }
       })
       .catch(function(){
+        if(items.length) return;
         loadingEl.hidden = false;
         loadingEl.textContent = 'Could not load reels';
       });
 
     window.addEventListener('pageshow', function(e){
-      if(!items.length) return;
-      // Only rebuild from bfcache; otherwise keep newest (or deep link) in place.
       if(e && e.persisted){
+        window.location.reload();
+        return;
+      }
+      var before = items.length;
+      items = dropDeletedItems(items);
+      if(items.length !== before){
         rebuildSlides(resolveStartIndex());
         return;
       }
+      if(!items.length) return;
       goTo(resolveStartIndex(), false);
     });
   })();

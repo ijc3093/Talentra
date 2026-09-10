@@ -108,6 +108,11 @@ if ($kind === 'cover' && profile_cover_slides_count($dbh, $userId) >= $coverMax)
     exit;
 }
 if (empty($_FILES['media']) || !is_array($_FILES['media'])) {
+    if (!empty($_FILES['file']) && is_array($_FILES['file'])) {
+        $_FILES['media'] = $_FILES['file'];
+    }
+}
+if (empty($_FILES['media']) || !is_array($_FILES['media'])) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'message' => 'No file uploaded']);
     exit;
@@ -135,22 +140,39 @@ if (!is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
 
 $saved = [];
 $rel = '';
+$skipReason = '';
 foreach ($files as $file) {
-    if ((int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+    $err = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err !== UPLOAD_ERR_OK) {
+        $skipReason = 'Upload failed (code ' . $err . ')';
         continue;
     }
     if ((int)($file['size'] ?? 0) <= 0 || (int)$file['size'] > $maxBytes) {
+        $skipReason = 'Photo is too large. Use a file under ' . ($kind === 'avatar' ? '5' : '8') . ' MB.';
         continue;
     }
     $tmp = (string)($file['tmp_name'] ?? '');
     $orig = (string)($file['name'] ?? 'upload');
+    if ($tmp === '' || !is_file($tmp)) {
+        $skipReason = 'Upload temp file was missing';
+        continue;
+    }
     $ext = gear_media_detect_ext($tmp, $orig);
     if ($ext === '') {
+        $skipReason = 'Use JPG, PNG, GIF, or WebP (.webp) photos';
         continue;
     }
     $filename = $kind . '-' . $userId . '-' . str_replace('.', '', uniqid('', true)) . '-' . count($saved) . '.' . $ext;
     $dest = $folder . '/' . $filename;
-    if (!@move_uploaded_file($tmp, $dest)) {
+    $moved = @move_uploaded_file($tmp, $dest);
+    if (!$moved && is_uploaded_file($tmp)) {
+        $moved = @copy($tmp, $dest);
+    }
+    if (!$moved && is_file($tmp)) {
+        $moved = @rename($tmp, $dest) || @copy($tmp, $dest);
+    }
+    if (!$moved) {
+        $skipReason = 'Could not save the photo on the server';
         continue;
     }
     $rel = 'uploads/' . ($kind === 'avatar' ? 'avatars/' : 'covers/') . $filename;
@@ -158,7 +180,7 @@ foreach ($files as $file) {
 }
 if ($saved === [] || $rel === '') {
     http_response_code(400);
-    echo json_encode(['ok' => false, 'message' => 'Use JPG, PNG, GIF, or WebP (.webp) photos']);
+    echo json_encode(['ok' => false, 'message' => $skipReason !== '' ? $skipReason : 'Use JPG, PNG, GIF, or WebP (.webp) photos']);
     exit;
 }
 $field = ($kind === 'avatar') ? 'avatar_image_path' : 'cover_image_path';
@@ -209,17 +231,23 @@ try {
             // keep avatar upload successful even if legacy image field update fails
         }
     }
+    $preview = ($kind === 'avatar') ? ('avatar.php?u=' . $userId . '&v=' . time()) : ($rel . '?v=' . time());
     $payload = [
         'ok' => true,
         'kind' => $kind,
         'path' => $rel,
         'saved' => count($saved),
-        'preview' => ($kind === 'avatar') ? ('avatar.php?u=' . $userId . '&v=' . time()) : ($rel . '?v=' . time()),
+        'preview' => $preview,
+        'url' => $preview,
+        'avatar_url' => ($kind === 'avatar') ? $preview : '',
     ];
     if ($kind === 'cover') {
-        $payload['slides'] = profile_cover_slides_for_user($dbh, $userId, $rel);
+        $coverPayload = profile_cover_slides_payload($dbh, $userId);
+        $payload['slides'] = $coverPayload['slides'];
+        $payload['cover_url'] = $coverPayload['cover_url'];
+        $payload['count'] = $coverPayload['count'];
     }
-    echo json_encode($payload);
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES);
 } catch (Throwable $e) {
     foreach ($saved as $row) {
         if (!empty($row['dest'])) {

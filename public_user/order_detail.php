@@ -226,7 +226,7 @@ $receiptCode = $notFound ? '' : trim((string)($order['receipt_code'] ?? ''));
 $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
 ?>
 <!doctype html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -37,6 +37,37 @@ function profile_cover_slide_public_url(string $path): string
     return $path;
 }
 
+function profile_cover_settings_path(PDO $dbh, int $userId): string
+{
+    if ($userId <= 0) {
+        return '';
+    }
+    try {
+        $st = $dbh->prepare('SELECT cover_image_path FROM user_profile_settings WHERE user_id = :uid LIMIT 1');
+        $st->execute([':uid' => $userId]);
+        return profile_cover_slide_public_url((string)$st->fetchColumn());
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+/**
+ * Shared JSON shape for Swift and talsora.com: { ok, slides:[{id,path,url}], cover_url, count }.
+ *
+ * @return array{ok:bool,slides:list<array{id:int,path:string,url:string}>,cover_url:string,count:int}
+ */
+function profile_cover_slides_payload(PDO $dbh, int $userId): array
+{
+    $fallback = profile_cover_settings_path($dbh, $userId);
+    $slides = profile_cover_slides_for_user($dbh, $userId, $fallback);
+    return [
+        'ok' => true,
+        'slides' => $slides,
+        'cover_url' => (string)($slides[0]['url'] ?? $fallback),
+        'count' => count($slides),
+    ];
+}
+
 /**
  * @return list<array{id:int,path:string,url:string}>
  */

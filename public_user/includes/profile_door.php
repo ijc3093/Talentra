@@ -3,6 +3,7 @@ if (!empty($GLOBALS['msb_profile_door_included'])) {
   return;
 }
 $GLOBALS['msb_profile_door_included'] = true;
+require_once __DIR__ . '/signout_menu.php';
 
 $__profileStandalone = !empty($msbProfileDoorStandalone);
 $__profileDoorHref = trim((string)($railProfileHref ?? 'profile.php'));
@@ -260,7 +261,7 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
 <div class="tt-profile-wrap" id="tt-profile-wrap" aria-hidden="true">
   <div class="tt-profile-head">
     <div>
-      <span class="title">Profile</span>
+      <span class="title"><?= htmlspecialchars(function_exists('app_t') ? app_t('Profile') : 'Profile', ENT_QUOTES, 'UTF-8') ?></span>
     </div>
     <button class="tt-close" type="button" id="ttProfileClose" title="Close">
       <i class="icon ion-close"></i>
@@ -280,7 +281,7 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
           <div class="tt-profile-email"><?= htmlspecialchars($__profileEmail, ENT_QUOTES, 'UTF-8') ?></div>
         <?php endif; ?>
         <?php if ($__profileCode !== ''): ?>
-          <div class="tt-profile-code">Code: <b><?= htmlspecialchars($__profileCode, ENT_QUOTES, 'UTF-8') ?></b></div>
+          <div class="tt-profile-code"><?= htmlspecialchars(function_exists('app_t') ? app_t('Code') : 'Code', ENT_QUOTES, 'UTF-8') ?>: <b><?= htmlspecialchars($__profileCode, ENT_QUOTES, 'UTF-8') ?></b></div>
         <?php endif; ?>
       </div>
     </div>
@@ -290,9 +291,20 @@ body.msb-profile-door-open .msb-profile-door-backdrop{
         $href = trim((string)($item['href'] ?? '#'));
         $icon = trim((string)($item['icon'] ?? 'ion-ios-arrow-right'));
         $label = trim((string)($item['label'] ?? 'Open'));
+        if (function_exists('app_t')) {
+          $label = app_t($label);
+        }
         if ($href === '' || $label === '') continue;
+        if (stripos($href, 'logout.php') !== false) {
+          echo '<li>';
+          if (function_exists('msb_render_signout_group')) {
+            msb_render_signout_group('nav');
+          }
+          echo '</li>';
+          continue;
+        }
       ?>
-        <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" data-profile-door-link="1"<?= (stripos($href, 'logout.php') !== false) ? ' class="js-signout-confirm"' : '' ?>><i class="icon <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a></li>
+        <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" data-profile-door-link="1"><i class="icon <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i> <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a></li>
       <?php endforeach; ?>
     </ul>
   </div>

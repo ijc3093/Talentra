@@ -120,7 +120,7 @@ if (!$isOwner && !$isApproved) {
   $status = $access['status']; // none|pending|denied
   ?>
   <!DOCTYPE html>
-  <html lang="en">
+  <html <?= app_html_lang_attrs() ?>>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -385,7 +385,7 @@ $base = 'timeline.php' . ($ownerId !== $meId ? '?u='.(int)$ownerId.'&' : '?');
 $mkScale = static fn(string $s) => $base . 'scale=' . urlencode($s);
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">

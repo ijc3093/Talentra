@@ -42,6 +42,9 @@ function index_footer_tab_href(string $tab, bool $addingAccount = false): string
 
 function index_footer_tab_h(string $s): string
 {
+  if ($s !== '' && function_exists('app_t')) {
+    $s = app_t($s);
+  }
   return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
 
@@ -806,8 +809,8 @@ function index_help_render_topic_landing(array $topic, string $activeTab, bool $
   }
   $pills[] = ['label' => 'I have a different question', 'tab' => 'help'];
   echo '<article class="auth-legal-article" data-legal-panel="' . index_footer_tab_h($tab) . '"' . $show . '>';
-  echo '<div class="hc-title-row"><h1>' . index_footer_tab_h($label) . '</h1><button type="button" class="hc-copy js-hc-copy">Copy link</button></div>';
-  echo '<div class="hc-pills" role="navigation" aria-label="Related questions">';
+    echo '<div class="hc-title-row"><h1>' . index_footer_tab_h($label) . '</h1><button type="button" class="hc-copy js-hc-copy">' . index_footer_tab_h('Copy link') . '</button></div>';
+  echo '<div class="hc-pills" role="navigation" aria-label="' . index_footer_tab_h('Related questions') . '">';
   foreach ($pills as $pill) {
     $pTab = (string)($pill['tab'] ?? '');
     if ($pTab === '') {
@@ -818,7 +821,7 @@ function index_help_render_topic_landing(array $topic, string $activeTab, bool $
   echo '</div>';
   echo '<p class="auth-legal-lead">' . index_footer_tab_h($lead) . '</p>';
   if ($learn) {
-    echo '<h2 class="hc-acc-heading">Learn how to</h2><ul class="hc-learn">';
+    echo '<h2 class="hc-acc-heading">' . index_footer_tab_h('Learn how to') . '</h2><ul class="hc-learn">';
     foreach ($learn as $line) {
       echo '<li>' . index_footer_tab_h((string)$line) . '</li>';
     }
@@ -1857,19 +1860,22 @@ function index_feature_articles(): array
 
 function index_help_tab_title(string $tab): string
 {
+  $out = 'Talsora';
   $tabs = index_footer_tabs();
   if (isset($tabs[$tab])) {
-    return (string)$tabs[$tab];
+    $out = (string)$tabs[$tab];
+  } else {
+    $articles = index_feature_articles();
+    if (isset($articles[$tab]['title'])) {
+      $out = (string)$articles[$tab]['title'];
+    } else {
+      $topic = index_help_topic_for_tab($tab);
+      if ($topic !== null) {
+        $out = (string)($topic['label'] ?? 'Talsora');
+      }
+    }
   }
-  $articles = index_feature_articles();
-  if (isset($articles[$tab]['title'])) {
-    return (string)$articles[$tab]['title'];
-  }
-  $topic = index_help_topic_for_tab($tab);
-  if ($topic !== null) {
-    return (string)($topic['label'] ?? 'Talsora');
-  }
-  return 'Talsora';
+  return function_exists('app_t') ? app_t($out) : $out;
 }
 
 function index_help_all_tab_keys(): array
@@ -1949,7 +1955,7 @@ function index_render_footer_tab_nav(string $activeTab, bool $addingAccount = fa
   foreach (index_footer_tabs() as $key => $label) {
     $href = index_footer_tab_href($key, $addingAccount);
     $active = $activeTab === $key ? ' is-active' : '';
-    echo '<a class="js-index-tab' . $active . '" href="' . index_footer_tab_h($href) . '" data-index-tab="' . index_footer_tab_h($key) . '">' . index_footer_tab_h($label) . '</a>';
+    echo '<a class="js-index-tab' . $active . '" href="' . index_footer_tab_h($href) . '" data-index-tab="' . index_footer_tab_h($key) . '">' . index_footer_tab_h(function_exists('app_t') ? app_t($label) : $label) . '</a>';
   }
   echo '</nav>';
 }
@@ -2073,7 +2079,7 @@ function index_render_about_sitemap(bool $loggedIn, bool $addingAccount): void
       if ($tab === '' || $label === '') {
         continue;
       }
-      echo '<li><a class="hc-map-link js-index-tab" href="' . index_footer_tab_h(index_footer_tab_href($tab, $addingAccount)) . '" data-index-tab="' . index_footer_tab_h($tab) . '">' . index_footer_tab_h($label) . '</a></li>';
+      echo '<li><a class="hc-map-link js-index-tab" href="' . index_footer_tab_h(index_footer_tab_href($tab, $addingAccount)) . '" data-index-tab="' . index_footer_tab_h($tab) . '">' . index_footer_tab_h(function_exists('app_t') ? app_t($label) : $label) . '</a></li>';
     }
     echo '</ul></div>';
   }
@@ -2084,7 +2090,7 @@ function index_render_about_sitemap(bool $loggedIn, bool $addingAccount): void
     $tabs = index_footer_tabs();
     foreach ((array)($group['items'] ?? []) as $key) {
       $label = (string)($tabs[$key] ?? $key);
-      echo '<li><a class="hc-map-link js-index-tab" href="' . index_footer_tab_h(index_footer_tab_href($key, $addingAccount)) . '" data-index-tab="' . index_footer_tab_h($key) . '">' . index_footer_tab_h($label) . '</a></li>';
+      echo '<li><a class="hc-map-link js-index-tab" href="' . index_footer_tab_h(index_footer_tab_href($key, $addingAccount)) . '" data-index-tab="' . index_footer_tab_h($key) . '">' . index_footer_tab_h(function_exists('app_t') ? app_t($label) : $label) . '</a></li>';
     }
     echo '</ul></div>';
   }
@@ -2495,7 +2501,7 @@ function index_render_legal_panels(string $activeTab, bool $loggedIn, bool $addi
   echo '<span class="sr-only">Menu</span></button>';
   echo '</div>';
   echo '<label class="hc-search"><span class="sr-only">Search help articles</span>';
-  echo '<input type="search" id="hcSearch" placeholder="Search help articles..." autocomplete="off"></label>';
+  echo '<input type="search" id="hcSearch" placeholder="' . index_footer_tab_h('Search help articles...') . '" autocomplete="off"></label>';
   echo '<span class="hc-lang">English</span>';
   if ($loggedIn) {
     echo '<a class="hc-home-cta" href="home.php?tab=for-you">Home</a>';
@@ -2515,7 +2521,7 @@ function index_render_legal_panels(string $activeTab, bool $loggedIn, bool $addi
     }
     $show = $activeTab === $key ? '' : ' hidden';
     echo '<article class="auth-legal-article" data-legal-panel="' . index_footer_tab_h($key) . '"' . $show . '>';
-    echo '<div class="hc-title-row"><h1>' . index_footer_tab_h((string)$panel['title']) . '</h1><button type="button" class="hc-copy js-hc-copy">Copy link</button></div>';
+    echo '<div class="hc-title-row"><h1>' . index_footer_tab_h((string)$panel['title']) . '</h1><button type="button" class="hc-copy js-hc-copy">' . index_footer_tab_h('Copy link') . '</button></div>';
     echo '<p class="auth-legal-lead">' . index_footer_tab_h((string)$panel['lead']) . '</p>';
     $hero = (array)($panel['hero'] ?? []);
     if ($hero) {
@@ -2580,12 +2586,12 @@ function index_render_legal_panels(string $activeTab, bool $loggedIn, bool $addi
   foreach (index_feature_articles() as $key => $article) {
     $show = $activeTab === $key ? '' : ' hidden';
     echo '<article class="auth-legal-article" data-legal-panel="' . index_footer_tab_h($key) . '"' . $show . '>';
-    echo '<div class="hc-title-row"><h1>' . index_footer_tab_h((string)$article['title']) . '</h1><button type="button" class="hc-copy js-hc-copy">Copy link</button></div>';
+    echo '<div class="hc-title-row"><h1>' . index_footer_tab_h((string)$article['title']) . '</h1><button type="button" class="hc-copy js-hc-copy">' . index_footer_tab_h('Copy link') . '</button></div>';
     echo '<p class="auth-legal-lead">' . index_footer_tab_h((string)$article['lead']) . '</p>';
     $guides = index_help_guides_for_article($article);
     if ($guides) {
       if (count($guides) > 1) {
-        echo '<div class="hc-pills" role="navigation" aria-label="Related questions">';
+        echo '<div class="hc-pills" role="navigation" aria-label="' . index_footer_tab_h('Related questions') . '">';
         $gi = 0;
         foreach ($guides as $guide) {
           $gi++;
@@ -2604,7 +2610,7 @@ function index_render_legal_panels(string $activeTab, bool $loggedIn, bool $addi
         echo '<div class="hc-acc-body">';
         echo '<div class="hc-acc-tools">';
         echo '<a class="hc-acc-tool" href="' . index_footer_tab_h($openHref) . '">' . index_help_open_icon() . 'Open article</a>';
-        echo '<button type="button" class="hc-acc-tool js-hc-copy-hash" data-hash="' . index_footer_tab_h($gid) . '">' . index_help_copy_icon() . '<span class="hc-acc-copy-label">Copy link</span></button>';
+        echo '<button type="button" class="hc-acc-tool js-hc-copy-hash" data-hash="' . index_footer_tab_h($gid) . '">' . index_help_copy_icon() . '<span class="hc-acc-copy-label">' . index_footer_tab_h('Copy link') . '</span></button>';
         echo '</div>';
         $heading = trim((string)($guide['heading'] ?? ''));
         if ($heading !== '') {
@@ -2640,7 +2646,7 @@ function index_render_legal_panels(string $activeTab, bool $loggedIn, bool $addi
 
   $helpShow = $activeTab === 'help' ? '' : ' hidden';
   echo '<article class="auth-legal-article" data-legal-panel="help"' . $helpShow . '>';
-  echo '<div class="hc-title-row"><h1>How can we help you?</h1><button type="button" class="hc-copy js-hc-copy">Copy link</button></div>';
+  echo '<div class="hc-title-row"><h1>How can we help you?</h1><button type="button" class="hc-copy js-hc-copy">' . index_footer_tab_h('Copy link') . '</button></div>';
   echo '<p class="auth-legal-lead">Search the left, open a topic, or message an admin. Featured topics below are the usual starting points.</p>';
   echo '<h2 class="hc-acc-heading">Featured topics</h2>';
   echo '<div class="hc-featured">';

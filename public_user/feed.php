@@ -23,12 +23,16 @@ require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/home_tabs.php';
+require_once __DIR__ . '/includes/home_feed_tabs.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 
 requireUserLogin();
-home_redirect_legacy_entry('for-you');
+$tabEmbed = (string)($_GET['tab_embed'] ?? '') === '1';
+if (!$tabEmbed) {
+    home_redirect_legacy_entry('for-you');
+}
 sendNoCacheHeadersUser();
 
 $controller = new Controller();
@@ -41,8 +45,13 @@ $meId = theme_prefs_viewer_user_id();
 if ($meId <= 0) {
     $meId = $sessionMeId;
 }
+$feedProgramPinsState = function_exists('home_feed_load_pins_state')
+    ? home_feed_load_pins_state($dbh, $meId)
+    : ['pins' => [], 'saved' => false];
+$feedProgramPinSet = array_fill_keys((array)($feedProgramPinsState['pins'] ?? []), true);
 publisher_ensure_schema($dbh);
 $isPublisherAccount = publisher_account_is($dbh, $meId);
+$isPublisherWorkspaceViewer = publisher_workspace_viewer($dbh, $meId);
 $canFollowPublishers = publisher_can_follow_as_viewer($dbh, $meId);
 $staffReadonly = staff_pub_is_readonly();
 $canLiveStudio = live_studio_user_can_access($dbh, $meId);
@@ -55,7 +64,7 @@ $feedStoryPostId = (int)($_GET['story_post'] ?? 0);
 $feedUploadWarn = (string)($_GET['upload_warn'] ?? '') === '1';
 $feedSearchQ = trim((string)($_GET['q'] ?? ''));
 $feedDiscoverTab = home_tab_internal(strtolower(trim((string)($_GET['tab'] ?? 'for-you'))));
-$feedDiscoverTabs = [
+$feedDiscoverTabs = app_t_map([
     'for-you' => 'Circle',
     'public' => 'Discover',
     'enterprise' => 'Commerce',
@@ -69,7 +78,7 @@ $feedDiscoverTabs = [
     'agriculture' => 'Agriculture',
     'auto' => 'Auto',
     'political' => 'Political',
-];
+]);
 // These stay in Add Program until the user adds them to the top tabs
 $optionalDiscoverTabs = [
     'enterprise' => true,
@@ -132,7 +141,7 @@ if ($feedAlertPostId > 0 && $meId > 0) {
         ");
         $stBoot->execute([':pid' => $feedAlertPostId]);
         $bootRow = $stBoot->fetch(PDO::FETCH_ASSOC) ?: null;
-        if ($bootRow && publisher_can_view_post($dbh, $meId, $bootRow)) {
+            if ($bootRow && publisher_can_view_post($dbh, $meId, $bootRow) && !post_is_slideshow_photos($bootRow)) {
             if (!empty($bootRow['preview_path'])) {
                 $bootRow['preview_path'] = preg_replace('#^public_user/#', '', (string)$bootRow['preview_path']);
             }
@@ -220,17 +229,74 @@ try {
 }
 if ($meDisplayName === '') $meDisplayName = $meUsername;
 if ($meDisplayName === '') $meDisplayName = (string)$loggedEmail; // fallback
+if (function_exists('app_i18n_boot')) {
+  app_i18n_boot($dbh, (int)$meId);
+}
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs(!empty($tabEmbed) ? 'tab-embed' : '') ?>>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Feed</title>
+    <title><?= htmlspecialchars(app_t('Feed'), ENT_QUOTES, 'UTF-8') ?></title>
     <script>
       try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
+      (function(){
+        var restartAtTop = <?= isset($_GET['top']) && (string)$_GET['top'] === '1' ? 'true' : 'false' ?>;
+        try{
+          restartAtTop = restartAtTop || sessionStorage.getItem('msbFeedStartAtTop') === '1';
+          if(restartAtTop){
+            sessionStorage.removeItem('msbFeedStartAtTop');
+            sessionStorage.removeItem('msbResumePost');
+            sessionStorage.removeItem('msbResumePostHome');
+          }
+        }catch(e){}
+        if(!restartAtTop) return;
+
+        function resetToFeedTop(){
+          try{ window.scrollTo(0, 0); }catch(e){}
+          var roots = [document.scrollingElement, document.documentElement, document.body];
+          document.querySelectorAll('.sh-pagebody, .feed-desktop-center, .mf-feed, #mfFeed').forEach(function(el){
+            roots.push(el);
+          });
+          roots.forEach(function(el){
+            if(!el) return;
+            el.scrollTop = 0;
+            el.scrollLeft = 0;
+          });
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+          resetToFeedTop();
+          try{
+            var cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('top');
+            cleanUrl.searchParams.delete('from_post');
+            history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+          }catch(e){}
+          var feed = document.getElementById('mfFeed');
+          if(feed && typeof MutationObserver !== 'undefined'){
+            var topObserver = new MutationObserver(function(){
+              if(!feed.querySelector('.mf-card')) return;
+              resetToFeedTop();
+              window.requestAnimationFrame(resetToFeedTop);
+              topObserver.disconnect();
+            });
+            topObserver.observe(feed, {childList:true, subtree:true});
+          }
+          window.requestAnimationFrame(function(){
+            resetToFeedTop();
+            window.requestAnimationFrame(resetToFeedTop);
+          });
+          window.setTimeout(resetToFeedTop, 300);
+          window.setTimeout(resetToFeedTop, 900);
+        }, {once:true});
+        window.addEventListener('load', resetToFeedTop, {once:true});
+      })();
     </script>
     <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
+    <?php if (!empty($tabEmbed)): ?>
+    <style id="home-tab-embed-css"><?php include __DIR__ . '/includes/home_tab_embed.css.php'; ?></style>
+    <?php endif; ?>
     <style id="modal-fouc-lock-css"><?php include __DIR__ . '/includes/modal_fouc_lock.css.php'; ?></style>
     <?php post_card_actions_menu_render_css(); ?>
     <link rel="stylesheet" href="./css/dark-auto.css?v=34">
@@ -4336,7 +4402,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     --feed-center-w:614px;
     --feed-side-gap:28px;
     --feed-left-nav-w:236px;
-    --feed-right-rail-w:248px;
+    --feed-right-rail-w:300px;
     --feed-main-inset:0px;
     /* sh-mainpanel already clears the icon rail; this is the in-panel offset only. */
     --feed-center-left:calc(8px + var(--feed-left-nav-w) + var(--feed-side-gap) + var(--feed-main-inset));
@@ -4491,6 +4557,39 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 .feed-right-rail{
   display:none;
 }
+.jump-rail{
+  position:fixed;
+  right:16px;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  z-index:95;
+}
+.jump-rail button{
+  width:44px;
+  height:44px;
+  border:none;
+  border-radius:50%;
+  background:var(--msb-palette-surface-strong, #1c222b);
+  color:var(--msb-palette-icon, #c5cdd6);
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding:0;
+}
+.jump-rail button i{
+  font-size:18px;
+  line-height:1;
+}
+.jump-rail button:hover,
+.jump-rail button:focus{
+  outline:none;
+  color:#fff;
+}
 @media (min-width:1025px){
   body.feed-insta-ui .feed-desktop-layout{
     display:block;
@@ -4518,7 +4617,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     margin-right:0 !important;
   }
   body.feed-insta-ui .feed-right-rail{
-    display:block;
+    display:flex;
+    flex-direction:column;
     position:fixed;
     /* Sit in the empty column to the right of the (centered) feed. */
     left:calc(
@@ -4531,11 +4631,21 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
       + var(--feed-side-gap)
     ) !important;
     right:auto !important;
-    top:250px;
+    top:154px;
     width:var(--feed-right-rail-w);
+    height:calc(100vh - 170px);
+    max-height:calc(100vh - 170px);
+    overflow-y:auto;
+    overflow-x:hidden;
     z-index:90;
     padding:0;
     box-sizing:border-box;
+  }
+  body.feed-insta-ui .jump-rail{
+    top:auto;
+    bottom:120px;
+    right:24px;
+    transform:none;
   }
   body.feed-insta-ui .feed-right-nav{
     display:flex;
@@ -4765,13 +4875,27 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
   }
+  body.feed-page.feed-insta-ui .jump-rail{
+    right:10px;
+    top:auto;
+    bottom:94px;
+    transform:none;
+  }
+  body.feed-page.feed-insta-ui .jump-rail button{
+    width:40px;
+    height:40px;
+  }
 }
 </style>
 <style><?php include __DIR__ . '/includes/feed_page_chrome.css.php'; ?></style>
 <style id="shared-feed-public-chrome-lock-css"><?php include __DIR__ . '/includes/feed_public_chrome_lock.css.php'; ?></style>
+<?php if (empty($tabEmbed)): ?>
+<style id="home-tab-switch-host-css"><?php include __DIR__ . '/includes/home_tab_embed.css.php'; ?></style>
+<?php include __DIR__ . '/includes/home_tab_frame.js.php'; ?>
+<?php endif; ?>
 
 </head>
-  <body class="feed-page feed-insta-ui<?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
+  <body class="feed-page feed-insta-ui public-suggestions-visible<?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
   <?php $GLOBALS['msb_skip_header_leftbar'] = true; $skipHeaderThemeBootstrap = true; include __DIR__.'/includes/header.php'; ?>
   <?php $feedLeftRailActive = 'home.php'; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__.'/includes/feed_left_rail.php'; ?>
     
@@ -4825,11 +4949,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               <?php include __DIR__ . '/includes/feed_top_actions.php'; ?>
             </div>
             <div class="feed-desktop-layout">
-              <div class="feed-side-search" aria-label="Search feed">
+              <div class="feed-side-search" aria-label="<?= htmlspecialchars(app_t('Search feed'), ENT_QUOTES, 'UTF-8') ?>">
                 <form id="feedTopSearchForm" class="feed-top-search-form feed-side-search-form" method="get" action="home.php">
                   <input type="hidden" name="tab" value="<?= htmlspecialchars(home_tab_url_key($feedDiscoverTab), ENT_QUOTES, 'UTF-8') ?>">
                   <div class="feed-top-search-field">
-                    <button type="submit" class="feed-top-search-icon" aria-label="Search">
+                    <button type="submit" class="feed-top-search-icon" aria-label="<?= htmlspecialchars(app_t('Search'), ENT_QUOTES, 'UTF-8') ?>">
                       <i class="fa fa-search" aria-hidden="true"></i>
                     </button>
                     <input
@@ -4838,7 +4962,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                       name="q"
                       class="feed-top-search-input"
                       value="<?= htmlspecialchars($feedSearchQ, ENT_QUOTES, 'UTF-8') ?>"
-                      placeholder="Search"
+                      placeholder="<?= htmlspecialchars(app_t('Search'), ENT_QUOTES, 'UTF-8') ?>"
                       autocomplete="off"
                       enterkeyhint="search"
                     >
@@ -4848,7 +4972,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               <div class="feed-desktop-center">
                 <div class="feed-top-search feed-top-search--tabs-only" aria-label="Explore feed">
                   <div class="feed-top-search-row feed-top-tabs-row">
-                    <nav class="feed-discover-tabs" aria-label="Feed categories">
+                    <nav class="feed-discover-tabs" aria-label="<?= htmlspecialchars(app_t('Feed categories'), ENT_QUOTES, 'UTF-8') ?>">
                       <?php foreach ($feedDiscoverTabs as $tabKey => $tabLabel): ?>
                         <?php
                           $feedTabQuery = [];
@@ -4856,7 +4980,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                               $feedTabQuery['q'] = $feedSearchQ;
                           }
                           $isOptionalDiscoverTab = isset($optionalDiscoverTabs[$tabKey]);
-                          $optionalTabActive = $isOptionalDiscoverTab && $feedDiscoverTab === $tabKey;
+                          $optionalTabActive = $isOptionalDiscoverTab && ($feedDiscoverTab === $tabKey || isset($feedProgramPinSet[$tabKey]));
                           $feedTabHref = home_tab_url($tabKey, $feedTabQuery);
                         ?>
                         <a
@@ -4868,70 +4992,227 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                         ><?= htmlspecialchars($tabLabel, ENT_QUOTES, 'UTF-8') ?></a>
                       <?php endforeach; ?>
                     </nav>
+                    <?php include __DIR__ . '/includes/home_tabs_live_sync.js.php'; ?>
                     <a class="feed-top-search-settings" href="settings.php" aria-label="Feed settings" title="Settings">
                       <i class="fa fa-cog" aria-hidden="true"></i>
                     </a>
                   </div>
                 </div>
+                <?php include __DIR__ . '/includes/feed_posted_pill.php'; ?>
                 <script>
                 (function(){
                   var tabs = document.querySelector('.feed-discover-tabs');
                   if(!tabs) return;
                   var storageKey = 'msbDiscoverTabsScroll';
-                  function prefetchExternalTab(link){
-                    if(!link) return;
-                    var url = new URL(link.href, window.location.href);
-                    if(url.pathname.endsWith('/feed.php') || (url.pathname.endsWith('/home.php') && (url.searchParams.get('tab') || 'for-you') === 'for-you')) return;
-                    var key = 'msb-prefetch-' + (url.pathname.endsWith('/news.php') ? 'news' : 'public');
-                    if(document.querySelector('link[data-msb-prefetch="'+key+'"]')) return;
-                    var hint = document.createElement('link');
-                    hint.rel = 'prefetch';
-                    hint.href = link.href;
-                    hint.setAttribute('data-msb-prefetch', key);
-                    document.head.appendChild(hint);
+                  function mfFeedEl(){ return document.getElementById('mfFeed'); }
+                  function hostEl(){ return document.getElementById('homeDiscoverHost'); }
+                  function frameEl(){ return document.getElementById('homeDiscoverFrame'); }
+                  function jumpRailEl(){ return document.querySelector('.jump-rail'); }
+                  function postedPillEl(){ return document.querySelector('.feed-desktop-center > .feed-posted-pill'); }
+                  function tabKeyFromLink(link){
+                    try{
+                      return new URL(link.href, window.location.href).searchParams.get('tab') || 'for-you';
+                    }catch(err){
+                      return 'for-you';
+                    }
                   }
+                  function isCircleTab(tab){
+                    return tab === 'for-you';
+                  }
+                  function embedSrc(link){
+                    var u = new URL(link.href, window.location.href);
+                    u.searchParams.set('tab_embed', '1');
+                    return u.pathname + u.search;
+                  }
+                  function activateTabs(selected){
+                    tabs.querySelectorAll('.feed-discover-tab').forEach(function(tab){
+                      var active = tabKeyFromLink(tab) === selected;
+                      tab.classList.toggle('is-active', active);
+                      if(active) tab.setAttribute('aria-current', 'page');
+                      else tab.removeAttribute('aria-current');
+                    });
+                    document.querySelectorAll('a.feed-program-nav-item').forEach(function(link){
+                      var slug = link.getAttribute('data-program-slug') || tabKeyFromLink(link);
+                      var active = slug === selected || (selected === 'discover' && slug === 'public') || (selected === 'public' && slug === 'public');
+                      link.classList.toggle('is-active', active);
+                      if(active) link.setAttribute('aria-current', 'page');
+                      else link.removeAttribute('aria-current');
+                    });
+                  }
+                  function showCircle(){
+                    var host = hostEl();
+                    var mfFeed = mfFeedEl();
+                    var jumpRail = jumpRailEl();
+                    var postedPill = postedPillEl();
+                    var search = document.querySelector('.feed-side-search');
+                    if(host) host.hidden = true;
+                    if(mfFeed) mfFeed.hidden = false;
+                    if(jumpRail) jumpRail.hidden = false;
+                    if(postedPill) postedPill.hidden = false;
+                    if(search) search.hidden = false;
+                  }
+                  function showDiscover(link){
+                    var mfFeed = mfFeedEl();
+                    var host = hostEl();
+                    var frame = frameEl();
+                    var jumpRail = jumpRailEl();
+                    var postedPill = postedPillEl();
+                    var search = document.querySelector('.feed-side-search');
+                    if(mfFeed) mfFeed.hidden = true;
+                    if(host) host.hidden = false;
+                    if(jumpRail) jumpRail.hidden = true;
+                    if(postedPill) postedPill.hidden = true;
+                    if(search) search.hidden = true;
+                    if(frame){
+                      var next = embedSrc(link);
+                      if(frame.getAttribute('src') !== next) frame.src = next;
+                      requestAnimationFrame(function(){
+                        if(typeof window.msbWatchHomeTabFrame === 'function') window.msbWatchHomeTabFrame(frame);
+                        if(typeof window.msbFitHomeTabFrame === 'function') window.msbFitHomeTabFrame(frame);
+                      });
+                    }
+                  }
+                  function isHomeTabHref(href){
+                    try{
+                      var path = String(new URL(href, window.location.href).pathname || '').toLowerCase();
+                      return /\/home\.php$/.test(path) || /\/feed\.php$/.test(path) || /\/public\.php$/.test(path) || /\/news\.php$/.test(path);
+                    }catch(err){
+                      return false;
+                    }
+                  }
+                  function switchTab(link){
+                    if(!link) return;
+                    if(!isHomeTabHref(link.href)){
+                      try{
+                        if(window.top && window.top !== window) window.top.location.assign(link.href);
+                        else window.location.assign(link.href);
+                      }catch(errGo){
+                        window.location.assign(link.href);
+                      }
+                      return;
+                    }
+                    var selected = tabKeyFromLink(link);
+                    try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
+                    activateTabs(selected);
+                    if(isCircleTab(selected)) showCircle();
+                    else showDiscover(link);
+                    var searchForm = document.querySelector('.feed-top-search-form');
+                    if(searchForm){
+                      searchForm.action = new URL(link.href, window.location.href).pathname;
+                      var tabInput = searchForm.querySelector('input[name="tab"]');
+                      if(tabInput) tabInput.value = selected;
+                    }
+                    history.pushState({msbFeedTab:true}, '', link.href);
+                    document.dispatchEvent(new CustomEvent('msb:feed-tab-change', {detail:{tab:selected}}));
+                    if(window.MSBFeedPrograms && typeof window.MSBFeedPrograms.restore === 'function'){
+                      window.MSBFeedPrograms.restore();
+                    }
+                  }
+                  window.msbSwitchHomeTabLink = switchTab;
                   try{
                     var saved = Number(sessionStorage.getItem(storageKey) || 0);
                     if(saved > 0) tabs.scrollLeft = saved;
                   }catch(e){}
                   tabs.addEventListener('pointerover', function(e){
-                    prefetchExternalTab(e.target.closest('.feed-discover-tab'));
+                    if(document.documentElement.classList.contains('tab-embed')) return;
+                    var link = e.target.closest('.feed-discover-tab');
+                    var frame = frameEl();
+                    if(!link || isCircleTab(tabKeyFromLink(link)) || !frame) return;
+                    if(!frame.getAttribute('src')) frame.src = embedSrc(link);
                   });
-                  window.setTimeout(function(){
-                    tabs.querySelectorAll('.feed-discover-tab').forEach(prefetchExternalTab);
-                  }, 250);
                   tabs.addEventListener('click', function(e){
                     var link = e.target.closest('.feed-discover-tab');
                     if(!link) return;
-                    if(link.classList.contains('is-active')){
-                      e.preventDefault();
+                    e.preventDefault();
+                    if(document.documentElement.classList.contains('tab-embed')) return;
+                    if(link.classList.contains('is-active')) return;
+                    switchTab(link);
+                  });
+                  document.addEventListener('click', function(e){
+                    var link = e.target.closest('a.feed-program-nav-item');
+                    if(!link) return;
+                    if(link.hasAttribute('hidden') || link.getAttribute('aria-hidden') === 'true') return;
+                    try{
+                      var hrefUrl = new URL(link.href, window.location.href);
+                      if(!/home\.php$/i.test(hrefUrl.pathname)) return;
+                    }catch(err){
                       return;
                     }
-                    try{ sessionStorage.setItem(storageKey, String(tabs.scrollLeft || 0)); }catch(err){}
-                    var targetUrl = new URL(link.href, window.location.href);
-                    var selectedTab = targetUrl.searchParams.get('tab') || 'for-you';
-                    tabs.querySelectorAll('.feed-discover-tab').forEach(function(tab){
-                      var tabUrl = new URL(tab.href, window.location.href);
-                      var active = (tabUrl.searchParams.get('tab') || 'for-you') === selectedTab;
-                      tab.classList.toggle('is-active', active);
-                      if(active) tab.setAttribute('aria-current', 'page');
-                      else tab.removeAttribute('aria-current');
-                    });
-                    if(targetUrl.pathname.endsWith('/feed.php') || (targetUrl.pathname.endsWith('/home.php') && (targetUrl.searchParams.get('tab') || 'for-you') === 'for-you')){
-                      e.preventDefault();
-                      history.pushState({msbFeedTab:true}, '', targetUrl.href);
-                      document.dispatchEvent(new CustomEvent('msb:feed-tab-change', {detail:{tab:selectedTab}}));
-                    }
+                    e.preventDefault();
+                    if(document.documentElement.classList.contains('tab-embed')) return;
+                    if(link.classList.contains('is-active')) return;
+                    switchTab(link);
                   });
                 })();
                 </script>
                 <div id="mfFeed" class="mf-feed mobile-only mf-hydrating" aria-label="Mobile/Tablet feed"></div>
+                <?php if (empty($tabEmbed)): ?>
+                <div class="home-tab-frame-host" id="homeDiscoverHost" hidden>
+                  <iframe class="home-tab-frame" id="homeDiscoverFrame" title="Discover"></iframe>
+                </div>
+                <?php endif; ?>
               </div>
             </div>
             <?php
-              // Friends Feed: no publisher "Suggested for you" rail.
-              // Discovery / Follow suggestions live on public.php and news.php only.
+              $suggestedForYouStaffReadonly = $staffReadonly;
+              $suggestedForYouMaxFriends = 12;
+              $suggestedForYouMaxFollow = 12;
+              $GLOBALS['suggestedForYouIncludePeople'] = empty($isPublisherWorkspaceViewer);
+              $suggestedForYouMaxAdvertise = !empty($isPublisherWorkspaceViewer) ? 3 : 0;
+              include __DIR__ . '/includes/suggested_for_you.php';
             ?>
+            <div class="jump-rail" aria-label="Post navigation">
+              <button type="button" id="btnUp" aria-label="Previous post"><i class="icon ion-chevron-up"></i></button>
+              <button type="button" id="btnDown" aria-label="Next post"><i class="icon ion-chevron-down"></i></button>
+            </div>
+            <script>
+            (function(){
+              function cards(){
+                return Array.prototype.slice.call(document.querySelectorAll('#mfFeed .mf-card'));
+              }
+              function scrollRoot(){
+                return document.querySelector('.feed-desktop-center > .mf-feed')
+                  || document.getElementById('mfFeed')
+                  || document.scrollingElement
+                  || document.documentElement;
+              }
+              function currentIndex(){
+                var list = cards();
+                if(!list.length) return -1;
+                var best = 0, bestDist = Infinity;
+                list.forEach(function(card, i){
+                  var r = card.getBoundingClientRect();
+                  var d = Math.abs(r.top - 90);
+                  if (d < bestDist){ bestDist = d; best = i; }
+                });
+                return best;
+              }
+              function scrollToCard(card){
+                if(!card) return;
+                var root = scrollRoot();
+                if (root && root.contains(card) && typeof root.scrollTo === 'function') {
+                  var rootRect = root.getBoundingClientRect();
+                  var cardRect = card.getBoundingClientRect();
+                  var nextTop = root.scrollTop + (cardRect.top - rootRect.top);
+                  root.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+                  return;
+                }
+                card.scrollIntoView({behavior:'smooth', block:'start'});
+              }
+              function go(step){
+                var list = cards();
+                if(!list.length) return;
+                var idx = currentIndex();
+                if(idx < 0) idx = 0;
+                idx = Math.max(0, Math.min(list.length - 1, idx + step));
+                scrollToCard(list[idx]);
+              }
+              var up = document.getElementById('btnUp');
+              var down = document.getElementById('btnDown');
+              if(up) up.addEventListener('click', function(){ go(-1); });
+              if(down) down.addEventListener('click', function(){ go(1); });
+            })();
+            </script>
             <div class="row row-sm desktop-only">
             <!-- LEFT: Viewer -->
             <div class="col-lg-8 feedViewerCol" id="feedPostScrollCol">
@@ -4985,7 +5266,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                         <div class="ig-cap-meta" id="pvCapMeta"></div>
                         <div class="d-flex align-items-center justify-content-between mb-2">
                           <div class="ig-cap-text feed-desc clamp-2" id="pvCapText"></div>
-                          <a href="#" class="ig-cap-readmore" id="pvCapReadMore">Read more</a>
+                          <a href="#" class="ig-cap-readmore" id="pvCapReadMore"><?php echo h(app_t('Read more')); ?></a>
                         </div>
                       </div>
                     </div>
@@ -5204,7 +5485,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             <div class="c-left">
               <div id="cAvatar" class="c-avatar">P</div>
               <div class="c-headtxt">
-                <div id="cTitleText" class="c-title">Comments</div>
+                <div id="cTitleText" class="c-title"><?= htmlspecialchars(app_t('Comments'), ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="c-sub">
                   <span id="cAuthor" class="c-author"></span>
                   <span class="c-dot">•</span>
@@ -5231,7 +5512,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               </div>
 
               <div class="input-group">
-                <input type="text" id="cCommentText" class="form-control" placeholder="Write a comment...">
+                <input type="text" id="cCommentText" class="form-control" placeholder="<?= htmlspecialchars(app_t('Write a comment...'), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="input-group-append">
                   <button class="btn btn-primary" type="submit"><i class="icon ion-arrow-up-a"></i></button>
                 </div>
@@ -6795,7 +7076,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
       const FEED_BOOT_ITEMS = <?= json_encode($feedBootItems, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '[]' ?>;
       const FEED_SEARCH_Q = <?= json_encode($feedSearchQ) ?>;
       let FEED_DISCOVER_TAB = <?= json_encode($feedDiscoverTab) ?>;
-      const API_URL = <?= json_encode(rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/feed_api.php') ?>;
+      const API_URL = <?= json_encode('feed_api.php') ?>;
       const PCM_FRIES_ICON = <?= json_encode(post_card_menu_fries_icon_html(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 
       (function(){
@@ -7168,26 +7449,36 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         function parseMoment(dt){
           dt = String(dt || '').trim();
           if(!dt) return null;
-          var formats = [
-            moment.ISO_8601,
-            'YYYY-MM-DD HH:mm:ss',
-            'YYYY-MM-DD HH:mm',
-            'YYYY-MM-DDTHH:mm:ss',
-            'YYYY-MM-DDTHH:mm:ssZ',
-            'YYYY-MM-DDTHH:mm:ss.SSSZ'
-          ];
-          var m = moment(dt, formats, true);
-          if(!m.isValid()) m = moment(dt);
-          return m.isValid() ? m : null;
+          if(typeof moment !== 'function') return null;
+          try{
+            var formats = [
+              moment.ISO_8601,
+              'YYYY-MM-DD HH:mm:ss',
+              'YYYY-MM-DD HH:mm',
+              'YYYY-MM-DDTHH:mm:ss',
+              'YYYY-MM-DDTHH:mm:ssZ',
+              'YYYY-MM-DDTHH:mm:ss.SSSZ'
+            ];
+            var m = moment(dt, formats, true);
+            if(!m.isValid()) m = moment(dt);
+            return m.isValid() ? m : null;
+          }catch(e){
+            return null;
+          }
         }
         function isWithin24h(dt){
           try{
             var m = parseMoment(dt);
-            if(!m) return false;
-            return moment().diff(m, 'hours', true) < 24;
-          }catch(e){
-            return false;
-          }
+            if(m && typeof moment === 'function'){
+              return moment().diff(m, 'hours', true) < 24;
+            }
+          }catch(e){}
+          var raw = String(dt || '').trim();
+          if(!raw) return false;
+          var ms = Date.parse(raw.replace(' ', 'T'));
+          if(!ms) ms = Date.parse(raw);
+          if(!ms) return false;
+          return (Date.now() - ms) < (24 * 60 * 60 * 1000);
         }
         function isFeedFreshItem(it){
           // Own posts and deep-linked new posts must always stay on the Friends Feed.
@@ -7196,6 +7487,20 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(FEED_PIN_POST_ID > 0 && id === Number(FEED_PIN_POST_ID)) return true;
           if(uid > 0 && uid === Number(ME_ID || 0)) return true;
           return isWithin24h(itemDate(it));
+        }
+        function isCircleFriendItem(it){
+          var uid = Number(it && (it.user_id || it.author_id) || 0);
+          if(uid > 0 && uid === Number(ME_ID || 0)) return false;
+          var status = String((it && it.friend_status) || '').toLowerCase();
+          if(status === 'friends') return true;
+          var vis = String((it && it.visibility) || '').toLowerCase();
+          return vis === 'friends';
+        }
+        function isCircleFeedCardItem(it){
+          // Friend posts stay on Circle after 24h. Stranger / followed-publisher
+          // cards still leave the main column (and the sidebar) after a day.
+          if(isCircleFriendItem(it)) return true;
+          return isFeedFreshItem(it);
         }
         function itemDate(it){
           return (it && (it.updated_at || it.created_at)) ? (it.updated_at || it.created_at) : '';
@@ -7476,6 +7781,19 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             image.style.removeProperty('padding');
             image.style.removeProperty('box-sizing');
           }
+          var plate = media && media.querySelector(':scope > .msb-no-image');
+          if(plate){
+            plate.classList.remove('msb-phone-frame', 'msb-tablet-frame');
+            ['width','min-width','max-width','height','min-height','max-height','aspect-ratio','margin','margin-top','margin-left','margin-right'].forEach(function(p){
+              try{ plate.style.removeProperty(p); }catch(e){}
+            });
+            var actions = card.querySelector(':scope > .mf-actions');
+            if(actions){
+              actions.style.setProperty('display', 'flex', 'important');
+              actions.style.setProperty('visibility', 'visible', 'important');
+              actions.style.setProperty('opacity', '1', 'important');
+            }
+          }
         }
 
         function mfResyncAllStandardMediaCardWidths(){
@@ -7503,6 +7821,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                     dims = { w: Number(el.naturalWidth || 0), h: Number(el.naturalHeight || 0) };
                   }
                 }
+              }
+              if(!dims || !dims.w || !dims.h){
+                dims = {
+                  w: Number(card.getAttribute('data-media-w') || card.getAttribute('data-device-w') || 0),
+                  h: Number(card.getAttribute('data-media-h') || card.getAttribute('data-device-h') || 0)
+                };
               }
               if(dims && dims.w && dims.h) mfApplyPublicVideoCardWidth(card, dims.w, dims.h);
             }catch(err){}
@@ -7915,7 +8239,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           $('#cPostId').val(String(pid));
           $('#cParentId').val('0');
           $('#cCommentText').val('');
-          $('#cCommentText').attr('placeholder', 'Write a comment...');
+          $('#cCommentText').attr('placeholder', (typeof msbT === 'function' ? msbT('Write a comment...') : 'Write a comment...'));
           $('#cCancelReply').hide();
           $('#cReplyingTo').hide().text('');
 
@@ -7935,7 +8259,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         function closeCommentsModal(){
           $('#cOverlay').css('display','none');
           $('#cParentId').val('0');
-          $('#cCommentText').attr('placeholder', 'Write a comment...');
+          $('#cCommentText').attr('placeholder', (typeof msbT === 'function' ? msbT('Write a comment...') : 'Write a comment...'));
           $('#cCancelReply').hide();
           $('#cReplyingTo').hide().text('');
         }
@@ -8244,7 +8568,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         });
         $('#cCancelReply').on('click', function(){
           $('#cParentId').val('0');
-          $('#cCommentText').attr('placeholder', 'Write a comment...');
+          $('#cCommentText').attr('placeholder', (typeof msbT === 'function' ? msbT('Write a comment...') : 'Write a comment...'));
           $('#cCancelReply').hide();
           $('#cReplyingTo').hide().text('');
         });
@@ -8267,7 +8591,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
             $('#cCommentText').val('');
             $('#cParentId').val('0');
-            $('#cCommentText').attr('placeholder', 'Write a comment...');
+            $('#cCommentText').attr('placeholder', (typeof msbT === 'function' ? msbT('Write a comment...') : 'Write a comment...'));
             $('#cCancelReply').hide();
             $('#cReplyingTo').hide().text('');
 
@@ -8494,14 +8818,14 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               display = text.slice(0, maxChars).trim();
               var sp = display.lastIndexOf(' ');
               if(sp > Math.floor(maxChars * 0.6)) display = display.slice(0, sp);
-              display = display.replace(/[.,;:\s]+$/,'') + '…';
             }
+            display = display.replace(/…+\s*$/,'').trimEnd() + '…';
           }
           var formatted = formatPostCardTextHtml(display);
           if(needsMore){
             return '<div class="'+esc(className)+' mf-body-has-more" data-full="'+esc(text)+'" data-expanded="0">'+
                      '<div class="mf-body-formatted is-clamped">'+formatted+'</div>'+
-                     '<a href="#" class="mf-readmore js-open-readmore-door">Read more</a>'+
+                     '<a href="#" class="mf-readmore js-open-readmore-door">'+((typeof window.msbT==='function')?window.msbT('Read more'):'Read more')+'</a>'+
                    '</div>';
           }
           return '<div class="'+esc(className)+'"><div class="mf-body-formatted">'+formatted+'</div></div>';
@@ -8671,26 +8995,29 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
         function mfPrimeStandardFeedVideo(video){
           if(!video) return;
-          var reveal = function(){
+          var onError = function(){
+            var retries = Number(video.dataset.mfLoadRetries || 0);
+            if(retries < 2){
+              video.dataset.mfLoadRetries = String(retries + 1);
+              window.setTimeout(function(){
+                try{ video.load(); }catch(e){}
+              }, 180 * (retries + 1));
+              return;
+            }
+            if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+              window.MSBNoImage.replace(video);
+              return;
+            }
             var card = video.closest('.mf-card.is-single-video-post');
             if(card) card.classList.add('mf-video-error');
-            var retries = Number(video.dataset.mfLoadRetries || 0);
-            if(retries >= 2) return;
-            video.dataset.mfLoadRetries = String(retries + 1);
-            window.setTimeout(function(){
-              try{
-                if(card) card.classList.remove('mf-video-error');
-                video.load();
-              }catch(e){}
-            }, 180 * (retries + 1));
           };
           try{
-            if(video.getAttribute('preload') !== 'auto'){
-              video.setAttribute('preload', 'auto');
-              video.load();
-            }
+            video.muted = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            if(!video.getAttribute('preload')) video.setAttribute('preload', 'metadata');
           }catch(e){}
-          video.addEventListener('error', reveal, { once:true });
+          video.addEventListener('error', onError);
         }
 
         function bindMfStandardMediaCardSizing(scope){
@@ -8717,6 +9044,23 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               if(video.readyState >= 1) sync();
             });
 
+            if(root.querySelectorAll){
+              Array.prototype.forEach.call(root.querySelectorAll('.mf-card .msb-no-image'), function(ph){
+                if(window.MSBNoImage && typeof window.MSBNoImage.markReady === 'function'){
+                  window.MSBNoImage.markReady(ph);
+                } else {
+                  var card = ph.closest('.mf-card');
+                  var stage = ph.closest('.media-stage, .mf-media');
+                  if(stage) stage.classList.add('mf-media-sized');
+                  if(card){
+                    card.classList.add('mf-media-missing');
+                    if(card.classList.contains('is-single-image-post')) card.classList.add('mf-image-ready');
+                    if(card.classList.contains('is-single-video-post')) card.classList.add('mf-video-ready');
+                  }
+                }
+              });
+            }
+
             var imageSelector = '.mf-card.is-single-image-post .media-stage.standard-image-stage > img';
             Array.prototype.forEach.call(root.querySelectorAll(imageSelector), function(img){
               var sync = function(){ syncMfStandardImageCard(img); };
@@ -8727,6 +9071,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               img.dataset.mfStandardMediaSized = '1';
               img.addEventListener('load', sync);
               img.addEventListener('error', function(){
+                if(window.MSBNoImage && typeof window.MSBNoImage.replace === 'function'){
+                  window.MSBNoImage.replace(img);
+                  return;
+                }
                 var card = img.closest('.mf-card.is-single-image-post');
                 if(card) card.classList.add('mf-image-error');
                 var retries = Number(img.dataset.mfLoadRetries || 0);
@@ -8817,7 +9165,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             $wrap.find('.mf-card.is-single-video-post, .mf-card.is-single-image-post').each(function(){
               var card = this;
               if(!card || pending) return;
-              if(card.classList.contains('mf-video-error') || card.classList.contains('mf-image-error')) return;
+              if(card.classList.contains('mf-video-error') || card.classList.contains('mf-image-error') || card.classList.contains('mf-media-missing')) return;
               if(card.classList.contains('is-single-video-post') && !card.classList.contains('mf-video-ready')) pending = true;
               if(card.classList.contains('is-single-image-post') && !card.classList.contains('mf-image-ready')) pending = true;
             });
@@ -8831,7 +9179,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           try{
             var card = $wrap && $wrap.length ? $wrap.children('.mf-card').get(0) : null;
             if(!card) return true;
-            if(card.classList.contains('mf-video-error') || card.classList.contains('mf-image-error')) return true;
+            if(card.classList.contains('mf-video-error') || card.classList.contains('mf-image-error') || card.classList.contains('mf-media-missing')) return true;
             if(card.classList.contains('is-single-video-post')){
               return card.classList.contains('mf-frame-painted');
             }
@@ -8878,6 +9226,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               if(window.__MSBThemeCore && typeof window.__MSBThemeCore.refreshPalettePaint === 'function'){
                 window.__MSBThemeCore.refreshPalettePaint();
               }
+              try{
+                if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
+                  window.MSBResumePost.restoreHome();
+                }
+              }catch(eResumePaint){}
               return;
             }
             requestAnimationFrame(tick);
@@ -9160,14 +9513,14 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 display_name: name,
                 username: it.username || '',
                 id: it.user_id || it.author_id || 0,
-                href: peerProfileHref(it)
+                href: peerProfileHref(it, pid)
               }, taggedPeople, { linkAuthor: true, afterAuthorHtml: metaAfterAuthor })
-            : esc(name || '');
+            : '<a class="msb-sharing-who" href="'+esc(peerProfileHref(it, pid))+'" target="_top" rel="noopener">'+esc(name || '')+'</a>';
           var nameClass = 'mf-name' + (hasSharing ? ' mf-name--sharing is-sharing-with' : '');
           return ''+
             '<div class="'+headClass+'">'+
               '<div class="mf-peer-link'+(hasSharing ? ' is-sharing-with' : '')+'">'+
-                '<a class="mf-avatar-link" href="'+esc(peerProfileHref(it))+'" aria-label="Open '+esc(name||'User')+' profile">'+
+                '<a class="mf-avatar-link" href="'+esc(peerProfileHref(it, pid))+'" target="_top" rel="noopener" aria-label="Open '+esc(name||'User')+' profile">'+
                   '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name||'User')+'"></div>'+
                 '</a>'+
                 '<div class="mf-meta">'+
@@ -9309,6 +9662,27 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           });
         }
 
+        function mfNoImageHtml(){
+          if(window.MSBNoImage && typeof window.MSBNoImage.html === 'function'){
+            return window.MSBNoImage.html({ variant: 'circle' });
+          }
+          return '<div class="msb-no-image msb-media-unavailable" role="img" aria-label="Media unavailable">'+
+            '<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">'+
+              '<circle cx="32" cy="32" r="21.5" fill="none" stroke="currentColor" stroke-width="2.15"/>'+
+              '<rect x="22.2" y="24.4" width="19.6" height="15.2" rx="2.1" fill="none" stroke="currentColor" stroke-width="1.7"/>'+
+              '<circle cx="27.9" cy="29.2" r="1.35" fill="currentColor"/>'+
+              '<path d="M23.6 37.4l4.7-4.2 3.05 2.7 3.9-4.35 6.15 5.85" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'+
+              '<path d="M18.4 45.6 L45.6 18.4" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round"/>'+
+            '</svg>'+
+            '<span>Media unavailable</span>'+
+          '</div>';
+        }
+
+        function mfAttIsMissing(a){
+          if(!a) return false;
+          return Number(a.missing || a.file_missing || 0) === 1;
+        }
+
         function mfBuildHydratedCarousel(atts){
           atts = Array.isArray(atts) ? atts : [];
           if(atts.length <= 1) return '';
@@ -9318,7 +9692,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             var src = srcOf(a);
             var kind = detectKind(src, a.type);
             var inner = '';
-            if(kind === 'image' || kind === 'gif'){
+            if(mfAttIsMissing(a) && (kind === 'image' || kind === 'gif' || kind === 'video')){
+              inner = mfNoImageHtml();
+            }else if(kind === 'image' || kind === 'gif'){
               inner = '<img src="'+esc(src)+'" alt="">';
             }else if(kind === 'video'){
               inner = '<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>';
@@ -9426,6 +9802,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var psrc = String(it.preview_path||'').trim();
           var pthumb = String(it.preview_thumb_path||'').trim().replace(/^public_user\//,'');
           var pkind = detectKind(psrc, it.preview_type);
+          var previewMissing = Number(it.preview_missing || 0) === 1;
           var declaredLayout = mfDeclaredLayout(it);
 
           var bodySrc = String(it.body || it.description || '').trim();
@@ -9457,6 +9834,30 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var isSingleMedia = attCount <= 1;
           var isMultiMedia = attCount > 1;
           var shapeClass = mfMediaShapeClass(it);
+          var mediaW = Number(it.preview_w || 0);
+          var mediaH = Number(it.preview_h || 0);
+          if(previewMissing && deviceDims && deviceDims.w && deviceDims.h){
+            mediaW = deviceDims.w;
+            mediaH = deviceDims.h;
+          } else if((!mediaW || !mediaH) && deviceDims && deviceDims.w && deviceDims.h){
+            mediaW = deviceDims.w;
+            mediaH = deviceDims.h;
+          }
+          if(!mediaW || !mediaH){
+            if(shapeClass === 'single-landscape'){ mediaW = 16; mediaH = 9; }
+            else if(shapeClass === 'single-square'){ mediaW = 1; mediaH = 1; }
+            else if(shapeClass === 'single-portrait' || isPhoneShot){ mediaW = 9; mediaH = 16; }
+            else { mediaW = 4; mediaH = 3; }
+          }
+          if(previewMissing && !shapeClass && isSingleMedia){
+            if(mediaH > mediaW * 1.1) shapeClass = 'single-portrait';
+            else if(mediaW > mediaH * 1.15) shapeClass = 'single-landscape';
+            else shapeClass = 'single-square';
+          }
+          if(previewMissing && (!deviceStyle || deviceStyle.indexOf('--device-ar-w') < 0)){
+            mediaStyleAttr = ' style="--device-ar-w:'+esc(String(mediaW))+';--device-ar-h:'+esc(String(mediaH))+';"';
+          }
+          deviceDataAttrs += ' data-media-w="'+esc(String(mediaW))+'" data-media-h="'+esc(String(mediaH))+'"';
           var shapeReady = shapeClass ? '1' : '0';
           var isLiveCard = !!(liveMeta && Number(liveMeta.id || 0) > 0);
           if(isLiveCard) return '';
@@ -9578,6 +9979,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               +   '</div>'
               + '</div>';
           } else if(hasMedia){
+            var previewInner = previewMissing ? mfNoImageHtml() : '';
+            if(previewMissing){
+              cardClass += ' mf-media-missing mf-frame-painted';
+              if(pkind === 'image' || pkind === 'gif') cardClass += ' mf-image-ready';
+              if(pkind === 'video') cardClass += ' mf-video-ready';
+            }
             if(pkind === 'image' || pkind === 'gif'){
               if(isMultiMedia) cardClass += ' is-multi-media-post mf-card-multi-media';
               else cardClass += ' is-single-image-post mf-card-single-image';
@@ -9588,23 +9995,24 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 shapeClass: shapeClass,
                 isMultiMedia: isMultiMedia
               });
+              if(previewMissing) imageMediaClass += ' mf-media-sized';
               mediaHtml = '<div class="'+imageMediaClass+'"'+mediaStyleAttr+' data-shape-ready="1" data-count="'+attCount+'" data-index="0">'+
                           (isMultiMedia
                             ? ('<div class="media-carousel mf-media-carousel" data-index="0" data-pending-hydrate="1">'+
                                  '<div class="media-slides mf-media-slides">'+
-                                   '<div class="media-slide mf-media-slide is-active" data-slide-index="0"><img src="'+esc(psrc)+'" alt=""></div>'+
+                                   '<div class="media-slide mf-media-slide is-active" data-slide-index="0">'+(previewInner || ('<img src="'+esc(psrc)+'" alt="">'))+'</div>'+
                                  '</div>'+
                                  mfCarouselNavButtonsHtml()+
                                  mfMediaDots(attCount)+
                                '</div>')
-                            : ('<img src="'+esc(psrc)+'" alt="" loading="eager" decoding="sync" fetchpriority="high">'))+
+                            : (previewInner || ('<img src="'+esc(psrc)+'" alt="" loading="eager" decoding="sync" fetchpriority="high">')))+
                           '</div>';
             } else if(pkind === 'video'){
               if(isReelCard){
                 cardClass += ' mf-card-reel';
                 mediaHtml = ''+
                   '<div class="mf-media">'+
-                    '<video class="ig-smart-feed-video js-mf-reel-video" src="'+esc(psrc)+'" playsinline muted loop preload="none" data-smart-video="1"></video>'+
+                    (previewInner || ('<video class="ig-smart-feed-video js-mf-reel-video" src="'+esc(psrc)+'" playsinline muted loop preload="none" data-smart-video="1"></video>'))+
                     mfMediaDots(attCount)+
                   '</div>';
                 actionsHtml = normalActions();
@@ -9618,16 +10026,17 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                   shapeClass: shapeClass,
                   isMultiMedia: isMultiMedia
                 });
-                var videoPosterAttr = pthumb ? (' poster="'+esc(pthumb)+'"') : '';
+                if(previewMissing) videoMediaClass += ' mf-media-sized';
+                var videoPosterAttr = (!previewMissing && pthumb) ? (' poster="'+esc(pthumb)+'"') : '';
                 mediaHtml = ''+
                   '<div class="'+videoMediaClass+'"'+mediaStyleAttr+' data-shape-ready="'+shapeReady+'">'+
-                    '<video class="ig-smart-feed-video" src="'+esc(psrc)+'"'+videoPosterAttr+' playsinline muted preload="auto" data-smart-video="1"></video>'+
+                    (previewInner || ('<video class="ig-smart-feed-video" src="'+esc(psrc)+'"'+videoPosterAttr+' playsinline muted preload="auto" data-smart-video="1"></video>'))+
                     mfMediaDots(attCount)+
                   '</div>';
                 actionsHtml = normalActions();
               }
             } else {
-              mediaHtml = mfFileTileHtml(psrc, pkind);
+              mediaHtml = previewMissing ? mfNoImageHtml() : mfFileTileHtml(psrc, pkind);
             }
           }
 
@@ -9661,8 +10070,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           var initialCardStyle = '';
           if(!isLiveCard && !isReelCard && !isMultiMedia && isSingleMedia && hasMedia){
-            if(pkind === 'video'){
-              // Pending video: full-width feed rectangle (matches neighbors while buffering).
+            if(previewMissing){
+              initialCardStyle = mfInitialMediaCardStyleFromDims(
+                { w: mediaW, h: mediaH },
+                isPhoneShot
+              );
+            } else if(pkind === 'video'){
               initialCardStyle = 'width:100%;max-width:100%;margin-left:0;margin-right:0;--post-media-card-width:100%;';
             } else if(pkind === 'image' || pkind === 'gif'){
               initialCardStyle = mfInitialMediaCardStyleFromDims(deviceDims || mfInitialMediaAspect(it, null), isPhoneShot);
@@ -10368,8 +10781,14 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(Number(it.is_story || 0) === 1) return true;
           return postDeclaredLayout(it) === 'story';
         }
+        function isSlideshowPhotoPost(it){
+          if(!it || isStoryPost(it)) return false;
+          var kind = String((it.preview_type || '')).toLowerCase();
+          if(kind === 'video') return false;
+          return Number(it.attachment_count || it.media_count || 0) > 1;
+        }
         function isFeedCardPost(it){
-          return !isStoryPost(it);
+          return !isStoryPost(it) && !isSlideshowPhotoPost(it);
         }
 
         function stripLayoutOverrideMarker(txt){
@@ -10663,9 +11082,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             });
           }
 
-          // Right sidebar / feed rows: keep last 24h, but never drop your own or pinned new posts.
+          // Main Circle cards keep friends' posts after 24h. Sidebar rows stay 24h-only.
           items = items.filter(function(it){
-            return isFeedFreshItem(it);
+            return isCircleFeedCardItem(it);
           });
 
           if(FEED_PIN_POST_ID > 0){
@@ -10682,6 +11101,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           updateUnreadBadge(countUnreadSidebarItems(items.filter(isFeedCardPost)));
           renderList(items.filter(isFeedCardPost));
           rebuildStoriesBar(items);
+          try{
+            if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
+              window.MSBResumePost.restoreHome();
+            }
+          }catch(eResume){}
 
           if(selectedId){
             $('#postList .pl-item').removeClass('active');
@@ -10852,7 +11276,17 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             method: 'GET',
             dataType: 'json',
             cache: false,
-            data: { ajax:'list', filter:sendFilter, order:sendOrder, limit:200, _: Date.now() }
+            data: { ajax:'list', filter:sendFilter, order:sendOrder, limit:200, _: Date.now() },
+            dataFilter: function(raw){
+              if(typeof raw !== 'string') return raw;
+              var s = raw.replace(/^\uFEFF/, '');
+              var t = s.trim();
+              if(t.charAt(0) === '{' || t.charAt(0) === '[') return t;
+              var start = s.indexOf('{');
+              var end = s.lastIndexOf('}');
+              if(start >= 0 && end > start) return s.slice(start, end + 1);
+              return raw;
+            }
           }).done(function(res){
             if(!res || !res.ok){
               var errMsg = (res && res.error) ? String(res.error) : 'Unable to load posts (API not reachable).';
@@ -11703,6 +12137,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               $('#btnInstaMediaNext, #btnInstaMediaPrev').hide();
               window.__feedMediaAtts = [];
             }catch(e){}
+            return;
+          }
+
+          var currentAtt = (window.__feedMediaAtts || [])[Number(currentMediaIdx || 0)] || {};
+          if(mfAttIsMissing(currentAtt) && (kind === 'image' || kind === 'gif' || kind === 'video')){
+            $('#pvMedia').html(mfNoImageHtml());
             return;
           }
 
@@ -17681,6 +18121,22 @@ body.feed-insta-ui .mf-reel-body .mf-readmore,
 body.feed-insta-ui .js-open-readmore,
 body.feed-insta-ui .js-open-readmore-door{
   font-weight:800 !important;
+}
+
+/* Match Discover: keep the ellipsis and Read more on the final preview line. */
+body.feed-insta-ui .mf-body-has-more > .mf-body-formatted.is-clamped{
+  display:contents !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+body.feed-insta-ui .mf-body-has-more > .mf-body-formatted.is-clamped .post-card-paragraph:last-child{
+  display:inline !important;
+  margin-bottom:0 !important;
+}
+body.feed-insta-ui .mf-body-has-more > .mf-body-formatted.is-clamped + .mf-readmore{
+  display:inline !important;
+  margin-left:.28em !important;
+  white-space:nowrap !important;
 }
 </style>
 

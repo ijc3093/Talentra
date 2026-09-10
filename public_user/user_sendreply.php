@@ -142,6 +142,17 @@ if (strcasecmp($peerCode, $meCode) === 0) {
     die("You cannot message yourself.");
 }
 
+$peerId = (int)($peerRes['peerId'] ?? 0);
+$meId = function_exists('myUserId') ? (int)myUserId() : (int)($_SESSION['user_id'] ?? 0);
+if ($peerId > 0 && $meId > 0) {
+    if (!function_exists('profile_owner_allows_interaction')) {
+        require_once __DIR__ . '/includes/profile_access.php';
+    }
+    if (function_exists('profile_owner_allows_interaction') && !profile_owner_allows_interaction($dbh, $peerId, $meId, 'message_permission')) {
+        die('This person is not accepting messages from you.');
+    }
+}
+
 // ✅ Jump into Messages selecting the left peer list by friend code
 header("Location: messages.php?peer=" . urlencode($peerCode));
 exit;

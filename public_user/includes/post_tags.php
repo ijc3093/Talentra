@@ -372,8 +372,9 @@ if (!function_exists('msb_post_sharing_with_name_html')) {
         $authorHref = trim($authorHref);
 
         $authorHtml = $esc($authorDisplayName);
+        $targetAttr = ' target="_top" rel="noopener"';
         if ($linkAuthor && $authorHref !== '' && $authorHref !== '#') {
-            $authorHtml = '<a class="' . $esc($linkClass) . '" href="' . $esc($authorHref) . '">' . $authorHtml . '</a>';
+            $authorHtml = '<a class="' . $esc($linkClass) . '" href="' . $esc($authorHref) . '"' . $targetAttr . '>' . $authorHtml . '</a>';
         }
         $afterAuthorHtml = (string)($opts['after_author_html'] ?? '');
 
@@ -409,7 +410,7 @@ if (!function_exists('msb_post_sharing_with_name_html')) {
             if ($href === '' || $href === '#') {
                 return $label;
             }
-            return '<a class="' . $esc($linkClass) . '" href="' . $esc($href) . '">' . $label . '</a>';
+            return '<a class="' . $esc($linkClass) . '" href="' . $esc($href) . '" target="_top" rel="noopener">' . $label . '</a>';
         };
 
         $muted = '<span class="' . $esc($mutedClass) . '"> is sharing with </span>';
@@ -428,7 +429,7 @@ if (!function_exists('msb_post_sharing_with_name_html')) {
             $label = $esc((string)$people[$i]['label']);
             $href = trim((string)($people[$i]['href'] ?? ''));
             $uname = trim((string)($people[$i]['username'] ?? ''));
-            $items .= '<a class="msb-sharing-others-item" role="option" href="' . $esc($href !== '' ? $href : '#') . '">'
+            $items .= '<a class="msb-sharing-others-item" role="option" href="' . $esc($href !== '' ? $href : '#') . '" target="_top" rel="noopener">'
                 . '<span class="msb-sharing-others-name">' . $label . '</span>'
                 . ($uname !== '' ? '<span class="msb-sharing-others-user">@' . $esc($uname) . '</span>' : '')
                 . '</a>';
@@ -607,7 +608,23 @@ if (!function_exists('msb_insert_user_notification')) {
         if ($actorId <= 0 || $receiverId <= 0 || $actorId === $receiverId || trim($message) === '') {
             return false;
         }
+        if (!function_exists('profile_user_wants_notification')) {
+            $pa = __DIR__ . '/profile_access.php';
+            if (is_file($pa)) {
+                require_once $pa;
+            }
+        }
         $pref = trim((string)($meta['pref'] ?? ''));
+        if (function_exists('profile_user_wants_notification')
+            && !profile_user_wants_notification($dbh, $receiverId, 'inapp_notifications')) {
+            return false;
+        }
+        if (function_exists('profile_user_in_quiet_hours')
+            && profile_user_in_quiet_hours($dbh, $receiverId)
+            && $pref !== 'message_notifications'
+            && $pref !== 'friend_request_notifications') {
+            return false;
+        }
         if ($pref !== '' && function_exists('profile_user_wants_notification') && !profile_user_wants_notification($dbh, $receiverId, $pref)) {
             return false;
         }
@@ -782,7 +799,7 @@ if (!function_exists('msb_post_mentions_notify')) {
                 'route' => $notifRoute,
                 'post_id' => $postId,
                 'story' => $isStory ? 1 : 0,
-                'pref' => 'tagged_notifications',
+                'pref' => 'mention_notifications',
             ])) {
                 $notified[] = $rid;
             }

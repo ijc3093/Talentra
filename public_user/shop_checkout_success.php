@@ -25,7 +25,7 @@ if ($session) {
 $fallback = 'my_orders.php?session_id=' . rawurlencode($sessionId) . '&paid=1';
 ?>
 <!doctype html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

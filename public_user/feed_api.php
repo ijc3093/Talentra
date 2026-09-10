@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/session_user.php';
+require_once __DIR__ . '/includes/profile_access.php';
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/friend_system.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
@@ -14,6 +15,7 @@ require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/post_upload.php';
 require_once __DIR__ . '/includes/post_tags.php';
 require_once __DIR__ . '/includes/msb_feed_engagement.php';
+require_once __DIR__ . '/includes/missing_media.php';
 
 requireUserLogin();
 sendNoCacheHeadersUser();
@@ -273,31 +275,35 @@ function feedUserRow(PDO $dbh, int $userId): array {
 
 function feedNotificationPrefs(PDO $dbh, int $userId): array {
   static $cache = [];
-  if ($userId <= 0) {
-    return [
-      'comment_notifications' => 1,
-      'reaction_notifications' => 1,
-      'share_notifications' => 1,
-      'saved_notifications' => 1,
-      'tagged_notifications' => 1,
-      'followed_notifications' => 1,
-    ];
-  }
-  if (isset($cache[$userId])) return $cache[$userId];
-
-  $prefs = [
+  $defaults = [
+    'inapp_notifications' => 1,
     'comment_notifications' => 1,
     'reaction_notifications' => 1,
     'share_notifications' => 1,
     'saved_notifications' => 1,
     'tagged_notifications' => 1,
     'followed_notifications' => 1,
+    'mention_notifications' => 1,
+    'message_notifications' => 1,
+    'publisher_post_notifications' => 1,
+    'friend_request_notifications' => 1,
   ];
+  if ($userId <= 0) {
+    return $defaults;
+  }
+  if (isset($cache[$userId])) return $cache[$userId];
+
+  $prefs = $defaults;
 
   try {
+    if (function_exists('profile_settings_ensure_tab_privacy_columns')) {
+      profile_settings_ensure_tab_privacy_columns($dbh);
+    }
     $st = $dbh->prepare("
-      SELECT comment_notifications, reaction_notifications, share_notifications,
-             saved_notifications, tagged_notifications, followed_notifications
+      SELECT inapp_notifications, comment_notifications, reaction_notifications, share_notifications,
+             saved_notifications, tagged_notifications, followed_notifications,
+             mention_notifications, message_notifications, publisher_post_notifications,
+             friend_request_notifications
       FROM user_profile_settings
       WHERE user_id = :uid
       LIMIT 1
@@ -327,6 +333,7 @@ function feedNotificationPrefs(PDO $dbh, int $userId): array {
         $prefs['share_notifications'] = (int)($row['share_notifications'] ?? 1);
       }
     } catch (Throwable $e2) {
+      // keep defaults
     }
   }
 
@@ -438,6 +445,13 @@ function feedFetchLiveMeta(PDO $dbh, int $liveId, int $meId): ?array {
 
 function feedAllowsNotification(PDO $dbh, int $receiverId, string $kind): bool {
   $prefs = feedNotificationPrefs($dbh, $receiverId);
+  if ((int)($prefs['inapp_notifications'] ?? 1) !== 1) {
+    return false;
+  }
+  if (function_exists('profile_user_in_quiet_hours') && profile_user_in_quiet_hours($dbh, $receiverId)
+      && !in_array($kind, ['message', 'friend_request'], true)) {
+    return false;
+  }
   if ($kind === 'reaction') {
     return (int)($prefs['reaction_notifications'] ?? 1) === 1;
   }
@@ -449,6 +463,21 @@ function feedAllowsNotification(PDO $dbh, int $receiverId, string $kind): bool {
   }
   if ($kind === 'save') {
     return (int)($prefs['saved_notifications'] ?? 1) === 1;
+  }
+  if ($kind === 'mention') {
+    return (int)($prefs['mention_notifications'] ?? 1) === 1;
+  }
+  if ($kind === 'message') {
+    return (int)($prefs['message_notifications'] ?? 1) === 1;
+  }
+  if ($kind === 'follow') {
+    return (int)($prefs['followed_notifications'] ?? 1) === 1;
+  }
+  if ($kind === 'publisher_post') {
+    return (int)($prefs['publisher_post_notifications'] ?? 1) === 1;
+  }
+  if ($kind === 'friend_request') {
+    return (int)($prefs['friend_request_notifications'] ?? 1) === 1;
   }
   return true;
 }
@@ -636,7 +665,7 @@ try {
       $order = 'attention';
     }
 
-    $where  = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0";
+    $where  = "COALESCE(p.is_deleted, 0) = 0 AND COALESCE(p.is_archived,0) = 0";
     $params = [];
 
     if ($filter === 'author' && $authorId > 0) {
@@ -645,7 +674,8 @@ try {
       $where .= ' AND ' . publisher_profile_author_posts_scope_sql($dbh, $meId, $authorId);
       $params = array_merge($params, publisher_profile_author_posts_scope_params($dbh, $meId, $authorId));
     } elseif ($pageMode === 'public') {
-      $where .= " AND p.visibility = 'public'";
+      $where .= ' AND ' . publisher_discover_list_where_sql($dbh, $meId);
+      $params = array_merge($params, publisher_discover_list_where_params($dbh, $meId));
       $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, false);
       $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, false));
       // Clips / public list: publishers only see other publishers' posts.
@@ -801,11 +831,15 @@ try {
       if (!empty($r['preview_path'])) {
         $r['preview_path'] = preg_replace('#^public_user/#', '', (string)$r['preview_path']);
       }
+      $r['preview_missing'] = function_exists('msb_media_is_missing') && msb_media_is_missing((string)($r['preview_path'] ?? '')) ? 1 : 0;
       $r['preview_slide_title'] = (string)($r['preview_slide_title'] ?? '');
       $r['preview_slide_body'] = (string)($r['preview_slide_body'] ?? '');
       $r['has_slide_captions'] = ((int)($r['slide_caption_count'] ?? 0) > 0 || trim($r['preview_slide_title']) !== '' || trim($r['preview_slide_body']) !== '') ? 1 : 0;
       if (!empty($r['preview_thumb_path'])) {
         $r['preview_thumb_path'] = preg_replace('#^public_user/#', '', (string)$r['preview_thumb_path']);
+        if (function_exists('msb_media_is_missing') && msb_media_is_missing((string)$r['preview_thumb_path'])) {
+          $r['preview_thumb_path'] = '';
+        }
       }
 
       $deviceMeta = device_profile_card_meta(
@@ -869,6 +903,9 @@ try {
       if ($excludeStories && post_is_story_only($r)) {
         continue;
       }
+      if (post_is_slideshow_photos($r)) {
+        continue;
+      }
       $filteredRows[] = $r;
     }
     $rows = array_values($filteredRows);
@@ -902,6 +939,9 @@ try {
           }
           $attRow['file_path'] = preg_replace('#^public_user/#', '', (string)($attRow['file_path'] ?? ''));
           $attRow['thumb_path'] = preg_replace('#^public_user/#', '', (string)($attRow['thumb_path'] ?? ''));
+          if (function_exists('msb_attachment_apply_missing')) {
+            $attRow = msb_attachment_apply_missing($attRow);
+          }
           $attsByPost[$pidA][] = $attRow;
         }
       } catch (Throwable $eStoryAtt) {
@@ -920,6 +960,9 @@ try {
             }
             $attRow['file_path'] = preg_replace('#^public_user/#', '', (string)($attRow['file_path'] ?? ''));
             $attRow['thumb_path'] = preg_replace('#^public_user/#', '', (string)($attRow['thumb_path'] ?? ''));
+            if (function_exists('msb_attachment_apply_missing')) {
+              $attRow = msb_attachment_apply_missing($attRow);
+            }
             $attsByPost[$pidA][] = $attRow;
           }
         } catch (Throwable $eStoryAtt2) {
@@ -1193,8 +1236,8 @@ try {
     }
 
     foreach ($atts as &$a) {
-      $fp = preg_replace('#^public_user#', '', (string)($a['file_path'] ?? ''));
-      $tp = preg_replace('#^public_user#', '', (string)($a['thumb_path'] ?? ''));
+      $fp = preg_replace('#^(/+)?public_user/#', '', (string)($a['file_path'] ?? ''));
+      $tp = preg_replace('#^(/+)?public_user/#', '', (string)($a['thumb_path'] ?? ''));
 
       $a['file_path']  = $fp;
       $a['thumb_path'] = $tp;
@@ -1202,6 +1245,9 @@ try {
       $a['thumb_url']  = $tp;
       $a['slide_title'] = (string)($a['slide_title'] ?? '');
       $a['slide_body'] = (string)($a['slide_body'] ?? '');
+      if (function_exists('msb_attachment_apply_missing')) {
+        $a = msb_attachment_apply_missing($a);
+      }
     }
     unset($a);
 
@@ -1958,6 +2004,11 @@ try {
 
     if ($postOwnerId <= 0 || !publisher_post_interaction_allowed($dbh, $meId, ['id' => $postId, 'user_id' => $postOwnerId, 'visibility' => $postVisibility])) {
       jexit(['ok'=>false,'error'=>'You do not have access to interact with this post.','me_id'=>$meId]);
+    }
+    if ($meId !== $postOwnerId
+        && function_exists('profile_owner_allows_interaction')
+        && !profile_owner_allows_interaction($dbh, $postOwnerId, $meId, 'comment_permission')) {
+      jexit(['ok'=>false,'error'=>'Comments are limited on this post.','me_id'=>$meId]);
     }
 
     if ($parentId > 0) {

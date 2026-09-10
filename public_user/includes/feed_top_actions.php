@@ -31,13 +31,13 @@ if ($meId > 0) {
       <span class="ig-shop-view-ic" aria-hidden="true">
         <svg viewBox="0 0 24 24"><rect x="4" y="5" width="5" height="5" rx="1"/><rect x="11" y="6.5" width="9" height="2" rx="1"/><rect x="4" y="14" width="5" height="5" rx="1"/><rect x="11" y="15.5" width="9" height="2" rx="1"/></svg>
       </span>
-      <span class="ig-shop-view-label">List</span>
+      <span class="ig-shop-view-label"><?= h(function_exists('app_t') ? app_t('List') : 'List') ?></span>
     </button>
     <button type="button" class="ig-shop-view-btn is-active" data-shop-view="grid" aria-pressed="true" aria-label="Grid view">
       <span class="ig-shop-view-ic" aria-hidden="true">
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="5" height="5" rx="1"/><rect x="10" y="4" width="5" height="5" rx="1"/><rect x="16" y="4" width="5" height="5" rx="1"/><rect x="4" y="10" width="5" height="5" rx="1"/><rect x="10" y="10" width="5" height="5" rx="1"/><rect x="16" y="10" width="5" height="5" rx="1"/><rect x="4" y="16" width="5" height="5" rx="1"/><rect x="10" y="16" width="5" height="5" rx="1"/><rect x="16" y="16" width="5" height="5" rx="1"/></svg>
       </span>
-      <span class="ig-shop-view-label">Grid</span>
+      <span class="ig-shop-view-label"><?= h(function_exists('app_t') ? app_t('Grid') : 'Grid') ?></span>
     </button>
   </div>
   <?php endif; ?>
@@ -55,13 +55,13 @@ if ($meId > 0) {
       <span class="ig-shop-view-ic" aria-hidden="true">
         <svg viewBox="0 0 24 24"><rect x="4" y="5" width="5" height="5" rx="1"/><rect x="11" y="6.5" width="9" height="2" rx="1"/><rect x="4" y="14" width="5" height="5" rx="1"/><rect x="11" y="15.5" width="9" height="2" rx="1"/></svg>
       </span>
-      <span class="ig-shop-view-label">List</span>
+      <span class="ig-shop-view-label"><?= h(function_exists('app_t') ? app_t('List') : 'List') ?></span>
     </button>
     <button type="button" class="ig-shop-view-btn is-active" data-shop-view="grid" aria-pressed="true" aria-label="Grid view">
       <span class="ig-shop-view-ic" aria-hidden="true">
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="5" height="5" rx="1"/><rect x="10" y="4" width="5" height="5" rx="1"/><rect x="16" y="4" width="5" height="5" rx="1"/><rect x="4" y="10" width="5" height="5" rx="1"/><rect x="10" y="10" width="5" height="5" rx="1"/><rect x="16" y="10" width="5" height="5" rx="1"/><rect x="4" y="16" width="5" height="5" rx="1"/><rect x="10" y="16" width="5" height="5" rx="1"/><rect x="16" y="16" width="5" height="5" rx="1"/></svg>
       </span>
-      <span class="ig-shop-view-label">Grid</span>
+      <span class="ig-shop-view-label"><?= h(function_exists('app_t') ? app_t('Grid') : 'Grid') ?></span>
     </button>
   </div>
   <?php else: ?>

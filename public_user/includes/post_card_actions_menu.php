@@ -10,6 +10,11 @@ function post_card_actions_menu_h(string $value): string
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function post_card_actions_t(string $text): string
+{
+    return post_card_actions_menu_h(function_exists('app_t') ? app_t($text) : $text);
+}
+
 function post_card_menu_fries_icon_html(): string
 {
     return '<span class="pcm-fries-icon" aria-hidden="true">'
@@ -46,23 +51,23 @@ function post_visibility_meta(?string $visibility): array
         return [
             'key' => 'private',
             'icon' => 'fa-lock',
-            'label' => 'Private',
-            'title' => 'Private — Only you can see this',
+            'label' => function_exists('app_t') ? app_t('Private') : 'Private',
+            'title' => function_exists('app_t') ? app_t('Private — Only you can see this') : 'Private — Only you can see this',
         ];
     }
     if ($key === 'friends') {
         return [
             'key' => 'friends',
             'icon' => 'fa-users',
-            'label' => 'Friends',
-            'title' => 'Friends — Only friends can see this',
+            'label' => function_exists('app_t') ? app_t('Friends') : 'Friends',
+            'title' => function_exists('app_t') ? app_t('Friends — Only friends can see this') : 'Friends — Only friends can see this',
         ];
     }
     return [
         'key' => 'public',
         'icon' => 'fa-globe',
-        'label' => 'Public',
-        'title' => 'Public — Anyone can see this',
+        'label' => function_exists('app_t') ? app_t('Public') : 'Public',
+        'title' => function_exists('app_t') ? app_t('Public — Anyone can see this') : 'Public — Anyone can see this',
     ];
 }
 
@@ -145,7 +150,7 @@ function post_card_actions_button_item(string $class, string $label, string $ico
     }
 
     return '<button type="button" class="pcm-item ' . $h($class) . '" role="menuitem"' . $attrHtml . '>'
-        . '<i class="' . $h($icon) . '" aria-hidden="true"></i><span>' . $h($label) . '</span></button>';
+        . '<i class="' . $h($icon) . '" aria-hidden="true"></i><span>' . $h(function_exists('app_t') ? app_t($label) : $label) . '</span></button>';
 }
 
 function post_card_actions_owner_menu_items_html(array $ctx): string
@@ -162,7 +167,7 @@ function post_card_actions_owner_menu_items_html(array $ctx): string
     $visibility = post_visibility_normalize((string)($ctx['visibility'] ?? 'friends'));
     $items = [];
     if ($editUrl !== '') {
-        $items[] = '<a class="pcm-item pcm-edit" href="' . $h($editUrl) . '" data-create-post-modal="1" role="menuitem"><i class="fa fa-edit" aria-hidden="true"></i><span>Edit</span></a>';
+        $items[] = '<a class="pcm-item pcm-edit" href="' . $h($editUrl) . '" data-create-post-modal="1" role="menuitem"><i class="fa fa-edit" aria-hidden="true"></i><span>' . post_card_actions_t('Edit') . '</span></a>';
     }
     $items[] = post_card_actions_button_item('pcm-tag', 'Tag', 'fa fa-at', [
         'data-post-id' => (string)$postId,
@@ -390,11 +395,11 @@ function post_card_actions_menu_items_html(array $ctx): string
         || $isFollowing
         || $canFollowPublishers
     )) {
-        $items[] = '<a class="pcm-item pcm-view" href="' . $h($profileUrl) . '" role="menuitem"><i class="fa fa-user" aria-hidden="true"></i><span>View</span></a>';
+        $items[] = '<a class="pcm-item pcm-view" href="' . $h($profileUrl) . '" role="menuitem"><i class="fa fa-user" aria-hidden="true"></i><span>' . post_card_actions_t('View') . '</span></a>';
     }
 
     if ($friendStatus === 'friends' && $messageUrl !== '') {
-        $items[] = '<a class="pcm-item pcm-message" href="' . $h($messageUrl) . '" role="menuitem"><i class="fa fa-comments" aria-hidden="true"></i><span>Message</span></a>';
+        $items[] = '<a class="pcm-item pcm-message" href="' . $h($messageUrl) . '" role="menuitem"><i class="fa fa-comments" aria-hidden="true"></i><span>' . post_card_actions_t('Message') . '</span></a>';
     }
 
     if (!$isPublisher && $peerId > 0 && $friendStatus === 'friends' && !$staffReadonly) {
@@ -404,20 +409,20 @@ function post_card_actions_menu_items_html(array $ctx): string
     }
 
     if (!$feedSurface && !$isPublisher && $peerId > 0 && $friendStatus === 'none' && !$staffReadonly && !$publisherWorkspaceViewer) {
-        $items[] = '<button type="button" class="pcm-item pcm-add-friend" data-peer-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-plus" aria-hidden="true"></i><span>Add Friend</span></button>';
+        $items[] = '<button type="button" class="pcm-item pcm-add-friend" data-peer-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-plus" aria-hidden="true"></i><span>' . post_card_actions_t('Add Friend') . '</span></button>';
     }
 
     if ($isPublisher && !$isFollowing && $peerId > 0 && $canFollowPublishers) {
-        $items[] = '<button type="button" class="pcm-item pcm-follow" data-publisher-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-plus" aria-hidden="true"></i><span>Follow</span></button>';
+        $items[] = '<button type="button" class="pcm-item pcm-follow" data-publisher-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-plus" aria-hidden="true"></i><span>' . post_card_actions_t('Follow') . '</span></button>';
     }
 
     if ($isPublisher && $isFollowing && $peerId > 0) {
-        $items[] = '<button type="button" class="pcm-item pcm-unfollow" data-publisher-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-times" aria-hidden="true"></i><span>Unfollow</span></button>';
+        $items[] = '<button type="button" class="pcm-item pcm-unfollow" data-publisher-id="' . $peerId . '" role="menuitem"><i class="fa fa-user-plus" aria-hidden="true"></i><span>' . post_card_actions_t('Unfollow') . '</span></button>';
     }
 
     $showTimeline = !$feedSurface && $peerId > 0 && $timelineUrl !== '' && (!$isPublisher || $publisherWorkspaceViewer);
     if ($showTimeline) {
-        $items[] = '<a class="pcm-item pcm-timeline" href="' . $h($timelineUrl) . '" role="menuitem"><i class="icon ion-ios-locked" aria-hidden="true"></i><span>Timeline</span></a>';
+        $items[] = '<a class="pcm-item pcm-timeline" href="' . $h($timelineUrl) . '" role="menuitem"><i class="icon ion-ios-locked" aria-hidden="true"></i><span>' . post_card_actions_t('Timeline') . '</span></a>';
     }
 
     if ($commonItems !== '') {
@@ -495,7 +500,7 @@ function post_card_actions_menu_render_modals(): void
     <div class="modal-content" style="border-radius:14px;">
       <div class="modal-header">
         <h5 class="modal-title"><i class="fa fa-pencil"></i> Rename Friend</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close" data-dismiss="modal" aria-label="<?= post_card_actions_t('Close') ?>">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -507,93 +512,93 @@ function post_card_actions_menu_render_modals(): void
         <div id="pcmRenameErr" class="alert alert-danger mt-3" style="display:none;"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= post_card_actions_t('Cancel') ?></button>
         <button type="button" class="btn btn-primary" id="pcmRenameSaveBtn"><i class="fa fa-save"></i> Save</button>
       </div>
     </div>
   </div>
 </div>
 <dialog class="pcm-delete-dialog pcm-post-dialog" id="pcmPostDestDialog" aria-labelledby="pcmPostDestTitle">
-  <button type="button" class="pcm-delete-dialog-close" data-pcm-post-dismiss aria-label="Close">&times;</button>
+  <button type="button" class="pcm-delete-dialog-close" data-pcm-post-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <div class="pcm-delete-dialog-icon pcm-post-dialog-icon" aria-hidden="true"><i class="fa fa-retweet"></i></div>
-  <h2 id="pcmPostDestTitle">Repost this?</h2>
+  <h2 id="pcmPostDestTitle"><?= post_card_actions_t('Repost this?') ?></h2>
   <p id="pcmPostDestBody">Create your own copy with the same title, description, and media. Choose where it should appear.</p>
   <input type="hidden" id="pcmPostSourceId" value="0">
   <div class="pcm-delete-dialog-actions pcm-post-dialog-actions">
-    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-post-dismiss>Cancel</button>
-    <button type="button" class="pcm-delete-dialog-confirm pcm-post-friends-btn" id="pcmPostToFriendsBtn" data-visibility="friends">Friends</button>
-    <button type="button" class="pcm-delete-dialog-confirm pcm-post-public-btn" id="pcmPostToPublicBtn" data-visibility="public">Public</button>
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-post-dismiss><?= post_card_actions_t('Cancel') ?></button>
+    <button type="button" class="pcm-delete-dialog-confirm pcm-post-friends-btn" id="pcmPostToFriendsBtn" data-visibility="friends"><?= post_card_actions_t('Friends') ?></button>
+    <button type="button" class="pcm-delete-dialog-confirm pcm-post-public-btn" id="pcmPostToPublicBtn" data-visibility="public"><?= post_card_actions_t('Public') ?></button>
   </div>
 </dialog>
 <dialog class="pcm-delete-dialog pcm-private-dialog" id="pcmPrivateConfirmDialog" aria-labelledby="pcmPrivateConfirmTitle">
-  <button type="button" class="pcm-delete-dialog-close" data-pcm-private-dismiss aria-label="Close">&times;</button>
+  <button type="button" class="pcm-delete-dialog-close" data-pcm-private-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <div class="pcm-delete-dialog-icon pcm-private-dialog-icon" aria-hidden="true"><i class="fa fa-lock"></i></div>
-  <h2 id="pcmPrivateConfirmTitle">Make this private?</h2>
+  <h2 id="pcmPrivateConfirmTitle"><?= post_card_actions_t('Make this private?') ?></h2>
   <p id="pcmPrivateConfirmBody">Only you will see it. It will move to your Gallery → Private.</p>
   <input type="hidden" id="pcmPrivatePostId" value="0">
   <div class="pcm-delete-dialog-actions">
-    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-private-dismiss>Cancel</button>
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-private-dismiss><?= post_card_actions_t('Cancel') ?></button>
     <button type="button" class="pcm-delete-dialog-confirm pcm-private-dialog-confirm" id="pcmGenericConfirmPrivateBtn">Private</button>
   </div>
 </dialog>
 <dialog class="pcm-delete-dialog pcm-vis-dialog is-friends" id="pcmVisConfirmDialog" aria-labelledby="pcmVisConfirmTitle">
-  <button type="button" class="pcm-delete-dialog-close" data-pcm-vis-dismiss aria-label="Close">&times;</button>
+  <button type="button" class="pcm-delete-dialog-close" data-pcm-vis-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <div class="pcm-delete-dialog-icon pcm-vis-dialog-icon" id="pcmVisConfirmIcon" aria-hidden="true"><i class="fa fa-users"></i></div>
   <h2 id="pcmVisConfirmTitle">Move this to Friends?</h2>
   <p id="pcmVisConfirmBody">People in your Circle can see it again.</p>
   <input type="hidden" id="pcmVisPostId" value="0">
   <input type="hidden" id="pcmVisTarget" value="friends">
   <div class="pcm-delete-dialog-actions">
-    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-vis-dismiss>Cancel</button>
-    <button type="button" class="pcm-delete-dialog-confirm pcm-vis-dialog-confirm" id="pcmGenericConfirmVisBtn">Friends</button>
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-vis-dismiss><?= post_card_actions_t('Cancel') ?></button>
+    <button type="button" class="pcm-delete-dialog-confirm pcm-vis-dialog-confirm" id="pcmGenericConfirmVisBtn"><?= post_card_actions_t('Friends') ?></button>
   </div>
 </dialog>
 <dialog class="pcm-delete-dialog" id="pcmDeleteConfirmDialog" aria-labelledby="pcmDeleteConfirmTitle">
-  <button type="button" class="pcm-delete-dialog-close" data-pcm-delete-dismiss aria-label="Close">&times;</button>
+  <button type="button" class="pcm-delete-dialog-close" data-pcm-delete-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <div class="pcm-delete-dialog-icon" aria-hidden="true"><i class="fa fa-trash"></i></div>
-  <h2 id="pcmDeleteConfirmTitle">Delete this post?</h2>
+  <h2 id="pcmDeleteConfirmTitle"><?= post_card_actions_t('Delete this post?') ?></h2>
   <p>This action cannot be undone. The post will be permanently removed.</p>
   <div class="pcm-delete-dialog-actions">
-    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-delete-dismiss>Cancel</button>
-    <button type="button" class="pcm-delete-dialog-confirm" id="pcmGenericConfirmDeleteBtn">Delete</button>
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-delete-dismiss><?= post_card_actions_t('Cancel') ?></button>
+    <button type="button" class="pcm-delete-dialog-confirm" id="pcmGenericConfirmDeleteBtn"><?= post_card_actions_t('Delete') ?></button>
   </div>
 </dialog>
 <dialog class="pcm-delete-dialog pcm-archive-dialog" id="pcmArchiveConfirmDialog" aria-labelledby="pcmArchiveConfirmTitle">
-  <button type="button" class="pcm-delete-dialog-close" data-pcm-archive-dismiss aria-label="Close">&times;</button>
+  <button type="button" class="pcm-delete-dialog-close" data-pcm-archive-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <div class="pcm-delete-dialog-icon pcm-archive-dialog-icon" aria-hidden="true"><i class="fa fa-archive"></i></div>
   <h2 id="pcmArchiveConfirmTitle">Archive this post?</h2>
   <p id="pcmArchiveConfirmBody">It will be hidden from feeds. You can find it later under Posts in Settings → Archived posts.</p>
   <div class="pcm-delete-dialog-actions">
-    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-archive-dismiss>Cancel</button>
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-archive-dismiss><?= post_card_actions_t('Cancel') ?></button>
     <button type="button" class="pcm-delete-dialog-confirm pcm-archive-dialog-confirm" id="pcmGenericConfirmArchiveBtn">Archive</button>
   </div>
 </dialog>
 <dialog class="pcm-share-dialog pcm-tag-dialog" id="pcmTagSheet" aria-labelledby="pcmTagSheetTitle">
-  <button type="button" class="pcm-share-close" data-pcm-tag-dismiss aria-label="Close">&times;</button>
+  <button type="button" class="pcm-share-close" data-pcm-tag-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <h2 id="pcmTagSheetTitle">Tag people</h2>
   <p class="pcm-share-sub">Type @username to tag friends. They’ll be notified and see this on their Tags tab.</p>
   <input type="hidden" id="pcmTagPostId" value="0">
   <input type="text" id="pcmTagPeopleInput" class="pcm-tag-input" placeholder="Type @username" autocomplete="off" data-msb-mention="1">
   <div class="msb-tag-people pcm-tag-chips" id="pcmTagPeopleChips" aria-live="polite"></div>
   <div class="pcm-delete-dialog-actions" style="margin-top:16px;">
-    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-tag-dismiss>Cancel</button>
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-tag-dismiss><?= post_card_actions_t('Cancel') ?></button>
     <button type="button" class="pcm-delete-dialog-confirm" id="pcmTagSaveBtn">Save tags</button>
   </div>
 </dialog>
 <dialog class="pcm-share-dialog pcm-tag-dialog pcm-mention-dialog" id="pcmMentionSheet" aria-labelledby="pcmMentionSheetTitle">
-  <button type="button" class="pcm-share-close" data-pcm-mention-dismiss aria-label="Close">&times;</button>
+  <button type="button" class="pcm-share-close" data-pcm-mention-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <h2 id="pcmMentionSheetTitle">Mention people</h2>
   <p class="pcm-share-sub">Type @username to let friends know about this post. They’ll get a notification to view it — it won’t be saved to their Tags tab.</p>
   <input type="hidden" id="pcmMentionPostId" value="0">
   <input type="text" id="pcmMentionPeopleInput" class="pcm-tag-input" placeholder="Type @username" autocomplete="off" data-msb-mention="1">
   <div class="msb-tag-people pcm-tag-chips" id="pcmMentionPeopleChips" aria-live="polite"></div>
   <div class="pcm-delete-dialog-actions" style="margin-top:16px;">
-    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-mention-dismiss>Cancel</button>
-    <button type="button" class="pcm-delete-dialog-confirm" id="pcmMentionSendBtn">Send mention</button>
+    <button type="button" class="pcm-delete-dialog-cancel" data-pcm-mention-dismiss><?= post_card_actions_t('Cancel') ?></button>
+    <button type="button" class="pcm-delete-dialog-confirm" id="pcmMentionSendBtn"><?= post_card_actions_t('Send mention') ?></button>
   </div>
 </dialog>
 <div id="pcmViewPostOverlay" class="pcm-view-post-overlay" aria-hidden="true" hidden>
-  <button type="button" class="pcm-view-post-close" id="pcmViewPostClose" aria-label="Close">&times;</button>
+  <button type="button" class="pcm-view-post-close" id="pcmViewPostClose" aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
   <iframe id="pcmViewPostFrame" class="pcm-view-post-frame" title="View the post" src="about:blank"></iframe>
 </div>
 <style id="pcm-view-post-overlay-css">
@@ -727,8 +732,8 @@ function post_card_actions_menu_render_modals(): void
   }
 </style>
 <dialog class="pcm-share-dialog" id="pcmShareSheet" aria-labelledby="pcmShareSheetTitle">
-  <button type="button" class="pcm-share-close" data-pcm-share-dismiss aria-label="Close">&times;</button>
-  <h2 id="pcmShareSheetTitle">Share</h2>
+  <button type="button" class="pcm-share-close" data-pcm-share-dismiss aria-label="<?= post_card_actions_t('Close') ?>">&times;</button>
+  <h2 id="pcmShareSheetTitle"><?= post_card_actions_t('Share') ?></h2>
   <p class="pcm-share-sub">Send a Talsora link from this device. No other networks are opened from here.</p>
   <button type="button" class="pcm-share-native" id="pcmShareNativeBtn" hidden>
     <span class="pcm-share-native-ico" aria-hidden="true"><i class="fa fa-share-alt"></i></span>
@@ -738,14 +743,14 @@ function post_card_actions_menu_render_modals(): void
     </span>
   </button>
   <div class="pcm-share-grid" role="list">
-    <a class="pcm-share-app" data-pcm-share="messages" role="listitem" href="#"><span class="pcm-share-app-ico pcm-share-msg" aria-hidden="true"><i class="fa fa-comment"></i></span><span>Text</span></a>
-    <a class="pcm-share-app" data-pcm-share="email" role="listitem" href="#"><span class="pcm-share-app-ico pcm-share-em" aria-hidden="true"><i class="fa fa-envelope"></i></span><span>Email</span></a>
-    <a class="pcm-share-app" data-pcm-share="chat" role="listitem" href="messages.php"><span class="pcm-share-app-ico pcm-share-tg" aria-hidden="true"><i class="fa fa-comments"></i></span><span>Chat</span></a>
+    <a class="pcm-share-app" data-pcm-share="messages" role="listitem" href="#"><span class="pcm-share-app-ico pcm-share-msg" aria-hidden="true"><i class="fa fa-comment"></i></span><span><?= post_card_actions_t('Text') ?></span></a>
+    <a class="pcm-share-app" data-pcm-share="email" role="listitem" href="#"><span class="pcm-share-app-ico pcm-share-em" aria-hidden="true"><i class="fa fa-envelope"></i></span><span><?= post_card_actions_t('Email') ?></span></a>
+    <a class="pcm-share-app" data-pcm-share="chat" role="listitem" href="messages.php"><span class="pcm-share-app-ico pcm-share-tg" aria-hidden="true"><i class="fa fa-comments"></i></span><span><?= post_card_actions_t('Chat') ?></span></a>
   </div>
   <button type="button" class="pcm-share-copy" id="pcmShareCopyBtn" data-pcm-share="copy">
-    <i class="fa fa-link" aria-hidden="true"></i><span>Copy link</span>
+    <i class="fa fa-link" aria-hidden="true"></i><span><?= post_card_actions_t('Copy link') ?></span>
   </button>
-  <button type="button" class="pcm-share-cancel" data-pcm-share-dismiss>Cancel</button>
+  <button type="button" class="pcm-share-cancel" data-pcm-share-dismiss><?= post_card_actions_t('Cancel') ?></button>
 </dialog>
 <style id="pcm-confirm-modal-css">
   html body dialog.pcm-delete-dialog{position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:min(360px,calc(100vw - 32px))!important;max-width:360px!important;height:max-content!important;min-height:0!important;max-height:calc(100dvh - 32px)!important;margin:auto!important;padding:20px 18px 16px!important;overflow:auto!important;transform:none!important;border:1px solid var(--msb-palette-border,rgba(148,163,184,.28))!important;border-radius:14px!important;background:var(--msb-palette-surface,var(--msb-palette-bg,#fff))!important;color:var(--msb-palette-text,#111827)!important;box-shadow:0 18px 48px rgba(0,0,0,.28)!important;text-align:center!important;box-sizing:border-box!important;z-index:2147483647!important}

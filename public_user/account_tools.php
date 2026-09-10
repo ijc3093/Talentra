@@ -154,6 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'archive_memory_enabled' => 0,
         'pin_memory_enabled' => 0,
         'email_notifications' => 1,
+        'inapp_notifications' => 1,
+        'push_notifications' => 1,
+        'email_digest_notifications' => 0,
         'friend_request_notifications' => 1,
         'comment_notifications' => 1,
         'reaction_notifications' => 1,
@@ -164,6 +167,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'followed_notifications' => 1,
         'event_reminder_notifications' => 1,
         'memory_notifications' => 1,
+        'mention_notifications' => 1,
+        'message_notifications' => 1,
+        'publisher_post_notifications' => 1,
+        'product_update_notifications' => 0,
+        'tips_notifications' => 0,
+        'quiet_hours' => 'off',
         'blocked_users_enabled' => 1,
         'hidden_users_enabled' => 1,
         'mute_users_enabled' => 1,
@@ -171,6 +180,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'appearance_mode' => 'system',
         'theme_auto_enabled' => 1,
         'gallery_grid_size' => 'medium',
+        'header_type_size' => 'small',
+        'header_font_family' => 'Arial',
+        'body_font_size_pt' => 9,
+        'body_font_family' => 'Arial',
+        'text_color' => '#000000',
         'autoplay_videos' => 1,
         'sound_enabled' => 1,
         'app_language' => 'English',
@@ -234,7 +248,7 @@ if (in_array($ajaxAction, ['logout_all', 'reset_settings', 'delete', 'deactivate
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

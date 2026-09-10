@@ -59,9 +59,103 @@ $displayName = trim((string)($meUser['name'] ?? '')) !== ''
     ? trim((string)$meUser['name'])
     : trim((string)($meUser['username'] ?? 'You'));
 $msbArchiveEmbed = false;
+
+if (isset($_GET['ajax']) && (string)$_GET['ajax'] === 'list') {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
+
+  $mapArchiveItem = static function (array $post, array $meUser, bool $asStory): array {
+    $pid = (int)($post['id'] ?? 0);
+    $filePath = trim((string)($post['preview_src'] ?? ''));
+    $thumbType = strtolower(trim((string)($post['thumb_type'] ?? '')));
+    $isVideo = ($thumbType === 'video' && $filePath !== '');
+    $hasMedia = $filePath !== '';
+    $displayName = trim((string)($meUser['name'] ?? ''));
+    if ($displayName === '') {
+      $displayName = trim((string)($meUser['username'] ?? 'You'));
+    }
+    return [
+      'id' => $pid,
+      'post_id' => $pid,
+      'user_id' => (int)($post['user_id'] ?? $meUser['id'] ?? 0),
+      'display_name' => $displayName,
+      'username' => trim((string)($meUser['username'] ?? '')),
+      'title' => trim((string)($post['title'] ?? '')),
+      'description' => trim((string)($post['description'] ?? '')),
+      'body' => trim((string)($post['body'] ?? '')),
+      'preview_type' => $isVideo ? 'video' : ($hasMedia ? 'image' : 'text'),
+      'preview_path' => $filePath,
+      'file_path' => $filePath,
+      'thumb_path' => $filePath,
+      'attachments' => $hasMedia ? [[
+        'type' => $isVideo ? 'video' : 'image',
+        'file_path' => $filePath,
+      ]] : [],
+      'views_count' => (int)($post['views_count'] ?? 0),
+      'comment_count' => (int)($post['comment_count'] ?? 0),
+      'love_count' => (int)($post['love_count'] ?? 0),
+      'created_at' => (string)($post['created_at'] ?? ''),
+      'updated_at' => (string)($post['updated_at'] ?? $post['created_at'] ?? ''),
+      'has_media' => $hasMedia ? 1 : 0,
+      'is_video' => $isVideo ? 1 : 0,
+      'is_archived' => 1,
+      'is_story' => $asStory ? 1 : 0,
+    ];
+  };
+
+  $items = [];
+  foreach ($feedPosts as $post) {
+    $pid = (int)($post['id'] ?? 0);
+    if ($pid > 0) {
+      $items[] = $mapArchiveItem($post, $meUser, false);
+    }
+  }
+
+  $storyItems = [];
+  foreach ($posts as $post) {
+    if (empty($post['archived_as_story']) && empty($post['is_story'])) {
+      continue;
+    }
+    $pid = (int)($post['id'] ?? 0);
+    if ($pid > 0) {
+      $storyItems[] = $mapArchiveItem($post, $meUser, true);
+    }
+  }
+
+  $stories = [];
+  foreach ($storyCircles as $circle) {
+    $cid = (int)($circle['postId'] ?? 0);
+    if ($cid <= 0) {
+      continue;
+    }
+    $stories[] = [
+      'post_id' => $cid,
+      'src' => (string)($circle['src'] ?? ''),
+      'type' => (string)($circle['type'] ?? ''),
+      'caption' => (string)($circle['caption'] ?? ''),
+      'label' => (string)($circle['label'] ?? ''),
+      'author_name' => (string)($circle['authorName'] ?? ''),
+      'username' => (string)($circle['username'] ?? ''),
+      'avatar_url' => (string)($circle['avatarUrl'] ?? ''),
+      'created_at' => (string)($circle['createdAt'] ?? ''),
+      'ring_src' => (string)($circle['ringSrc'] ?? ''),
+    ];
+  }
+
+  echo json_encode([
+    'ok' => true,
+    'tab' => 'archived',
+    'count' => count($items),
+    'items' => $items,
+    'stories' => $stories,
+    'story_items' => $storyItems,
+  ], JSON_UNESCAPED_SLASHES);
+  exit;
+}
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html <?= app_html_lang_attrs() ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

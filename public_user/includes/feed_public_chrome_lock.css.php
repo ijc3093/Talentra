@@ -116,7 +116,7 @@ body.public-page.feed-insta-ui .feed-side-search{
     ) !important;
     right:auto !important;
     top:98px !important;
-    width:min(360px, var(--feed-right-rail-w, 248px) + 110px) !important;
+    width:var(--feed-right-rail-w, 300px) !important;
     max-width:calc(100vw - 24px) !important;
     z-index:110 !important;
     margin:0 !important;
@@ -432,12 +432,12 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .empty-state{
 /* Public tab: while a standard image/video is still pending, do not expose
    the real author row, overflow menu, follow control, or reaction toolbar
    over the empty media surface. The media itself remains available to load. */
-body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .standard-media-topbar,
-body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .standard-media-top-actions,
-body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .standard-media-bottom,
-body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error) .standard-media-topbar,
-body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error) .standard-media-top-actions,
-body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error) .standard-media-bottom{
+body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error):not(.mf-media-missing) .standard-media-topbar,
+body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error):not(.mf-media-missing) .standard-media-top-actions,
+body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error):not(.mf-media-missing) .standard-media-bottom,
+body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error):not(.mf-media-missing) .standard-media-topbar,
+body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error):not(.mf-media-missing) .standard-media-top-actions,
+body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error):not(.mf-media-missing) .standard-media-bottom{
   visibility:hidden !important;
   opacity:0 !important;
   pointer-events:none !important;
@@ -457,17 +457,34 @@ body.public-page.feed-insta-ui .ig-feed:not(.public-media-hydrating) .public-pos
   pointer-events:auto !important;
 }
 
+body.public-page.feed-insta-ui .public-post-card.mf-media-missing .standard-media-topbar,
+body.public-page.feed-insta-ui .public-post-card.mf-media-missing .standard-media-top-actions,
+body.public-page.feed-insta-ui .public-post-card.mf-media-missing .standard-media-bottom,
+body.public-page.feed-insta-ui .public-post-card:has(.msb-no-image) .standard-media-bottom,
+body.public-page.feed-insta-ui .public-post-card.mf-media-missing .standard-media-actions{
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+}
+
 /* Circle tab: keep the real author/menu and reaction controls out of view
    until the pending image or first video frame has painted. */
-body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .mf-head--on-media,
-body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .mf-media-top-actions,
-body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error) .mf-actions,
-body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error) .mf-head--on-media,
-body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error) .mf-media-top-actions,
-body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error) .mf-actions{
+body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error):not(.mf-media-missing) .mf-head--on-media,
+body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error):not(.mf-media-missing) .mf-media-top-actions,
+body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error):not(.mf-media-missing) .mf-actions,
+body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error):not(.mf-media-missing) .mf-head--on-media,
+body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error):not(.mf-media-missing) .mf-media-top-actions,
+body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error):not(.mf-media-missing) .mf-actions{
   visibility:hidden !important;
   opacity:0 !important;
   pointer-events:none !important;
+}
+body.feed-page.feed-insta-ui .mf-card.mf-media-missing .mf-actions,
+body.feed-page.feed-insta-ui .mf-card:has(.msb-no-image) > .mf-actions{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
 }
 
 /* Circle must not reserve bordered rows for posts whose media is not ready.
@@ -617,4 +634,60 @@ body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-im
     margin-left:auto !important;
     margin-right:auto !important;
   }
+}
+@media (min-width:1025px){
+  body.feed-page.feed-insta-ui.public-suggestions-visible .feed-right-rail,
+  body.public-page.feed-insta-ui.public-suggestions-visible .feed-right-rail{
+    display:flex !important;
+    flex-direction:column !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    top:154px !important;
+    height:calc(100vh - 170px) !important;
+    max-height:calc(100vh - 170px) !important;
+    overflow-y:auto !important;
+    width:var(--feed-right-rail-w, 300px) !important;
+    left:calc(
+      var(--feed-mainpanel-left, var(--feedRailW, 84px))
+      + max(
+          var(--feed-center-left, calc(8px + var(--feed-left-nav-w, 236px) + var(--feed-side-gap, 28px))),
+          (100vw - var(--feed-mainpanel-left, var(--feedRailW, 84px)) - var(--feed-center-w, 614px)) / 2
+        )
+      + var(--feed-center-w, 614px)
+      + var(--feed-side-gap, 28px)
+    ) !important;
+    right:auto !important;
+  }
+  body.feed-page.feed-insta-ui .jump-rail,
+  body.public-page.feed-insta-ui .jump-rail{
+    top:auto !important;
+    bottom:120px !important;
+    right:24px !important;
+    transform:none !important;
+  }
+}
+body.public-page.home-tab-discover .feed-side-search,
+body.feed-page.feed-insta-ui .feed-side-search[hidden]{
+  display:none !important;
+}
+
+/* Feed post navigation follows Dark auto, Appearance color, and Progress color. */
+body.feed-page.feed-insta-ui .jump-rail button:not(.jump-rail-video),
+body.public-page.feed-insta-ui .jump-rail button:not(.jump-rail-video){
+  background-color:var(--msb-palette-bg, var(--feed-page-bg, #f5f7fb)) !important;
+  background-image:none !important;
+  color:var(--msb-palette-text, var(--feed-topbar-text, #0b1220)) !important;
+  border:1px solid var(--msb-palette-border-strong, rgba(127,127,127,.42)) !important;
+}
+body.feed-page.feed-insta-ui .jump-rail button:not(.jump-rail-video) i,
+body.public-page.feed-insta-ui .jump-rail button:not(.jump-rail-video) i{
+  color:inherit !important;
+  -webkit-text-fill-color:currentColor !important;
+}
+body.feed-page.feed-insta-ui .jump-rail button:not(.jump-rail-video):hover,
+body.feed-page.feed-insta-ui .jump-rail button:not(.jump-rail-video):focus,
+body.public-page.feed-insta-ui .jump-rail button:not(.jump-rail-video):hover,
+body.public-page.feed-insta-ui .jump-rail button:not(.jump-rail-video):focus{
+  background-color:var(--msb-palette-bg, var(--feed-page-bg, #f5f7fb)) !important;
+  color:var(--msb-palette-text, var(--feed-topbar-text, #0b1220)) !important;
 }
