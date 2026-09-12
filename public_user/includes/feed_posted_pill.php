@@ -45,6 +45,13 @@ $feedPostedPageMode = isset($isNewsSurface) && !empty($isNewsSurface) ? 'news' :
   visibility:visible;
   pointer-events:auto;
 }
+.feed-posted-pill.is-dismissed{
+  transition:none !important;
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+  display:none !important;
+}
 .feed-posted-pill:hover,
 .feed-posted-pill:focus{
   background:#168de0;
@@ -151,9 +158,6 @@ $feedPostedPageMode = isset($isNewsSurface) && !empty($isNewsSurface) ? 'news' :
   function showInitial(){
     paint();
     newestKnownId = Math.max(newestKnownId, newestDomId());
-    if(!dismissed && document.querySelector('#mfFeed .mf-card, .ig-feed .public-post-card, .public-post-card')){
-      pill.classList.add('is-visible');
-    }
   }
   function checkForNewPosts(){
     if(checking || document.hidden) return;
@@ -181,9 +185,9 @@ $feedPostedPageMode = isset($isNewsSurface) && !empty($isNewsSurface) ? 'news' :
         if(newAuthors.length){
           paint(newAuthors.slice(0, 3).map(function(id){ return 'avatar.php?u=' + encodeURIComponent(String(id)); }));
           dismissed = false;
-          pill.classList.add('is-visible');
+          showPillNow();
         }
-        newestKnownId = latestId;
+        newestKnownId = Math.max(newestKnownId, latestId);
       })
       .catch(function(){})
       .then(function(){ checking = false; });
@@ -198,41 +202,74 @@ $feedPostedPageMode = isset($isNewsSurface) && !empty($isNewsSurface) ? 'news' :
     });
     observer.observe(root, {childList:true, subtree:true});
   }
+  function hidePillNow(){
+    dismissed = true;
+    pill.classList.remove('is-visible');
+    pill.classList.add('is-dismissed');
+    pill.hidden = true;
+    pill.style.setProperty('display', 'none', 'important');
+    pill.style.setProperty('opacity', '0', 'important');
+    pill.style.setProperty('visibility', 'hidden', 'important');
+    pill.style.setProperty('pointer-events', 'none', 'important');
+    pill.setAttribute('aria-hidden', 'true');
+  }
+  function showPillNow(){
+    if(dismissed) return;
+    pill.classList.remove('is-dismissed');
+    pill.hidden = false;
+    pill.style.removeProperty('display');
+    pill.style.removeProperty('opacity');
+    pill.style.removeProperty('visibility');
+    pill.style.removeProperty('pointer-events');
+    pill.removeAttribute('aria-hidden');
+    pill.classList.add('is-visible');
+  }
   function toTop(){
     [document.scrollingElement, document.documentElement, document.body].forEach(function(el){ if(el) el.scrollTop = 0; });
     document.querySelectorAll('.sh-pagebody, .feed-desktop-center, .mf-feed, .ig-feed').forEach(function(el){
-      if(typeof el.scrollTo === 'function') el.scrollTo({top:0, behavior:'smooth'});
+      if(typeof el.scrollTo === 'function') el.scrollTo({top:0, behavior:'auto'});
       else el.scrollTop = 0;
     });
   }
-  pill.addEventListener('click', function(){
+  pill.addEventListener('click', function(e){
+    try{ e.preventDefault(); e.stopPropagation(); }catch(_e){}
+    // Disappear immediately, then jump to top (no full reload on Discover).
+    newestKnownId = Math.max(newestKnownId, newestDomId());
+    hidePillNow();
     toTop();
-    dismissed = true;
-    pill.classList.remove('is-visible');
     try{
       if(typeof window.refreshList === 'function'){
         window.refreshList(false);
-        window.setTimeout(toTop, 180);
-      }else{
-        sessionStorage.setItem('msbPostedPillOpenNewest', '1');
-        var next = new URL(window.location.href);
-        next.searchParams.delete('from_post');
-        window.location.assign(next.pathname + next.search + next.hash);
+        window.setTimeout(toTop, 120);
+        window.setTimeout(toTop, 320);
       }
-    }catch(e){}
+    }catch(_e){}
+    window.requestAnimationFrame(function(){
+      hidePillNow();
+      toTop();
+    });
   });
   document.addEventListener('DOMContentLoaded', function(){
     try{
       if(sessionStorage.getItem('msbPostedPillOpenNewest') === '1'){
         sessionStorage.removeItem('msbPostedPillOpenNewest');
+        hidePillNow();
         window.requestAnimationFrame(toTop);
       }
     }catch(e){}
-    showInitial();
+    // Seed newest id from current DOM; do not auto-show on load.
+    paint();
+    newestKnownId = Math.max(newestKnownId, newestDomId());
     watchForPosts();
   }, {once:true});
-  window.setTimeout(showInitial, 250);
-  window.setTimeout(showInitial, 900);
+  window.setTimeout(function(){
+    paint();
+    newestKnownId = Math.max(newestKnownId, newestDomId());
+  }, 250);
+  window.setTimeout(function(){
+    paint();
+    newestKnownId = Math.max(newestKnownId, newestDomId());
+  }, 900);
   window.setTimeout(checkForNewPosts, 2500);
   window.setInterval(checkForNewPosts, 15000);
 })();

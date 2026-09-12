@@ -787,10 +787,10 @@
     for (i = 0; i < scripts.length; i++) {
       var src = scripts[i].src || '';
       if (src.indexOf('theme-bootstrap.js') !== -1) {
-        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=128');
+        return src.replace(/\/js\/theme-bootstrap\.js.*$/, '/css/appearance-palette.css?v=131');
       }
     }
-    return './css/appearance-palette.css?v=128';
+    return './css/appearance-palette.css?v=131';
   }
 
   function ensurePaletteStylesheet(){

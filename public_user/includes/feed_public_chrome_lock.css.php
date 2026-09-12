@@ -662,7 +662,7 @@ body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-im
   body.public-page.feed-insta-ui .jump-rail{
     top:auto !important;
     bottom:120px !important;
-    right:24px !important;
+    right:8px !important;
     transform:none !important;
   }
 }

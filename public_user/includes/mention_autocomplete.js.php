@@ -217,6 +217,11 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
         ev.preventDefault();
         var i = parseInt(btn.getAttribute('data-i') || '-1', 10);
         if (i < 0 || !items[i]) return;
+        if (active && active.tagMode && typeof el.__msbOnMentionPick === 'function') {
+          try { el.__msbOnMentionPick(items[i]); } catch (e) {}
+          closeMenu();
+          return;
+        }
         replaceMention(el, atStart, items[i].username);
         if (typeof el.__msbOnMentionPick === 'function') {
           try { el.__msbOnMentionPick(items[i]); } catch (e) {}
@@ -313,8 +318,10 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
     var wrap = opts.wrap;
     var hidden = opts.hidden;
     var input = opts.input;
-    if (!wrap || !hidden) return;
+    if (!wrap || !hidden) return null;
     var selected = {};
+    var tagTimer = null;
+    var tagSeq = 0;
 
     function notify(){
       if (typeof opts.onChange === 'function') {
@@ -329,9 +336,10 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
       wrap.innerHTML = '';
       Object.keys(selected).forEach(function(id){
         var u = selected[id];
+        var label = (u && (u.name || u.display_name || u.username)) ? (u.name || u.display_name || ('@' + u.username)) : id;
         var chip = document.createElement('span');
         chip.className = 'msb-tag-chip';
-        chip.innerHTML = '@' + (u.username || id) + ' <button type="button" aria-label="Remove">&times;</button>';
+        chip.innerHTML = escHtml(label) + ' <button type="button" aria-label="Remove">&times;</button>';
         chip.querySelector('button').addEventListener('click', function(){
           delete selected[id];
           syncHidden();
@@ -339,6 +347,13 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
         });
         wrap.appendChild(chip);
       });
+    }
+    function escHtml(s){
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
     function addUser(u){
       if (!u || !u.id) return;
@@ -349,11 +364,64 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
         input.value = '';
         try { input.focus(); } catch (e) {}
       }
+      closeMenu();
+    }
+    function searchTagPeople(q){
+      q = String(q || '').replace(/^@+/, '').trim();
+      if (q.length < 1) {
+        closeMenu();
+        return;
+      }
+      var mySeq = ++tagSeq;
+      active = { el: input, atStart: 0, tagMode: true };
+      fetch(ENDPOINT + '?q=' + encodeURIComponent(q) + '&limit=8', {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      }).then(function(r){ return r.json(); }).then(function(data){
+        if (mySeq !== tagSeq || !input) return;
+        render((data && data.users) || [], input, 0);
+      }).catch(function(){
+        if (mySeq !== tagSeq) return;
+        closeMenu();
+      });
     }
     if (input) {
-      bindField(input, addUser);
-      input.setAttribute('data-msb-mention', '1');
-      input.setAttribute('placeholder', input.getAttribute('placeholder') || 'Tag people with @username');
+      // Prefer free-text typeahead (no @ required) for the Tag People field.
+      input.setAttribute('data-msb-mention', '0');
+      input.setAttribute('autocomplete', 'off');
+      input.setAttribute('placeholder', input.getAttribute('placeholder') || 'Search friends to tag');
+      input.__msbOnMentionPick = addUser;
+      input.addEventListener('input', function(){
+        clearTimeout(tagTimer);
+        tagTimer = setTimeout(function(){ searchTagPeople(input.value); }, 120);
+      });
+      input.addEventListener('keydown', function(ev){
+        if (!menu || !menu.classList.contains('is-open') || !items.length) {
+          if (ev.key === 'Enter') ev.preventDefault();
+          return;
+        }
+        if (ev.key === 'ArrowDown') {
+          ev.preventDefault();
+          hi = (hi + 1) % items.length;
+        } else if (ev.key === 'ArrowUp') {
+          ev.preventDefault();
+          hi = (hi - 1 + items.length) % items.length;
+        } else if (ev.key === 'Enter' || ev.key === 'Tab') {
+          if (hi < 0 || !items[hi]) return;
+          ev.preventDefault();
+          addUser(items[hi]);
+          return;
+        } else if (ev.key === 'Escape') {
+          closeMenu();
+          return;
+        } else {
+          return;
+        }
+        Array.prototype.forEach.call(menu.querySelectorAll('.msb-mention-ac-item'), function(btn, i){
+          btn.classList.toggle('is-active', i === hi);
+        });
+      });
+      input.addEventListener('blur', function(){ setTimeout(closeMenu, 160); });
     }
     if (opts.initial && typeof opts.initial === 'object') {
       Object.keys(opts.initial).forEach(function(id){
@@ -363,7 +431,12 @@ a.msb-mention:hover{text-decoration:underline;opacity:.85;}
       if (hidden) hidden.value = Object.keys(selected).join(',');
       renderChips();
     }
-    return { addUser: addUser, selected: selected };
+    return {
+      addUser: addUser,
+      selected: selected,
+      getIds: function(){ return Object.keys(selected); },
+      syncHidden: syncHidden
+    };
   }
 
   document.addEventListener('input', onInput, true);

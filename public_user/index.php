@@ -314,7 +314,7 @@ try {
           }
           if (!defined('MSB_THEME_DARK_CSS')) {
               define('MSB_THEME_DARK_CSS', true);
-              echo '<link rel="stylesheet" href="./css/dark-auto.css?v=51">' . "\n";
+              echo '<link rel="stylesheet" href="./css/dark-auto.css?v=53">' . "\n";
           }
       }
   }

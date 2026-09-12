@@ -1030,10 +1030,14 @@ html[data-msb-appearance] .modal-backdrop {
   background-image: none !important;
 }
 
-html[data-msb-appearance] .create-post-modal,
-html[data-msb-appearance] .create-post-modal.is-open {
+html[data-msb-appearance] .create-post-modal:not(.is-open) {
   background: transparent !important;
   background-color: transparent !important;
+  background-image: none !important;
+}
+html[data-msb-appearance] .create-post-modal.is-open {
+  background: rgba(15, 23, 42, 0.48) !important;
+  background-color: rgba(15, 23, 42, 0.48) !important;
   background-image: none !important;
 }
 
@@ -1211,6 +1215,62 @@ html[data-msb-appearance] .mf-card .mf-body {
   background-image: none !important;
   color: var(--msb-palette-text) !important;
   border-color: var(--msb-palette-border) !important;
+}
+
+/* Post caption/body must stay contrasted on Dark auto / Appearance / Progress */
+html.dark-auto .mf-body,
+html.dark-auto .mf-video-body,
+html.dark-auto .mf-reel-body,
+html.dark-auto .mf-title,
+html[data-theme="dark"] .mf-body,
+html[data-theme="dark"] .mf-video-body,
+html[data-theme="dark"] .mf-reel-body,
+html[data-theme="dark"] .mf-title,
+html[data-msb-appearance] .mf-body,
+html[data-msb-appearance] .mf-video-body,
+html[data-msb-appearance] .mf-reel-body,
+html.msb-progress-previewing .mf-body,
+html.msb-progress-previewing .mf-video-body,
+html.msb-palette-active .mf-body,
+html.msb-palette-active .mf-video-body,
+html.dark-auto #profilePostsFeed .mf-body,
+html[data-theme="dark"] #profilePostsFeed .mf-body,
+html[data-msb-appearance] #profilePostsFeed .mf-body,
+html.dark-auto .standard-text-caption,
+html.dark-auto .standard-media-caption,
+html.dark-auto .post-copy,
+html.dark-auto .post-copy p,
+html[data-theme="dark"] .standard-text-caption,
+html[data-theme="dark"] .standard-media-caption,
+html[data-theme="dark"] .post-copy,
+html[data-theme="dark"] .post-copy p,
+html[data-msb-appearance] .standard-text-caption,
+html[data-msb-appearance] .standard-media-caption,
+html[data-msb-appearance] .post-copy,
+html[data-msb-appearance] .post-copy p{
+  color: var(--msb-palette-text, #eef4ff) !important;
+  -webkit-text-fill-color: var(--msb-palette-text, #eef4ff) !important;
+}
+html.dark-auto .mf-body .mf-body-formatted,
+html.dark-auto .mf-body .post-card-paragraph,
+html.dark-auto .mf-body p,
+html.dark-auto .mf-video-body .mf-body-formatted,
+html.dark-auto .mf-video-body .post-card-paragraph,
+html.dark-auto .standard-text-caption .post-card-paragraph,
+html.dark-auto .standard-media-caption .post-card-paragraph,
+html[data-theme="dark"] .mf-body .mf-body-formatted,
+html[data-theme="dark"] .mf-body .post-card-paragraph,
+html[data-theme="dark"] .mf-body p,
+html[data-msb-appearance] .mf-body .mf-body-formatted,
+html[data-msb-appearance] .mf-body .post-card-paragraph,
+html[data-msb-appearance] .mf-body p,
+html.msb-progress-previewing .mf-body .post-card-paragraph,
+html[data-msb-appearance] .standard-text-caption .post-card-paragraph,
+html[data-msb-appearance] .standard-media-caption .post-card-paragraph,
+html.dark-auto #profilePostsFeed .mf-body .post-card-paragraph,
+html[data-msb-appearance] #profilePostsFeed .mf-body .post-card-paragraph{
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
 }
 
 html[data-msb-appearance] body.feed-insta-ui .ig-insta-card .ig-insta-username,
@@ -3308,4 +3368,230 @@ html.dark-auto body.ig-auth .auth-field textarea{
   background-color:transparent !important;
   border:0 !important;
   color:inherit !important;
+}
+
+/* =====================================================
+   Link preview cards — Appearance / Progress / Dark auto
+   Fallbacks required: Dark auto alone does not set --msb-palette-bg,
+   and unset var() makes the declaration invalid → hardcoded #fff wins.
+   ===================================================== */
+html[data-msb-appearance] .mf-link-preview,
+html.msb-palette-active .mf-link-preview,
+html.msb-progress-previewing .mf-link-preview,
+html.dark-auto .mf-link-preview,
+html[data-theme="dark"] .mf-link-preview,
+html[data-msb-appearance] .msb-link-preview-card,
+html.msb-palette-active .msb-link-preview-card,
+html.msb-progress-previewing .msb-link-preview-card,
+html.dark-auto .msb-link-preview-card,
+html[data-theme="dark"] .msb-link-preview-card,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview,
+html.msb-palette-active #profilePostsFeed .mf-link-preview,
+html.msb-progress-previewing #profilePostsFeed .mf-link-preview,
+html.dark-auto #profilePostsFeed .mf-link-preview,
+html[data-theme="dark"] #profilePostsFeed .mf-link-preview{
+  background: var(--msb-palette-bg, #171d24) !important;
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border, rgba(255,255,255,.12))) !important;
+  box-shadow: none !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+}
+html[data-msb-appearance] .mf-link-preview-side,
+html.msb-palette-active .mf-link-preview-side,
+html.msb-progress-previewing .mf-link-preview-side,
+html.dark-auto .mf-link-preview-side,
+html[data-theme="dark"] .mf-link-preview-side,
+html[data-msb-appearance] .msb-link-preview-side,
+html.msb-palette-active .msb-link-preview-side,
+html.msb-progress-previewing .msb-link-preview-side,
+html.dark-auto .msb-link-preview-side,
+html[data-theme="dark"] .msb-link-preview-side,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview-side,
+html.msb-palette-active #profilePostsFeed .mf-link-preview-side,
+html.msb-progress-previewing #profilePostsFeed .mf-link-preview-side,
+html.dark-auto #profilePostsFeed .mf-link-preview-side,
+html[data-theme="dark"] #profilePostsFeed .mf-link-preview-side,
+html[data-msb-appearance] .mf-link-preview-body,
+html.msb-palette-active .mf-link-preview-body,
+html.msb-progress-previewing .mf-link-preview-body,
+html.dark-auto .mf-link-preview-body,
+html[data-theme="dark"] .mf-link-preview-body,
+html[data-msb-appearance] .msb-link-preview-body,
+html.msb-palette-active .msb-link-preview-body,
+html.msb-progress-previewing .msb-link-preview-body,
+html.dark-auto .msb-link-preview-body,
+html[data-theme="dark"] .msb-link-preview-body{
+  background: var(--msb-palette-bg, #171d24) !important;
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+}
+html[data-msb-appearance] .mf-link-preview.has-media .mf-link-preview-media,
+html.msb-palette-active .mf-link-preview.has-media .mf-link-preview-media,
+html.msb-progress-previewing .mf-link-preview.has-media .mf-link-preview-media,
+html.dark-auto .mf-link-preview.has-media .mf-link-preview-media,
+html[data-theme="dark"] .mf-link-preview.has-media .mf-link-preview-media,
+html[data-msb-appearance] .msb-link-preview-media,
+html.msb-palette-active .msb-link-preview-media,
+html.msb-progress-previewing .msb-link-preview-media,
+html.dark-auto .msb-link-preview-media,
+html[data-theme="dark"] .msb-link-preview-media{
+  background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, var(--msb-palette-bg, #2b3137))) !important;
+}
+html[data-msb-appearance] .mf-link-preview-media.is-logo,
+html[data-msb-appearance] .mf-link-preview.has-logo .mf-link-preview-media,
+html.msb-palette-active .mf-link-preview-media.is-logo,
+html.msb-palette-active .mf-link-preview.has-logo .mf-link-preview-media,
+html.msb-progress-previewing .mf-link-preview-media.is-logo,
+html.msb-progress-previewing .mf-link-preview.has-logo .mf-link-preview-media,
+html.dark-auto .mf-link-preview-media.is-logo,
+html.dark-auto .mf-link-preview.has-logo .mf-link-preview-media,
+html[data-theme="dark"] .mf-link-preview-media.is-logo,
+html[data-theme="dark"] .mf-link-preview.has-logo .mf-link-preview-media,
+html[data-msb-appearance] .msb-link-preview-media.is-logo,
+html.msb-palette-active .msb-link-preview-media.is-logo,
+html.msb-progress-previewing .msb-link-preview-media.is-logo,
+html.dark-auto .msb-link-preview-media.is-logo,
+html[data-theme="dark"] .msb-link-preview-media.is-logo,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview-media.is-logo,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview.has-logo .mf-link-preview-media,
+html.dark-auto #profilePostsFeed .mf-link-preview-media.is-logo,
+html.dark-auto #profilePostsFeed .mf-link-preview.has-logo .mf-link-preview-media,
+html[data-theme="dark"] #profilePostsFeed .mf-link-preview-media.is-logo,
+html[data-theme="dark"] #profilePostsFeed .mf-link-preview.has-logo .mf-link-preview-media{
+  /* Light logo tile (Profile Posts design) — brand marks stay crisp */
+  background: #ffffff !important;
+  background-image: none !important;
+}
+html[data-msb-appearance] .mf-link-preview-host,
+html[data-msb-appearance] .mf-link-preview-info,
+html[data-msb-appearance] .mf-link-preview-desc,
+html.msb-palette-active .mf-link-preview-host,
+html.msb-palette-active .mf-link-preview-info,
+html.msb-palette-active .mf-link-preview-desc,
+html.msb-progress-previewing .mf-link-preview-host,
+html.msb-progress-previewing .mf-link-preview-info,
+html.msb-progress-previewing .mf-link-preview-desc,
+html.dark-auto .mf-link-preview-host,
+html.dark-auto .mf-link-preview-info,
+html.dark-auto .mf-link-preview-desc,
+html[data-theme="dark"] .mf-link-preview-host,
+html[data-theme="dark"] .mf-link-preview-info,
+html[data-theme="dark"] .mf-link-preview-desc,
+html[data-msb-appearance] .msb-link-preview-host,
+html[data-msb-appearance] .msb-link-preview-info,
+html[data-msb-appearance] .msb-link-preview-desc,
+html.msb-palette-active .msb-link-preview-host,
+html.msb-palette-active .msb-link-preview-info,
+html.msb-palette-active .msb-link-preview-desc,
+html.msb-progress-previewing .msb-link-preview-host,
+html.msb-progress-previewing .msb-link-preview-info,
+html.msb-progress-previewing .msb-link-preview-desc,
+html.dark-auto .msb-link-preview-host,
+html.dark-auto .msb-link-preview-info,
+html.dark-auto .msb-link-preview-desc,
+html[data-theme="dark"] .msb-link-preview-host,
+html[data-theme="dark"] .msb-link-preview-info,
+html[data-theme="dark"] .msb-link-preview-desc,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview-host,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview-info,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview-desc,
+html.dark-auto #profilePostsFeed .mf-link-preview-host,
+html.dark-auto #profilePostsFeed .mf-link-preview-info,
+html.dark-auto #profilePostsFeed .mf-link-preview-desc{
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+html[data-msb-appearance] .mf-link-preview-title,
+html.msb-palette-active .mf-link-preview-title,
+html.msb-progress-previewing .mf-link-preview-title,
+html.dark-auto .mf-link-preview-title,
+html[data-theme="dark"] .mf-link-preview-title,
+html[data-msb-appearance] .msb-link-preview-title,
+html.msb-palette-active .msb-link-preview-title,
+html.msb-progress-previewing .msb-link-preview-title,
+html.dark-auto .msb-link-preview-title,
+html[data-theme="dark"] .msb-link-preview-title,
+html[data-msb-appearance] #profilePostsFeed .mf-link-preview-title,
+html.dark-auto #profilePostsFeed .mf-link-preview-title{
+  color: var(--msb-palette-text, #e6edf3) !important;
+}
+html[data-msb-appearance] .mf-link-preview-chip,
+html.msb-palette-active .mf-link-preview-chip,
+html.msb-progress-previewing .mf-link-preview-chip,
+html.dark-auto .mf-link-preview-chip,
+html[data-theme="dark"] .mf-link-preview-chip,
+html[data-msb-appearance] .msb-link-preview-chip,
+html.msb-palette-active .msb-link-preview-chip,
+html.msb-progress-previewing .msb-link-preview-chip,
+html.dark-auto .msb-link-preview-chip,
+html[data-theme="dark"] .msb-link-preview-chip{
+  background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, var(--msb-palette-bg, #2b3137))) !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+}
+/* Light appearance: soft action CTA */
+html[data-msb-appearance]:not(.dark-auto):not(.msb-palette-light-fg) .mf-link-preview-cta,
+html[data-msb-appearance]:not(.dark-auto):not(.msb-palette-light-fg) .msb-link-preview-cta,
+html[data-msb-appearance]:not(.dark-auto):not(.msb-palette-light-fg) #profilePostsFeed .mf-link-preview-cta,
+html.msb-palette-active:not(.dark-auto):not(.msb-palette-light-fg) .mf-link-preview-cta,
+html.msb-palette-active:not(.dark-auto):not(.msb-palette-light-fg) .msb-link-preview-cta{
+  background: var(--msb-palette-action-soft, #eff6ff) !important;
+  color: var(--msb-palette-action, #1d4ed8) !important;
+  border-top-color: var(--msb-palette-border-strong, var(--msb-palette-border, rgba(37,99,235,.1))) !important;
+}
+/* Dark auto / dark chrome Appearance / Progress: Profile Posts CTA (elevated bar + light text) */
+html.dark-auto .mf-link-preview-cta,
+html.dark-auto .msb-link-preview-cta,
+html.dark-auto #profilePostsFeed .mf-link-preview-cta,
+html[data-theme="dark"] .mf-link-preview-cta,
+html[data-theme="dark"] .msb-link-preview-cta,
+html[data-theme="dark"] #profilePostsFeed .mf-link-preview-cta,
+html[data-msb-appearance].msb-palette-light-fg .mf-link-preview-cta,
+html[data-msb-appearance].msb-palette-light-fg .msb-link-preview-cta,
+html[data-msb-appearance].msb-palette-light-fg #profilePostsFeed .mf-link-preview-cta,
+html.msb-progress-previewing.msb-palette-light-fg .mf-link-preview-cta,
+html.msb-progress-previewing.msb-palette-light-fg .msb-link-preview-cta{
+  background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, #222a33)) !important;
+  color: var(--msb-palette-text, #eef4ff) !important;
+  border-top-color: var(--msb-palette-border-strong, var(--msb-palette-border, rgba(255,255,255,.12))) !important;
+}
+html[data-msb-appearance] .mf-link-preview:hover,
+html.msb-palette-active .mf-link-preview:hover,
+html.msb-progress-previewing .mf-link-preview:hover,
+html.dark-auto .mf-link-preview:hover,
+html[data-theme="dark"] .mf-link-preview:hover{
+  border-color: var(--msb-palette-action, var(--msb-palette-border-strong, rgba(96,165,250,.45))) !important;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--msb-palette-action, #2563eb) 16%, transparent) !important;
+}
+
+/* Story line on cards stays readable under Dark auto / Appearance color */
+html[data-msb-appearance] .mf-story,
+html[data-msb-appearance] .mf-conn,
+html.msb-palette-active .mf-story,
+html.msb-palette-active .mf-conn,
+html.dark-auto .mf-story,
+html.dark-auto .mf-conn,
+html[data-theme="dark"] .mf-story,
+html[data-theme="dark"] .mf-conn{
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+html[data-msb-appearance] .mf-ent,
+html.msb-palette-active .mf-ent,
+html.dark-auto .mf-ent,
+html[data-theme="dark"] .mf-ent{
+  color: var(--msb-palette-text, #e6edf3) !important;
+}
+html[data-msb-appearance] .mf-music-inline,
+html[data-msb-appearance] .mf-music-inline-text,
+html.msb-palette-active .mf-music-inline,
+html.msb-palette-active .mf-music-inline-text,
+html.dark-auto .mf-music-inline,
+html.dark-auto .mf-music-inline-text,
+html[data-theme="dark"] .mf-music-inline,
+html[data-theme="dark"] .mf-music-inline-text{
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+html[data-msb-appearance] .mf-music-inline i,
+html.msb-palette-active .mf-music-inline i,
+html.dark-auto .mf-music-inline i,
+html[data-theme="dark"] .mf-music-inline i{
+  color: var(--msb-palette-icon, var(--msb-palette-text-muted, #b1bcce)) !important;
 }

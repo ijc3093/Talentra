@@ -120,6 +120,7 @@ $publicAlertPostId = (int)($_GET['open_post'] ?? $_GET['post'] ?? 0);
 $publicAlertCommentId = (int)($_GET['open_comment'] ?? 0);
 $publicStoryPostId = (int)($_GET['story_post'] ?? 0);
 $publicUploadWarn = (string)($_GET['upload_warn'] ?? '') === '1';
+$publicFreshCreate = ((string)($_GET['fresh'] ?? '') === '1');
 
 if ($discoverTab === 'for-you') {
     if ($discoverFragmentRequest) {
@@ -144,6 +145,9 @@ if ($discoverTab === 'for-you') {
     }
     if ($publicStoryPostId > 0) {
         $circleExtra['story_post'] = $publicStoryPostId;
+    }
+    if (!empty($publicFreshCreate)) {
+        $circleExtra['fresh'] = '1';
     }
     if ($publicUploadWarn) {
         $circleExtra['upload_warn'] = '1';
@@ -436,9 +440,9 @@ if ($isForYouTab) {
     $where .= ' AND ' . publisher_feed_list_scope_sql_for($dbh, $meId);
     $params = array_merge($params, publisher_feed_list_scope_params_for($dbh, $meId));
 } else {
-    // Discover: stranger public posts from the last 24h, own public posts,
-    // plus friends' public and friends-only posts (friendship already grants access).
+    // Discover and public program tabs contain public posts only.
     $where = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND " . publisher_discover_list_where_sql($dbh, $meId);
+    $where .= " AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'";
     $params = array_merge($params, publisher_discover_list_where_params($dbh, $meId));
     if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
         $where .= ' AND ' . fs_block_exclude_author_sql('p.user_id', ':fsBlockMe', ':fsBlockMe2');
@@ -536,6 +540,8 @@ SELECT
   COALESCE(p.views_count,0) AS views_count, p.created_at, COALESCE(p.updated_at,p.created_at) AS updated_at,
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
   COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
+  COALESCE(p.feeling_label,'') AS feeling_label, COALESCE(p.location_label,'') AS location_label,
+  COALESCE(p.link_url,'') AS link_url, COALESCE(p.link_title,'') AS link_title, COALESCE(p.link_description,'') AS link_description, COALESCE(p.link_image,'') AS link_image, COALESCE(p.link_tags,'') AS link_tags,
   COALESCE(p.sound_id,0) AS sound_id,
   COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
   COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
@@ -594,6 +600,8 @@ SELECT
   COALESCE(p.views_count,0) AS views_count, p.created_at, COALESCE(p.updated_at,p.created_at) AS updated_at,
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
   COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
+  COALESCE(p.feeling_label,'') AS feeling_label, COALESCE(p.location_label,'') AS location_label,
+  COALESCE(p.link_url,'') AS link_url, COALESCE(p.link_title,'') AS link_title, COALESCE(p.link_description,'') AS link_description, COALESCE(p.link_image,'') AS link_image, COALESCE(p.link_tags,'') AS link_tags,
   COALESCE(p.sound_id,0) AS sound_id,
   COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
   COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
@@ -629,9 +637,11 @@ LIMIT 1";
             $pinRow = $stPin->fetch(PDO::FETCH_ASSOC) ?: null;
             $pinOwnerId = (int)($pinRow['user_id'] ?? 0);
             $pinIsOwn = ($pinOwnerId > 0 && $pinOwnerId === $meId);
+            $pinHasCorrectAudience = $isForYouTab
+                || strtolower(trim((string)($pinRow['visibility'] ?? 'public'))) === 'public';
             $pinVisible = is_array($pinRow) && (
                 $pinIsOwn || publisher_can_view_post($dbh, $meId, $pinRow)
-            );
+            ) && $pinHasCorrectAudience;
             if ($pinVisible) {
                 $authorKind = strtolower((string)($pinRow['account_kind'] ?? 'personal'));
                 $isPubAuthor = ($authorKind === 'publisher');
@@ -806,6 +816,16 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   <?php require __DIR__ . '/includes/entry_wake_overlay.php'; ?>
   <script>
     try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
+    (function(){
+      var freshCreate = <?= !empty($publicFreshCreate) ? 'true' : 'false' ?>;
+      if(!freshCreate) return;
+      try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_s){}
+      try{
+        sessionStorage.removeItem('msbResumePost');
+        sessionStorage.removeItem('msbResumePostHome');
+        sessionStorage.removeItem('msbFeedStartAtTop');
+      }catch(_c){}
+    })();
   </script>
   <?php theme_prefs_print_head_bootstrap($dbh, $meId); ?>
   <?php if (!empty($tabEmbed)): ?>
@@ -832,7 +852,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     body.public-leftbar-open{overflow-x:hidden}
     .js-open-comments{cursor:pointer}
     .js-open-comments:hover{opacity:.82}
-    .post.public-post-card.is-alert-focus{box-shadow:0 0 0 3px rgba(59,130,246,.24), 0 22px 50px rgba(37,99,235,.18);}
+    .post.public-post-card.is-alert-focus{box-shadow:0 0 0 3px rgba(59,130,246,.24), 0 22px 50px rgba(37,99,235,.18);scroll-margin-top:12px;}
     html.dark-auto .post.public-post-card.is-alert-focus{box-shadow:0 0 0 3px rgba(147,197,253,.28), 0 22px 50px rgba(2,6,23,.42);}
 
     .ig-shell{min-height:100vh}
@@ -1909,6 +1929,223 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .standard-media-topbar .mf-music-title{flex:1 1 auto}
     .standard-media-topbar .mf-music-artist{flex:0 1 auto;max-width:46%}
     .standard-media-topbar .mf-music-dot{flex:0 0 auto;font-size:11px;opacity:.85}
+    .mf-meta-pills{
+      display:inline;
+      flex-wrap:wrap;
+      align-items:baseline;
+      gap:0;
+      margin:0;
+      max-width:100%;
+      flex:1 1 auto;
+      min-width:0;
+      background:transparent;
+      box-shadow:none;
+    }
+    .mf-meta-pills.is-story{ display:inline; }
+    .mf-story{
+      display:inline;
+      font-size:14px;
+      font-weight:500;
+      color:#64748b;
+      line-height:1.35;
+      margin-left:4px;
+    }
+    .mf-conn{ color:#64748b; font-weight:500; }
+    .mf-ent{ color:#0f172a; font-weight:800; }
+    .mf-music-inline{
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      max-width:min(320px, 100%);
+      color:#475569;
+      font-weight:700;
+      font-size:12.5px;
+    }
+    .mf-music-inline i{ color:#64748b; font-size:12px; }
+    .mf-music-inline-text{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .mf-meta-pill{ display:none; }
+    .head-meta .name-row,
+    .standard-media-name-row{
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:6px 8px;
+      min-width:0;
+    }
+    .standard-media-topbar .mf-meta-pills{ margin-top:0; }
+    .standard-media-topbar .mf-story,
+    .standard-media-topbar .mf-conn{ color:rgba(255,255,255,.78); }
+    .standard-media-topbar .mf-ent{ color:#fff; }
+    .standard-media-topbar .mf-sub-row,
+    .standard-media-topbar .mf-music-inline{ color:rgba(255,255,255,.82); }
+    .standard-media-topbar .mf-music-inline i{ color:rgba(255,255,255,.82); }
+    .mf-sub-row{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:6px;
+      margin-top:2px;
+      font-size:12.5px;
+      color:#64748b;
+      line-height:1.25;
+    }
+    .mf-sub-row .mf-dot{ opacity:.55; }
+    .mf-link-preview{
+      display:block;
+      width:100%;
+      max-width:100%;
+      box-sizing:border-box;
+      margin:12px 0 6px;
+      border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.1));
+      border-radius:16px;
+      overflow:hidden;
+      background:var(--msb-palette-bg, #fff);
+      text-decoration:none;
+      color:inherit;
+      box-shadow:0 8px 24px rgba(15,23,42,.05);
+    }
+    .mf-link-preview:hover{ border-color:var(--msb-palette-action, rgba(37,99,235,.28)); box-shadow:0 10px 28px color-mix(in srgb, var(--msb-palette-action, #2563eb) 12%, transparent); }
+    .mf-link-preview-main{
+      display:flex;
+      align-items:stretch;
+      min-height:118px;
+      height:180px;
+    }
+    .mf-link-preview.has-media .mf-link-preview-media{
+      flex:0 0 36%;
+      width:36%;
+      max-width:220px;
+      background:var(--msb-palette-hover-bg, #e2e8f0);
+      overflow:hidden;
+    }
+    .mf-link-preview-media.is-logo,
+    .mf-link-preview.has-logo .mf-link-preview-media{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#fff;
+    }
+    .mf-link-preview-media img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      min-height:118px;
+    }
+    .mf-link-preview-media.is-logo img,
+    .mf-link-preview.has-logo .mf-link-preview-media img{
+      width:44%;
+      height:44%;
+      max-width:88px;
+      max-height:88px;
+      min-height:0;
+      object-fit:contain;
+    }
+    .mf-link-preview-side{
+      flex:1 1 auto;
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      background:var(--msb-palette-bg, #fff);
+    }
+    .mf-link-preview-body{
+      flex:1 1 auto;
+      min-width:0;
+      padding:10px 14px 8px;
+    }
+    .mf-link-preview-top{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:4px;
+    }
+    .mf-link-preview-host{
+      flex:1 1 auto;
+      min-width:0;
+      font-size:12px;
+      font-weight:600;
+      color:var(--msb-palette-text-muted, #94a3b8);
+      letter-spacing:.01em;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .mf-link-preview-info{
+      flex:0 0 auto;
+      color:var(--msb-palette-text-muted, #94a3b8);
+      font-size:14px;
+      line-height:1;
+    }
+    .mf-link-preview-title{
+      font-size:15px;
+      font-weight:800;
+      color:var(--msb-palette-text, #0f172a);
+      line-height:1.25;
+    }
+    .mf-link-preview-desc{
+      margin-top:4px;
+      font-size:12.5px;
+      color:var(--msb-palette-text-muted, #64748b);
+      line-height:1.35;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .mf-link-preview-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:10px;
+    }
+    .mf-link-preview-chip{
+      display:inline-flex;
+      align-items:center;
+      max-width:100%;
+      padding:5px 10px;
+      border-radius:999px;
+      background:var(--msb-palette-hover-bg, #eef2f7);
+      color:var(--msb-palette-text, #334155);
+      font-size:11.5px;
+      font-weight:700;
+      line-height:1.2;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .mf-link-preview-chip.is-place{
+      background:#ffe8e8;
+      color:#9f1239;
+    }
+    .mf-link-preview-chip.is-place i{ color:#ef4444; margin-right:5px; }
+    .mf-link-preview-cta{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:auto;
+      padding:8px 14px;
+      background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, #eff6ff));
+      color:var(--msb-palette-text, var(--msb-palette-action, #1d4ed8));
+      font-size:12.5px;
+      font-weight:800;
+      border-top:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, rgba(37,99,235,.1)));
+    }
+    .mf-link-preview-cta .fa-chevron-right{ margin-left:auto; font-size:12px; }
+    @media (max-width: 560px){
+      .mf-link-preview-main{ flex-direction:column; min-height:0; height:auto; }
+      .mf-link-preview.has-media .mf-link-preview-media{
+        flex:0 0 auto;
+        width:100%;
+        max-width:none;
+        height:118px;
+      }
+      .mf-link-preview-media img{ min-height:118px; height:118px; }
+    }
     .standard-media-top-actions{
       display:flex;
       align-items:center;
@@ -2769,6 +3006,12 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       --public-sidebar-hover:var(--msb-palette-action-soft);
       --public-control-bg:var(--msb-palette-bg);
       --public-control-soft:var(--msb-palette-bg);
+      --public-text:var(--msb-palette-text);
+      --public-muted:var(--msb-palette-text-muted);
+      --public-soft-text:var(--msb-palette-text-muted);
+      --public-topbar-text:var(--msb-palette-text);
+      --feed-text:var(--msb-palette-text);
+      --feed-muted:var(--msb-palette-text-muted);
       --public-accent:var(--msb-palette-action);
       --public-accent-soft:var(--msb-palette-action-soft);
       --public-accent-strong:var(--msb-palette-action-strong);
@@ -2814,6 +3057,24 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       --feed-post-column-border:#34383c;
       background:#171d24 !important;
       background-image:none !important;
+    }
+    html.dark-auto:not([data-msb-appearance]) body,
+    html.dark-auto:not([data-msb-appearance]) body.public-page,
+    html.dark-auto:not([data-msb-appearance]) body.news-page{
+      --public-surface:#171d24;
+      --public-surface-alt:#1d2530;
+      --public-surface-strong:#111821;
+      --public-border:#34383c;
+      --public-border-strong:#34383c;
+      --public-text:#eef4ff;
+      --public-muted:#9ba8b8;
+      --public-soft-text:#c2cbd7;
+      --public-topbar-text:#f4f7fb;
+      --public-post-card-border:#34383c;
+      --feed-post-divider:#34383c;
+      --feed-post-column-border:#34383c;
+      --feed-text:#eef4ff;
+      --feed-muted:#9ba8b8;
     }
     html.dark-auto:not([data-msb-appearance]) body.public-page.feed-insta-ui .sh-pagebody,
     html[data-theme="dark"]:not([data-msb-appearance]) body.public-page.feed-insta-ui .sh-pagebody,
@@ -3196,7 +3457,7 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .standard-text-author{
         display:flex;
         align-items:center;
-        gap:12px;
+        gap:3px;
         min-width:0;
         flex:1 1 auto;
         color:var(--public-text);
@@ -5226,7 +5487,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
             var postedPill = postedPillEl();
             if(host) host.hidden = true;
             if(feed) feed.hidden = false;
-            if(postedPill) postedPill.hidden = false;
+            if(postedPill && !postedPill.classList.contains('is-dismissed')) postedPill.hidden = false;
           }
           function activateDiscoverTabs(selected){
             if(!tabs) return;
@@ -5390,8 +5651,11 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
               document.title = nextDoc.title || document.title;
               var keepResume = false;
               try{
-                keepResume = Number((new URL(window.location.href)).searchParams.get('from_post') || 0) > 0
-                  || (window.MSBResumePost && window.MSBResumePost.read && window.MSBResumePost.read());
+                keepResume = !window.__MSB_SKIP_RESUME_HOME
+                  && (
+                    Number((new URL(window.location.href)).searchParams.get('from_post') || 0) > 0
+                    || (window.MSBResumePost && window.MSBResumePost.read && window.MSBResumePost.read())
+                  );
               }catch(eKeep){}
               if(!keepResume) currentFeed.scrollTop = 0;
               currentFeed.style.scrollBehavior = previousScrollBehavior;
@@ -5400,7 +5664,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                 window.MSBFeedPrograms.restore();
               }
               try{
-                if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
+                if(!window.__MSB_SKIP_RESUME_HOME && window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
                   window.MSBResumePost.restoreHome();
                 }
               }catch(eResumeSwap){}
@@ -5619,7 +5883,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
           $postAvatarText = user_avatar_label($post);
           $postAvatarUrl = user_avatar_url($post, 96);
           $taggedPeople = is_array($post['tagged_people'] ?? null) ? $post['tagged_people'] : [];
-          $hasSharingWith = $taggedPeople !== [];
+          $hasSharingWith = false; /* people tags render as meta pills under the author */
 
           $declaredLayout = strtolower(trim((string)($post['declared_layout'] ?? '')));
           if ($declaredLayout === '') {
@@ -5683,20 +5947,8 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
         <?php $peerProfileHref = public_profile_href($post, (int)($post['id'] ?? 0)); ?>
         <?php
           $postTimeLabel = (string)date('M j', strtotime((string)$post['updated_at']));
-          $authorAfterHtml = '';
-          if ($hasSharingWith) {
-              $authorAfterHtml = '<span class="time msb-sharing-meta">• ' . h($postTimeLabel) . '</span>'
-                . post_visibility_badge_html((string)($post['visibility'] ?? 'public'));
-          }
-          $authorNameHtml = function_exists('msb_post_sharing_with_name_html')
-            ? msb_post_sharing_with_name_html($postAuthorText, $peerProfileHref, $taggedPeople, [
-                'link_author' => true,
-                'link_class' => 'msb-sharing-who',
-                'muted_class' => 'msb-sharing-with',
-                'after_author_html' => $authorAfterHtml,
-              ])
-            : ('<a class="msb-sharing-who" href="' . h($peerProfileHref) . '" target="_top" rel="noopener">' . h($postAuthorText) . '</a>' . $authorAfterHtml);
-          $authorNameClass = $hasSharingWith ? ' is-sharing-with' : '';
+          $authorNameHtml = '<a class="msb-sharing-who" href="' . h($peerProfileHref) . '" target="_top" rel="noopener">' . h($postAuthorText) . '</a>';
+          $authorNameClass = '';
           $pcmCtx = post_card_actions_menu_context($post, $meId, $dbh, $peerProfileHref, $staffReadonly, 'public');
           $pcmCtx['menu_surface'] = 'public';
           $pcmCtx['is_publisher'] = $isPublisher;
@@ -5746,13 +5998,21 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                   <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                 </a>
                 <div class="head-meta">
-                  <div class="name-row">
+                  <?php
+                    $storyHtml = post_meta_story_html($post, is_array($post['tagged_people'] ?? null) ? $post['tagged_people'] : []);
+                    $musicInlineHtml = post_meta_music_inline_html($post);
+                  ?>
+                  <div class="name-row<?= $storyHtml !== '' ? ' has-story' : '' ?>">
                     <span class="name<?= $authorNameClass ?>"><?= $authorNameHtml ?></span>
                     <?php if (!$hasSharingWith): ?>
-                    <span class="time">• <?= h($postTimeLabel) ?></span>
                     <?= post_visibility_badge_html((string)($post['visibility'] ?? 'public')) ?>
+                    <span class="time">• <?= h($postTimeLabel) ?></span>
                     <?php endif; ?>
+                    <?= $storyHtml ?>
                   </div>
+                  <?php if ($musicInlineHtml !== ''): ?>
+                  <div class="mf-sub-row"><?= $musicInlineHtml ?></div>
+                  <?php endif; ?>
                 </div>
               </div>
 
@@ -5788,13 +6048,21 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                   <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                 </a>
                 <div class="head-meta">
-                  <div class="name-row">
+                  <?php
+                    $storyHtml = post_meta_story_html($post, is_array($post['tagged_people'] ?? null) ? $post['tagged_people'] : []);
+                    $musicInlineHtml = post_meta_music_inline_html($post);
+                  ?>
+                  <div class="name-row<?= $storyHtml !== '' ? ' has-story' : '' ?>">
                     <span class="name<?= $authorNameClass ?>"><?= $authorNameHtml ?></span>
                     <?php if (!$hasSharingWith): ?>
-                    <span class="time">• <?= h($postTimeLabel) ?></span>
                     <?= post_visibility_badge_html((string)($post['visibility'] ?? 'public')) ?>
+                    <span class="time">• <?= h($postTimeLabel) ?></span>
                     <?php endif; ?>
+                    <?= $storyHtml ?>
                   </div>
+                  <?php if ($musicInlineHtml !== ''): ?>
+                  <div class="mf-sub-row"><?= $musicInlineHtml ?></div>
+                  <?php endif; ?>
                 </div>
               </div>
               <?= post_card_actions_menu_shell_html($pcmCtx) ?>
@@ -5809,10 +6077,20 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                     <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                   </a>
                   <div class="standard-text-meta">
-                    <span class="standard-text-name<?= $authorNameClass ?>"><?= $authorNameHtml ?></span>
-                    <?php if (!$hasSharingWith): ?>
-                    <span class="standard-text-time">• <?= h($postTimeLabel) ?></span>
-                    <?= post_visibility_badge_html((string)($post['visibility'] ?? 'public')) ?>
+                    <?php
+                      $storyHtml = post_meta_story_html($post, is_array($post['tagged_people'] ?? null) ? $post['tagged_people'] : []);
+                      $musicInlineHtml = post_meta_music_inline_html($post);
+                    ?>
+                    <div class="name-row<?= $storyHtml !== '' ? ' has-story' : '' ?>">
+                      <span class="standard-text-name<?= $authorNameClass ?>"><?= $authorNameHtml ?></span>
+                      <?php if (!$hasSharingWith): ?>
+                      <?= post_visibility_badge_html((string)($post['visibility'] ?? 'public')) ?>
+                      <span class="standard-text-time">• <?= h($postTimeLabel) ?></span>
+                      <?php endif; ?>
+                      <?= $storyHtml ?>
+                    </div>
+                    <?php if ($musicInlineHtml !== ''): ?>
+                    <div class="mf-sub-row"><?= $musicInlineHtml ?></div>
                     <?php endif; ?>
                   </div>
                 </div>
@@ -5857,6 +6135,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                     <?php endif; ?>
                   </div>
                 <?php endif; ?>
+                <?= post_link_preview_html($post, 'mf-link-preview') ?>
                 <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
               </div>
 
@@ -6148,14 +6427,21 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                       <div class="avatar"><span class="avatar-thumb"><img src="<?= h($postAvatarUrl) ?>" alt="<?= h($postAuthorText) ?>" onerror="this.onerror=null;this.src='avatar.php?name='+encodeURIComponent(this.alt||'U')+'&amp;s=96';"></span></div>
                     </a>
                     <div class="standard-media-meta">
-                      <div class="standard-media-name-row">
+                      <?php
+                        $storyHtml = post_meta_story_html($post, is_array($post['tagged_people'] ?? null) ? $post['tagged_people'] : []);
+                        $musicInlineHtml = post_meta_music_inline_html($post);
+                      ?>
+                      <div class="standard-media-name-row<?= $storyHtml !== '' ? ' has-story' : '' ?>">
                         <span class="standard-media-name<?= $authorNameClass ?>"><?= $authorNameHtml ?></span>
                         <?php if (!$hasSharingWith): ?>
-                        <span class="standard-media-time">• <?= h($postTimeLabel) ?></span>
                         <?= post_visibility_badge_html((string)($post['visibility'] ?? 'public')) ?>
+                        <span class="standard-media-time">• <?= h($postTimeLabel) ?></span>
                         <?php endif; ?>
+                        <?= $storyHtml ?>
                       </div>
-                      <?= post_music_row_html($post) ?>
+                      <?php if ($musicInlineHtml !== ''): ?>
+                      <div class="mf-sub-row"><?= $musicInlineHtml ?></div>
+                      <?php endif; ?>
                     </div>
                   </div>
                   <?= post_card_actions_menu_shell_html($pcmCtx, 'standard-media-topbar-menu') ?>
@@ -6215,10 +6501,12 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                         <h4 class="standard-media-subtitle"<?= $slide0Title === '' ? ' style="display:none"' : '' ?>><?= h($slide0Title) ?></h4>
                         <div class="standard-media-summary"<?= $slide0Body === '' ? ' style="display:none"' : '' ?>><?= post_slide_summary_html($slide0Body) ?></div>
                       <?php endif; ?>
+                      <?= post_link_preview_html($post, 'mf-link-preview') ?>
                       <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
                     </div>
                   <?php endif; ?>
                   <?php if (empty($displayTitle) && $caption === '' && !$slidePresentation): ?>
+                    <?= post_link_preview_html($post, 'mf-link-preview') ?>
                     <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
                   <?php endif; ?>
                   <div class="standard-media-actions">
@@ -6968,7 +7256,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
   var publicAlertPostId = <?php echo (int)$publicAlertPostId; ?>;
   var publicAlertCommentId = <?php echo (int)$publicAlertCommentId; ?>;
   var publicAlertHideNav = <?php echo ((int)($_GET['hide_nav'] ?? 0) === 1) ? 'true' : 'false'; ?>;
-  var publicFreshCreate = <?php echo ((string)($_GET['fresh'] ?? '') === '1') ? 'true' : 'false'; ?>;
+  var publicFreshCreate = <?php echo !empty($publicFreshCreate) ? 'true' : 'false'; ?>;
 
   function clearPublicAlertParams(){
     try{
@@ -6977,9 +7265,90 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
       nextUrl.searchParams.delete('post');
       nextUrl.searchParams.delete('open_comment');
       nextUrl.searchParams.delete('hide_nav');
+      nextUrl.searchParams.delete('fresh');
+      nextUrl.searchParams.delete('from_post');
       history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
     }catch(err){}
   }
+
+  function publicFeedScrollRoot(){
+    var ig = document.querySelector('.feed-desktop-center > .ig-feed') || document.querySelector('.ig-feed');
+    if (ig && !ig.hidden) {
+      try{
+        var cs = window.getComputedStyle(ig);
+        if (cs.display !== 'none' && cs.visibility !== 'hidden') return ig;
+      }catch(_cs){ return ig; }
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function publicStickyOverlayPad(root){
+    var pad = 10;
+    if (!root) return pad;
+    var rootTop = 0;
+    try{ rootTop = root.getBoundingClientRect().top; }catch(_t){}
+    var overlap = [];
+    function collect(doc, win){
+      if (!doc || !win) return;
+      [
+        '.ig-feed-header',
+        '.feed-top-search',
+        '.home-feed-tabs',
+        '.msb-home-tabs',
+        '.feed-tab-bar',
+        '[data-home-tabs]',
+        '.home-tab-chrome',
+        '.msb-home-chrome'
+      ].forEach(function(sel){
+        try{
+          doc.querySelectorAll(sel).forEach(function(el){
+            if (!el) return;
+            var st = win.getComputedStyle(el);
+            if (st.display === 'none' || st.visibility === 'hidden') return;
+            if (st.position !== 'sticky' && st.position !== 'fixed') return;
+            var bottom = el.getBoundingClientRect().bottom;
+            if (bottom > rootTop + 1) overlap.push(bottom - rootTop);
+          });
+        }catch(_q){}
+      });
+    }
+    try{ collect(document, window); }catch(_d){}
+    try{
+      if (window.parent && window.parent !== window) {
+        collect(window.parent.document, window.parent);
+      }
+    }catch(_p){}
+    if (overlap.length) return Math.max.apply(null, overlap) + pad;
+    return pad;
+  }
+
+  function scrollPublicCardShowTop(card){
+    if (!card) return;
+    var root = publicFeedScrollRoot();
+    var offset = publicStickyOverlayPad(root);
+    var behavior = publicFreshCreate ? 'auto' : 'smooth';
+    try{
+      if (root && root.contains && root.contains(card)) {
+        var rootRect = root.getBoundingClientRect();
+        var cardRect = card.getBoundingClientRect();
+        var nextTop = Number(root.scrollTop || 0) + (cardRect.top - rootRect.top) - offset;
+        if (typeof root.scrollTo === 'function') {
+          root.scrollTo({ top: Math.max(0, nextTop), behavior: behavior });
+        } else {
+          root.scrollTop = Math.max(0, nextTop);
+        }
+        return;
+      }
+    }catch(_r){}
+    try{
+      var y = card.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - offset;
+      window.scrollTo({ top: Math.max(0, y), behavior: behavior });
+    }catch(_w){
+      try{ card.scrollIntoView({ behavior: behavior, block:'start' }); }catch(_e){}
+    }
+  }
+
+  try{ window.msbScrollFreshCreatePost = scrollPublicCardShowTop; }catch(_ex){}
 
   function highlightPublicCard(postId){
     postId = Number(postId || 0);
@@ -6990,6 +7359,14 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     var card = document.querySelector('.public-post-card[data-post-id="' + String(postId) + '"]');
     if(!card) return false;
     card.classList.add('is-alert-focus');
+    if (publicFreshCreate) {
+      try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_sk){}
+      scrollPublicCardShowTop(card);
+      [120, 280, 600, 1100, 1800].forEach(function(ms){
+        window.setTimeout(function(){ scrollPublicCardShowTop(card); }, ms);
+      });
+      return true;
+    }
     try{ card.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(err){}
     return true;
   }
@@ -8023,10 +8400,12 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     if(!safeWidth) return;
 
     var maxH = publicMediaMaxHeightCss();
-    card.style.width = '100%';
-    card.style.maxWidth = '100%';
-    card.style.marginLeft = '0';
-    card.style.marginRight = '0';
+    /* Card width/margins belong to the Discover layout CSS. Media loading
+       must not stretch the outer post back to the full feed width. */
+    card.style.removeProperty('width');
+    card.style.removeProperty('max-width');
+    card.style.removeProperty('margin-left');
+    card.style.removeProperty('margin-right');
     card.style.setProperty('box-sizing', 'border-box', 'important');
     card.style.setProperty('padding', '8px 12px', 'important');
     var widthCss = publicMediaWidthCss(isPhoneShot, safeWidth);
@@ -8336,10 +8715,17 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     if(!feed) return;
     var attempts = 0;
     var loadingStartedAt = Date.now();
-    var freshCreate = false;
+    var freshCreate = !!publicFreshCreate;
     try{
-      freshCreate = new URL(window.location.href).searchParams.get('fresh') === '1';
+      freshCreate = freshCreate || (new URL(window.location.href).searchParams.get('fresh') === '1');
     }catch(eFresh){}
+    if(freshCreate){
+      try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_sk){}
+      try{
+        sessionStorage.removeItem('msbResumePost');
+        sessionStorage.removeItem('msbResumePostHome');
+      }catch(_ss){}
+    }
     var maxWaitMs = freshCreate ? 8000 : 1500;
     function tick(){
       attempts += 1;
@@ -8355,6 +8741,25 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
               window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
             }
           }catch(_u){}
+          try{
+            window.__MSB_SKIP_RESUME_HOME = true;
+            var pinIdReveal = Number(publicAlertPostId || 0);
+            var pinCard = null;
+            if(pinIdReveal > 0){
+              pinCard = feed.querySelector('.public-post-card[data-post-id="'+String(pinIdReveal)+'"], #post-'+String(pinIdReveal));
+            }
+            if(!pinCard) pinCard = feed.querySelector('.public-post-card');
+            if(pinCard){
+              pinCard.classList.add('is-alert-focus');
+              scrollPublicCardShowTop(pinCard);
+              window.setTimeout(function(){ scrollPublicCardShowTop(pinCard); }, 200);
+            } else {
+              feed.scrollTop = 0;
+            }
+          }catch(_fc){
+            try{ feed.scrollTop = 0; }catch(_z){}
+          }
+          return;
         }
         try{
           if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
@@ -9356,17 +9761,10 @@ body.public-page .js-open-readmore{
 }
 </style>
 <style id="public-media-head-outside-layout">
-/* Match feed.php's standard post structure without changing the media dimensions. */
-body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post){
-  width:100% !important;
-  max-width:100% !important;
-}
+/* Match feed.php's standard post structure without changing the media dimensions.
+   Outer card width and margins are owned by discover-post-card-spacing-css. */
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-video-post:not(.is-reel-post),
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.is-single-image-post:not(.is-reel-post){
-  width:100% !important;
-  max-width:100% !important;
-  margin-left:0 !important;
-  margin-right:0 !important;
   padding:8px 12px !important;
   box-sizing:border-box !important;
 }
@@ -9694,6 +10092,37 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
   }
 }
 </style>
+<style id="discover-post-card-spacing-css">
+/* Discover only: match Circle card separation without touching post behavior or media sizing. */
+body.public-page.feed-insta-ui .ig-feed{
+  padding:10px 0 96px !important;
+  background:#e5eff6 !important;
+  box-sizing:border-box !important;
+}
+body.public-page.feed-insta-ui .ig-feed > .post.public-post-card:not(.is-reel-post){
+  width:calc(100% - 24px) !important;
+  max-width:calc(100% - 24px) !important;
+  margin:12px auto 12px !important;
+  border:1px solid var(--msb-palette-border, var(--public-border-strong, rgba(148,163,184,.28))) !important;
+  border-radius:8px !important;
+  background:var(--msb-palette-surface, var(--public-post-card-surface, var(--public-surface, #fff))) !important;
+  box-shadow:0 2px 8px rgba(15,23,42,.06) !important;
+  overflow:visible !important;
+}
+body.public-page.feed-insta-ui .ig-feed > .post.public-post-card:not(.is-reel-post):last-child{
+  margin-bottom:0 !important;
+}
+@media (max-width:575.98px){
+  body.public-page.feed-insta-ui .ig-feed{
+    padding:8px 0 88px !important;
+  }
+  body.public-page.feed-insta-ui .ig-feed > .post.public-post-card:not(.is-reel-post){
+    width:calc(100% - 14px) !important;
+    max-width:calc(100% - 14px) !important;
+    margin-bottom:9px !important;
+  }
+}
+</style>
 <script id="public-post-visible-media-left-align">
 (function(){
   'use strict';
@@ -9715,10 +10144,10 @@ body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .standa
 
   function syncCardMedia(card){
     if (!card || card.classList.contains('is-reel-post')) return;
-    card.style.setProperty('width', '100%', 'important');
-    card.style.setProperty('max-width', '100%', 'important');
-    card.style.setProperty('margin-left', '0', 'important');
-    card.style.setProperty('margin-right', '0', 'important');
+    card.style.removeProperty('width');
+    card.style.removeProperty('max-width');
+    card.style.removeProperty('margin-left');
+    card.style.removeProperty('margin-right');
     card.style.setProperty('padding', '8px 12px', 'important');
 
     var stage = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage, .media-stage');

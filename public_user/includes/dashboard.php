@@ -1881,7 +1881,7 @@ body.dashboard-page .progress{
                       <div class="msb-composer-name"><?= h($composerName) ?></div>
                       <?php $vis = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends')); ?>
                       <label class="msb-composer-audience-pill" for="createPostVisibility">
-                        <i class="fa fa-users" aria-hidden="true"></i>
+                        <i class="fa <?= $vis === 'public' ? 'fa-globe' : ($vis === 'private' ? 'fa-lock' : 'fa-users') ?>" aria-hidden="true"></i>
                         <select name="visibility" id="createPostVisibility" class="msb-composer-audience-select" aria-label="<?= $isStoryCreate ? 'Story audience' : 'Post destination' ?>">
                           <option value="private" <?= $vis==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
                           <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends' : 'Friends' ?></option>
@@ -2224,10 +2224,17 @@ document.addEventListener('DOMContentLoaded', function(){
   function syncReturnToFromVisibility(){
     if (!returnToInput) return;
     const vis = visibilitySel ? String(visibilitySel.value || 'friends') : 'friends';
+    const audienceIcon = visibilitySel && visibilitySel.closest('.msb-composer-audience-pill')
+      ? visibilitySel.closest('.msb-composer-audience-pill').querySelector('i.fa:not(.fa-caret-down)')
+      : null;
+    if (audienceIcon) {
+      audienceIcon.classList.remove('fa-lock', 'fa-users', 'fa-globe');
+      audienceIcon.classList.add(vis === 'private' ? 'fa-lock' : (vis === 'public' ? 'fa-globe' : 'fa-users'));
+    }
     // Profile story "+" stays on profile. Private → Gallery Private tab.
     // Other story "+" → feed/public. Left-nav "+" → post card surface.
     if (vis === 'private') {
-      returnToInput.value = 'profile.php?tab=gallery&gallery_vis=private';
+      returnToInput.value = 'profile.php?tab=posts';
       return;
     }
     if (isStoryCreateForm && fromProfileCreate) {

@@ -677,10 +677,10 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <?php if (function_exists('app_i18n_print_js')) { app_i18n_print_js(); } ?>
 <?php if (function_exists('profile_viewer_prefs_print_js')) { profile_viewer_prefs_print_js($dbh, (int)$meId); } ?>
 <?php if (!defined('MSB_THEME_DARK_CSS')): ?>
-<link rel="stylesheet" href="./css/dark-auto.css?v=52">
+<link rel="stylesheet" href="./css/dark-auto.css?v=55">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
-<link rel="stylesheet" href="./css/appearance-palette.css?v=128">
+<link rel="stylesheet" href="./css/appearance-palette.css?v=131">
 <?php define('MSB_APPEARANCE_PALETTE_CSS', true); endif; ?>
 <?php if (!defined('MSB_HAIRLINE_BORDERS_CSS')): ?>
 <link rel="stylesheet" href="./css/hairline-borders.css?v=13">
@@ -1971,7 +1971,7 @@ iframe{
 <div class="create-post-modal" id="createPostModal" aria-hidden="true">
   <div id="createPostAccordion" class="create-post-dialog create-post-accordion" role="dialog" aria-modal="true" aria-label="Create post">
     <h3 class="create-post-topbar">
-      <span class="create-post-title">Create new post</span>
+      <span class="create-post-title">Create a post</span>
       <button type="button" class="create-post-close" id="createPostModalClose" aria-label="Close">&times;</button>
     </h3>
     <div class="create-post-body">
@@ -2024,29 +2024,29 @@ iframe{
 
 .create-post-modal{
   position:fixed;
-  left:0;
-  right:0;
-  top:0;
-  bottom:0;
+  inset:0;
   /* Above gallery/post viewers (.pv-overlay ~9999) and post-card menu portals (~100000). */
   z-index:110000;
-  display:block;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
   visibility:hidden;
   pointer-events:none;
-  padding:0;
+  padding:max(16px, 3vh) 16px 20px;
   margin:0;
   background:transparent !important;
   background-color:transparent !important;
   background-image:none !important;
   box-sizing:border-box;
-  overflow:hidden;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
 }
 
 .create-post-modal.is-open{
   visibility:visible;
-  pointer-events:none;
-  background:transparent !important;
-  background-color:transparent !important;
+  pointer-events:auto;
+  background:rgba(15,23,42,.48) !important;
+  background-color:rgba(15,23,42,.48) !important;
 }
 
 .create-post-modal.is-open .create-post-dialog,
@@ -2054,49 +2054,59 @@ iframe{
   pointer-events:auto;
 }
 
-/* Beat appearance-palette / theme-bootstrap dim overlay on Create Post. */
-html[data-msb-appearance] #createPostModal.create-post-modal,
+/* Centered popup shell (not top accordion). Keep dim overlay even with appearance themes. */
 html[data-msb-appearance] #createPostModal.create-post-modal.is-open,
-html #createPostModal.create-post-modal,
 html #createPostModal.create-post-modal.is-open{
+  background:rgba(15,23,42,.48) !important;
+  background-color:rgba(15,23,42,.48) !important;
+  background-image:none !important;
+}
+html[data-msb-appearance] #createPostModal.create-post-modal:not(.is-open),
+html #createPostModal.create-post-modal:not(.is-open){
   background:transparent !important;
   background-color:transparent !important;
   background-image:none !important;
 }
 
-/* jQuery UI Accordion shell — expands body height like https://jqueryui.com/accordion/ */
+/* Centered card popup — opens in the middle of the viewport. */
 .create-post-dialog.create-post-accordion{
-  position:absolute;
-  top:0;
-  left:50%;
-  transform:translateX(-50%);
-  width:min(1180px, calc(100vw - 24px));
-  max-width:1180px;
-  /* Short until form is measured — never flash tall blank shell. */
-  height:36px;
-  min-height:36px;
-  max-height:36px;
-  margin:0;
+  position:relative;
+  top:auto;
+  left:auto;
+  right:auto;
+  bottom:auto;
+  transform:none;
+  opacity:0;
+  width:min(560px, calc(100vw - 32px));
+  max-width:560px;
+  height:auto;
+  min-height:320px;
+  max-height:min(92vh, 900px);
+  margin:auto;
   padding:0;
-  background:var(--msb-palette-bg, #f5f7fb);
+  background:var(--msb-palette-bg, #fff);
   box-shadow:
-    0 18px 48px rgba(15,23,42,.16),
-    0 8px 24px rgba(15,23,42,.12);
+    0 24px 64px rgba(15,23,42,.28),
+    0 8px 24px rgba(15,23,42,.16);
   overflow:hidden;
-  border-radius:0 0 14px 14px;
-  margin-bottom:10px;
-  border:1px solid var(--msb-palette-border, rgba(15,23,42,.12));
-  border-top:0;
+  border-radius:16px;
+  border:1px solid var(--msb-palette-border, rgba(15,23,42,.1));
   box-sizing:border-box;
+  transition:none;
 }
 
-/* While opening: allow height animation (do not freeze at 36px). */
+.create-post-modal.is-open .create-post-dialog.create-post-accordion,
 .create-post-modal.is-opening .create-post-dialog.create-post-accordion,
 .create-post-modal.is-form-ready .create-post-dialog.create-post-accordion{
-  max-height:none;
+  transform:none;
+  opacity:1;
+  max-height:min(92vh, 900px);
 }
 .create-post-modal.is-closing .create-post-dialog.create-post-accordion{
+  transform:none;
+  opacity:0;
   overflow:hidden;
+  transition:opacity .14s ease;
 }
 
 .create-post-accordion.ui-accordion,
@@ -2113,18 +2123,18 @@ html #createPostModal.create-post-modal.is-open{
   justify-content:space-between;
   gap:10px;
   margin:0 !important;
-  padding:0 12px !important;
-  height:36px;
-  min-height:36px;
-  max-height:36px;
+  padding:0 16px !important;
+  height:52px;
+  min-height:52px;
+  max-height:52px;
   box-sizing:border-box;
   border:0 !important;
-  border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.12)) !important;
+  border-bottom:1px solid var(--msb-palette-border, rgba(15,23,42,.08)) !important;
   border-radius:0 !important;
-  background:var(--msb-palette-bg, #f5f7fb) !important;
+  background:var(--msb-palette-bg, #fff) !important;
   color:#0f172a !important;
-  font-size:13px !important;
-  font-weight:700 !important;
+  font-size:17px !important;
+  font-weight:800 !important;
   line-height:1.2 !important;
   cursor:default;
   outline:none !important;
@@ -2177,10 +2187,10 @@ html #createPostModal.create-post-modal.is-open{
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding:0 12px;
-  height:36px;
-  min-height:36px;
-  background:var(--msb-palette-bg, #f5f7fb);
+  padding:0 16px;
+  height:52px;
+  min-height:52px;
+  background:var(--msb-palette-bg, #fff);
   color:#0f172a !important;
 }
 
@@ -2188,8 +2198,8 @@ html #createPostModal.create-post-modal.is-open{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  font-size:13px;
-  font-weight:700;
+  font-size:17px;
+  font-weight:800;
   color:#0f172a !important;
   opacity:1 !important;
 }
@@ -5404,14 +5414,21 @@ span.msb-rx-face svg{
     }
   }
 
-  var CREATE_POST_ACCORDION_MS = 680;
-  var CREATE_POST_OPEN_ESTIMATE = 340;
+  var CREATE_POST_ACCORDION_MS = 140;
+  var CREATE_POST_OPEN_ESTIMATE = 560;
   var createPostFormReady = false;
   var createPostTargetBodyH = 0;
   var createPostAnimToken = 0;
+  var createPostFitTimer = 0;
+  var createPostOpenedAt = 0;
 
   function getCreatePostAccordion(){
     return document.getElementById('createPostAccordion');
+  }
+
+  function stableCreatePostBodyHeight(){
+    /* Leave room so footer (Post settings / Schedule / Post) is not clipped. */
+    return Math.max(400, Math.min(760, Math.round(window.innerHeight * 0.88) - 52));
   }
 
   function ensureCreatePostAccordion(){
@@ -5445,9 +5462,9 @@ span.msb-rx-face svg{
     if (window.jQuery) {
       try { window.jQuery(bodyEl).stop(true, false); } catch (_s) {}
     }
-    dialog.style.height = '36px';
-    dialog.style.minHeight = '36px';
-    dialog.style.maxHeight = 'none';
+    dialog.style.height = '52px';
+    dialog.style.minHeight = '52px';
+    dialog.style.maxHeight = 'min(92vh, 900px)';
     if (bodyEl) {
       bodyEl.style.height = '0px';
       bodyEl.style.minHeight = '0px';
@@ -5471,14 +5488,18 @@ span.msb-rx-face svg{
     if (!dialog) return;
     var bodyEl = dialog.querySelector('.create-post-body');
     var frame = dialog.querySelector('.create-post-frame') || createPostModalFrame;
-    var topbarH = 36;
+    var topbarH = 52;
     var h = Math.max(0, Math.round(bodyH || 0));
+    /* Ignore tiny height thrash — that recenters/jitters the modal. */
+    if (createPostTargetBodyH > 0 && Math.abs(createPostTargetBodyH - h) < 28) {
+      return;
+    }
     createPostTargetBodyH = h;
     if (bodyEl) {
       bodyEl.style.height = h + 'px';
       bodyEl.style.minHeight = h + 'px';
       bodyEl.style.maxHeight = 'none';
-      bodyEl.style.overflow = 'auto';
+      bodyEl.style.overflow = 'hidden';
       bodyEl.style.opacity = '1';
       bodyEl.style.display = 'block';
     }
@@ -5490,7 +5511,7 @@ span.msb-rx-face svg{
     }
     dialog.style.height = (h + topbarH) + 'px';
     dialog.style.minHeight = (h + topbarH) + 'px';
-    dialog.style.maxHeight = 'none';
+    dialog.style.maxHeight = 'min(92vh, 900px)';
   }
 
   function animateCreatePostDoor(toBodyH, opts){
@@ -5503,7 +5524,7 @@ span.msb-rx-face svg{
       return false;
     }
     var $ = window.jQuery;
-    var topbarH = 36;
+    var topbarH = 52;
     var target = Math.max(0, Math.round(toBodyH || 0));
     var duration = (typeof opts.duration === 'number') ? opts.duration : CREATE_POST_ACCORDION_MS;
     var token = ++createPostAnimToken;
@@ -5528,7 +5549,7 @@ span.msb-rx-face svg{
       frame.style.opacity = '1';
       frame.style.maxHeight = 'none';
     }
-    dialog.style.maxHeight = 'none';
+    dialog.style.maxHeight = 'min(92vh, 900px)';
 
     var startH = Math.round(bodyEl.getBoundingClientRect().height || parseFloat(bodyEl.style.height) || 0);
     if (!$ || typeof $.fn.animate !== 'function') {
@@ -5594,52 +5615,39 @@ span.msb-rx-face svg{
     var dialog = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
     if (!dialog) return;
     try {
-      var headerEl =
-        document.querySelector('.ig-feed-header') ||
-        document.querySelector('.ig-stories-wrap') ||
-        document.querySelector('.ig-stories-bar');
-
-      var topPad = 0;
-      if (headerEl) {
-        var hr = headerEl.getBoundingClientRect();
-        if (hr && hr.height >= 8) topPad = Math.max(0, Math.round(hr.bottom));
-      }
-
-      var railW = 0;
-      var rail = document.querySelector('.feed-ig-rail');
-      if (rail && window.matchMedia && window.matchMedia('(min-width: 1025px)').matches) {
-        var rr = rail.getBoundingClientRect();
-        if (rr && rr.width > 0) railW = Math.round(rr.width);
-      }
-
-      var sidePad = 16;
-      var hostW = Math.max(320, Math.round(window.innerWidth - railW));
-      var avail = Math.max(320, hostW - (sidePad * 2));
-      var width = Math.min(1180, avail);
-      var hostH = Math.max(280, Math.round(window.innerHeight - topPad));
-
-      createPostModal.style.top = topPad + 'px';
-      createPostModal.style.left = railW + 'px';
+      /* Full-viewport centered popup (not docked under the feed header). */
+      createPostModal.style.top = '0';
+      createPostModal.style.left = '0';
       createPostModal.style.right = '0';
       createPostModal.style.bottom = '0';
-      createPostModal.style.width = hostW + 'px';
-      createPostModal.style.height = hostH + 'px';
-      createPostModal.style.padding = '0';
-      createPostModal.style.setProperty('background', 'transparent', 'important');
-      createPostModal.style.setProperty('background-color', 'transparent', 'important');
+      createPostModal.style.width = '100%';
+      createPostModal.style.height = '100%';
+      createPostModal.style.padding = 'max(16px, 3vh) 16px 20px';
+      createPostModal.style.display = 'flex';
+      createPostModal.style.alignItems = 'flex-start';
+      createPostModal.style.justifyContent = 'center';
+      if (createPostModal.classList.contains('is-open') || createPostModal.classList.contains('is-opening')) {
+        createPostModal.style.setProperty('background', 'rgba(15,23,42,.48)', 'important');
+        createPostModal.style.setProperty('background-color', 'rgba(15,23,42,.48)', 'important');
+      } else {
+        createPostModal.style.setProperty('background', 'transparent', 'important');
+        createPostModal.style.setProperty('background-color', 'transparent', 'important');
+      }
       createPostModal.style.setProperty('background-image', 'none', 'important');
 
-      dialog.style.position = 'absolute';
-      dialog.style.top = '0';
-      dialog.style.left = '50%';
+      var width = Math.min(560, Math.max(280, Math.round(window.innerWidth - 32)));
+      dialog.style.position = 'relative';
+      dialog.style.top = 'auto';
+      dialog.style.left = 'auto';
       dialog.style.right = 'auto';
       dialog.style.bottom = 'auto';
       dialog.style.width = width + 'px';
       dialog.style.maxWidth = width + 'px';
-      dialog.style.margin = '0';
-      dialog.style.marginBottom = '10px';
-      dialog.style.borderRadius = '0 0 14px 14px';
-      dialog.style.transform = 'translateX(-50%)';
+      dialog.style.margin = 'auto';
+      dialog.style.marginBottom = '0';
+      dialog.style.borderRadius = '16px';
+      dialog.style.borderTop = '';
+      dialog.style.transform = '';
 
       var frameEl = dialog.querySelector('.create-post-frame');
       if (frameEl) {
@@ -5647,11 +5655,10 @@ span.msb-rx-face svg{
         frameEl.style.display = 'block';
       }
 
-      /* Keep width/position only; height is owned by open/close animation. */
+      /* Keep width/position only; height is owned by open sizing. */
       if (!createPostModal.classList.contains('is-open')) {
         parkCreatePostDoorShort();
-      } else if (createPostFormReady && createPostTargetBodyH > 0
-        && !createPostModal.classList.contains('is-opening')
+      } else if (createPostTargetBodyH > 0
         && !createPostModal.classList.contains('is-closing')) {
         applyCreatePostDoorHeights(createPostTargetBodyH);
       }
@@ -5723,8 +5730,7 @@ span.msb-rx-face svg{
   function resolveCreatePostBodyHeight(){
     var frame = createPostModalFrame;
     if (!frame) return 0;
-    var hostH = parseInt(createPostModal && createPostModal.style.height, 10) || Math.max(280, Math.round(window.innerHeight - 80));
-    var panelMax = Math.max(220, hostH - 36);
+    var panelMax = Math.max(220, Math.round(window.innerHeight * 0.88) - 52);
     try {
       var doc = frame.contentDocument;
       if (!doc || !doc.body) return 0;
@@ -5757,8 +5763,9 @@ span.msb-rx-face svg{
       if (doc.documentElement) doc.documentElement.style.setProperty('height', 'auto', 'important');
       doc.body.style.setProperty('height', 'auto', 'important');
       doc.body.style.setProperty('min-height', '0', 'important');
-      doc.body.style.setProperty('overflow', 'hidden', 'important');
-      doc.body.style.setProperty('padding-bottom', '0', 'important');
+      doc.body.style.setProperty('overflow-x', 'hidden', 'important');
+      doc.body.style.setProperty('overflow-y', 'auto', 'important');
+      doc.body.style.setProperty('padding-bottom', '8px', 'important');
       doc.body.style.setProperty('margin-bottom', '0', 'important');
 
       var contentH = measureCreatePostFormHeight(doc);
@@ -5774,20 +5781,29 @@ span.msb-rx-face svg{
     opts = opts || {};
     if (!createPostModal || !createPostModal.classList.contains('is-open')) return false;
     if (createPostModal.classList.contains('is-closing')) return false;
-    var next = resolveCreatePostBodyHeight();
-    if (!next) return false;
+
+    /* Keep a stable viewport height so repeated iframe fit messages do not vibrate the modal. */
+    var stable = stableCreatePostBodyHeight();
+    var measured = resolveCreatePostBodyHeight();
+    var next = stable;
+    if (measured && measured > stable + 40) {
+      next = Math.min(stable + 80, measured);
+    }
 
     createPostFormReady = true;
     createPostModal.classList.add('is-form-ready');
-    createPostModal.classList.remove('is-form-loading');
-
-    /* Grow/shrink door so Add slide + Submit stay visible (never clip them). */
-    if (createPostModal.classList.contains('is-opening') || opts.forceAnimate || Math.abs((createPostTargetBodyH || 0) - next) > 12) {
-      animateCreatePostDoor(next, { duration: opts.duration || Math.round(CREATE_POST_ACCORDION_MS * 0.65) });
-    } else {
-      applyCreatePostDoorHeights(next);
-    }
+    createPostModal.classList.remove('is-form-loading', 'is-opening', 'is-closing');
+    applyCreatePostDoorHeights(next);
     return true;
+  }
+
+  function scheduleFitCreatePostDoor(opts){
+    opts = opts || {};
+    if (createPostFitTimer) clearTimeout(createPostFitTimer);
+    createPostFitTimer = setTimeout(function(){
+      createPostFitTimer = 0;
+      fitCreatePostDoorToForm(opts);
+    }, opts.immediate ? 0 : 220);
   }
 
   var createPostCloseTimer = 0;
@@ -5819,8 +5835,10 @@ span.msb-rx-face svg{
       createPostModal.setAttribute('aria-hidden', 'false');
       createPostFormReady = true;
       createPostModal.classList.add('is-form-ready');
-      parkCreatePostDoorShort();
-      animateCreatePostDoor(Math.min(360, CREATE_POST_OPEN_ESTIMATE), { duration: CREATE_POST_ACCORDION_MS });
+      createPostOpenedAt = Date.now();
+      createPostTargetBodyH = 0;
+      applyCreatePostDoorHeights(stableCreatePostBodyHeight());
+      createPostModal.classList.remove('is-opening');
       if (createPostModalFrame) createPostModalFrame.setAttribute('src', 'about:blank');
       document.body.style.overflow = 'hidden';
       return;
@@ -5833,7 +5851,7 @@ span.msb-rx-face svg{
     var dialogEl = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
     var isEdit = /(?:^|[?&#])edit=\d+/i.test(String(nextSrc)) || /(?:^|[?&#])edit=\d+/i.test(String(src || ''));
     if (titleEl) {
-      titleEl.textContent = isEdit ? 'Edit post' : 'Create new post';
+      titleEl.textContent = isEdit ? 'Edit post' : 'Create a post';
       Array.prototype.forEach.call(titleEl.querySelectorAll('i, .icon, .fa'), function(el){
         if (el && el.parentNode) el.parentNode.removeChild(el);
       });
@@ -5848,9 +5866,12 @@ span.msb-rx-face svg{
       dialogEl.setAttribute('aria-label', isEdit ? 'Edit post' : 'Create post');
     }
     syncCreatePostDropGeometry();
-    parkCreatePostDoorShort();
-    createPostModal.classList.add('is-open');
+    createPostOpenedAt = Date.now();
+    createPostTargetBodyH = 0;
+    applyCreatePostDoorHeights(stableCreatePostBodyHeight());
+    createPostModal.classList.add('is-open', 'is-form-ready');
     createPostModal.setAttribute('aria-hidden', 'false');
+    createPostModal.classList.remove('is-opening');
     try {
       var cs = window.getComputedStyle(document.documentElement);
       var bg = (cs.getPropertyValue('--msb-palette-bg') || '').trim();
@@ -5886,9 +5907,6 @@ span.msb-rx-face svg{
         $accOpen.accordion('refresh');
       }
     } catch (_accShow) {}
-    parkCreatePostDoorShort();
-    /* Smooth open starts immediately — no freeze waiting on iframe. */
-    animateCreatePostDoor(CREATE_POST_OPEN_ESTIMATE, { duration: CREATE_POST_ACCORDION_MS });
     createPostModalFrame.setAttribute('src', nextSrc);
     document.body.style.overflow = 'hidden';
   }
@@ -5898,6 +5916,8 @@ span.msb-rx-face svg{
     try {
       var dialog = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
       createPostModal.style.justifyContent = '';
+      createPostModal.style.alignItems = '';
+      createPostModal.style.display = '';
       createPostModal.style.paddingLeft = '';
       createPostModal.style.paddingRight = '';
       createPostModal.style.paddingTop = '';
@@ -5908,6 +5928,9 @@ span.msb-rx-face svg{
       createPostModal.style.bottom = '';
       createPostModal.style.width = '';
       createPostModal.style.height = '';
+      createPostModal.style.removeProperty('background');
+      createPostModal.style.removeProperty('background-color');
+      createPostModal.style.removeProperty('background-image');
       if (dialog) {
         dialog.style.position = '';
         dialog.style.inset = '';
@@ -5923,6 +5946,7 @@ span.msb-rx-face svg{
         dialog.style.margin = '';
         dialog.style.marginLeft = '';
         dialog.style.marginRight = '';
+        dialog.style.marginBottom = '';
         dialog.style.borderRadius = '';
         dialog.style.borderTop = '';
         dialog.style.animation = '';
@@ -5949,21 +5973,18 @@ span.msb-rx-face svg{
     createPostFormReady = false;
     createPostModal.classList.add('is-closing');
     createPostModal.classList.remove('is-opening', 'is-form-ready', 'is-form-loading');
-    animateCreatePostDoor(0, {
-      duration: CREATE_POST_ACCORDION_MS,
-      done: function(){
-        createPostCloseTimer = 0;
-        createPostFormReady = false;
-        createPostTargetBodyH = 0;
-        createPostModal.classList.remove('is-open', 'is-readonly-notice', 'is-form-ready', 'is-form-loading', 'is-opening', 'is-closing');
-        createPostModal.setAttribute('aria-hidden', 'true');
-        if (createPostReadonlyNotice) createPostReadonlyNotice.setAttribute('hidden', 'hidden');
-        document.body.style.overflow = '';
-        if (createPostModalFrame) createPostModalFrame.setAttribute('src', 'about:blank');
-        parkCreatePostDoorShort();
-        resetCreatePostGeometry();
-      }
-    });
+    createPostCloseTimer = setTimeout(function(){
+      createPostCloseTimer = 0;
+      createPostFormReady = false;
+      createPostTargetBodyH = 0;
+      createPostModal.classList.remove('is-open', 'is-readonly-notice', 'is-form-ready', 'is-form-loading', 'is-opening', 'is-closing');
+      createPostModal.setAttribute('aria-hidden', 'true');
+      if (createPostReadonlyNotice) createPostReadonlyNotice.setAttribute('hidden', 'hidden');
+      document.body.style.overflow = '';
+      if (createPostModalFrame) createPostModalFrame.setAttribute('src', 'about:blank');
+      parkCreatePostDoorShort();
+      resetCreatePostGeometry();
+    }, CREATE_POST_ACCORDION_MS);
   }
 
   function liveVisibilityText(value){
@@ -7348,10 +7369,8 @@ span.msb-rx-face svg{
       if (!createPostModal || !createPostModal.classList.contains('is-open')) return;
       if (createPostModal.classList.contains('is-closing')) return;
       try {
-        /* Do not park/reset mid-open — that caused freeze. Only refine height to the form. */
-        setTimeout(function(){ fitCreatePostDoorToForm(); }, 30);
-        setTimeout(function(){ fitCreatePostDoorToForm(); }, 180);
-        setTimeout(function(){ fitCreatePostDoorToForm(); }, 450);
+        /* One delayed fit only — repeated height changes vibrate the centered modal. */
+        scheduleFitCreatePostDoor({ immediate: false });
         const doc = createPostModalFrame.contentDocument;
         const win = createPostModalFrame.contentWindow;
         if (!doc || !doc.documentElement) return;
@@ -7466,6 +7485,7 @@ span.msb-rx-face svg{
   window.addEventListener('resize', function(){
     if (createPostModal && createPostModal.classList.contains('is-open')) {
       syncCreatePostDropGeometry();
+      scheduleFitCreatePostDoor({ immediate: false });
     }
   });
 
@@ -7475,11 +7495,14 @@ span.msb-rx-face svg{
     var data = ev && ev.data;
     if (data && data.type === 'msb-create-post-fit') {
       try {
-        fitCreatePostDoorToForm({ forceAnimate: !!(data && data.force), duration: 420 });
+        /* Ignore fit spam in the first half-second after open (main vibrate source). */
+        if (createPostOpenedAt && (Date.now() - createPostOpenedAt) < 500) return;
+        scheduleFitCreatePostDoor({ immediate: false });
       } catch (_fitMsg) {}
       return;
     }
     if (!data || data.type !== 'msb-create-post-done') return;
+    try { window.__msbCreatePostNavigating = true; } catch (_navFlag) {}
     try { closeCreatePostModal(); } catch (err) {}
     // Soft tab swaps cache center HTML; drop it so Circle / Discover refetch after publish.
     try {
@@ -7524,22 +7547,47 @@ span.msb-rx-face svg{
         redirectPath = 'profile.php';
         redirect = 'profile.php?tab=gallery&gallery_vis=private&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       } else if (visibility === 'public') {
-        redirectPath = 'public.php';
-        redirect = 'public.php?story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+        redirectPath = 'home.php';
+        redirect = 'home.php?tab=discover&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       } else {
-        redirectPath = 'feed.php';
-        redirect = 'feed.php?story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+        redirectPath = 'home.php';
+        redirect = 'home.php?tab=for-you&story_post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
       }
     } else if (visibility === 'private') {
       redirectPath = 'profile.php';
-      redirect = 'profile.php?tab=gallery&gallery_vis=private&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      redirect = 'profile.php?tab=posts&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     } else if (visibility === 'public') {
-      redirectPath = 'public.php';
-      redirect = 'public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
-    } else if (visibility === 'friends') {
-      redirectPath = 'feed.php';
-      redirect = 'feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      redirectPath = 'home.php';
+      redirect = 'home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+    } else if (visibility === 'friends' || visibility === '' || !visibility) {
+      redirectPath = 'home.php';
+      redirect = 'home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
     }
+
+    // Legacy Gallery private-post redirects → Posts tab.
+    try {
+      if (!isStory && /profile\.php/i.test(redirect) && /[?&]post=/.test(redirect) && /gallery_vis=private|tab=gallery/i.test(redirect)) {
+        redirectPath = 'profile.php';
+        redirect = 'profile.php?tab=posts&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+      }
+    }catch(_legacyProf){}
+
+    /* Never land on the create-post composer after publish. */
+    try {
+      if (/dashboard\.php/i.test(redirect) || /[?&]modal=1/i.test(redirect)) {
+        redirect = visibility === 'public'
+          ? ('home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1')
+          : (visibility === 'private'
+            ? ('profile.php?tab=posts&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1')
+            : ('home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1'));
+        redirectPath = /profile\.php/i.test(redirect) ? 'profile.php' : 'home.php';
+      }
+      if (/^(feed|public)\.php/i.test(redirectPath)) {
+        redirect = (/^public\.php/i.test(redirectPath) ? 'home.php?tab=discover' : 'home.php?tab=for-you')
+          + '&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1';
+        redirectPath = 'home.php';
+      }
+    } catch (_sanitize) {}
 
     var pathNow = String(window.location.pathname || '');
     var onFeed = /feed\.php$/i.test(pathNow) || (/home\.php$/i.test(pathNow) && (function(){
@@ -7549,7 +7597,7 @@ span.msb-rx-face svg{
     var onPublic = /public\.php$/i.test(pathNow) || (/home\.php$/i.test(pathNow) && (function(){
       try {
         var t = new URL(window.location.href).searchParams.get('tab') || 'for-you';
-        return t !== 'for-you';
+        return t === 'discover' || (t !== 'for-you' && t !== 'news');
       } catch (e) { return false; }
     })());
     var onProfile = /profile\.php$/i.test(pathNow);
@@ -7567,13 +7615,19 @@ span.msb-rx-face svg{
       } catch (errRm) {}
     }
 
-    // A newly created Friends post must be visible immediately. The former
-    // soft-insert path could miss the post while its media/list row was still
-    // settling, leaving Circle stale until a manual refresh. Use the server's
-    // fresh/pinned destination so the parent refreshes automatically and the
-    // new card is guaranteed to be present at the top.
+    // Soft-insert on Profile → Posts (same tab, no full reload flash).
+    if (onProfile && wantsProfile && !switchingSurface && !data.story && visibility === 'private' && typeof window.MSBProfileOnPostCreated === 'function') {
+      try { window.MSBProfileOnPostCreated(postId, { visibility: visibility, redirect: redirect }); }
+      catch (_profIns) {
+        try { window.location.replace(redirect || ('profile.php?tab=posts&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1')); }
+        catch (_profNav) { window.location.href = redirect; }
+      }
+      return;
+    }
+
+    // A newly created Friends post must be visible immediately on Circle.
     if (onFeed && wantsFeed && !switchingSurface && !data.story && typeof window.MSBFeedOnPostCreated === 'function') {
-      var freshFeedTarget = redirect || ('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      var freshFeedTarget = redirect || ('home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
       try { window.location.replace(freshFeedTarget); }
       catch (err2) { window.location.href = freshFeedTarget; }
       return;
@@ -7584,11 +7638,11 @@ span.msb-rx-face svg{
       return;
     }
     if (wantsPublic) {
-      window.location.replace('public.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('home.php?tab=discover&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else if (wantsNews) {
       window.location.replace('home.php?tab=news&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     } else {
-      window.location.replace('feed.php?post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
+      window.location.replace('home.php?tab=for-you&post=' + encodeURIComponent(String(postId || '')) + '&fresh=1');
     }
   });
 

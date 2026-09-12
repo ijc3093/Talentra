@@ -242,6 +242,33 @@ if (function_exists('msb_text_is_people_tag_only')) {
 
 $musicTitle = mb_substr(trim((string)($_POST['music_title'] ?? '')), 0, 120);
 $musicArtist = mb_substr(trim((string)($_POST['music_artist'] ?? '')), 0, 120);
+$feelingLabel = mb_substr(trim((string)($_POST['feeling_label'] ?? '')), 0, 80);
+$locationLabel = mb_substr(trim((string)($_POST['location_label'] ?? '')), 0, 120);
+$linkUrl = trim((string)($_POST['link_url'] ?? ''));
+$linkTitle = mb_substr(trim((string)($_POST['link_title'] ?? '')), 0, 180);
+$linkDescription = mb_substr(trim((string)($_POST['link_description'] ?? '')), 0, 280);
+$linkImage = mb_substr(trim((string)($_POST['link_image'] ?? '')), 0, 500);
+$linkTags = '';
+if (function_exists('post_link_preview_parse_tags')) {
+    $linkTags = implode(', ', post_link_preview_parse_tags((string)($_POST['link_tags'] ?? '')));
+} else {
+    $linkTags = mb_substr(trim((string)($_POST['link_tags'] ?? '')), 0, 280);
+}
+if ($linkUrl !== '' && !preg_match('#^https?://#i', $linkUrl)) {
+    $linkUrl = 'https://' . ltrim($linkUrl, '/');
+}
+if ($linkUrl !== '' && !filter_var($linkUrl, FILTER_VALIDATE_URL)) {
+    $linkUrl = '';
+    $linkTitle = '';
+    $linkDescription = '';
+    $linkImage = '';
+    $linkTags = '';
+} else {
+    $linkUrl = mb_substr($linkUrl, 0, 500);
+    if ($linkImage !== '' && !preg_match('#^https?://#i', $linkImage)) {
+        $linkImage = '';
+    }
+}
 $preferSoundId = (int)($_POST['sound_id'] ?? 0);
 $stitchOfPostId = (int)($_POST['stitch_of_post_id'] ?? $_GET['stitch'] ?? 0);
 $duetOfPostId = (int)($_POST['duet_of_post_id'] ?? $_GET['duet'] ?? 0);
@@ -395,6 +422,84 @@ try {
         $inserted = true;
     }
 
+    if ($postId > 0) {
+        try {
+            if (function_exists('device_profile_ensure_post_columns')) {
+                device_profile_ensure_post_columns($dbh);
+            }
+            $stMeta = $dbh->prepare(
+                'UPDATE public_posts
+                 SET feeling_label = :f, location_label = :l,
+                     link_url = :lu, link_title = :lt, link_description = :ld, link_image = :li, link_tags = :lk
+                 WHERE id = :id
+                 LIMIT 1'
+            );
+            $stMeta->execute([
+                ':f' => $feelingLabel,
+                ':l' => $locationLabel,
+                ':lu' => $linkUrl,
+                ':lt' => $linkTitle,
+                ':ld' => $linkDescription,
+                ':li' => $linkImage,
+                ':lk' => $linkTags,
+                ':id' => $postId,
+            ]);
+        } catch (Throwable $eMeta) {
+            // Columns may be missing on older DBs; non-fatal.
+            try {
+                $stMeta2 = $dbh->prepare(
+                    'UPDATE public_posts
+                     SET feeling_label = :f, location_label = :l,
+                         link_url = :lu, link_title = :lt, link_description = :ld, link_image = :li
+                     WHERE id = :id
+                     LIMIT 1'
+                );
+                $stMeta2->execute([
+                    ':f' => $feelingLabel,
+                    ':l' => $locationLabel,
+                    ':lu' => $linkUrl,
+                    ':lt' => $linkTitle,
+                    ':ld' => $linkDescription,
+                    ':li' => $linkImage,
+                    ':id' => $postId,
+                ]);
+            } catch (Throwable $eMeta2) {
+                try {
+                    $stMeta3 = $dbh->prepare(
+                        'UPDATE public_posts
+                         SET feeling_label = :f, location_label = :l,
+                             link_url = :lu, link_title = :lt, link_description = :ld
+                         WHERE id = :id
+                         LIMIT 1'
+                    );
+                    $stMeta3->execute([
+                        ':f' => $feelingLabel,
+                        ':l' => $locationLabel,
+                        ':lu' => $linkUrl,
+                        ':lt' => $linkTitle,
+                        ':ld' => $linkDescription,
+                        ':id' => $postId,
+                    ]);
+                } catch (Throwable $eMeta3) {
+                    try {
+                        $stMeta4 = $dbh->prepare(
+                            'UPDATE public_posts
+                             SET feeling_label = :f, location_label = :l
+                             WHERE id = :id
+                             LIMIT 1'
+                        );
+                        $stMeta4->execute([
+                            ':f' => $feelingLabel,
+                            ':l' => $locationLabel,
+                            ':id' => $postId,
+                        ]);
+                    } catch (Throwable $eMeta4) {
+                    }
+                }
+            }
+        }
+    }
+
     $uploadAttempts = 0;
     $uploadSaved = 0;
 
@@ -499,19 +604,26 @@ try {
     // - Story circle "+" + Public  → public.php story circle (?story_post=)
     // - Left-nav "+" + Friends     → feed.php post card (?post=)
     // - Left-nav "+" + Public      → public.php post card (?post=)
-    // - Any "+" + Private          → profile.php Gallery → Private tab
+    // - Any "+" + Private → profile.php Posts tab
     $returnToRaw = trim((string)($_POST['return_to'] ?? ''));
     $returnToBase = strtolower((string)preg_replace('/[?#].*$/', '', $returnToRaw));
     $fromProfileStory = ($isStoryPost && (substr($returnToBase, -11) === 'profile.php' || $returnToBase === 'profile.php'));
     if ($visibility === 'private') {
         $dest = 'profile.php';
-        $queryKey = $isStoryPost ? 'story_post' : 'post';
-        $redirectParams = [
-            'tab' => 'gallery',
-            'gallery_vis' => 'private',
-            $queryKey => $postId,
-            'fresh' => 1,
-        ];
+        if ($isStoryPost) {
+            $redirectParams = [
+                'tab' => 'gallery',
+                'gallery_vis' => 'private',
+                'story_post' => $postId,
+                'fresh' => 1,
+            ];
+        } else {
+            $redirectParams = [
+                'tab' => 'posts',
+                'post' => $postId,
+                'fresh' => 1,
+            ];
+        }
         $redirect = $dest . '?' . http_build_query($redirectParams);
     } elseif ($fromProfileStory) {
         $dest = 'profile.php';
@@ -522,12 +634,23 @@ try {
         ];
         $redirect = $dest . '?' . http_build_query($redirectParams);
     } else {
-        $dest = publisher_post_redirect($dbh, $meId, $visibility);
+        // Friends → Circle tab. Public → Discover tab (unified home).
         $queryKey = $isStoryPost ? 'story_post' : 'post';
-        $redirectParams = [
-            $queryKey => $postId,
-            'fresh' => 1,
-        ];
+        if ($visibility === 'public') {
+            $dest = 'home.php';
+            $redirectParams = [
+                'tab' => 'discover',
+                $queryKey => $postId,
+                'fresh' => 1,
+            ];
+        } else {
+            $dest = 'home.php';
+            $redirectParams = [
+                'tab' => 'for-you',
+                $queryKey => $postId,
+                'fresh' => 1,
+            ];
+        }
         $redirect = $dest . '?' . http_build_query($redirectParams);
     }
     if ($uploadAttempts > 0 && $uploadSaved === 0) {

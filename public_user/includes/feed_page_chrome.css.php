@@ -311,6 +311,11 @@ body.feed-page.feed-insta-ui .ig-stories-bar,
 body.public-page.feed-insta-ui .ig-stories-bar{
   align-items:flex-start !important;
 }
+body.feed-insta-ui .ig-stories-bar,
+body.feed-page.feed-insta-ui .ig-stories-bar,
+body.public-page.feed-insta-ui .ig-stories-bar{
+  margin-left:41px !important;
+}
 body.feed-insta-ui .ig-feed-top-lead,
 body.feed-page.feed-insta-ui .ig-feed-top-lead,
 body.public-page.feed-insta-ui .ig-feed-top-lead,
@@ -682,6 +687,11 @@ body.public-page.feed-insta-ui .feed-top-search-field,
 body.public-page.feed-insta-ui .public-publisher-search{
   position:relative !important;
   width:100% !important;
+}
+body.feed-insta-ui .feed-top-search-field,
+body.feed-page.feed-insta-ui .feed-top-search-field,
+body.public-page.feed-insta-ui .feed-top-search-field{
+  margin-left:18px !important;
 }
 body.feed-insta-ui .feed-top-search-input,
 body.feed-page.feed-insta-ui .feed-top-search-input,

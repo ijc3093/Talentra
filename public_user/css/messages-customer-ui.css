@@ -4,18 +4,21 @@
  */
 .messages-shell.customer-msg-ui {
   --cm-bg: var(--msb-palette-bg, var(--msg-bg, #f5f7fb));
-  --cm-panel: var(--msb-palette-surface, var(--msb-palette-bg, #1b222b));
-  --cm-panel-2: var(--msb-palette-surface-2, var(--msb-palette-bg, #151b22));
-  --cm-border: var(--msb-palette-border, rgba(148, 163, 184, 0.16));
-  --cm-hover: var(--msb-palette-hover-bg, rgba(37, 99, 235, 0.14));
-  --cm-selected: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.22));
-  --cm-text: var(--msb-palette-text, #f8fafc);
-  --cm-muted: var(--msb-palette-text-muted, #94a3b8);
+  --cm-panel: var(--msb-palette-surface, var(--msb-palette-bg, var(--msg-bg, #f5f7fb)));
+  --cm-panel-2: var(--msb-palette-surface-2, var(--msb-palette-bg, var(--msg-bg, #f5f7fb)));
+  --cm-border: var(--msb-palette-border, rgba(148, 163, 184, 0.28));
+  --cm-hover: var(--msb-palette-hover-bg, rgba(15, 23, 42, 0.06));
+  --cm-selected: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.16));
+  --cm-text: var(--msb-palette-text, var(--msg-text, #0f172a));
+  --cm-muted: var(--msb-palette-text-muted, var(--msg-muted, #64748b));
   --cm-me: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb));
-  --cm-them: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #1f2937));
-  --cm-input: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)));
+  --cm-me-text: var(--msb-palette-btn-text, #ffffff);
+  --cm-them: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #eef2f7));
+  --cm-input: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg, #fff)));
+  --cm-chip: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, rgba(15, 23, 42, 0.06)));
+  --cm-chip-text: var(--msb-palette-text, var(--cm-text));
   --cm-online: #22c55e;
-  --cm-danger: #f87171;
+  --cm-danger: #ef4444;
   background: var(--cm-bg) !important;
   background-color: var(--cm-bg) !important;
   border: 1px solid var(--cm-border);
@@ -182,11 +185,12 @@
   height: 38px;
   border: 1px solid var(--cm-border);
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--cm-chip) !important;
+  background-color: var(--cm-chip) !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--cm-text);
+  color: var(--cm-chip-text) !important;
   overflow: hidden;
 }
 
@@ -284,34 +288,37 @@
 .messages-shell.customer-msg-ui .chat-compose-btn {
   width: 42px;
   height: 42px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--cm-me);
-  color: #fff;
+  border: 1px solid var(--cm-border);
+  border-radius: 999px;
+  background: var(--cm-chip) !important;
+  background-color: var(--cm-chip) !important;
+  color: var(--cm-chip-text) !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+  box-shadow: none;
 }
 
 .messages-shell.customer-msg-ui .chat-compose-btn:hover {
-  color: #fff;
-  filter: brightness(1.05);
+  color: var(--cm-chip-text) !important;
+  filter: none;
+  background: var(--cm-hover) !important;
 }
 
 .messages-shell.customer-msg-ui .messages-shell-search-btn {
-  background: rgba(148, 163, 184, 0.14);
-  color: var(--cm-text);
+  background: var(--cm-chip) !important;
+  background-color: var(--cm-chip) !important;
+  color: var(--cm-chip-text) !important;
   box-shadow: none;
   border: 1px solid var(--cm-border);
   cursor: pointer;
 }
 
 .messages-shell.customer-msg-ui .messages-shell-search-btn:hover {
-  color: var(--cm-text);
+  color: var(--cm-chip-text) !important;
   filter: none;
-  background: rgba(148, 163, 184, 0.22);
+  background: var(--cm-hover) !important;
 }
 
 .messages-shell.customer-msg-ui .chat-round-btn {
@@ -422,13 +429,14 @@
 .messages-shell.customer-msg-ui .chat-filter-tab,
 .messages-shell.customer-msg-ui a.chat-filter-tab,
 .messages-shell.customer-msg-ui button.chat-filter-tab {
-  border: 0 !important;
+  border: 1px solid var(--cm-border) !important;
   border-radius: 999px !important;
   padding: 8px 14px !important;
   font-size: 12px !important;
   font-weight: 800 !important;
-  background: rgba(148, 163, 184, 0.1) !important;
-  color: var(--cm-muted) !important;
+  background: var(--cm-chip) !important;
+  background-color: var(--cm-chip) !important;
+  color: var(--cm-chip-text) !important;
   display: inline-flex !important;
   align-items: center;
   gap: 6px;
@@ -441,15 +449,17 @@
 .messages-shell.customer-msg-ui a.chat-filter-tab.active,
 .messages-shell.customer-msg-ui button.chat-filter-tab.active {
   background: var(--cm-me) !important;
-  color: #fff !important;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28) !important;
+  background-color: var(--cm-me) !important;
+  color: var(--cm-me-text) !important;
+  border-color: var(--cm-me) !important;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--cm-me) 28%, transparent) !important;
 }
 
 .messages-shell.customer-msg-ui .chat-filter-tab:disabled,
 .messages-shell.customer-msg-ui .chat-filter-tab.is-disabled {
-  opacity: 0.4 !important;
+  opacity: 0.55 !important;
   cursor: default !important;
-  background: rgba(148, 163, 184, 0.06) !important;
+  background: var(--cm-chip) !important;
   color: var(--cm-muted) !important;
   box-shadow: none !important;
 }
@@ -1119,8 +1129,9 @@
   width: 44px;
   height: 44px;
   border-radius: 999px;
-  background: var(--cm-me);
-  color: #fff;
+  background: var(--cm-me) !important;
+  background-color: var(--cm-me) !important;
+  color: var(--cm-me-text) !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1379,4 +1390,47 @@ html:not(.dark-auto) .messages-shell.customer-msg-ui .day-divider {
   background: var(--cm-bg) !important;
   background-color: var(--cm-bg) !important;
   border-color: var(--cm-border) !important;
+}
+
+
+/* Gear Appearance wins over dark-auto hard #30363d / #171d24 on Messages chips & tools */
+.messages-shell.customer-msg-ui .chat-filter-tab,
+.messages-shell.customer-msg-ui a.chat-filter-tab,
+.messages-shell.customer-msg-ui button.chat-filter-tab,
+html.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab,
+html[data-theme="dark"] .messages-shell.customer-msg-ui .chat-filter-tab,
+body.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab {
+  background: var(--cm-chip, var(--msb-palette-hover-bg, var(--msb-palette-surface-2, rgba(15,23,42,.06)))) !important;
+  background-color: var(--cm-chip, var(--msb-palette-hover-bg, var(--msb-palette-surface-2, rgba(15,23,42,.06)))) !important;
+  color: var(--cm-chip-text, var(--msb-palette-text, #0f172a)) !important;
+  border-color: var(--cm-border, var(--msb-palette-border)) !important;
+}
+.messages-shell.customer-msg-ui .chat-filter-tab.active,
+.messages-shell.customer-msg-ui a.chat-filter-tab.active,
+.messages-shell.customer-msg-ui button.chat-filter-tab.active,
+html.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab.active,
+html[data-theme="dark"] .messages-shell.customer-msg-ui .chat-filter-tab.active,
+body.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab.active {
+  background: var(--cm-me, var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb))) !important;
+  background-color: var(--cm-me, var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb))) !important;
+  color: var(--cm-me-text, var(--msb-palette-btn-text, #fff)) !important;
+  border-color: var(--cm-me, var(--msb-palette-btn-bg, #2563eb)) !important;
+}
+.messages-shell.customer-msg-ui .messages-shell-icon,
+.messages-shell.customer-msg-ui .chat-compose-btn,
+.messages-shell.customer-msg-ui .messages-shell-search-btn,
+html.dark-auto .messages-shell.customer-msg-ui .messages-shell-icon,
+html.dark-auto .messages-shell.customer-msg-ui .chat-compose-btn,
+html.dark-auto .messages-shell.customer-msg-ui .messages-shell-search-btn,
+body.dark-auto .messages-shell.customer-msg-ui .messages-shell-icon,
+body.dark-auto .messages-shell.customer-msg-ui .chat-compose-btn,
+body.dark-auto .messages-shell.customer-msg-ui .messages-shell-search-btn {
+  background: var(--cm-chip, var(--msb-palette-hover-bg, var(--msb-palette-surface-2, rgba(15,23,42,.06)))) !important;
+  background-color: var(--cm-chip, var(--msb-palette-hover-bg, var(--msb-palette-surface-2, rgba(15,23,42,.06)))) !important;
+  color: var(--cm-chip-text, var(--msb-palette-icon, var(--msb-palette-text, #0f172a))) !important;
+}
+.messages-shell.customer-msg-ui .messages-shell-icon i,
+.messages-shell.customer-msg-ui .chat-compose-btn i,
+.messages-shell.customer-msg-ui .messages-shell-search-btn i {
+  color: inherit !important;
 }

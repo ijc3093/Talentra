@@ -37,6 +37,27 @@ function device_profile_ensure_post_columns(PDO $dbh): void
         if (!device_profile_table_has_column($dbh, 'public_posts', 'music_artist')) {
             $dbh->exec("ALTER TABLE public_posts ADD COLUMN music_artist VARCHAR(120) NOT NULL DEFAULT '' AFTER music_title");
         }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'feeling_label')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN feeling_label VARCHAR(80) NOT NULL DEFAULT '' AFTER music_artist");
+        }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'location_label')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN location_label VARCHAR(120) NOT NULL DEFAULT '' AFTER feeling_label");
+        }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'link_url')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN link_url VARCHAR(500) NOT NULL DEFAULT '' AFTER location_label");
+        }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'link_title')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN link_title VARCHAR(180) NOT NULL DEFAULT '' AFTER link_url");
+        }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'link_description')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN link_description VARCHAR(280) NOT NULL DEFAULT '' AFTER link_title");
+        }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'link_image')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN link_image VARCHAR(500) NOT NULL DEFAULT '' AFTER link_description");
+        }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'link_tags')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN link_tags VARCHAR(280) NOT NULL DEFAULT '' AFTER link_image");
+        }
         if (!device_profile_table_has_column($dbh, 'public_posts', 'is_archived')) {
             $dbh->exec("ALTER TABLE public_posts ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0 AFTER is_deleted");
         }

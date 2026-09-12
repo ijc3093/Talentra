@@ -178,6 +178,19 @@
 
   function restoreHome(){
     if (pageKind() !== 'home') return;
+    // Fresh create → Circle/Discover: keep the new post pinned at the top.
+    // Do not re-center a previous resume position (that clips the header).
+    try{
+      if (window.__MSB_SKIP_RESUME_HOME) {
+        bindCircleScrollStamp();
+        return;
+      }
+      var uFresh = new URL(window.location.href);
+      if (uFresh.searchParams.get('fresh') === '1') {
+        bindCircleScrollStamp();
+        return;
+      }
+    }catch(_fresh){}
     var postId = pendingPostId();
     var home = readHomeRaw();
     var sc = feedScroller();

@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/profile_access.php';
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/includes/friend_system.php';
 require_once __DIR__ . '/includes/publisher_accounts.php';
+require_once __DIR__ . '/includes/home_feed_tabs.php';
 require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
@@ -656,6 +657,10 @@ try {
     $authorId = (int)($_GET['author_id'] ?? 0);
     $limit    = clamp_int($_GET['limit'] ?? 60, 1, 200, 60);
     $pageMode = strtolower(trim((string)($_GET['page'] ?? 'feed'))); // feed|public|news
+    // Swift / clients sometimes send page=discover — treat as Discover (public), not Circle.
+    if ($pageMode === 'discover') {
+      $pageMode = 'public';
+    }
     $excludeStories = (int)($_GET['exclude_stories'] ?? 0) === 1;
 
     $order    = (string)($_GET['order'] ?? 'recent'); // recent|views|attention|created
@@ -676,6 +681,7 @@ try {
     } elseif ($pageMode === 'public') {
       $where .= ' AND ' . publisher_discover_list_where_sql($dbh, $meId);
       $params = array_merge($params, publisher_discover_list_where_params($dbh, $meId));
+      $where .= " AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'public')) = 'public'";
       $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, false);
       $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, false));
       // Clips / public list: publishers only see other publishers' posts.
@@ -689,6 +695,79 @@ try {
     } else {
       $where .= ' AND ' . publisher_feed_list_scope_sql_for($dbh, $meId);
       $params = array_merge($params, publisher_feed_list_scope_params_for($dbh, $meId));
+    }
+
+    // Program / publisher tabs (sports, science, vets, …) — same filter as public.php / home.php?tab=
+    $tabRaw = strtolower(trim((string)($_GET['tab'] ?? '')));
+    if (function_exists('home_feed_normalize_slug')) {
+      $tabRaw = home_feed_normalize_slug($tabRaw);
+    } else {
+      if ($tabRaw === 'discover') $tabRaw = 'public';
+      if ($tabRaw === 'commerce') $tabRaw = 'enterprise';
+      if ($tabRaw === 'circle') $tabRaw = 'for-you';
+    }
+    if ($tabRaw === 'animals' || $tabRaw === 'animal') {
+      $tabRaw = 'vets';
+    }
+    $isProgramSurface = ($pageMode === 'public' || $pageMode === 'discover' || $pageMode === 'news');
+    if ($isProgramSurface && $tabRaw !== '' && !in_array($tabRaw, ['public', 'for-you', 'feed', 'circle'], true)) {
+      $publisherCategoryTabs = [
+        'entertainment' => 'entertainment',
+        'library' => 'library',
+        'cook' => 'cook',
+        'seek-around-the-world' => 'seek-around-the-world',
+        'geology' => 'geology',
+        'animation' => 'animation',
+        'make-a-new-friend' => 'make-a-new-friend',
+        'agents' => 'agents',
+        'deep-research' => 'deep-research',
+        'trending' => 'trending',
+        'news' => 'news',
+        'sports' => 'sports',
+        'business' => 'business',
+        'science' => 'science',
+        'music' => 'music',
+        'arts' => 'arts',
+        'agriculture' => 'agriculture',
+        'auto' => 'auto',
+        'political' => 'political',
+        'enterprise' => 'enterprise',
+      ];
+      if (function_exists('publisher_academic_categories')) {
+        foreach (publisher_academic_categories() as $categorySlug => $_label) {
+          $publisherCategoryTabs[(string)$categorySlug] = (string)$categorySlug;
+        }
+      }
+      if (function_exists('publisher_custom_categories')) {
+        foreach (publisher_custom_categories($dbh) as $categorySlug => $_label) {
+          $publisherCategoryTabs[(string)$categorySlug] = (string)$categorySlug;
+        }
+      }
+      if (function_exists('home_feed_optional_tabs')) {
+        foreach (array_keys(home_feed_optional_tabs()) as $categorySlug) {
+          $publisherCategoryTabs[(string)$categorySlug] = (string)$categorySlug;
+        }
+      }
+      if (function_exists('home_feed_rail_tabs')) {
+        foreach (array_keys(home_feed_rail_tabs()) as $categorySlug) {
+          $publisherCategoryTabs[(string)$categorySlug] = (string)$categorySlug;
+        }
+      }
+
+      if ($tabRaw === 'enterprise') {
+        $where .= ' AND ' . publisher_author_is_publisher_sql('u');
+        $where .= " AND LOWER(TRIM(COALESCE(u.publisher_category,''))) IN ('enterprise','commerce')";
+      } elseif (isset($publisherCategoryTabs[$tabRaw])) {
+        $where .= ' AND ' . publisher_author_is_publisher_sql('u');
+        $where .= " AND LOWER(TRIM(COALESCE(u.publisher_category,''))) = :discoverCategory";
+        $params[':discoverCategory'] = $publisherCategoryTabs[$tabRaw];
+      }
+    } elseif ($pageMode === 'public' && ($tabRaw === '' || $tabRaw === 'public')) {
+      // Bare Discover: personal viewers see personal authors only (same as public.php).
+      // Publisher/commerce workspace viewers already limited to publishers above.
+      if (!publisher_workspace_viewer($dbh, $meId)) {
+        $where .= ' AND ' . publisher_author_is_personal_sql('u');
+      }
     }
 
     if ($meId > 0 && function_exists('fs_ensure_blocks_table') && fs_ensure_blocks_table($dbh)) {
@@ -766,6 +845,13 @@ try {
         COALESCE(p.device_viewport,'') AS device_viewport,
         COALESCE(p.music_title,'') AS music_title,
         COALESCE(p.music_artist,'') AS music_artist,
+        COALESCE(p.feeling_label,'') AS feeling_label,
+        COALESCE(p.location_label,'') AS location_label,
+        COALESCE(p.link_url,'') AS link_url,
+        COALESCE(p.link_title,'') AS link_title,
+        COALESCE(p.link_description,'') AS link_description,
+        COALESCE(p.link_image,'') AS link_image,
+        COALESCE(p.link_tags,'') AS link_tags,
         COALESCE(p.sound_id,0) AS sound_id,
         COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
         COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
@@ -778,6 +864,7 @@ try {
         COALESCE(u.name, u.username) AS display_name,
         COALESCE(u.friend_code,'') AS friend_code,
         COALESCE(u.account_kind, 'personal') AS account_kind,
+        COALESCE(u.publisher_category, '') AS publisher_category,
         EXISTS(SELECT 1 FROM public_follows pf WHERE pf.follower_id = :meFollow AND pf.following_id = p.user_id) AS is_following,
         r.last_seen_at,
         CASE
@@ -869,6 +956,14 @@ try {
       // ✅ Give UI stable IDs to use (no name matching)
       $r['author_id'] = (int)($r['user_id'] ?? 0);
       $r['me_id']     = $meId; // optional per-row; UI can also use top-level me_id
+      $r['publisher_category'] = strtolower(trim((string)($r['publisher_category'] ?? '')));
+      $r['is_publisher'] = (function_exists('publisher_user_row_looks_like_publisher') && publisher_user_row_looks_like_publisher($dbh, $r))
+        || $r['publisher_category'] !== ''
+        || ((string)($r['account_kind'] ?? '') === 'publisher')
+        ? 1 : 0;
+      if (!empty($r['is_publisher'])) {
+        $r['account_kind'] = 'publisher';
+      }
 
       // ensure integer for views
       $r['views_count'] = (int)($r['views_count'] ?? 0);
@@ -1047,6 +1142,8 @@ try {
     jexit([
       'ok' => true,
       'me_id' => $meId,
+      'viewer_is_publisher' => publisher_workspace_viewer($dbh, $meId) ? 1 : 0,
+      'viewer_account_kind' => publisher_workspace_viewer($dbh, $meId) ? 'publisher' : 'personal',
       'items' => $rows,
       'unread_count' => $unreadCount
     ]);

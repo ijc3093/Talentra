@@ -858,13 +858,17 @@ if (!function_exists('msb_mention_search_users')) {
         }
         $limit = max(1, min(20, $limit));
         $query = ltrim(trim($query), '@');
-        $query = preg_replace('/[^A-Za-z0-9_]/', '', $query) ?? '';
+        $likeQ = $query;
+        // Keep letters/numbers/space/_ for name search; usernames still match without spaces.
+        $likeQ = preg_replace('/[^\p{L}\p{N}_\s]/u', '', $likeQ) ?? '';
+        $likeQ = trim(preg_replace('/\s+/u', ' ', $likeQ) ?? '');
         $params = [':me' => $meId];
         $searchSql = '';
-        if ($query !== '') {
-            $searchSql = ' AND (u.username LIKE :q OR u.name LIKE :q2)';
-            $params[':q'] = $query . '%';
-            $params[':q2'] = '%' . $query . '%';
+        if ($likeQ !== '') {
+            $searchSql = ' AND (u.username LIKE :q OR u.name LIKE :q2 OR u.name LIKE :q3)';
+            $params[':q'] = preg_replace('/\s+/', '', $likeQ) . '%';
+            $params[':q2'] = $likeQ . '%';
+            $params[':q3'] = '%' . $likeQ . '%';
         }
         $rows = [];
         try {
@@ -907,7 +911,7 @@ if (!function_exists('msb_mention_search_users')) {
                     LIMIT {$need}
                 ");
                 $p2 = $params;
-                $p2[':qExact'] = ($query !== '' ? $query . '%' : '%');
+                $p2[':qExact'] = ($likeQ !== '' ? preg_replace('/\s+/', '', $likeQ) . '%' : '%');
                 $st->execute($p2);
                 foreach ($st->fetchAll(PDO::FETCH_ASSOC) ?: [] as $r) {
                     $id = (int)($r['id'] ?? 0);

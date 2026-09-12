@@ -20,6 +20,7 @@ require_once __DIR__ . '/includes/theme_prefs.php';
 require_once __DIR__ . '/includes/friend_system.php';
 require_once __DIR__ . '/includes/device_profile.php';
 require_once __DIR__ . '/includes/post_layout.php';
+require_once __DIR__ . '/includes/post_tags.php';
 require_once __DIR__ . '/includes/post_card_actions_menu.php';
 require_once __DIR__ . '/includes/post_action_thin_icons.php';
 require_once __DIR__ . '/includes/home_tabs.php';
@@ -121,6 +122,13 @@ if ($feedAlertPostId > 0 && $meId > 0) {
             COALESCE(p.device_viewport,'') AS device_viewport,
             COALESCE(p.music_title,'') AS music_title,
             COALESCE(p.music_artist,'') AS music_artist,
+            COALESCE(p.feeling_label,'') AS feeling_label,
+            COALESCE(p.location_label,'') AS location_label,
+            COALESCE(p.link_url,'') AS link_url,
+            COALESCE(p.link_title,'') AS link_title,
+            COALESCE(p.link_description,'') AS link_description,
+            COALESCE(p.link_image,'') AS link_image,
+            COALESCE(p.link_tags,'') AS link_tags,
             COALESCE(p.is_archived,0) AS is_archived,
             p.created_at,
             COALESCE(p.updated_at, p.created_at) AS updated_at,
@@ -205,6 +213,11 @@ if ($feedAlertPostId > 0 && $meId > 0) {
                 } catch (Throwable $eBootAtt2) {
                 }
             }
+            if (function_exists('msb_post_tags_people_for_post')) {
+                $bootRow['tagged_people'] = msb_post_tags_people_for_post($dbh, (int)$bootRow['id']);
+            } else {
+                $bootRow['tagged_people'] = [];
+            }
             $feedBootItems[] = $bootRow;
         }
     } catch (Throwable $e) {
@@ -242,6 +255,15 @@ if (function_exists('app_i18n_boot')) {
     <script>
       try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
       (function(){
+        var freshCreate = <?= !empty($feedFreshCreate) ? 'true' : 'false' ?>;
+        if(freshCreate){
+          try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_s){}
+          try{
+            sessionStorage.removeItem('msbResumePost');
+            sessionStorage.removeItem('msbResumePostHome');
+            sessionStorage.removeItem('msbFeedStartAtTop');
+          }catch(_c){}
+        }
         var restartAtTop = <?= isset($_GET['top']) && (string)$_GET['top'] === '1' ? 'true' : 'false' ?>;
         try{
           restartAtTop = restartAtTop || sessionStorage.getItem('msbFeedStartAtTop') === '1';
@@ -299,7 +321,7 @@ if (function_exists('app_i18n_boot')) {
     <?php endif; ?>
     <style id="modal-fouc-lock-css"><?php include __DIR__ . '/includes/modal_fouc_lock.css.php'; ?></style>
     <?php post_card_actions_menu_render_css(); ?>
-    <link rel="stylesheet" href="./css/dark-auto.css?v=34">
+    <link rel="stylesheet" href="./css/dark-auto.css?v=55">
     <script src="./js/dark-auto.js?v=6" defer></script>
     <style>
       html, body { background: var(--msb-palette-bg, var(--feed-page-bg, #f5f7fb)); }
@@ -1930,6 +1952,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
   }
   .mf-card.is-alert-focus{
     box-shadow:0 0 0 3px rgba(59,130,246,.28), 0 18px 40px rgba(37,99,235,.14);
+    scroll-margin-top: 12px;
   }
   body .mf-feed .mf-card:has(.mf-head--on-media){
     padding:8px 12px!important;
@@ -1960,7 +1983,8 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     align-items:center;
     gap:5px;
     min-width:0;
-    flex-wrap:nowrap;
+    flex-wrap:wrap;
+    row-gap:6px;
   }
 
   /* --- Mobile/Tablet 3-dots menu (legacy non-post-card menus only) --- */
@@ -3120,7 +3144,7 @@ html[data-theme="dark"]:not([data-msb-appearance]) .mf-feed-empty .mf-feed-empty
     font-size: 12px;
     font-weight: 400;
     line-height: 1.45;
-    color: #344054;
+    color: var(--msb-palette-text, var(--feed-text, #344054));
     text-align:left;
   }
 
@@ -3350,11 +3374,16 @@ html[data-msb-appearance][data-theme="dark"] body.feed-page{
   --feed-post-divider:var(--msb-palette-border-strong);
   --feed-post-column-border:var(--msb-palette-border-strong);
   --feed-control-border:var(--msb-palette-border-strong);
+  --feed-text:var(--msb-palette-text);
+  --feed-muted:var(--msb-palette-text-muted);
+  --feed-soft-text:var(--msb-palette-text-muted);
+  --feed-topbar-text:var(--msb-palette-text);
   --feed-accent:var(--msb-palette-action);
   --feed-accent-soft:var(--msb-palette-action-soft);
   --feed-accent-strong:var(--msb-palette-action-strong);
   background:var(--msb-palette-bg) !important;
   background-image:none !important;
+  color:var(--msb-palette-text) !important;
 }
 html[data-theme="light"]:not([data-msb-appearance]) body{
   --feed-post-divider:#c0c2c4;
@@ -3389,6 +3418,13 @@ html[data-theme="dark"]:not([data-msb-appearance]) body{
 html.dark-auto:not([data-msb-appearance]) body,
 html.dark-auto:not([data-msb-appearance]) body.feed-page,
 html.dark-auto:not([data-msb-appearance]) body.feed-insta-ui{
+  --feed-surface:#171d24;
+  --feed-surface-alt:#1d2530;
+  --feed-surface-strong:#111821;
+  --feed-text:#eef4ff;
+  --feed-muted:#9ba8b8;
+  --feed-soft-text:#c2cbd7;
+  --feed-topbar-text:#f4f7fb;
   --feed-post-divider:#34383c;
   --feed-post-column-border:#34383c;
   --feed-border:#34383c;
@@ -3563,11 +3599,11 @@ a.msb-mention{
 .rm-body,
 .c-list .cmt .txt,
 .pv-cap{
-  color:var(--feed-text);
+  color:var(--msb-palette-text, var(--feed-text));
 }
 .ig-media-caption{
   background:var(--feed-surface-strong);
-  color:var(--feed-text);
+  color:var(--msb-palette-text, var(--feed-text));
 }
 .ig-underbar,
 .ig-layout.is-media-only .ig-topbar.pv-top-detached,
@@ -3636,7 +3672,7 @@ html[data-theme="dark"] .ig-post-progress{
 .mf-menu button,
 .mf-file .mf-file-main,
 .mf-body{
-  color:var(--feed-text);
+  color:var(--msb-palette-text, var(--feed-text));
 }
 .mf-menu-btn{
   color:var(--feed-muted);
@@ -4317,7 +4353,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card{
   position:relative !important;
   border-bottom:0 !important;
   overflow:visible !important;
-  padding: 12px !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
 }
 
 body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
@@ -6000,6 +6037,261 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         .vw-av{ overflow:hidden; }
         .vw-av img{ width:100%; height:100%; object-fit:cover; display:block; border-radius:999px; }
         .rm-avatar img, .c-avatar img{ width:100%; height:100%; object-fit:cover; display:block; border-radius:50%; }
+
+        /* Meta pills inline after visibility icon in author name row */
+        .mf-name-row{
+          flex-wrap:wrap;
+          row-gap:2px;
+          align-items:baseline;
+        }
+        .mf-name-row.has-story{
+          align-items:baseline;
+        }
+        .mf-meta{
+          min-width:0;
+        }
+        .mf-sub-row{
+          display:flex;
+          flex-wrap:wrap;
+          align-items:center;
+          gap:6px;
+          margin-top:2px;
+          font-size:12.5px;
+          color:#64748b;
+          line-height:1.25;
+        }
+        .mf-sub-row .mf-time{
+          font-size:12.5px;
+          color:#64748b;
+          font-weight:600;
+        }
+        .mf-sub-row .mf-dot{
+          opacity:.55;
+          font-size:11px;
+        }
+        .mf-story{
+          display:inline;
+          font-size:14px;
+          font-weight:500;
+          color:#64748b;
+          line-height:1.35;
+          margin-left:4px;
+        }
+        .mf-conn{
+          color:#64748b;
+          font-weight:500;
+        }
+        .mf-ent{
+          color:#0f172a;
+          font-weight:800;
+        }
+        .mf-music-inline{
+          display:inline-flex;
+          align-items:center;
+          gap:5px;
+          max-width:min(320px, 100%);
+          min-width:0;
+          color:#475569;
+          font-weight:700;
+        }
+        .mf-music-inline i{ color:#64748b; font-size:12px; }
+        .mf-music-inline-text{
+          min-width:0;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+        }
+        .mf-meta-pills.is-story{
+          display:inline;
+          margin:0;
+          padding:0;
+          border:0;
+          background:transparent;
+          box-shadow:none;
+        }
+        .mf-meta-pills{
+          display:none;
+        }
+        body .mf-feed .mf-media-shell > .mf-head--on-media .mf-story,
+        body .mf-feed .mf-media-shell > .mf-head--on-media .mf-conn{
+          color:rgba(255,255,255,.82);
+        }
+        body .mf-feed .mf-media-shell > .mf-head--on-media .mf-ent{
+          color:#fff;
+        }
+        body .mf-feed .mf-media-shell > .mf-head--on-media .mf-sub-row,
+        body .mf-feed .mf-media-shell > .mf-head--on-media .mf-music-inline,
+        body .mf-feed .mf-media-shell > .mf-head--on-media .mf-sub-row .mf-time{
+          color:rgba(255,255,255,.85);
+        }
+        body .mf-feed .mf-media-shell > .mf-head--on-media .mf-music-inline i{
+          color:rgba(255,255,255,.85);
+        }
+        .mf-link-preview{
+          display:block;
+          width:100%;
+          max-width:100%;
+          box-sizing:border-box;
+          margin:12px 0 6px;
+          border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.1));
+          border-radius:16px;
+          overflow:hidden;
+          background:var(--msb-palette-bg, #fff);
+          text-decoration:none;
+          color:inherit;
+          box-shadow:0 8px 24px rgba(15,23,42,.05);
+        }
+        .mf-link-preview:hover{ border-color:var(--msb-palette-action, rgba(37,99,235,.28)); box-shadow:0 10px 28px color-mix(in srgb, var(--msb-palette-action, #2563eb) 12%, transparent); }
+        .mf-link-preview-main{
+          display:flex;
+          align-items:stretch;
+          min-height:118px;
+          height:180px;
+        }
+        .mf-link-preview.has-media .mf-link-preview-media{
+          flex:0 0 36%;
+          width:36%;
+          max-width:220px;
+          background:var(--msb-palette-hover-bg, #e2e8f0);
+          overflow:hidden;
+        }
+        .mf-link-preview-media.is-logo,
+        .mf-link-preview.has-logo .mf-link-preview-media{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background:#fff;
+        }
+        .mf-link-preview-media img{
+          width:100%;
+          height:100%;
+          object-fit:cover;
+          display:block;
+          min-height:118px;
+        }
+        .mf-link-preview-media.is-logo img,
+        .mf-link-preview.has-logo .mf-link-preview-media img{
+          width:44%;
+          height:44%;
+          max-width:88px;
+          max-height:88px;
+          min-height:0;
+          object-fit:contain;
+        }
+        .mf-link-preview-side{
+          flex:1 1 auto;
+          min-width:0;
+          display:flex;
+          flex-direction:column;
+          background:var(--msb-palette-bg, #fff);
+        }
+        .mf-link-preview-body{
+          flex:1 1 auto;
+          min-width:0;
+          padding:10px 14px 8px;
+        }
+        .mf-link-preview-top{
+          display:flex;
+          align-items:center;
+          gap:8px;
+          margin-bottom:4px;
+        }
+        .mf-link-preview-host{
+          flex:1 1 auto;
+          min-width:0;
+          font-size:12px;
+          font-weight:600;
+          color:var(--msb-palette-text-muted, #94a3b8);
+          letter-spacing:.01em;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+        }
+        .mf-link-preview-info{
+          flex:0 0 auto;
+          color:var(--msb-palette-text-muted, #94a3b8);
+          font-size:14px;
+          line-height:1;
+        }
+        .mf-link-preview-title{
+          font-size:15px;
+          font-weight:800;
+          color:var(--msb-palette-text, #0f172a);
+          line-height:1.25;
+        }
+        .mf-link-preview-desc{
+          margin-top:4px;
+          font-size:12.5px;
+          color:var(--msb-palette-text-muted, #64748b);
+          line-height:1.35;
+          display:-webkit-box;
+          -webkit-line-clamp:2;
+          -webkit-box-orient:vertical;
+          overflow:hidden;
+        }
+        .mf-link-preview-chips{
+          display:flex;
+          flex-wrap:wrap;
+          gap:6px;
+          margin-top:10px;
+        }
+        .mf-link-preview-chip{
+          display:inline-flex;
+          align-items:center;
+          max-width:100%;
+          padding:5px 10px;
+          border-radius:999px;
+          background:var(--msb-palette-hover-bg, #eef2f7);
+          color:var(--msb-palette-text, #334155);
+          font-size:11.5px;
+          font-weight:700;
+          line-height:1.2;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+        }
+        .mf-link-preview-chip.is-place{
+          background:#ffe8e8;
+          color:#9f1239;
+        }
+        .mf-link-preview-chip.is-place i{ color:#ef4444; margin-right:5px; }
+        .mf-link-preview-cta{
+          display:flex;
+          align-items:center;
+          gap:8px;
+          margin-top:auto;
+          padding:8px 14px;
+          background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, #eff6ff));
+          color:var(--msb-palette-text, var(--msb-palette-action, #1d4ed8));
+          font-size:12.5px;
+          font-weight:800;
+          border-top:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, rgba(37,99,235,.1)));
+        }
+        .mf-link-preview-cta .fa-chevron-right{ margin-left:auto; font-size:12px; }
+        /* Discover-size lock: full column width + same card inset as public.php text posts */
+        body.feed-insta-ui .mf-feed .mf-card:has(.mf-link-preview){
+          width:100% !important;
+          max-width:100% !important;
+          margin-left:0 !important;
+          margin-right:0 !important;
+          padding:8px 12px !important;
+          box-sizing:border-box !important;
+        }
+        body.feed-insta-ui .mf-feed .mf-card .mf-link-preview{
+          width:100% !important;
+          max-width:100% !important;
+          box-sizing:border-box !important;
+        }
+        @media (max-width: 560px){
+          .mf-link-preview-main{ flex-direction:column; min-height:0; height:auto; }
+          .mf-link-preview.has-media .mf-link-preview-media{
+            flex:0 0 auto;
+            width:100%;
+            max-width:none;
+            height:118px;
+          }
+          .mf-link-preview-media img{ min-height:118px; height:118px; }
+        }
 
         /* ✅ NEW: Meta pills (LEFT post card) like your screenshot */
         .pv-meta-pills{
@@ -8121,7 +8413,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               var $time = $('#pvTimeAgo');
               $time.siblings('.post-vis-badge').remove();
               if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function' && window.currentPostVisibility){
-                $time.after(' ' + window.MSBPostCardMenu.visibilityBadgeHtml(window.currentPostVisibility));
+                $time.after(' ' + window.MSBPostCardMenu.visibilityBadgeHtml('friends'));
               }
             }catch(eVis){}
             $('#pvMetaPills').hide();
@@ -9227,7 +9519,21 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 window.__MSBThemeCore.refreshPalettePaint();
               }
               try{
-                if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
+                if(FEED_FRESH_CREATE){
+                  window.__MSB_SKIP_RESUME_HOME = true;
+                  var pinCard = null;
+                  var pinIdReveal = Number(FEED_PIN_POST_ID || 0);
+                  if(pinIdReveal > 0){
+                    pinCard = $wrap.find('.mf-card[data-id="'+String(pinIdReveal)+'"], .mf-card[data-post-id="'+String(pinIdReveal)+'"]').get(0);
+                  }
+                  if(!pinCard) pinCard = $wrap.children('.mf-card').get(0);
+                  if(pinCard && typeof window.msbScrollFreshCreatePost === 'function'){
+                    window.msbScrollFreshCreatePost(pinCard);
+                    window.setTimeout(function(){ window.msbScrollFreshCreatePost(pinCard); }, 200);
+                  } else {
+                    try{ resetFeedCardPosition(); }catch(_rp){}
+                  }
+                } else if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
                   window.MSBResumePost.restoreHome();
                 }
               }catch(eResumePaint){}
@@ -9494,45 +9800,28 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var time = mfDeviceTimeLabel(it, postDate(it));
           headerFollowHtml = onMedia ? '' : String(headerFollowHtml || '');
           var headClass = 'mf-head' + (onMedia ? ' mf-head--on-media' : '');
-          var taggedPeople = Array.isArray(it.tagged_people) ? it.tagged_people : [];
-          var hasSharing = taggedPeople.length > 0;
-          var metaAfterAuthor = '';
-          if (hasSharing) {
-            if (Number(it.is_verified||it.verified||0) === 1) {
-              metaAfterAuthor += '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>';
-            }
-            if (time) {
-              metaAfterAuthor += '<span class="mf-dot">&bull;</span><span class="mf-time">'+esc(time||'')+'</span>';
-            }
-            if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
-              metaAfterAuthor += window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends');
-            }
-          }
-          var nameHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.authorSharingWithHtml === 'function')
-            ? window.MSBPostCardMenu.authorSharingWithHtml({
-                display_name: name,
-                username: it.username || '',
-                id: it.user_id || it.author_id || 0,
-                href: peerProfileHref(it, pid)
-              }, taggedPeople, { linkAuthor: true, afterAuthorHtml: metaAfterAuthor })
-            : '<a class="msb-sharing-who" href="'+esc(peerProfileHref(it, pid))+'" target="_top" rel="noopener">'+esc(name || '')+'</a>';
-          var nameClass = 'mf-name' + (hasSharing ? ' mf-name--sharing is-sharing-with' : '');
+          var nameHtml = '<a class="msb-sharing-who" href="'+esc(peerProfileHref(it, pid))+'" target="_top" rel="noopener">'+esc(name || '')+'</a>';
+          var storyHtml = mfMetaStoryHtml(it);
+          var musicHtml = mfMetaMusicInlineHtml(it);
+          var visHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function')
+            ? window.MSBPostCardMenu.visibilityBadgeHtml('friends')
+            : '';
+          var hasStory = !!storyHtml;
           return ''+
             '<div class="'+headClass+'">'+
-              '<div class="mf-peer-link'+(hasSharing ? ' is-sharing-with' : '')+'">'+
+              '<div class="mf-peer-link">'+
                 '<a class="mf-avatar-link" href="'+esc(peerProfileHref(it, pid))+'" target="_top" rel="noopener" aria-label="Open '+esc(name||'User')+' profile">'+
                   '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name||'User')+'"></div>'+
                 '</a>'+
                 '<div class="mf-meta">'+
-                  '<div class="mf-name-row'+(hasSharing ? ' mf-name-row--sharing' : '')+'">'+
-                    '<div class="'+nameClass+'">'+nameHtml+'</div>'+
-                    (!hasSharing && (Number(it.is_verified||it.verified||0) === 1) ? '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>' : '')+
-                    (!hasSharing && time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time||'')+'</div>' : '')+
-                    (!hasSharing && window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function'
-                      ? window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends')
-                      : '')+
+                  '<div class="mf-name-row'+(hasStory ? ' has-story' : '')+'">'+
+                    '<div class="mf-name">'+nameHtml+'</div>'+
+                    ((Number(it.is_verified||it.verified||0) === 1) ? '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>' : '')+
+                    visHtml+
+                    (time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time||'')+'</div>' : '')+
+                    storyHtml+
                   '</div>'+
-                  mfMusicRowHtml(it)+
+                  (musicHtml ? '<div class="mf-sub-row">'+musicHtml+'</div>' : '')+
                 '</div>'+
               '</div>'+
               headerFollowHtml+
@@ -9540,21 +9829,198 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             '</div>';
         }
 
-        function mfMusicRowHtml(it){
+        function mfLocationPrep(location){
+          location = String(location || '');
+          if (/\b(store|church|school|cafe|mall|airport|stadium|park|university|college|hotel|hospital|restaurant|bar|gym|theatre|theater|museum|library|temple|mosque|arena|center|centre|plaza|market|office|campus)\b/i.test(location)) {
+            return 'at';
+          }
+          if (/\d/.test(location) || /\b(st|street|ave|avenue|rd|road|blvd|lane|dr|drive)\b/i.test(location)) {
+            return 'at';
+          }
+          return 'in';
+        }
+
+        function mfMetaStoryHtml(it){
+          var feeling = String((it && it.feeling_label) || '').trim().replace(/^\s*feeling\s+/i, '').trim();
+          var location = String((it && it.location_label) || '').trim();
+          var people = Array.isArray(it && it.tagged_people) ? it.tagged_people : [];
+          var names = [];
+          people.forEach(function(p){
+            var n = String((p && (p.display_name || p.name || p.username)) || '').trim();
+            if (n) names.push(n);
+          });
+          if (!feeling && !location && !names.length) return '';
+          var feelingPlain = feeling.replace(/^[^a-zA-Z0-9]+/, '').trim().toLowerCase();
+          var activityVerbs = ['celebrating','watching','eating','drinking','traveling','listening','working','thinking'];
+          var isActivity = activityVerbs.some(function(v){
+            return feelingPlain === v || feelingPlain.indexOf(v + ' ') === 0;
+          });
+          function conn(t){ return '<span class="mf-conn">'+esc(t)+'</span>'; }
+          function ent(t){ return '<span class="mf-ent">'+esc(t)+'</span>'; }
+          var bits = [];
+          var started = false;
+          if (feeling) {
+            if (isActivity) {
+              bits.push(conn('is'));
+              bits.push(ent(feeling));
+            } else {
+              bits.push(conn('is feeling'));
+              bits.push(ent(feeling));
+            }
+            started = true;
+          }
+          if (names.length) {
+            var peopleHtml = '';
+            if (names.length === 1) peopleHtml = ent(names[0]);
+            else if (names.length === 2) peopleHtml = ent(names[0]) + ' ' + conn('and') + ' ' + ent(names[1]);
+            else peopleHtml = ent(names[0]) + ' ' + conn('and') + ' ' + ent(String(names.length - 1) + ' others');
+            bits.push(started ? conn('with') : conn('is with'));
+            bits.push(peopleHtml);
+            started = true;
+          }
+          if (location) {
+            var prep = mfLocationPrep(location);
+            bits.push(started ? conn('and ' + prep) : conn('is ' + prep));
+            bits.push(ent(location.replace(/\.+$/, '') + '.'));
+          } else if (bits.length) {
+            bits.push(conn('.'));
+          }
+          return '<span class="mf-story">'+bits.join(' ')+'</span>';
+        }
+
+        function mfMetaMusicInlineHtml(it){
           var title = String((it && it.music_title) || '').trim();
           var artist = String((it && it.music_artist) || '').trim();
-          if(!title && !artist) return '';
+          if (!title && !artist) return '';
+          var label = title;
+          if (title && artist) label = title + ' · ' + artist;
+          else if (!title) label = artist;
           var soundId = Number((it && it.sound_id) || 0);
-          var attrs = ' class="mf-music-row" aria-label="Music"';
+          var attrs = ' class="mf-music-inline mf-music-row"';
           if (soundId > 0) {
             attrs += ' role="button" tabindex="0" data-sound-id="'+soundId+'" data-sound-title="'+esc(title)+'" data-sound-artist="'+esc(artist)+'" title="Use this sound"';
           }
-          var html = '<div'+attrs+'><i class="fa fa-music mf-music-ic" aria-hidden="true"></i>';
-          if(title) html += '<span class="mf-music-title">'+esc(title)+'</span>';
-          if(title && artist) html += '<span class="mf-music-dot">&middot;</span>';
-          if(artist) html += '<span class="mf-music-artist">'+esc(artist)+'</span>';
-          html += '</div>';
-          return html;
+          return '<span'+attrs+'><i class="fa fa-music" aria-hidden="true"></i><span class="mf-music-inline-text">'+esc(label)+'</span></span>';
+        }
+
+        function mfMetaPillsHtml(it){
+          // Legacy name — story sentence UI.
+          return mfMetaStoryHtml(it);
+        }
+
+        function mfFirstLinkMeta(it){
+          var storedUrl = String((it && it.link_url) || '').trim();
+          var url = storedUrl;
+          if (!url) {
+            var chunks = [
+              String((it && it.body) || ''),
+              String((it && it.description) || ''),
+              String((it && it.title) || '')
+            ];
+            for (var i = 0; i < chunks.length; i++) {
+              var m = chunks[i].match(/https?:\/\/[^\s<>'"\]]+/i);
+              if (m && m[0]) {
+                url = String(m[0]).replace(/[.,);!?]+$/g, '');
+                break;
+              }
+            }
+          }
+          if (!url) return { url: '', host: '', title: '', description: '', image: '' };
+          var host = '';
+          try {
+            host = String(new URL(url).hostname || '').replace(/^www\./i, '');
+          } catch (eHost) { host = ''; }
+          function isJunkPreview(s){
+            s = String(s || '').toLowerCase();
+            return /request has been blocked|access denied|just a moment|forbidden|captcha|unusual traffic/.test(s);
+          }
+          function hostTitle(h){
+            h = String(h || '');
+            var base = h.replace(/\.(com|net|org|io|co|app|dev|ai|edu|gov|uk|us|ca|au|de|fr|info|biz)(\.[a-z]{2})?$/i, '');
+            base = base.replace(/\..+$/, '') || h;
+            base = base.replace(/[-_]/g, ' ').trim();
+            if (!base) return h || 'Visit link';
+            return base.replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+          }
+          var title = String((it && it.link_title) || '').trim();
+          if (isJunkPreview(title)) title = '';
+          if (!title) title = String((it && it.title) || '').trim();
+          if (!title || isJunkPreview(title)) title = hostTitle(host);
+          var description = String((it && it.link_description) || '').trim();
+          if (isJunkPreview(description)) description = '';
+          if (!description) description = 'Open this website to see the full page, details, and latest updates.';
+          var image = String((it && it.link_image) || '').trim();
+          var imageFallback = '';
+          var isLogo = false;
+          if (host) {
+            imageFallback = 'https://www.google.com/s2/favicons?sz=256&domain_url=' + encodeURIComponent('https://' + host);
+            if (!image) {
+              image = 'https://unavatar.io/' + encodeURIComponent(host) + '?fallback=false';
+              isLogo = true;
+            } else if (/unavatar\.io|google\.com\/s2\/favicons/i.test(image)) {
+              isLogo = true;
+            }
+          }
+          var tags = [];
+          var rawTags = String((it && it.link_tags) || '').trim();
+          if (rawTags) {
+            rawTags.split(/[,|;]+/).forEach(function(t){
+              t = String(t || '').replace(/\s+/g, ' ').trim();
+              if (!t || t.length > 32 || isJunkPreview(t)) return;
+              if (tags.indexOf(t) === -1) tags.push(t);
+            });
+            tags = tags.slice(0, 4);
+          }
+          return { url: url, host: host, title: title, description: description, image: image, image_fallback: imageFallback, is_logo: isLogo, tags: tags };
+        }
+
+        function mfLinkPreviewHtml(it){
+          var linkMeta = mfFirstLinkMeta(it);
+          var url = linkMeta.url;
+          if (!url) return '';
+          var host = linkMeta.host;
+          var hostShow = host ? ((/^www\./i.test(host) ? host : ('www.' + host))) : '';
+          var label = linkMeta.title || host || 'Visit link';
+          var description = linkMeta.description || '';
+          var image = linkMeta.image || '';
+          var imageFallback = linkMeta.image_fallback || '';
+          var isLogo = !!linkMeta.is_logo;
+          var tags = Array.isArray(linkMeta.tags) ? linkMeta.tags : [];
+          var chipsHtml = '';
+          if (tags.length) {
+            chipsHtml = '<div class="mf-link-preview-chips">';
+            tags.forEach(function(tag){
+              chipsHtml += '<span class="mf-link-preview-chip">'+esc(tag)+'</span>';
+            });
+            chipsHtml += '</div>';
+          }
+          var imgAttrs = ' alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"';
+          if (imageFallback && imageFallback !== image) {
+            imgAttrs += ' onerror="this.onerror=null;this.src=\''+esc(imageFallback)+'\';var m=this.closest(\'.mf-link-preview-media\');if(m)m.classList.add(\'is-logo\')"';
+          }
+          return ''+
+            '<a class="mf-link-preview'+(image ? ' has-media' : '')+(isLogo ? ' has-logo' : '')+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+
+              '<div class="mf-link-preview-main">'+
+                (image ? '<div class="mf-link-preview-media'+(isLogo ? ' is-logo' : '')+'"><img src="'+esc(image)+'"'+imgAttrs+'></div>' : '')+
+                '<div class="mf-link-preview-side">'+
+                  '<div class="mf-link-preview-body">'+
+                    '<div class="mf-link-preview-top">'+
+                      (hostShow ? '<div class="mf-link-preview-host">'+esc(hostShow)+'</div>' : '<div class="mf-link-preview-host"></div>')+
+                      '<span class="mf-link-preview-info" title="Website preview" aria-hidden="true"><i class="fa fa-info-circle"></i></span>'+
+                    '</div>'+
+                    '<div class="mf-link-preview-title">'+esc(label)+'</div>'+
+                    (description ? '<div class="mf-link-preview-desc">'+esc(description)+'</div>' : '')+
+                    chipsHtml+
+                  '</div>'+
+                  '<div class="mf-link-preview-cta"><i class="fa fa-link" aria-hidden="true"></i><span>Visit Website</span><i class="fa fa-chevron-right" aria-hidden="true"></i></div>'+
+                '</div>'+
+              '</div>'+
+            '</a>';
+        }
+
+        function mfMusicRowHtml(it){
+          // Kept for compatibility; cards now use mfMetaPillsHtml (includes music).
+          return '';
         }
 
         function mfProductsRowHtml(it){
@@ -9820,8 +10286,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var slideBody0 = hasSlideCap ? String(it.preview_slide_body||'').trim() : '';
           var hasMedia = !!psrc;
           var deviceMeta = mfDeviceCardMeta(it);
-          var isPhoneShot = !!deviceMeta.phone_shot;
-          var isTabletShot = !!deviceMeta.tablet_shot && !isPhoneShot;
+          /* Text/link posts match Discover full-column width (phone-shot is media-only). */
+          var isPhoneShot = !!deviceMeta.phone_shot && !!psrc;
+          var isTabletShot = !!deviceMeta.tablet_shot && !isPhoneShot && !!psrc;
           var deviceStyle = String(deviceMeta.style || '').trim();
           if(!deviceStyle) deviceStyle = mfDefaultDeviceStyle(isPhoneShot, isTabletShot, String(it.device_label || deviceMeta.label || ''), String(it.device_viewport || deviceMeta.viewport || ''));
           var deviceDims = mfParseDeviceAspectFromStyle(deviceStyle);
@@ -9861,7 +10328,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var shapeReady = shapeClass ? '1' : '0';
           var isLiveCard = !!(liveMeta && Number(liveMeta.id || 0) > 0);
           if(isLiveCard) return '';
-          if(!hasMedia && !title && !hasBody) return '';
+          var linkPreviewHtml = mfLinkPreviewHtml(it);
+          if(!hasMedia && !title && !hasBody && !linkPreviewHtml) return '';
           // Same reel rule as public.php: only explicit media_reel_bottom layout.
           var isReelCard = false;
           var isVideoCard = (pkind === 'video' && !isReelCard);
@@ -9886,6 +10354,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
           if(hasBody){
             bodyHtml = mfBuildBodyHtml('mf-body', body, 3);
+          }
+          if(linkPreviewHtml){
+            bodyHtml = (bodyHtml || '') + linkPreviewHtml;
           }
           var productsHtml = mfProductsRowHtml(it);
           if(productsHtml){
@@ -11102,7 +11573,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           renderList(items.filter(isFeedCardPost));
           rebuildStoriesBar(items);
           try{
-            if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
+            if(FEED_FRESH_CREATE || window.__MSB_SKIP_RESUME_HOME){
+              window.__MSB_SKIP_RESUME_HOME = true;
+            } else if(window.MSBResumePost && typeof window.MSBResumePost.restoreHome === 'function'){
               window.MSBResumePost.restoreHome();
             }
           }catch(eResume){}
@@ -11130,6 +11603,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var previewPath = String(first.file_path || first.url || post.preview_path || '').trim();
           var previewThumb = String(first.thumb_path || first.thumb_url || post.preview_thumb_path || '').trim();
           var previewType = String(first.type || post.preview_type || '').trim();
+          var taggedPeople = Array.isArray(post.tagged_people) ? post.tagged_people : [];
           var row = $.extend({}, post, {
             id: Number(post.id || 0),
             user_id: Number(post.user_id || post.author_id || 0),
@@ -11147,6 +11621,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             my_reaction: String(counts.my_reaction != null ? counts.my_reaction : (post.my_reaction || '')),
             my_shared: Number(counts.is_shared != null ? counts.is_shared : (post.my_shared || 0)),
             my_saved: Number(counts.is_saved != null ? counts.is_saved : (post.my_saved || 0)),
+            tagged_people: taggedPeople,
             is_unread: 1
           });
           if(!row.declared_layout && typeof postDeclaredLayout === 'function'){
@@ -11181,6 +11656,25 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             if(id > 0) seen[id] = true;
             return true;
           });
+          // If a freshly painted card already had tags, don't lose them when the list
+          // row briefly arrives without tagged_people.
+          if(previous.length){
+            var prevById = {};
+            previous.forEach(function(p){
+              var pid = Number(p && p.id || 0);
+              if(pid > 0) prevById[pid] = p;
+            });
+            incoming = incoming.map(function(it){
+              var id = Number(it && it.id || 0);
+              if(id <= 0 || !prevById[id]) return it;
+              var prevTags = Array.isArray(prevById[id].tagged_people) ? prevById[id].tagged_people : [];
+              var nextTags = Array.isArray(it.tagged_people) ? it.tagged_people : [];
+              if(!nextTags.length && prevTags.length){
+                it = $.extend({}, it, { tagged_people: prevTags });
+              }
+              return it;
+            });
+          }
           previous.forEach(function(prev){
             var id = Number(prev && prev.id || 0);
             if(id <= 0 || seen[id]) return;
@@ -11216,8 +11710,16 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           for(var i = 0; i < allItems.length; i++){
             if(Number(allItems[i] && allItems[i].id || 0) === id){ idx = i; break; }
           }
-          if(idx >= 0) allItems[idx] = $.extend({}, allItems[idx], row);
-          else allItems.unshift(row);
+          if(idx >= 0){
+            var prev = allItems[idx] || {};
+            var merged = $.extend({}, prev, row);
+            var prevTags = Array.isArray(prev.tagged_people) ? prev.tagged_people : [];
+            var nextTags = Array.isArray(row.tagged_people) ? row.tagged_people : [];
+            merged.tagged_people = nextTags.length ? nextTags : prevTags;
+            allItems[idx] = merged;
+          } else {
+            allItems.unshift(row);
+          }
           allItems = pinFeedItemFirst(allItems, Number(FEED_PIN_POST_ID || id));
           return true;
         }
@@ -11331,6 +11833,19 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                 try{
                   resetFeedCardPosition();
                 }catch(err){}
+                if(FEED_FRESH_CREATE || window.__MSB_SKIP_RESUME_HOME){
+                  try{
+                    window.__MSB_SKIP_RESUME_HOME = true;
+                    var freshCard = document.querySelector(
+                      '#mfFeed .mf-card[data-id="' + String(pinId) + '"],' +
+                      '#mfFeed .mf-card[data-post-id="' + String(pinId) + '"]'
+                    );
+                    if(freshCard && typeof window.msbScrollFreshCreatePost === 'function'){
+                      window.msbScrollFreshCreatePost(freshCard);
+                      window.setTimeout(function(){ window.msbScrollFreshCreatePost(freshCard); }, 240);
+                    }
+                  }catch(_fc){}
+                }
               }
             }
 
@@ -11503,6 +12018,20 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                   allItems = pinFeedItemFirst(allItems, postId);
                   applySearchFilter();
                   try{ resetFeedCardPosition(); }catch(err){}
+                  try{
+                    window.__MSB_SKIP_RESUME_HOME = true;
+                    var softCard = document.querySelector(
+                      '#mfFeed .mf-card[data-id="' + String(postId) + '"],' +
+                      '#mfFeed .mf-card[data-post-id="' + String(postId) + '"]'
+                    );
+                    if(softCard){
+                      softCard.classList.add('is-alert-focus');
+                      if(typeof window.msbScrollFreshCreatePost === 'function'){
+                        window.msbScrollFreshCreatePost(softCard);
+                        window.setTimeout(function(){ window.msbScrollFreshCreatePost(softCard); }, 280);
+                      }
+                    }
+                  }catch(_soft){}
                   return;
                 }catch(e){}
               }
@@ -12061,7 +12590,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           $('#pvMeta').text(currentDate ? ('Posted: ' + currentDate) : ' ');
           $('#pvTimeAgo').text(timeAgoShort(dt) || ' ').siblings('.post-vis-badge').remove();
           if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function'){
-            $('#pvTimeAgo').after(' ' + window.MSBPostCardMenu.visibilityBadgeHtml(window.currentPostVisibility));
+            $('#pvTimeAgo').after(' ' + window.MSBPostCardMenu.visibilityBadgeHtml('friends'));
           }
           $('#pvTimeAgoPill').text(timeAgo(dt) || ' ');
           $('#pvMetaPills').hide();
@@ -13089,6 +13618,11 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           refreshList(false);
           updateBackButton();
           if(FEED_FRESH_CREATE){
+            try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_sk){}
+            try{
+              sessionStorage.removeItem('msbResumePost');
+              sessionStorage.removeItem('msbResumePostHome');
+            }catch(_ss){}
             try{
               var u = new URL(window.location.href);
               if(u.searchParams.has('fresh')){
@@ -14931,11 +15465,11 @@ a.msb-mention{
 .rm-body,
 .c-list .cmt .txt,
 .pv-cap{
-  color:var(--feed-text);
+  color:var(--msb-palette-text, var(--feed-text));
 }
 .ig-media-caption{
   background:var(--feed-surface-strong);
-  color:var(--feed-text);
+  color:var(--msb-palette-text, var(--feed-text));
 }
 .ig-underbar,
 .ig-layout.is-media-only .ig-topbar.pv-top-detached,
@@ -15004,7 +15538,7 @@ html[data-theme="dark"] .ig-post-progress{
 .mf-menu button,
 .mf-file .mf-file-main,
 .mf-body{
-  color:var(--feed-text);
+  color:var(--msb-palette-text, var(--feed-text));
 }
 .mf-menu-btn{
   color:var(--feed-muted);
@@ -15443,10 +15977,16 @@ html[data-theme="dark"] .ig-post-progress{
     align-items:center !important;
     gap:5px !important;
     min-width:0 !important;
-    flex-wrap:nowrap !important;
+    flex-wrap:wrap !important;
     padding-right:4px !important;
     margin-left:0 !important;
     margin-top: -5px !important;
+    row-gap:6px !important;
+  }
+
+  body .mf-feed .mf-name-row > .mf-meta-pills{
+    margin:0 !important;
+    flex:1 1 auto !important;
   }
 
   body .mf-feed .mf-media-shell > .mf-head--on-media .mf-name-row{
@@ -15488,6 +16028,20 @@ html[data-theme="dark"] .ig-post-progress{
   body .mf-feed .mf-media-shell > .mf-head--on-media .mf-music-dot{
     color:#fff !important;
     text-shadow:0 2px 10px rgba(0,0,0,.34) !important;
+  }
+  body .mf-feed .mf-media-shell > .mf-head--on-media .mf-meta-pills{
+    margin-top:0;
+  }
+  body .mf-feed .mf-media-shell > .mf-head--on-media .mf-meta-pill{
+    background:rgba(255,255,255,.16);
+    border-color:rgba(255,255,255,.22);
+    color:#fff;
+    text-shadow:0 1px 8px rgba(0,0,0,.35);
+    backdrop-filter:blur(8px);
+  }
+  body .mf-feed .mf-media-shell > .mf-head--on-media .mf-meta-pill i{
+    color:#fff;
+    opacity:.95;
   }
 
   body .mf-feed .mf-media-shell > .mf-head--on-media .mf-avatar img{
@@ -15686,10 +16240,18 @@ html[data-theme="dark"] .ig-post-progress{
     font-size:12px !important;
     font-weight:400 !important;
     line-height:1.45 !important;
-    color:var(--feed-text) !important;
+    color:var(--msb-palette-text, var(--feed-text, #eef4ff)) !important;
     text-align:left !important;
     margin-left:0 !important;
     margin-right:0 !important;
+  }
+  body .mf-feed .mf-body .mf-body-formatted,
+  body .mf-feed .mf-body .post-card-paragraph,
+  body .mf-feed .mf-body p,
+  body .mf-feed .mf-video-body .mf-body-formatted,
+  body .mf-feed .mf-video-body .post-card-paragraph,
+  body .mf-feed .mf-video-body p{
+    color:inherit !important;
   }
   body .mf-feed .mf-body .mf-body-formatted,
   body .mf-feed .mf-body .post-card-paragraph{
@@ -17155,7 +17717,7 @@ function pvApplyCounts(data){
   if (post.created_at) {
     pv.meta.textContent = 'Posted ' + pvTimeAgo(post.created_at);
     if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
-      pv.meta.insertAdjacentHTML('beforeend', ' ' + window.MSBPostCardMenu.visibilityBadgeHtml(post.visibility || 'friends'));
+      pv.meta.insertAdjacentHTML('beforeend', ' ' + window.MSBPostCardMenu.visibilityBadgeHtml('friends'));
     }
   }
 
@@ -17604,6 +18166,7 @@ pv.text.addEventListener('keydown', (e)=>{
   var alertPostId = <?php echo (int)$feedAlertPostId; ?>;
   var alertCommentId = <?php echo (int)$feedAlertCommentId; ?>;
   var alertHideNav = <?php echo ((int)($_GET['hide_nav'] ?? 0) === 1) ? 'true' : 'false'; ?>;
+  var alertFreshCreate = <?php echo !empty($feedFreshCreate) ? 'true' : 'false'; ?>;
   if(!alertPostId) return;
 
   function clearAlertParams(){
@@ -17613,6 +18176,8 @@ pv.text.addEventListener('keydown', (e)=>{
       nextUrl.searchParams.delete('post');
       nextUrl.searchParams.delete('open_comment');
       nextUrl.searchParams.delete('hide_nav');
+      nextUrl.searchParams.delete('fresh');
+      nextUrl.searchParams.delete('from_post');
       history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
     }catch(err){}
   }
@@ -17627,12 +18192,105 @@ pv.text.addEventListener('keydown', (e)=>{
     );
   }
 
+  function feedScrollRoot(){
+    var mf = document.getElementById('mfFeed')
+      || document.querySelector('.feed-desktop-center > .mf-feed');
+    if (mf && !mf.hidden) {
+      try{
+        var cs = window.getComputedStyle(mf);
+        if (cs.display !== 'none' && cs.visibility !== 'hidden') return mf;
+      }catch(_cs){ return mf; }
+    }
+    return document.querySelector('.feed-desktop-center > .ig-feed')
+      || document.scrollingElement
+      || document.documentElement;
+  }
+
+  function stickyOverlayPad(root){
+    var pad = 10;
+    if (!root) return pad;
+    var rootTop = 0;
+    try{ rootTop = root.getBoundingClientRect().top; }catch(_t){}
+    var overlap = [];
+    function collect(doc, win){
+      if (!doc || !win) return;
+      [
+        '.ig-feed-header',
+        '.feed-top-search',
+        '.home-feed-tabs',
+        '.msb-home-tabs',
+        '.feed-tab-bar',
+        '[data-home-tabs]',
+        '.home-tab-chrome',
+        '.msb-home-chrome'
+      ].forEach(function(sel){
+        try{
+          doc.querySelectorAll(sel).forEach(function(el){
+            if (!el) return;
+            var st = win.getComputedStyle(el);
+            if (st.display === 'none' || st.visibility === 'hidden') return;
+            if (st.position !== 'sticky' && st.position !== 'fixed') return;
+            var bottom = el.getBoundingClientRect().bottom;
+            // Only count chrome that actually covers the scrollport top.
+            if (bottom > rootTop + 1) overlap.push(bottom - rootTop);
+          });
+        }catch(_q){}
+      });
+    }
+    try{ collect(document, window); }catch(_d){}
+    try{
+      if (window.parent && window.parent !== window) {
+        collect(window.parent.document, window.parent);
+      }
+    }catch(_p){}
+    if (overlap.length) return Math.max.apply(null, overlap) + pad;
+    return pad;
+  }
+
+  function scrollCardShowTop(card){
+    if (!card) return;
+    var root = feedScrollRoot();
+    var offset = stickyOverlayPad(root);
+    var behavior = alertFreshCreate ? 'auto' : 'smooth';
+    try{
+      if (root && root.contains && root.contains(card)) {
+        var rootRect = root.getBoundingClientRect();
+        var cardRect = card.getBoundingClientRect();
+        // Align card top under overlay chrome so name / friends / story stay visible.
+        var nextTop = Number(root.scrollTop || 0) + (cardRect.top - rootRect.top) - offset;
+        if (typeof root.scrollTo === 'function') {
+          root.scrollTo({ top: Math.max(0, nextTop), behavior: behavior });
+        } else {
+          root.scrollTop = Math.max(0, nextTop);
+        }
+        return;
+      }
+    }catch(_r){}
+    try{
+      var y = card.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - offset;
+      window.scrollTo({ top: Math.max(0, y), behavior: behavior });
+    }catch(_w){
+      try{ card.scrollIntoView({ behavior: behavior, block:'start' }); }catch(_e){}
+    }
+  }
+
+  try{ window.msbScrollFreshCreatePost = scrollCardShowTop; }catch(_ex){}
+
   function highlightAlertCard(card){
     if(!card) return;
     document.querySelectorAll('.mf-card.is-alert-focus, #postList .pl-item.is-alert-focus').forEach(function(node){
       node.classList.remove('is-alert-focus');
     });
     card.classList.add('is-alert-focus');
+    if (alertFreshCreate) {
+      try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_sk){}
+      scrollCardShowTop(card);
+      // Re-assert after list refresh / media paint so the header stays in view.
+      [120, 280, 600, 1100, 1800].forEach(function(ms){
+        window.setTimeout(function(){ scrollCardShowTop(card); }, ms);
+      });
+      return;
+    }
     try{
       card.scrollIntoView({ behavior:'smooth', block:'center' });
     }catch(err){
@@ -17642,6 +18300,23 @@ pv.text.addEventListener('keydown', (e)=>{
 
   function runAlertOpen(){
     try{
+      // After create-post, stay on Circle list — do not open the post/comments modal.
+      if (alertFreshCreate && !(alertCommentId > 0)) {
+        var attemptsFresh = 0;
+        (function waitFreshFeedCard(){
+          attemptsFresh += 1;
+          var card = findAlertCard();
+          if (card) {
+            highlightAlertCard(card);
+            clearAlertParams();
+            return;
+          }
+          if (attemptsFresh < 40) window.setTimeout(waitFreshFeedCard, 160);
+          else clearAlertParams();
+        })();
+        return;
+      }
+
       // Prefer the gallery/feed-style View-the-post modal (tags, mentions, etc.).
       if (typeof window.pvOpenById === 'function') {
         window.pvOpenById(alertPostId, {
@@ -18674,6 +19349,38 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
   });
 })();
 </script>
+
+<style id="circle-post-card-spacing-css">
+/* Circle only: visually separate each post without changing its controls or media logic. */
+body.feed-page.feed-insta-ui #mfFeed.mf-feed{
+  padding:10px 10px 96px !important;
+  background:#e5eff6 !important;
+}
+body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card{
+  margin:0 0 12px !important;
+  border:1px solid var(--msb-palette-border, var(--feed-border-strong, rgba(148,163,184,.28))) !important;
+  border-radius:8px !important;
+  background:var(--msb-palette-surface, var(--feed-surface, #fff)) !important;
+  box-shadow:0 2px 8px rgba(15,23,42,.06) !important;
+  overflow:visible !important;
+}
+body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card:last-child{
+  margin-bottom:0 !important;
+}
+body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card::after{
+  content:none !important;
+  display:none !important;
+}
+@media (max-width:575.98px){
+  body.feed-page.feed-insta-ui #mfFeed.mf-feed{
+    padding:8px 7px 88px !important;
+  }
+  body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card{
+    margin-bottom:9px !important;
+    border-radius:8px !important;
+  }
+}
+</style>
 
 <?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
 </body>

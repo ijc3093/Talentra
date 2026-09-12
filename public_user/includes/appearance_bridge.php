@@ -1405,7 +1405,7 @@ function appearance_bridge_print_guest_index_theme(string $mode, string $assetPr
         appearance_bridge_print_index_daylight_critical();
         if (!defined('MSB_THEME_DARK_CSS')) {
             define('MSB_THEME_DARK_CSS', true);
-            echo '<link rel="stylesheet" href="./css/dark-auto.css?v=52">' . "\n";
+            echo '<link rel="stylesheet" href="./css/dark-auto.css?v=55">' . "\n";
         }
         return;
     }
@@ -1431,7 +1431,7 @@ function appearance_bridge_print_guest_index_theme(string $mode, string $assetPr
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=128', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=131', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_HAIRLINE_BORDERS_CSS')) {
         define('MSB_HAIRLINE_BORDERS_CSS', true);
@@ -1440,7 +1440,7 @@ function appearance_bridge_print_guest_index_theme(string $mode, string $assetPr
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=52', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=55', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
 }
 
@@ -1501,7 +1501,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=128', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/appearance-palette.css?v=131', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_HAIRLINE_BORDERS_CSS')) {
         define('MSB_HAIRLINE_BORDERS_CSS', true);
@@ -1510,7 +1510,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=52', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=55', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);

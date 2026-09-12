@@ -740,6 +740,58 @@ html[data-theme="dark"]:not([data-msb-appearance]) a.btn-primary {
   background-color: var(--msb-palette-bg, #171d24) !important;
   color: var(--msb-palette-text, #e6edf3);
 }
+/* Link preview must follow Appearance / Progress / Dark auto (not stay #fff) */
+:is(html.dark-auto, body.dark-auto) .mf-link-preview,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-card,
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-side,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-side,
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-body,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-body,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-side,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-body{
+  background: var(--msb-palette-bg, #171d24) !important;
+  background-color: var(--msb-palette-bg, #171d24) !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+  box-shadow: none !important;
+}
+:is(html.dark-auto, body.dark-auto) .mf-link-preview,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-card,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview{
+  border-color: var(--msb-palette-border-strong, var(--msb-palette-border, rgba(255,255,255,.12))) !important;
+}
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-media.is-logo,
+:is(html.dark-auto, body.dark-auto) .mf-link-preview.has-logo .mf-link-preview-media,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-media.is-logo,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-media.is-logo,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview.has-logo .mf-link-preview-media{
+  /* Keep logo tile light so brand marks stay readable (Profile Posts design) */
+  background:#fff !important;
+  background-image:none !important;
+}
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-host,
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-info,
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-desc,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-host,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-info,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-desc,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-host,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-info,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-desc{
+  color: var(--msb-palette-text-muted, #b1bcce) !important;
+}
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-title,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-title,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-title{
+  color: var(--msb-palette-text, #eef4ff) !important;
+}
+:is(html.dark-auto, body.dark-auto) .mf-link-preview-cta,
+:is(html.dark-auto, body.dark-auto) .msb-link-preview-cta,
+:is(html.dark-auto, body.dark-auto) #profilePostsFeed .mf-link-preview-cta{
+  background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, #222a33)) !important;
+  color: var(--msb-palette-text, #eef4ff) !important;
+  border-top-color: var(--msb-palette-border-strong, rgba(255,255,255,.12)) !important;
+}
 :is(html.dark-auto, body.dark-auto) .stat-pill .num{ color:#f3f4f6; }
 :is(html.dark-auto, body.dark-auto) .stat-pill .lbl{ color:#cbd5e1; }
 :is(html.dark-auto, body.dark-auto) .stat-pill .sub{ color:#94a3b8; }
@@ -1092,14 +1144,22 @@ html.dark-auto .ig-username,
 html.dark-auto .name,
 
 html.dark-auto .chat-filter-tab.active {
-    background: rgba(59, 130, 246, .24);
-    color: #eff0f1;
+    background: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb));
+    color: var(--msb-palette-btn-text, #fff);
 }
 
 html.dark-auto .chat-filter-tab {
   border: 0;
-  background: transparent;
-  color: #d1d5db;
+  background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, transparent));
+  color: var(--msb-palette-text, #d1d5db);
+}
+html.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab {
+  background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, rgba(255,255,255,.08))) !important;
+  color: var(--msb-palette-text, #e6edf3) !important;
+}
+html.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab.active {
+  background: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb)) !important;
+  color: var(--msb-palette-btn-text, #fff) !important;
 }
 
 html.dark-auto .chat-name,
@@ -1189,8 +1249,24 @@ body.dark-auto .mf-card .mf-foot,
 body.dark-auto .mf-card .mf-actions{
   background-color:var(--msb-palette-bg, #171d24) !important;
   background-image:none !important;
-  color:var(--msb-palette-text, #e6edf3) !important;
+  color:var(--msb-palette-text, #eef4ff) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, #eef4ff) !important;
   border-color:var(--msb-palette-border, rgba(255,255,255,.12)) !important;
+}
+html.dark-auto .mf-body .mf-body-formatted,
+html.dark-auto .mf-body .post-card-paragraph,
+html.dark-auto .mf-body p,
+html.dark-auto .mf-video-body,
+html.dark-auto .mf-video-body .post-card-paragraph,
+html.dark-auto #profilePostsFeed .mf-body,
+html.dark-auto #profilePostsFeed .mf-body .post-card-paragraph,
+body.dark-auto .mf-body .mf-body-formatted,
+body.dark-auto .mf-body .post-card-paragraph,
+body.dark-auto .mf-body p,
+body.dark-auto #profilePostsFeed .mf-body,
+body.dark-auto #profilePostsFeed .mf-body .post-card-paragraph{
+  color:var(--msb-palette-text, #eef4ff) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, #eef4ff) !important;
 }
 html.dark-auto input::placeholder,
 html.dark-auto .textarea::placeholder{color:#9aa4ad !important;}
@@ -1469,14 +1545,26 @@ body.dark-auto{
   body.dark-auto .reply-preview-close{
     color:#f3f5f7 !important;
   }
-  body.dark-auto .messages-shell-icon,
+  body.dark-auto .messages-shell:not(.customer-msg-ui) .messages-shell-icon,
   body.dark-auto .messages-shell-avatar,
   body.dark-auto .avatar,
   body.dark-auto .peerAvatar,
   body.dark-auto .msg-avatar-mini,
   body.dark-auto .chat-info-avatar,
   body.dark-auto .chat-member-avatar{
-    background:#30363d !important;
+    background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, #30363d)) !important;
+  }
+  body.dark-auto .messages-shell.customer-msg-ui .messages-shell-icon,
+  body.dark-auto .messages-shell.customer-msg-ui .chat-compose-btn,
+  body.dark-auto .messages-shell.customer-msg-ui .messages-shell-search-btn,
+  body.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab{
+    background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, var(--msg-bg, #30363d))) !important;
+    background-color: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, var(--msg-bg, #30363d))) !important;
+    color: var(--msb-palette-text, #e6edf3) !important;
+  }
+  body.dark-auto .messages-shell.customer-msg-ui .chat-filter-tab.active{
+    background: var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb)) !important;
+    color: var(--msb-palette-btn-text, #fff) !important;
   }
   body.dark-auto .chat-item{
     background:transparent !important;

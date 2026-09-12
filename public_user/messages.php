@@ -1898,7 +1898,7 @@ if (!empty($messages)) {
 
   <!-- css (dark-auto comes from theme stack above — do not load twice) -->
   <link rel="stylesheet" href="./css/shamcey.css">
-  <link rel="stylesheet" href="./css/messages-customer-ui.css?v=43">
+  <link rel="stylesheet" href="./css/messages-customer-ui.css?v=44">
 
   <?php /* Follow Gear palette after CSS; fallback = server Appearance/Progress color. */ ?>
   <style id="msb-msg-final-paint">
@@ -6851,9 +6851,22 @@ img, video, iframe { max-width: 100% !important; }
   .messages-shell.customer-msg-ui .messages-shell-tab.active,
   .messages-shell.customer-msg-ui #sendForm button[type="submit"],
   .messages-shell.customer-msg-ui .group-send-form button[type="submit"]{
-    background:#2563eb!important;
-    color:#fff!important;
-    border-color:#2563eb!important;
+    background:var(--msb-palette-btn-bg, var(--msb-palette-action, var(--cm-me, #2563eb)))!important;
+    color:var(--msb-palette-btn-text, #fff)!important;
+    border-color:var(--msb-palette-btn-bg, var(--msb-palette-action, #2563eb))!important;
+  }
+  .messages-shell.customer-msg-ui .chat-filter-tab:not(.active),
+  .messages-shell.customer-msg-ui .messages-shell-tab:not(.active){
+    background:var(--msb-palette-hover-bg, var(--msb-palette-surface-2, var(--msg-bg, rgba(15,23,42,.06))))!important;
+    color:var(--msb-palette-text, var(--msg-text, #0f172a))!important;
+    border-color:var(--msb-palette-border, rgba(148,163,184,.28))!important;
+  }
+  .messages-shell.customer-msg-ui .chat-compose-btn,
+  .messages-shell.customer-msg-ui .messages-shell-search-btn,
+  .messages-shell.customer-msg-ui .messages-shell-icon{
+    background:var(--msb-palette-hover-bg, var(--msb-palette-surface-2, var(--msg-bg, rgba(15,23,42,.06))))!important;
+    color:var(--msb-palette-icon, var(--msb-palette-text, var(--msg-text, #0f172a)))!important;
+    border-color:var(--msb-palette-border, rgba(148,163,184,.28))!important;
   }
   .messages-shell.customer-msg-ui .chat-filter-tab.active i,
   .messages-shell.customer-msg-ui .messages-shell-tab.active i,

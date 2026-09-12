@@ -1362,13 +1362,13 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
 
     // Public → Discover. Friends → Circle. Private → Gallery Private.
     if ($visibility === 'public') {
-        return 'public.php';
+        return 'home.php?tab=discover';
     }
     if ($visibility === 'private') {
         return 'profile.php';
     }
 
-    return 'feed.php';
+    return 'home.php?tab=for-you';
 }
 
 /**
@@ -1382,17 +1382,15 @@ function publisher_post_redirect(PDO $dbh, int $userId, string $visibility): str
  */
 function publisher_workspace_feed_scope_sql(): string
 {
+    // Publisher Circle: own posts + other publishers you follow (never personal-user posts).
     return "(
         (
             p.user_id = :wsFeedMe
             AND LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) IN ('friends', 'public')
         )
         OR (
-            LOWER(COALESCE(NULLIF(TRIM(p.visibility), ''), 'friends')) = 'friends'
-            AND " . fs_viewer_friends_with_author_sql('p.user_id', ':wsFeedFriendMe', ':wsFeedFriendMe2') . "
-        )
-        OR (
-            p.visibility = 'public'
+            " . publisher_author_is_publisher_sql('u') . "
+            AND p.visibility = 'public'
             AND EXISTS (
                 SELECT 1 FROM public_follows pf
                 WHERE pf.follower_id = :wsFeedMe2 AND pf.following_id = p.user_id
@@ -1446,8 +1444,6 @@ function publisher_feed_list_scope_params_for(PDO $dbh, int $meId): array
     if (publisher_workspace_viewer($dbh, $meId)) {
         return [
             ':wsFeedMe' => $meId,
-            ':wsFeedFriendMe' => $meId,
-            ':wsFeedFriendMe2' => $meId,
             ':wsFeedMe2' => $meId,
         ];
     }
@@ -1489,8 +1485,6 @@ function publisher_feed_unread_scope_params_for(PDO $dbh, int $meId): array
     if (publisher_workspace_viewer($dbh, $meId)) {
         return [
             ':wsFeedMe' => $meId,
-            ':wsFeedFriendMe' => $meId,
-            ':wsFeedFriendMe2' => $meId,
             ':wsFeedMe2' => $meId,
         ];
     }
@@ -1516,17 +1510,12 @@ function publisher_feed_can_view_post(PDO $dbh, int $meId, array $post): bool
         if ($authorId === $meId) {
             return true;
         }
-        $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
-        if ($authorIsPublisher) {
-            return $vis === 'public' && publisher_user_is_followed($dbh, $meId, $authorId);
-        }
-        if ($vis !== 'friends') {
+        // Publishers never see personal-user posts on Circle.
+        if (!$authorIsPublisher) {
             return false;
         }
-        if (!function_exists('fs_are_friends')) {
-            require_once __DIR__ . '/friend_system.php';
-        }
-        return fs_are_friends($dbh, $meId, $authorId);
+        $vis = strtolower(trim((string)($post['visibility'] ?? 'public')));
+        return $vis === 'public' && publisher_user_is_followed($dbh, $meId, $authorId);
     }
 
     if ($authorIsPublisher) {
@@ -1566,8 +1555,9 @@ function publisher_post_visible_on_public_surface(PDO $dbh, int $meId, array $po
         if ($vis !== 'public') {
             return false;
         }
+        // Publishers never see personal-user posts on Discover.
         if (!publisher_is_publisher_user($dbh, $authorId)) {
-            return true;
+            return false;
         }
         return $authorId === $meId || !publisher_user_is_followed($dbh, $meId, $authorId);
     }

@@ -1320,15 +1320,15 @@ body.dashboard-page.dashboard-modal-page .card.mb-3{
   margin:0 !important;
 }
 body.dashboard-page.dashboard-modal-page .card-body{
-  padding:12px 14px 0 !important;
+  padding:12px 14px 8px !important;
   background:transparent !important;
 }
 body.dashboard-page.dashboard-modal-page .msb-composer{
   display:flex;
   flex-direction:column;
   gap:12px;
-  margin:0 0 10px;
-  padding:0;
+  margin:0;
+  padding:0 0 6px;
   flex:0 0 auto;
   height:auto !important;
   min-height:0 !important;
@@ -1411,22 +1411,85 @@ body.dashboard-page.dashboard-modal-page .msb-composer-audience-select{
   cursor:pointer;
 }
 body.dashboard-page.dashboard-modal-page .msb-composer-main{
-  min-height:120px;
+  min-height:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-title-field{
+  position:relative;
+  margin:0 0 8px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-title-label{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  color:#64748b;
+  margin:0 0 6px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-title-input{
+  border:1px solid rgba(15,23,42,.12) !important;
+  border-radius:12px !important;
+  background:#fff !important;
+  box-shadow:none !important;
+  height:44px !important;
+  padding:10px 64px 10px 14px !important;
+  font-size:14px !important;
+  font-weight:600 !important;
+  color:#0f172a !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-title-input:focus{
+  border-color:rgba(37,99,235,.45) !important;
+  outline:none !important;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12) !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-title-count,
+body.dashboard-page.dashboard-modal-page .msb-composer-body-count{
+  position:absolute;
+  right:12px;
+  font-size:11px;
+  font-weight:700;
+  color:#94a3b8;
+  pointer-events:none;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-title-count{ bottom:10px; top:auto; transform:none; }
+body.dashboard-page.dashboard-modal-page .msb-composer-body-shell{
+  position:relative;
+  border:1px solid rgba(15,23,42,.12);
+  border-radius:14px;
+  background:#fff;
+  min-height:128px;
+  padding:8px 10px 28px;
 }
 body.dashboard-page.dashboard-modal-page .msb-composer-body{
   border:0 !important;
   background:transparent !important;
   box-shadow:none !important;
   resize:none !important;
-  min-height:120px !important;
+  min-height:96px !important;
   max-height:180px !important;
   height:auto !important;
-  padding:6px 2px !important;
+  padding:4px 36px 4px 4px !important;
   font-size:17px !important;
   line-height:1.45 !important;
   color:#0f172a !important;
   flex:0 0 auto !important;
 }
+body.dashboard-page.dashboard-modal-page .msb-composer-body-emoji{
+  position:absolute;
+  top:8px;
+  right:8px;
+  width:32px;
+  height:32px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:#64748b;
+  font-size:18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-body-emoji:hover{ color:#0f172a; background:rgba(15,23,42,.06); }
+body.dashboard-page.dashboard-modal-page .msb-composer-body-count{ bottom:8px; }
 body.dashboard-page.dashboard-modal-page .msb-composer-body::placeholder{
   color:#94a3b8 !important;
   opacity:1 !important;
@@ -1475,39 +1538,423 @@ body.dashboard-page.dashboard-modal-page .msb-composer-panel-close{
 body.dashboard-page.dashboard-modal-page .msb-composer-addbar{
   position:relative;
   display:flex;
-  align-items:center;
-  justify-content:space-between;
+  align-items:stretch;
+  justify-content:center;
   gap:10px;
-  padding:10px 12px;
-  border:1px solid rgba(15,23,42,.14);
-  border-radius:12px;
-  background:#fff;
+  padding:6px 4px 2px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  flex-wrap:wrap;
 }
-body.dashboard-page.dashboard-modal-page .msb-composer-addbar-label{
-  font-size:13px;
-  font-weight:700;
-  color:#0f172a;
-  white-space:nowrap;
-}
+body.dashboard-page.dashboard-modal-page .msb-composer-addbar-label{ display:none !important; }
 body.dashboard-page.dashboard-modal-page .msb-composer-addbar-icons{
   display:flex;
-  align-items:center;
-  gap:6px;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:8px;
+  width:100%;
+  flex-wrap:wrap;
 }
 body.dashboard-page.dashboard-modal-page .msb-composer-tool{
-  width:36px;
-  height:36px;
+  width:auto;
+  min-width:58px;
+  height:auto;
   border:0;
-  border-radius:10px;
+  border-radius:0;
   background:transparent;
-  color:#16a34a;
-  font-size:17px;
+  color:#0f172a;
+  font-size:11px;
+  font-weight:700;
+  display:inline-flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:6px;
+  cursor:pointer;
+  padding:4px 2px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool-icon{
+  width:44px;
+  height:44px;
+  border-radius:999px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
+  font-size:18px;
+  color:#fff;
+  box-shadow:0 6px 14px rgba(15,23,42,.12);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="media"] .msb-composer-tool-icon{ background:#22c55e; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-emoji-picker] .msb-composer-tool-icon,
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="feeling"] .msb-composer-tool-icon{ background:#f59e0b; }
+body.dashboard-page.dashboard-modal-page .msb-feeling-tabs{
+  display:flex;
+  gap:8px;
+  margin:4px 0 10px;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-tab{
+  flex:1 1 auto;
+  border:1px solid rgba(15,23,42,.1);
+  background:#f8fafc;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+  border-radius:999px;
+  padding:8px 12px;
   cursor:pointer;
 }
-body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-emoji-picker]{ color:#eab308; }
+body.dashboard-page.dashboard-modal-page .msb-feeling-tab.is-active{
+  background:#eff6ff;
+  border-color:rgba(37,99,235,.28);
+  color:#1d4ed8;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-list{
+  max-height:280px;
+  overflow:auto;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:14px;
+  background:#fff;
+  padding:4px;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-list[hidden]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-feeling-item{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:0;
+  background:transparent;
+  text-align:left;
+  padding:10px 12px;
+  border-radius:10px;
+  color:#0f172a;
+  font-size:14.5px;
+  font-weight:600;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-item:hover{
+  background:#f8fafc;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-item.is-selected{
+  background:#eef4ff;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-emoji{
+  flex:0 0 auto;
+  width:28px;
+  text-align:center;
+  font-size:22px;
+  line-height:1;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-text{
+  flex:1 1 auto;
+  min-width:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-check{
+  flex:0 0 auto;
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  background:#2563eb;
+  color:#fff;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-item.is-selected .msb-feeling-check{
+  display:inline-flex;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-clear{
+  margin-top:10px;
+  border:0;
+  background:transparent;
+  color:#64748b;
+  font-size:13px;
+  font-weight:700;
+  padding:6px 2px;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-clear[hidden]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-feeling-clear:hover{ color:#1d4ed8; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="location"] .msb-composer-tool-icon{ background:#ef4444; }
+body.dashboard-page.dashboard-modal-page .msb-loc-search{ margin-top:2px; }
+body.dashboard-page.dashboard-modal-page .msb-loc-input-wrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-input-ic{
+  position:absolute;
+  left:12px;
+  color:#ef4444;
+  font-size:15px;
+  pointer-events:none;
+  z-index:1;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-input{
+  padding-left:34px !important;
+  padding-right:36px !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-clear{
+  position:absolute;
+  right:8px;
+  width:28px;
+  height:28px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:#64748b;
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-clear:hover{ background:rgba(15,23,42,.06); color:#0f172a; }
+body.dashboard-page.dashboard-modal-page .msb-loc-hint{
+  margin-top:8px;
+  font-size:12px;
+  color:#64748b;
+  line-height:1.35;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-status{
+  margin-top:8px;
+  font-size:12.5px;
+  font-weight:600;
+  color:#475569;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-status.is-error{ color:#b91c1c; }
+body.dashboard-page.dashboard-modal-page .msb-loc-results{
+  list-style:none;
+  margin:8px 0 0;
+  padding:4px;
+  max-height:220px;
+  overflow:auto;
+  border:1px solid rgba(15,23,42,.1);
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 10px 24px rgba(15,23,42,.08);
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-results[hidden]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-loc-result{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  width:100%;
+  border:0;
+  background:transparent;
+  text-align:left;
+  padding:10px 10px;
+  border-radius:10px;
+  cursor:pointer;
+  color:#0f172a;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-result:hover,
+body.dashboard-page.dashboard-modal-page .msb-loc-result.is-active{
+  background:#f1f5f9;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-result-ic{
+  flex:0 0 auto;
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#fee2e2;
+  color:#ef4444;
+  margin-top:1px;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-result-text{ min-width:0; flex:1 1 auto; }
+body.dashboard-page.dashboard-modal-page .msb-loc-result-title{
+  display:block;
+  font-size:13.5px;
+  font-weight:800;
+  line-height:1.25;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-result-sub{
+  display:block;
+  margin-top:2px;
+  font-size:12px;
+  color:#64748b;
+  line-height:1.3;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-selected{
+  margin-top:10px;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  max-width:100%;
+  padding:7px 12px;
+  border-radius:999px;
+  background:#fff7ed;
+  border:1px solid rgba(239,68,68,.18);
+  color:#9a3412;
+  font-size:13px;
+  font-weight:700;
+}
+body.dashboard-page.dashboard-modal-page .msb-loc-selected i{ color:#ef4444; }
+body.dashboard-page.dashboard-modal-page .msb-loc-selected span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-card{
+  margin-top:10px;
+  border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.1));
+  border-radius:16px;
+  overflow:hidden;
+  background:var(--msb-palette-bg, #fff);
+  box-shadow:0 8px 24px rgba(15,23,42,.05);
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-card[hidden]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-link-preview-main{
+  display:flex;
+  align-items:stretch;
+  min-height:140px;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-media{
+  flex:0 0 42%;
+  width:42%;
+  max-width:220px;
+  background:#e2e8f0;
+  overflow:hidden;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-media[hidden]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-link-preview-media.is-logo{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(120% 120% at 20% 10%, rgba(255,255,255,.9) 0%, rgba(255,255,255,0) 55%),
+    linear-gradient(145deg, #eff6ff 0%, #e2e8f0 48%, #dbeafe 100%);
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-media img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  min-height:140px;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-media.is-logo img{
+  width:48%;
+  height:48%;
+  max-width:96px;
+  max-height:96px;
+  min-height:0;
+  object-fit:contain;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-side{
+  flex:1 1 auto;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  background:var(--msb-palette-bg, #fff);
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-body{
+  flex:1 1 auto;
+  min-width:0;
+  padding:14px 16px 10px;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-top{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:6px;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-host{
+  flex:1 1 auto;
+  min-width:0;
+  font-size:12px;
+  font-weight:600;
+  color:var(--msb-palette-text-muted, #94a3b8);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-info{
+  flex:0 0 auto;
+  color:var(--msb-palette-text-muted, #94a3b8);
+  font-size:14px;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-title{
+  font-size:16px;
+  font-weight:800;
+  color:var(--msb-palette-text, #0f172a);
+  line-height:1.28;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-desc{
+  margin-top:6px;
+  font-size:13px;
+  color:var(--msb-palette-text-muted, #64748b);
+  line-height:1.4;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-desc:empty{ display:none; }
+body.dashboard-page.dashboard-modal-page .msb-link-preview-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-chips[hidden]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-link-preview-chip{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  background:var(--msb-palette-soft, #eef2f7);
+  color:var(--msb-palette-text, #334155);
+  font-size:11.5px;
+  font-weight:700;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-cta{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:auto;
+  padding:11px 16px;
+  background:color-mix(in srgb, var(--msb-palette-action, #2563eb) 12%, var(--msb-palette-bg, #fff));
+  color:var(--msb-palette-action, #1d4ed8);
+  font-size:13px;
+  font-weight:800;
+  border-top:1px solid color-mix(in srgb, var(--msb-palette-action, #2563eb) 16%, transparent);
+}
+body.dashboard-page.dashboard-modal-page .msb-link-preview-cta .fa-chevron-right{ margin-left:auto; font-size:12px; }
+body.dashboard-page.dashboard-modal-page .msb-link-edit-fields{
+  margin-top:12px;
+  display:grid;
+  gap:6px;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-edit-fields[hidden]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-link-edit-label{
+  margin:4px 0 0;
+  font-size:12px;
+  font-weight:700;
+  color:#64748b;
+}
+body.dashboard-page.dashboard-modal-page .msb-link-edit-fields .form-control{
+  border-radius:10px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="music"] .msb-composer-tool-icon{ background:#8b5cf6; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="tag"] .msb-composer-tool-icon{ background:#3b82f6; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="link"] .msb-composer-tool-icon{ background:#0891b2; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="more"] .msb-composer-tool-icon{ background:#94a3b8; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="product"] .msb-composer-tool-icon{ background:#0f766e; }
+body.dashboard-page.dashboard-modal-page .msb-composer-tool-label{
+  font-size:11px;
+  font-weight:700;
+  color:#475569;
+  line-height:1.15;
+  text-align:center;
+  max-width:72px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool.is-active .msb-composer-tool-icon{
+  box-shadow:0 0 0 3px rgba(37,99,235,.22), 0 6px 14px rgba(15,23,42,.12);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool .msb-composer-aa{ color:#fff; font-weight:800; }
 body.dashboard-page.dashboard-modal-page .msb-composer-emoji-picker{
   position:fixed;
   z-index:120000;
@@ -1649,51 +2096,347 @@ body.dashboard-page.dashboard-modal-page .msb-composer-emoji-empty{
   font-size:12px;
   color:rgba(255,255,255,.5);
 }
-body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="tag"]{ color:#2563eb; }
-body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="music"]{ color:#ea580c; }
-body.dashboard-page.dashboard-modal-page .msb-composer-tool[data-open-panel="title"]{ color:#7c3aed; }
 body.dashboard-page.dashboard-modal-page .msb-composer-tool:hover{
-  background:rgba(15,23,42,.06);
+  background:transparent;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-tool:hover .msb-composer-tool-icon{
+  transform:translateY(-1px);
 }
 body.dashboard-page.dashboard-modal-page .msb-composer-aa{
   font-size:14px;
   font-weight:800;
   line-height:1;
 }
-body.dashboard-page.dashboard-modal-page .msb-composer-tool.is-active{
-  background:rgba(37,99,235,.1);
-}
 body.dashboard-page.dashboard-modal-page .msb-composer-footer{
   display:flex;
   align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  position:sticky;
+  bottom:0;
+  z-index:60;
+  margin-top:8px;
+  margin-bottom:0;
+  padding:10px 0 14px;
+  border-top:1px solid rgba(15,23,42,.08);
+  background:var(--msb-palette-bg, #fff);
+  box-shadow:0 -10px 18px -12px rgba(15,23,42,.2);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-settings-btn{
+  display:inline-flex;
+  align-items:center;
   gap:8px;
-  margin-top:2px;
-  margin-bottom:10px;
-  padding:0 0 2px;
+  border:0;
+  background:transparent;
+  color:#475569;
+  font-size:13px;
+  font-weight:700;
+  padding:6px 4px;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-settings-btn i{ font-size:16px; color:#64748b; }
+body.dashboard-page.dashboard-modal-page .msb-composer-footer-actions{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-left:auto;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-schedule-btn{
+  height:40px !important;
+  min-height:40px !important;
+  border-radius:999px !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  padding:0 14px !important;
+  background:#f1f5f9 !important;
+  border:1px solid rgba(15,23,42,.08) !important;
+  color:#334155 !important;
+  display:inline-flex !important;
+  align-items:center;
+  gap:6px;
 }
 body.dashboard-page.dashboard-modal-page .msb-composer-post-btn{
-  flex:1 1 auto;
+  flex:0 0 auto;
+  min-width:96px;
   height:40px !important;
   min-height:40px !important;
   max-height:none !important;
-  border-radius:10px !important;
+  border-radius:999px !important;
   font-size:15px !important;
   font-weight:800 !important;
-  background:#0f172a !important;
-  border-color:#0f172a !important;
+  background:#2563eb !important;
+  border-color:#2563eb !important;
   color:#fff !important;
+  padding:0 22px !important;
 }
 body.dashboard-page.dashboard-modal-page .msb-composer-cancel-btn{
-  flex:0 0 auto;
-  height:40px !important;
-  min-height:40px !important;
+  display:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone{
+  display:flex !important;
+  flex-direction:row !important;
+  flex-wrap:nowrap !important;
+  align-items:center !important;
+  gap:10px !important;
+  padding:8px 10px !important;
+  border:1.5px dashed rgba(59,130,246,.45);
+  border-radius:14px;
+  background:rgba(59,130,246,.04);
+  min-height:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone-copy{
+  flex:0 1 200px;
+  min-width:140px;
+  max-width:210px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  gap:4px;
+  margin:0 !important;
+  padding:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone-title{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:13px;
+  font-weight:800;
+  color:#0f172a;
+  line-height:1.2;
+  margin:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone-title i{ color:#2563eb; font-size:15px; }
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone-hint{
+  font-size:11px;
+  color:#64748b;
+  line-height:1.25;
+  margin:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:2px !important;
+  margin-bottom:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-choose-btn{
+  height:30px !important;
+  min-height:30px !important;
+  border-radius:999px !important;
+  font-size:11px !important;
+  font-weight:800 !important;
+  padding:0 12px !important;
+  background:#2563eb !important;
+  border-color:#2563eb !important;
+  color:#fff !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-cloud-btn{
+  height:30px !important;
+  min-height:30px !important;
+  border-radius:999px !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+  padding:0 10px !important;
+  background:#eff6ff !important;
+  border:1px solid rgba(37,99,235,.25) !important;
+  color:#1d4ed8 !important;
+  display:inline-flex !important;
+  align-items:center;
+  gap:5px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone-thumbs{
+  flex:1 1 auto;
+  min-width:0;
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  gap:8px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  margin:0 !important;
+  padding:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slides-shell{
+  display:flex !important;
+  flex-direction:row !important;
+  flex-wrap:nowrap !important;
+  align-items:center !important;
+  gap:8px !important;
+  max-height:none !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  width:100%;
+  margin:0 !important;
+  padding:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slides{
+  display:flex !important;
+  flex-direction:row !important;
+  flex-wrap:nowrap !important;
+  align-items:center !important;
+  gap:8px !important;
+  margin:0 !important;
+  padding:0 !important;
+  max-height:none !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  flex:0 1 auto;
+  min-width:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide{
+  width:72px !important;
+  min-width:72px !important;
+  max-width:72px !important;
+  height:72px !important;
   border-radius:10px !important;
-  font-size:13px !important;
-  padding-left:14px !important;
-  padding-right:14px !important;
-  background:#fff !important;
-  color:#475569 !important;
-  border:1px solid rgba(15,23,42,.16) !important;
+  overflow:hidden;
+  position:relative;
+  background:#e2e8f0;
+  border:1px solid rgba(15,23,42,.08) !important;
+  padding:0 !important;
+  display:block !important;
+  flex:0 0 72px !important;
+  grid-template-columns:none !important;
+  grid-template-rows:none !important;
+  margin:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-head{
+  position:absolute !important;
+  top:4px !important;
+  right:4px !important;
+  left:auto !important;
+  width:auto !important;
+  grid-column:auto !important;
+  z-index:2;
+  margin:0 !important;
+  display:flex !important;
+  justify-content:flex-end !important;
+  background:transparent !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-label,
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-replace,
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-fields{
+  display:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-remove{
+  width:22px !important;
+  height:22px !important;
+  border-radius:999px !important;
+  background:rgba(15,23,42,.72) !important;
+  color:#fff !important;
+  border:0 !important;
+  line-height:22px !important;
+  font-size:14px !important;
+  padding:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-media{
+  width:100% !important;
+  height:72px !important;
+  min-width:100% !important;
+  min-height:72px !important;
+  max-width:none !important;
+  max-height:none !important;
+  margin:0 !important;
+  border-radius:0 !important;
+  flex:none !important;
+  align-self:stretch !important;
+  display:block !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-media img,
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide-media video{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+  display:block !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-add-more{
+  width:72px;
+  min-width:72px;
+  height:72px;
+  border:1.5px dashed rgba(37,99,235,.4);
+  border-radius:10px;
+  background:rgba(255,255,255,.7);
+  color:#2563eb;
+  display:inline-flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  font-size:18px;
+  cursor:pointer;
+  flex:0 0 72px;
+  padding:0;
+  margin:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-add-more span{
+  font-size:11px;
+  font-weight:700;
+  line-height:1.1;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone.is-drag{
+  border-color:#2563eb;
+  background:rgba(37,99,235,.08);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide.is-selected{
+  box-shadow:0 0 0 2px #2563eb, 0 0 0 4px rgba(37,99,235,.2);
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slide{
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption{
+  margin:8px 0 4px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption[hidden]{
+  display:none !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin:0 0 6px;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption-label{
+  font-size:12px;
+  font-weight:700;
+  color:#64748b;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption-close{
+  width:24px;
+  height:24px;
+  border:0;
+  border-radius:999px;
+  background:rgba(15,23,42,.08);
+  color:#0f172a;
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption-shell{
+  min-height:0;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption-shell .msb-composer-body{
+  min-height:72px !important;
+  height:auto !important;
+  padding-bottom:28px !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-panel[data-panel="media"] .msb-composer-panel-head{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .msb-composer-panel[data-panel="media"]{
+  border:0 !important;
+  background:transparent !important;
+  padding:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-panel[data-panel="title"]{ display:none !important; }
+body.dashboard-page.dashboard-modal-page .create-post-slides-shell{
+  max-height:none !important;
+  border:0 !important;
+  background:transparent !important;
+  padding:0 !important;
+  overflow:visible !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-dropzone .create-post-slides-actions{
+  display:none !important;
 }
 body.dashboard-page.dashboard-modal-page .msb-composer .create-post-slides-actions{
   box-shadow:none !important;
@@ -1709,17 +2452,22 @@ body.dashboard-page.dashboard-modal-page .sh-pagebody{
   padding-bottom:0 !important;
 }
 body.dashboard-page.dashboard-modal-page .card-body{
-  padding-bottom:4px !important;
+  padding-bottom:12px !important;
   margin-bottom:0 !important;
 }
 body.dashboard-page.dashboard-modal-page .create-post-slides-panel{
   margin-bottom:0 !important;
+  gap:0 !important;
+  min-height:0 !important;
+}
+body.dashboard-page.dashboard-modal-page .create-post-slides-panel.msb-composer-dropzone{
+  flex-direction:row !important;
 }
 body.dashboard-page.dashboard-modal-page .create-post-slides-shell{
-  max-height:min(46vh, 280px) !important;
+  max-height:none !important;
 }
 body.dashboard-page.dashboard-modal-page .create-post-slides-shell.is-editing-multi{
-  max-height:min(52vh, 340px) !important;
+  max-height:none !important;
 }
 body.dashboard-page.dashboard-modal-page .create-post-slides-actions{
   position:sticky !important;
@@ -2126,7 +2874,7 @@ body.dashboard-page .progress{
                   <input type="hidden" name="post_id" id="createPostId" value="<?= (int)($editPost['id'] ?? 0) ?>">
                   <input type="hidden" name="device_label" value="">
                   <input type="hidden" name="device_viewport" value="">
-                  <input type="hidden" name="return_to" id="createPostReturnTo" value="feed.php">
+                  <input type="hidden" name="return_to" id="createPostReturnTo" value="home.php?tab=for-you">
                   <input type="hidden" name="sound_id" id="createPostSoundId" value="<?= (int)$composerSoundId ?>">
                   <input type="hidden" name="stitch_of_post_id" id="createPostStitchOf" value="<?= (int)$composerStitchOf ?>">
                   <input type="hidden" name="duet_of_post_id" id="createPostDuetOf" value="<?= (int)$composerDuetOf ?>">
@@ -2164,7 +2912,7 @@ body.dashboard-page .progress{
                     </div>
                     <?php $vis = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends')); ?>
                     <label class="msb-composer-audience-pill" for="createPostVisibility">
-                      <i class="fa fa-users" aria-hidden="true"></i>
+                      <i class="fa <?= $vis === 'public' ? 'fa-globe' : ($vis === 'private' ? 'fa-lock' : 'fa-users') ?>" aria-hidden="true"></i>
                       <select name="visibility" id="createPostVisibility" class="msb-composer-audience-select" aria-label="<?= $isStoryCreate ? 'Story audience' : 'Post destination' ?>">
                         <option value="private" <?= $vis==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
                         <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends' : 'Friends' ?></option>
@@ -2176,9 +2924,23 @@ body.dashboard-page .progress{
                   <?php endif; ?>
 
                   <div class="msb-composer-main form-group">
-                    <?php if (!$isModalCreate): ?><label>Introduction (optional)</label><?php endif; ?>
-                    <textarea name="body" id="createPostBody" class="form-control msb-composer-body" rows="<?= $isModalCreate ? '4' : '3' ?>" placeholder="<?= $isModalCreate ? h("What's on your mind, " . explode(' ', $composerName)[0] . '?') : 'Write an introduction under the title… Use @username to tag people' ?>" data-msb-mention="1"><?= h($editBodyText) ?></textarea>
-                    <?php if (!$isModalCreate): ?><small class="text-muted">Without slides, this is your post caption. With slides, it stays fixed under the title as the introduction. Type @ to tag friends.</small><?php endif; ?>
+                    <?php if ($isModalCreate): ?>
+                    <div class="msb-composer-title-field">
+                      <label class="msb-composer-title-label" for="createPostTitle">Title or subject (optional)</label>
+                      <input type="text" name="title" id="createPostTitle" class="form-control msb-composer-title-input" maxlength="100" data-msb-mention="1"
+                        value="<?= h((string)($editPost['title'] ?? '')) ?>" placeholder="Add a title to your post..." aria-label="Title or subject (optional)">
+                      <span class="msb-composer-title-count" id="createPostTitleCount">0/100</span>
+                    </div>
+                    <div class="msb-composer-body-shell">
+                      <textarea name="body" id="createPostBody" class="form-control msb-composer-body" rows="4" placeholder="<?= h("What's on your mind, " . explode(' ', $composerName)[0] . '?') ?>" data-msb-mention="1" maxlength="5000"><?= h($editBodyText) ?></textarea>
+                      <button type="button" class="msb-composer-body-emoji" data-emoji-picker="1" title="Emoji" aria-label="Emoji" aria-expanded="false" aria-controls="msbComposerEmojiPicker"><i class="fa fa-smile-o" aria-hidden="true"></i></button>
+                      <span class="msb-composer-body-count" id="createPostBodyCount">0/5,000</span>
+                    </div>
+                    <?php else: ?>
+                    <label>Introduction (optional)</label>
+                    <textarea name="body" id="createPostBody" class="form-control msb-composer-body" rows="3" placeholder="Write an introduction under the title… Use @username to tag people" data-msb-mention="1"><?= h($editBodyText) ?></textarea>
+                    <small class="text-muted">Without slides, this is your post caption. With slides, it stays fixed under the title as the introduction. Type @ to tag friends.</small>
+                    <?php endif; ?>
                   </div>
 
                   <?php
@@ -2191,25 +2953,25 @@ body.dashboard-page .progress{
                     $hasTitlePanel = $titleVal !== '';
                     $hasMusicPanel = ($musicTitleVal !== '' || $musicArtistVal !== '' || $composerSoundId > 0);
                     $hasTagPanel = !empty($editTaggedUsers);
-                    $hasMediaPanel = !empty($editAttachments) || !empty($editPost);
+                    $hasMediaPanel = true; /* always show media dropzone in modal */
+                    if (!$isModalCreate) {
+                      $hasMediaPanel = !empty($editAttachments) || !empty($editPost);
+                    }
                     $hasProductPanel = !empty($composerProducts);
                   ?>
 
+                  <?php if (!$isModalCreate): ?>
                   <div class="msb-composer-panel<?= ($isModalCreate && !$hasTitlePanel) ? '' : ' is-open' ?>" data-panel="title"<?= ($isModalCreate && !$hasTitlePanel) ? ' hidden' : '' ?>>
                     <div class="msb-composer-panel-head">
                       <strong>Title</strong>
-                      <?php if ($isModalCreate): ?><button type="button" class="msb-composer-panel-close" data-close-panel="title" aria-label="Hide title">&times;</button><?php endif; ?>
                     </div>
                     <div class="form-row">
-                      <div class="form-group col-md-<?= $isModalCreate ? '12' : '6' ?> mb-0">
-                        <?php if (!$isModalCreate): ?><label>Title</label><?php endif; ?>
+                      <div class="form-group col-md-6 mb-0">
+                        <label>Title</label>
                         <input type="text" name="title" id="createPostTitle" class="form-control" maxlength="120" data-msb-mention="1"
                           value="<?= h($titleVal) ?>" placeholder="<?= $isStoryCreate ? 'e.g., My story moment…' : 'Add a title…' ?>">
-                        <?php if (!$isModalCreate): ?>
                         <small class="text-muted"><?= $isStoryCreate ? 'Optional for stories. Add a title, description, photo, or video.' : 'Super title for the post. With slides, this stays fixed at the top while each slide has its own subtitle. Type @ to tag people.' ?></small>
-                        <?php endif; ?>
                       </div>
-                      <?php if (!$isModalCreate): ?>
                       <div class="form-group col-md-6 mb-0">
                         <label><?= $isStoryCreate ? 'Story Audience' : 'Post Destination' ?></label>
                         <select name="visibility" id="createPostVisibility" class="form-control">
@@ -2219,9 +2981,9 @@ body.dashboard-page .progress{
                         </select>
                         <small class="text-muted"><strong>Private</strong> → only you. <strong>Friends</strong> → friends. <strong>Public</strong> → public feed.</small>
                       </div>
-                      <?php endif; ?>
                     </div>
                   </div>
+                  <?php endif; ?>
 
                   <div class="msb-composer-panel<?= ($isModalCreate && !$hasMusicPanel) ? '' : ' is-open' ?>" data-panel="music"<?= ($isModalCreate && !$hasMusicPanel) ? ' hidden' : '' ?>>
                     <div class="msb-composer-panel-head">
@@ -2299,13 +3061,13 @@ body.dashboard-page .progress{
                     </div>
                     <div class="form-group mb-0">
                       <?php if (!$isModalCreate): ?><label>Tag people</label><?php endif; ?>
-                      <input type="text" id="createPostTagPeopleInput" class="form-control" placeholder="Type @username to tag someone" autocomplete="off" data-msb-mention="1">
+                      <input type="text" id="createPostTagPeopleInput" class="form-control" placeholder="Search a name or @username" autocomplete="off" data-msb-mention="0">
                       <input type="hidden" name="tagged_user_ids" id="createPostTaggedUserIds" value="">
                       <div class="msb-tag-people" id="createPostTagPeopleChips" aria-live="polite"></div>
                     </div>
                   </div>
 
-                  <div class="msb-composer-panel<?= ($isModalCreate && !$hasMediaPanel) ? '' : ' is-open' ?>" data-panel="media"<?= ($isModalCreate && !$hasMediaPanel) ? ' hidden' : '' ?>>
+                  <div class="msb-composer-panel<?= ($isModalCreate || $hasMediaPanel) ? ' is-open' : '' ?>" data-panel="media"<?= (!$isModalCreate && !$hasMediaPanel) ? ' hidden' : '' ?>>
                     <div class="msb-composer-panel-head">
                       <strong>Photos / videos</strong>
                       <?php if ($isModalCreate): ?><button type="button" class="msb-composer-panel-close" data-close-panel="media" aria-label="Hide media">&times;</button><?php endif; ?>
@@ -2315,8 +3077,25 @@ body.dashboard-page .progress{
                       <label>Slides (media + subtitle + summary)</label>
                       <p class="small text-muted mb-2">Optional. Add slides for a presentation. Scroll media inside the box; Add slide / Submit stay below.</p>
                       <?php endif; ?>
-                      <div class="create-post-slides-panel">
+                      <div class="create-post-slides-panel<?= $isModalCreate ? ' msb-composer-dropzone' : '' ?>">
+                      <?php if ($isModalCreate): ?>
+                      <div class="msb-composer-dropzone-copy">
+                        <div class="msb-composer-dropzone-title"><i class="fa fa-image" aria-hidden="true"></i> Add photos or videos</div>
+                        <p class="msb-composer-dropzone-hint">Drag and drop files here, or choose from your device.</p>
+                        <div class="msb-composer-dropzone-actions">
+                          <button type="button" class="btn btn-primary btn-sm msb-composer-choose-btn" id="createPostChooseFilesBtn">Choose files</button>
+                          <button type="button" class="btn btn-sm msb-composer-cloud-btn" id="createPostCloudBtn" title="Upload from cloud"><i class="fa fa-cloud-upload" aria-hidden="true"></i> Upload from cloud <i class="fa fa-caret-down" aria-hidden="true"></i></button>
+                        </div>
+                      </div>
+                      <div class="msb-composer-dropzone-thumbs">
+                      <?php endif; ?>
                       <div class="create-post-slides-shell<?= $editAttachmentCount >= 2 ? ' is-editing-multi' : '' ?>">
+                        <?php if ($isModalCreate): ?>
+                        <button type="button" class="msb-composer-add-more" id="createPostAddMoreBtn" aria-label="Add slide" title="Add slide">
+                          <i class="fa fa-plus" aria-hidden="true"></i>
+                          <span>Add slide</span>
+                        </button>
+                        <?php endif; ?>
                         <div id="createPostSlides" class="create-post-slides" aria-label="Slides list">
                           <?php foreach ($editAttachments as $idx => $att): ?>
                             <?php
@@ -2351,6 +3130,7 @@ body.dashboard-page .progress{
                           <?php endforeach; ?>
                         </div>
                       </div>
+                      <?php if ($isModalCreate): ?></div><?php endif; ?>
                       <input type="file" id="createPostAttachments" name="attachments[]" class="form-control" multiple accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip" style="display:none;">
                       <input type="file" id="createPostReplaceFile" accept="image/*,video/*,application/pdf,.pdf,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip" style="display:none;">
                       <div class="create-post-slides-actions">
@@ -2381,21 +3161,242 @@ body.dashboard-page .progress{
                       </div>
                       </div>
                       </div>
+                      <?php if ($isModalCreate): ?>
+                      <div class="msb-composer-slide-caption" id="createPostSlideCaptionWrap" hidden>
+                        <div class="msb-composer-slide-caption-head">
+                          <span class="msb-composer-slide-caption-label">Subtitle for this slide <span id="createPostSlideCaptionIndex"></span></span>
+                          <button type="button" class="msb-composer-slide-caption-close" id="createPostSlideCaptionClose" aria-label="Close subtitle">&times;</button>
+                        </div>
+                        <div class="msb-composer-body-shell msb-composer-slide-caption-shell">
+                          <textarea id="createPostSlideCaption" class="form-control msb-composer-body" rows="3" maxlength="500" placeholder="<?= h("What's on your mind, " . explode(' ', $composerName)[0] . '?') ?>" data-msb-mention="1"></textarea>
+                          <span class="msb-composer-body-count" id="createPostSlideCaptionCount">0/500</span>
+                        </div>
+                      </div>
+                      <?php endif; ?>
                     </div>
                   </div>
 
                   <?php if ($isModalCreate): ?>
+                  <div class="msb-composer-panel" data-panel="location" hidden>
+                    <div class="msb-composer-panel-head">
+                      <strong>Location</strong>
+                      <button type="button" class="msb-composer-panel-close" data-close-panel="location" aria-label="Hide location">&times;</button>
+                    </div>
+                    <div class="msb-loc-search" id="createPostLocationSearch">
+                      <div class="msb-loc-input-wrap">
+                        <i class="fa fa-map-marker msb-loc-input-ic" aria-hidden="true"></i>
+                        <input type="text" id="createPostLocation" class="form-control msb-loc-input" maxlength="240" placeholder="Search a place or paste a Google Maps / Apple Maps link" autocomplete="off" value="<?= h((string)($editPost['location_label'] ?? '')) ?>" aria-autocomplete="list" aria-controls="createPostLocationResults" aria-expanded="false">
+                        <button type="button" class="msb-loc-clear" id="createPostLocationClear" aria-label="Clear location"<?= trim((string)($editPost['location_label'] ?? '')) === '' ? ' hidden' : '' ?>>&times;</button>
+                      </div>
+                      <input type="hidden" name="location_label" id="createPostLocationLabel" value="<?= h((string)($editPost['location_label'] ?? '')) ?>">
+                      <input type="hidden" name="location_lat" id="createPostLocationLat" value="">
+                      <input type="hidden" name="location_lng" id="createPostLocationLng" value="">
+                      <input type="hidden" name="location_url" id="createPostLocationUrl" value="">
+                      <div class="msb-loc-hint">Type a city or landmark, then pick from the list — or paste a map link from your browser.</div>
+                      <div class="msb-loc-status" id="createPostLocationStatus" hidden></div>
+                      <ul class="msb-loc-results" id="createPostLocationResults" role="listbox" hidden></ul>
+                      <div class="msb-loc-selected" id="createPostLocationSelected"<?= trim((string)($editPost['location_label'] ?? '')) === '' ? ' hidden' : '' ?>>
+                        <i class="fa fa-map-marker" aria-hidden="true"></i>
+                        <span id="createPostLocationSelectedText"><?= h((string)($editPost['location_label'] ?? '')) ?></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="msb-composer-panel" data-panel="feeling" hidden>
+                    <div class="msb-composer-panel-head">
+                      <strong>Feeling / Activity</strong>
+                      <button type="button" class="msb-composer-panel-close" data-close-panel="feeling" aria-label="Hide feeling">&times;</button>
+                    </div>
+                    <?php
+                      $feelingOptions = [
+                        ['value' => 'happy', 'emoji' => '😊', 'label' => 'Feeling happy'],
+                        ['value' => 'blessed', 'emoji' => '😄', 'label' => 'Feeling blessed'],
+                        ['value' => 'excited', 'emoji' => '😁', 'label' => 'Feeling excited'],
+                        ['value' => 'relaxed', 'emoji' => '😌', 'label' => 'Feeling relaxed'],
+                        ['value' => 'tired', 'emoji' => '😔', 'label' => 'Feeling tired'],
+                        ['value' => 'grateful', 'emoji' => '😀', 'label' => 'Feeling grateful'],
+                        ['value' => 'loved', 'emoji' => '❤️', 'label' => 'Feeling loved'],
+                        ['value' => 'motivated', 'emoji' => '✨', 'label' => 'Feeling motivated'],
+                        ['value' => 'sick', 'emoji' => '🤢', 'label' => 'Feeling sick'],
+                        ['value' => 'angry', 'emoji' => '😡', 'label' => 'Feeling angry'],
+                        ['value' => 'sad', 'emoji' => '☹️', 'label' => 'Feeling sad'],
+                      ];
+                      $activityOptions = [
+                        ['value' => 'celebrating', 'emoji' => '🎉', 'label' => 'Celebrating'],
+                        ['value' => 'watching', 'emoji' => '📺', 'label' => 'Watching'],
+                        ['value' => 'eating', 'emoji' => '🍕', 'label' => 'Eating'],
+                        ['value' => 'drinking', 'emoji' => '☕', 'label' => 'Drinking'],
+                        ['value' => 'traveling', 'emoji' => '✈️', 'label' => 'Traveling'],
+                        ['value' => 'listening', 'emoji' => '🎧', 'label' => 'Listening to music'],
+                        ['value' => 'working', 'emoji' => '💼', 'label' => 'Working'],
+                        ['value' => 'thinking', 'emoji' => '🤔', 'label' => 'Thinking'],
+                      ];
+                      $editFeelingRaw = trim((string)($editPost['feeling_label'] ?? ''));
+                      $editFeelingNorm = strtolower(preg_replace('/^\s*feeling\s+/i', '', $editFeelingRaw) ?? $editFeelingRaw);
+                      $editFeelingNorm = trim(preg_replace('/[^\p{L}\p{N}\s]/u', '', $editFeelingNorm) ?? $editFeelingNorm);
+                    ?>
+                    <input type="hidden" name="feeling_label" id="createPostFeeling" value="<?= h($editFeelingRaw) ?>">
+                    <div class="msb-feeling-tabs" role="tablist" aria-label="Feeling or activity">
+                      <button type="button" class="msb-feeling-tab is-active" data-feeling-tab="feelings" role="tab" aria-selected="true">Feelings</button>
+                      <button type="button" class="msb-feeling-tab" data-feeling-tab="activities" role="tab" aria-selected="false">Activities</button>
+                    </div>
+                    <div class="msb-feeling-list" id="createPostFeelingListFeelings" role="listbox" aria-label="Feelings">
+                      <?php foreach ($feelingOptions as $opt):
+                        $isOn = ($editFeelingNorm !== '' && (
+                          $editFeelingNorm === $opt['value']
+                          || str_contains($editFeelingNorm, $opt['value'])
+                          || str_contains(strtolower($editFeelingRaw), strtolower($opt['label']))
+                        ));
+                      ?>
+                      <button
+                        type="button"
+                        class="msb-feeling-item<?= $isOn ? ' is-selected' : '' ?>"
+                        role="option"
+                        aria-selected="<?= $isOn ? 'true' : 'false' ?>"
+                        data-feeling-value="<?= h($opt['value']) ?>"
+                        data-feeling-emoji="<?= h($opt['emoji']) ?>"
+                        data-feeling-kind="feeling"
+                      >
+                        <span class="msb-feeling-emoji" aria-hidden="true"><?= $opt['emoji'] ?></span>
+                        <span class="msb-feeling-text"><?= h($opt['label']) ?></span>
+                        <span class="msb-feeling-check" aria-hidden="true"><i class="fa fa-check"></i></span>
+                      </button>
+                      <?php endforeach; ?>
+                    </div>
+                    <div class="msb-feeling-list" id="createPostFeelingListActivities" role="listbox" aria-label="Activities" hidden>
+                      <?php foreach ($activityOptions as $opt):
+                        $isOn = ($editFeelingNorm !== '' && (
+                          $editFeelingNorm === $opt['value']
+                          || str_contains($editFeelingNorm, $opt['value'])
+                          || str_contains(strtolower($editFeelingRaw), strtolower($opt['label']))
+                        ));
+                      ?>
+                      <button
+                        type="button"
+                        class="msb-feeling-item<?= $isOn ? ' is-selected' : '' ?>"
+                        role="option"
+                        aria-selected="<?= $isOn ? 'true' : 'false' ?>"
+                        data-feeling-value="<?= h($opt['value']) ?>"
+                        data-feeling-emoji="<?= h($opt['emoji']) ?>"
+                        data-feeling-kind="activity"
+                      >
+                        <span class="msb-feeling-emoji" aria-hidden="true"><?= $opt['emoji'] ?></span>
+                        <span class="msb-feeling-text"><?= h($opt['label']) ?></span>
+                        <span class="msb-feeling-check" aria-hidden="true"><i class="fa fa-check"></i></span>
+                      </button>
+                      <?php endforeach; ?>
+                    </div>
+                    <button type="button" class="msb-feeling-clear" id="createPostFeelingClear"<?= $editFeelingRaw === '' ? ' hidden' : '' ?>>Clear selection</button>
+                  </div>
+                  <div class="msb-composer-panel" data-panel="link" hidden>
+                    <div class="msb-composer-panel-head">
+                      <strong>Link</strong>
+                      <button type="button" class="msb-composer-panel-close" data-close-panel="link" aria-label="Hide link">&times;</button>
+                    </div>
+                    <div class="msb-link-attach" id="createPostLinkAttach">
+                      <div class="msb-loc-input-wrap">
+                        <i class="fa fa-link msb-loc-input-ic" aria-hidden="true" style="color:#0891b2"></i>
+                        <input type="url" id="createPostLinkInput" class="form-control msb-loc-input" maxlength="500" placeholder="Paste a website link from your browser" autocomplete="off" value="<?= h((string)($editPost['link_url'] ?? '')) ?>">
+                        <button type="button" class="msb-loc-clear" id="createPostLinkClear" aria-label="Clear link"<?= trim((string)($editPost['link_url'] ?? '')) === '' ? ' hidden' : '' ?>>&times;</button>
+                      </div>
+                      <input type="hidden" name="link_url" id="createPostLinkUrl" value="<?= h((string)($editPost['link_url'] ?? '')) ?>">
+                      <input type="hidden" name="link_image" id="createPostLinkImage" value="<?= h((string)($editPost['link_image'] ?? '')) ?>">
+                      <div class="msb-loc-hint">Paste a full URL, then edit the title, description, and topic chips so friends see clear details on the card.</div>
+                      <div class="msb-loc-status" id="createPostLinkStatus" hidden></div>
+                      <div class="msb-link-preview-card" id="createPostLinkPreview"<?= trim((string)($editPost['link_url'] ?? '')) === '' ? ' hidden' : '' ?>>
+                        <div class="msb-link-preview-main">
+                          <?php
+                            $editLinkUrl = trim((string)($editPost['link_url'] ?? ''));
+                            $editLinkHost = '';
+                            if ($editLinkUrl !== '') {
+                              $hp = parse_url($editLinkUrl);
+                              $editLinkHost = strtolower((string)($hp['host'] ?? ''));
+                              $editLinkHost = preg_replace('/^www\./i', '', $editLinkHost) ?: $editLinkHost;
+                              if ($editLinkHost !== '') {
+                                $editLinkHost = 'www.' . $editLinkHost;
+                              }
+                            }
+                            $editLinkImage = trim((string)($editPost['link_image'] ?? ''));
+                            $editLinkTitleRaw = trim((string)($editPost['link_title'] ?? ''));
+                            if ($editLinkTitleRaw !== '' && preg_match('/request has been blocked|access denied|just a moment|forbidden|captcha|unusual traffic/i', $editLinkTitleRaw)) {
+                              $editLinkTitleRaw = '';
+                            }
+                            $editLinkDescRaw = trim((string)($editPost['link_description'] ?? ''));
+                            if ($editLinkDescRaw !== '' && preg_match('/request has been blocked|access denied|just a moment|forbidden|captcha|unusual traffic/i', $editLinkDescRaw)) {
+                              $editLinkDescRaw = '';
+                            }
+                            $editLinkTagsRaw = trim((string)($editPost['link_tags'] ?? ''));
+                            $editLinkTagsList = $editLinkTagsRaw !== '' ? preg_split('/[,|;]+/', $editLinkTagsRaw) : [];
+                            $editLinkTagsList = array_values(array_filter(array_map('trim', is_array($editLinkTagsList) ? $editLinkTagsList : [])));
+                          ?>
+                          <div class="msb-link-preview-media<?= $editLinkImage !== '' && (str_contains($editLinkImage, 'unavatar.io') || str_contains($editLinkImage, 'google.com/s2/favicons')) ? ' is-logo' : '' ?>" id="createPostLinkPreviewMedia"<?= $editLinkImage === '' ? ' hidden' : '' ?>>
+                            <img id="createPostLinkPreviewImg" src="<?= h($editLinkImage) ?>" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                          </div>
+                          <div class="msb-link-preview-side">
+                            <div class="msb-link-preview-body">
+                              <div class="msb-link-preview-top">
+                                <div class="msb-link-preview-host" id="createPostLinkHost"><?= h($editLinkHost) ?></div>
+                                <span class="msb-link-preview-info" title="Website preview" aria-hidden="true"><i class="fa fa-info-circle"></i></span>
+                              </div>
+                              <div class="msb-link-preview-title" id="createPostLinkPreviewTitle"><?= h($editLinkTitleRaw !== '' ? $editLinkTitleRaw : ($editLinkHost !== '' ? $editLinkHost : 'Visit Website')) ?></div>
+                              <div class="msb-link-preview-desc" id="createPostLinkPreviewDesc"><?= h($editLinkDescRaw !== '' ? $editLinkDescRaw : 'Open this website to see the full page, details, and latest updates.') ?></div>
+                              <div class="msb-link-preview-chips" id="createPostLinkPreviewChips"<?= $editLinkTagsList === [] ? ' hidden' : '' ?>>
+                                <?php foreach (array_slice($editLinkTagsList, 0, 4) as $chip): ?>
+                                  <span class="msb-link-preview-chip"><?= h($chip) ?></span>
+                                <?php endforeach; ?>
+                              </div>
+                            </div>
+                            <div class="msb-link-preview-cta"><i class="fa fa-link" aria-hidden="true"></i><span>Visit Website</span><i class="fa fa-chevron-right" aria-hidden="true"></i></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="msb-link-edit-fields" id="createPostLinkEditFields"<?= trim((string)($editPost['link_url'] ?? '')) === '' ? ' hidden' : '' ?>>
+                        <label class="msb-link-edit-label" for="createPostLinkTitle">Title</label>
+                        <input type="text" name="link_title" id="createPostLinkTitle" class="form-control" maxlength="180" placeholder="Link title" value="<?= h($editLinkTitleRaw) ?>" autocomplete="off">
+                        <label class="msb-link-edit-label" for="createPostLinkDescription">Description</label>
+                        <textarea name="link_description" id="createPostLinkDescription" class="form-control" maxlength="280" rows="2" placeholder="Short description friends will see"><?= h($editLinkDescRaw) ?></textarea>
+                        <label class="msb-link-edit-label" for="createPostLinkTags">Topics (comma separated)</label>
+                        <input type="text" name="link_tags" id="createPostLinkTags" class="form-control" maxlength="280" placeholder="Things to Do, Hotels, Dining, Travel Tips" value="<?= h($editLinkTagsRaw) ?>" autocomplete="off">
+                      </div>
+                    </div>
+                  </div>
                   <div class="msb-composer-addbar" role="toolbar" aria-label="Add to your post">
                     <span class="msb-composer-addbar-label">Add to your post</span>
                     <div class="msb-composer-addbar-icons">
-                      <button type="button" class="msb-composer-tool" data-emoji-picker="1" title="Emoji" aria-label="Emoji" aria-expanded="false" aria-controls="msbComposerEmojiPicker"><i class="fa fa-smile-o" aria-hidden="true"></i></button>
-                      <button type="button" class="msb-composer-tool" data-open-panel="media" title="Photo / video" aria-label="Photo or video"><i class="fa fa-image" aria-hidden="true"></i></button>
-                      <button type="button" class="msb-composer-tool" data-open-panel="tag" title="Tag people" aria-label="Tag people"><i class="fa fa-user-plus" aria-hidden="true"></i></button>
-                      <button type="button" class="msb-composer-tool" data-open-panel="music" title="Music" aria-label="Music"><i class="fa fa-music" aria-hidden="true"></i></button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="media" title="Photo / video" aria-label="Photo or video">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-image" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">Photo/Video</span>
+                      </button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="feeling" title="Feeling / Activity" aria-label="Feeling or activity">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-smile-o" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">Feeling</span>
+                      </button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="location" title="Location" aria-label="Location">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-map-marker" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">Location</span>
+                      </button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="music" title="Music" aria-label="Music">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-music" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">Music</span>
+                      </button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="tag" title="Tag people" aria-label="Tag people">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-user-plus" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">Tag People</span>
+                      </button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="link" title="Add a link" aria-label="Add a link">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-link" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">Link</span>
+                      </button>
                       <?php if (!empty($composerProducts)): ?>
-                      <button type="button" class="msb-composer-tool" data-open-panel="product" title="Tag product" aria-label="Tag product" style="color:#0f766e;"><i class="fa fa-shopping-bag" aria-hidden="true"></i></button>
+                      <button type="button" class="msb-composer-tool" data-open-panel="product" title="Tag product" aria-label="Tag product">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-shopping-bag" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">Product</span>
+                      </button>
+                      <?php else: ?>
+                      <button type="button" class="msb-composer-tool" data-open-panel="more" title="More" aria-label="More options">
+                        <span class="msb-composer-tool-icon"><i class="fa fa-ellipsis-h" aria-hidden="true"></i></span>
+                        <span class="msb-composer-tool-label">More</span>
+                      </button>
                       <?php endif; ?>
-                      <button type="button" class="msb-composer-tool" data-open-panel="title" title="Title" aria-label="Title"><span class="msb-composer-aa">Aa</span></button>
                     </div>
                   </div>
                   <div class="msb-composer-emoji-picker" id="msbComposerEmojiPicker" hidden role="dialog" aria-label="Emoji & Symbols">
@@ -2415,7 +3416,14 @@ body.dashboard-page .progress{
                     <div class="msb-composer-emoji-cats" id="msbComposerEmojiCats" role="tablist" aria-label="Emoji categories"></div>
                   </div>
                   <div class="msb-composer-footer">
-                    <button type="submit" id="createPostSubmitBtn" class="btn btn-primary msb-composer-post-btn">Post</button>
+                    <button type="button" class="msb-composer-settings-btn" id="createPostSettingsBtn" title="Post settings">
+                      <i class="fa fa-cog" aria-hidden="true"></i>
+                      <span>Post settings</span>
+                    </button>
+                    <div class="msb-composer-footer-actions">
+                      <button type="button" class="btn msb-composer-schedule-btn" id="createPostScheduleBtn" title="Schedule post"><i class="fa fa-calendar" aria-hidden="true"></i> Schedule</button>
+                      <button type="submit" id="createPostSubmitBtn" class="btn btn-primary msb-composer-post-btn">Post</button>
+                    </div>
                     <button type="button" class="btn btn-outline-secondary msb-composer-cancel-btn" onclick="try{if(window.parent&&window.parent.MSBCreatePostModal){window.parent.MSBCreatePostModal.close();}}catch(_e){}">Cancel</button>
                   </div>
                   <?php endif; ?>
@@ -2561,10 +3569,17 @@ document.addEventListener('DOMContentLoaded', function(){
   function syncReturnToFromVisibility(){
     if (!returnToInput) return;
     const vis = visibilitySel ? String(visibilitySel.value || 'friends') : 'friends';
+    const audienceIcon = visibilitySel && visibilitySel.closest('.msb-composer-audience-pill')
+      ? visibilitySel.closest('.msb-composer-audience-pill').querySelector('i.fa:not(.fa-caret-down)')
+      : null;
+    if (audienceIcon) {
+      audienceIcon.classList.remove('fa-lock', 'fa-users', 'fa-globe');
+      audienceIcon.classList.add(vis === 'private' ? 'fa-lock' : (vis === 'public' ? 'fa-globe' : 'fa-users'));
+    }
     // Profile story "+" stays on profile. Private → Gallery Private tab.
     // Other story "+" → feed/public. Left-nav "+" → post card surface.
     if (vis === 'private') {
-      returnToInput.value = 'profile.php?tab=gallery&gallery_vis=private';
+      returnToInput.value = 'profile.php?tab=posts';
       return;
     }
     if (isStoryCreateForm && fromProfileCreate) {
@@ -2572,9 +3587,9 @@ document.addEventListener('DOMContentLoaded', function(){
       return;
     }
     if (vis === 'public') {
-      returnToInput.value = isStoryCreateForm ? 'public.php?story=1' : 'public.php';
+      returnToInput.value = isStoryCreateForm ? 'home.php?tab=discover&story=1' : 'home.php?tab=discover';
     } else {
-      returnToInput.value = isStoryCreateForm ? 'feed.php?story=1' : 'feed.php';
+      returnToInput.value = isStoryCreateForm ? 'home.php?tab=for-you&story=1' : 'home.php?tab=for-you';
     }
   }
   syncReturnToFromVisibility();
@@ -2751,6 +3766,9 @@ document.addEventListener('DOMContentLoaded', function(){
     renumberSlideCards();
     syncPendingStatusMessage();
     syncSubmitEnabled();
+    try {
+      if (typeof window.msbRefreshSlideCaption === 'function') window.msbRefreshSlideCaption(card);
+    } catch (_cap) {}
   }
 
   function scrollSlidesToLatest(card){
@@ -2849,6 +3867,11 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     } catch (_openMedia) {}
     scrollSlidesToLatest(card);
+    try {
+      if (typeof window.msbSelectCreatePostSlide === 'function') {
+        window.msbSelectCreatePostSlide(card);
+      }
+    } catch (_sel) {}
   }
 
   function formatBytes(n){
@@ -3277,6 +4300,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
     const fd = new FormData(f);
     fd.set('ajax', '1');
+    // Guarantee people tags are posted (chips → hidden → FormData).
+    try {
+      var tagger = window.__msbCreatePostTagger;
+      if (tagger && typeof tagger.syncHidden === 'function') tagger.syncHidden();
+      var tagHidden = document.getElementById('createPostTaggedUserIds');
+      var tagIds = tagHidden ? String(tagHidden.value || '').trim() : '';
+      if (!tagIds && tagger && typeof tagger.getIds === 'function') {
+        tagIds = tagger.getIds().join(',');
+      }
+      fd.set('tagged_user_ids', tagIds);
+    } catch (_tagFd) {}
     // Guarantee edit id is sent even if the hidden field was wiped by a partial DOM refresh.
     const postIdInput = document.getElementById('createPostId') || f.querySelector('input[name="post_id"]');
     const editPostId = postIdInput ? Number(postIdInput.value || 0) : 0;
@@ -3318,22 +4352,53 @@ document.addEventListener('DOMContentLoaded', function(){
       setProgress(100, true);
       const data = payload && payload.data;
       if (data && data.ok) {
-        const target = String(data.redirect || ('feed.php?post=' + String(data.post_id || '') + '&fresh=1'));
         const postId = Number(data.post_id || 0);
+        const visOut = String(data.visibility || '').toLowerCase();
+        let target = String(data.redirect || '');
+        if (!target) {
+          if (visOut === 'private') {
+            target = 'profile.php?tab=posts&post=' + String(postId || '') + '&fresh=1';
+          } else if (visOut === 'public') {
+            target = 'home.php?tab=discover&post=' + String(postId || '') + '&fresh=1';
+          } else {
+            target = 'home.php?tab=for-you&post=' + String(postId || '') + '&fresh=1';
+          }
+        }
+        // Private posts always land on Profile → Posts (never Gallery grid).
+        if (visOut === 'private' && !data.story) {
+          target = 'profile.php?tab=posts&post=' + String(postId || '') + '&fresh=1';
+        }
+        /* Prefer unified home tabs when server still returns legacy feed/public. */
+        try {
+          if (/^(feed|public)\.php/i.test(target)) {
+            var mapped = new URL(target, window.location.href);
+            var isPublicDest = /^public\.php/i.test(mapped.pathname.split('/').pop() || '');
+            var storyKey = mapped.searchParams.has('story_post');
+            var idVal = mapped.searchParams.get(storyKey ? 'story_post' : 'post') || String(postId || '');
+            var freshVal = mapped.searchParams.get('fresh') || '1';
+            target = 'home.php?tab=' + (isPublicDest ? 'discover' : 'for-you')
+              + '&' + (storyKey ? 'story_post' : 'post') + '=' + encodeURIComponent(idVal)
+              + '&fresh=' + encodeURIComponent(freshVal);
+          }
+        } catch (_map) {}
         setStatus('Posted!', false);
         // Modal: soft-refresh parent feed (no full page reload) for ~2–3s publish.
         try {
           if (isModal && window.parent && window.parent !== window) {
+            try { window.parent.__msbCreatePostNavigating = true; } catch (_navFlag) {}
             window.parent.postMessage({
               type: 'msb-create-post-done',
               postId: postId,
               redirect: target,
               story: !!(data.story),
-              visibility: String(data.visibility || ((returnToInput && /tab=discover/i.test(String(returnToInput.value || ''))) ? 'public' : 'friends')),
+              visibility: visOut || ((returnToInput && /tab=discover/i.test(String(returnToInput.value || ''))) ? 'public' : 'friends'),
               surface: String(data.surface || '')
             }, '*');
             // If parent handled it, this iframe is torn down. Otherwise hard-navigate.
             setTimeout(function(){
+              try {
+                if (window.parent && window.parent.__msbCreatePostNavigating) return;
+              } catch (_handled) {}
               try {
                 if (window.top && window.top !== window) window.top.location.replace(target);
                 else window.location.replace(target);
@@ -3375,6 +4440,7 @@ document.addEventListener('DOMContentLoaded', function(){
     hidden: document.getElementById('createPostTaggedUserIds'),
     input: document.getElementById('createPostTagPeopleInput')
   });
+  window.__msbCreatePostTagger = tagger || null;
   var seed = <?php echo json_encode(array_map(static function ($u) {
     return [
       'id' => (int)($u['id'] ?? 0),
@@ -3386,6 +4452,16 @@ document.addEventListener('DOMContentLoaded', function(){
   if (tagger && Array.isArray(seed)) {
     seed.forEach(function(u){ if (u && u.id) tagger.addUser(u); });
   }
+  // Keep Tag People panel open when chips already exist (edit / restore).
+  try {
+    if (tagger && typeof tagger.getIds === 'function' && tagger.getIds().length) {
+      var tagPanel = document.querySelector('.msb-composer-panel[data-panel="tag"]');
+      if (tagPanel) {
+        tagPanel.hidden = false;
+        tagPanel.classList.add('is-open');
+      }
+    }
+  } catch (_tagOpen) {}
 })();
 </script>
 <?php if ($isModalCreate): ?>
@@ -3435,16 +4511,25 @@ document.addEventListener('DOMContentLoaded', function(){
       var musicInput = form.querySelector('input[name="music_title"]');
       if (musicInput) setTimeout(function(){ musicInput.focus(); }, 40);
     }
+    if (key === 'feeling') {
+      var feelingList = document.querySelector('.msb-feeling-item.is-selected') || document.querySelector('.msb-feeling-item');
+      if (feelingList) setTimeout(function(){ try { feelingList.focus(); } catch (_e) {} }, 40);
+    }
+    if (key === 'location') {
+      var locationInput = document.getElementById('createPostLocation');
+      if (locationInput) setTimeout(function(){ locationInput.focus(); }, 40);
+    }
+    if (key === 'link') {
+      var linkInput = document.getElementById('createPostLinkInput');
+      if (linkInput) setTimeout(function(){ linkInput.focus(); }, 40);
+    }
   }
 
   function closePanel(key){
     var panel = form.querySelector('.msb-composer-panel[data-panel="'+key+'"]');
     if (!panel) return;
-    /* Keep media panel open if slides still exist. */
-    if (key === 'media') {
-      var slides = document.getElementById('createPostSlides');
-      if (slides && slides.querySelector('.create-post-slide')) return;
-    }
+    /* Keep media dropzone always visible in the redesigned modal. */
+    if (key === 'media') return;
     panel.hidden = true;
     panel.classList.remove('is-open');
     syncTools();
@@ -3453,9 +4538,769 @@ document.addEventListener('DOMContentLoaded', function(){
 
   window.msbComposerOpenPanel = function(key){ openPanel(key, {}); };
 
+  /* Always keep media dropzone open in the redesigned modal. */
+  openPanel('media', {});
+
   var editIdEl = document.getElementById('createPostId');
   if (editIdEl && Number(editIdEl.value || 0) > 0) {
     openPanel('media', {});
+  }
+  var feelingPrefill = document.getElementById('createPostFeeling');
+  if (feelingPrefill && String(feelingPrefill.value || '').trim()) openPanel('feeling', {});
+  var locationLabelPrefill = document.getElementById('createPostLocationLabel');
+  if (locationLabelPrefill && String(locationLabelPrefill.value || '').trim()) openPanel('location', {});
+  var linkUrlPrefill = document.getElementById('createPostLinkUrl');
+  if (linkUrlPrefill && String(linkUrlPrefill.value || '').trim()) openPanel('link', {});
+
+  /* Feeling / Activity picker */
+  (function wireCreatePostFeeling(){
+    var input = document.getElementById('createPostFeeling');
+    var clearBtn = document.getElementById('createPostFeelingClear');
+    var feelingsList = document.getElementById('createPostFeelingListFeelings');
+    var activitiesList = document.getElementById('createPostFeelingListActivities');
+    var tabs = document.querySelectorAll('.msb-feeling-tab');
+    if (!input) return;
+
+    function allItems(){
+      return Array.prototype.slice.call(document.querySelectorAll('.msb-feeling-item'));
+    }
+
+    function setSelected(btn){
+      allItems().forEach(function(el){
+        var on = el === btn;
+        el.classList.toggle('is-selected', on);
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      if (!btn) {
+        input.value = '';
+        if (clearBtn) clearBtn.hidden = true;
+        fitParent();
+        return;
+      }
+      var value = String(btn.getAttribute('data-feeling-value') || '').trim();
+      var emoji = String(btn.getAttribute('data-feeling-emoji') || '').trim();
+      input.value = (emoji ? (emoji + ' ') : '') + value;
+      if (clearBtn) clearBtn.hidden = !input.value;
+      fitParent();
+    }
+
+    allItems().forEach(function(btn){
+      btn.addEventListener('click', function(){
+        if (btn.classList.contains('is-selected')) {
+          setSelected(null);
+          return;
+        }
+        setSelected(btn);
+      });
+    });
+
+    tabs.forEach(function(tab){
+      tab.addEventListener('click', function(){
+        var key = String(tab.getAttribute('data-feeling-tab') || 'feelings');
+        tabs.forEach(function(t){
+          var on = t === tab;
+          t.classList.toggle('is-active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        if (feelingsList) feelingsList.hidden = key !== 'feelings';
+        if (activitiesList) activitiesList.hidden = key !== 'activities';
+        fitParent();
+      });
+    });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        setSelected(null);
+      });
+    }
+
+    var selected = document.querySelector('.msb-feeling-item.is-selected');
+    if (selected && String(selected.getAttribute('data-feeling-kind') || '') === 'activity') {
+      var actTab = document.querySelector('.msb-feeling-tab[data-feeling-tab="activities"]');
+      if (actTab) actTab.click();
+    }
+  })();
+
+  /* Attach website link (paste from browser) */
+  (function wireCreatePostLink(){
+    var input = document.getElementById('createPostLinkInput');
+    var urlEl = document.getElementById('createPostLinkUrl');
+    var titleEl = document.getElementById('createPostLinkTitle');
+    var descEl = document.getElementById('createPostLinkDescription');
+    var tagsEl = document.getElementById('createPostLinkTags');
+    var imageEl = document.getElementById('createPostLinkImage');
+    var statusEl = document.getElementById('createPostLinkStatus');
+    var clearBtn = document.getElementById('createPostLinkClear');
+    var preview = document.getElementById('createPostLinkPreview');
+    var editFields = document.getElementById('createPostLinkEditFields');
+    var hostEl = document.getElementById('createPostLinkHost');
+    var titlePrev = document.getElementById('createPostLinkPreviewTitle');
+    var descPrev = document.getElementById('createPostLinkPreviewDesc');
+    var chipsPrev = document.getElementById('createPostLinkPreviewChips');
+    var mediaWrap = document.getElementById('createPostLinkPreviewMedia');
+    var mediaImg = document.getElementById('createPostLinkPreviewImg');
+    if (!input || !urlEl) return;
+
+    var timer = null;
+    var seq = 0;
+    var endpoint = 'ajax/post_link_preview.php';
+    var defaultDesc = 'Open this website to see the full page, details, and latest updates.';
+
+    function setStatus(msg, isError){
+      if (!statusEl) return;
+      if (!msg) {
+        statusEl.hidden = true;
+        statusEl.textContent = '';
+        statusEl.classList.remove('is-error');
+        return;
+      }
+      statusEl.hidden = false;
+      statusEl.textContent = msg;
+      statusEl.classList.toggle('is-error', !!isError);
+    }
+
+    function parseTags(raw){
+      var out = [];
+      String(raw || '').split(/[,|;]+/).forEach(function(t){
+        t = String(t || '').replace(/\s+/g, ' ').trim();
+        if (!t || t.length > 32) return;
+        if (out.indexOf(t) === -1) out.push(t);
+      });
+      return out.slice(0, 4);
+    }
+
+    function renderChips(tags){
+      if (!chipsPrev) return;
+      tags = Array.isArray(tags) ? tags : [];
+      chipsPrev.innerHTML = '';
+      if (!tags.length) {
+        chipsPrev.hidden = true;
+        return;
+      }
+      tags.forEach(function(tag){
+        var span = document.createElement('span');
+        span.className = 'msb-link-preview-chip';
+        span.textContent = tag;
+        chipsPrev.appendChild(span);
+      });
+      chipsPrev.hidden = false;
+    }
+
+    function syncPreviewFromFields(){
+      var title = titleEl ? String(titleEl.value || '').trim() : '';
+      var desc = descEl ? String(descEl.value || '').trim() : '';
+      var tags = tagsEl ? parseTags(tagsEl.value) : [];
+      if (titlePrev) titlePrev.textContent = title || (hostEl ? hostEl.textContent : '') || 'Visit Website';
+      if (descPrev) descPrev.textContent = desc || defaultDesc;
+      renderChips(tags);
+    }
+
+    function hidePreview(){
+      if (preview) preview.hidden = true;
+      if (editFields) editFields.hidden = true;
+      if (hostEl) hostEl.textContent = '';
+      if (titlePrev) titlePrev.textContent = '';
+      if (descPrev) descPrev.textContent = '';
+      renderChips([]);
+      if (mediaImg) mediaImg.removeAttribute('src');
+      if (mediaWrap) {
+        mediaWrap.hidden = true;
+        mediaWrap.classList.remove('is-logo');
+      }
+    }
+
+    function clearSavedLink(){
+      urlEl.value = '';
+      if (titleEl) titleEl.value = '';
+      if (descEl) descEl.value = '';
+      if (tagsEl) tagsEl.value = '';
+      if (imageEl) imageEl.value = '';
+    }
+
+    function clearLink(){
+      clearSavedLink();
+      input.value = '';
+      hidePreview();
+      if (clearBtn) clearBtn.hidden = true;
+      setStatus('');
+      input.focus();
+      fitParent();
+    }
+
+    function looksLikeUrl(raw){
+      raw = String(raw || '').trim();
+      if (!raw) return false;
+      if (/\s/.test(raw)) return false;
+      if (/^https?:\/\//i.test(raw)) return true;
+      return /^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/:?#].*)?$/i.test(raw);
+    }
+
+    function applyLink(link, partial){
+      if (!link || !link.url) return;
+      urlEl.value = String(link.url || '').slice(0, 500);
+      var title = String(link.title || '').slice(0, 180);
+      var desc = String(link.description || '').slice(0, 280) || defaultDesc;
+      var tagsCsv = String(link.tags_csv || '').trim();
+      if (!tagsCsv && Array.isArray(link.tags)) tagsCsv = link.tags.join(', ');
+      if (titleEl) titleEl.value = title;
+      if (descEl) descEl.value = desc;
+      if (tagsEl) tagsEl.value = tagsCsv.slice(0, 280);
+      var image = String(link.image || '').trim().slice(0, 500);
+      var imageFallback = String(link.image_fallback || '').trim();
+      var isLogo = !!link.is_logo;
+      if (imageEl) imageEl.value = image;
+      input.value = urlEl.value;
+      if (hostEl) hostEl.textContent = String(link.host ? ((/^www\./i.test(link.host) ? link.host : ('www.' + link.host))) : '');
+      syncPreviewFromFields();
+      if (image && mediaImg && mediaWrap) {
+        mediaImg.onerror = null;
+        if (imageFallback && imageFallback !== image) {
+          mediaImg.onerror = function(){
+            mediaImg.onerror = null;
+            mediaImg.src = imageFallback;
+            mediaWrap.classList.add('is-logo');
+          };
+        }
+        mediaImg.src = image;
+        mediaWrap.hidden = false;
+        mediaWrap.classList.toggle('is-logo', isLogo);
+      } else {
+        if (mediaImg) {
+          mediaImg.onerror = null;
+          mediaImg.removeAttribute('src');
+        }
+        if (mediaWrap) {
+          mediaWrap.hidden = true;
+          mediaWrap.classList.remove('is-logo');
+        }
+      }
+      if (preview) preview.hidden = false;
+      if (editFields) editFields.hidden = false;
+      if (clearBtn) clearBtn.hidden = false;
+      setStatus(partial
+        ? 'Link attached. Edit the title, description, and topics below so friends see clear details.'
+        : 'Link attached. You can edit the title, description, and topics below.');
+      fitParent();
+    }
+
+    function rejectInvalid(msg){
+      clearSavedLink();
+      hidePreview();
+      if (clearBtn) clearBtn.hidden = !String(input.value || '').trim();
+      setStatus(msg || 'Paste a full website URL (example: https://www.apple.com).', true);
+      fitParent();
+    }
+
+    function fetchPreview(raw){
+      raw = String(raw || '').trim();
+      if (!raw) {
+        clearLink();
+        return;
+      }
+      if (!looksLikeUrl(raw)) {
+        rejectInvalid('That does not look like a valid link. Paste a full URL from your browser.');
+        return;
+      }
+      var mySeq = ++seq;
+      setStatus('Fetching link preview…');
+      if (clearBtn) clearBtn.hidden = false;
+      fetch(endpoint + '?url=' + encodeURIComponent(raw), {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (mySeq !== seq) return;
+          if (!data || !data.ok || !data.link) {
+            rejectInvalid((data && data.error) || 'Could not read that link.');
+            return;
+          }
+          applyLink(data.link, !!data.preview_partial);
+        })
+        .catch(function(){
+          if (mySeq !== seq) return;
+          rejectInvalid('Could not fetch that link right now. Try again.');
+        });
+    }
+
+    function schedule(){
+      clearTimeout(timer);
+      var raw = String(input.value || '').trim();
+      if (!raw) {
+        clearSavedLink();
+        hidePreview();
+        if (clearBtn) clearBtn.hidden = true;
+        setStatus('');
+        return;
+      }
+      if (clearBtn) clearBtn.hidden = false;
+      if (!looksLikeUrl(raw)) {
+        clearSavedLink();
+        hidePreview();
+        if (raw.length >= 3) {
+          setStatus('Paste a full website URL (example: https://www.apple.com).', true);
+        } else {
+          setStatus('');
+        }
+        return;
+      }
+      timer = setTimeout(function(){ fetchPreview(raw); }, 280);
+    }
+
+    input.addEventListener('input', schedule);
+    input.addEventListener('paste', function(){ setTimeout(schedule, 0); });
+    input.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        fetchPreview(input.value);
+      }
+    });
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        clearLink();
+      });
+    }
+    ['input', 'change', 'keyup'].forEach(function(evt){
+      if (titleEl) titleEl.addEventListener(evt, syncPreviewFromFields);
+      if (descEl) descEl.addEventListener(evt, syncPreviewFromFields);
+      if (tagsEl) tagsEl.addEventListener(evt, syncPreviewFromFields);
+    });
+    if (urlEl.value) {
+      if (editFields) editFields.hidden = false;
+      syncPreviewFromFields();
+    }
+  })();
+
+  /* Location typeahead + map-link paste */
+  (function wireCreatePostLocationSearch(){
+    var input = document.getElementById('createPostLocation');
+    var labelEl = document.getElementById('createPostLocationLabel');
+    var latEl = document.getElementById('createPostLocationLat');
+    var lngEl = document.getElementById('createPostLocationLng');
+    var urlEl = document.getElementById('createPostLocationUrl');
+    var resultsEl = document.getElementById('createPostLocationResults');
+    var statusEl = document.getElementById('createPostLocationStatus');
+    var clearBtn = document.getElementById('createPostLocationClear');
+    var selectedWrap = document.getElementById('createPostLocationSelected');
+    var selectedText = document.getElementById('createPostLocationSelectedText');
+    if (!input || !labelEl || !resultsEl) return;
+
+    var timer = null;
+    var seq = 0;
+    var activeIdx = -1;
+    var places = [];
+    var endpoint = 'ajax/post_location_search.php';
+
+    function esc(s){
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function looksLikeUrl(q){
+      q = String(q || '').trim();
+      return /^https?:\/\//i.test(q) || /(?:maps\.google|google\.[^/\s]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.apple\.com|openstreetmap\.org)/i.test(q);
+    }
+
+    function setStatus(msg, isError){
+      if (!statusEl) return;
+      if (!msg) {
+        statusEl.hidden = true;
+        statusEl.textContent = '';
+        statusEl.classList.remove('is-error');
+        return;
+      }
+      statusEl.hidden = false;
+      statusEl.textContent = msg;
+      statusEl.classList.toggle('is-error', !!isError);
+    }
+
+    function hideResults(){
+      resultsEl.hidden = true;
+      resultsEl.innerHTML = '';
+      input.setAttribute('aria-expanded', 'false');
+      activeIdx = -1;
+      places = [];
+    }
+
+    function paintSelected(label){
+      label = String(label || '').trim();
+      if (selectedWrap) selectedWrap.hidden = !label;
+      if (selectedText) selectedText.textContent = label;
+      if (clearBtn) clearBtn.hidden = !label && !String(input.value || '').trim();
+    }
+
+    function applyPlace(place, sourceUrl){
+      if (!place) return;
+      var label = String(place.label || place.display_name || '').trim();
+      if (!label) return;
+      labelEl.value = label.slice(0, 120);
+      if (latEl) latEl.value = place.lat != null ? String(place.lat) : '';
+      if (lngEl) lngEl.value = place.lng != null ? String(place.lng) : '';
+      if (urlEl) urlEl.value = String(sourceUrl || '').trim();
+      input.value = label;
+      paintSelected(label);
+      hideResults();
+      setStatus('');
+      fitParent();
+    }
+
+    function clearLocation(){
+      labelEl.value = '';
+      if (latEl) latEl.value = '';
+      if (lngEl) lngEl.value = '';
+      if (urlEl) urlEl.value = '';
+      input.value = '';
+      paintSelected('');
+      hideResults();
+      setStatus('');
+      input.focus();
+      fitParent();
+    }
+
+    function renderResults(list){
+      places = Array.isArray(list) ? list : [];
+      activeIdx = places.length ? 0 : -1;
+      if (!places.length) {
+        hideResults();
+        return;
+      }
+      var html = '';
+      places.forEach(function(p, i){
+        var title = String(p.label || p.name || '').trim();
+        var sub = String(p.display_name || '').trim();
+        if (sub && sub === title) sub = [p.city, p.state, p.country].filter(Boolean).join(', ');
+        html += '<li role="none">'+
+          '<button type="button" class="msb-loc-result'+(i === activeIdx ? ' is-active' : '')+'" role="option" data-idx="'+i+'" aria-selected="'+(i === activeIdx ? 'true' : 'false')+'">'+
+            '<span class="msb-loc-result-ic"><i class="fa fa-map-marker" aria-hidden="true"></i></span>'+
+            '<span class="msb-loc-result-text">'+
+              '<span class="msb-loc-result-title">'+esc(title)+'</span>'+
+              (sub ? '<span class="msb-loc-result-sub">'+esc(sub)+'</span>' : '')+
+            '</span>'+
+          '</button>'+
+        '</li>';
+      });
+      resultsEl.innerHTML = html;
+      resultsEl.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      fitParent();
+    }
+
+    function setActive(idx){
+      if (!places.length) return;
+      activeIdx = Math.max(0, Math.min(places.length - 1, idx));
+      var buttons = resultsEl.querySelectorAll('.msb-loc-result');
+      buttons.forEach(function(btn, i){
+        var on = i === activeIdx;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on && typeof btn.scrollIntoView === 'function') {
+          try { btn.scrollIntoView({ block: 'nearest' }); } catch (_e) {}
+        }
+      });
+    }
+
+    function searchNow(q){
+      q = String(q || '').trim();
+      if (!q) {
+        hideResults();
+        setStatus('');
+        if (!labelEl.value) paintSelected('');
+        return;
+      }
+      if (!looksLikeUrl(q) && q.length < 2) {
+        hideResults();
+        setStatus('Keep typing a place name…');
+        return;
+      }
+      var mySeq = ++seq;
+      setStatus(looksLikeUrl(q) ? 'Reading map link…' : 'Searching places…');
+      fetch(endpoint + '?q=' + encodeURIComponent(q), {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (mySeq !== seq) return;
+          if (!data || !data.ok || !Array.isArray(data.places) || !data.places.length) {
+            hideResults();
+            setStatus((data && data.error) || 'No places found.', true);
+            return;
+          }
+          setStatus(data.places.length === 1 ? 'Select the place below.' : (data.places.length + ' places found — pick one.'));
+          renderResults(data.places);
+          // Auto-select single URL reverse-geocode hit for convenience, still show in list.
+          if (looksLikeUrl(q) && data.places.length === 1) {
+            /* keep list visible so user confirms */
+          }
+        })
+        .catch(function(){
+          if (mySeq !== seq) return;
+          hideResults();
+          setStatus('Could not search right now. Try again.', true);
+        });
+    }
+
+    function scheduleSearch(){
+      var q = String(input.value || '');
+      if (clearBtn) clearBtn.hidden = !q.trim() && !String(labelEl.value || '').trim();
+      // Typing after a selected place clears the committed selection until they pick again.
+      if (String(labelEl.value || '') && q.trim() !== String(labelEl.value || '').trim()) {
+        labelEl.value = '';
+        if (latEl) latEl.value = '';
+        if (lngEl) lngEl.value = '';
+        if (urlEl) urlEl.value = '';
+        paintSelected('');
+      }
+      clearTimeout(timer);
+      timer = setTimeout(function(){ searchNow(q); }, looksLikeUrl(q) ? 180 : 280);
+    }
+
+    input.addEventListener('input', scheduleSearch);
+    input.addEventListener('paste', function(){
+      setTimeout(scheduleSearch, 0);
+    });
+    input.addEventListener('keydown', function(ev){
+      if (resultsEl.hidden) {
+        if (ev.key === 'Enter' && String(input.value || '').trim()) {
+          ev.preventDefault();
+          searchNow(input.value);
+        }
+        return;
+      }
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        setActive(activeIdx + 1);
+      } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        setActive(activeIdx - 1);
+      } else if (ev.key === 'Enter') {
+        if (activeIdx >= 0 && places[activeIdx]) {
+          ev.preventDefault();
+          applyPlace(places[activeIdx], looksLikeUrl(input.value) ? String(input.value).trim() : '');
+        }
+      } else if (ev.key === 'Escape') {
+        hideResults();
+        setStatus('');
+      }
+    });
+
+    resultsEl.addEventListener('click', function(ev){
+      var btn = ev.target && ev.target.closest ? ev.target.closest('.msb-loc-result') : null;
+      if (!btn || !resultsEl.contains(btn)) return;
+      ev.preventDefault();
+      var idx = Number(btn.getAttribute('data-idx') || -1);
+      if (idx >= 0 && places[idx]) {
+        applyPlace(places[idx], looksLikeUrl(input.value) ? String(input.value).trim() : '');
+      }
+    });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        clearLocation();
+      });
+    }
+
+    document.addEventListener('click', function(ev){
+      var wrap = document.getElementById('createPostLocationSearch');
+      if (!wrap || !ev.target) return;
+      if (wrap.contains(ev.target)) return;
+      hideResults();
+    });
+
+    if (String(labelEl.value || '').trim()) {
+      paintSelected(labelEl.value);
+    }
+  })();
+
+  function wirePick(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', function(ev){
+      ev.preventDefault();
+      openPanel('media', { pickFile: true });
+    });
+  }
+  wirePick('createPostChooseFilesBtn');
+  wirePick('createPostAddMoreBtn');
+
+  var cloudBtn = document.getElementById('createPostCloudBtn');
+  if (cloudBtn) {
+    cloudBtn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      openPanel('media', { pickFile: true });
+    });
+  }
+
+  var settingsBtn = document.getElementById('createPostSettingsBtn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      var audience = document.getElementById('createPostVisibility');
+      if (audience) audience.focus();
+    });
+  }
+  var scheduleBtn = document.getElementById('createPostScheduleBtn');
+  if (scheduleBtn) {
+    scheduleBtn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      try { window.alert('Scheduling is coming soon.'); } catch (_e) {}
+    });
+  }
+
+  function bindCounter(inputId, countId, max, pretty){
+    var input = document.getElementById(inputId);
+    var count = document.getElementById(countId);
+    if (!input || !count) return;
+    function paint(){
+      var n = String(input.value || '').length;
+      count.textContent = pretty ? (n.toLocaleString() + '/' + max.toLocaleString()) : (n + '/' + max);
+    }
+    input.addEventListener('input', paint);
+    paint();
+  }
+  bindCounter('createPostTitle', 'createPostTitleCount', 100, false);
+  bindCounter('createPostBody', 'createPostBodyCount', 5000, true);
+
+  /* Click a thumbnail → edit that slide's subtitle in a "What's on your mind" box. */
+  (function(){
+    var slidesBox = document.getElementById('createPostSlides');
+    var wrap = document.getElementById('createPostSlideCaptionWrap');
+    var field = document.getElementById('createPostSlideCaption');
+    var countEl = document.getElementById('createPostSlideCaptionCount');
+    var indexEl = document.getElementById('createPostSlideCaptionIndex');
+    var closeBtn = document.getElementById('createPostSlideCaptionClose');
+    if (!slidesBox || !wrap || !field) return;
+
+    var selectedCard = null;
+
+    function slideTitleInput(card){
+      if (!card) return null;
+      return card.querySelector('input[name^="slide_title["], input[name^="existing_slide_title["]');
+    }
+
+    function slideIndex(card){
+      var cards = slidesBox.querySelectorAll('.create-post-slide');
+      for (var i = 0; i < cards.length; i++) {
+        if (cards[i] === card) return i + 1;
+      }
+      return 0;
+    }
+
+    function paintCount(){
+      if (!countEl) return;
+      countEl.textContent = String(field.value || '').length + '/500';
+    }
+
+    function clearSelection(){
+      selectedCard = null;
+      slidesBox.querySelectorAll('.create-post-slide.is-selected').forEach(function(el){
+        el.classList.remove('is-selected');
+      });
+      wrap.hidden = true;
+      field.value = '';
+      paintCount();
+      if (indexEl) indexEl.textContent = '';
+      fitParent();
+    }
+
+    function selectCard(card, opts){
+      opts = opts || {};
+      if (!card || !slidesBox.contains(card)) {
+        clearSelection();
+        return;
+      }
+      slidesBox.querySelectorAll('.create-post-slide.is-selected').forEach(function(el){
+        el.classList.remove('is-selected');
+      });
+      selectedCard = card;
+      card.classList.add('is-selected');
+      var titleInput = slideTitleInput(card);
+      field.value = titleInput ? String(titleInput.value || '') : '';
+      paintCount();
+      if (indexEl) {
+        var n = slideIndex(card);
+        indexEl.textContent = n ? ('#' + n) : '';
+      }
+      wrap.hidden = false;
+      fitParent();
+      if (!opts.skipFocus) {
+        setTimeout(function(){
+          try { field.focus(); } catch (_f) {}
+        }, 40);
+      }
+    }
+
+    window.msbSelectCreatePostSlide = function(card){ selectCard(card, { skipFocus: false }); };
+    window.msbRefreshSlideCaption = function(removedCard){
+      if (removedCard && selectedCard === removedCard) {
+        var next = slidesBox.querySelector('.create-post-slide');
+        if (next) selectCard(next, { skipFocus: true });
+        else clearSelection();
+        return;
+      }
+      if (selectedCard && !slidesBox.contains(selectedCard)) {
+        clearSelection();
+      } else if (selectedCard) {
+        selectCard(selectedCard, { skipFocus: true });
+      }
+    };
+
+    slidesBox.addEventListener('click', function(ev){
+      if (ev.target.closest('.create-post-slide-remove, .create-post-slide-replace')) return;
+      var card = ev.target.closest('.create-post-slide');
+      if (!card || !slidesBox.contains(card)) return;
+      ev.preventDefault();
+      if (card.classList.contains('is-selected') && !wrap.hidden) {
+        /* Keep open; focus caption again. */
+        selectCard(card);
+        return;
+      }
+      selectCard(card);
+    });
+
+    field.addEventListener('input', function(){
+      paintCount();
+      if (!selectedCard) return;
+      var titleInput = slideTitleInput(selectedCard);
+      if (titleInput) titleInput.value = field.value;
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        clearSelection();
+      });
+    }
+  })();
+
+  /* Drop files onto dashed zone */
+  var dropzone = form.querySelector('.msb-composer-dropzone');
+  if (dropzone) {
+    ['dragenter','dragover'].forEach(function(evt){
+      dropzone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropzone.classList.add('is-drag'); });
+    });
+    ['dragleave','drop'].forEach(function(evt){
+      dropzone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('is-drag'); });
+    });
+    dropzone.addEventListener('drop', function(e){
+      var files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
+      var input = document.getElementById('createPostAttachments');
+      if (!files || !files.length || !input) return;
+      try {
+        var dt = new DataTransfer();
+        Array.prototype.forEach.call(files, function(f){ dt.items.add(f); });
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch (_err) {
+        openPanel('media', { pickFile: true });
+      }
+    });
   }
 
   form.addEventListener('click', function(ev){
@@ -3464,8 +5309,13 @@ document.addEventListener('DOMContentLoaded', function(){
       try { closeEmojiPicker(); } catch (_ce) {}
       ev.preventDefault();
       var key = openBtn.getAttribute('data-open-panel');
+      if (key === 'more') {
+        openPanel('music', {});
+        return;
+      }
       var panel = form.querySelector('.msb-composer-panel[data-panel="'+key+'"]');
-      if (panel && !panel.hasAttribute('hidden') && key === 'media') {
+      /* Media dropzone stays open in modal — Photo/Video always picks files. */
+      if (key === 'media') {
         openPanel(key, { pickFile: true });
         return;
       }
@@ -3473,7 +5323,7 @@ document.addEventListener('DOMContentLoaded', function(){
         closePanel(key);
         return;
       }
-      openPanel(key, { pickFile: key === 'media' });
+      openPanel(key, {});
       return;
     }
     var closeBtn = ev.target.closest('[data-close-panel]');

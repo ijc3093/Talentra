@@ -55,6 +55,7 @@ $meId = $sessionOwnerId > 0 ? $sessionOwnerId : (int)($_SESSION['user_id'] ?? 0)
 $viewId = $meId;
 $profileAlertPostId = (int)($_GET['open_post'] ?? $_GET['post'] ?? 0);
 $profileAlertCommentId = (int)($_GET['open_comment'] ?? 0);
+$profileFreshCreate = ((string)($_GET['fresh'] ?? '') === '1');
 
 $reqId = (int)($_GET['id'] ?? 0);
 $reqUsername = trim((string)($_GET['username'] ?? $_GET['u'] ?? ''));
@@ -1266,6 +1267,10 @@ if (!in_array($galleryVisParam, ['private', 'friends', 'public'], true)) {
 }
 if ($galleryVisParam !== '' && $selectedTab !== 'gallery') {
   $selectedTab = 'gallery';
+}
+// After create → Posts tab list (not Gallery grid / modal).
+if ($profileFreshCreate && $profileAlertPostId > 0 && (int)($_GET['story_post'] ?? 0) <= 0) {
+  $selectedTab = 'posts';
 }
 $profileContentTabs = ['gallery', 'posts', 'tags', 'about', 'saved', 'gear'];
 if (!empty($profileHasShop)) {
@@ -2501,7 +2506,17 @@ try {
       (SELECT COUNT(*) FROM public_post_saves sv WHERE sv.post_id = p.id) AS save_count,
       EXISTS(SELECT 1 FROM public_post_shares s WHERE s.post_id = p.id AND s.user_id = :viewer_share_id) AS my_shared,
       EXISTS(SELECT 1 FROM public_post_saves sv WHERE sv.post_id = p.id AND sv.user_id = :viewer_save_id) AS my_saved,
-      (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count
+      (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count,
+      COALESCE(p.music_title,'') AS music_title,
+      COALESCE(p.music_artist,'') AS music_artist,
+      COALESCE(p.feeling_label,'') AS feeling_label,
+      COALESCE(p.location_label,'') AS location_label,
+      COALESCE(p.link_url,'') AS link_url,
+      COALESCE(p.link_title,'') AS link_title,
+      COALESCE(p.link_description,'') AS link_description,
+      COALESCE(p.link_image,'') AS link_image,
+      COALESCE(p.link_tags,'') AS link_tags,
+      COALESCE(p.sound_id,0) AS sound_id
     FROM public_posts p
     LEFT JOIN public_post_attachments a
       ON a.id = (
@@ -2520,7 +2535,7 @@ try {
   $st->execute($gridParams);
   $grid = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
-  // fallback without views_count column
+  // fallback without views_count / extras columns
   try {
     $st = $dbh->prepare("
       SELECT
@@ -2547,7 +2562,17 @@ try {
         (SELECT COUNT(*) FROM public_post_saves sv WHERE sv.post_id = p.id) AS save_count,
         EXISTS(SELECT 1 FROM public_post_shares s WHERE s.post_id = p.id AND s.user_id = :viewer_share_id) AS my_shared,
         EXISTS(SELECT 1 FROM public_post_saves sv WHERE sv.post_id = p.id AND sv.user_id = :viewer_save_id) AS my_saved,
-        (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count
+        (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count,
+        '' AS music_title,
+        '' AS music_artist,
+        '' AS feeling_label,
+        '' AS location_label,
+        '' AS link_url,
+        '' AS link_title,
+        '' AS link_description,
+        '' AS link_image,
+        '' AS link_tags,
+        0 AS sound_id
       FROM public_posts p
       LEFT JOIN public_post_attachments a
         ON a.id = (
@@ -3064,6 +3089,16 @@ try {
       EXISTS(SELECT 1 FROM public_post_shares s WHERE s.post_id = p.id AND s.user_id = :viewer_share_id) AS my_shared,
       EXISTS(SELECT 1 FROM public_post_saves sv WHERE sv.post_id = p.id AND sv.user_id = :viewer_save_id) AS my_saved,
       (SELECT COUNT(*) FROM public_post_attachments ac WHERE ac.post_id = p.id) AS attachment_count,
+      COALESCE(p.music_title,'') AS music_title,
+      COALESCE(p.music_artist,'') AS music_artist,
+      COALESCE(p.feeling_label,'') AS feeling_label,
+      COALESCE(p.location_label,'') AS location_label,
+      COALESCE(p.link_url,'') AS link_url,
+      COALESCE(p.link_title,'') AS link_title,
+      COALESCE(p.link_description,'') AS link_description,
+      COALESCE(p.link_image,'') AS link_image,
+      COALESCE(p.link_tags,'') AS link_tags,
+      COALESCE(p.sound_id,0) AS sound_id,
       p.user_id AS author_id,
       t.created_at AS tagged_at,
       COALESCE(NULLIF(u.name,''), '') AS author_name,
@@ -3214,6 +3249,16 @@ if ($profileShowSavedTab || ($profileCanGear && !empty($canManageProfilePrivate)
       'author_username' => (string)($savedPost['author_username'] ?? ''),
       'my_saved' => 1,
       'is_story' => (!empty($savedPost['is_story']) || !empty($savedPost['saved_as_story'])) ? 1 : 0,
+      'music_title' => (string)($savedPost['music_title'] ?? ''),
+      'music_artist' => (string)($savedPost['music_artist'] ?? ''),
+      'feeling_label' => (string)($savedPost['feeling_label'] ?? ''),
+      'location_label' => (string)($savedPost['location_label'] ?? ''),
+      'link_url' => (string)($savedPost['link_url'] ?? ''),
+      'link_title' => (string)($savedPost['link_title'] ?? ''),
+      'link_description' => (string)($savedPost['link_description'] ?? ''),
+      'link_image' => (string)($savedPost['link_image'] ?? ''),
+      'link_tags' => (string)($savedPost['link_tags'] ?? ''),
+      'sound_id' => (int)($savedPost['sound_id'] ?? 0),
     ];
     $savedGridIds[] = $pid;
   }
@@ -3256,6 +3301,16 @@ foreach ($gearArchivePosts as $archivePost) {
     'author_username' => (string)($me['username'] ?? ''),
     'is_archived' => 1,
     'is_story' => (!empty($archivePost['is_story']) || !empty($archivePost['archived_as_story'])) ? 1 : 0,
+    'music_title' => (string)($archivePost['music_title'] ?? ''),
+    'music_artist' => (string)($archivePost['music_artist'] ?? ''),
+    'feeling_label' => (string)($archivePost['feeling_label'] ?? ''),
+    'location_label' => (string)($archivePost['location_label'] ?? ''),
+    'link_url' => (string)($archivePost['link_url'] ?? ''),
+    'link_title' => (string)($archivePost['link_title'] ?? ''),
+    'link_description' => (string)($archivePost['link_description'] ?? ''),
+    'link_image' => (string)($archivePost['link_image'] ?? ''),
+    'link_tags' => (string)($archivePost['link_tags'] ?? ''),
+    'sound_id' => (int)($archivePost['sound_id'] ?? 0),
   ];
 }
 
@@ -3510,6 +3565,14 @@ if ($galleryAjaxName === 'gallery' || $galleryAjaxName === 'archive_list') {
       $itemUsername = $username;
     }
 
+    $itemVisibility = strtolower(trim((string)($it['visibility'] ?? 'public')));
+    if (function_exists('post_visibility_normalize')) {
+      $itemVisibility = post_visibility_normalize($itemVisibility);
+    }
+    if (!in_array($itemVisibility, ['private', 'friends', 'public'], true)) {
+      $itemVisibility = 'public';
+    }
+
     $items[] = [
       'id' => $pid,
       'post_id' => $pid,
@@ -3518,6 +3581,7 @@ if ($galleryAjaxName === 'gallery' || $galleryAjaxName === 'archive_list') {
       'username' => $itemUsername,
       'account_kind' => $profileIsPublisher ? 'publisher' : (trim((string)($me['account_kind'] ?? 'personal')) ?: 'personal'),
       'is_publisher' => $profileIsPublisher ? 1 : 0,
+      'visibility' => $itemVisibility,
       'friend_code' => $canViewProfilePrivateContact ? trim((string)($me['friend_code'] ?? '')) : '',
       'email' => $canViewProfilePrivateContact ? trim((string)($me['email'] ?? '')) : '',
       'title' => $title,
@@ -3551,7 +3615,45 @@ if ($galleryAjaxName === 'gallery' || $galleryAjaxName === 'archive_list') {
       'updated_at' => (string)($it['updated_at'] ?? $it['created_at'] ?? ''),
       'has_media' => $hasMedia ? 1 : 0,
       'is_video' => $isVideo ? 1 : 0,
+      'music_title' => trim((string)($it['music_title'] ?? '')),
+      'music_artist' => trim((string)($it['music_artist'] ?? '')),
+      'feeling_label' => trim((string)($it['feeling_label'] ?? '')),
+      'location_label' => trim((string)($it['location_label'] ?? '')),
+      'link_url' => trim((string)($it['link_url'] ?? '')),
+      'link_title' => trim((string)($it['link_title'] ?? '')),
+      'link_description' => trim((string)($it['link_description'] ?? '')),
+      'link_image' => trim((string)($it['link_image'] ?? '')),
+      'link_tags' => trim((string)($it['link_tags'] ?? '')),
+      'sound_id' => (int)($it['sound_id'] ?? 0),
+      'tagged_people' => [],
     ];
+
+    if (function_exists('post_music_from_row')) {
+      $musicMeta = post_music_from_row($it);
+      if (trim((string)($musicMeta['title'] ?? '')) !== '' || trim((string)($musicMeta['artist'] ?? '')) !== '') {
+        $items[array_key_last($items)]['music_title'] = (string)($musicMeta['title'] ?? '');
+        $items[array_key_last($items)]['music_artist'] = (string)($musicMeta['artist'] ?? '');
+      }
+    }
+  }
+
+  if (function_exists('msb_post_tags_people_for_posts') && $items !== []) {
+    $tagMap = msb_post_tags_people_for_posts($dbh, array_map(static function ($row) {
+      return (int)($row['id'] ?? 0);
+    }, $items));
+    foreach ($items as &$itemRow) {
+      $pid = (int)($itemRow['id'] ?? 0);
+      $itemRow['tagged_people'] = ($pid > 0 && isset($tagMap[$pid]) && is_array($tagMap[$pid]))
+        ? array_values($tagMap[$pid])
+        : [];
+    }
+    unset($itemRow);
+  } elseif (function_exists('msb_post_tags_people_for_post')) {
+    foreach ($items as &$itemRow) {
+      $pid = (int)($itemRow['id'] ?? 0);
+      $itemRow['tagged_people'] = $pid > 0 ? msb_post_tags_people_for_post($dbh, $pid) : [];
+    }
+    unset($itemRow);
   }
 
   $archiveStoriesOut = [];
@@ -3586,9 +3688,40 @@ if ($galleryAjaxName === 'gallery' || $galleryAjaxName === 'archive_list') {
     }
   }
 
+  $ajaxIsOwn = !empty($isOwnProfile) || !empty($canManageProfilePrivate);
+  $ajaxIsFriend = (isset($friendStatus) && (string)$friendStatus === 'friends');
+  $ajaxIsPublisherProfile = !empty($profileIsPublisher);
+  if ($ajaxIsOwn) {
+    $ajaxGalleryVisTabs = ['private', 'friends', 'public'];
+    $ajaxGalleryVisDefault = 'private';
+  } elseif ($ajaxIsPublisherProfile) {
+    $ajaxGalleryVisTabs = [];
+    $ajaxGalleryVisDefault = 'public';
+  } elseif ($ajaxIsFriend) {
+    $ajaxGalleryVisTabs = ['friends', 'public'];
+    $ajaxGalleryVisDefault = 'friends';
+  } else {
+    $ajaxGalleryVisTabs = [];
+    $ajaxGalleryVisDefault = 'public';
+  }
+  $ajaxGalleryVis = $galleryVisParam !== '' ? $galleryVisParam : $ajaxGalleryVisDefault;
+  if ($ajaxGalleryVis === 'private' && !$ajaxIsOwn) {
+    $ajaxGalleryVis = $ajaxIsFriend ? 'friends' : 'public';
+  } elseif ($ajaxGalleryVis === 'friends' && !$ajaxIsOwn && !$ajaxIsFriend) {
+    $ajaxGalleryVis = 'public';
+  }
+  if (!empty($ajaxGalleryVisTabs) && !in_array($ajaxGalleryVis, $ajaxGalleryVisTabs, true)) {
+    $ajaxGalleryVis = $ajaxGalleryVisDefault;
+  }
+
   echo json_encode([
     'ok' => true,
     'tab' => $ajaxTab,
+    'is_own' => $ajaxIsOwn ? 1 : 0,
+    'is_friend' => $ajaxIsFriend ? 1 : 0,
+    'profile_is_publisher' => $ajaxIsPublisherProfile ? 1 : 0,
+    'gallery_vis' => $ajaxGalleryVis,
+    'gallery_vis_tabs' => $ajaxGalleryVisTabs,
     'user' => [
       'id' => $viewId,
       'display_name' => $displayName,
@@ -3618,6 +3751,19 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title><?php echo !empty($msbSettingsPage) ? 'Settings' : 'Profile'; ?></title>
+  <script>
+    try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
+    (function(){
+      var freshCreate = <?= !empty($profileFreshCreate) ? 'true' : 'false' ?>;
+      if(!freshCreate) return;
+      try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_s){}
+      try{
+        sessionStorage.removeItem('msbResumePost');
+        sessionStorage.removeItem('msbResumePostHome');
+        sessionStorage.removeItem('msbFeedStartAtTop');
+      }catch(_c){}
+    })();
+  </script>
 
   <link href="./lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="./lib/Ionicons/css/ionicons.css" rel="stylesheet">
@@ -5819,25 +5965,26 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       flex:0 0 45px;overflow:hidden;padding:2px;
       background:linear-gradient(135deg,#0ea5e9 0%,#2563eb 58%,#f8fafc 100%);
     }
-    #profilePostsFeed .mf-avatar img{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;border:2px solid #fff;background:#fff;}
+    #profilePostsFeed .mf-avatar img{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;border:2px solid var(--msb-palette-bg, #fff);background:var(--msb-palette-bg, #fff);}
     #profilePostsFeed .mf-meta{min-width:0;flex:1 1 auto;}
-    #profilePostsFeed .mf-name-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}
-    #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;margin:0;color:#111827;}
+    #profilePostsFeed .mf-name-row{display:flex;align-items:baseline;gap:8px;min-width:0;flex-wrap:wrap;row-gap:2px;}
+    #profilePostsFeed .mf-name-row.has-story{align-items:baseline;}
+    #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;margin:0;color:var(--msb-palette-text, var(--feed-text, #111827));}
     #profilePostsFeed .mf-name.mf-name--sharing,
     #profilePostsFeed .mf-name.is-sharing-with{white-space:normal;overflow:visible;text-overflow:unset;line-height:1.25;}
-    #profilePostsFeed .msb-sharing-with{font-weight:400;color:#667085;}
+    #profilePostsFeed .msb-sharing-with{font-weight:400;color:var(--msb-palette-text-muted, #667085);}
     #profilePostsFeed a.msb-sharing-who{color:inherit;font-weight:700;text-decoration:none;}
     #profilePostsFeed a.msb-sharing-who:hover{text-decoration:underline;}
     #profilePostsFeed .mf-avatar-link{display:block;flex:0 0 auto;color:inherit;text-decoration:none;}
     #pvOverlay .pv-name.is-sharing-with{white-space:normal;overflow:visible;text-overflow:unset;line-height:1.25;}
-    #pvOverlay .pv-name .msb-sharing-with{font-weight:400;color:#667085;}
+    #pvOverlay .pv-name .msb-sharing-with{font-weight:400;color:var(--msb-palette-text-muted, #667085);}
     #pvOverlay .pv-name a.msb-sharing-who{color:inherit;font-weight:700;text-decoration:none;}
     #pvOverlay .pv-name a.msb-sharing-who:hover{text-decoration:underline;}
-    #profilePostsFeed .mf-dot,#profilePostsFeed .mf-time{font-size:12px;color:#667085;margin:0;}
+    #profilePostsFeed .mf-dot,#profilePostsFeed .mf-time{font-size:12px;color:var(--msb-palette-text-muted, #667085);margin:0;}
     #profilePostsFeed .mf-menu-wrap{position:relative;flex:0 0 auto;margin-left:auto;}
     #profilePostsFeed .mf-menu-btn:not(.post-card-menu-btn){
       width:28px;height:28px;border:0;background:transparent;border-radius:999px;
-      display:flex;align-items:center;justify-content:center;color:#101828;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;color:var(--msb-palette-text, #101828);cursor:pointer;
     }
     .post-sheet .modal-content{border:none;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.18)}
     .post-sheet .modal-dialog,.confirm-sheet .modal-dialog{max-width:420px}
@@ -5852,8 +5999,10 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     .sheet-btn.is-accept{color:#1d4ed8}
     .sheet-btn.danger{color:#dc2626}
     #profilePostsFeed .mf-menu{
-      position:absolute;top:38px;right:0;min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.10);
+      position:absolute;top:38px;right:0;min-width:160px;
+      background:var(--msb-palette-bg, #fff);border:1px solid var(--msb-palette-border-strong, rgba(0,0,0,.10));
       border-radius:12px;box-shadow:0 8px 24px rgba(16,24,40,.12);padding:4px;z-index:50;display:none;
+      color:var(--msb-palette-text, #101828);
     }
     #profilePostsFeed .post-card-fries-icon{
       position:relative;
@@ -5880,7 +6029,10 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     #profilePostsFeed .mf-menu.open{display:block;}
     #profilePostsFeed .mf-menu a,#profilePostsFeed .mf-menu button{
       width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border:0;background:transparent;
-      border-radius:8px;font-weight:500;font-size:13px;color:#101828;text-decoration:none;cursor:pointer;
+      border-radius:8px;font-weight:500;font-size:13px;color:var(--msb-palette-text, #101828);text-decoration:none;cursor:pointer;
+    }
+    #profilePostsFeed .mf-menu a:hover,#profilePostsFeed .mf-menu button:hover{
+      background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, rgba(15,23,42,.06)));
     }
     #profilePostsFeed .mf-menu .mf-del{color:#b42318;}
     #profilePostsFeed .mf-title{padding:0 0 10px;font-size:14px;line-height:1.28;font-weight:700;color:var(--msb-palette-text, #101828);background:var(--msb-palette-bg, transparent);}
@@ -5890,11 +6042,11 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     #profilePostsFeed .mf-slide-summary .post-slide-summary-p{margin:0;}
     #profilePostsFeed .mf-slide-summary .post-slide-summary-list{margin:0;padding-left:1.15em;list-style:disc}
     #profilePostsFeed .mf-slide-summary .post-slide-summary-list li{margin:0 0 .35em}
-    #profilePostsFeed .mf-body{padding:0;font-size:12px;font-weight:400;line-height:1.45;color:var(--msb-palette-text-muted, #344054);word-break:break-word;text-align:left;background:var(--msb-palette-bg, transparent);}
-    #profilePostsFeed .mf-body .mf-body-formatted{text-align:left;}
-    #profilePostsFeed .mf-body .post-card-paragraph{margin:0 0 12px;text-align:left;white-space:normal;word-break:break-word;display:block;}
+    #profilePostsFeed .mf-body{padding:0;font-size:12px;font-weight:400;line-height:1.45;color:var(--msb-palette-text, var(--feed-text, #344054));word-break:break-word;text-align:left;background:var(--msb-palette-bg, transparent);}
+    #profilePostsFeed .mf-body .mf-body-formatted{text-align:left;color:inherit;}
+    #profilePostsFeed .mf-body .post-card-paragraph{margin:0 0 12px;text-align:left;white-space:normal;word-break:break-word;display:block;color:inherit;}
     #profilePostsFeed .mf-body .post-card-paragraph:last-child{margin-bottom:0;}
-    #profilePostsFeed .mf-body .mf-body-formatted.is-clamped{max-height:6.0em;overflow:hidden;}
+    #profilePostsFeed .mf-body .mf-body-formatted.is-clamped{max-height:6.6em;overflow:hidden;}
     #profilePostsFeed .mf-body .mf-readmore{text-decoration:none;color:var(--msb-palette-text, #0b1220);white-space:nowrap;font-weight:800;}
     #profilePostsFeed .mf-actions{padding:10px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
     #profilePostsFeed .mf-card:has(.mf-head--on-media) > .mf-actions{padding:8px 0 6px!important;}
@@ -5924,8 +6076,9 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     #profilePostsFeed .mf-act .mf-num{font-size:12px;font-weight:600;color:var(--msb-palette-text, #101828);}
     #profilePostsFeed .mf-act.mf-save .mf-num,#profilePostsFeed .mf-act.mf-share .mf-num{display:inline;}
     #profilePostsFeed .mf-act.is-love i{color:var(--msb-love-color, #7c3aed) !important;}
+    #profilePostsFeed .mf-act.is-like i{color:var(--msb-rx-like, #2563eb) !important;}
     #profilePostsFeed .mf-act.is-save i{color:#f5c518 !important;}
-    #profilePostsFeed .mf-act.is-share i{color:#374151 !important;}
+    #profilePostsFeed .mf-act.is-share i{color:var(--msb-palette-icon, var(--msb-palette-text-muted, #374151)) !important;}
     #profilePostsFeed .mf-act .msb-pact{
       width:16px;
       height:16px;
@@ -5942,6 +6095,165 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       border-bottom:0 !important;
       padding-bottom:18px;
       margin-bottom:18px;
+    }
+    #profilePostsFeed > .mf-card.is-alert-focus{
+      box-shadow:0 0 0 3px rgba(59,130,246,.28), 0 18px 40px rgba(37,99,235,.14);
+      scroll-margin-top:12px;
+    }
+    #profilePostsFeed .mf-story{
+      display:inline;
+      font-size:14px;
+      font-weight:500;
+      color:var(--msb-palette-text-muted, #64748b);
+      line-height:1.35;
+      margin-left:4px;
+    }
+    #profilePostsFeed .mf-conn{
+      color:var(--msb-palette-text-muted, #64748b);
+      font-weight:500;
+    }
+    #profilePostsFeed .mf-ent{
+      color:var(--msb-palette-text, #0f172a);
+      font-weight:800;
+    }
+    #profilePostsFeed .mf-music-inline{
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      max-width:min(320px, 100%);
+      min-width:0;
+      font-size:12.5px;
+      color:var(--msb-palette-text-muted, #475569);
+      font-weight:700;
+    }
+    #profilePostsFeed .mf-music-inline i{
+      color:var(--msb-palette-icon, var(--msb-palette-text-muted, #64748b));
+      font-size:12px;
+    }
+    #profilePostsFeed .mf-music-inline-text{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    #profilePostsFeed .mf-meta-pills.is-story{
+      display:inline;
+      margin:0;
+      padding:0;
+      border:0;
+      background:transparent;
+      box-shadow:none;
+    }
+    #profilePostsFeed .mf-meta-pills{ display:none; }
+    #profilePostsFeed .mf-sub-row{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:6px;
+      margin-top:2px;
+      font-size:12.5px;
+      color:var(--msb-palette-text-muted, #64748b);
+      line-height:1.25;
+    }
+    #profilePostsFeed .mf-sub-row .mf-time{
+      font-size:12.5px;
+      color:var(--msb-palette-text-muted, #64748b);
+      font-weight:600;
+    }
+    #profilePostsFeed .mf-sub-row .mf-dot{ opacity:.55; font-size:11px; }
+    #profilePostsFeed .mf-link-preview{
+      display:block;
+      width:100%;
+      max-width:100%;
+      box-sizing:border-box;
+      margin:12px 0 6px;
+      border:1px solid var(--msb-palette-border-strong, rgba(15,23,42,.1));
+      border-radius:16px;
+      overflow:hidden;
+      background:var(--msb-palette-bg, #fff);
+      text-decoration:none;
+      color:inherit;
+      box-shadow:0 8px 24px rgba(15,23,42,.05);
+    }
+    #profilePostsFeed .mf-link-preview:hover{ border-color:var(--msb-palette-action, rgba(37,99,235,.28)); box-shadow:0 10px 28px color-mix(in srgb, var(--msb-palette-action, #2563eb) 12%, transparent); }
+    #profilePostsFeed .mf-link-preview-main{ display:flex; align-items:stretch; min-height:118px; height:180px; }
+    #profilePostsFeed .mf-link-preview.has-media .mf-link-preview-media{
+      flex:0 0 36%; width:36%; max-width:220px; background:var(--msb-palette-hover-bg, #e2e8f0); overflow:hidden;
+    }
+    #profilePostsFeed .mf-link-preview-media.is-logo,
+    #profilePostsFeed .mf-link-preview.has-logo .mf-link-preview-media{
+      display:flex; align-items:center; justify-content:center;
+      background:#fff;
+    }
+    #profilePostsFeed .mf-link-preview-media img{
+      width:100%; height:100%; min-height:118px; object-fit:cover; display:block;
+    }
+    #profilePostsFeed .mf-link-preview-media.is-logo img,
+    #profilePostsFeed .mf-link-preview.has-logo .mf-link-preview-media img{
+      width:44%; height:44%; max-width:88px; max-height:88px; min-height:0; object-fit:contain;
+    }
+    #profilePostsFeed .mf-link-preview-side{
+      flex:1 1 auto; min-width:0; display:flex; flex-direction:column;
+      background:var(--msb-palette-bg, #fff);
+    }
+    #profilePostsFeed .mf-link-preview-body{
+      flex:1 1 auto; min-width:0; padding:10px 14px 8px;
+    }
+    #profilePostsFeed .mf-link-preview-top{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    #profilePostsFeed .mf-link-preview-host{
+      flex:1 1 auto; min-width:0;
+      font-size:12px; font-weight:600; letter-spacing:.01em;
+      color:var(--msb-palette-text-muted, #94a3b8); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    #profilePostsFeed .mf-link-preview-info{
+      flex:0 0 auto; margin-left:auto;
+      color:var(--msb-palette-text-muted, #94a3b8); font-size:13px; line-height:1;
+    }
+    #profilePostsFeed .mf-link-preview-title{
+      font-size:15px; font-weight:800; line-height:1.25; color:var(--msb-palette-text, #0f172a);
+    }
+    #profilePostsFeed .mf-link-preview-desc{
+      margin-top:4px; font-size:12.5px; line-height:1.35; color:var(--msb-palette-text-muted, #64748b);
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    #profilePostsFeed .mf-link-preview-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    #profilePostsFeed .mf-link-preview-chip{
+      display:inline-flex; align-items:center; max-width:100%; padding:5px 10px; border-radius:999px;
+      background:var(--msb-palette-hover-bg, #eef2f7); color:var(--msb-palette-text, #334155);
+      font-size:11.5px; font-weight:700; line-height:1.2;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    #profilePostsFeed .mf-link-preview-chip.is-place{
+      background:#ffe8e8; color:#9f1239;
+    }
+    #profilePostsFeed .mf-link-preview-chip.is-place i{ color:#ef4444; margin-right:5px; }
+    #profilePostsFeed .mf-link-preview-cta{
+      display:flex; align-items:center; gap:8px; margin-top:auto; padding:8px 14px;
+      background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, #eff6ff));
+      color:var(--msb-palette-text, var(--msb-palette-action, #1d4ed8)); font-size:12.5px; font-weight:800;
+      border-top:1px solid var(--msb-palette-border-strong, var(--msb-palette-border, rgba(37,99,235,.1)));
+    }
+    #profilePostsFeed .mf-link-preview-cta .fa-chevron-right{ margin-left:auto; font-size:12px; }
+    /* Discover-size lock: full column width + same card inset as public.php text posts */
+    #profilePostsFeed .mf-card:has(.mf-link-preview){
+      width:100% !important;
+      max-width:100% !important;
+      margin-left:0 !important;
+      margin-right:0 !important;
+      padding:8px 12px !important;
+      box-sizing:border-box !important;
+    }
+    #profilePostsFeed .mf-link-preview{
+      width:100% !important;
+      max-width:100% !important;
+      box-sizing:border-box !important;
+    }
+    @media (max-width: 560px){
+      #profilePostsFeed .mf-link-preview-main{ flex-direction:column; min-height:0; height:auto; }
+      #profilePostsFeed .mf-link-preview.has-media .mf-link-preview-media{
+        flex:0 0 auto; width:100%; max-width:none; height:118px;
+      }
+      #profilePostsFeed .mf-link-preview-media img{ min-height:118px; height:118px; }
     }
     #profilePostsFeed > .mf-card::after{
       content:"";
@@ -5968,13 +6280,17 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       #profilePostsFeed .mf-card.mf-card-text-only:not(.mf-card-phone-shot){
         width:100% !important;max-width:100% !important;
       }
-      #profilePostsFeed .mf-card.mf-card-phone-shot:not(.is-multi-media-post){
+      #profilePostsFeed .mf-card.mf-card-phone-shot:not(.is-multi-media-post):not(:has(.mf-link-preview)){
         width:min(100%, var(--post-media-card-width, 340px)) !important;
         max-width:100% !important;margin-inline:auto !important;
       }
+      #profilePostsFeed .mf-card:has(.mf-link-preview){
+        width:100% !important;max-width:100% !important;margin-inline:0 !important;
+        padding:8px 12px !important;box-sizing:border-box !important;
+      }
       #profilePostsFeed .mf-head{padding:1px 0 8px;gap:14px;}
       #profilePostsFeed .mf-avatar{width:35px;height:35px;flex:0 0 35px;}
-      #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;color:#111827;}
+      #profilePostsFeed .mf-name{font-size:13px;font-weight:700;line-height:1.2;color:var(--msb-palette-text, var(--feed-text, #111827));}
       #profilePostsFeed .mf-title{padding:0 0 10px;font-size:14px;line-height:1.25;font-weight:700;}
       #profilePostsFeed .mf-body{font-size:12px;font-weight:400;}
     }
@@ -5984,12 +6300,17 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
         width:100% !important;max-width:100% !important;
         margin-left:auto !important;margin-right:auto !important;
       }
-      #profilePostsFeed .mf-card.mf-card-phone-shot:not(.is-multi-media-post){
+      #profilePostsFeed .mf-card.mf-card-phone-shot:not(.is-multi-media-post):not(:has(.mf-link-preview)){
         width:min(100%, var(--post-media-card-width, min(78vw, 340px))) !important;
         max-width:min(calc(100% - 20px), 360px) !important;
         margin-left:auto !important;margin-right:auto !important;
       }
-      #profilePostsFeed .mf-name{font-size:13px;color:#101828;}
+      #profilePostsFeed .mf-card:has(.mf-link-preview){
+        width:100% !important;max-width:100% !important;
+        margin-left:0 !important;margin-right:0 !important;
+        padding:8px 12px !important;box-sizing:border-box !important;
+      }
+      #profilePostsFeed .mf-name{font-size:13px;color:var(--msb-palette-text, var(--feed-text, #101828));}
       #profilePostsFeed .mf-title{padding:0 0 10px;font-size:14px;line-height:1.3;}
       #profilePostsFeed .mf-body{font-size:12px;font-weight:400;line-height:1.45;}
     }
@@ -7144,27 +7465,90 @@ body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
       background: var(--msb-palette-bg, #171d24) !important;
     }
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-body,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body,
+    html.msb-progress-previewing body.profile-page #profilePostsFeed .mf-body{
+      color: var(--msb-palette-text, #eef4ff) !important;
+    }
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body .mf-body-formatted,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body .post-card-paragraph,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body p,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-body .mf-body-formatted,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-body .post-card-paragraph,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-body p,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body .mf-body-formatted,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body .post-card-paragraph,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body p{
+      color: inherit !important;
+    }
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-time,
-    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-dot {
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-dot,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-time,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-dot,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-time,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-dot,
+    html.dark-auto body.profile-page #profilePostsFeed .msb-sharing-with,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .msb-sharing-with,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .msb-sharing-with {
       color: var(--msb-palette-text-muted, #a9b6c8) !important;
     }
-    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body .mf-readmore {
+    html.dark-auto body.profile-page #profilePostsFeed .mf-name,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-name,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-name,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-menu-btn:not(.post-card-menu-btn),
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-menu-btn:not(.post-card-menu-btn),
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-menu-btn:not(.post-card-menu-btn),
+    html.dark-auto body.profile-page #profilePostsFeed .mf-menu a,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-menu button,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-menu a,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-menu button,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-menu a,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-menu button {
+      color: var(--msb-palette-text, #eef4ff) !important;
+    }
+    html.dark-auto body.profile-page #profilePostsFeed .mf-menu,
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-menu,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-menu {
+      background: var(--msb-palette-bg, #171d24) !important;
+      border-color: var(--msb-palette-border-strong, rgba(255,255,255,.12)) !important;
+      color: var(--msb-palette-text, #eef4ff) !important;
+    }
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-body .mf-readmore {
       color: var(--msb-palette-text, #f3f6fb) !important;
     }
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act,
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act .mf-num,
-    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act i {
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act i,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act .mf-num,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act i,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act .mf-num,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act i {
       color: var(--msb-palette-icon, var(--msb-palette-text, #f3f6fb)) !important;
     }
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-love,
     html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-love i,
-    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-love .mf-num {
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-love .mf-num,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act.is-love,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act.is-love i,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act.is-love .mf-num {
       color: #ea445a !important;
     }
-    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-save i {
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-like i,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act.is-like i,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-like i {
+      color: var(--msb-rx-like, #60a5fa) !important;
+    }
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-save i,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act.is-save i {
       color: #f5c518 !important;
     }
-    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-share i {
+    html[data-theme="dark"] body.profile-page #profilePostsFeed .mf-act.is-share i,
+    html.dark-auto body.profile-page #profilePostsFeed .mf-act.is-share i,
+    html[data-msb-appearance] body.profile-page #profilePostsFeed .mf-act.is-share i {
       color: var(--msb-palette-action, #93c5fd) !important;
     }
 
@@ -7544,6 +7928,27 @@ body.profile-page.profile-gear-mode .gear-edit-pane.is-open{
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .post-card-menu-btn,
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .post-card-fries-icon{
   color:#fff!important;text-shadow:0 2px 10px rgba(0,0,0,.34);
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-story,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-conn{
+  color:rgba(255,255,255,.82)!important;
+  text-shadow:0 2px 10px rgba(0,0,0,.34);
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-ent,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .msb-sharing-with,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media a.msb-sharing-who{
+  color:#fff!important;
+  text-shadow:0 2px 10px rgba(0,0,0,.34);
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-sub-row,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-inline,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-inline-text,
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-sub-row .mf-time{
+  color:rgba(255,255,255,.85)!important;
+  text-shadow:0 2px 10px rgba(0,0,0,.34);
+}
+#profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-music-inline i{
+  color:rgba(255,255,255,.85)!important;
 }
 #profilePostsFeed .mf-media-shell > .mf-head--on-media .mf-avatar img{border-color:#fff!important}
 #profilePostsFeed .mf-media-shell:has(.mf-head--on-media) > .mf-media-top-actions{
@@ -12018,20 +12423,138 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
   const alertPostId = <?php echo (int)$profileAlertPostId; ?>;
   const alertCommentId = <?php echo (int)$profileAlertCommentId; ?>;
   const alertHideNav = <?php echo ((int)($_GET['hide_nav'] ?? 0) === 1) ? 'true' : 'false'; ?>;
+  const alertFreshCreate = <?php echo !empty($profileFreshCreate) ? 'true' : 'false'; ?>;
   if (!alertPostId) return;
 
   function clearAlertParams(){
     try{
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.delete('open_post');
+      nextUrl.searchParams.delete('post');
       nextUrl.searchParams.delete('post_id');
       nextUrl.searchParams.delete('open_comment');
       nextUrl.searchParams.delete('hide_nav');
+      nextUrl.searchParams.delete('fresh');
+      nextUrl.searchParams.delete('from_post');
       history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
     }catch(e){}
   }
 
+  function profileFeedScrollRoot(){
+    if (document.body.classList.contains('profile-flow-scroll')) {
+      return document.scrollingElement || document.documentElement;
+    }
+    var sc = document.querySelector('body.profile-page .ig-profile-scroll');
+    if (sc) {
+      try{
+        var cs = window.getComputedStyle(sc);
+        if (cs.overflowY === 'auto' || cs.overflowY === 'scroll') return sc;
+      }catch(_cs){}
+    }
+    var feed = document.getElementById('profilePostsFeed');
+    if (feed) return feed;
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function profileStickyOverlayPad(root){
+    var pad = 10;
+    if (!root) return pad;
+    var rootTop = 0;
+    try{ rootTop = root.getBoundingClientRect().top; }catch(_t){}
+    var overlap = [];
+    [
+      '.ig-tabs',
+      '.ig-profile-head',
+      '.ig-gallery-filter',
+      '.sh-pagetitle',
+      '.feed-ig-rail'
+    ].forEach(function(sel){
+      try{
+        document.querySelectorAll(sel).forEach(function(el){
+          if (!el) return;
+          var st = window.getComputedStyle(el);
+          if (st.display === 'none' || st.visibility === 'hidden') return;
+          if (st.position !== 'sticky' && st.position !== 'fixed') return;
+          var bottom = el.getBoundingClientRect().bottom;
+          if (bottom > rootTop + 1) overlap.push(bottom - rootTop);
+        });
+      }catch(_q){}
+    });
+    if (overlap.length) return Math.max.apply(null, overlap) + pad;
+    return pad;
+  }
+
+  function scrollProfileCardShowTop(card){
+    if (!card) return;
+    var root = profileFeedScrollRoot();
+    var offset = profileStickyOverlayPad(root);
+    var behavior = alertFreshCreate ? 'auto' : 'smooth';
+    try{
+      if (root && root.contains && root.contains(card) && root !== document.documentElement && root !== document.body && root !== document.scrollingElement) {
+        var rootRect = root.getBoundingClientRect();
+        var cardRect = card.getBoundingClientRect();
+        var nextTop = Number(root.scrollTop || 0) + (cardRect.top - rootRect.top) - offset;
+        if (typeof root.scrollTo === 'function') {
+          root.scrollTo({ top: Math.max(0, nextTop), behavior: behavior });
+        } else {
+          root.scrollTop = Math.max(0, nextTop);
+        }
+        return;
+      }
+    }catch(_r){}
+    try{
+      var y = card.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - offset;
+      window.scrollTo({ top: Math.max(0, y), behavior: behavior });
+    }catch(_w){
+      try{ card.scrollIntoView({ behavior: behavior, block: 'start' }); }catch(_e){}
+    }
+  }
+
+  try{ window.msbScrollFreshCreatePost = scrollProfileCardShowTop; }catch(_ex){}
+
+  function findAlertCard(){
+    return document.querySelector(
+      '#profilePostsFeed .mf-card[data-id="' + String(alertPostId) + '"],' +
+      '#profilePostsFeed .mf-card[data-post-id="' + String(alertPostId) + '"],' +
+      '.mf-card[data-id="' + String(alertPostId) + '"],' +
+      '.mf-card[data-post-id="' + String(alertPostId) + '"]'
+    );
+  }
+
+  function highlightAlertCard(card){
+    if (!card) return;
+    document.querySelectorAll('#profilePostsFeed .mf-card.is-alert-focus').forEach(function(node){
+      node.classList.remove('is-alert-focus');
+    });
+    card.classList.add('is-alert-focus');
+    if (alertFreshCreate) {
+      try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_sk){}
+      scrollProfileCardShowTop(card);
+      [120, 280, 600, 1100, 1800].forEach(function(ms){
+        window.setTimeout(function(){ scrollProfileCardShowTop(card); }, ms);
+      });
+      return;
+    }
+    try{ card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }catch(err){}
+  }
+
   function openAlertTarget(){
+    // After create-post, stay on Posts list — do not open the post modal.
+    if (alertFreshCreate && !(alertCommentId > 0)) {
+      var attemptsFresh = 0;
+      (function waitFreshProfileCard(){
+        attemptsFresh += 1;
+        var card = findAlertCard();
+        if (card) {
+          highlightAlertCard(card);
+          clearAlertParams();
+          return;
+        }
+        if (attemptsFresh < 50) window.setTimeout(waitFreshProfileCard, 160);
+        else clearAlertParams();
+      })();
+      return;
+    }
     if (typeof window.pvOpenById !== 'function') return;
     pvAlertFocusCommentId = alertCommentId;
     window.pvOpenById(alertPostId, {
@@ -12241,9 +12764,28 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     }
     root.style.setProperty('--msb-palette-accent', hex);
     root.style.setProperty('--msb-palette-nav-active', hex);
+    // Keep post captions / chrome readable against the selected Progress color.
+    var rgb = hex.replace('#','');
+    if (rgb.length === 3) rgb = rgb[0]+rgb[0]+rgb[1]+rgb[1]+rgb[2]+rgb[2];
+    var r = parseInt(rgb.slice(0,2), 16) || 0;
+    var g = parseInt(rgb.slice(2,4), 16) || 0;
+    var b = parseInt(rgb.slice(4,6), 16) || 0;
+    var luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    var fg = luma < 0.55 ? '#eef4ff' : '#132033';
+    var muted = luma < 0.55 ? '#b1bcce' : '#5f6c7c';
+    root.style.setProperty('--msb-palette-text', fg);
+    root.style.setProperty('--msb-palette-text-muted', muted);
+    root.style.setProperty('--msb-palette-icon', fg);
+    root.style.setProperty('--feed-text', fg);
+    root.style.setProperty('--feed-muted', muted);
+    root.style.setProperty('--public-text', fg);
+    root.style.setProperty('--public-muted', muted);
+    root.classList.toggle('msb-palette-light-fg', luma < 0.55);
+    root.classList.toggle('msb-palette-dark-fg', luma >= 0.55);
     if (document.body) {
       document.body.style.backgroundColor = hex;
       document.body.style.backgroundImage = 'none';
+      document.body.style.color = fg;
     }
   }
 
@@ -14932,12 +15474,17 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
   var PROFILE_PUBLISHER_WORKSPACE = <?php echo !empty($isPublisherWorkspaceViewer) ? 'true' : 'false'; ?>;
   var PROFILE_HIDE_PRIVATE_CONTACT = <?php echo $canViewProfilePrivateContact ? 'false' : 'true'; ?>;
   var PROFILE_IS_PUBLISHER = <?php echo $profileIsPublisher ? 'true' : 'false'; ?>;
+  var PROFILE_PIN_POST_ID = <?php echo (int)$profileAlertPostId; ?>;
+  var PROFILE_FRESH_CREATE = <?php echo !empty($profileFreshCreate) ? 'true' : 'false'; ?>;
   var API_URL = 'feed_api.php';
   var loaded = false;
   var loading = false;
   var profileCommentsCache = {};
 
   try { window.API_URL = API_URL; } catch(e) {}
+  if (PROFILE_FRESH_CREATE) {
+    try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_sk){}
+  }
 
   function openProfileCommentsTray(postId){
     postId = Number(postId || 0);
@@ -15908,44 +16455,195 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     }
     return '';
   }
+  function profileLocationPrep(location){
+    location = String(location || '');
+    if (/\b(store|church|school|cafe|mall|airport|stadium|park|university|college|hotel|hospital|restaurant|bar|gym|theatre|theater|museum|library|temple|mosque|arena|center|centre|plaza|market|office|campus)\b/i.test(location)) {
+      return 'at';
+    }
+    if (/\d/.test(location) || /\b(st|street|ave|avenue|rd|road|blvd|lane|dr|drive)\b/i.test(location)) {
+      return 'at';
+    }
+    return 'in';
+  }
+
+  function profileMetaStoryHtml(it){
+    var feeling = String((it && it.feeling_label) || '').trim().replace(/^\s*feeling\s+/i, '').trim();
+    var location = String((it && it.location_label) || '').trim();
+    var people = Array.isArray(it && it.tagged_people) ? it.tagged_people : [];
+    var names = [];
+    people.forEach(function(p){
+      var n = String((p && (p.display_name || p.name || p.username)) || '').trim();
+      if (n) names.push(n);
+    });
+    if (!feeling && !location && !names.length) return '';
+    var feelingPlain = feeling.replace(/^[^a-zA-Z0-9]+/, '').trim().toLowerCase();
+    var activityVerbs = ['celebrating','watching','eating','drinking','traveling','listening','working','thinking'];
+    var isActivity = activityVerbs.some(function(v){
+      return feelingPlain === v || feelingPlain.indexOf(v + ' ') === 0;
+    });
+    function conn(t){ return '<span class="mf-conn">'+esc(t)+'</span>'; }
+    function ent(t){ return '<span class="mf-ent">'+esc(t)+'</span>'; }
+    var bits = [];
+    var started = false;
+    if (feeling) {
+      if (isActivity) {
+        bits.push(conn('is'));
+        bits.push(ent(feeling));
+      } else {
+        bits.push(conn('is feeling'));
+        bits.push(ent(feeling));
+      }
+      started = true;
+    }
+    if (names.length) {
+      var peopleHtml = '';
+      if (names.length === 1) peopleHtml = ent(names[0]);
+      else if (names.length === 2) peopleHtml = ent(names[0]) + ' ' + conn('and') + ' ' + ent(names[1]);
+      else peopleHtml = ent(names[0]) + ' ' + conn('and') + ' ' + ent(String(names.length - 1) + ' others');
+      bits.push(started ? conn('with') : conn('is with'));
+      bits.push(peopleHtml);
+      started = true;
+    }
+    if (location) {
+      var prep = profileLocationPrep(location);
+      bits.push(started ? conn('and ' + prep) : conn('is ' + prep));
+      bits.push(ent(location.replace(/\.+$/, '') + '.'));
+    } else if (bits.length) {
+      bits.push(conn('.'));
+    }
+    return '<span class="mf-story">'+bits.join(' ')+'</span>';
+  }
+
+  function profileMetaMusicInlineHtml(it){
+    var title = String((it && it.music_title) || '').trim();
+    var artist = String((it && it.music_artist) || '').trim();
+    if (!title && !artist) return '';
+    var label = title;
+    if (title && artist) label = title + ' · ' + artist;
+    else if (!title) label = artist;
+    var soundId = Number((it && it.sound_id) || 0);
+    var attrs = ' class="mf-music-inline mf-music-row"';
+    if (soundId > 0) {
+      attrs += ' role="button" tabindex="0" data-sound-id="'+soundId+'" data-sound-title="'+esc(title)+'" data-sound-artist="'+esc(artist)+'" title="Use this sound"';
+    }
+    return '<span'+attrs+'><i class="fa fa-music" aria-hidden="true"></i><span class="mf-music-inline-text">'+esc(label)+'</span></span>';
+  }
+
+  function profileFirstLinkMeta(it){
+    var storedUrl = String((it && it.link_url) || '').trim();
+    var url = storedUrl;
+    if (!url) {
+      var chunks = [
+        String((it && it.body) || ''),
+        String((it && it.description) || ''),
+        String((it && it.title) || '')
+      ];
+      for (var i = 0; i < chunks.length; i++) {
+        var m = chunks[i].match(/https?:\/\/[^\s<>'"\]]+/i);
+        if (m && m[0]) {
+          url = String(m[0]).replace(/[.,);!?]+$/g, '');
+          break;
+        }
+      }
+    }
+    if (!url) return { url: '', host: '', title: '', description: '', image: '', image_fallback: '', is_logo: false, tags: [] };
+    var host = '';
+    try { host = String((new URL(url)).hostname || ''); } catch (_h) {}
+    var title = String((it && it.link_title) || '').trim();
+    var description = String((it && it.link_description) || '').trim();
+    var image = String((it && it.link_image) || '').trim();
+    var tagsRaw = String((it && it.link_tags) || '').trim();
+    var tags = [];
+    if (tagsRaw) {
+      try {
+        var parsed = JSON.parse(tagsRaw);
+        if (Array.isArray(parsed)) tags = parsed.map(function(t){ return String(t || '').trim(); }).filter(Boolean).slice(0, 6);
+      } catch (_t) {
+        tags = tagsRaw.split(/[,|]/).map(function(t){ return String(t || '').trim(); }).filter(Boolean).slice(0, 6);
+      }
+    }
+    var imageFallback = '';
+    if (host) {
+      imageFallback = 'https://www.google.com/s2/favicons?sz=128&domain_url=' + encodeURIComponent('https://' + host);
+    }
+    var isLogo = !image && !!imageFallback;
+    if (!image && imageFallback) image = imageFallback;
+    return { url: url, host: host, title: title, description: description, image: image, image_fallback: imageFallback, is_logo: isLogo, tags: tags };
+  }
+
+  function profileLinkPreviewHtml(it){
+    var linkMeta = profileFirstLinkMeta(it);
+    var url = linkMeta.url;
+    if (!url) return '';
+    var host = linkMeta.host;
+    var hostShow = host ? ((/^www\./i.test(host) ? host : ('www.' + host))) : '';
+    var label = linkMeta.title || host || 'Visit link';
+    var description = linkMeta.description || '';
+    var image = linkMeta.image || '';
+    var imageFallback = linkMeta.image_fallback || '';
+    var isLogo = !!linkMeta.is_logo;
+    var tags = Array.isArray(linkMeta.tags) ? linkMeta.tags : [];
+    var chipsHtml = '';
+    if (tags.length) {
+      chipsHtml = '<div class="mf-link-preview-chips">';
+      tags.forEach(function(tag){
+        chipsHtml += '<span class="mf-link-preview-chip">'+esc(tag)+'</span>';
+      });
+      chipsHtml += '</div>';
+    }
+    var imgAttrs = ' alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"';
+    if (imageFallback && imageFallback !== image) {
+      imgAttrs += ' onerror="this.onerror=null;this.src=\''+esc(imageFallback)+'\';var m=this.closest(\'.mf-link-preview-media\');if(m)m.classList.add(\'is-logo\')"';
+    }
+    return ''+
+      '<a class="mf-link-preview'+(image ? ' has-media' : '')+(isLogo ? ' has-logo' : '')+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+
+        '<div class="mf-link-preview-main">'+
+          (image ? '<div class="mf-link-preview-media'+(isLogo ? ' is-logo' : '')+'"><img src="'+esc(image)+'"'+imgAttrs+'></div>' : '')+
+          '<div class="mf-link-preview-side">'+
+            '<div class="mf-link-preview-body">'+
+              '<div class="mf-link-preview-top">'+
+                (hostShow ? '<div class="mf-link-preview-host">'+esc(hostShow)+'</div>' : '<div class="mf-link-preview-host"></div>')+
+                '<span class="mf-link-preview-info" title="Website preview" aria-hidden="true"><i class="fa fa-info-circle"></i></span>'+
+              '</div>'+
+              '<div class="mf-link-preview-title">'+esc(label)+'</div>'+
+              (description ? '<div class="mf-link-preview-desc">'+esc(description)+'</div>' : '')+
+              chipsHtml+
+            '</div>'+
+            '<div class="mf-link-preview-cta"><i class="fa fa-link" aria-hidden="true"></i><span>Visit Website</span><i class="fa fa-chevron-right" aria-hidden="true"></i></div>'+
+          '</div>'+
+        '</div>'+
+      '</a>';
+  }
+
   function profileBuildHeadHtml(it, isOwner, pid, onMedia){
     var name = it.display_name || it.username || '';
     var avatarUrl = avatarUrlFor(it);
     var time = mfDeviceTimeLabel(it, postDate(it));
     var headClass = 'mf-head' + (onMedia ? ' mf-head--on-media' : '');
     var menuIcon = '<span class="post-card-fries-icon" aria-hidden="true"><span></span><span></span><span></span><span></span></span>';
-    var taggedPeople = Array.isArray(it.tagged_people) ? it.tagged_people : [];
-    var hasSharing = taggedPeople.length > 0;
-    var metaAfterAuthor = '';
-    if (hasSharing) {
-      if (time) {
-        metaAfterAuthor += '<span class="mf-dot">&bull;</span><span class="mf-time">'+esc(time)+'</span>';
-      }
-      if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function') {
-        metaAfterAuthor += window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends');
-      }
-    }
-    var nameHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.authorSharingWithHtml === 'function')
-      ? window.MSBPostCardMenu.authorSharingWithHtml({
-          display_name: name,
-          username: it.username || '',
-          id: it.user_id || it.author_id || 0,
-          href: peerProfileHref(it)
-        }, taggedPeople, { linkAuthor: true, afterAuthorHtml: metaAfterAuthor })
-      : esc(name);
-    var nameClass = 'mf-name' + (hasSharing ? ' mf-name--sharing is-sharing-with' : '');
+    var nameHtml = '<a class="msb-sharing-who" href="'+esc(peerProfileHref(it))+'" target="_top" rel="noopener">'+esc(name || '')+'</a>';
+    var storyHtml = profileMetaStoryHtml(it);
+    var musicHtml = profileMetaMusicInlineHtml(it);
+    var visHtml = (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function')
+      ? window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'private')
+      : '';
+    var hasStory = !!storyHtml;
     return '<div class="'+headClass+'">'+
-      '<div class="mf-peer-link'+(hasSharing ? ' is-sharing-with' : '')+'">'+
-        '<a class="mf-avatar-link" href="'+esc(peerProfileHref(it))+'" aria-label="Open '+esc(name)+' profile">'+
+      '<div class="mf-peer-link">'+
+        '<a class="mf-avatar-link" href="'+esc(peerProfileHref(it))+'" target="_top" rel="noopener" aria-label="Open '+esc(name)+' profile">'+
           '<div class="mf-avatar"><img src="'+esc(avatarUrl)+'" alt="'+esc(name)+'"></div>'+
         '</a>'+
-        '<div class="mf-meta"><div class="mf-name-row'+(hasSharing ? ' mf-name-row--sharing' : '')+'">'+
-          '<div class="'+nameClass+'">'+nameHtml+'</div>'+
-          (!hasSharing && time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time)+'</div>' : '')+
-          (!hasSharing && window.MSBPostCardMenu && typeof window.MSBPostCardMenu.visibilityBadgeHtml === 'function'
-            ? window.MSBPostCardMenu.visibilityBadgeHtml(it.visibility || 'friends')
-            : '')+
-        '</div></div></div>'+
+        '<div class="mf-meta">'+
+          '<div class="mf-name-row'+(hasStory ? ' has-story' : '')+'">'+
+            '<div class="mf-name">'+nameHtml+'</div>'+
+            ((Number(it.is_verified||it.verified||0) === 1) ? '<i class="fa fa-check-circle mf-verified" aria-hidden="true"></i>' : '')+
+            visHtml+
+            (time ? '<span class="mf-dot">&bull;</span><div class="mf-time">'+esc(time||'')+'</div>' : '')+
+            storyHtml+
+          '</div>'+
+          (musicHtml ? '<div class="mf-sub-row">'+musicHtml+'</div>' : '')+
+        '</div>'+
+      '</div>'+
       '<div class="mf-menu-wrap post-card-menu-wrap" data-post-id="'+esc(String(pid))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-is-owner="'+(isOwner ? '1' : '0')+'" data-menu-surface="profile" data-visibility="'+esc(String((window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility) ? window.MSBPostCardMenu.normalizeVisibility(it.visibility || 'friends') : (it.visibility || 'friends')))+'">'+
         '<button type="button" class="mf-menu-btn post-card-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false">'+menuIcon+'</button>'+
         '<div class="mf-menu post-card-menu" role="menu">'+profileBuildMenuItems(it, isOwner, pid)+'</div>'+
@@ -15984,15 +16682,17 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     var slideTitle0 = hasSlideCap ? String(it.preview_slide_title||'').trim() : '';
     var slideBody0 = hasSlideCap ? String(it.preview_slide_body||'').trim() : '';
     var hasMedia = !!psrc;
-    if(!hasMedia && !title && !hasBody) return '';
+    var linkPreviewHtml = profileLinkPreviewHtml(it);
+    if(!hasMedia && !title && !hasBody && !linkPreviewHtml) return '';
     var isTextOnly = !hasMedia;
     var attCount = Number(it.attachment_count || 0);
     var isSingleMedia = attCount <= 1;
     var isMultiMedia = attCount > 1;
 
     var deviceMeta = deviceCardMeta(it);
-    var isPhoneShot = !!deviceMeta.phone_shot && isTextOnly;
-    var isTabletShot = !!deviceMeta.tablet_shot && !isPhoneShot && isTextOnly;
+    /* Text/link posts: keep Discover full-column width (no phone-shot narrow card). */
+    var isPhoneShot = false;
+    var isTabletShot = false;
     var deviceStyle = '';
     var deviceDims = null;
     var deviceDataAttrs = '';
@@ -16061,10 +16761,15 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       );
     }
 
+    var bodyHtml = hasBody ? mfBuildBodyHtml(body) : '';
+    if (linkPreviewHtml) {
+      bodyHtml = (bodyHtml || '') + linkPreviewHtml;
+    }
+
     return '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-visibility="'+esc(String((window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility) ? window.MSBPostCardMenu.normalizeVisibility(it.visibility || 'friends') : (it.visibility || 'friends')))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-peer-code="'+esc(PROFILE_HIDE_PRIVATE_CONTACT ? '' : String(it.friend_code || ''))+'" data-account-kind="'+esc(String(it.account_kind || 'personal'))+'" data-is-publisher="'+(profileIsPublisherItem(it) ? '1' : '0')+'" data-is-following="'+(profilePublisherFollowingFromItem(it) ? '1' : '0')+'" data-friend-status="'+esc(profileFriendStatusFromItem(it))+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
       profileBuildHeadHtml(it, isOwner, pid, false)+
       (title ? '<div class="mf-title">'+esc(title)+'</div>' : '')+
-      (hasBody ? mfBuildBodyHtml(body) : '') +
+      bodyHtml +
       (hasSlideCap
         ? ('<div class="mf-slide-copy">' +
              '<div class="mf-slide-title"'+(slideTitle0 ? '' : ' style="display:none"')+'>'+esc(slideTitle0)+'</div>'+
@@ -16084,6 +16789,16 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     var $wrap = $('#profilePostsFeed');
     $wrap.empty();
     items = profileFeedItems(items);
+    var pinId = Number(PROFILE_PIN_POST_ID || 0);
+    if (pinId > 0 && Array.isArray(items) && items.length) {
+      var pinned = null;
+      var rest = [];
+      items.forEach(function(it){
+        if (Number(it && it.id || 0) === pinId) pinned = it;
+        else rest.push(it);
+      });
+      if (pinned) items = [pinned].concat(rest);
+    }
     if(!items.length){
       $wrap.html(profileTabEmptyHtml('No Posts Available', 'ion-grid'));
       return;
@@ -16110,6 +16825,18 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       if(typeof window.MSBPostCardMenu.syncFriendCards === 'function' && PROFILE_FRIEND_STATUS === 'friends' && AUTHOR_ID > 0){
         window.MSBPostCardMenu.syncFriendCards(AUTHOR_ID, 'friends');
       }
+    }
+    if (PROFILE_FRESH_CREATE && pinId > 0) {
+      try{
+        var freshCard = $wrap.find('.mf-card[data-id="'+String(pinId)+'"], .mf-card[data-post-id="'+String(pinId)+'"]').get(0);
+        if (freshCard) {
+          freshCard.classList.add('is-alert-focus');
+          if (typeof window.msbScrollFreshCreatePost === 'function') {
+            window.msbScrollFreshCreatePost(freshCard);
+            window.setTimeout(function(){ window.msbScrollFreshCreatePost(freshCard); }, 240);
+          }
+        }
+      }catch(_fc){}
     }
     setTimeout(function(){
       var multiMediaItems = items.filter(function(it){
@@ -16553,6 +17280,59 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     ensureLoaded: function(force){ if(document.body.classList.contains('profile-posts-mode')) loadFeed(!!force); },
     reload: function(){ loaded = false; loadFeed(true); }
   };
+
+  window.MSBProfileOnPostCreated = function(postId, meta){
+    postId = Number(postId || 0);
+    meta = meta || {};
+    try{ window.__MSB_SKIP_RESUME_HOME = true; }catch(_sk){}
+    PROFILE_PIN_POST_ID = postId > 0 ? postId : PROFILE_PIN_POST_ID;
+    PROFILE_FRESH_CREATE = true;
+    try{
+      document.body.classList.add('profile-posts-mode');
+      var postsTab = document.querySelector('.ig-tab[data-panel="posts"]');
+      if (postsTab && typeof postsTab.click === 'function' && !postsTab.classList.contains('active')) {
+        postsTab.click();
+      } else {
+        document.querySelectorAll('.profile-panel').forEach(function(p){ p.classList.remove('active'); });
+        var panel = document.getElementById('panel-posts');
+        if (panel) panel.classList.add('active');
+        document.querySelectorAll('.ig-tab').forEach(function(t){
+          var on = t.getAttribute('data-panel') === 'posts';
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+      }
+    }catch(_tab){}
+    try{
+      var u = new URL(window.location.href);
+      u.searchParams.set('tab', 'posts');
+      u.searchParams.set('post', String(postId || ''));
+      u.searchParams.set('fresh', '1');
+      u.searchParams.delete('gallery_vis');
+      history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+    }catch(_url){}
+    loaded = false;
+    loadFeed(true);
+    var attempts = 0;
+    (function waitCard(){
+      attempts += 1;
+      var card = document.querySelector(
+        '#profilePostsFeed .mf-card[data-id="'+String(postId)+'"],'+
+        '#profilePostsFeed .mf-card[data-post-id="'+String(postId)+'"]'
+      );
+      if (card) {
+        card.classList.add('is-alert-focus');
+        if (typeof window.msbScrollFreshCreatePost === 'function') {
+          window.msbScrollFreshCreatePost(card);
+          [200, 500, 1000].forEach(function(ms){
+            window.setTimeout(function(){ window.msbScrollFreshCreatePost(card); }, ms);
+          });
+        }
+        return;
+      }
+      if (attempts < 40) window.setTimeout(waitCard, 160);
+    })();
+  };
   if(window.MSBPostEngagement && typeof window.MSBPostEngagement.registerAdapter === 'function'){
     window.MSBPostEngagement.registerAdapter(function(postId, patch){
       postId = Number(postId || 0);
@@ -16592,7 +17372,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
           if(dims && dims.w && dims.h) applyPublicMediaCardWidth(card, dims.w, dims.h);
         }catch(err){}
       });
-      document.querySelectorAll('#profilePostsFeed .mf-card.mf-card-phone-shot.mf-card-text-only').forEach(function(card){
+      document.querySelectorAll('#profilePostsFeed .mf-card.mf-card-phone-shot:not(.mf-card-text-only)').forEach(function(card){
         var dims = getDeviceDimensions(card);
         if(dims && dims.w && dims.h) applyPublicMediaCardWidth(card, dims.w, dims.h);
       });
@@ -16945,7 +17725,7 @@ html[data-theme="dark"] body.profile-page .gear-tag{
   border-color:var(--msb-palette-border, rgba(255,255,255,.12))!important;
   box-shadow:none!important;
 }
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page{
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page{
   --msb-palette-action:#0b1220;
   --msb-palette-action-strong:#000000;
   --msb-palette-link:#0b1220;
@@ -16955,67 +17735,67 @@ html:not([data-theme="dark"]):not(.dark-auto) body.profile-page{
   --msb-palette-btn-hover-bg:#000000;
   --msb-palette-btn-text:#ffffff;
 }
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .ig-btn,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .ig-btn i,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .ig-tab.active,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .ig-tab.active i,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .ig-gallery-search button,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-nav-section-icon,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-detail-icon,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-chip,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-tag,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-detail-open-btn,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-upload-btn,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-body .mf-readmore,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act i,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act .mf-num,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act.is-love,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act.is-love i,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act.is-love .mf-num,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act.is-save i,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #profilePostsFeed .mf-act.is-share i,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .pv-readmore,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .pv-com .m .link,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .pv-com .m .replies-toggle,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .pv-com .m .likebtn.is-liked,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .pv-act.is-like i{
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .ig-btn,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .ig-btn i,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .ig-tab.active,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .ig-tab.active i,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .ig-gallery-search button,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-nav-section-icon,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-detail-icon,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-chip,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-tag,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-detail-open-btn,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-upload-btn,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-body .mf-readmore,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act i,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act .mf-num,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act.is-love,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act.is-love i,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act.is-love .mf-num,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act.is-save i,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #profilePostsFeed .mf-act.is-share i,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .pv-readmore,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .pv-com .m .link,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .pv-com .m .replies-toggle,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .pv-com .m .likebtn.is-liked,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .pv-act.is-like i{
   color:#0b1220!important;
   -webkit-text-fill-color:#0b1220!important;
 }
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .ig-gallery-search button,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-detail-open-btn,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .gear-upload-btn{
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .ig-gallery-search button,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-detail-open-btn,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .gear-upload-btn{
   background:#0b1220!important;
   border-color:#0b1220!important;
   color:#ffffff!important;
   -webkit-text-fill-color:#ffffff!important;
 }
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page #pvAtBtn{
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page #pvAtBtn{
   background:linear-gradient(180deg, #ff2e89 0%, #c11353 100%)!important;
   border-color:transparent!important;
   color:#ffffff!important;
   -webkit-text-fill-color:#ffffff!important;
 }
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .pv-send{
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .pv-send{
   background:#7c1730!important;
   border-color:transparent!important;
   color:#ffffff!important;
   -webkit-text-fill-color:#ffffff!important;
 }
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .pv-iconbtn:not(#pvAtBtn){
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .pv-iconbtn:not(#pvAtBtn){
   background:var(--msb-palette-hover-bg, #f2f4f7)!important;
   border-color:transparent!important;
   color:#0b1220!important;
   -webkit-text-fill-color:#0b1220!important;
 }
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .mf-media-shell > .mf-head--on-media,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .mf-media-shell > .mf-head--on-media .mf-peer-link,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .mf-media-shell > .mf-head--on-media .mf-name,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .mf-media-shell > .mf-head--on-media .mf-time,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .mf-media-shell > .mf-head--on-media .mf-dot,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .mf-media-shell > .mf-head--on-media .post-card-menu-btn,
-html:not([data-theme="dark"]):not(.dark-auto) body.profile-page .mf-media-shell > .mf-head--on-media .post-card-fries-icon{
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .mf-media-shell > .mf-head--on-media,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .mf-media-shell > .mf-head--on-media .mf-peer-link,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .mf-media-shell > .mf-head--on-media .mf-name,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .mf-media-shell > .mf-head--on-media .mf-time,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .mf-media-shell > .mf-head--on-media .mf-dot,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .mf-media-shell > .mf-head--on-media .post-card-menu-btn,
+html:not([data-theme="dark"]):not(.dark-auto):not([data-msb-appearance]):not(.msb-progress-previewing) body.profile-page .mf-media-shell > .mf-head--on-media .post-card-fries-icon{
   color:#ffffff!important;
   -webkit-text-fill-color:#ffffff!important;
 }
@@ -17219,6 +17999,7 @@ body.profile-page #profilePostsFeed > .mf-card.mf-card-text-only:not(.mf-card-ph
 body.profile-page #profilePostsFeed > .mf-card.mf-card-text-only:not(.mf-card-phone-shot) > .mf-head,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-text-only:not(.mf-card-phone-shot) > .mf-title,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-text-only:not(.mf-card-phone-shot) > .mf-body,
+body.profile-page #profilePostsFeed > .mf-card.mf-card-text-only:not(.mf-card-phone-shot) > .mf-link-preview,
 body.profile-page #profilePostsFeed > .mf-card.mf-card-text-only:not(.mf-card-phone-shot) > .mf-actions{
   position:relative !important;
   left:auto !important;
@@ -19094,6 +19875,43 @@ html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gea
   html body.profile-page.settings-page.profile-gear-mode .gear-edit-pane{
     border-right:0 !important;
     border-bottom:1px solid var(--set-line, var(--msb-hairline, #d3d3d3)) !important;
+  }
+}
+</style>
+<style id="profile-post-card-spacing-css">
+/* Profile Posts only: match Circle card separation without changing media sizing/actions. */
+html body.profile-page #panel-posts,
+html body.profile-page #panel-posts.profile-panel.active{
+  background:#e5eff6 !important;
+  background-color:#e5eff6 !important;
+}
+html body.profile-page #panel-posts #profilePostsFeed.mf-feed{
+  padding:10px 10px 96px !important;
+  background:#e5eff6 !important;
+  background-color:#e5eff6 !important;
+  box-sizing:border-box !important;
+}
+html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card{
+  margin-bottom:12px !important;
+  border:1px solid var(--msb-palette-border, rgba(148,163,184,.28)) !important;
+  border-radius:8px !important;
+  background:var(--msb-palette-surface, var(--feed-surface, #fff)) !important;
+  box-shadow:0 2px 8px rgba(15,23,42,.06) !important;
+  overflow:visible !important;
+}
+html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card::after{
+  content:none !important;
+  display:none !important;
+}
+html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card:last-child{
+  margin-bottom:0 !important;
+}
+@media (max-width:575.98px){
+  html body.profile-page #panel-posts #profilePostsFeed.mf-feed{
+    padding:8px 7px 88px !important;
+  }
+  html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card{
+    margin-bottom:9px !important;
   }
 }
 </style>
