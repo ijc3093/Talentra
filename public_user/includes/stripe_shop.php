@@ -106,7 +106,7 @@ function stripe_shop_create_checkout_session(
     $params = [
         'mode' => 'payment',
         'success_url' => $base . '/shop_checkout_success.php?session_id={CHECKOUT_SESSION_ID}',
-        'cancel_url' => $cancelUrl !== '' ? $cancelUrl : ($base . '/my_orders.php?checkout=cancel'),
+        'cancel_url' => $cancelUrl !== '' ? $cancelUrl : ($base . '/Your_Shopping_preferences.php?checkout=cancel#order-history'),
         'client_reference_id' => $orderCode,
         'metadata[order_id]' => (string)$orderId,
         'metadata[order_code]' => $orderCode,

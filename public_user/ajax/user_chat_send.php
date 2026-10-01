@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/session_user.php';
 requireUserLogin();
 
 require_once __DIR__ . '/../controller.php';
+require_once __DIR__ . '/../includes/chat_lib.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -312,6 +313,49 @@ if ($replyPreviewText !== '') {
 // Insert into feedback
 // ---------------------------
 try {
+    // Buyer → seller: when product focus changes, store a thread marker so the
+    // previous product stays in scroll history and both sides focus the new one.
+    $isBuyerToSellerChat = $meId > 0 && $peerId > 0
+        && function_exists('commerce_buyer_seller_contact_remember')
+        && function_exists('commerce_messaging_publisher_has_shop')
+        && (commerce_messaging_publisher_has_shop($dbh, $peerId)
+            || (function_exists('org_is_commerce_seller_publisher') && org_is_commerce_seller_publisher($dbh, $peerId)))
+        && (!publisher_is_publisher_user($dbh, $meId) || !commerce_messaging_publisher_has_shop($dbh, $meId));
+
+    $commerceAboutProductId = $isBuyerToSellerChat
+        ? (int)($_POST['about_product'] ?? $_POST['product_id'] ?? 0)
+        : 0;
+
+    if ($isBuyerToSellerChat && $commerceAboutProductId > 0 && function_exists('commerce_messaging_product_marker_line')) {
+        $prevProductId = function_exists('commerce_buyer_seller_last_about_product')
+            ? commerce_buyer_seller_last_about_product($dbh, $meId, $peerId)
+            : 0;
+        $userTextLooksLikeMarker = $text !== '' && (
+            (bool)preg_match('/^Product\s*ID\s*#\s*\d+/i', $text)
+            || (bool)preg_match('/^Regarding product/i', $text)
+        );
+        if ($commerceAboutProductId !== $prevProductId && !$userTextLooksLikeMarker) {
+            $markerLine = trim(commerce_messaging_product_marker_line($dbh, $commerceAboutProductId));
+            if ($markerLine !== '') {
+                $stMarker = $dbh->prepare("
+                    INSERT INTO feedback
+                        (sender, receiver, channel, title, feedbackdata,
+                         attachment, attachment_type, attachment_original, attachment_url,
+                         is_read, created_at)
+                    VALUES
+                        (:s, :r, 'user_user', '', :msg,
+                         NULL, NULL, NULL, NULL,
+                         0, NOW())
+                ");
+                $stMarker->execute([
+                    ':s' => $meCode,
+                    ':r' => $peerCode,
+                    ':msg' => $markerLine,
+                ]);
+            }
+        }
+    }
+
     $st = $dbh->prepare("
         INSERT INTO feedback
             (sender, receiver, channel, title, feedbackdata,
@@ -336,6 +380,11 @@ try {
 
     $id = (int)$dbh->lastInsertId();
 
+    // Persist shop sellers in Shopping Preferences Messages (commerce sellers only).
+    if ($isBuyerToSellerChat) {
+        commerce_buyer_seller_contact_remember($dbh, $meId, $peerId, $commerceAboutProductId);
+    }
+
     $createdAt = date('Y-m-d H:i:s');
     $ts = strtotime($createdAt) ?: time();
     $replyBits = parse_reply_payload($storedText);
@@ -358,9 +407,9 @@ try {
             'attachment_url'      => $attachmentUrl,
 
             'created_at'          => $createdAt,
-            'time_label'          => date('M d, Y h:i A', $ts),
+            'time_label'          => chat_fmt_time_full($createdAt),
             'day_key'             => date('Y-m-d', $ts),
-            'day_label'           => date('M j, Y', $ts),
+            'day_label'           => fmt_day_label($createdAt),
             'is_read'             => 0
         ]
     ]);

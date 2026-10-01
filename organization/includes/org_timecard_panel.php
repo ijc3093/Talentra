@@ -359,6 +359,11 @@ foreach ($myEntries as $e) {
 </style>
 
 <div class="tc-wrap">
+  <?php if (function_exists('org_sales_hub_intro')): ?>
+    <div class="tc-head sm-hub-hero" style="margin-bottom:8px;">
+      <?php org_sales_hub_intro('timecard'); ?>
+    </div>
+  <?php endif; ?>
   <?php if ($isManager): ?>
     <div class="tc-metrics">
       <div class="tc-metric"><strong><?= (int)($orgStats['on_clock'] ?? 0) ?></strong><span>On the clock now</span></div>

@@ -27,6 +27,17 @@ profile_require_edit_access($dbh, $userId);
 
 $field = trim((string)($_POST['field'] ?? ''));
 $value = trim((string)($_POST['value'] ?? ''));
+
+// Font prefs are separate per platform: the iOS app keeps its own on-device font,
+// so its font saves must never change the talsora.com font.
+$msbAppOnlyFontFields = ['header_type_size', 'header_font_family', 'body_font_size_pt', 'body_font_family', 'text_color'];
+$msbFromNativeApp = strtolower(trim((string)($_SERVER['HTTP_X_TALSORA_CLIENT'] ?? ''))) === 'ios'
+    || stripos((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 'CFNetwork') !== false;
+if ($msbFromNativeApp && in_array($field, $msbAppOnlyFontFields, true)) {
+    echo json_encode(['ok' => true, 'value' => $value, 'app_only' => 1]);
+    exit;
+}
+
 if ($field === 'app_language') {
     app_language_ensure_column($dbh);
     $value = app_language_normalize($value);

@@ -86,9 +86,15 @@ if (!in_array($fulfillment, ['fba', 'fbm'], true)) {
 }
 $receive = org_shop_product_receive_options($product);
 $shippingFeeCents = max(0, (int)($receive['shipping_fee_cents'] ?? 0));
-$shippingFeeLabel = !empty($receive['delivery_enabled'])
-    ? ($shippingFeeCents > 0 ? org_shop_format_price($shippingFeeCents, $currency) : 'Free')
-    : '—';
+$shippingBadge = org_shop_product_shipping_badge($dbh, $product);
+if ($shippingBadge['mode'] === 'free') {
+    $shippingFeeLabel = 'Free shipping (you pay the shipping fee)';
+} elseif ($shippingBadge['mode'] === 'pickup') {
+    $shippingFeeLabel = 'Pick up only — buyers see: '
+        . ($shippingBadge['pickup_address'] !== '' ? $shippingBadge['pickup_address'] : 'add your Full Address');
+} else {
+    $shippingFeeLabel = org_shop_format_price($shippingFeeCents, $currency) . ' (customer pays)';
+}
 
 $productFacts = org_product_type_buyer_facts(
     isset($product['attributes_json']) ? (string)$product['attributes_json'] : null,
@@ -120,6 +126,50 @@ $editHref = $adminOversight
         : ('products.php?edit=' . $productId));
 $publicUrl = '../public_user/product_detail.php?id=' . $productId;
 
+// Latest customer order for this listing (Paid + Invoice), same as inventory detail / buyer product detail.
+$customerProductOrder = null;
+$customerOrderStatus = '';
+$customerOrderCode = '';
+$customerInvoiceHref = '';
+try {
+    $stOrd = $dbh->prepare("
+        SELECT o.id, o.status, o.order_code
+        FROM org_orders o
+        WHERE o.org_id = :org AND o.product_id = :pid
+        ORDER BY o.created_at DESC, o.id DESC
+        LIMIT 40
+    ");
+    $stOrd->execute([':org' => $orgId, ':pid' => $productId]);
+    foreach (($stOrd->fetchAll(PDO::FETCH_ASSOC) ?: []) as $ordRow) {
+        $st = strtolower(trim((string)($ordRow['status'] ?? '')));
+        if (in_array($st, ['cancelled', 'canceled'], true)) {
+            continue;
+        }
+        $customerProductOrder = $ordRow;
+        break;
+    }
+    if ($customerProductOrder) {
+        $customerOrderStatus = ucwords(str_replace('_', ' ', strtolower(trim((string)($customerProductOrder['status'] ?? 'pending')))));
+        $customerOrderCode = trim((string)($customerProductOrder['order_code'] ?? ''));
+        $customerOrderId = (int)($customerProductOrder['id'] ?? 0);
+        if ($customerOrderCode === '' && $customerOrderId > 0) {
+            $customerOrderCode = '#' . $customerOrderId;
+        }
+        if ($customerOrderId > 0) {
+            $invoiceQs = ['id' => $customerOrderId, 'from' => 'sales'];
+            if ($customerOrderCode !== '' && $customerOrderCode[0] !== '#') {
+                $invoiceQs['code'] = $customerOrderCode;
+            }
+            $customerInvoiceHref = 'order_details.php?' . http_build_query($invoiceQs);
+        }
+    }
+} catch (Throwable $e) {
+    $customerProductOrder = null;
+    $customerOrderStatus = '';
+    $customerOrderCode = '';
+    $customerInvoiceHref = '';
+}
+
 $statusLabel = $status === 'sold_out' ? 'sold out' : $status;
 $pageTitle = $productCode !== '' ? ($productCode . ' · ' . $title) : $title;
 
@@ -127,7 +177,7 @@ require_once __DIR__ . '/includes/org_page_shell.php';
 org_page_shell_open(
     $pageTitle,
     '<link rel="stylesheet" href="css/product-table.css?v=5">'
-    . '<link rel="stylesheet" href="css/products-detail.css?v=7">'
+    . '<link rel="stylesheet" href="css/products-detail.css?v=8">'
     . '<link href="../public_user/lib/font-awesome/css/font-awesome.css" rel="stylesheet">'
 );
 ?>
@@ -188,6 +238,19 @@ org_page_shell_open(
             <?php if ($productCondition !== ''): ?>
               <span class="pd-condition-pill<?= stripos($productCondition, 'used') !== false ? ' is-used' : '' ?>"><?= h($productCondition) ?></span>
             <?php endif; ?>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($customerProductOrder && $customerInvoiceHref !== ''):
+          $pdOrderStatusSlug = strtolower(preg_replace('/\s+/', '-', $customerOrderStatus) ?: 'pending');
+        ?>
+          <div class="pd-order-status" aria-label="Customer order">
+            <span class="pd-order-status-label">Customer order</span>
+            <span class="pd-order-status-badge is-<?= h($pdOrderStatusSlug) ?>"><?= h($customerOrderStatus) ?></span>
+            <?php if ($customerOrderCode !== ''): ?>
+              <span class="pd-order-status-code"><?= h($customerOrderCode) ?></span>
+            <?php endif; ?>
+            <a class="pd-order-status-invoice" href="<?= h($customerInvoiceHref) ?>">Invoice</a>
           </div>
         <?php endif; ?>
 

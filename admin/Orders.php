@@ -446,18 +446,18 @@ $payLabels = [
     .sh-mainpanel{height:100vh;display:flex;flex-direction:column;overflow:hidden;}
     .sh-mainpanel > .sh-pagebody{
       overflow:hidden !important;display:flex !important;flex-direction:column !important;min-height:0 !important;
-      padding-top:8px !important;padding-bottom:8px !important;flex:1 1 auto;background:#f4f6fb;
+      padding-top:8px !important;padding-bottom:8px !important;flex:1 1 auto;background:var(--msb-palette-bg,#f4f6fb);
     }
     .od-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:0 2px;box-sizing:border-box;}
     .od-top{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;}
-    .od-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:11px;font-weight:700;color:#334155;display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-decoration:none;}
-    .od-btn:hover{background:#f8fafc;text-decoration:none;color:#0f172a;}
+    .od-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid #e2e8f0;background:var(--azia-card,#fff);font-size:11px;font-weight:700;color:var(--azia-text,#334155);display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-decoration:none;}
+    .od-btn:hover{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));text-decoration:none;color:var(--azia-text,#0f172a);}
     .od-cards{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;}
-    .od-card{background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px rgba(15,23,42,.04);text-decoration:none;color:inherit;display:block;min-width:0;}
+    .od-card{background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px rgba(15,23,42,.04);text-decoration:none;color:inherit;display:block;min-width:0;}
     .od-card:hover{border-color:#bfdbfe;text-decoration:none;color:inherit;}
     .od-card.is-active{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb inset;}
     .od-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
-    .od-card-top .lab{font-size:11px;font-weight:700;color:#64748b;}
+    .od-card-top .lab{font-size:11px;font-weight:700;color:var(--azia-muted,#64748b);}
     .od-card-top .delta{font-size:10px;font-weight:800;color:#16a34a;}
     .od-ico{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;}
     .od-ico.blue{background:#dbeafe;color:#2563eb;}
@@ -465,35 +465,35 @@ $payLabels = [
     .od-ico.orange{background:#ffedd5;color:#ea580c;}
     .od-ico.purple{background:#f3e8ff;color:#7c3aed;}
     .od-ico.red{background:#fef2f2;color:#dc2626;}
-    .od-card .val{font-size:20px;font-weight:800;color:#0f172a;line-height:1;}
-    .od-card .sub{font-size:10px;color:#94a3b8;font-weight:600;margin-top:4px;}
-    .od-tabs{flex:0 0 auto;display:flex;align-items:center;gap:0;background:#fff;border:1px solid #eef2f7;border-radius:10px;padding:0 4px;overflow:auto;}
-    .od-tabs a{flex:0 0 auto;padding:8px 12px;font-size:12px;font-weight:800;color:#64748b;text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;}
-    .od-tabs a .cnt{font-weight:700;color:#94a3b8;margin-left:4px;}
+    .od-card .val{font-size:20px;font-weight:800;color:var(--azia-text,#0f172a);line-height:1;}
+    .od-card .sub{font-size:10px;color:var(--azia-muted,#94a3b8);font-weight:600;margin-top:4px;}
+    .od-tabs{flex:0 0 auto;display:flex;align-items:center;gap:0;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:10px;padding:0 4px;overflow:auto;}
+    .od-tabs a{flex:0 0 auto;padding:8px 12px;font-size:12px;font-weight:800;color:var(--azia-muted,#64748b);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;}
+    .od-tabs a .cnt{font-weight:700;color:var(--azia-muted,#94a3b8);margin-left:4px;}
     .od-tabs a.is-active{color:#2563eb;border-bottom-color:#2563eb;}
     .od-tabs .spacer{flex:1 1 auto;}
-    .od-main{flex:1 1 auto;min-height:0;background:#fff;border:1px solid #eef2f7;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04);display:flex;flex-direction:column;}
-    .od-filters{flex:0 0 auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-bottom:1px solid #eef2f7;background:#fafbfc;}
+    .od-main{flex:1 1 auto;min-height:0;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04);display:flex;flex-direction:column;}
+    .od-filters{flex:0 0 auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-bottom:1px solid #eef2f7;background:var(--msb-palette-surface-2,var(--azia-card,#fafbfc));}
     .od-search{position:relative;flex:1 1 160px;min-width:140px;max-width:240px;}
-    .od-search i{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;}
-    .od-search input,.od-filters select,.od-filters input[type="date"]{height:30px;border:1px solid #e2e8f0;border-radius:8px;padding:0 9px;font-size:11px;background:#fff;color:#0f172a;}
+    .od-search i{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--azia-muted,#94a3b8);font-size:12px;}
+    .od-search input,.od-filters select,.od-filters input[type="date"]{height:30px;border:1px solid #e2e8f0;border-radius:8px;padding:0 9px;font-size:11px;background:var(--azia-card,#fff);color:var(--azia-text,#0f172a);}
     .od-search input{width:100%;padding-left:28px;}
     .od-table-wrap{flex:1 1 auto;min-height:0;overflow:auto;}
     .od-table{width:100%;border-collapse:separate;border-spacing:0;min-width:1280px;}
-    .od-table th{text-align:left;font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#64748b;padding:8px 8px;border-bottom:1px solid #eef2f7;background:#fff;position:sticky;top:0;z-index:3;white-space:nowrap;}
-    .od-table td{padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;font-size:11px;color:#0f172a;}
-    .od-table tr:hover td{background:#f8fafc;}
-    .od-id{font-weight:800;color:#0f172a;}
-    .od-id-sub{font-size:10px;color:#64748b;font-weight:600;}
+    .od-table th{text-align:left;font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--azia-muted,#64748b);padding:8px 8px;border-bottom:1px solid #eef2f7;background:var(--azia-card,#fff);position:sticky;top:0;z-index:3;white-space:nowrap;}
+    .od-table td{padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;font-size:11px;color:var(--azia-text,#0f172a);}
+    .od-table tr:hover td{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));}
+    .od-id{font-weight:800;color:var(--azia-text,#0f172a);}
+    .od-id-sub{font-size:10px;color:var(--azia-muted,#64748b);font-weight:600;}
     .od-id-link{color:#2563eb;font-weight:800;text-decoration:none;}
     .od-id-link:hover{text-decoration:underline;color:#1d4ed8;}
     .od-person{display:flex;align-items:center;gap:8px;min-width:0;}
     .od-av{width:28px;height:28px;border-radius:999px;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 28px;}
-    .od-name{font-weight:800;font-size:11px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .od-sub{font-size:10px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .od-name{font-weight:800;font-size:11px;color:var(--azia-text,#0f172a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .od-sub{font-size:10px;color:var(--azia-muted,#64748b);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .od-prod{display:flex;align-items:center;gap:8px;min-width:0;}
     .od-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;background:#e2e8f0;flex:0 0 36px;border:1px solid #eef2f7;}
-    .od-thumb.ph{display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;}
+    .od-thumb.ph{display:flex;align-items:center;justify-content:center;color:var(--azia-muted,#94a3b8);font-size:12px;}
     .od-amt{font-weight:800;white-space:nowrap;}
     .od-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;}
     .od-pill.paid,.od-pill.delivered{background:#dcfce7;color:#15803d;}
@@ -503,12 +503,12 @@ $payLabels = [
     .od-pill.canceled,.od-pill.unpaid{background:#fee2e2;color:#b91c1c;}
     .od-pill.refunded{background:#f3e8ff;color:#7c3aed;}
     .od-acts{display:flex;align-items:center;gap:6px;}
-    .od-view{width:28px;height:28px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#334155;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;}
+    .od-view{width:28px;height:28px;border-radius:8px;border:1px solid #e2e8f0;background:var(--azia-card,#fff);color:var(--azia-text,#334155);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;}
     .od-view:hover{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;text-decoration:none;}
     .od-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid #eef2f7;}
-    .od-foot .muted{font-size:11px;color:#64748b;font-weight:600;}
+    .od-foot .muted{font-size:11px;color:var(--azia-muted,#64748b);font-weight:600;}
     .dataTables_wrapper .dataTables_paginate{float:none;text-align:center;padding:0;}
-    .dataTables_wrapper .dataTables_paginate .paginate_button{min-width:28px !important;height:28px !important;padding:0 7px !important;margin:0 2px !important;border-radius:7px !important;border:1px solid #e2e8f0 !important;background:#fff !important;font-size:11px !important;font-weight:700 !important;line-height:26px !important;}
+    .dataTables_wrapper .dataTables_paginate .paginate_button{min-width:28px !important;height:28px !important;padding:0 7px !important;margin:0 2px !important;border-radius:7px !important;border:1px solid #e2e8f0 !important;background:var(--azia-card,#fff) !important;font-size:11px !important;font-weight:700 !important;line-height:26px !important;}
     .dataTables_wrapper .dataTables_paginate .paginate_button.current{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important;}
     .dataTables_wrapper .dataTables_info,.dataTables_wrapper .dataTables_length,.dataTables_wrapper .dataTables_filter{display:none !important;}
     #datatable1_wrapper{display:contents;}
@@ -516,18 +516,18 @@ $payLabels = [
     .od-drawer.is-open{pointer-events:auto;}
     .od-drawer-bg{position:absolute;inset:0;background:rgba(15,23,42,.45);opacity:0;transition:opacity .2s ease;border:0;cursor:pointer;}
     .od-drawer.is-open .od-drawer-bg{opacity:1;}
-    .od-drawer-panel{position:absolute;top:0;right:0;bottom:0;width:min(440px,96vw);background:#fff;border-left:1px solid #e5e7eb;box-shadow:-18px 0 48px rgba(0,0,0,.2);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;}
+    .od-drawer-panel{position:absolute;top:0;right:0;bottom:0;width:min(440px,96vw);background:var(--azia-card,#fff);border-left:1px solid #e5e7eb;box-shadow:-18px 0 48px rgba(0,0,0,.2);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;}
     .od-drawer.is-open .od-drawer-panel{transform:translateX(0);}
     .od-drawer-head{padding:16px 18px;border-bottom:1px solid #eef2f7;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-    .od-drawer-head h3{margin:0;font-size:17px;font-weight:900;color:#0f172a;}
-    .od-drawer-head .sub{font-size:12px;color:#64748b;font-weight:600;margin-top:3px;}
-    .od-drawer-close{width:36px;height:36px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;}
+    .od-drawer-head h3{margin:0;font-size:17px;font-weight:900;color:var(--azia-text,#0f172a);}
+    .od-drawer-head .sub{font-size:12px;color:var(--azia-muted,#64748b);font-weight:600;margin-top:3px;}
+    .od-drawer-close{width:36px;height:36px;border-radius:999px;border:1px solid #e2e8f0;background:var(--azia-card,#fff);cursor:pointer;}
     .od-drawer-body{flex:1 1 auto;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px;}
-    .od-sec{background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:12px 14px;}
-    .od-sec h4{margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#64748b;}
+    .od-sec{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));border:1px solid #eef2f7;border-radius:12px;padding:12px 14px;}
+    .od-sec h4{margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--azia-muted,#64748b);}
     .od-kv{display:grid;grid-template-columns:100px 1fr;gap:6px 10px;font-size:12px;}
-    .od-kv .k{color:#64748b;font-weight:700;}
-    .od-kv .v{color:#0f172a;font-weight:600;word-break:break-word;}
+    .od-kv .k{color:var(--azia-muted,#64748b);font-weight:700;}
+    .od-kv .v{color:var(--azia-text,#0f172a);font-weight:600;word-break:break-word;}
     @media (max-width:1100px){.od-wrap{overflow:auto;}.od-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
   </style>
 </head>
@@ -723,7 +723,7 @@ include __DIR__ . '/includes/header.php';
                   <div class="od-id"><a class="od-id-link" href="<?= h($orderDetailHref) ?>" title="Open order detail"><?= h($code) ?></a></div>
                   <div class="od-id-sub"><?= h(truncate_text($txn, 22)) ?></div>
                 </td>
-                <td><div class="od-sub" style="color:#475569;font-weight:600;"><?= h(fmt_dt($row['created_at'] ?? '')) ?></div></td>
+                <td><div class="od-sub" style="color:var(--azia-muted,#475569);font-weight:600;"><?= h(fmt_dt($row['created_at'] ?? '')) ?></div></td>
                 <td>
                   <div class="od-person">
                     <span class="od-av" style="background:<?= h(avatarColor($buyerHandle . $buyerName)) ?>;"><?= h(initials2($buyerName)) ?></span>
@@ -756,7 +756,7 @@ include __DIR__ . '/includes/header.php';
                       <div class="od-sub">
                         <?php if ($prodCode !== ''): ?>
                           <a class="od-id-link" href="<?= h($orderDetailHref) ?>" title="Open order detail">Product ID <?= h($prodCode) ?></a>
-                          <span style="color:#94a3b8;"> · </span>
+                          <span style="color:var(--azia-muted,#94a3b8);"> · </span>
                         <?php endif; ?>
                         <?= h($prodMeta) ?>
                       </div>
@@ -766,9 +766,9 @@ include __DIR__ . '/includes/header.php';
                 <td><span class="od-amt"><?= h(money_fmt((int)($row['total_cents'] ?? 0), (string)($row['currency'] ?? 'USD'))) ?></span></td>
                 <td><span class="od-pill <?= h($pay) ?>"><?= h($payLabels[$pay] ?? ucfirst($pay)) ?></span></td>
                 <td><span class="od-pill <?= h($ui) ?>"><?= h($statusLabels[$ui] ?? ucfirst($ui)) ?></span></td>
-                <td><div class="od-sub" style="color:#475569;font-weight:600;max-width:140px;" title="<?= h($contact) ?>"><?= h(truncate_text($contact, 36)) ?></div></td>
-                <td><div class="od-sub" style="color:#475569;font-weight:600;max-width:160px;" title="<?= h($address) ?>"><?= h(truncate_text($address !== '' ? $address : '—', 40)) ?></div></td>
-                <td><div class="od-sub" style="color:#475569;font-weight:600;"><?= h($deliveryAt !== '' ? fmt_dt($deliveryAt) : '—') ?></div></td>
+                <td><div class="od-sub" style="color:var(--azia-muted,#475569);font-weight:600;max-width:140px;" title="<?= h($contact) ?>"><?= h(truncate_text($contact, 36)) ?></div></td>
+                <td><div class="od-sub" style="color:var(--azia-muted,#475569);font-weight:600;max-width:160px;" title="<?= h($address) ?>"><?= h(truncate_text($address !== '' ? $address : '—', 40)) ?></div></td>
+                <td><div class="od-sub" style="color:var(--azia-muted,#475569);font-weight:600;"><?= h($deliveryAt !== '' ? fmt_dt($deliveryAt) : '—') ?></div></td>
                 <td>
                   <div class="od-acts">
                     <a class="od-view" href="<?= h($orderDetailHref) ?>" title="View order detail"><i class="fa fa-eye"></i></a>
@@ -824,7 +824,7 @@ include __DIR__ . '/includes/header.php';
         <h3><?= h(trim((string)($d['order_code'] ?? '')) ?: ('ORD-' . (int)$d['id'])) ?></h3>
         <div class="sub"><?= h(fmt_dt($d['created_at'] ?? '')) ?> · <span class="od-pill <?= h($dUi) ?>"><?= h($statusLabels[$dUi] ?? $dUi) ?></span></div>
       </div>
-      <a class="od-drawer-close" href="<?= h($closeHref) ?>" title="Close" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:#0f172a;"><i class="fa fa-times"></i></a>
+      <a class="od-drawer-close" href="<?= h($closeHref) ?>" title="Close" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--azia-text,#0f172a);"><i class="fa fa-times"></i></a>
     </div>
     <div class="od-drawer-body">
       <div class="od-sec">

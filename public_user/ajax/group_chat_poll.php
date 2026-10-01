@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/session_user.php';
 requireUserLogin();
 
 require_once __DIR__ . '/../controller.php';
+require_once __DIR__ . '/../includes/chat_lib.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -213,9 +214,9 @@ try {
                     'is_me' => ((int)($row['sender_user_id'] ?? 0) === $meId),
                     'text' => (string)($replyBits['text'] ?? ''),
                     'created_at' => $createdAt,
-                    'time_label' => date('M d, Y h:i A', $ts),
+                    'time_label' => chat_fmt_time_full($createdAt),
                     'day_key' => date('Y-m-d', $ts),
-                    'day_label' => date('M j, Y', $ts),
+                    'day_label' => fmt_day_label($createdAt),
                     'sender_name' => (string)($row['sender_name'] ?? ''),
                     'friend_code' => (string)($row['friend_code'] ?? ''),
                     'reply_author' => (string)($replyBits['reply_author'] ?? ''),

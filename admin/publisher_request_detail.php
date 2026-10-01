@@ -302,18 +302,18 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
     .sh-mainpanel{height:100vh;display:flex;flex-direction:column;overflow:hidden;}
     .sh-mainpanel > .sh-pagebody{
       overflow:hidden !important;display:flex !important;flex-direction:column !important;min-height:0 !important;
-      padding-top:4px !important;padding-bottom:4px !important;flex:1 1 auto;background:#f4f6fb;
+      padding-top:4px !important;padding-bottom:4px !important;flex:1 1 auto;background:var(--msb-palette-bg,#f4f6fb);
     }
     .uf-wrap{
       flex:1 1 auto;min-height:0;height:100%;width:100%;max-width:100%;
       display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:0 2px;box-sizing:border-box;
     }
     .uf-btn{
-      height:24px;padding:0 8px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;
-      font-size:10px;font-weight:700;color:#334155;display:inline-flex;align-items:center;gap:4px;
+      height:24px;padding:0 8px;border-radius:6px;border:1px solid #e2e8f0;background:var(--azia-card,#fff);
+      font-size:10px;font-weight:700;color:var(--azia-text,#334155);display:inline-flex;align-items:center;gap:4px;
       text-decoration:none;cursor:pointer;white-space:nowrap;
     }
-    .uf-btn:hover{background:#f8fafc;text-decoration:none;color:#0f172a;}
+    .uf-btn:hover{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));text-decoration:none;color:var(--azia-text,#0f172a);}
     .uf-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff;}
     .uf-btn.primary:hover{background:#1d4ed8;color:#fff;}
     .uf-btn.ok{background:#16a34a;border-color:#16a34a;color:#fff;}
@@ -322,16 +322,16 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
     .uf-btn.is-disabled{opacity:.45;pointer-events:none;}
 
     .uf-hero{
-      flex:0 0 auto;background:#fff;border:1px solid #eef2f7;border-radius:8px;padding:6px 10px;
+      flex:0 0 auto;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;padding:6px 10px;
       display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;
     }
     .uf-hero-left{display:flex;gap:8px;min-width:0;align-items:flex-start;flex:1 1 auto;}
     .uf-av{width:40px;height:40px;border-radius:999px;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 40px;}
-    .uf-hero h1{margin:0;font-size:14px;font-weight:800;color:#0f172a;line-height:1.15;display:inline-flex;align-items:center;gap:5px;}
-    .uf-hero .name{font-size:11px;color:#64748b;font-weight:600;margin-top:1px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .uf-hero h1{margin:0;font-size:14px;font-weight:800;color:var(--azia-text,#0f172a);line-height:1.15;display:inline-flex;align-items:center;gap:5px;}
+    .uf-hero .name{font-size:11px;color:var(--azia-muted,#64748b);font-weight:600;margin-top:1px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
     .uf-meta{margin-top:3px;display:grid;grid-template-columns:1fr 1fr;gap:1px 12px;}
-    .uf-meta-row{display:flex;align-items:center;gap:5px;font-size:10px;color:#475569;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .uf-meta-row i{width:12px;color:#94a3b8;text-align:center;font-size:10px;flex:0 0 auto;}
+    .uf-meta-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--azia-muted,#475569);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .uf-meta-row i{width:12px;color:var(--azia-muted,#94a3b8);text-align:center;font-size:10px;flex:0 0 auto;}
     .uf-hero-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center;justify-content:flex-end;}
 
     .uf-badge{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;font-size:9px;font-weight:800;}
@@ -339,14 +339,14 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
     .uf-badge.bad{background:#fee2e2;color:#b91c1c;}
     .uf-badge.warn{background:#ffedd5;color:#c2410c;}
     .uf-badge.blue{background:#dbeafe;color:#1d4ed8;}
-    .uf-badge.gray{background:#f1f5f9;color:#475569;}
+    .uf-badge.gray{background:#f1f5f9;color:var(--azia-muted,#475569);}
     .uf-badge.orange{background:#ffedd5;color:#c2410c;}
 
     .uf-metrics{flex:0 0 auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;min-width:0;}
-    .uf-metric{background:#fff;border:1px solid #eef2f7;border-radius:8px;padding:5px 8px;min-width:0;overflow:hidden;}
+    .uf-metric{background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;padding:5px 8px;min-width:0;overflow:hidden;}
     .uf-metric-top{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:1px;}
-    .uf-metric .lab{font-size:9px;font-weight:700;color:#64748b;}
-    .uf-metric .val{font-size:14px;font-weight:800;color:#0f172a;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .uf-metric .lab{font-size:9px;font-weight:700;color:var(--azia-muted,#64748b);}
+    .uf-metric .val{font-size:14px;font-weight:800;color:var(--azia-text,#0f172a);line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .uf-mico{width:16px;height:16px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:8px;flex:0 0 auto;}
     .uf-mico.purple{background:#f5f3ff;color:#7c3aed;}
     .uf-mico.blue{background:#dbeafe;color:#2563eb;}
@@ -356,23 +356,23 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
     .uf-mico.red{background:#fee2e2;color:#dc2626;}
 
     .uf-summary{
-      flex:0 0 auto;background:#fff;border:1px solid #eef2f7;border-radius:8px;padding:5px 10px;
+      flex:0 0 auto;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;padding:5px 10px;
       display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;min-width:0;
     }
     .uf-sum-item{min-width:0;overflow:hidden;}
-    .uf-sum-item .k{font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;}
-    .uf-sum-item .v{font-size:10px;font-weight:700;color:#0f172a;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .uf-sum-item .k{font-size:8px;font-weight:800;color:var(--azia-muted,#94a3b8);text-transform:uppercase;}
+    .uf-sum-item .v{font-size:10px;font-weight:700;color:var(--azia-text,#0f172a);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
     .uf-tabs{
-      flex:0 0 auto;display:flex;gap:0;background:#fff;border:1px solid #eef2f7;border-radius:8px;
+      flex:0 0 auto;display:flex;gap:0;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;
       padding:0 4px;overflow:hidden;min-width:0;
     }
     .uf-tabs a{
-      flex:0 0 auto;padding:5px 8px;font-size:10px;font-weight:700;color:#64748b;text-decoration:none;
+      flex:0 0 auto;padding:5px 8px;font-size:10px;font-weight:700;color:var(--azia-muted,#64748b);text-decoration:none;
       border-bottom:2px solid transparent;white-space:nowrap;
     }
     .uf-tabs a.is-active{color:#2563eb;border-bottom-color:#2563eb;}
-    .uf-tabs a:hover{color:#0f172a;text-decoration:none;}
+    .uf-tabs a:hover{color:var(--azia-text,#0f172a);text-decoration:none;}
 
     .uf-board{
       flex:1 1 auto;min-height:0;min-width:0;
@@ -381,7 +381,7 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
     }
     .uf-col{min-height:0;min-width:0;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
     .uf-card{
-      background:#fff;border:1px solid #eef2f7;border-radius:8px;overflow:hidden;min-width:0;min-height:0;
+      background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;overflow:hidden;min-width:0;min-height:0;
       display:flex;flex-direction:column;
     }
     .uf-card.flex{flex:1 1 auto;}
@@ -389,55 +389,55 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
       flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:6px;
       padding:4px 8px;border-bottom:1px solid #f1f5f9;
     }
-    .uf-card-hd h2{margin:0;font-size:11px;font-weight:800;color:#0f172a;}
+    .uf-card-hd h2{margin:0;font-size:11px;font-weight:800;color:var(--azia-text,#0f172a);}
     .uf-card-bd{flex:1 1 auto;min-height:0;padding:6px 8px;overflow:hidden;}
     .uf-card-bd.scroll{overflow:auto;overscroll-behavior:contain;}
 
     .uf-kv{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #f8fafc;font-size:10px;}
     .uf-kv:last-child{border-bottom:0;}
-    .uf-kv .k{color:#64748b;font-weight:700;}
-    .uf-kv .v{color:#0f172a;font-weight:800;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%;}
+    .uf-kv .k{color:var(--azia-muted,#64748b);font-weight:700;}
+    .uf-kv .v{color:var(--azia-text,#0f172a);font-weight:800;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%;}
 
     .uf-tl{position:relative;padding-left:12px;}
     .uf-tl::before{content:'';position:absolute;left:3px;top:2px;bottom:2px;width:2px;background:#e2e8f0;}
     .uf-tl-item{position:relative;padding:0 0 6px 7px;}
     .uf-tl-item:last-child{padding-bottom:0;}
     .uf-tl-dot{
-      position:absolute;left:-12px;top:1px;width:10px;height:10px;border-radius:999px;background:#fff;
+      position:absolute;left:-12px;top:1px;width:10px;height:10px;border-radius:999px;background:var(--azia-card,#fff);
       border:2px solid #93c5fd;
     }
     .uf-tl-dot.ok{border-color:#86efac;}
     .uf-tl-dot.bad{border-color:#fca5a5;}
     .uf-tl-dot.warn{border-color:#fdba74;}
-    .uf-tl-when{font-size:8px;color:#94a3b8;font-weight:700;}
-    .uf-tl-text{font-size:10px;font-weight:700;color:#0f172a;}
+    .uf-tl-when{font-size:8px;color:var(--azia-muted,#94a3b8);font-weight:700;}
+    .uf-tl-text{font-size:10px;font-weight:700;color:var(--azia-text,#0f172a);}
 
     .uf-note{
       background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:5px 7px;margin-bottom:5px;
       font-size:10px;color:#78350f;line-height:1.3;white-space:pre-wrap;
     }
     .uf-note.blue{background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a;}
-    .uf-note.muted{background:#f8fafc;border-color:#e2e8f0;color:#475569;}
+    .uf-note.muted{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));border-color:#e2e8f0;color:var(--azia-muted,#475569);}
     .uf-note:last-child{margin-bottom:0;}
     .uf-note .meta{font-size:8px;font-weight:700;margin-bottom:2px;opacity:.85;}
 
     .uf-risk-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;}
-    .uf-risk-top .lab{font-size:9px;font-weight:700;color:#64748b;}
+    .uf-risk-top .lab{font-size:9px;font-weight:700;color:var(--azia-muted,#64748b);}
     .uf-gauge{
       width:84px;height:42px;margin:0 auto 4px;position:relative;
       background:conic-gradient(from 180deg, #ef4444 0deg, #eab308 90deg, #22c55e 180deg, transparent 180deg);
       border-radius:84px 84px 0 0;overflow:hidden;
     }
     .uf-gauge::after{
-      content:'';position:absolute;left:9px;right:9px;top:9px;bottom:0;background:#fff;border-radius:70px 70px 0 0;
+      content:'';position:absolute;left:9px;right:9px;top:9px;bottom:0;background:var(--azia-card,#fff);border-radius:70px 70px 0 0;
     }
     .uf-gauge-needle{
       position:absolute;left:50%;bottom:0;width:2px;height:34px;background:#0f172a;transform-origin:bottom center;
       transform:translateX(-50%) rotate(var(--needle, -90deg));z-index:2;border-radius:2px;
     }
-    .uf-gauge-score{text-align:center;font-size:11px;font-weight:800;color:#0f172a;margin-top:-2px;}
+    .uf-gauge-score{text-align:center;font-size:11px;font-weight:800;color:var(--azia-text,#0f172a);margin-top:-2px;}
     .uf-flags{display:flex;flex-direction:column;gap:2px;max-height:72px;overflow:auto;}
-    .uf-flag{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;color:#334155;}
+    .uf-flag{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;color:var(--azia-text,#334155);}
     .uf-flag .dot{width:6px;height:6px;border-radius:999px;flex:0 0 auto;}
     .uf-flag .dot.bad{background:#dc2626;}
     .uf-flag .dot.ok{background:#16a34a;}
@@ -445,12 +445,12 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
 
     .uf-quick{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
     .uf-qbtn{
-      border:1px solid #e2e8f0;border-radius:6px;padding:7px 4px;background:#fff;text-align:center;
-      font-size:9px;font-weight:800;color:#334155;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+      border:1px solid #e2e8f0;border-radius:6px;padding:7px 4px;background:var(--azia-card,#fff);text-align:center;
+      font-size:9px;font-weight:800;color:var(--azia-text,#334155);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px;
       cursor:pointer;
     }
     .uf-qbtn i{font-size:11px;}
-    .uf-qbtn:hover{text-decoration:none;background:#f8fafc;}
+    .uf-qbtn:hover{text-decoration:none;background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));}
     .uf-qbtn.green{border-color:#bbf7d0;background:#f0fdf4;color:#166534;}
     .uf-qbtn.orange{border-color:#fed7aa;background:#fff7ed;color:#c2410c;}
     .uf-qbtn.red{border-color:#fecaca;background:#fef2f2;color:#b91c1c;}
@@ -458,10 +458,10 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
     .uf-qbtn.is-disabled{opacity:.45;pointer-events:none;}
 
     .uf-form{display:flex;flex-direction:column;gap:6px;min-height:0;height:100%;}
-    .uf-field label{display:block;font-size:9px;font-weight:800;color:#64748b;margin:0 0 2px;}
+    .uf-field label{display:block;font-size:9px;font-weight:800;color:var(--azia-muted,#64748b);margin:0 0 2px;}
     .uf-field textarea{
       width:100%;min-height:64px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 7px;
-      font-size:11px;color:#0f172a;box-sizing:border-box;resize:vertical;
+      font-size:11px;color:var(--azia-text,#0f172a);box-sizing:border-box;resize:vertical;
     }
     .uf-actions{display:flex;justify-content:flex-end;gap:5px;margin-top:auto;flex-wrap:wrap;}
     .uf-alert{flex:0 0 auto;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;}
@@ -470,15 +470,15 @@ $typeLabel = $isCommerce ? 'Seller' : 'Publisher';
     .uf-drop{position:relative;}
     .uf-drop-menu{
       display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:150px;
-      background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.12);padding:4px;
+      background:var(--azia-card,#fff);border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.12);padding:4px;
     }
     .uf-drop.open .uf-drop-menu{display:block;}
     .uf-drop-menu a{
       display:block;width:100%;text-align:left;padding:6px 8px;border-radius:6px;font-size:11px;font-weight:700;
-      color:#334155;text-decoration:none;
+      color:var(--azia-text,#334155);text-decoration:none;
     }
-    .uf-drop-menu a:hover{background:#f8fafc;}
-    .uf-empty{padding:6px 4px;text-align:center;color:#64748b;font-size:10px;}
+    .uf-drop-menu a:hover{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));}
+    .uf-empty{padding:6px 4px;text-align:center;color:var(--azia-muted,#64748b);font-size:10px;}
 
     @media (max-width:1100px){
       .uf-wrap{overflow:auto;}

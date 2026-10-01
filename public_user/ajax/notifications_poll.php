@@ -7,6 +7,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
 require_once __DIR__ . '/../controller.php';
+require_once __DIR__ . '/../includes/app_notification_api.php';
 
 try {
     $controller = new Controller();
@@ -21,10 +22,11 @@ try {
     $stmt = $dbh->prepare("
         SELECT COUNT(*)
         FROM notification
-        WHERE notireceiver = :email
+        WHERE notireceiver = ?
           AND is_read = 0
+          " . app_notification_social_exclude_sql() . "
     ");
-    $stmt->execute([':email' => $email]);
+    $stmt->execute(array_merge([$email], app_notification_social_exclude_patterns()));
 
     echo json_encode([
         'ok' => true,

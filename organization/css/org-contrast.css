@@ -989,10 +989,14 @@ html.msb-palette-active body.org-app .org-logo-label {
 
 html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
 html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge,
+html[data-msb-appearance] body.org-app .org-sales-support-center .org-sales-nav-badge,
 html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
-html.msb-palette-active body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge {
-  color: inherit !important;
-  background: transparent !important;
+html.msb-palette-active body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge,
+html.msb-palette-active body.org-app .org-sales-support-center .org-sales-nav-badge {
+  background: #dc3545 !important;
+  background-color: #dc3545 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 html[data-msb-appearance] body.org-app .org-sales-nav-badge rect,
@@ -1118,55 +1122,103 @@ html[data-msb-appearance] body.org-app .org-sideleft-top .nav > .nav-item > .nav
   box-shadow: none !important;
 }
 
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
-html body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
-html body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus,
-html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
-html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:focus,
-html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
-html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
-html.dark-auto body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
-html.dark-auto body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus,
-html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
-html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:focus,
-html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
-html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
-html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
-html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
-html[data-msb-appearance] body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
-html[data-msb-appearance] body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus,
-html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover,
-html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:focus,
-html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
-html.msb-palette-active body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover {
-  background-color: rgba(37, 99, 235, 0.08) !important;
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active),
+html body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover:not(.active),
+html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active),
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active),
+html[data-msb-appearance] body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover:not(.active),
+html[data-msb-appearance] body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active),
+html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active),
+html.msb-palette-active body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover:not(.active) {
+  background-color: var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(37, 99, 235, 0.10))) !important;
   background-image: none !important;
-  color: #334155 !important;
+  color: var(--msb-palette-text, #334155) !important;
   border-color: transparent !important;
   box-shadow: none !important;
 }
 
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus span,
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus i,
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"],
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus [class*="ion-"],
-html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
-html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
-html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"],
-html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover span,
-html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover i,
-html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover [class*="ion-"] {
-  color: #334155 !important;
+/* Dark chrome: soft fill + light text (light #334155 hover was invisible here) */
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active),
+html.dark-auto body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover:not(.active),
+html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active),
+html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active),
+html.dark-auto:not([data-msb-appearance]) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active),
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) {
+  background-color: var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(148, 163, 184, 0.16))) !important;
+  background-image: none !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) > span,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) i,
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) [class*="ion-"],
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) > span,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) i,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) [class*="ion-"] {
+  color: inherit !important;
   background-color: transparent !important;
 }
 
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
-html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active,
-html body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {
-  background-color: rgba(37, 99, 235, 0.12) !important;
-  color: #1d4ed8 !important;
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) > span,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) i,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active) [class*="ion-"],
+html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active) > span,
+html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active) i,
+html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active) [class*="ion-"],
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) > span,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) i {
+  color: var(--msb-palette-text, #e8edf5) !important;
+  background-color: transparent !important;
+}
+
+/* Do not let mouse :focus stick as a fake hover after click */
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus {
+  outline: none !important;
   box-shadow: none !important;
+}
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:focus-visible):not(.active),
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:focus-visible):not(.active) {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
+html body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active {
+  background-color: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.18)) !important;
+  color: var(--msb-palette-action, #60a5fa) !important;
+  box-shadow: none !important;
+}
+
+html body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {
+  background-color: rgba(148, 163, 184, 0.20) !important;
+  color: var(--msb-palette-text, #f3f6fb) !important;
+  box-shadow: none !important;
+}
+
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
+html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link.active {
+  background-color: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.26)) !important;
+  color: var(--msb-palette-action, #93c5fd) !important;
+}
+
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {
+  background-color: rgba(148, 163, 184, 0.24) !important;
+  color: var(--msb-palette-text, #f3f6fb) !important;
+}
+
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active),
+html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) {
+  background-color: rgba(148, 163, 184, 0.16) !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active > span,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active i,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active > span,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active i {
+  color: inherit !important;
 }

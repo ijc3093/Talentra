@@ -40,6 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $err = (string)($cancelRes['error'] ?? 'Could not cancel order.');
         }
+    } elseif (isset($_POST['oms_request_payment'])) {
+        $payMsg = trim((string)($_POST['payment_message'] ?? ''));
+        $reqRes = org_shop_seller_request_payment_completion($dbh, $orgId, $orderId, $payMsg);
+        if (!empty($reqRes['ok'])) {
+            $ok = 'Customer notified in Pending — payment incomplete.';
+        } else {
+            $err = (string)($reqRes['error'] ?? 'Could not notify the customer.');
+        }
     } else {
         $newStatus = strtolower(trim((string)($_POST['status'] ?? '')));
         $sellerNotes = trim((string)($_POST['seller_notes'] ?? ''));
@@ -52,10 +60,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $err = 'Could not sync buyer to CRM.';
             }
-        } elseif (org_ecommerce_update_fulfillment($dbh, $orgId, $orderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
-            $ok = 'Order updated.';
         } else {
-            $err = 'Could not update order.';
+            $blockFulfill = false;
+            if ($orderId > 0 && $newStatus !== 'cancelled') {
+                try {
+                    $stPay = $dbh->prepare('SELECT * FROM org_orders WHERE id = :id AND org_id = :org LIMIT 1');
+                    $stPay->execute([':id' => $orderId, ':org' => $orgId]);
+                    $payOrder = $stPay->fetch(PDO::FETCH_ASSOC) ?: null;
+                    if ($payOrder && function_exists('org_shop_order_fulfillment_locked') && org_shop_order_fulfillment_locked($payOrder)) {
+                        $blockFulfill = true;
+                        $err = 'Fulfillment is locked until the customer pays in full.';
+                    }
+                } catch (Throwable $e) {
+                    // continue
+                }
+            }
+            if (!$blockFulfill && org_ecommerce_update_fulfillment_customer_batch($dbh, $orgId, $orderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
+                $ok = 'Order updated.';
+            } elseif (!$blockFulfill) {
+                $err = 'Could not update order.';
+            }
         }
     }
 }

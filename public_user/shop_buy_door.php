@@ -30,6 +30,7 @@ if ($buyerDoorPhone === '' && $meId > 0) {
 }
 $productId = (int)($_GET['product_id'] ?? 0);
 $embed = (string)($_GET['embed'] ?? '') === '1';
+$fromCart = (string)($_GET['from_cart'] ?? '') === '1';
 $initialQty = max(1, min(99, (int)($_GET['quantity'] ?? 1)));
 $profileId = (int)($_GET['profile_id'] ?? 0);
 $product = org_shop_get_marketplace_product($dbh, $productId);
@@ -90,7 +91,7 @@ function shop_buy_door_payment_methods(bool $stripeEnabled): array
             'label' => 'Cost $ (test)',
             'logo' => 'manual',
             'logo_text' => 'Cost $',
-            'sub' => 'Type the amount below. No real card charged — seller sees it on the dashboard.',
+            'sub' => 'Type the amount below. Pay less than the order total and the order stays Pending — shipping starts only after full payment.',
             'enabled' => true,
             'default' => !$stripeEnabled,
             'badge' => 'TEST',
@@ -171,25 +172,92 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     }
     .sbd-shell{display:flex;flex-direction:column;height:100vh;max-height:100vh;box-sizing:border-box;}
     .sbd-head{
-      flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:12px;
-      padding:14px 16px;border-bottom:1px solid var(--shop-border,rgba(15,23,42,.08));
+      flex-shrink:0;display:flex;flex-direction:column;gap:10px;
+      padding:14px 16px 12px;border-bottom:1px solid var(--shop-border,rgba(15,23,42,.08));
     }
+    .sbd-head-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
     .sbd-title{font-size:17px;font-weight:800;margin:0;}
+    .sbd-steps{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:4px;
+      width:100%;margin:0;padding:0;list-style:none;
+    }
+    .sbd-step{
+      flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;
+      position:relative;text-align:center;
+    }
+    .sbd-step:not(:last-child)::after{
+      content:"";position:absolute;top:9px;left:calc(50% + 12px);right:calc(-50% + 12px);
+      height:2px;background:var(--shop-border,rgba(15,23,42,.14));z-index:0;
+    }
+    .sbd-step.is-done:not(:last-child)::after,
+    .sbd-step.is-active:not(:last-child)::after{
+      background:var(--shop-link,#2563eb);
+    }
+    .sbd-step-dot{
+      position:relative;z-index:1;width:18px;height:18px;border-radius:50%;
+      border:2px solid var(--shop-border,rgba(15,23,42,.22));
+      background:var(--shop-card-bg,#fff);color:transparent;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:9px;font-weight:800;line-height:1;box-sizing:border-box;
+    }
+    .sbd-step.is-active .sbd-step-dot{
+      border-color:var(--shop-link,#2563eb);background:var(--shop-link,#2563eb);color:#fff;
+    }
+    .sbd-step.is-done .sbd-step-dot{
+      border-color:var(--shop-link,#2563eb);background:var(--shop-link,#2563eb);color:#fff;
+    }
+    .sbd-step-label{
+      font-size:10px;font-weight:700;line-height:1.2;
+      color:var(--shop-text-muted,#64748b);max-width:100%;
+    }
+    .sbd-step.is-active .sbd-step-label{color:var(--shop-link,#2563eb);}
+    .sbd-step.is-done .sbd-step-label{color:var(--shop-text,#0f172a);}
     .sbd-close{
       border:1px solid var(--shop-border,rgba(177,188,206,.45));
       background:transparent;color:inherit;width:34px;height:34px;border-radius:50%;
       display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
     }
     .sbd-body{
-      flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;
-      padding:16px 16px 0;-webkit-overflow-scrolling:touch;
+      flex:1;min-height:0;display:flex;flex-direction:column;
+      overflow-x:hidden;overflow-y:auto;
+      padding:16px 16px 24px;-webkit-overflow-scrolling:touch;
     }
     .sbd-body.is-success-scroll{overflow-y:auto;padding-bottom:24px;}
-    .sbd-form-view{flex:1;min-height:0;display:flex;flex-direction:column;}
+    .sbd-form-view,
+    .sbd-review-view,
+    .sbd-placing-view,
+    .sbd-success{flex:0 0 auto;display:flex;flex-direction:column;}
     .sbd-form-view[hidden],
+    .sbd-review-view[hidden],
+    .sbd-placing-view[hidden],
     .sbd-success[hidden]{display:none !important;}
-    .sbd-body.is-success-mode .sbd-form-view{display:none !important;}
+    .sbd-body.is-success-mode .sbd-form-view,
+    .sbd-body.is-success-mode .sbd-review-view,
+    .sbd-body.is-success-mode .sbd-placing-view{display:none !important;}
     .sbd-body.is-success-mode .sbd-success{display:flex !important;}
+    .sbd-placing-view{
+      flex:1;min-height:0;align-items:center;justify-content:center;
+      text-align:center;padding:40px 16px;gap:10px;
+    }
+    .sbd-placing-ic{
+      width:48px;height:48px;border-radius:50%;margin:0 auto;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(37,99,235,.12);color:#2563eb;font-size:20px;
+    }
+    .sbd-placing-view h2{font-size:18px;font-weight:850;margin:0;}
+    .sbd-placing-view p{font-size:13px;color:var(--shop-text-muted,#64748b);margin:0;max-width:22em;}
+    .sbd-review-block{
+      margin:0 0 14px;padding:12px 14px;border-radius:10px;
+      border:1px solid var(--shop-border,rgba(15,23,42,.12));
+      background:var(--shop-card-raised,rgba(15,23,42,.03));
+    }
+    .sbd-review-block h3{
+      margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.04em;
+      text-transform:uppercase;color:var(--shop-text-muted,#64748b);
+    }
+    .sbd-review-line{font-size:14px;font-weight:650;line-height:1.4;margin:0 0 4px;}
+    .sbd-review-line:last-child{margin-bottom:0;}
+    .sbd-review-muted{font-size:12px;font-weight:600;color:var(--shop-text-muted,#64748b);margin:0;}
     .sbd-success{
       flex:1;min-height:0;display:none;flex-direction:column;align-items:center;justify-content:center;
       text-align:center;padding:28px 12px 20px;gap:0;
@@ -201,7 +269,10 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     }
     .sbd-success h2{font-size:20px;font-weight:850;margin:0 0 10px;}
     .sbd-success-amount{
-      font-size:22px;font-weight:850;margin:0 0 8px;letter-spacing:-.02em;color:#15803d;
+      font-size:22px;font-weight:850;margin:0 0 4px;letter-spacing:-.02em;color:#15803d;
+    }
+    .sbd-success-due{
+      font-size:12px;font-weight:650;margin:0 0 8px;color:var(--shop-text-muted,#6b7280);line-height:1.35;
     }
     .sbd-success-code{
       font-size:13px;font-weight:700;margin:0 0 10px;opacity:.9;
@@ -319,6 +390,27 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       font-weight:800;padding-top:12px;margin-top:8px;
       border-top:1px solid var(--shop-border,rgba(15,23,42,.1));
     }
+    .sbd-summary-line.is-discount span:last-child{color:#059669;font-weight:700;}
+    .sbd-promo-row{
+      display:flex;gap:8px;align-items:stretch;margin:8px 0 4px;
+    }
+    .sbd-promo-row .form-control{
+      flex:1;min-width:0;box-sizing:border-box;
+      background:var(--shop-input-bg,rgba(15,23,42,.04));
+      border:1px solid var(--shop-border-strong,rgba(15,23,42,.14));
+      border-radius:10px;color:var(--shop-text,inherit);padding:10px 12px;font-size:14px;
+    }
+    .sbd-promo-apply{
+      flex-shrink:0;border:1px solid var(--shop-border-strong,rgba(15,23,42,.18));
+      background:var(--shop-card-bg,transparent);color:inherit;border-radius:10px;
+      padding:0 14px;font-size:13px;font-weight:800;cursor:pointer;
+    }
+    .sbd-promo-apply:hover{filter:brightness(1.03);}
+    .sbd-promo-msg{
+      margin:0 0 8px;font-size:12px;line-height:1.35;color:var(--shop-text-muted,#6b7280);
+    }
+    .sbd-promo-msg.is-error{color:#b91c1c;}
+    .sbd-promo-msg.is-ok{color:#059669;}
     .sbd-summary-klarna,
     .sbd-summary-promo{
       display:flex;align-items:flex-start;gap:10px;margin-top:14px;
@@ -361,7 +453,7 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     .sbd-btn:disabled{opacity:.55;cursor:not-allowed;}
     .sbd-empty{padding:32px 12px;text-align:center;color:var(--shop-text-muted,#6b7280);}
     .sbd-pay-with{
-      flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;
+      flex:0 0 auto;display:flex;flex-direction:column;overflow:visible;
       margin:14px 0 0;
       --sbd-pay-text-sm:11px;
       --sbd-pay-text-md:13px;
@@ -375,11 +467,11 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       line-height:1.4;
     }
     .sbd-pay-scroll{
-      flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      flex:0 0 auto;overflow:visible;
       margin:0 -2px;padding:0 2px 2px;
     }
     .sbd-form-bottom{
-      flex-shrink:0;padding-top:12px;margin-top:4px;
+      flex:0 0 auto;padding-top:12px;margin-top:4px;
       border-top:1px solid var(--shop-border,rgba(15,23,42,.08));
       background:var(--shop-card-bg,var(--msb-palette-bg,#fff));
     }
@@ -516,45 +608,106 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     .sbd-card-row .sbd-field{flex:1;min-width:0;margin-bottom:14px;}
     .sbd-confirm-overlay{
       position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;
-      padding:20px 16px;background:rgba(15,23,42,.55);box-sizing:border-box;
+      padding:20px 16px;box-sizing:border-box;
+      background:rgba(17,24,39,.48);
+      -webkit-backdrop-filter:blur(8px);
+      backdrop-filter:blur(8px);
     }
     .sbd-confirm-overlay.is-open{display:flex;}
     .sbd-confirm-dialog{
-      width:100%;max-width:320px;border-radius:16px;padding:18px 16px 14px;
-      background:var(--shop-card-bg,var(--msb-palette-bg,#fff));
-      color:var(--shop-text,var(--msb-palette-text,inherit));
-      border:1px solid var(--shop-border,rgba(15,23,42,.12));
-      box-shadow:0 18px 40px rgba(15,23,42,.28);
+      position:relative;
+      width:100%;max-width:360px;
+      border-radius:22px;
+      padding:26px 24px 22px;
+      background:var(--shop-card-bg,var(--msb-palette-bg,#f7f7f8));
+      color:var(--shop-text,var(--msb-palette-text,#111827));
+      border:0;
+      box-shadow:0 24px 60px rgba(15,23,42,.28);
     }
+    .sbd-confirm-close{
+      position:absolute;top:14px;right:14px;
+      width:32px;height:32px;border:0;border-radius:50%;
+      background:transparent;color:var(--shop-text-muted,#6b7280);
+      display:inline-flex;align-items:center;justify-content:center;
+      cursor:pointer;font-size:22px;line-height:1;padding:0;
+    }
+    .sbd-confirm-close:hover{color:var(--shop-text,#111827);background:rgba(15,23,42,.06);}
     .sbd-confirm-title{
-      margin:0 0 8px;font-size:16px;font-weight:700;line-height:1.35;
-      color:var(--shop-text,var(--msb-palette-text,inherit));
+      margin:0 36px 8px 0;font-size:20px;font-weight:800;line-height:1.25;letter-spacing:-.02em;
+      color:var(--shop-text,var(--msb-palette-text,#111827));
     }
     .sbd-confirm-message{
-      margin:0 0 16px;font-size:13px;font-weight:400;line-height:1.45;
+      margin:0 0 16px;font-size:14px;font-weight:400;line-height:1.45;
       color:var(--shop-text-muted,#6b7280);
     }
+    .sbd-confirm-message[hidden]{display:none !important;}
+    .sbd-confirm-field{margin:0 0 18px;}
+    .sbd-confirm-field[hidden]{display:none !important;}
+    .sbd-confirm-input{
+      width:100%;box-sizing:border-box;min-height:46px;padding:12px 14px;
+      border:1px solid rgba(148,163,184,.45);border-radius:12px;
+      background:var(--shop-input-bg,var(--msb-palette-input-bg,#fff));
+      color:var(--shop-text,inherit);font-size:14px;font-family:inherit;
+    }
+    .sbd-confirm-input:focus{
+      outline:0;border-color:rgba(37,99,235,.55);
+      box-shadow:0 0 0 3px rgba(37,99,235,.12);
+    }
+    .sbd-confirm-input.is-invalid{
+      border-color:#f87171;
+      box-shadow:0 0 0 3px rgba(248,113,113,.15);
+    }
     .sbd-confirm-card-preview{
-      display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:10px 12px;
-      border:1px solid var(--shop-border,rgba(15,23,42,.1));border-radius:10px;
+      display:flex;align-items:center;gap:10px;margin:0 0 16px;padding:10px 12px;
+      border:1px solid var(--shop-border,rgba(15,23,42,.1));border-radius:12px;
       background:var(--shop-card-raised,rgba(15,23,42,.04));
     }
     .sbd-confirm-card-preview .sbd-pay-body{padding-top:0;}
     .sbd-confirm-actions{display:flex;gap:10px;}
-    .sbd-confirm-actions .sbd-btn{flex:1;margin:0;}
+    .sbd-confirm-actions .sbd-btn{
+      flex:1;margin:0;min-height:44px;border-radius:999px;font-size:14px;font-weight:700;
+    }
+    .sbd-confirm-actions .sbd-btn:not(.sbd-btn-primary):not(.sbd-btn-danger){
+      background:#ececef;border-color:transparent;color:#111827;
+    }
     .sbd-btn-danger{
-      background:#dc2626;color:#fff;border-color:#dc2626;
+      background:#e62e2d;color:#fff;border-color:#e62e2d;
     }
     .sbd-btn-danger:hover{filter:brightness(1.05);}
+    .sbd-confirm-actions .sbd-btn-primary{
+      background:#e62e2d;border-color:#e62e2d;color:#fff;
+    }
   </style>
 </head>
 <body class="shop-page shop-buy-door<?= $embed ? ' shop-buy-door-embed' : '' ?>">
 
-<div class="sbd-shell">
+<div class="sbd-shell" data-checkout-step="1">
   <div class="sbd-head">
-    <h1 class="sbd-title">Buy now</h1>
-    <?php if ($embed): ?>
-      <button type="button" class="sbd-close" id="sbdCloseBtn" aria-label="Close"><i class="icon ion-close"></i></button>
+    <div class="sbd-head-row">
+      <h1 class="sbd-title" id="sbdTitle">Buy now</h1>
+      <?php if ($embed): ?>
+        <button type="button" class="sbd-close" id="sbdCloseBtn" aria-label="Close"><i class="icon ion-close"></i></button>
+      <?php endif; ?>
+    </div>
+    <?php if (!$notFound && !$outOfStock): ?>
+      <ol class="sbd-steps" id="sbdSteps" aria-label="Checkout steps">
+        <li class="sbd-step is-active" data-step="1">
+          <span class="sbd-step-dot" aria-hidden="true">1</span>
+          <span class="sbd-step-label">Buy now</span>
+        </li>
+        <li class="sbd-step" data-step="2">
+          <span class="sbd-step-dot" aria-hidden="true">2</span>
+          <span class="sbd-step-label">Review order</span>
+        </li>
+        <li class="sbd-step" data-step="3">
+          <span class="sbd-step-dot" aria-hidden="true">3</span>
+          <span class="sbd-step-label">Place order</span>
+        </li>
+        <li class="sbd-step" data-step="4">
+          <span class="sbd-step-dot" aria-hidden="true">4</span>
+          <span class="sbd-step-label">Order placed</span>
+        </li>
+      </ol>
     <?php endif; ?>
   </div>
 
@@ -724,21 +877,30 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
         </section>
 
         <div class="sbd-form-bottom">
-        <section class="sbd-summary" id="sbdSummary" data-shipping-cents="<?= (int)$initialShippingCents ?>" data-delivery-shipping-cents="<?= (int)$deliveryShippingCents ?>" data-tax-rate="0.0825" data-service-fee-cents="<?= (int)org_shop_buyer_service_fee_cents($dbh, $meId) ?>" aria-labelledby="sbdSummaryHead">
+        <section class="sbd-summary" id="sbdSummary" data-shipping-cents="<?= (int)$initialShippingCents ?>" data-delivery-shipping-cents="<?= (int)$deliveryShippingCents ?>" data-tax-rate="<?= h((string)org_shop_sales_tax_rate()) ?>" data-service-fee-cents="<?= (int)org_shop_buyer_service_fee_cents($dbh, $meId) ?>" data-org-id="<?= (int)$sellerOrgId ?>" aria-labelledby="sbdSummaryHead">
           <h2 class="sbd-summary-head" id="sbdSummaryHead">Order Summary</h2>
           <?php if (org_shop_buyer_service_fee_cents($dbh, $meId) <= 0): ?>
             <p class="tx-12" style="margin:0 0 10px;opacity:.8;">Customer Plus member — $0 platform service fee</p>
           <?php endif; ?>
+          <div class="sbd-promo-row">
+            <input type="text" class="form-control" id="sbdPromoCode" placeholder="Promo / discount code" autocomplete="off" maxlength="40" aria-label="Promo code">
+            <button type="button" class="sbd-promo-apply" id="sbdPromoApply">Apply</button>
+          </div>
+          <p class="sbd-promo-msg" id="sbdPromoMsg" hidden></p>
           <div class="sbd-summary-line">
             <span id="sbdSummaryItemLabel">Item (<?= (int)$initialQty ?>)</span>
             <span id="sbdSummarySubtotal"><?= h($unitPrice) ?></span>
+          </div>
+          <div class="sbd-summary-line is-discount" id="sbdSummaryDiscountRow">
+            <span>Discount</span>
+            <span id="sbdSummaryDiscount"><?= h(org_shop_format_price(0, $currency)) ?></span>
           </div>
           <div class="sbd-summary-line<?= $defaultReceiveOption === 'pickup' ? ' is-hidden' : '' ?>" id="sbdSummaryShippingRow">
             <span>Shipping</span>
             <span id="sbdSummaryShipping"><?= $initialShippingCents > 0 ? h(org_shop_format_price($initialShippingCents, $currency)) : 'Free' ?></span>
           </div>
           <div class="sbd-summary-line">
-            <span>Tax</span>
+            <span id="sbdSummaryTaxLabel">Tax (<?= h(rtrim(rtrim(number_format(org_shop_sales_tax_rate() * 100, 2, '.', ''), '0'), '.')) ?>%)</span>
             <span id="sbdSummaryTax">—</span>
           </div>
           <div class="sbd-summary-line">
@@ -756,16 +918,49 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
         </section>
 
         <div class="sbd-actions">
-          <button type="button" class="sbd-btn sbd-btn-primary" id="sbdSubmit">Place order</button>
+          <button type="button" class="sbd-btn sbd-btn-primary" id="sbdContinueReview">Continue to review</button>
           <button type="button" class="sbd-btn" id="sbdCancel">Cancel</button>
         </div>
         </div>
+      </div>
+
+      <div id="sbdReviewView" class="sbd-review-view" hidden>
+        <div class="sbd-review-block">
+          <h3>Item</h3>
+          <p class="sbd-review-line" id="sbdReviewTitle"><?= h($title) ?></p>
+          <p class="sbd-review-muted" id="sbdReviewQtyPrice">Quantity <?= (int)$initialQty ?> · <?= h($unitPrice) ?></p>
+        </div>
+        <div class="sbd-review-block">
+          <h3>Receive</h3>
+          <p class="sbd-review-line" id="sbdReviewReceive">Delivery</p>
+          <p class="sbd-review-muted" id="sbdReviewShip">—</p>
+        </div>
+        <div class="sbd-review-block">
+          <h3>Payment</h3>
+          <p class="sbd-review-line" id="sbdReviewPay">—</p>
+        </div>
+        <div class="sbd-review-block">
+          <h3>Order total</h3>
+          <p class="sbd-review-line" id="sbdReviewTotal">—</p>
+          <p class="sbd-review-muted" id="sbdReviewBreakdown">Includes tax and fees shown on the previous step.</p>
+        </div>
+        <div class="sbd-actions">
+          <button type="button" class="sbd-btn sbd-btn-primary" id="sbdSubmit">Place order</button>
+          <button type="button" class="sbd-btn" id="sbdBackToBuy">Back</button>
+        </div>
+      </div>
+
+      <div id="sbdPlacingView" class="sbd-placing-view" hidden>
+        <div class="sbd-placing-ic" aria-hidden="true"><i class="fa fa-spinner fa-spin"></i></div>
+        <h2>Placing your order…</h2>
+        <p>Please wait while we confirm payment and create your order.</p>
       </div>
 
       <div class="sbd-success" id="sbdSuccess" hidden>
         <div class="sbd-success-ic"><i class="fa fa-check"></i></div>
         <h2>Order placed</h2>
         <p class="sbd-success-amount" id="sbdSuccessAmount" hidden></p>
+        <p class="sbd-success-due" id="sbdSuccessDue" hidden></p>
         <p class="sbd-success-code" id="sbdSuccessCode" hidden></p>
         <p class="sbd-success-note" id="sbdSuccessMsg"></p>
         <div class="sbd-success-actions">
@@ -851,8 +1046,12 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
 
 <div class="sbd-confirm-overlay" id="sbdConfirmOverlay" role="dialog" aria-modal="true" aria-labelledby="sbdConfirmTitle" aria-hidden="true">
   <div class="sbd-confirm-dialog">
+    <button type="button" class="sbd-confirm-close" id="sbdConfirmClose" aria-label="Close">&times;</button>
     <h3 class="sbd-confirm-title" id="sbdConfirmTitle">Remove card?</h3>
     <p class="sbd-confirm-message" id="sbdConfirmMessage">Remove this card from your payment methods?</p>
+    <div class="sbd-confirm-field" id="sbdConfirmFieldWrap" hidden>
+      <input type="text" class="sbd-confirm-input" id="sbdConfirmInput" placeholder="" autocomplete="street-address">
+    </div>
     <div class="sbd-confirm-card-preview" id="sbdConfirmCardPreview" hidden></div>
     <div class="sbd-confirm-actions">
       <button type="button" class="sbd-btn" id="sbdConfirmCancel">Cancel</button>
@@ -898,8 +1097,11 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
   var confirmTitleEl = document.getElementById('sbdConfirmTitle');
   var confirmMessageEl = document.getElementById('sbdConfirmMessage');
   var confirmCardPreviewEl = document.getElementById('sbdConfirmCardPreview');
+  var confirmFieldWrap = document.getElementById('sbdConfirmFieldWrap');
+  var confirmInputEl = document.getElementById('sbdConfirmInput');
   var confirmCancelBtn = document.getElementById('sbdConfirmCancel');
   var confirmOkBtn = document.getElementById('sbdConfirmOk');
+  var confirmCloseBtn = document.getElementById('sbdConfirmClose');
   var pendingConfirmAction = null;
   var addCardRow = document.querySelector('.sbd-pay-option[data-payment-id="add_card"]');
   var payListEl = document.querySelector('.sbd-pay-list');
@@ -915,19 +1117,43 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
   var summaryItemLabel = document.getElementById('sbdSummaryItemLabel');
   var summarySubtotal = document.getElementById('sbdSummarySubtotal');
   var summaryShipping = document.getElementById('sbdSummaryShipping');
+  var summaryTaxLabel = document.getElementById('sbdSummaryTaxLabel');
   var summaryTax = document.getElementById('sbdSummaryTax');
   var summaryServiceFee = document.getElementById('sbdSummaryServiceFee');
+  var summaryDiscountRow = document.getElementById('sbdSummaryDiscountRow');
+  var summaryDiscount = document.getElementById('sbdSummaryDiscount');
+  var promoCodeInput = document.getElementById('sbdPromoCode');
+  var promoApplyBtn = document.getElementById('sbdPromoApply');
+  var promoMsgEl = document.getElementById('sbdPromoMsg');
+  var appliedPromoCode = '';
+  var appliedDiscountCents = 0;
+  var lastAutoFilledCostCents = null;
   var klarnaMonthlyEl = document.getElementById('sbdKlarnaMonthly');
   var promoLogo = document.getElementById('sbdPromoLogo');
   var promoText = document.getElementById('sbdPromoText');
   var submitBtn = document.getElementById('sbdSubmit');
+  var continueReviewBtn = document.getElementById('sbdContinueReview');
+  var backToBuyBtn = document.getElementById('sbdBackToBuy');
   var cancelBtn = document.getElementById('sbdCancel');
   var closeBtn = document.getElementById('sbdCloseBtn');
   var formView = document.getElementById('sbdFormView');
+  var reviewView = document.getElementById('sbdReviewView');
+  var placingView = document.getElementById('sbdPlacingView');
   var successView = document.getElementById('sbdSuccess');
   var bodyEl = document.querySelector('.sbd-body');
+  var shellEl = document.querySelector('.sbd-shell');
+  var titleEl = document.getElementById('sbdTitle');
+  var stepsEl = document.getElementById('sbdSteps');
+  var reviewTitle = document.getElementById('sbdReviewTitle');
+  var reviewQtyPrice = document.getElementById('sbdReviewQtyPrice');
+  var reviewReceive = document.getElementById('sbdReviewReceive');
+  var reviewShip = document.getElementById('sbdReviewShip');
+  var reviewPay = document.getElementById('sbdReviewPay');
+  var reviewTotal = document.getElementById('sbdReviewTotal');
+  var reviewBreakdown = document.getElementById('sbdReviewBreakdown');
   var successMsg = document.getElementById('sbdSuccessMsg');
   var successAmount = document.getElementById('sbdSuccessAmount');
+  var successDue = document.getElementById('sbdSuccessDue');
   var successCode = document.getElementById('sbdSuccessCode');
   var viewOrderBtn = document.getElementById('sbdViewOrder');
   var doneBtn = document.getElementById('sbdDone');
@@ -937,14 +1163,182 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
   var unitCents = priceEl ? parseInt(priceEl.getAttribute('data-unit-cents') || '0', 10) : 0;
   var currency = priceEl ? String(priceEl.getAttribute('data-currency') || 'USD').toUpperCase() : 'USD';
   var lastOrderId = 0;
+  var fromCart = <?= $fromCart ? 'true' : 'false' ?>;
+  var buySucceeded = false;
+  var checkoutStep = 1;
+  var stepTitles = {
+    1: 'Buy now',
+    2: 'Review order',
+    3: 'Place order',
+    4: 'Order placed'
+  };
+
+  function setCheckoutStep(step){
+    checkoutStep = Math.max(1, Math.min(4, parseInt(String(step || 1), 10) || 1));
+    if (shellEl) shellEl.setAttribute('data-checkout-step', String(checkoutStep));
+    if (titleEl) titleEl.textContent = stepTitles[checkoutStep] || 'Buy now';
+    if (stepsEl) {
+      Array.prototype.slice.call(stepsEl.querySelectorAll('[data-step]')).forEach(function(el){
+        var n = parseInt(el.getAttribute('data-step') || '0', 10) || 0;
+        el.classList.toggle('is-active', n === checkoutStep);
+        el.classList.toggle('is-done', n < checkoutStep);
+      });
+    }
+    if (bodyEl) {
+      bodyEl.classList.toggle('is-success-mode', checkoutStep === 4);
+      bodyEl.classList.toggle('is-success-scroll', checkoutStep === 4);
+    }
+    if (formView) formView.hidden = checkoutStep !== 1;
+    if (reviewView) reviewView.hidden = checkoutStep !== 2;
+    if (placingView) placingView.hidden = checkoutStep !== 3;
+    if (successView) successView.hidden = checkoutStep !== 4;
+  }
+
+  function fillReviewPanel(){
+    var qty = clampQty(qtyEl ? qtyEl.value : 1);
+    if (reviewTitle) reviewTitle.textContent = <?= json_encode($title) ?>;
+    if (reviewQtyPrice) {
+      reviewQtyPrice.textContent = 'Quantity ' + qty + ' · ' + formatMoney(unitCents);
+    }
+    if (reviewReceive) {
+      reviewReceive.textContent = receiveOption === 'pickup' ? 'Pick up' : 'Delivery';
+    }
+    if (reviewShip) {
+      if (receiveOption === 'pickup') {
+        reviewShip.textContent = String(sellerPickupText || "Seller's shop");
+      } else {
+        var address = (document.getElementById('sbdAddress') ? document.getElementById('sbdAddress').value : '').trim();
+        reviewShip.textContent = address !== '' ? address : 'Delivery address needed';
+      }
+    }
+    if (reviewPay) {
+      var payId = getSelectedPaymentMethodId();
+      var payLabel = 'Payment';
+      var selectedOpt = document.querySelector('.sbd-pay-option.is-selected .sbd-pay-label-row');
+      if (selectedOpt) {
+        payLabel = String(selectedOpt.textContent || '').replace(/\s+/g, ' ').trim() || payLabel;
+      }
+      if (payId === 'test_cost' && testCostInput) {
+        var cost = String(testCostInput.value || '').trim();
+        if (cost) payLabel += ' · $' + cost;
+      }
+      reviewPay.textContent = payLabel;
+    }
+    if (reviewTotal && totalEl) {
+      var orderTotalLabel = String(totalEl.textContent || '—').trim() || '—';
+      var payIdForTotal = getSelectedPaymentMethodId();
+      if (payIdForTotal === 'test_cost' && testCostInput) {
+        var paidCentsReview = parseTestCostCents(testCostInput.value);
+        var orderTotalCents = typeof getOrderTotalCents === 'function' ? getOrderTotalCents() : 0;
+        if (paidCentsReview > 0) {
+          reviewTotal.textContent = formatMoney(paidCentsReview) + ' sent';
+          if (reviewBreakdown) {
+            if (orderTotalCents > 0 && paidCentsReview < orderTotalCents) {
+              reviewBreakdown.textContent = 'Order total ' + formatMoney(orderTotalCents)
+                + ' · short ' + formatMoney(orderTotalCents - paidCentsReview)
+                + ' — shipping waits until fully paid.';
+            } else if (orderTotalCents > 0 && paidCentsReview >= orderTotalCents) {
+              reviewBreakdown.textContent = 'Covers full order total ' + formatMoney(orderTotalCents) + '.';
+            } else {
+              reviewBreakdown.textContent = 'Amount you are sending to the seller.';
+            }
+          }
+        } else {
+          reviewTotal.textContent = orderTotalLabel;
+          if (reviewBreakdown) {
+            reviewBreakdown.textContent = 'Includes tax and fees shown on the previous step.';
+          }
+        }
+      } else {
+        reviewTotal.textContent = orderTotalLabel;
+        if (reviewBreakdown) {
+          reviewBreakdown.textContent = 'Includes tax and fees shown on the previous step.';
+        }
+      }
+    }
+  }
+
+  function continueToReview(){
+    var addressEl = document.getElementById('sbdAddress');
+    var addressVal = (addressEl ? addressEl.value : '').trim();
+    if (receiveOption !== 'pickup' && addressVal === '') {
+      showBuyPrompt({
+        title: 'Add delivery address',
+        message: 'Type your shipping address so we can deliver this order.',
+        showInput: true,
+        inputPlaceholder: 'Street, city, ZIP',
+        confirmLabel: 'Save',
+        cancelLabel: 'Cancel',
+        onConfirm: function(typed){
+          if (addressEl) addressEl.value = typed;
+          closeConfirmDialog();
+          updateShipPreview();
+          window.setTimeout(continueToReview, 0);
+        }
+      });
+      return;
+    }
+    if (getSelectedPaymentMethodId() === 'add_card') {
+      showBuyPrompt({
+        title: 'Add a card',
+        message: 'Add a payment card before reviewing this order.',
+        confirmLabel: 'Add card',
+        cancelLabel: 'Cancel',
+        onConfirm: function(){
+          closeConfirmDialog();
+          openCardPopup('visa');
+        }
+      });
+      return;
+    }
+    var payMethodId = getSelectedPaymentMethodId();
+    if (payMethodId === 'test_cost') {
+      var testCostCents = parseTestCostCents(testCostInput ? testCostInput.value : '');
+      if (testCostCents <= 0) {
+        showBuyPrompt({
+          title: 'Enter Cost $',
+          message: 'Enter a Cost $ amount before reviewing this order.',
+          showInput: true,
+          inputPlaceholder: '0.00',
+          inputValue: testCostInput ? String(testCostInput.value || '').trim() : '',
+          confirmLabel: 'Continue',
+          cancelLabel: 'Cancel',
+          onConfirm: function(typed){
+            selectPaymentMethod('test_cost');
+            if (testCostInput) {
+              testCostInput.value = typed;
+              try { testCostInput.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+            }
+            closeConfirmDialog();
+            window.setTimeout(continueToReview, 0);
+          }
+        });
+        return;
+      }
+    }
+    fillReviewPanel();
+    setCheckoutStep(2);
+    try { if (bodyEl) bodyEl.scrollTop = 0; } catch (e) {}
+  }
 
   function closeDoor(){
     try {
       if (window.parent && window.parent !== window) {
+        if (buySucceeded) {
+          window.parent.postMessage({
+            type: 'msb-shop-buy-success',
+            order_id: lastOrderId,
+            from_cart: fromCart
+          }, '*');
+        }
         window.parent.postMessage({ type: 'msb-live-right-door-close' }, '*');
         return;
       }
     } catch (e) {}
+    if (fromCart && buySucceeded) {
+      window.location.href = 'cart.php';
+      return;
+    }
     if (window.history.length > 1) window.history.back();
   }
 
@@ -1009,6 +1403,7 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     }
     updateShipPreview();
     updateTotal();
+    refreshAppliedPromoIfNeeded();
   }
 
   function openAddressPopup(){
@@ -1126,6 +1521,12 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       confirmCardPreviewEl.hidden = true;
       confirmCardPreviewEl.innerHTML = '';
     }
+    if (confirmFieldWrap) confirmFieldWrap.hidden = true;
+    if (confirmInputEl) {
+      confirmInputEl.value = '';
+      confirmInputEl.classList.remove('is-invalid');
+      confirmInputEl.placeholder = '';
+    }
   }
 
   function openConfirmDialog(opts){
@@ -1133,12 +1534,28 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     opts = opts || {};
     pendingConfirmAction = typeof opts.onConfirm === 'function' ? opts.onConfirm : null;
     if (confirmTitleEl) confirmTitleEl.textContent = opts.title || 'Are you sure?';
-    if (confirmMessageEl) confirmMessageEl.textContent = opts.message || '';
+    if (confirmMessageEl) {
+      confirmMessageEl.textContent = opts.message || '';
+      confirmMessageEl.hidden = !(opts.message || '');
+    }
     if (confirmOkBtn) confirmOkBtn.textContent = opts.confirmLabel || 'OK';
     if (confirmCancelBtn) confirmCancelBtn.textContent = opts.cancelLabel || 'Cancel';
     if (confirmOkBtn) {
-      confirmOkBtn.classList.toggle('sbd-btn-danger', opts.destructive !== false);
-      confirmOkBtn.classList.toggle('sbd-btn-primary', opts.destructive === false);
+      var isDanger = opts.destructive === true;
+      confirmOkBtn.classList.toggle('sbd-btn-danger', isDanger);
+      confirmOkBtn.classList.toggle('sbd-btn-primary', !isDanger);
+    }
+    if (confirmFieldWrap && confirmInputEl) {
+      if (opts.showInput) {
+        confirmFieldWrap.hidden = false;
+        confirmInputEl.placeholder = opts.inputPlaceholder || '';
+        confirmInputEl.value = opts.inputValue || '';
+        confirmInputEl.classList.remove('is-invalid');
+      } else {
+        confirmFieldWrap.hidden = true;
+        confirmInputEl.value = '';
+        confirmInputEl.classList.remove('is-invalid');
+      }
     }
     if (confirmCardPreviewEl) {
       if (opts.cardPreviewHtml) {
@@ -1151,9 +1568,18 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     }
     confirmOverlay.classList.add('is-open');
     confirmOverlay.setAttribute('aria-hidden', 'false');
-    if (confirmCancelBtn) {
-      window.setTimeout(function(){ confirmCancelBtn.focus(); }, 0);
-    }
+    window.setTimeout(function(){
+      if (opts.showInput && confirmInputEl) confirmInputEl.focus();
+      else if (confirmCancelBtn) confirmCancelBtn.focus();
+    }, 0);
+  }
+
+  function showBuyPrompt(opts){
+    openConfirmDialog(Object.assign({
+      destructive: false,
+      cancelLabel: 'Cancel',
+      confirmLabel: 'OK'
+    }, opts || {}));
   }
 
   function buildSavedCardPreviewHtml(card){
@@ -1293,11 +1719,23 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
 
       if (editingId && existingCard) {
         if (number.length > 0 && number.length < 4) {
-          window.alert('Please enter a valid card number.');
+          showBuyPrompt({
+            title: 'Card number',
+            message: 'Please enter a valid card number.',
+            confirmLabel: 'OK',
+            cancelLabel: 'Close',
+            onConfirm: function(){ closeConfirmDialog(); }
+          });
           return;
         }
         if (expiry === '' || name === '') {
-          window.alert('Please complete expiry and name on card.');
+          showBuyPrompt({
+            title: 'Card details',
+            message: 'Please complete expiry and name on card.',
+            confirmLabel: 'OK',
+            cancelLabel: 'Close',
+            onConfirm: function(){ closeConfirmDialog(); }
+          });
           return;
         }
         existingCard.brand = brand;
@@ -1312,11 +1750,23 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
         }
       } else {
         if (number.length < 4) {
-          window.alert('Please enter a valid card number.');
+          showBuyPrompt({
+            title: 'Card number',
+            message: 'Please enter a valid card number.',
+            confirmLabel: 'OK',
+            cancelLabel: 'Close',
+            onConfirm: function(){ closeConfirmDialog(); }
+          });
           return;
         }
         if (expiry === '' || cvc === '' || name === '') {
-          window.alert('Please complete expiry, CVV, and name on card.');
+          showBuyPrompt({
+            title: 'Card details',
+            message: 'Please complete expiry, CVV, and name on card.',
+            confirmLabel: 'OK',
+            cancelLabel: 'Close',
+            onConfirm: function(){ closeConfirmDialog(); }
+          });
           return;
         }
         savedCardSeq += 1;
@@ -1346,10 +1796,85 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
   function getOrderTotalCents(){
     var qty = clampQty(qtyEl ? qtyEl.value : 1);
     var subtotalCents = unitCents * qty;
+    var discountCents = Math.max(0, Math.min(subtotalCents, appliedDiscountCents | 0));
+    var merchCents = Math.max(0, subtotalCents - discountCents);
     var shippingCents = effectiveShippingCents();
     var taxRate = summaryEl ? parseFloat(summaryEl.getAttribute('data-tax-rate') || '0.0825') : 0.0825;
     if (!Number.isFinite(taxRate) || taxRate < 0) taxRate = 0;
-    return subtotalCents + shippingCents + Math.round((subtotalCents + shippingCents) * taxRate);
+    var taxCents = Math.round((merchCents + shippingCents) * taxRate);
+    var serviceFeeCents = summaryEl ? parseInt(summaryEl.getAttribute('data-service-fee-cents') || '199', 10) : 199;
+    if (!Number.isFinite(serviceFeeCents) || serviceFeeCents < 0) serviceFeeCents = 199;
+    return merchCents + shippingCents + taxCents + serviceFeeCents;
+  }
+
+  function setPromoMessage(text, kind){
+    if (!promoMsgEl) return;
+    var msg = String(text || '').trim();
+    if (!msg) {
+      promoMsgEl.hidden = true;
+      promoMsgEl.textContent = '';
+      promoMsgEl.classList.remove('is-error', 'is-ok');
+      return;
+    }
+    promoMsgEl.hidden = false;
+    promoMsgEl.textContent = msg;
+    promoMsgEl.classList.toggle('is-error', kind === 'error');
+    promoMsgEl.classList.toggle('is-ok', kind === 'ok');
+  }
+
+  function clearAppliedPromo(){
+    appliedPromoCode = '';
+    appliedDiscountCents = 0;
+    if (summaryDiscount) summaryDiscount.textContent = formatMoney(0);
+  }
+
+  async function applyPromoCode(){
+    var code = promoCodeInput ? String(promoCodeInput.value || '').trim().toUpperCase() : '';
+    if (!code) {
+      clearAppliedPromo();
+      setPromoMessage('', '');
+      updateTotal();
+      return;
+    }
+    if (promoApplyBtn) promoApplyBtn.disabled = true;
+    try {
+      var params = new URLSearchParams();
+      params.set('product_id', String(productId));
+      params.set('quantity', String(clampQty(qtyEl ? qtyEl.value : 1)));
+      params.set('delivery_option', receiveOption === 'pickup' ? 'pickup' : 'home_delivery');
+      params.set('promo_code', code);
+      var res = await fetch('ajax/shop_buy_preview.php?' + params.toString(), {
+        method: 'GET',
+        credentials: 'same-origin'
+      });
+      var data = await res.json();
+      if (!data || !data.ok || !data.summary) {
+        clearAppliedPromo();
+        setPromoMessage((data && data.message) || 'Could not apply promo.', 'error');
+        updateTotal();
+        return;
+      }
+      if (data.summary.promo_valid === false) {
+        clearAppliedPromo();
+        setPromoMessage('That promo code is not valid for this seller.', 'error');
+        updateTotal();
+        return;
+      }
+      appliedPromoCode = code;
+      appliedDiscountCents = Math.max(0, parseInt(String(data.summary.discount_cents || '0'), 10) || 0);
+      if (appliedDiscountCents <= 0) {
+        setPromoMessage('Promo applied — no discount on this order.', 'ok');
+      } else {
+        setPromoMessage('Discount applied.', 'ok');
+      }
+      updateTotal();
+    } catch (err) {
+      clearAppliedPromo();
+      setPromoMessage('Could not apply promo.', 'error');
+      updateTotal();
+    } finally {
+      if (promoApplyBtn) promoApplyBtn.disabled = false;
+    }
   }
 
   function getSelectedPaymentMethodId(){
@@ -1374,9 +1899,14 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
 
   function fillTestCostFromTotal(force){
     if (!testCostInput) return;
-    if (!force && String(testCostInput.value || '').trim() !== '') return;
     var cents = getOrderTotalCents();
+    var raw = String(testCostInput.value || '').trim();
+    var currentCents = parseTestCostCents(raw);
+    if (!force && raw !== '' && lastAutoFilledCostCents !== null && currentCents !== lastAutoFilledCostCents) {
+      return;
+    }
     testCostInput.value = (Math.max(0, cents) / 100).toFixed(2);
+    lastAutoFilledCostCents = cents;
   }
 
   function parseTestCostCents(raw){
@@ -1418,24 +1948,36 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     if (qtyDecBtn) qtyDecBtn.disabled = qty <= 1;
     if (qtyIncBtn) qtyIncBtn.disabled = qty >= 99;
     var subtotalCents = unitCents * qty;
+    var discountCents = Math.max(0, Math.min(subtotalCents, appliedDiscountCents | 0));
+    var merchCents = Math.max(0, subtotalCents - discountCents);
     var shippingCents = effectiveShippingCents();
     if (summaryEl) summaryEl.setAttribute('data-shipping-cents', String(shippingCents));
     var taxRate = summaryEl ? parseFloat(summaryEl.getAttribute('data-tax-rate') || '0.0825') : 0.0825;
     if (!Number.isFinite(taxRate) || taxRate < 0) taxRate = 0;
-    var taxableCents = subtotalCents + shippingCents;
+    var taxableCents = merchCents + shippingCents;
     var taxCents = Math.round(taxableCents * taxRate);
     var serviceFeeCents = summaryEl ? parseInt(summaryEl.getAttribute('data-service-fee-cents') || '199', 10) : 199;
     if (!Number.isFinite(serviceFeeCents) || serviceFeeCents < 0) serviceFeeCents = 199;
-    var orderTotalCents = subtotalCents + shippingCents + taxCents + serviceFeeCents;
+    var orderTotalCents = merchCents + shippingCents + taxCents + serviceFeeCents;
     if (summaryItemLabel) {
       summaryItemLabel.textContent = qty === 1 ? 'Item (1)' : 'Item (' + qty + ')';
     }
     if (summarySubtotal) summarySubtotal.textContent = formatMoney(subtotalCents);
+    if (summaryDiscountRow && summaryDiscount) {
+      summaryDiscount.textContent = discountCents > 0
+        ? ('-' + formatMoney(discountCents))
+        : formatMoney(0);
+    }
     if (summaryShipping) {
       summaryShipping.textContent = shippingCents > 0 ? formatMoney(shippingCents) : 'Free';
     }
     if (summaryShippingRow) {
       summaryShippingRow.classList.toggle('is-hidden', receiveOption === 'pickup');
+    }
+    if (summaryTaxLabel) {
+      var pct = (taxRate * 100);
+      var pctLabel = (Math.round(pct * 100) / 100).toString();
+      summaryTaxLabel.textContent = 'Tax (' + pctLabel + '%)';
     }
     if (summaryTax) summaryTax.textContent = formatMoney(taxCents);
     if (summaryServiceFee) summaryServiceFee.textContent = formatMoney(serviceFeeCents);
@@ -1507,6 +2049,12 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     });
   });
 
+  async function refreshAppliedPromoIfNeeded(){
+    if (!appliedPromoCode) return;
+    if (promoCodeInput) promoCodeInput.value = appliedPromoCode;
+    await applyPromoCode();
+  }
+
   if (qtyEl) {
     qtyEl.addEventListener('input', function(){
       updateTotal();
@@ -1515,6 +2063,7 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     qtyEl.addEventListener('change', function(){
       updateTotal();
       updateShipPreview();
+      refreshAppliedPromoIfNeeded();
     });
   }
   function bumpQty(delta){
@@ -1522,6 +2071,7 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     if (qtyEl) qtyEl.value = String(clampQty(next));
     updateTotal();
     updateShipPreview();
+    refreshAppliedPromoIfNeeded();
   }
   var qtyDecBtn = document.getElementById('sbdQtyDec');
   var qtyIncBtn = document.getElementById('sbdQtyInc');
@@ -1537,6 +2087,28 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       selectPaymentMethod('test_cost');
       fillTestCostFromTotal(true);
       if (testCostInput) testCostInput.focus();
+    });
+  }
+  if (promoApplyBtn) {
+    promoApplyBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      applyPromoCode();
+    });
+  }
+  if (promoCodeInput) {
+    promoCodeInput.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyPromoCode();
+      }
+    });
+    promoCodeInput.addEventListener('input', function(){
+      var next = String(promoCodeInput.value || '').trim().toUpperCase();
+      if (appliedPromoCode && next !== appliedPromoCode) {
+        clearAppliedPromo();
+        setPromoMessage('', '');
+        updateTotal();
+      }
     });
   }
   if (testCostInput) {
@@ -1563,7 +2135,19 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     var phoneEl = document.getElementById('sbdPhone');
     var addressVal = (addressEl ? addressEl.value : '').trim();
     if (addressVal === '') {
-      window.alert('Please enter a delivery address.');
+      showBuyPrompt({
+        title: 'Add delivery address',
+        message: 'Type your shipping address so we can deliver this order.',
+        showInput: true,
+        inputPlaceholder: 'Street, city, ZIP',
+        confirmLabel: 'Save',
+        cancelLabel: 'Cancel',
+        onConfirm: function(typed){
+          if (addressEl) addressEl.value = typed;
+          closeConfirmDialog();
+          updateShipPreview();
+        }
+      });
       return;
     }
     addressDoneBtn.disabled = true;
@@ -1579,7 +2163,13 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       });
       var data = await res.json();
       if (!data.ok) {
-        window.alert(data.message || 'Could not save address.');
+        showBuyPrompt({
+          title: 'Could not save',
+          message: data.message || 'Could not save address.',
+          confirmLabel: 'OK',
+          cancelLabel: 'Close',
+          onConfirm: function(){ closeConfirmDialog(); }
+        });
         return;
       }
       if (data.address_text && addressEl) {
@@ -1587,7 +2177,13 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       }
       closeAddressPopup(true);
     } catch (e) {
-      window.alert('Could not save address.');
+      showBuyPrompt({
+        title: 'Could not save',
+        message: 'Could not save address.',
+        confirmLabel: 'OK',
+        cancelLabel: 'Close',
+        onConfirm: function(){ closeConfirmDialog(); }
+      });
     } finally {
       addressDoneBtn.disabled = false;
     }
@@ -1595,10 +2191,37 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
   if (cardBackBtn) cardBackBtn.addEventListener('click', function(){ closeCardPopup(false); });
   if (cardDoneBtn) cardDoneBtn.addEventListener('click', function(){ closeCardPopup(true); });
   if (confirmCancelBtn) confirmCancelBtn.addEventListener('click', closeConfirmDialog);
+  if (confirmCloseBtn) confirmCloseBtn.addEventListener('click', closeConfirmDialog);
   if (confirmOkBtn) {
     confirmOkBtn.addEventListener('click', function(){
-      if (pendingConfirmAction) pendingConfirmAction();
-      else closeConfirmDialog();
+      var action = pendingConfirmAction;
+      if (!action) {
+        closeConfirmDialog();
+        return;
+      }
+      if (confirmFieldWrap && !confirmFieldWrap.hidden && confirmInputEl) {
+        var typed = String(confirmInputEl.value || '').trim();
+        if (!typed) {
+          confirmInputEl.classList.add('is-invalid');
+          confirmInputEl.focus();
+          return;
+        }
+        confirmInputEl.classList.remove('is-invalid');
+        action(typed);
+        return;
+      }
+      action();
+    });
+  }
+  if (confirmInputEl) {
+    confirmInputEl.addEventListener('input', function(){
+      confirmInputEl.classList.remove('is-invalid');
+    });
+    confirmInputEl.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (confirmOkBtn) confirmOkBtn.click();
+      }
     });
   }
   if (confirmOverlay) {
@@ -1631,17 +2254,57 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
     });
   }
 
+  function placeOrderNow(){
+    if (!submitBtn) return;
+    submitBtn.click();
+  }
+
+  if (continueReviewBtn) {
+    continueReviewBtn.addEventListener('click', function(){
+      continueToReview();
+    });
+  }
+  if (backToBuyBtn) {
+    backToBuyBtn.addEventListener('click', function(){
+      setCheckoutStep(1);
+      try { if (bodyEl) bodyEl.scrollTop = 0; } catch (e) {}
+    });
+  }
+
   if (submitBtn) {
     submitBtn.addEventListener('click', async function(){
-      var addressVal = (document.getElementById('sbdAddress') ? document.getElementById('sbdAddress').value : '').trim();
+      var addressEl = document.getElementById('sbdAddress');
+      var addressVal = (addressEl ? addressEl.value : '').trim();
       if (receiveOption !== 'pickup' && addressVal === '') {
-        openAddressPopup();
-        window.alert('Please add a delivery address.');
+        setCheckoutStep(1);
+        showBuyPrompt({
+          title: 'Add delivery address',
+          message: 'Type your shipping address so we can deliver this order.',
+          showInput: true,
+          inputPlaceholder: 'Street, city, ZIP',
+          confirmLabel: 'Save',
+          cancelLabel: 'Cancel',
+          onConfirm: function(typed){
+            if (addressEl) addressEl.value = typed;
+            closeConfirmDialog();
+            updateShipPreview();
+            window.setTimeout(continueToReview, 0);
+          }
+        });
         return;
       }
       if (getSelectedPaymentMethodId() === 'add_card') {
-        openCardPopup('visa');
-        window.alert('Please add a card to continue.');
+        setCheckoutStep(1);
+        showBuyPrompt({
+          title: 'Add a card',
+          message: 'Add a payment card to continue placing this order.',
+          confirmLabel: 'Add card',
+          cancelLabel: 'Cancel',
+          onConfirm: function(){
+            closeConfirmDialog();
+            openCardPopup('visa');
+          }
+        });
         return;
       }
       var payMethodId = getSelectedPaymentMethodId();
@@ -1649,13 +2312,30 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
       if (payMethodId === 'test_cost') {
         testCostCents = parseTestCostCents(testCostInput ? testCostInput.value : '');
         if (testCostCents <= 0) {
-          selectPaymentMethod('test_cost');
-          if (testCostInput) testCostInput.focus();
-          window.alert('Enter a Cost $ amount to place this test order.');
+          setCheckoutStep(1);
+          showBuyPrompt({
+            title: 'Enter Cost $',
+            message: 'Enter a Cost $ amount to place this test order.',
+            showInput: true,
+            inputPlaceholder: '0.00',
+            inputValue: testCostInput ? String(testCostInput.value || '').trim() : '',
+            confirmLabel: 'Continue',
+            cancelLabel: 'Cancel',
+            onConfirm: function(typed){
+              selectPaymentMethod('test_cost');
+              if (testCostInput) {
+                testCostInput.value = typed;
+                try { testCostInput.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+              }
+              closeConfirmDialog();
+              window.setTimeout(continueToReview, 0);
+            }
+          });
           return;
         }
       }
       submitBtn.disabled = true;
+      setCheckoutStep(3);
       try {
         var phoneVal = (document.getElementById('sbdPhone') ? document.getElementById('sbdPhone').value : '').trim();
         if (receiveOption !== 'pickup' && addressVal !== '') {
@@ -1682,6 +2362,7 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
         body.set('buyer_notes', (document.getElementById('sbdNotes').value || '').trim());
         if (profileId > 0) body.set('profile_id', String(profileId));
         body.set('payment_method', payMethodId || '');
+        if (appliedPromoCode) body.set('promo_code', appliedPromoCode);
         if (payMethodId === 'test_cost') {
           body.set('test_cost_cents', String(testCostCents));
           body.set('test_cost', testCostInput ? String(testCostInput.value || '').trim() : '');
@@ -1701,14 +2382,30 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
         }
         if (data.ok) {
           lastOrderId = parseInt(data.order_id || '0', 10) || 0;
-          if (formView) formView.hidden = true;
-          if (successView) successView.hidden = false;
-          if (bodyEl) {
-            bodyEl.classList.add('is-success-scroll', 'is-success-mode');
-          }
+          buySucceeded = true;
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({
+                type: 'msb-shop-buy-success',
+                order_id: lastOrderId,
+                from_cart: fromCart
+              }, '*');
+            }
+          } catch (e) {}
           var amountLabel = '';
-          if (data.total_cents != null) {
-            amountLabel = formatMoney(parseInt(String(data.total_cents), 10) || 0);
+          var paidCentsShow = parseInt(String(data.amount_paid_cents != null ? data.amount_paid_cents : ''), 10);
+          var dueCentsShow = parseInt(String(data.total_cents != null ? data.total_cents : ''), 10);
+          var shortCentsShow = parseInt(String(data.shortfall_cents != null ? data.shortfall_cents : ''), 10);
+          if (!Number.isFinite(paidCentsShow) || paidCentsShow < 0) paidCentsShow = 0;
+          if (!Number.isFinite(dueCentsShow) || dueCentsShow < 0) dueCentsShow = 0;
+          if (!Number.isFinite(shortCentsShow) || shortCentsShow < 0) {
+            shortCentsShow = Math.max(0, dueCentsShow - paidCentsShow);
+          }
+          // Big number = amount sent to the seller (what you typed), not the catalog order total.
+          if (paidCentsShow > 0) {
+            amountLabel = formatMoney(paidCentsShow);
+          } else if (dueCentsShow > 0) {
+            amountLabel = formatMoney(dueCentsShow);
           }
           if (successAmount) {
             if (amountLabel) {
@@ -1717,6 +2414,21 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
             } else {
               successAmount.hidden = true;
               successAmount.textContent = '';
+            }
+          }
+          if (successDue) {
+            if (data.payment_complete === false && dueCentsShow > 0 && paidCentsShow > 0 && shortCentsShow > 0) {
+              successDue.hidden = false;
+              successDue.textContent = 'Sent to seller · Order total '
+                + formatMoney(dueCentsShow)
+                + ' · Still due '
+                + formatMoney(shortCentsShow);
+            } else if (data.payment_complete === true && paidCentsShow > 0 && dueCentsShow > 0 && paidCentsShow !== dueCentsShow) {
+              successDue.hidden = false;
+              successDue.textContent = 'Fully covers order total ' + formatMoney(dueCentsShow);
+            } else {
+              successDue.hidden = true;
+              successDue.textContent = '';
             }
           }
           if (successCode) {
@@ -1731,21 +2443,45 @@ if ($defaultPaymentId === '' && $paymentMethods !== []) {
           }
           if (successMsg) {
             if (data.test_cost) {
-              successMsg.textContent = 'No real card charged. Seller will see this amount on Sales Management → Dashboard / Orders, then can ship.';
+              if (data.payment_complete === false) {
+                successMsg.textContent = data.message
+                  || 'Payment is incomplete. Shipping will not start until the full order total is paid. Check Notifications → Pending.';
+              } else {
+                successMsg.textContent = 'Fully paid (test). Seller received '
+                  + (amountLabel || 'your payment')
+                  + ' and can ship from Sales Management → Orders.';
+              }
             } else {
               successMsg.textContent = data.message || 'Your order was placed successfully.';
             }
           }
+          setCheckoutStep(4);
           return;
         }
-        window.alert(data.message || 'Order failed.');
+        setCheckoutStep(2);
+        showBuyPrompt({
+          title: 'Order failed',
+          message: data.message || 'Order failed.',
+          confirmLabel: 'OK',
+          cancelLabel: 'Close',
+          onConfirm: function(){ closeConfirmDialog(); }
+        });
       } catch (e) {
-        window.alert('Could not place order.');
+        setCheckoutStep(2);
+        showBuyPrompt({
+          title: 'Order failed',
+          message: 'Could not place order.',
+          confirmLabel: 'OK',
+          cancelLabel: 'Close',
+          onConfirm: function(){ closeConfirmDialog(); }
+        });
       } finally {
         submitBtn.disabled = false;
       }
     });
   }
+
+  setCheckoutStep(1);
 })();
 </script>
 <?php endif; ?>

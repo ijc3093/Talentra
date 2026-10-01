@@ -68,7 +68,10 @@ function notifications_parse_meta(string $type): array {
     $isStory = false;
     $profileUserId = 0;
 
-    while (preg_match('/\s\[(live|r|p|c|story|u):([^\]]+)\]\s*$/', $type, $m)) {
+    $communityInviteId = 0;
+    $communityId = 0;
+    $communityMemberUserId = 0;
+    while (preg_match('/\s\[(live|r|p|c|story|u|ci|cc|cm):([^\]]+)\]\s*$/', $type, $m)) {
         $key = trim((string)($m[1] ?? ''));
         $value = trim((string)($m[2] ?? ''));
         if ($key === 'live') {
@@ -83,8 +86,14 @@ function notifications_parse_meta(string $type): array {
             $isStory = ((int)$value === 1) || strtolower($value) === '1';
         } elseif ($key === 'u') {
             $profileUserId = (int)$value;
+        } elseif ($key === 'ci') {
+            $communityInviteId = (int)$value;
+        } elseif ($key === 'cc') {
+            $communityId = (int)$value;
+        } elseif ($key === 'cm') {
+            $communityMemberUserId = (int)$value;
         }
-        $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story|u):[^\]]+\]\s*$/', '', $type, 1));
+        $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story|u|ci|cc|cm):[^\]]+\]\s*$/', '', $type, 1));
     }
     if (!$isStory && stripos($type, ' in a story') !== false) {
         $isStory = true;
@@ -93,6 +102,10 @@ function notifications_parse_meta(string $type): array {
     $url = '';
     if ($liveId > 0) {
         $url = 'live_watch.php?live=' . $liveId;
+    } elseif (($route === 'cinvr' || $route === 'cleft' || $route === 'cjoin' || $route === 'cjoinr') && $communityId > 0) {
+        $url = 'community_profile.php?id=' . $communityId . ($route === 'cjoin' ? '&tab=members' : '');
+    } elseif ($communityInviteId > 0 || $route === 'cinv') {
+        $url = 'community.php?tab=invitations' . ($communityInviteId > 0 ? ('&invite=' . $communityInviteId) : '');
     } elseif ($postId > 0 && $isStory) {
         $url = 'home.php?tab=for-you&story_post=' . $postId;
     } elseif ($postId > 0) {
@@ -137,6 +150,10 @@ function notifications_parse_meta(string $type): array {
         'post_id' => $postId,
         'is_story' => $isStory ? 1 : 0,
         'comment_id' => $commentId,
+        'route' => $route,
+        'community_invite_id' => $communityInviteId,
+      'community_id' => $communityId,
+      'community_member_user_id' => $communityMemberUserId,
     ];
 }
 
@@ -315,11 +332,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && empty($error)) {
                 SET is_read = 1
                 WHERE notireceiver IN ($receiverPh)
                   AND is_read = 0
-                  AND notitype NOT LIKE ?
-                  AND notitype NOT LIKE ?
-                  AND notitype NOT LIKE ?
+                  " . app_notification_social_exclude_sql() . "
             ");
-            $st->execute(array_merge($receivers, ['New chat message%', 'Internal Chat%', 'New internal message%']));
+            $st->execute(array_merge($receivers, app_notification_social_exclude_patterns()));
             $message = 'All notifications marked as read.';
         } elseif ($action === 'mark_one') {
             $id = (int)($_POST['id'] ?? 0);
@@ -329,12 +344,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && empty($error)) {
                     SET is_read = 1
                     WHERE id = ?
                       AND notireceiver IN ($receiverPh)
-                      AND notitype NOT LIKE ?
-                      AND notitype NOT LIKE ?
-                      AND notitype NOT LIKE ?
+                      " . app_notification_social_exclude_sql() . "
                     LIMIT 1
                 ");
-                $st->execute(array_merge([$id], $receivers, ['New chat message%', 'Internal Chat%', 'New internal message%']));
+                $st->execute(array_merge([$id], $receivers, app_notification_social_exclude_patterns()));
                 $message = 'Notification marked as read.';
             }
         }
@@ -353,13 +366,11 @@ if (empty($error) && !empty($receivers)) {
             SELECT id, notiuser, notitype, created_at, is_read
             FROM notification
             WHERE notireceiver IN ($receiverPh)
-              AND notitype NOT LIKE ?
-              AND notitype NOT LIKE ?
-              AND notitype NOT LIKE ?
+              " . app_notification_social_exclude_sql() . "
             ORDER BY created_at DESC, id DESC
             LIMIT 200
         ");
-        $st->execute(array_merge($receivers, ['New chat message%', 'Internal Chat%', 'New internal message%']));
+        $st->execute(array_merge($receivers, app_notification_social_exclude_patterns()));
         $notifications = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
         if (function_exists('profile_filter_notification_rows')) {
             $notifications = profile_filter_notification_rows($dbh, $meId, $notifications);
@@ -1034,6 +1045,7 @@ try {
       color:var(--x-text);
       word-break:break-word;
     }
+    .x-community-request-actions{display:flex;gap:8px;margin-top:9px}.x-community-request-actions button{border:1px solid var(--x-border);border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer}.x-community-request-actions .is-accept{background:var(--msb-palette-action,#2374e1);border-color:var(--msb-palette-action,#2374e1);color:#fff}.x-community-request-actions .is-deny{background:transparent;color:var(--x-text)}
 
     .x-noti-more{
       position:absolute;
@@ -1450,6 +1462,10 @@ try {
                   $liveId = (int)($meta['live_id'] ?? 0);
                   $postId = (int)($meta['post_id'] ?? 0);
                   $commentId = (int)($meta['comment_id'] ?? 0);
+                  $notiRoute = (string)($meta['route'] ?? '');
+                  $notiCommunityId = (int)($meta['community_id'] ?? 0);
+                  $notiMemberUserId = (int)($meta['community_member_user_id'] ?? 0);
+                  $isCommunityJoinRequest = $notiRoute === 'cjoin' && $notiCommunityId > 0 && $notiMemberUserId > 0;
                   $isStoryNoti = (int)($meta['is_story'] ?? 0) === 1
                     || stripos($text, ' in a story') !== false
                     || (strpos($url, 'story_post=') !== false);
@@ -1493,6 +1509,12 @@ try {
                       <?php endif; ?>
                     </div>
                     <p class="x-noti-body"><?= h(function_exists('app_t') ? app_t($text) : $text) ?></p>
+                    <?php if ($isCommunityJoinRequest): ?>
+                      <div class="x-community-request-actions">
+                        <button type="button" class="is-accept js-community-request-response" data-action="approve" data-community-id="<?= $notiCommunityId ?>" data-member-user-id="<?= $notiMemberUserId ?>" data-notification-id="<?= $nid ?>">Accept</button>
+                        <button type="button" class="is-deny js-community-request-response" data-action="decline" data-community-id="<?= $notiCommunityId ?>" data-member-user-id="<?= $notiMemberUserId ?>" data-notification-id="<?= $nid ?>">Deny</button>
+                      </div>
+                    <?php endif; ?>
                   </div>
                   <div class="x-noti-more dropdown">
                     <button type="button" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="More">
@@ -1776,6 +1798,33 @@ setTimeout(function(){ $('.alert-success,.alert-danger').fadeOut(); }, 2500);
   }
 
   document.addEventListener('click', function(e){
+    var requestBtn = e.target && e.target.closest ? e.target.closest('.js-community-request-response') : null;
+    if (requestBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var requestActions = requestBtn.closest('.x-community-request-actions');
+      var requestRow = requestBtn.closest('.x-noti-row');
+      var requestData = new URLSearchParams();
+      requestData.set('action', requestBtn.getAttribute('data-action') || '');
+      requestData.set('community_id', requestBtn.getAttribute('data-community-id') || '0');
+      requestData.set('member_user_id', requestBtn.getAttribute('data-member-user-id') || '0');
+      requestData.set('notification_id', requestBtn.getAttribute('data-notification-id') || '0');
+      if (requestActions) requestActions.querySelectorAll('button').forEach(function(button){ button.disabled = true; });
+      fetch('ajax/community_join_respond.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+        body: requestData.toString(),
+        credentials: 'same-origin'
+      }).then(function(response){ return response.json(); }).then(function(result){
+        if (!result || !result.ok) throw new Error(result && result.error ? result.error : 'Unable to update join request.');
+        if (requestActions) requestActions.innerHTML = '<span class="x-noti-time">Request ' + (result.action === 'approved' ? 'accepted' : 'denied') + '.</span>';
+        if (requestRow) requestRow.classList.remove('is-unread');
+      }).catch(function(error){
+        if (requestActions) requestActions.querySelectorAll('button').forEach(function(button){ button.disabled = false; });
+        window.alert(error && error.message ? error.message : 'Unable to update join request.');
+      });
+      return;
+    }
     var viewBtn = e.target && e.target.closest ? e.target.closest('.js-noti-view-post') : null;
     if (viewBtn) {
       e.preventDefault();

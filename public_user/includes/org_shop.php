@@ -74,6 +74,27 @@ function org_shop_ensure_schema(PDO $dbh): void
             // ignore
         }
     }
+    if (!platform_rent_db_column_exists($dbh, 'org_orders', 'amount_paid_cents')) {
+        try {
+            $dbh->exec('ALTER TABLE org_orders ADD COLUMN amount_paid_cents INT NOT NULL DEFAULT 0 AFTER total_cents');
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    if (!platform_rent_db_column_exists($dbh, 'org_orders', 'payment_method')) {
+        try {
+            $dbh->exec("ALTER TABLE org_orders ADD COLUMN payment_method VARCHAR(40) NULL DEFAULT NULL AFTER paid_at");
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    if (!platform_rent_db_column_exists($dbh, 'org_orders', 'payment_reference')) {
+        try {
+            $dbh->exec("ALTER TABLE org_orders ADD COLUMN payment_reference VARCHAR(120) NULL DEFAULT NULL AFTER payment_method");
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
     org_shop_repair_unique_product_unit_codes($dbh);
     try {
         $idx = $dbh->query("SHOW INDEX FROM org_orders WHERE Key_name = 'uq_org_orders_product_unit_code'");
@@ -122,6 +143,398 @@ function org_shop_buyer_service_fee_cents(?PDO $dbh = null, int $buyerUserId = 0
         }
     }
     return $default;
+}
+
+/**
+ * Amount the buyer has actually remitted toward an order (cents).
+ * Prefers amount_paid_cents; falls back to payment_reference / buyer_notes markers.
+ */
+function org_shop_order_amount_paid_cents(array $order): int
+{
+    if (array_key_exists('amount_paid_cents', $order)) {
+        $col = (int)$order['amount_paid_cents'];
+        if ($col > 0) {
+            return $col;
+        }
+    }
+    $ref = (string)($order['payment_reference'] ?? '');
+    if (preg_match('/(?:^|[|;\s])paid[:=](\d+)/i', $ref, $m)) {
+        return max(0, (int)$m[1]);
+    }
+    $notes = (string)($order['buyer_notes'] ?? '');
+    if (preg_match('/Test payment Cost\s*\$:\s*\$?([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i', $notes, $m)) {
+        $raw = str_replace(',', '', (string)$m[1]);
+        if (is_numeric($raw)) {
+            return max(0, (int)round(((float)$raw) * 100));
+        }
+    }
+    if (preg_match('/paid\s+\$?([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s+of\s+/i', $notes, $m)) {
+        $raw = str_replace(',', '', (string)$m[1]);
+        if (is_numeric($raw)) {
+            return max(0, (int)round(((float)$raw) * 100));
+        }
+    }
+    $status = strtolower(trim((string)($order['status'] ?? '')));
+    if (in_array($status, ['paid', 'shipped', 'delivered'], true)) {
+        return max(0, (int)($order['total_cents'] ?? 0));
+    }
+    return 0;
+}
+
+/** @return array{due_cents:int,paid_cents:int,shortfall_cents:int,is_incomplete:bool,currency:string} */
+function org_shop_order_payment_progress(array $order): array
+{
+    $due = max(0, (int)($order['total_cents'] ?? 0));
+    $paid = org_shop_order_amount_paid_cents($order);
+    $status = strtolower(trim((string)($order['status'] ?? '')));
+    $currency = strtoupper(trim((string)($order['currency'] ?? 'USD'))) ?: 'USD';
+    $shortfall = max(0, $due - $paid);
+    $isIncomplete = in_array($status, ['pending', 'confirmed'], true)
+        || ($due > 0 && $paid > 0 && $paid < $due);
+    return [
+        'due_cents' => $due,
+        'paid_cents' => $paid,
+        'shortfall_cents' => $shortfall,
+        'is_incomplete' => $isIncomplete,
+        'currency' => $currency,
+    ];
+}
+
+/** True when seller must not fulfill / ship until the customer pays in full. */
+function org_shop_order_fulfillment_locked(array $order): bool
+{
+    $p = org_shop_order_payment_progress($order);
+    return !empty($p['is_incomplete']);
+}
+
+/** Buyer-facing line about incomplete payment / shipping hold. */
+function org_shop_order_incomplete_payment_buyer_message(array $order): string
+{
+    $p = org_shop_order_payment_progress($order);
+    $cur = $p['currency'];
+    if ($p['paid_cents'] > 0 && $p['shortfall_cents'] > 0) {
+        return 'You paid '
+            . org_shop_format_price($p['paid_cents'], $cur)
+            . ' of '
+            . org_shop_format_price($p['due_cents'], $cur)
+            . ' — '
+            . org_shop_format_price($p['shortfall_cents'], $cur)
+            . ' still due. Shipping will not start until the full order total is paid.';
+    }
+    return 'Payment is incomplete (card declined, insufficient funds, or partial payment). '
+        . 'The seller cannot start shipping until this order is fully paid.';
+}
+
+/** Seller-facing line about incomplete payment / do not ship. */
+function org_shop_order_incomplete_payment_seller_message(array $order): string
+{
+    $p = org_shop_order_payment_progress($order);
+    $cur = $p['currency'];
+    if ($p['paid_cents'] > 0 && $p['shortfall_cents'] > 0) {
+        return 'Customer paid '
+            . org_shop_format_price($p['paid_cents'], $cur)
+            . ' of '
+            . org_shop_format_price($p['due_cents'], $cur)
+            . ' (short '
+            . org_shop_format_price($p['shortfall_cents'], $cur)
+            . '). Do not ship until status is Paid.';
+    }
+    return 'Customer payment incomplete (credit/debit issue or partial pay). Do not ship until status is Paid.';
+}
+
+/**
+ * Notify the buyer that payment is incomplete and shipping is on hold.
+ */
+function org_shop_notify_buyer_payment_incomplete(
+    PDO $dbh,
+    int $orgId,
+    int $buyerUserId,
+    string $orderCode = '',
+    int $paidCents = 0,
+    int $dueCents = 0,
+    string $currency = 'USD'
+): void {
+    if ($orgId <= 0 || $buyerUserId <= 0) {
+        return;
+    }
+    $buyerUsername = org_shop_user_username($dbh, $buyerUserId);
+    if ($buyerUsername === '') {
+        return;
+    }
+    $idents = org_shop_org_notify_identities($dbh, $orgId);
+    $codeBit = $orderCode !== '' ? ' (' . $orderCode . ')' : '';
+    $cur = strtoupper(trim($currency)) ?: 'USD';
+    if ($paidCents > 0 && $dueCents > $paidCents) {
+        $short = $dueCents - $paidCents;
+        $message = 'Payment incomplete for your order' . $codeBit
+            . ' — you paid ' . org_shop_format_price($paidCents, $cur)
+            . ' of ' . org_shop_format_price($dueCents, $cur)
+            . ' (still due ' . org_shop_format_price($short, $cur)
+            . '). Shipping will not start until the full amount is paid. Open Notifications → Pending, then complete payment.';
+    } else {
+        $message = 'Payment incomplete for your order' . $codeBit
+            . '. Shipping will not start until payment clears in full. Open Notifications → Pending to finish payment.';
+    }
+    org_shop_insert_commerce_notification($dbh, $idents['org_name'], $buyerUsername, $message, 'shop');
+}
+
+/**
+ * Seller sends a payment-completion reminder to the buyer (Pending tab).
+ *
+ * @return array{ok:bool,error?:string,order_code?:string,buyer_user_id?:int}
+ */
+function org_shop_seller_request_payment_completion(
+    PDO $dbh,
+    int $orgId,
+    int $orderId,
+    string $customMessage = ''
+): array {
+    if ($orgId <= 0 || $orderId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid order.'];
+    }
+    org_shop_ensure_schema($dbh);
+    try {
+        $st = $dbh->prepare('SELECT * FROM org_orders WHERE id = :id AND org_id = :org LIMIT 1');
+        $st->execute([':id' => $orderId, ':org' => $orgId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$order) {
+            return ['ok' => false, 'error' => 'Order not found.'];
+        }
+        $status = strtolower(trim((string)($order['status'] ?? '')));
+        if (!in_array($status, ['pending', 'confirmed'], true)) {
+            return ['ok' => false, 'error' => 'This order is not waiting on payment.'];
+        }
+        $buyerUserId = (int)($order['buyer_user_id'] ?? 0);
+        if ($buyerUserId <= 0) {
+            return ['ok' => false, 'error' => 'No customer on this order.'];
+        }
+        $buyerUsername = org_shop_user_username($dbh, $buyerUserId);
+        if ($buyerUsername === '') {
+            return ['ok' => false, 'error' => 'Customer account not found.'];
+        }
+
+        $progress = org_shop_order_payment_progress($order);
+        $code = trim((string)($order['order_code'] ?? ''));
+        $cur = $progress['currency'];
+        $defaultMsg = 'Your payment is incomplete. Please complete payment before shipping starts.';
+        $sellerMsg = trim($customMessage) !== '' ? trim($customMessage) : $defaultMsg;
+        $sellerMsg = mb_substr($sellerMsg, 0, 400);
+
+        $detailBits = [];
+        if ($progress['paid_cents'] > 0 || $progress['due_cents'] > 0) {
+            $detailBits[] = 'Paid '
+                . org_shop_format_price($progress['paid_cents'], $cur)
+                . ' of '
+                . org_shop_format_price($progress['due_cents'], $cur);
+            if ($progress['shortfall_cents'] > 0) {
+                $detailBits[] = 'still due '
+                    . org_shop_format_price($progress['shortfall_cents'], $cur);
+            }
+        }
+        $noteLine = 'Seller payment request: ' . $sellerMsg
+            . ($detailBits !== [] ? ' (' . implode('; ', $detailBits) . ')' : '');
+        $existingSellerNotes = trim((string)($order['seller_notes'] ?? ''));
+        $sellerNotes = $existingSellerNotes !== ''
+            ? ($existingSellerNotes . "\n" . $noteLine)
+            : $noteLine;
+        try {
+            $dbh->prepare('
+                UPDATE org_orders
+                SET seller_notes = :notes, updated_at = NOW()
+                WHERE id = :id AND org_id = :org
+                LIMIT 1
+            ')->execute([
+                ':notes' => mb_substr($sellerNotes, 0, 2000),
+                ':id' => $orderId,
+                ':org' => $orgId,
+            ]);
+        } catch (Throwable $e) {
+            // continue — still notify
+        }
+
+        $idents = org_shop_org_notify_identities($dbh, $orgId);
+        $codeBit = $code !== '' ? ' (' . $code . ')' : '';
+        $inboxMsg = 'Pending — payment incomplete' . $codeBit . '. '
+            . $sellerMsg
+            . ($detailBits !== [] ? ' ' . implode('; ', $detailBits) . '.' : '')
+            . ' Shipping will not start until payment is complete. Open Notifications → Pending, then open the order to complete payment or cancel.';
+        org_shop_insert_commerce_notification($dbh, $idents['org_name'], $buyerUsername, $inboxMsg, 'shop');
+
+        return [
+            'ok' => true,
+            'order_code' => $code,
+            'buyer_user_id' => $buyerUserId,
+        ];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not notify the customer.'];
+    }
+}
+
+/**
+ * Apply an additional payment toward a pending/confirmed order (e.g. shortfall top-up).
+ *
+ * @return array{ok:bool,error?:string,status?:string,amount_paid_cents?:int,shortfall_cents?:int,total_cents?:int}
+ */
+function org_shop_buyer_complete_order_payment(
+    PDO $dbh,
+    int $buyerUserId,
+    int $orderId,
+    int $addCents
+): array {
+    if ($buyerUserId <= 0 || $orderId <= 0) {
+        return ['ok' => false, 'error' => 'Invalid order.'];
+    }
+    $addCents = max(0, $addCents);
+    if ($addCents <= 0) {
+        return ['ok' => false, 'error' => 'Enter an amount greater than zero.'];
+    }
+    org_shop_ensure_schema($dbh);
+    try {
+        $st = $dbh->prepare('SELECT * FROM org_orders WHERE id = :id AND buyer_user_id = :uid LIMIT 1');
+        $st->execute([':id' => $orderId, ':uid' => $buyerUserId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$order) {
+            return ['ok' => false, 'error' => 'Order not found.'];
+        }
+        $status = strtolower(trim((string)($order['status'] ?? '')));
+        if (!in_array($status, ['pending', 'confirmed'], true)) {
+            return ['ok' => false, 'error' => 'This order is not waiting on payment.'];
+        }
+        $due = max(0, (int)($order['total_cents'] ?? 0));
+        $paid = org_shop_order_amount_paid_cents($order);
+        $newPaid = $paid + $addCents;
+        $currency = strtoupper(trim((string)($order['currency'] ?? 'USD'))) ?: 'USD';
+        $code = trim((string)($order['order_code'] ?? ''));
+        $orgId = (int)($order['org_id'] ?? 0);
+        $complete = $due <= 0 || $newPaid >= $due;
+        $shortfall = max(0, $due - $newPaid);
+        $payRef = trim((string)($order['payment_reference'] ?? ''));
+        if ($payRef === '') {
+            $payRef = 'PAY-' . ($code !== '' ? $code : (string)$orderId);
+        }
+        $payRef = preg_replace('/\|paid:\d+/i', '', $payRef) ?? $payRef;
+        $payRef = preg_replace('/\|due:\d+/i', '', $payRef) ?? $payRef;
+        $payRef = rtrim($payRef, '|') . '|paid:' . $newPaid . '|due:' . $due;
+
+        $noteLine = 'Additional payment: ' . org_shop_format_price($addCents, $currency)
+            . ' (now paid ' . org_shop_format_price($newPaid, $currency)
+            . ' of ' . org_shop_format_price($due, $currency) . ').';
+        $notes = trim((string)($order['buyer_notes'] ?? ''));
+        $notes = $notes !== '' ? ($notes . "\n" . $noteLine) : $noteLine;
+
+        if ($complete) {
+            try {
+                $dbh->prepare("
+                    UPDATE org_orders
+                    SET status = 'paid',
+                        paid_at = COALESCE(paid_at, NOW()),
+                        amount_paid_cents = :paid,
+                        payment_reference = :pref,
+                        buyer_notes = :notes,
+                        updated_at = NOW()
+                    WHERE id = :id AND buyer_user_id = :uid
+                    LIMIT 1
+                ")->execute([
+                    ':paid' => $newPaid,
+                    ':pref' => mb_substr($payRef, 0, 120),
+                    ':notes' => mb_substr($notes, 0, 2000),
+                    ':id' => $orderId,
+                    ':uid' => $buyerUserId,
+                ]);
+            } catch (Throwable $e) {
+                $dbh->prepare("
+                    UPDATE org_orders
+                    SET status = 'paid',
+                        paid_at = COALESCE(paid_at, NOW()),
+                        payment_reference = :pref,
+                        buyer_notes = :notes,
+                        updated_at = NOW()
+                    WHERE id = :id AND buyer_user_id = :uid
+                    LIMIT 1
+                ")->execute([
+                    ':pref' => mb_substr($payRef, 0, 120),
+                    ':notes' => mb_substr($notes, 0, 2000),
+                    ':id' => $orderId,
+                    ':uid' => $buyerUserId,
+                ]);
+            }
+            if (function_exists('org_shop_apply_order_fees')) {
+                org_shop_apply_order_fees($dbh, $orderId);
+            }
+            if ($orgId > 0 && function_exists('org_shop_issue_receipt')) {
+                try {
+                    org_shop_issue_receipt($dbh, $orgId, $orderId, 'topup', 'TOPUP-' . $code);
+                } catch (Throwable $e) {
+                    // ignore
+                }
+            }
+            if ($orgId > 0) {
+                try {
+                    org_shop_notify_seller_order_status($dbh, $orgId, $buyerUserId, 'paid', [$code]);
+                } catch (Throwable $e) {
+                    // ignore
+                }
+            }
+            return [
+                'ok' => true,
+                'status' => 'paid',
+                'amount_paid_cents' => $newPaid,
+                'shortfall_cents' => 0,
+                'total_cents' => $due,
+            ];
+        }
+
+        try {
+            $dbh->prepare("
+                UPDATE org_orders
+                SET amount_paid_cents = :paid,
+                    payment_reference = :pref,
+                    buyer_notes = :notes,
+                    updated_at = NOW()
+                WHERE id = :id AND buyer_user_id = :uid
+                LIMIT 1
+            ")->execute([
+                ':paid' => $newPaid,
+                ':pref' => mb_substr($payRef, 0, 120),
+                ':notes' => mb_substr($notes, 0, 2000),
+                ':id' => $orderId,
+                ':uid' => $buyerUserId,
+            ]);
+        } catch (Throwable $e) {
+            $dbh->prepare("
+                UPDATE org_orders
+                SET payment_reference = :pref,
+                    buyer_notes = :notes,
+                    updated_at = NOW()
+                WHERE id = :id AND buyer_user_id = :uid
+                LIMIT 1
+            ")->execute([
+                ':pref' => mb_substr($payRef, 0, 120),
+                ':notes' => mb_substr($notes, 0, 2000),
+                ':id' => $orderId,
+                ':uid' => $buyerUserId,
+            ]);
+        }
+        if ($orgId > 0) {
+            try {
+                $extra = 'Paid ' . org_shop_format_price($newPaid, $currency)
+                    . ' of ' . org_shop_format_price($due, $currency)
+                    . ' (short ' . org_shop_format_price($shortfall, $currency) . ')';
+                org_shop_notify_seller_order_status($dbh, $orgId, $buyerUserId, 'pending', [$code], $extra);
+            } catch (Throwable $e) {
+                // ignore
+            }
+        }
+        return [
+            'ok' => true,
+            'status' => 'pending',
+            'amount_paid_cents' => $newPaid,
+            'shortfall_cents' => $shortfall,
+            'total_cents' => $due,
+        ];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not update payment.'];
+    }
 }
 
 function org_shop_org_id_for_publisher(PDO $dbh, int $publisherUserId): int
@@ -249,6 +662,42 @@ function org_shop_format_price(int $cents, string $currency = 'USD'): string
     return platform_rent_format_money($cents, $currency);
 }
 
+function org_shop_product_image_abs_path(string $path): string
+{
+    $rel = ltrim(str_replace('\\', '/', trim($path)), '/');
+    if ($rel === '') {
+        return '';
+    }
+    if (stripos($rel, '../organization/') === 0) {
+        $rel = substr($rel, strlen('../organization/'));
+    }
+    if (stripos($rel, 'organization/') === 0) {
+        $rel = substr($rel, strlen('organization/'));
+    }
+    return dirname(__DIR__, 2) . '/organization/' . $rel;
+}
+
+function org_shop_product_image_file_exists(string $path): bool
+{
+    $abs = org_shop_product_image_abs_path($path);
+    return $abs !== '' && is_file($abs);
+}
+
+function org_shop_organization_web_prefix(): string
+{
+    $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    $pos = stripos($script, '/organization/');
+    if ($pos !== false) {
+        return rtrim(substr($script, 0, $pos + strlen('/organization')), '/') . '/';
+    }
+    $pos = stripos($script, '/public_user/');
+    if ($pos !== false) {
+        return rtrim(substr($script, 0, $pos), '/') . '/organization/';
+    }
+    // Fallback for CLI / odd entry points — keep prior relative behavior.
+    return '../organization/';
+}
+
 function org_shop_cover_url(?string $path): string
 {
     $path = trim((string)$path);
@@ -258,18 +707,25 @@ function org_shop_cover_url(?string $path): string
     if (preg_match('#^https?://#i', $path)) {
         return $path;
     }
-    $rel = ltrim($path, '/');
+    $rel = ltrim(str_replace('\\', '/', $path), '/');
+    if (stripos($rel, '../organization/') === 0) {
+        $rel = substr($rel, strlen('../organization/'));
+    }
     if (stripos($rel, 'organization/') === 0) {
         $rel = substr($rel, strlen('organization/'));
     }
-    $file = dirname(__DIR__, 2) . '/organization/' . $rel;
-    if (!is_file($file)) {
-        $alt = dirname(__DIR__) . '/../organization/' . $rel;
-        if (!is_file($alt)) {
-            return '';
+    if (!org_shop_product_image_file_exists($rel)) {
+        return '';
+    }
+    $url = org_shop_organization_web_prefix() . ltrim($rel, '/');
+    $abs = org_shop_product_image_abs_path($rel);
+    if ($abs !== '' && is_file($abs)) {
+        $mtime = @filemtime($abs);
+        if ($mtime) {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . 'v=' . (int)$mtime;
         }
     }
-    return '../organization/' . $rel;
+    return $url;
 }
 
 function org_shop_cover_missing_html(): string
@@ -686,13 +1142,15 @@ function org_shop_mark_sold_out_if_empty(PDO $dbh, int $productId, int $orgId = 
 }
 
 /**
- * Bulk-sync all zero-stock active products for an org to sold_out.
+ * Keep sold_out / active in sync with tracked stock for an org.
+ * Zero stock active → sold_out; restocked sold_out → active.
  */
 function org_shop_sync_org_sold_out_stock(PDO $dbh, int $orgId): int
 {
     if ($orgId <= 0) {
         return 0;
     }
+    $changed = 0;
     try {
         $st = $dbh->prepare("
             UPDATE org_products
@@ -704,9 +1162,57 @@ function org_shop_sync_org_sold_out_stock(PDO $dbh, int $orgId): int
               AND status = 'active'
         ");
         $st->execute([':org' => $orgId]);
-        return (int)$st->rowCount();
+        $changed += (int)$st->rowCount();
     } catch (Throwable $e) {
-        return 0;
+        // continue
+    }
+    try {
+        $st = $dbh->prepare("
+            UPDATE org_products
+            SET status = 'active', updated_at = NOW()
+            WHERE org_id = :org
+              AND is_deleted = 0
+              AND stock_qty IS NOT NULL
+              AND stock_qty > 0
+              AND status = 'sold_out'
+        ");
+        $st->execute([':org' => $orgId]);
+        $changed += (int)$st->rowCount();
+    } catch (Throwable $e) {
+        // keep partial
+    }
+    return $changed;
+}
+
+/**
+ * After restocking a single product, clear sold_out when qty > 0.
+ */
+function org_shop_mark_active_if_restocked(PDO $dbh, int $productId, int $orgId = 0): bool
+{
+    if ($productId <= 0) {
+        return false;
+    }
+    try {
+        $sql = '
+            UPDATE org_products
+            SET status = \'active\', updated_at = NOW()
+            WHERE id = :id
+              AND is_deleted = 0
+              AND stock_qty IS NOT NULL
+              AND stock_qty > 0
+              AND status = \'sold_out\'
+        ';
+        $params = [':id' => $productId];
+        if ($orgId > 0) {
+            $sql .= ' AND org_id = :org';
+            $params[':org'] = $orgId;
+        }
+        $sql .= ' LIMIT 1';
+        $st = $dbh->prepare($sql);
+        $st->execute($params);
+        return $st->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
     }
 }
 
@@ -726,7 +1232,7 @@ function org_shop_inventory_status_counts(PDO $dbh, int $orgId): array
         $st = $dbh->prepare("
             SELECT COUNT(*) FROM org_products
             WHERE org_id = :org AND is_deleted = 0 AND status = 'active'
-              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 5
+              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 2
         ");
         $st->execute([':org' => $orgId]);
         $out['low'] = (int)($st->fetchColumn() ?: 0);
@@ -1108,6 +1614,56 @@ function org_shop_promo_discount_cents(PDO $dbh, int $orgId, string $promoCode, 
     return -1;
 }
 
+/** Percent value for an active seller promo code (0 when fixed / missing). */
+function org_shop_promo_percent(PDO $dbh, int $orgId, string $promoCode): float
+{
+    $promoCode = strtoupper(trim($promoCode));
+    if ($orgId <= 0 || $promoCode === '') {
+        return 0.0;
+    }
+    $promos = [];
+    try {
+        $st = $dbh->prepare('SELECT shop_json FROM org_settings WHERE org_id = :org LIMIT 1');
+        $st->execute([':org' => $orgId]);
+        $raw = $st->fetchColumn();
+        if ($raw) {
+            $decoded = json_decode((string)$raw, true);
+            if (is_array($decoded) && isset($decoded['promotions']) && is_array($decoded['promotions'])) {
+                $promos = $decoded['promotions'];
+            }
+        }
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+    $today = date('Y-m-d');
+    foreach ($promos as $promo) {
+        if (!is_array($promo)) {
+            continue;
+        }
+        if (strtoupper(trim((string)($promo['code'] ?? ''))) !== $promoCode) {
+            continue;
+        }
+        if (strtolower((string)($promo['status'] ?? 'active')) !== 'active') {
+            return 0.0;
+        }
+        $starts = trim((string)($promo['starts_at'] ?? ''));
+        $ends = trim((string)($promo['ends_at'] ?? ''));
+        if ($starts !== '' && $today < $starts) {
+            return 0.0;
+        }
+        if ($ends !== '' && $today > $ends) {
+            return 0.0;
+        }
+        $type = (string)($promo['type'] ?? 'percent');
+        $value = (float)($promo['value'] ?? 0);
+        if ($type === 'percent' && $value > 0) {
+            return min(100.0, max(0.0, $value));
+        }
+        return 0.0;
+    }
+    return 0.0;
+}
+
 /** @return list<array<string, mixed>> */
 function org_shop_list_orders(PDO $dbh, int $orgId, string $statusFilter = 'all', int $limit = 100): array
 {
@@ -1411,6 +1967,32 @@ function org_shop_seller_order_batch(PDO $dbh, int $orgId, array $order): array
     $buyerUserId = (int)($order['buyer_user_id'] ?? 0);
     $buyerEmail = trim((string)($order['buyer_email'] ?? ''));
     $buyerName = trim((string)($order['buyer_name'] ?? ''));
+    $orderCode = trim((string)($order['order_code'] ?? ''));
+    $orderId = (int)($order['id'] ?? 0);
+
+    // One checkout / invoice = same order_code (never every historical order for the buyer).
+    if ($orderCode !== '') {
+        try {
+            $st = $dbh->prepare('
+                SELECT o.*, u.username AS buyer_username, p.sku, p.cover_image_path AS product_cover
+                FROM org_orders o
+                LEFT JOIN users u ON u.id = o.buyer_user_id
+                LEFT JOIN org_products p ON p.id = o.product_id
+                WHERE o.org_id = :org
+                  AND UPPER(TRIM(o.order_code)) = UPPER(:code)
+                ORDER BY o.created_at ASC, o.id ASC
+            ');
+            $st->execute([':org' => $orgId, ':code' => $orderCode]);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            return $rows ?: [$order];
+        } catch (Throwable $e) {
+            return [$order];
+        }
+    }
+
+    if ($orderId > 0) {
+        return [$order];
+    }
 
     try {
         $where = ['o.org_id = :org', "o.status <> 'cancelled'"];
@@ -1639,6 +2221,15 @@ function org_shop_validate_product_required_fields(PDO $dbh, int $orgId, array $
         if (!$carriers) {
             return ['ok' => false, 'error' => 'Select at least one delivery carrier / trip.'];
         }
+        $customerPaysShipping = isset($data['shipping_is_free']) && (string)$data['shipping_is_free'] === '0';
+        if ($customerPaysShipping) {
+            $feeCents = isset($data['shipping_fee_cents'])
+                ? (int)$data['shipping_fee_cents']
+                : (int)round(((float)($data['shipping_fee'] ?? 0)) * 100);
+            if ($feeCents <= 0) {
+                return ['ok' => false, 'error' => 'Enter the shipping fee the customer pays, or choose Free shipping (you pay the shipping).'];
+            }
+        }
     }
 
     // Product photos required: new upload and/or existing gallery/cover.
@@ -1724,9 +2315,14 @@ function org_shop_save_product(PDO $dbh, int $orgId, array $data, ?int $productI
 
     $stockRaw = trim((string)($data['stock_qty'] ?? ''));
     $stockQty = $stockRaw === '' ? null : max(0, (int)$stockRaw);
-    // 0 stock cannot stay active — sold out and removed from public shop.
-    if ($stockQty !== null && $stockQty <= 0 && $status === 'active') {
-        $status = 'sold_out';
+    // Keep listing status in sync with tracked stock:
+    // 0 => sold_out (leaves shop); restocked sold_out => active again.
+    if ($stockQty !== null) {
+        if ($stockQty <= 0 && $status === 'active') {
+            $status = 'sold_out';
+        } elseif ($stockQty > 0 && $status === 'sold_out') {
+            $status = 'active';
+        }
     }
     $description = trim((string)($data['description'] ?? ''));
     $category = trim((string)($data['category'] ?? ''));
@@ -2467,6 +3063,121 @@ function org_shop_save_product_images_from_request(PDO $dbh, int $orgId, int $pr
     }
 
     org_shop_handle_product_images_upload($dbh, $orgId, $productId);
+    org_shop_sync_product_cover_from_gallery($dbh, $orgId, $productId);
+}
+
+/**
+ * Drop gallery/cover DB rows whose files are gone from disk.
+ * Returns number of orphan gallery rows removed.
+ */
+function org_shop_prune_missing_product_images(PDO $dbh, int $orgId, int $productId = 0): int
+{
+    if ($orgId <= 0) {
+        return 0;
+    }
+    $removed = 0;
+    try {
+        if ($productId > 0) {
+            $st = $dbh->prepare('SELECT id, file_path FROM org_product_images WHERE org_id = :org AND product_id = :pid');
+            $st->execute([':org' => $orgId, ':pid' => $productId]);
+        } else {
+            $st = $dbh->prepare('SELECT id, product_id, file_path FROM org_product_images WHERE org_id = :org');
+            $st->execute([':org' => $orgId]);
+        }
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $byProduct = [];
+        foreach ($rows as $row) {
+            $pid = $productId > 0 ? $productId : (int)($row['product_id'] ?? 0);
+            $id = (int)($row['id'] ?? 0);
+            $path = trim((string)($row['file_path'] ?? ''));
+            if ($pid <= 0 || $id <= 0) {
+                continue;
+            }
+            if ($path === '' || !org_shop_product_image_file_exists($path)) {
+                $byProduct[$pid][] = $id;
+            }
+        }
+        foreach ($byProduct as $pid => $ids) {
+            $removed += org_shop_delete_product_images($dbh, $orgId, (int)$pid, $ids);
+            org_shop_sync_product_cover_from_gallery($dbh, $orgId, (int)$pid);
+        }
+
+        // Clear covers that point at missing files even when gallery is empty.
+        if ($productId > 0) {
+            $products = [];
+            $p = org_shop_get_product($dbh, $productId, $orgId);
+            if ($p) {
+                $products[] = $p;
+            }
+        } else {
+            $products = org_shop_list_products($dbh, $orgId, false);
+        }
+        foreach ($products as $p) {
+            $pid = (int)($p['id'] ?? 0);
+            $cover = trim((string)($p['cover_image_path'] ?? ''));
+            if ($pid <= 0 || $cover === '') {
+                continue;
+            }
+            if (org_shop_product_image_file_exists($cover)) {
+                continue;
+            }
+            $dbh->prepare('UPDATE org_products SET cover_image_path = NULL, updated_at = NOW() WHERE id = :id AND org_id = :org LIMIT 1')
+                ->execute([':id' => $pid, ':org' => $orgId]);
+            org_shop_sync_product_cover_from_gallery($dbh, $orgId, $pid);
+        }
+    } catch (Throwable $e) {
+        return $removed;
+    }
+    return $removed;
+}
+
+/**
+ * Keep org_products.cover_image_path aligned with the first gallery photo
+ * so catalog / inventory / shop thumbnails always resolve.
+ */
+function org_shop_sync_product_cover_from_gallery(PDO $dbh, int $orgId, int $productId): void
+{
+    if ($orgId <= 0 || $productId <= 0) {
+        return;
+    }
+    try {
+        $gallery = org_shop_list_product_images($dbh, $productId, $orgId);
+        $first = '';
+        foreach ($gallery as $img) {
+            $path = trim((string)($img['file_path'] ?? ''));
+            if ($path !== '' && org_shop_product_image_file_exists($path)) {
+                $first = $path;
+                break;
+            }
+        }
+        $product = org_shop_get_product($dbh, $productId, $orgId);
+        $cover = $product ? trim((string)($product['cover_image_path'] ?? '')) : '';
+
+        $coverOk = $cover !== '' && org_shop_product_image_file_exists($cover);
+        if ($coverOk) {
+            // Ensure cover is also represented in the gallery when possible.
+            $inGallery = false;
+            foreach ($gallery as $img) {
+                if (trim((string)($img['file_path'] ?? '')) === $cover) {
+                    $inGallery = true;
+                    break;
+                }
+            }
+            if (!$inGallery && count($gallery) < org_shop_product_images_max()) {
+                org_shop_add_product_image_row($dbh, $orgId, $productId, $cover, 0);
+            }
+            return;
+        }
+
+        $nextCover = $first !== '' ? $first : null;
+        if ($nextCover === null && $cover === '') {
+            return;
+        }
+        $dbh->prepare('UPDATE org_products SET cover_image_path = :p, updated_at = NOW() WHERE id = :id AND org_id = :org LIMIT 1')
+            ->execute([':p' => $nextCover, ':id' => $productId, ':org' => $orgId]);
+    } catch (Throwable $e) {
+        // ignore sync failure
+    }
 }
 
 /** @return list<array<string, mixed>> */
@@ -2866,6 +3577,50 @@ function org_shop_seller_pickup_address_text(PDO $dbh, int $orgId): string
 }
 
 /**
+ * Buyer-facing shipping line for shop cards.
+ * free   — Delivery on and the seller covers the trip (shipping_fee_cents = 0).
+ * paid   — Delivery on and the customer pays shipping_fee_cents.
+ * pickup — Pick up only; show the seller's business address.
+ *
+ * @return array{mode:string,free_shipping:bool,shipping_fee_cents:int,shipping_fee_label:string,pickup_enabled:bool,pickup_only:bool,pickup_address:string}
+ */
+function org_shop_product_shipping_badge(PDO $dbh, array $product): array
+{
+    static $addressByOrg = [];
+    $receive = org_shop_product_receive_options($product);
+    $currency = (string)($product['currency'] ?? 'USD');
+    $fee = (int)$receive['shipping_fee_cents'];
+    $out = [
+        'mode' => 'paid',
+        'free_shipping' => false,
+        'shipping_fee_cents' => $fee,
+        'shipping_fee_label' => $fee > 0 ? org_shop_format_price($fee, $currency) : '',
+        'pickup_enabled' => (bool)$receive['pickup_enabled'],
+        'pickup_only' => false,
+        'pickup_address' => '',
+    ];
+    if ($receive['delivery_enabled']) {
+        if ($fee <= 0) {
+            $out['mode'] = 'free';
+            $out['free_shipping'] = true;
+        }
+        return $out;
+    }
+
+    $out['mode'] = 'pickup';
+    $out['pickup_only'] = true;
+    $out['shipping_fee_cents'] = 0;
+    $out['shipping_fee_label'] = '';
+    $orgId = (int)($product['org_id'] ?? 0);
+    if (!array_key_exists($orgId, $addressByOrg)) {
+        $text = org_shop_seller_pickup_address_text($dbh, $orgId);
+        $addressByOrg[$orgId] = trim((string)preg_replace('/\s*\n\s*/', ', ', $text));
+    }
+    $out['pickup_address'] = $addressByOrg[$orgId];
+    return $out;
+}
+
+/**
  * Buyer-facing seller contact/location for pickup door and product Seller tab.
  *
  * @return array{text:string,store_name:string,full_name:string,tagline:string,address:string,phone:string,email:string,has_address:bool}
@@ -2932,6 +3687,37 @@ function org_shop_seller_pickup_display(PDO $dbh, int $orgId): array
         return $out;
     } catch (Throwable $e) {
         return $out;
+    }
+}
+
+/** @return array<string, mixed>|null */
+function org_shop_find_buyer_order_by_code(PDO $dbh, int $buyerUserId, string $orderCode): ?array
+{
+    if ($buyerUserId <= 0) {
+        return null;
+    }
+    $orderCode = strtoupper(trim($orderCode));
+    if ($orderCode === '') {
+        return null;
+    }
+    try {
+        $st = $dbh->prepare("
+            SELECT o.id
+            FROM org_orders o
+            WHERE o.buyer_user_id = :uid
+              AND o.buyer_hidden_at IS NULL
+              AND UPPER(TRIM(o.order_code)) = :code
+            ORDER BY o.id DESC
+            LIMIT 1
+        ");
+        $st->execute([':uid' => $buyerUserId, ':code' => $orderCode]);
+        $id = (int)($st->fetchColumn() ?: 0);
+        if ($id <= 0) {
+            return null;
+        }
+        return org_shop_get_buyer_order($dbh, $buyerUserId, $id);
+    } catch (Throwable $e) {
+        return null;
     }
 }
 
@@ -3618,6 +4404,558 @@ function org_shop_request_return(PDO $dbh, int $orderId, int $buyerUserId, strin
 }
 
 /**
+ * Buyer withdraws their own return request while the seller has not acted on it yet.
+ * @return array{ok:bool,error?:string}
+ */
+function org_shop_buyer_cancel_return(PDO $dbh, int $returnId, int $buyerUserId): array
+{
+    org_shop_ensure_schema($dbh);
+    if ($returnId <= 0 || $buyerUserId <= 0) {
+        return ['ok' => false, 'error' => 'Return request not found.'];
+    }
+    try {
+        $st = $dbh->prepare('SELECT id, status FROM org_order_returns WHERE id = :id AND buyer_user_id = :uid LIMIT 1');
+        $st->execute([':id' => $returnId, ':uid' => $buyerUserId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return ['ok' => false, 'error' => 'Return request not found.'];
+        }
+        if (strtolower(trim((string)($row['status'] ?? ''))) !== 'requested') {
+            return ['ok' => false, 'error' => 'The seller already reviewed this return, so it can no longer be cancelled.'];
+        }
+        $col = $dbh->query("SHOW COLUMNS FROM org_order_returns LIKE 'status'")->fetch(PDO::FETCH_ASSOC) ?: [];
+        if (stripos((string)($col['Type'] ?? ''), 'enum(') === 0 && stripos((string)$col['Type'], "'cancelled'") === false) {
+            $dbh->exec("
+                ALTER TABLE org_order_returns
+                MODIFY status ENUM('requested','approved','rejected','refunded','cancelled')
+                CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'requested'
+            ");
+        }
+        $upd = $dbh->prepare("
+            UPDATE org_order_returns
+            SET status = 'cancelled', updated_at = NOW()
+            WHERE id = :id AND buyer_user_id = :uid AND status = 'requested'
+            LIMIT 1
+        ");
+        $upd->execute([':id' => $returnId, ':uid' => $buyerUserId]);
+        return $upd->rowCount() > 0 ? ['ok' => true] : ['ok' => false, 'error' => 'Could not cancel the return request.'];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not cancel the return request.'];
+    }
+}
+
+/**
+ * Whether a buyer may still cancel this order line (before shipment).
+ */
+function org_shop_buyer_order_is_cancellable(array $order): bool
+{
+    $status = strtolower(trim((string)($order['status'] ?? '')));
+    if (!in_array($status, ['pending', 'confirmed', 'paid'], true)) {
+        return false;
+    }
+    if (trim((string)($order['shipped_at'] ?? '')) !== '') {
+        return false;
+    }
+    // Carrier + tracking means the seller already shipped, even if status lagged.
+    $track = trim((string)($order['tracking_number'] ?? ''));
+    $carrier = trim((string)($order['carrier'] ?? ''));
+    if ($track !== '' && $carrier !== '') {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Group buyer orders by seller checkout (same as Your_Shopping_preferences.php #order-history).
+ * Returns invoice-style rows for My Orders list + detail panel (cents + labels).
+ *
+ * @return list<array<string,mixed>>
+ */
+function org_shop_buyer_order_history_groups(PDO $dbh, int $buyerUserId, int $limit = 200): array
+{
+    if ($buyerUserId <= 0 || !function_exists('org_shop_list_buyer_orders')) {
+        return [];
+    }
+    $orders = org_shop_list_buyer_orders($dbh, $buyerUserId, max(1, min($limit, 200)));
+    if ($orders === []) {
+        return [];
+    }
+
+    $buyerName = 'Buyer';
+    $buyerEmail = '';
+    $buyerPhone = '';
+    try {
+        $st = $dbh->prepare('SELECT name, username, email, mobile FROM users WHERE id = :id LIMIT 1');
+        $st->execute([':id' => $buyerUserId]);
+        $u = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+        $buyerName = trim((string)($u['name'] ?? ''));
+        if ($buyerName === '') {
+            $buyerName = trim((string)($u['username'] ?? ''));
+        }
+        if ($buyerName === '') {
+            $buyerName = 'Buyer';
+        }
+        $buyerEmail = trim((string)($u['email'] ?? ''));
+        $buyerPhone = function_exists('user_phone_from_user_row')
+            ? user_phone_from_user_row($u)
+            : trim((string)($u['mobile'] ?? ''));
+        if (strcasecmp($buyerPhone, 'N/A') === 0) {
+            $buyerPhone = '';
+        }
+    } catch (Throwable $e) {
+        // keep defaults
+    }
+
+    $sellerContact = static function (PDO $dbh, int $orgId, int $publisherUserId): array {
+        $out = ['email' => '', 'phone' => '', 'address' => ''];
+        if ($orgId > 0) {
+            try {
+                $st = $dbh->prepare('SELECT shop_json FROM org_settings WHERE org_id = :org LIMIT 1');
+                $st->execute([':org' => $orgId]);
+                $raw = (string)($st->fetchColumn() ?: '');
+                if ($raw !== '') {
+                    $decoded = json_decode($raw, true);
+                    if (is_array($decoded)) {
+                        $out['email'] = trim((string)($decoded['contact_email'] ?? ''));
+                        $out['phone'] = trim((string)($decoded['contact_phone'] ?? ''));
+                        if (is_array($decoded['address'] ?? null) && function_exists('org_shop_format_seller_address')) {
+                            $out['address'] = org_shop_format_seller_address($decoded['address']);
+                        }
+                    }
+                }
+            } catch (Throwable $e) {
+            }
+        }
+        if (($out['email'] === '' || $out['phone'] === '') && $publisherUserId > 0) {
+            try {
+                $st = $dbh->prepare('SELECT email, mobile FROM users WHERE id = :id LIMIT 1');
+                $st->execute([':id' => $publisherUserId]);
+                $user = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+                if ($out['email'] === '') {
+                    $out['email'] = trim((string)($user['email'] ?? ''));
+                }
+                if ($out['phone'] === '') {
+                    $out['phone'] = function_exists('user_phone_from_user_row')
+                        ? user_phone_from_user_row($user)
+                        : trim((string)($user['mobile'] ?? ''));
+                    if (strcasecmp($out['phone'], 'N/A') === 0) {
+                        $out['phone'] = '';
+                    }
+                }
+            } catch (Throwable $e) {
+            }
+        }
+        return $out;
+    };
+
+    $prefDate = static function ($value): string {
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return 'Not set';
+        }
+        $ts = strtotime($raw);
+        return $ts ? date('M j, Y', $ts) : $raw;
+    };
+
+    // Mirror Your_Shopping_preferences.php $buyerPaymentGroups: one group per seller checkout.
+    // Cart checkout inserts one org_orders row per product within seconds; a later purchase
+    // from the same seller (even on the same day) is its own group.
+    $checkoutGapSeconds = 120;
+    $batchByOrderId = [];
+    $ordersChrono = $orders;
+    usort($ordersChrono, static function (array $a, array $b): int {
+        $ta = strtotime((string)($a['created_at'] ?? '')) ?: 0;
+        $tb = strtotime((string)($b['created_at'] ?? '')) ?: 0;
+        return $ta <=> $tb ?: ((int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0));
+    });
+    $lastByOrg = [];
+    foreach ($ordersChrono as $order) {
+        $orderIdKey = (int)($order['id'] ?? 0);
+        $orgKey = (int)($order['org_id'] ?? 0);
+        $ts = strtotime((string)($order['created_at'] ?? '')) ?: 0;
+        $last = $lastByOrg[$orgKey] ?? null;
+        if ($last === null || $ts <= 0 || ($ts - (int)$last['ts']) > $checkoutGapSeconds) {
+            $last = ['batch' => $orgKey . '|' . ($ts > 0 ? $ts : ('o' . $orderIdKey)), 'ts' => $ts];
+        } else {
+            $last['ts'] = $ts;
+        }
+        $lastByOrg[$orgKey] = $last;
+        $batchByOrderId[$orderIdKey] = $last['batch'];
+    }
+
+    $groups = [];
+    foreach ($orders as $order) {
+        $status = strtolower(trim((string)($order['status'] ?? 'pending')));
+        if ($status === 'cancelled') {
+            continue;
+        }
+        $orgId = (int)($order['org_id'] ?? 0);
+        $company = trim((string)($order['seller_name'] ?? '')) ?: 'Seller';
+        $createdRaw = (string)($order['created_at'] ?? '');
+        $createdTs = $createdRaw !== '' ? strtotime($createdRaw) : false;
+        $groupKey = $batchByOrderId[(int)($order['id'] ?? 0)]
+            ?? ($orgId . '|o' . (int)($order['id'] ?? 0));
+        if (!isset($groups[$groupKey])) {
+            $groups[$groupKey] = [
+                'org_id' => $orgId,
+                'publisher_user_id' => (int)($order['publisher_user_id'] ?? 0),
+                'company' => $company,
+                'date_raw' => $createdRaw,
+                'date' => $prefDate($createdRaw),
+                'time' => $createdTs ? date('g:i A', $createdTs) : '',
+                'date_sort' => $createdTs ?: 0,
+                'currency' => (string)($order['currency'] ?? 'USD'),
+                'total_cents' => 0,
+                'shipping_fee_cents' => 0,
+                'discount_cents' => 0,
+                'tax_cents' => 0,
+                'service_fee_cents' => 0,
+                'merchandise_cents' => 0,
+                'statuses' => [],
+                'receipts' => [],
+                'order_codes' => [],
+                'order_ids' => [],
+                'cancellable_ids' => [],
+                'ship_detail_id' => 0,
+                'ship_detail_code' => '',
+                'product_ids' => [],
+                'products' => [],
+                'item_count' => 0,
+                'cover_image_path' => '',
+            ];
+        }
+        $g = &$groups[$groupKey];
+        $g['total_cents'] += (int)($order['total_cents'] ?? 0);
+        $g['shipping_fee_cents'] += max(0, (int)($order['shipping_fee_cents'] ?? 0));
+        $g['discount_cents'] += max(0, (int)($order['discount_cents'] ?? 0));
+        $g['tax_cents'] += max(0, (int)($order['tax_cents'] ?? 0));
+        $g['service_fee_cents'] += max(0, (int)($order['service_fee_cents'] ?? 0));
+        $orderIdRow = (int)($order['id'] ?? 0);
+        if ($orderIdRow > 0 && !in_array($orderIdRow, $g['order_ids'], true)) {
+            $g['order_ids'][] = $orderIdRow;
+        }
+        if ($orderIdRow > 0 && function_exists('org_shop_buyer_order_is_cancellable')
+            && org_shop_buyer_order_is_cancellable($order)
+            && !in_array($orderIdRow, $g['cancellable_ids'], true)) {
+            $g['cancellable_ids'][] = $orderIdRow;
+        }
+        $statusForGroup = $status;
+        if (
+            in_array($status, ['pending', 'confirmed', 'paid'], true)
+            && function_exists('org_shop_buyer_order_is_cancellable')
+            && !org_shop_buyer_order_is_cancellable($order)
+        ) {
+            $statusForGroup = 'shipped';
+        }
+        if ($statusForGroup !== '') {
+            $g['statuses'][] = $statusForGroup;
+        }
+        $receipt = trim((string)($order['receipt_code'] ?? ''));
+        if ($receipt !== '' && !in_array($receipt, $g['receipts'], true)) {
+            $g['receipts'][] = $receipt;
+        }
+        $orderCode = trim((string)($order['order_code'] ?? ''));
+        if ($orderCode === '') {
+            $orderCode = '#' . (int)($order['id'] ?? 0);
+        }
+        if (!in_array($orderCode, $g['order_codes'], true)) {
+            $g['order_codes'][] = $orderCode;
+        }
+        if ($statusForGroup === 'delivered' && $orderIdRow > 0) {
+            $prevDetailStatus = (string)($g['ship_detail_status'] ?? '');
+            if ((int)($g['ship_detail_id'] ?? 0) <= 0 || $prevDetailStatus !== 'delivered') {
+                $g['ship_detail_id'] = $orderIdRow;
+                $g['ship_detail_code'] = $orderCode;
+                $g['ship_detail_status'] = 'delivered';
+            }
+        } elseif (
+            $statusForGroup === 'shipped'
+            && (int)($g['ship_detail_id'] ?? 0) <= 0
+            && $orderIdRow > 0
+        ) {
+            $g['ship_detail_id'] = $orderIdRow;
+            $g['ship_detail_code'] = $orderCode;
+            $g['ship_detail_status'] = 'shipped';
+        }
+        if ($g['cover_image_path'] === '') {
+            $g['cover_image_path'] = trim((string)($order['cover_image_path'] ?? ''));
+        }
+        $qty = max(1, (int)($order['quantity'] ?? 1));
+        $title = trim((string)($order['product_title'] ?? '')) ?: 'Product';
+        $unit = max(0, (int)($order['unit_price_cents'] ?? 0));
+        $lineCents = max(0, $unit * $qty);
+        if ($lineCents <= 0) {
+            $shipCents = max(0, (int)($order['shipping_fee_cents'] ?? 0));
+            $taxCents = max(0, (int)($order['tax_cents'] ?? 0));
+            $svcCents = max(0, (int)($order['service_fee_cents'] ?? 0));
+            $disc = max(0, (int)($order['discount_cents'] ?? 0));
+            $lineTotal = (int)($order['total_cents'] ?? 0);
+            $lineCents = max(0, $lineTotal - $shipCents - $taxCents - $svcCents + $disc);
+        }
+        $g['merchandise_cents'] += $lineCents;
+        $productIdRow = (int)($order['product_id'] ?? 0);
+        if ($productIdRow > 0 && !in_array($productIdRow, $g['product_ids'], true)) {
+            $g['product_ids'][] = $productIdRow;
+        }
+        $g['products'][] = [
+            'title' => $title,
+            'qty' => $qty,
+            'amount' => org_shop_format_price($lineCents, (string)($order['currency'] ?? $g['currency'])),
+            'amount_cents' => $lineCents,
+            'product_id' => $productIdRow,
+            'category' => trim((string)($order['category'] ?? '')),
+        ];
+        $g['item_count'] += $qty;
+        if ($createdTs && $createdTs > (int)$g['date_sort']) {
+            $g['date_raw'] = $createdRaw;
+            $g['date'] = $prefDate($createdRaw);
+            $g['time'] = date('g:i A', $createdTs);
+            $g['date_sort'] = $createdTs;
+        }
+        unset($g);
+    }
+
+    uasort($groups, static function (array $a, array $b): int {
+        return ((int)$b['date_sort']) <=> ((int)$a['date_sort']);
+    });
+    $groups = array_values($groups);
+    $sellerContactCache = [];
+
+    foreach ($groups as &$group) {
+        $statuses = array_values(array_unique($group['statuses']));
+        $hasShipped = false;
+        foreach ($statuses as $st) {
+            if (in_array($st, ['shipped', 'delivered'], true)) {
+                $hasShipped = true;
+                break;
+            }
+        }
+        if ($hasShipped) {
+            $group['cancellable_ids'] = [];
+        }
+        if (count($statuses) === 1) {
+            $group['status'] = $statuses[0];
+        } elseif ($hasShipped) {
+            $group['status'] = in_array('delivered', $statuses, true) ? 'delivered' : 'shipped';
+        } elseif (in_array('pending', $statuses, true)) {
+            $group['status'] = 'pending';
+        } elseif ($statuses) {
+            $group['status'] = 'multiple';
+        } else {
+            $group['status'] = 'pending';
+        }
+        $currency = (string)$group['currency'];
+        $group['total'] = org_shop_format_price((int)$group['total_cents'], $currency);
+        $shipCents = max(0, (int)($group['shipping_fee_cents'] ?? 0));
+        $discCents = max(0, (int)($group['discount_cents'] ?? 0));
+        $taxCents = max(0, (int)($group['tax_cents'] ?? 0));
+        $svcCents = max(0, (int)($group['service_fee_cents'] ?? 0));
+        $merchCents = max(0, (int)($group['merchandise_cents'] ?? 0));
+        if ($merchCents <= 0) {
+            $merchCents = max(0, (int)$group['total_cents'] - $shipCents - $taxCents - $svcCents + $discCents);
+            $group['merchandise_cents'] = $merchCents;
+        }
+        $group['shipping_label'] = $shipCents > 0 ? org_shop_format_price($shipCents, $currency) : 'Free';
+        $group['shipping_is_free'] = $shipCents <= 0;
+        $group['subtotal_label'] = org_shop_format_price($merchCents, $currency);
+        $group['discount_label'] = org_shop_format_price($discCents, $currency);
+        $group['tax_label'] = org_shop_format_price($taxCents, $currency);
+        $group['service_fee_label'] = org_shop_format_price($svcCents, $currency);
+        if (count($group['receipts']) === 1) {
+            $group['receipt_label'] = $group['receipts'][0];
+        } elseif (count($group['receipts']) > 1) {
+            $group['receipt_label'] = count($group['receipts']) . ' receipts';
+        } else {
+            $group['receipt_label'] = 'Pending';
+        }
+        $orderCount = count($group['order_codes']);
+        if ($orderCount === 1) {
+            $group['order_label'] = $group['order_codes'][0];
+        } elseif ($orderCount > 1) {
+            $group['order_label'] = $orderCount . ' orders';
+        } else {
+            $group['order_label'] = '—';
+        }
+        $group['date_time'] = $group['date'] . ((string)($group['time'] ?? '') !== '' ? (' · ' . $group['time']) : '');
+        $group['invoice_label'] = $orderCount === 1
+            ? $group['order_codes'][0]
+            : ($group['company'] . ' · ' . $group['date_time']);
+        $due = 'Not set';
+        if (trim((string)$group['date_raw']) !== '') {
+            $dueTs = strtotime((string)$group['date_raw']);
+            if ($dueTs) {
+                $due = date('M j, Y', strtotime('+30 days', $dueTs));
+            }
+        }
+        $group['due'] = $due;
+        $orgId = (int)($group['org_id'] ?? 0);
+        $cacheKey = (string)$orgId;
+        if (!isset($sellerContactCache[$cacheKey])) {
+            $sellerContactCache[$cacheKey] = $sellerContact($dbh, $orgId, (int)($group['publisher_user_id'] ?? 0));
+        }
+        $contact = $sellerContactCache[$cacheKey];
+        $group['contact_email'] = (string)($contact['email'] ?? '');
+        $group['contact_phone'] = (string)($contact['phone'] ?? '');
+        $group['contact_address'] = (string)($contact['address'] ?? '');
+    }
+    unset($group);
+
+    // Mirror $buyerOrderHistoryRows
+    $rows = [];
+    $idx = 1;
+    foreach ($groups as $group) {
+        $mergedProducts = [];
+        foreach ($group['products'] as $p) {
+            $title = trim((string)($p['title'] ?? '')) ?: 'Product';
+            $key = mb_strtolower($title);
+            $qty = max(1, (int)($p['qty'] ?? 1));
+            $amountCents = (int)($p['amount_cents'] ?? 0);
+            if (!isset($mergedProducts[$key])) {
+                $mergedProducts[$key] = [
+                    'title' => $title,
+                    'qty' => $qty,
+                    'amount_cents' => $amountCents,
+                    'amount' => (string)($p['amount'] ?? org_shop_format_price($amountCents, (string)$group['currency'])),
+                    'product_id' => (int)($p['product_id'] ?? 0),
+                ];
+            } else {
+                $mergedProducts[$key]['qty'] += $qty;
+                $mergedProducts[$key]['amount_cents'] += $amountCents;
+                $mergedProducts[$key]['amount'] = org_shop_format_price(
+                    (int)$mergedProducts[$key]['amount_cents'],
+                    (string)$group['currency']
+                );
+                if ((int)($mergedProducts[$key]['product_id'] ?? 0) <= 0 && (int)($p['product_id'] ?? 0) > 0) {
+                    $mergedProducts[$key]['product_id'] = (int)$p['product_id'];
+                }
+            }
+        }
+        $productsList = array_values($mergedProducts);
+        $productCount = count($productsList);
+        $quantityTotal = 0;
+        foreach ($productsList as $p) {
+            $quantityTotal += max(1, (int)($p['qty'] ?? 1));
+        }
+        $cancellableIds = array_values(array_filter(array_map('intval', $group['cancellable_ids'] ?? [])));
+        $shipDetailId = (int)($group['ship_detail_id'] ?? 0);
+        $shipDetailCode = trim((string)($group['ship_detail_code'] ?? ''));
+        if ($shipDetailId <= 0) {
+            $shipDetailId = (int)(($group['order_ids'][0] ?? 0));
+        }
+        if ($shipDetailCode === '' && !empty($group['order_codes'][0])) {
+            $shipDetailCode = (string)$group['order_codes'][0];
+        }
+        $status = (string)$group['status'];
+        $statusKey = strtolower(trim($status));
+        if ($statusKey === 'shipped') {
+            $statusLabel = 'Shipp Tracking';
+        } elseif ($statusKey === 'delivered') {
+            $statusLabel = 'Delivered';
+        } else {
+            $statusLabel = $status !== '' ? ucfirst($status) : 'pending';
+        }
+        $canCancel = $cancellableIds !== [];
+        $primaryId = (int)(($group['order_ids'][0] ?? 0));
+        $coverUrl = function_exists('org_shop_cover_url')
+            ? org_shop_cover_url((string)($group['cover_image_path'] ?? ''))
+            : '';
+        $primaryProductId = $productsList !== [] ? (int)($productsList[0]['product_id'] ?? 0) : 0;
+        if ($primaryProductId <= 0 && !empty($group['product_ids'][0])) {
+            $primaryProductId = (int)$group['product_ids'][0];
+        }
+        $primaryCategory = $productsList !== [] ? trim((string)($productsList[0]['category'] ?? '')) : '';
+        if ($primaryCategory === '') {
+            $primaryCategory = $productsList !== [] ? trim((string)($productsList[0]['title'] ?? 'Item')) : 'Item';
+        }
+
+        $rows[] = [
+            'id' => $primaryId > 0 ? $primaryId : $idx,
+            'group_index' => $idx,
+            'is_order_group' => true,
+            'order_id' => $primaryId,
+            'order_ids' => $group['order_ids'] ?? [],
+            'cancellable_ids' => $cancellableIds,
+            'cancellable_order_ids' => $cancellableIds,
+            'can_cancel' => $canCancel,
+            'cancellable' => $canCancel,
+            'can_return' => in_array($statusKey, ['paid', 'shipped', 'delivered'], true),
+            'can_review' => $statusKey === 'delivered',
+            'primary_product_id' => $primaryProductId,
+            'view_product_label' => $primaryProductId > 0
+                ? ('View product · ' . $primaryCategory)
+                : 'View product',
+            'ship_detail_id' => $shipDetailId,
+            'ship_detail_code' => $shipDetailCode,
+            'order_num' => $productCount,
+            'product_count' => $productCount,
+            'quantity_num' => $quantityTotal,
+            'quantity' => $quantityTotal,
+            'order_label' => (string)$group['order_label'],
+            'order_code' => (string)$group['order_label'],
+            'invoice_label' => (string)$group['invoice_label'],
+            'receipt_label' => (string)$group['receipt_label'],
+            'company' => (string)$group['company'],
+            'seller' => (string)$group['company'],
+            'seller_name' => (string)$group['company'],
+            'org_id' => (int)$group['org_id'],
+            'publisher_user_id' => (int)$group['publisher_user_id'],
+            'status' => $status,
+            'status_label' => $statusLabel,
+            'total_cents' => (int)$group['total_cents'],
+            'total' => (string)$group['total'],
+            'total_label' => (string)$group['total'],
+            'total_amount' => ((int)$group['total_cents']) / 100.0,
+            'merchandise_cents' => (int)($group['merchandise_cents'] ?? 0),
+            'subtotal_label' => (string)($group['subtotal_label'] ?? '$0.00'),
+            'shipping_fee_cents' => (int)($group['shipping_fee_cents'] ?? 0),
+            'shipping_label' => (string)($group['shipping_label'] ?? 'Free'),
+            'shipping_is_free' => !empty($group['shipping_is_free']),
+            'discount_cents' => (int)($group['discount_cents'] ?? 0),
+            'discount_label' => (string)($group['discount_label'] ?? '$0.00'),
+            'tax_cents' => (int)($group['tax_cents'] ?? 0),
+            'tax_label' => (string)($group['tax_label'] ?? '$0.00'),
+            'service_fee_cents' => (int)($group['service_fee_cents'] ?? 0),
+            'service_fee_label' => (string)($group['service_fee_label'] ?? '$0.00'),
+            'currency' => (string)$group['currency'],
+            'date' => (string)($group['date_time'] ?? $group['date']),
+            'date_label' => (string)($group['date_time'] ?? $group['date']),
+            'time' => (string)($group['time'] ?? ''),
+            'created_at' => (string)$group['date_raw'],
+            'due' => (string)$group['due'],
+            'due_date_label' => (string)$group['due'],
+            'contact_email' => (string)($group['contact_email'] ?? ''),
+            'contact_phone' => (string)($group['contact_phone'] ?? ''),
+            'contact_address' => (string)($group['contact_address'] ?? ''),
+            'seller_email' => (string)($group['contact_email'] ?? ''),
+            'seller_phone' => (string)($group['contact_phone'] ?? ''),
+            'seller_address' => (string)($group['contact_address'] ?? ''),
+            'products' => $productsList,
+            'line_items' => $productsList,
+            'product_ids' => array_values(array_filter(array_map('intval', $group['product_ids'] ?? []))),
+            'item_count' => $quantityTotal,
+            'cover_image_path' => (string)($group['cover_image_path'] ?? ''),
+            'cover_url' => $coverUrl,
+            'product_title' => $productsList !== [] ? (string)$productsList[0]['title'] : 'Order group',
+            'product_id' => $productsList !== [] ? (int)$productsList[0]['product_id'] : 0,
+            'buyer_name' => $buyerName,
+            'buyer_email' => $buyerEmail,
+            'buyer_phone' => $buyerPhone,
+            'money' => [
+                'subtotal' => (string)($group['subtotal_label'] ?? '$0.00'),
+                'discount' => (string)($group['discount_label'] ?? '$0.00'),
+                'shipping' => (string)($group['shipping_label'] ?? 'Free'),
+                'tax' => (string)($group['tax_label'] ?? '$0.00'),
+                'service_fee' => (string)($group['service_fee_label'] ?? '$0.00'),
+                'grand_total' => (string)$group['total'],
+            ],
+        ];
+        $idx++;
+    }
+
+    return $rows;
+}
+
+/**
  * Buyer cancels an order before shipment. Updates shared org_orders.status so the seller sees it immediately.
  * @return array{ok:bool,error?:string}
  */
@@ -3631,10 +4969,10 @@ function org_shop_buyer_cancel_order(PDO $dbh, int $orderId, int $buyerUserId, s
     if ($reason === '') {
         $reason = 'Changed mind';
     }
-    $cancellable = ['pending', 'confirmed', 'paid'];
     try {
         $st = $dbh->prepare('
-            SELECT id, org_id, product_id, quantity, status, buyer_notes, seller_notes, order_code
+            SELECT id, org_id, product_id, quantity, status, buyer_notes, seller_notes, order_code,
+                   shipped_at, tracking_number, carrier
             FROM org_orders
             WHERE id = :id AND buyer_user_id = :uid
             LIMIT 1
@@ -3648,8 +4986,12 @@ function org_shop_buyer_cancel_order(PDO $dbh, int $orderId, int $buyerUserId, s
         if ($status === 'cancelled') {
             return ['ok' => true];
         }
-        if (!in_array($status, $cancellable, true)) {
-            if (in_array($status, ['shipped', 'delivered'], true)) {
+        if (!org_shop_buyer_order_is_cancellable($order)) {
+            if (
+                in_array($status, ['shipped', 'delivered'], true)
+                || trim((string)($order['shipped_at'] ?? '')) !== ''
+                || (trim((string)($order['tracking_number'] ?? '')) !== '' && trim((string)($order['carrier'] ?? '')) !== '')
+            ) {
                 return ['ok' => false, 'error' => 'This order has already shipped. Request a return instead.'];
             }
             return ['ok' => false, 'error' => 'This order can no longer be cancelled.'];
@@ -3668,6 +5010,7 @@ function org_shop_buyer_cancel_order(PDO $dbh, int $orderId, int $buyerUserId, s
                 seller_notes = :snotes,
                 updated_at = NOW()
             WHERE id = :id AND buyer_user_id = :uid AND status IN (\'pending\',\'confirmed\',\'paid\')
+              AND shipped_at IS NULL
             LIMIT 1
         ');
         $upd->execute([
@@ -3677,7 +5020,7 @@ function org_shop_buyer_cancel_order(PDO $dbh, int $orderId, int $buyerUserId, s
             ':uid' => $buyerUserId,
         ]);
         if ($upd->rowCount() <= 0) {
-            return ['ok' => false, 'error' => 'Could not cancel this order. It may have already changed status.'];
+            return ['ok' => false, 'error' => 'Could not cancel this order. It may have already shipped or changed status.'];
         }
 
         // Restore inventory for the cancelled purchase.
@@ -3887,7 +5230,13 @@ function org_shop_insert_commerce_notification(
         return;
     }
     $route = preg_replace('/[^a-z]/i', '', $route) ?: 'shop';
-    $type = mb_substr($message, 0, 470) . ' [r:' . $route . ']';
+    require_once __DIR__ . '/app_notification_api.php';
+    $suffix = ' [r:' . $route . ']';
+    $room = max(20, min(470, app_notification_type_capacity($dbh) - mb_strlen($suffix)));
+    if (mb_strlen($message) > $room) {
+        $message = rtrim(mb_substr($message, 0, $room - 1)) . '…';
+    }
+    $type = $message . $suffix;
     try {
         $ins = $dbh->prepare('
             INSERT INTO notification (notiuser, notireceiver, notitype, is_read)
@@ -3896,10 +5245,37 @@ function org_shop_insert_commerce_notification(
         $ins->execute([
             ':sender' => mb_substr($senderLabel, 0, 120),
             ':receiver' => mb_substr($receiverUsername, 0, 120),
-            ':type' => mb_substr($type, 0, 500),
+            ':type' => $type,
         ]);
     } catch (Throwable $e) {
         // never block commerce flows
+    }
+}
+
+/** Mark the buyer's shop commerce alerts read (Shop → Notifications opened). Social rows untouched. */
+function org_shop_mark_commerce_inbox_read(PDO $dbh, int $buyerUserId): int
+{
+    if ($buyerUserId <= 0) {
+        return 0;
+    }
+    require_once __DIR__ . '/app_notification_api.php';
+    $receivers = app_notification_receivers($dbh, $buyerUserId);
+    if ($receivers === []) {
+        return 0;
+    }
+    try {
+        $ph = implode(',', array_fill(0, count($receivers), '?'));
+        $st = $dbh->prepare("
+            UPDATE notification
+            SET is_read = 1
+            WHERE notireceiver IN ($ph)
+              AND is_read = 0
+              " . app_notification_shop_only_sql() . "
+        ");
+        $st->execute(array_merge($receivers, app_notification_shop_like_patterns()));
+        return $st->rowCount();
+    } catch (Throwable $e) {
+        return 0;
     }
 }
 
@@ -4035,7 +5411,13 @@ function org_shop_notify_seller_order_status(
         case 'new':
         case 'pending':
             $message = 'New order' . $codeBit . ' from ' . $buyerLabel
-                . ' — status: pending. Confirm or wait for payment. Open Sales Management → Orders.';
+                . ' — payment incomplete. Do not ship until status is Paid.';
+            if ($extra !== '') {
+                $message .= ' ' . mb_substr($extra, 0, 160) . '.';
+            } else {
+                $message .= ' Credit/debit shortfall or card issue.';
+            }
+            $message .= ' Open Sales Management → Orders / Notification.';
             break;
         case 'paid':
             $message = 'Payment received' . $codeBit . ' from ' . $buyerLabel
@@ -4131,15 +5513,55 @@ function org_shop_notify_buyer_order_fulfillment(
             $message = 'Your order' . ($code !== '' ? ' (' . $code . ')' : '') . ' — ' . $title . ' — is on shipping'
                 . ($carr !== '' ? ' via ' . $carr : '')
                 . ($track !== '' ? '. Tracking: ' . $track : '')
-                . '. Open Shopping Preferences → Notifications.';
+                . '. Open Notifications, then open the order to track delivery.';
         } else {
-            $message = 'Your order' . ($code !== '' ? ' (' . $code . ')' : '') . ' — ' . $title
-                . ' — was delivered. Open Shopping Preferences → Notifications.';
+            $message = 'Your item is now delivered'
+                . ($code !== '' ? ' — order ' . $code : '')
+                . ' — ' . $title
+                . '. Open Notifications to view delivery from start to finish.';
         }
         org_shop_insert_commerce_notification($dbh, $idents['org_name'], $buyerUsername, $message, 'shop');
     } catch (Throwable $e) {
         // ignore
     }
+}
+
+/**
+ * Deep-link to the buyer's newest order matching one of the given statuses.
+ */
+function org_shop_buyer_latest_order_detail_href(PDO $dbh, int $buyerUserId, array $statuses): string
+{
+    if ($buyerUserId <= 0 || !$statuses) {
+        return 'Your_Shopping_preferences.php#order-history';
+    }
+    $want = [];
+    foreach ($statuses as $st) {
+        $st = strtolower(trim((string)$st));
+        if ($st !== '') {
+            $want[$st] = true;
+        }
+    }
+    if (!$want) {
+        return 'Your_Shopping_preferences.php#order-history';
+    }
+    try {
+        foreach (org_shop_list_buyer_orders($dbh, $buyerUserId, 200) as $order) {
+            $status = strtolower(trim((string)($order['status'] ?? '')));
+            if (!isset($want[$status])) {
+                continue;
+            }
+            $orderId = (int)($order['id'] ?? 0);
+            if ($orderId <= 0) {
+                continue;
+            }
+            $code = trim((string)($order['order_code'] ?? ''));
+            return 'order_detail.php?order_id=' . $orderId
+                . ($code !== '' ? ('&code=' . rawurlencode($code)) : '');
+        }
+    } catch (Throwable $e) {
+        // fall through
+    }
+    return 'Your_Shopping_preferences.php#order-history';
 }
 
 /**
@@ -4169,6 +5591,8 @@ function org_shop_buyer_order_lifecycle_counts(PDO $dbh, int $buyerUserId): arra
     try {
         $orders = org_shop_list_buyer_orders($dbh, $buyerUserId, 200);
         $cutoff = time() - (30 * 24 * 60 * 60);
+        $cancelBuckets = [];
+        $cancellationBuckets = [];
         foreach ($orders as $order) {
             $status = strtolower(trim((string)($order['status'] ?? '')));
             if (in_array($status, ['pending', 'confirmed'], true)) {
@@ -4188,14 +5612,23 @@ function org_shop_buyer_order_lifecycle_counts(PDO $dbh, int $buyerUserId): arra
                     (string)($order['buyer_notes'] ?? ''),
                     (string)($order['seller_notes'] ?? '')
                 );
+                $when = (string)($order['updated_at'] ?? $order['created_at'] ?? '');
+                $ts = $when !== '' ? (int)strtotime($when) : time();
+                // One cancel action from Order history can close several same-seller lines at once.
+                $bucket = ((int)($order['org_id'] ?? 0))
+                    . '|' . ((string)($meta['by'] ?? 'Customer'))
+                    . '|' . mb_strtolower(trim((string)($meta['reason'] ?? '')))
+                    . '|' . (string)(int)floor($ts / 120);
                 if ((string)($meta['by'] ?? 'Customer') === 'Seller') {
-                    $out['cancel']++;
+                    $cancelBuckets[$bucket] = true;
                 } else {
-                    $out['cancellation']++;
+                    $cancellationBuckets[$bucket] = true;
                 }
-                $out['cancelled']++;
             }
         }
+        $out['cancel'] = count($cancelBuckets);
+        $out['cancellation'] = count($cancellationBuckets);
+        $out['cancelled'] = $out['cancel'] + $out['cancellation'];
     } catch (Throwable $e) {
         // keep zeros
     }
@@ -4211,11 +5644,31 @@ function org_shop_buyer_commerce_alerts(PDO $dbh, int $buyerUserId): array
 {
     $alerts = [];
     $life = org_shop_buyer_order_lifecycle_counts($dbh, $buyerUserId);
+    $shipHref = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['shipped']);
+    if (strpos($shipHref, 'order_detail.php') === 0 && strpos($shipHref, '#') === false) {
+        $shipHref .= '#order';
+    }
+    $deliverHref = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['delivered']);
+    if (strpos($deliverHref, 'order_detail.php') === 0 && strpos($deliverHref, '#') === false) {
+        $deliverHref .= '#order';
+    }
+    $paidHref = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['paid']);
+    if (strpos($paidHref, 'order_detail.php') === 0 && strpos($paidHref, '#') === false) {
+        $paidHref .= '#payment';
+    }
+    $pendingHref = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['pending', 'confirmed']);
+    if (strpos($pendingHref, 'order_detail.php') === 0 && strpos($pendingHref, '#') === false) {
+        $pendingHref .= '#order';
+    }
+    $cancelHref = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['cancelled']);
+    if (strpos($cancelHref, 'order_detail.php') === 0 && strpos($cancelHref, '#') === false) {
+        $cancelHref .= '#order';
+    }
     if ((int)$life['pending'] > 0) {
         $alerts[] = [
             'type' => 'Pending',
-            'message' => (int)$life['pending'] . ' order(s) awaiting your payment. Status stays pending until you pay — then it moves to Paid automatically.',
-            'action' => 'my_orders.php',
+            'message' => (int)$life['pending'] . ' order(s) cannot ship yet — payment is incomplete (partial pay, card issue, or insufficient funds). Complete the full order total so the seller can start shipping.',
+            'action' => $pendingHref,
             'count' => (int)$life['pending'],
         ];
     }
@@ -4223,7 +5676,7 @@ function org_shop_buyer_commerce_alerts(PDO $dbh, int $buyerUserId): array
         $alerts[] = [
             'type' => 'Paid',
             'message' => (int)$life['paid'] . ' paid order(s) — payment confirmed. The seller is preparing shipment. You will see Shipping when it leaves.',
-            'action' => 'my_orders.php',
+            'action' => $paidHref,
             'count' => (int)$life['paid'],
         ];
     }
@@ -4231,7 +5684,7 @@ function org_shop_buyer_commerce_alerts(PDO $dbh, int $buyerUserId): array
         $alerts[] = [
             'type' => 'Cancel',
             'message' => (int)$life['cancel'] . ' order(s) the seller Cancelled (seller reason — card issue, stock, etc.). Check details and contact the seller if needed.',
-            'action' => 'my_orders.php',
+            'action' => $cancelHref,
             'count' => (int)$life['cancel'],
         ];
     }
@@ -4239,23 +5692,23 @@ function org_shop_buyer_commerce_alerts(PDO $dbh, int $buyerUserId): array
         $alerts[] = [
             'type' => 'Cancellation',
             'message' => (int)$life['cancellation'] . ' Cancellation(s) you made — you cancelled your own order. Stock was restored when allowed.',
-            'action' => 'my_orders.php',
+            'action' => $cancelHref,
             'count' => (int)$life['cancellation'],
         ];
     }
     if ((int)$life['shipping'] > 0) {
         $alerts[] = [
             'type' => 'Shipping',
-            'message' => (int)$life['shipping'] . ' order(s) shipping (in transit). Track carrier details in Order history. Status becomes Delivery when you receive the package.',
-            'action' => 'my_orders.php',
+            'message' => (int)$life['shipping'] . ' order(s) shipping (in transit). Tap to view tracking from Paid → Delivered.',
+            'action' => $shipHref,
             'count' => (int)$life['shipping'],
         ];
     }
     if ((int)$life['delivery'] > 0) {
         $alerts[] = [
             'type' => 'Delivery',
-            'message' => (int)$life['delivery'] . ' recently delivered order(s) — receipt confirmed. Leave a review if you like the product.',
-            'action' => 'Your_Shopping_preferences.php#order-history',
+            'message' => (int)$life['delivery'] . ' item(s) are now delivered. Tap to view delivery progress from start to finish.',
+            'action' => $deliverHref,
             'count' => (int)$life['delivery'],
         ];
     }
@@ -4297,6 +5750,8 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
 
     try {
         $orders = org_shop_list_buyer_orders($dbh, $buyerUserId, 200);
+        /** @var array<string, array<string, mixed>> $cancelFeedBuckets */
+        $cancelFeedBuckets = [];
         foreach ($orders as $order) {
             $status = strtolower(trim((string)($order['status'] ?? '')));
             if (!in_array($status, ['pending', 'confirmed', 'paid', 'cancelled', 'shipped', 'delivered'], true)) {
@@ -4317,35 +5772,86 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                 (string)($order['seller_notes'] ?? '')
             );
             $brandUrl = org_shop_order_brand_shop_url($order);
-            $action = $brandUrl !== '' ? $brandUrl : 'my_orders.php';
+            $action = $brandUrl !== '' ? $brandUrl : 'Your_Shopping_preferences.php#order-history';
             if ($status === 'cancelled') {
                 $by = (string)$meta['by'];
                 $reason = (string)$meta['reason'];
                 $isSeller = $by === 'Seller';
-                $feed[] = [
-                    'type' => $isSeller ? 'Cancel' : 'Cancellation',
-                    'title' => $isSeller
-                        ? ('Seller Cancel · ' . $brandLabel)
-                        : 'Your Cancellation',
-                    'message' => ($code !== '' ? $code . ' · ' : '') . $title . ' · Reason: ' . $reason,
-                    'when' => $when,
-                    'sort' => $sort,
-                    'from' => $brandLabel,
-                    'action' => $action,
-                    'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
-                ];
+                $orderId = (int)($order['id'] ?? 0);
+                $cancelAction = $orderId > 0
+                    ? ('order_detail.php?order_id=' . $orderId
+                        . ($code !== '' ? ('&code=' . rawurlencode($code)) : '')
+                        . '#order')
+                    : $action;
+                // Order history cancel can close several same-seller lines in one action.
+                $bucket = ((int)($order['org_id'] ?? 0))
+                    . '|' . ($isSeller ? 'seller' : 'customer')
+                    . '|' . mb_strtolower(trim($reason))
+                    . '|' . (string)(int)floor(($sort ?: time()) / 120);
+                if (!isset($cancelFeedBuckets[$bucket])) {
+                    $cancelFeedBuckets[$bucket] = [
+                        'type' => $isSeller ? 'Cancel' : 'Cancellation',
+                        'title' => $isSeller
+                            ? ('Seller Cancel · ' . $brandLabel)
+                            : 'Your Cancellation',
+                        'codes' => [],
+                        'titles' => [],
+                        'reason' => $reason,
+                        'when' => $when,
+                        'sort' => $sort,
+                        'from' => $brandLabel,
+                        'action' => $cancelAction,
+                        'order_id' => $orderId,
+                        'order_code' => $code,
+                        'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
+                    ];
+                }
+                $bucketRow = &$cancelFeedBuckets[$bucket];
+                if ($code !== '' && !in_array($code, $bucketRow['codes'], true)) {
+                    $bucketRow['codes'][] = $code;
+                }
+                if ($title !== '' && !in_array($title, $bucketRow['titles'], true)) {
+                    $bucketRow['titles'][] = $title;
+                }
+                if ($sort >= (int)$bucketRow['sort']) {
+                    $bucketRow['sort'] = $sort;
+                    $bucketRow['when'] = $when;
+                    $bucketRow['action'] = $cancelAction;
+                    $bucketRow['order_id'] = $orderId;
+                    $bucketRow['order_code'] = $code;
+                }
+                unset($bucketRow);
             } elseif (in_array($status, ['pending', 'confirmed'], true)) {
+                $orderId = (int)($order['id'] ?? 0);
+                $pendingAction = $orderId > 0
+                    ? ('order_detail.php?order_id=' . $orderId
+                        . ($code !== '' ? ('&code=' . rawurlencode($code)) : '')
+                        . '#order')
+                    : $action;
+                $payProgress = org_shop_order_payment_progress($order);
+                $shortMsg = org_shop_order_incomplete_payment_buyer_message($order);
                 $feed[] = [
                     'type' => 'Pending',
-                    'title' => 'Pending — awaiting payment · ' . $brandLabel,
-                    'message' => ($code !== '' ? $code . ' · ' : '') . $title,
+                    'title' => 'Pending — payment incomplete · ' . $brandLabel,
+                    'message' => ($code !== '' ? $code . ' · ' : '') . $title
+                        . ' · ' . $shortMsg,
                     'when' => $when,
                     'sort' => $sort,
                     'from' => $brandLabel,
-                    'action' => $action,
+                    'action' => $pendingAction,
+                    'order_id' => $orderId,
+                    'order_code' => $code,
                     'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
+                    'amount_paid_cents' => (int)$payProgress['paid_cents'],
+                    'shortfall_cents' => (int)$payProgress['shortfall_cents'],
                 ];
             } elseif ($status === 'paid') {
+                $orderId = (int)($order['id'] ?? 0);
+                $paidAction = $orderId > 0
+                    ? ('order_detail.php?order_id=' . $orderId
+                        . ($code !== '' ? ('&code=' . rawurlencode($code)) : '')
+                        . '#payment')
+                    : $action;
                 $feed[] = [
                     'type' => 'Paid',
                     'title' => 'Paid — seller preparing shipment · ' . $brandLabel,
@@ -4353,12 +5859,20 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                     'when' => $when,
                     'sort' => $sort,
                     'from' => $brandLabel,
-                    'action' => $action,
+                    'action' => $paidAction,
+                    'order_id' => $orderId,
+                    'order_code' => $code,
                     'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             } elseif ($status === 'shipped') {
                 $track = trim((string)($order['tracking_number'] ?? ''));
                 $carr = trim((string)($order['carrier'] ?? ''));
+                $orderId = (int)($order['id'] ?? 0);
+                $shipAction = $orderId > 0
+                    ? ('order_detail.php?order_id=' . $orderId
+                        . ($code !== '' ? ('&code=' . rawurlencode($code)) : '')
+                        . '#order')
+                    : $action;
                 $feed[] = [
                     'type' => 'Shipping',
                     'title' => 'Shipping — in transit · ' . $brandLabel,
@@ -4368,53 +5882,170 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                     'when' => $when,
                     'sort' => $sort,
                     'from' => $brandLabel,
-                    'action' => $action,
+                    'action' => $shipAction,
+                    'order_id' => $orderId,
+                    'order_code' => $code,
                     'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             } else {
+                $orderId = (int)($order['id'] ?? 0);
+                $deliverAction = $orderId > 0
+                    ? ('order_detail.php?order_id=' . $orderId
+                        . ($code !== '' ? ('&code=' . rawurlencode($code)) : '')
+                        . '#order')
+                    : $action;
                 $feed[] = [
                     'type' => 'Delivery',
-                    'title' => 'Delivery confirmed · ' . $brandLabel,
-                    'message' => ($code !== '' ? $code . ' · ' : '') . $title,
+                    'title' => 'Your item is now delivered · ' . $brandLabel,
+                    'message' => ($code !== '' ? $code . ' · ' : '') . $title . ' · View delivery from Paid → Delivered',
                     'when' => $when,
                     'sort' => $sort,
                     'from' => $brandLabel,
-                    'action' => $brandUrl !== '' ? $brandUrl : 'Your_Shopping_preferences.php#order-history',
+                    'action' => $deliverAction,
+                    'order_id' => $orderId,
+                    'order_code' => $code,
                     'brand_slug' => trim((string)($order['commerce_brand_slug'] ?? '')),
                 ];
             }
         }
+        foreach ($cancelFeedBuckets as $bucketRow) {
+            $codes = array_values(array_filter(array_map('strval', $bucketRow['codes'] ?? [])));
+            $titles = array_values(array_filter(array_map('strval', $bucketRow['titles'] ?? [])));
+            $reason = trim((string)($bucketRow['reason'] ?? 'Cancelled'));
+            $codeBit = $codes !== [] ? implode(', ', array_slice($codes, 0, 3)) : '';
+            if (count($codes) > 3) {
+                $codeBit .= ' +' . (count($codes) - 3) . ' more';
+            }
+            $titleBit = $titles !== [] ? $titles[0] : 'Product';
+            if (count($titles) > 1) {
+                $titleBit .= ' +' . (count($titles) - 1) . ' more';
+            }
+            $feed[] = [
+                'type' => (string)($bucketRow['type'] ?? 'Cancellation'),
+                'title' => (string)($bucketRow['title'] ?? 'Your Cancellation'),
+                'message' => ($codeBit !== '' ? $codeBit . ' · ' : '')
+                    . $titleBit
+                    . ' · Reason: ' . $reason,
+                'when' => (string)($bucketRow['when'] ?? ''),
+                'sort' => (int)($bucketRow['sort'] ?? 0),
+                'from' => (string)($bucketRow['from'] ?? 'Seller'),
+                'action' => (string)($bucketRow['action'] ?? 'Your_Shopping_preferences.php#order-history'),
+                'order_id' => (int)($bucketRow['order_id'] ?? 0),
+                'order_code' => (string)($bucketRow['order_code'] ?? ''),
+                'brand_slug' => (string)($bucketRow['brand_slug'] ?? ''),
+            ];
+        }
     } catch (Throwable $e) {
-        // continue with inbox rows
+        // continue with returns / inbox rows
+    }
+
+    try {
+        $stRet = $dbh->prepare("
+            SELECT r.id, r.order_id, r.reason, r.status, r.created_at, r.updated_at,
+                   o.order_code,
+                   COALESCE(NULLIF(TRIM(o.product_title), ''), p.title, 'Product') AS product_title,
+                   org.name AS seller_name,
+                   cb.name AS commerce_brand_name
+            FROM org_order_returns r
+            INNER JOIN org_orders o ON o.id = r.order_id
+            LEFT JOIN organizations org ON org.id = o.org_id
+            LEFT JOIN commerce_brands cb ON cb.id = org.commerce_brand_id AND cb.is_active = 1
+            LEFT JOIN org_products p ON p.id = o.product_id AND p.is_deleted = 0
+            WHERE o.buyer_user_id = :uid
+            ORDER BY COALESCE(r.updated_at, r.created_at) DESC, r.id DESC
+            LIMIT 40
+        ");
+        $stRet->execute([':uid' => $buyerUserId]);
+        foreach ($stRet->fetchAll(PDO::FETCH_ASSOC) ?: [] as $ret) {
+            $code = trim((string)($ret['order_code'] ?? ''));
+            $title = trim((string)($ret['product_title'] ?? 'Product')) ?: 'Product';
+            $reason = trim((string)($ret['reason'] ?? 'Return request')) ?: 'Return request';
+            $status = strtolower(trim((string)($ret['status'] ?? 'requested')));
+            $statusLabel = $status !== '' ? ucwords(str_replace('_', ' ', $status)) : 'Requested';
+            $brandLabel = trim((string)($ret['commerce_brand_name'] ?? ''));
+            if ($brandLabel === '') {
+                $brandLabel = trim((string)($ret['seller_name'] ?? '')) ?: 'Seller';
+            }
+            $whenRaw = (string)($ret['updated_at'] ?? $ret['created_at'] ?? '');
+            if ($whenRaw === '') {
+                $whenRaw = (string)($ret['created_at'] ?? '');
+            }
+            $sort = $whenRaw !== '' ? (int)strtotime($whenRaw) : 0;
+            $when = $whenRaw !== '' ? date('M j, Y g:i A', $sort ?: time()) : '';
+            $orderId = (int)($ret['order_id'] ?? 0);
+            $feed[] = [
+                'type' => 'Return / refund',
+                'title' => 'Return / refund · ' . $brandLabel,
+                'message' => ($code !== '' ? $code . ' · ' : '')
+                    . $title
+                    . ' · ' . $reason
+                    . ' · Status: ' . $statusLabel,
+                'when' => $when,
+                'sort' => $sort > 0 ? $sort : time(),
+                'from' => $brandLabel,
+                'action' => 'Your_Shopping_preferences.php#returns-refunds',
+                'order_id' => $orderId,
+                'order_code' => $code,
+            ];
+        }
+    } catch (Throwable $e) {
+        try {
+            $stRet = $dbh->prepare("
+                SELECT r.id, r.order_id, r.reason, r.status, r.created_at,
+                       o.order_code, o.product_title
+                FROM org_order_returns r
+                INNER JOIN org_orders o ON o.id = r.order_id
+                WHERE o.buyer_user_id = :uid
+                ORDER BY r.created_at DESC, r.id DESC
+                LIMIT 40
+            ");
+            $stRet->execute([':uid' => $buyerUserId]);
+            foreach ($stRet->fetchAll(PDO::FETCH_ASSOC) ?: [] as $ret) {
+                $code = trim((string)($ret['order_code'] ?? ''));
+                $title = trim((string)($ret['product_title'] ?? 'Product')) ?: 'Product';
+                $reason = trim((string)($ret['reason'] ?? 'Return request')) ?: 'Return request';
+                $status = strtolower(trim((string)($ret['status'] ?? 'requested')));
+                $statusLabel = $status !== '' ? ucwords(str_replace('_', ' ', $status)) : 'Requested';
+                $whenRaw = (string)($ret['created_at'] ?? '');
+                $sort = $whenRaw !== '' ? (int)strtotime($whenRaw) : 0;
+                $orderId = (int)($ret['order_id'] ?? 0);
+                $feed[] = [
+                    'type' => 'Return / refund',
+                    'title' => 'Return / refund',
+                    'message' => ($code !== '' ? $code . ' · ' : '')
+                        . $title
+                        . ' · ' . $reason
+                        . ' · Status: ' . $statusLabel,
+                    'when' => $whenRaw !== '' ? date('M j, Y g:i A', $sort ?: time()) : '',
+                    'sort' => $sort > 0 ? $sort : time(),
+                    'from' => 'Seller',
+                    'action' => 'Your_Shopping_preferences.php#returns-refunds',
+                    'order_id' => $orderId,
+                    'order_code' => $code,
+                ];
+            }
+        } catch (Throwable $e2) {
+            // returns table may not exist
+        }
     }
 
     try {
         $username = org_shop_user_username($dbh, $buyerUserId);
         if ($username !== '') {
+            require_once __DIR__ . '/app_notification_api.php';
             $st = $dbh->prepare('
                 SELECT notiuser, notitype, created_at, is_read
                 FROM notification
-                WHERE notireceiver = :u
+                WHERE notireceiver = ?
+                ' . app_notification_shop_only_sql() . '
                 ORDER BY id DESC
                 LIMIT 40
             ');
-            $st->execute([':u' => $username]);
+            $st->execute(array_merge([$username], app_notification_shop_like_patterns()));
             foreach ($st->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
                 $text = trim((string)($row['notitype'] ?? ''));
                 $text = (string)preg_replace('/\s\[(?:live|r|p|c):[^\]]+\]\s*$/', '', $text);
                 $lower = strtolower($text);
-                if (
-                    strpos($lower, 'order') === false
-                    && strpos($lower, 'cancel') === false
-                    && strpos($lower, 'ship') === false
-                    && strpos($lower, 'deliver') === false
-                    && strpos($lower, 'return') === false
-                    && strpos($lower, 'refund') === false
-                    && strpos($lower, 'paid') === false
-                    && strpos($lower, 'payment') === false
-                ) {
-                    continue;
-                }
                 $whenRaw = (string)($row['created_at'] ?? '');
                 $sort = $whenRaw !== '' ? (int)strtotime($whenRaw) : 0;
                 $type = 'Update';
@@ -4426,11 +6057,20 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                     $type = (strpos($lower, 'seller') !== false) ? 'Cancel' : 'Cancellation';
                 } elseif (strpos($lower, 'return') !== false || strpos($lower, 'refund') !== false) {
                     $type = 'Return / refund';
+                } elseif (strpos($lower, 'delivered') !== false || strpos($lower, 'now delivered') !== false) {
+                    $type = 'Delivery';
                 } elseif (strpos($lower, 'ship') !== false) {
                     $type = 'Shipping';
                 } elseif (strpos($lower, 'deliver') !== false) {
                     $type = 'Delivery';
-                } elseif (strpos($lower, 'paid') !== false || strpos($lower, 'payment') !== false) {
+                } elseif (
+                    strpos($lower, 'payment incomplete') !== false
+                    || strpos($lower, 'complete payment') !== false
+                    || strpos($lower, 'still due') !== false
+                    || (strpos($lower, 'pending') !== false && strpos($lower, 'payment') !== false)
+                ) {
+                    $type = 'Pending';
+                } elseif (strpos($lower, 'paid') !== false || (strpos($lower, 'payment') !== false && strpos($lower, 'incomplete') === false)) {
                     $type = 'Paid';
                 } elseif (strpos($lower, 'pending') !== false || strpos($lower, 'new order') !== false) {
                     $type = 'Pending';
@@ -4439,11 +6079,61 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                     'Cancel' => 'Seller Cancel',
                     'Cancellation' => 'Your Cancellation',
                     'Shipping' => 'Shipping update',
-                    'Delivery' => 'Delivery update',
+                    'Delivery' => 'Your item is now delivered',
                     'Paid' => 'Payment update',
-                    'Pending' => 'Order pending',
+                    'Pending' => 'Pending — payment incomplete',
                     'Return / refund' => 'Return / refund',
                 ];
+                $inboxAction = 'Your_Shopping_preferences.php#order-history';
+                if (preg_match('/\b(ORD-[A-Z0-9-]+)\b/i', $text, $mCode)) {
+                    $found = org_shop_find_buyer_order_by_code($dbh, $buyerUserId, (string)$mCode[1]);
+                    if ($found) {
+                        $fid = (int)($found['id'] ?? 0);
+                        $fcode = trim((string)($found['order_code'] ?? $mCode[1]));
+                        if ($fid > 0) {
+                            $hash = '';
+                            if ($type === 'Paid') {
+                                $hash = '#payment';
+                            } elseif (
+                                $type === 'Shipping'
+                                || $type === 'Delivery'
+                                || $type === 'Pending'
+                                || $type === 'Cancel'
+                                || $type === 'Cancellation'
+                            ) {
+                                $hash = '#order';
+                            }
+                            $inboxAction = 'order_detail.php?order_id=' . $fid
+                                . ($fcode !== '' ? ('&code=' . rawurlencode($fcode)) : '')
+                                . $hash;
+                        }
+                    }
+                } elseif ($type === 'Paid') {
+                    $inboxAction = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['paid']);
+                    if (strpos($inboxAction, 'order_detail.php') === 0 && strpos($inboxAction, '#') === false) {
+                        $inboxAction .= '#payment';
+                    }
+                } elseif ($type === 'Pending') {
+                    $inboxAction = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['pending', 'confirmed']);
+                    if (strpos($inboxAction, 'order_detail.php') === 0 && strpos($inboxAction, '#') === false) {
+                        $inboxAction .= '#order';
+                    }
+                } elseif ($type === 'Cancel' || $type === 'Cancellation') {
+                    $inboxAction = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['cancelled']);
+                    if (strpos($inboxAction, 'order_detail.php') === 0 && strpos($inboxAction, '#') === false) {
+                        $inboxAction .= '#order';
+                    }
+                } elseif ($type === 'Delivery') {
+                    $inboxAction = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['delivered']);
+                    if (strpos($inboxAction, 'order_detail.php') === 0 && strpos($inboxAction, '#') === false) {
+                        $inboxAction .= '#order';
+                    }
+                } elseif ($type === 'Shipping') {
+                    $inboxAction = org_shop_buyer_latest_order_detail_href($dbh, $buyerUserId, ['shipped']);
+                    if (strpos($inboxAction, 'order_detail.php') === 0 && strpos($inboxAction, '#') === false) {
+                        $inboxAction .= '#order';
+                    }
+                }
                 $feed[] = [
                     'type' => $type,
                     'title' => $titleMap[$type] ?? $type,
@@ -4451,7 +6141,7 @@ function org_shop_buyer_commerce_notification_feed(PDO $dbh, int $buyerUserId, i
                     'when' => $whenRaw !== '' ? date('M j, Y g:i A', $sort ?: time()) : '',
                     'sort' => $sort,
                     'from' => trim((string)($row['notiuser'] ?? '')) ?: 'Seller',
-                    'action' => 'my_orders.php',
+                    'action' => $inboxAction,
                 ];
             }
         }

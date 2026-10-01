@@ -14,6 +14,7 @@ require_once __DIR__ . '/theme_prefs.php';
 require_once __DIR__ . '/signout_menu.php';
 require_once __DIR__ . '/staff_publisher_access.php';
 require_once __DIR__ . '/publisher_organization_bridge.php';
+require_once __DIR__ . '/chat_lib.php';
 $headerStaffReadonly = staff_pub_is_readonly();
 $headerStaffRoleLabel = trim((string)($_SESSION['portal_staff_role_label'] ?? 'Staff'));
 if ($headerStaffRoleLabel === '') {
@@ -114,7 +115,10 @@ if (!function_exists('parse_notification_meta')) {
     $isStory = false;
 
     $profileUserId = 0;
-    while (preg_match('/\s\[(live|r|p|c|story|u):([^\]]+)\]\s*$/', $type, $m)) {
+    $communityInviteId = 0;
+    $communityId = 0;
+    $communityMemberUserId = 0;
+    while (preg_match('/\s\[(live|r|p|c|story|u|ci|cc|cm):([^\]]+)\]\s*$/', $type, $m)) {
       $key = trim((string)($m[1] ?? ''));
       $value = trim((string)($m[2] ?? ''));
       if ($key === 'live') {
@@ -129,8 +133,14 @@ if (!function_exists('parse_notification_meta')) {
         $isStory = ((int)$value === 1) || strtolower($value) === '1' || strtolower($value) === 'true';
       } elseif ($key === 'u') {
         $profileUserId = (int)$value;
+      } elseif ($key === 'ci') {
+        $communityInviteId = (int)$value;
+      } elseif ($key === 'cc') {
+        $communityId = (int)$value;
+      } elseif ($key === 'cm') {
+        $communityMemberUserId = (int)$value;
       }
-      $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story|u):[^\]]+\]\s*$/', '', $type, 1));
+      $type = trim((string)preg_replace('/\s\[(?:live|r|p|c|story|u|ci|cc|cm):[^\]]+\]\s*$/', '', $type, 1));
     }
     if (!$isStory && (stripos($type, ' in a story') !== false || stripos($type, 'story') !== false && (stripos($type, 'tagged') !== false || stripos($type, 'mentioned') !== false))) {
       $isStory = stripos($type, ' in a story') !== false;
@@ -139,6 +149,10 @@ if (!function_exists('parse_notification_meta')) {
     $url = '';
     if ($liveId > 0) {
       $url = 'live_watch.php?live=' . $liveId;
+    } elseif (($route === 'cinvr' || $route === 'cleft' || $route === 'cjoin' || $route === 'cjoinr') && $communityId > 0) {
+      $url = 'community_profile.php?id=' . $communityId . ($route === 'cjoin' ? '&tab=members' : '');
+    } elseif ($communityInviteId > 0 || $route === 'cinv') {
+      $url = 'community.php?tab=invitations' . ($communityInviteId > 0 ? ('&invite=' . $communityInviteId) : '');
     } elseif ($route === 'shop') {
       $url = 'Your_Shopping_preferences.php#notifications';
     } elseif ($route === 'orgsales') {
@@ -181,6 +195,9 @@ if (!function_exists('parse_notification_meta')) {
       'post_id' => $postId,
       'comment_id' => $commentId,
       'is_story' => $isStory ? 1 : 0,
+      'community_invite_id' => $communityInviteId,
+      'community_id' => $communityId,
+      'community_member_user_id' => $communityMemberUserId,
       'url' => $url
     ];
   }
@@ -222,6 +239,7 @@ $railIsMessages = in_array($__currentPage, ['messages.php', 'chat.php'], true);
 $railIsAlerts = in_array($__currentPage, ['dashboard.php', 'timeline.php', 'notifications.php'], true);
 $railIsPublic = in_array($__currentPage, ['public.php', 'public_live.php'], true);
 $railIsExplore = ($__currentPage === 'explore.php');
+$railIsCommunity = ($__currentPage === 'community.php');
 $railIsReel = ($__currentPage === 'reel.php');
 $railIsStudio = ($__currentPage === 'live_studio.php');
 $railIsCompose = in_array($__currentPage, ['compose.php', 'post_view.php'], true);
@@ -325,23 +343,48 @@ $headerNotifications = [];
 $headerNotificationUnread = 0;
 if (!empty($notificationReceivers)) {
   try {
+    require_once __DIR__ . '/app_notification_api.php';
     $receiverPh = implode(',', array_fill(0, count($notificationReceivers), '?'));
     $stNoti = $dbh->prepare("
       SELECT id, notiuser, notitype, created_at, is_read
       FROM notification
       WHERE notireceiver IN ($receiverPh)
         AND is_read = 0
-        AND notitype NOT LIKE 'New chat message%'
-        AND notitype NOT LIKE 'Internal Chat%'
-        AND notitype NOT LIKE 'New internal message%'
+        " . app_notification_social_exclude_sql() . "
       ORDER BY created_at DESC, id DESC
       LIMIT 200
     ");
-    $stNoti->execute($notificationReceivers);
+    $stNoti->execute(array_merge($notificationReceivers, app_notification_social_exclude_patterns()));
     $headerNotifications = $stNoti->fetchAll(PDO::FETCH_ASSOC) ?: [];
     if (function_exists('profile_filter_notification_rows')) {
       $headerNotifications = profile_filter_notification_rows($dbh, (int)($_SESSION['user_id'] ?? 0), $headerNotifications);
     }
+    // One row per community invite / join-request (username + email duplicates).
+    $seenCommunityInvites = [];
+    $seenJoinRequests = [];
+    $dedupedHeaderNotifications = [];
+    foreach ($headerNotifications as $notiRow) {
+      $meta = function_exists('parse_notification_meta')
+        ? parse_notification_meta((string)($notiRow['notitype'] ?? ''))
+        : [];
+      $inviteId = (int)($meta['community_invite_id'] ?? 0);
+      $joinMemberId = (int)($meta['community_member_user_id'] ?? 0);
+      $joinCommunityId = (int)($meta['community_id'] ?? 0);
+      if ($inviteId > 0) {
+        if (isset($seenCommunityInvites[$inviteId])) {
+          continue;
+        }
+        $seenCommunityInvites[$inviteId] = true;
+      } elseif ($joinMemberId > 0 && $joinCommunityId > 0) {
+        $jk = $joinCommunityId . ':' . $joinMemberId;
+        if (isset($seenJoinRequests[$jk])) {
+          continue;
+        }
+        $seenJoinRequests[$jk] = true;
+      }
+      $dedupedHeaderNotifications[] = $notiRow;
+    }
+    $headerNotifications = $dedupedHeaderNotifications;
     $headerNotificationUnread = count($headerNotifications);
     $headerNotifications = array_slice($headerNotifications, 0, 20);
   } catch (Throwable $e) {
@@ -363,6 +406,9 @@ foreach ($headerNotifications as $notiRow) {
     'post_id' => (int)($notiMetaJs['post_id'] ?? 0),
     'comment_id' => (int)($notiMetaJs['comment_id'] ?? 0),
     'is_story' => (int)($notiMetaJs['is_story'] ?? 0) === 1 ? 1 : 0,
+    'community_invite_id' => (int)($notiMetaJs['community_invite_id'] ?? 0),
+    'community_id' => (int)($notiMetaJs['community_id'] ?? 0),
+    'community_member_user_id' => (int)($notiMetaJs['community_member_user_id'] ?? 0),
     'url' => (string)($notiMetaJs['url'] ?? ''),
     'created_at' => (string)($notiRow['created_at'] ?? ''),
     'is_read' => (int)($notiRow['is_read'] ?? 0),
@@ -407,6 +453,10 @@ if (!function_exists('render_header_chat_panel_inner')) {
             $peerCode = (string)($t['peer_code'] ?? '');
             $peerDisp = (string)($t['peer_display'] ?? $peerCode);
             $lastMsg = trim((string)($t['last_message'] ?? ''));
+            // Door preview: unread rows are incoming, so treat as peer-sent.
+            if ($lastMsg !== '' && function_exists('call_event_display_text')) {
+              $lastMsg = trim(call_event_display_text($lastMsg, false));
+            }
             $lastTime = (string)($t['last_time'] ?? '');
             $unread = (int)($t['unread_count'] ?? 0);
             $peerKey = normalize_avatar_key($peerDisp !== '' ? $peerDisp : $peerCode);
@@ -490,19 +540,85 @@ if (!function_exists('render_header_notification_panel_inner')) {
               $notiPostId = (int)($notiMeta['post_id'] ?? 0);
               $notiCommentId = (int)($notiMeta['comment_id'] ?? 0);
               $notiIsStory = (int)($notiMeta['is_story'] ?? 0) === 1;
+              $notiInviteId = (int)($notiMeta['community_invite_id'] ?? 0);
+              $notiCommunityId = (int)($notiMeta['community_id'] ?? 0);
+              $notiMemberUserId = (int)($notiMeta['community_member_user_id'] ?? 0);
+              if ($notiCommunityId <= 0 && $notiInviteId > 0 && isset($dbh) && $dbh instanceof PDO) {
+                try {
+                  $stCc = $dbh->prepare('SELECT community_id FROM community_invitations WHERE id = :id LIMIT 1');
+                  $stCc->execute([':id' => $notiInviteId]);
+                  $notiCommunityId = (int)($stCc->fetchColumn() ?: 0);
+                } catch (Throwable $eCc) {}
+              }
+              $notiCommunityUrl = $notiCommunityId > 0 ? ('community_profile.php?id=' . $notiCommunityId) : '';
               $notiTime = (string)($noti['created_at'] ?? '');
               $typeLower = strtolower($type);
               $isMention = (strpos($typeLower, 'mention') !== false
                 || strpos($typeLower, 'tagged you') !== false
                 || strpos($type, '@') !== false);
+              $isCommunityInvite = $notiInviteId > 0 || strpos($typeLower, 'invited you to join') !== false;
+              $isJoinRequest = !$isCommunityInvite && ($notiMemberUserId > 0 || strpos($typeLower, 'requested to join') !== false);
+              $communityName = '';
+              if (preg_match('/^invited you to join\s+(.+)$/i', $type, $mJoin)) {
+                $communityName = trim((string)($mJoin[1] ?? ''));
+              } elseif (preg_match('/^requested to join\s+(.+)$/i', $type, $mReq)) {
+                $communityName = trim((string)($mReq[1] ?? ''));
+              } elseif (preg_match('/^joined\s+(.+)$/i', $type, $mJoined)) {
+                $communityName = trim((string)($mJoined[1] ?? ''));
+              }
             ?>
+            <?php if ($isCommunityInvite): ?>
+            <div class="dropdown-bestnoti-item is-community-invite<?php echo ((int)($noti['is_read'] ?? 0) === 0 ? ' is-unread' : ''); ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>" data-notification-url="<?php echo h($notiUrl); ?>" data-live-id="0" data-post-id="0" data-comment-id="0" data-is-story="0" data-community-invite-id="<?php echo $notiInviteId; ?>" data-community-id="<?php echo $notiCommunityId; ?>" data-noti-kind="community_invite">
+              <div class="bestnoti-avatar"><?php echo h(initials_from_name($sender, 'NT')); ?></div>
+              <div class="bestnoti-mid">
+                <div class="bestnoti-text"><strong><?php echo h($sender); ?></strong>
+                  <?php if ($communityName !== '' && $notiCommunityUrl !== ''): ?>
+                    invited you to join <a class="bestnoti-community-link" href="<?php echo h($notiCommunityUrl); ?>"><?php echo h($communityName); ?></a>
+                  <?php else: ?>
+                    <?php echo h($type); ?>
+                  <?php endif; ?>
+                </div>
+                <div class="bestnoti-time"><?php echo h($notiTime ? date('M d, Y h:i A', strtotime($notiTime)) : ''); ?></div>
+                <div class="bestnoti-invite-actions">
+                  <button type="button" class="bestnoti-invite-btn is-accept js-community-invite-accept" data-invite-id="<?php echo $notiInviteId; ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>">Accept</button>
+                  <button type="button" class="bestnoti-invite-btn is-decline js-community-invite-decline" data-invite-id="<?php echo $notiInviteId; ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>">Decline</button>
+                </div>
+              </div>
+            </div>
+            <?php elseif ($isJoinRequest): ?>
+            <div class="dropdown-bestnoti-item is-community-join-request<?php echo ((int)($noti['is_read'] ?? 0) === 0 ? ' is-unread' : ''); ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>" data-notification-url="<?php echo h($notiUrl); ?>" data-live-id="0" data-post-id="0" data-comment-id="0" data-is-story="0" data-community-id="<?php echo $notiCommunityId; ?>" data-community-member-user-id="<?php echo $notiMemberUserId; ?>" data-noti-kind="community_join_request">
+              <div class="bestnoti-avatar"><?php echo h(initials_from_name($sender, 'NT')); ?></div>
+              <div class="bestnoti-mid">
+                <div class="bestnoti-text"><?php if ($notiMemberUserId > 0): ?><a class="bestnoti-user-link" href="profile.php?tab=about&amp;id=<?php echo $notiMemberUserId; ?>"><strong><?php echo h($sender); ?></strong></a><?php else: ?><strong><?php echo h($sender); ?></strong><?php endif; ?>
+                  <?php if ($communityName !== '' && $notiCommunityUrl !== ''): ?>
+                    requested to join <a class="bestnoti-community-link" href="<?php echo h($notiCommunityUrl); ?>"><?php echo h($communityName); ?></a>
+                  <?php else: ?>
+                    <?php echo h($type); ?>
+                  <?php endif; ?>
+                </div>
+                <div class="bestnoti-time"><?php echo h($notiTime ? date('M d, Y h:i A', strtotime($notiTime)) : ''); ?></div>
+                <div class="bestnoti-wait-note">Waiting for your approval.</div>
+                <div class="bestnoti-invite-actions">
+                  <button type="button" class="bestnoti-invite-btn is-accept js-community-join-approve" data-community-id="<?php echo $notiCommunityId; ?>" data-member-user-id="<?php echo $notiMemberUserId; ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>">Approve</button>
+                  <button type="button" class="bestnoti-invite-btn is-decline js-community-join-decline" data-community-id="<?php echo $notiCommunityId; ?>" data-member-user-id="<?php echo $notiMemberUserId; ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>">Decline</button>
+                </div>
+              </div>
+            </div>
+            <?php else: ?>
             <a href="<?php echo h($notiUrl !== '' ? $notiUrl : '#'); ?>" class="dropdown-bestnoti-item<?php echo ((int)($noti['is_read'] ?? 0) === 0 ? ' is-unread' : ''); ?>" data-notification-id="<?php echo (int)($noti['id'] ?? 0); ?>" data-notification-url="<?php echo h($notiUrl); ?>" data-live-id="<?php echo $notiLiveId; ?>" data-post-id="<?php echo $notiPostId; ?>" data-comment-id="<?php echo $notiCommentId; ?>" data-is-story="<?php echo $notiIsStory ? '1' : '0'; ?>" data-noti-kind="<?php echo $isMention ? 'mentions' : 'all'; ?>">
               <div class="bestnoti-avatar"><?php echo h(initials_from_name($sender, 'NT')); ?></div>
               <div class="bestnoti-mid">
-                <div class="bestnoti-text"><strong><?php echo h($sender); ?></strong> <?php echo h($type); ?></div>
+                <div class="bestnoti-text"><strong><?php echo h($sender); ?></strong>
+                  <?php if ($communityName !== '' && $notiCommunityUrl !== '' && strpos($typeLower, 'joined ') === 0): ?>
+                    joined <a class="bestnoti-community-link" href="<?php echo h($notiCommunityUrl); ?>"><?php echo h($communityName); ?></a>
+                  <?php else: ?>
+                    <?php echo h($type); ?>
+                  <?php endif; ?>
+                </div>
                 <div class="bestnoti-time"><?php echo h($notiTime ? date('M d, Y h:i A', strtotime($notiTime)) : ''); ?></div>
               </div>
             </a>
+            <?php endif; ?>
           <?php endforeach; ?>
         <?php endif; ?>
       </div>
@@ -581,7 +697,7 @@ if ($meId > 0) {
 
 $railProfileMenuItems = [
   ['href' => $railProfileHref, 'icon' => 'ion-ios-person', 'label' => 'Profile'],
-  ['href' => 'my_orders.php', 'icon' => 'ion-bag', 'label' => 'My Orders'],
+  ['href' => 'Your_Shopping_preferences.php#order-history', 'icon' => 'ion-bag', 'label' => 'My Orders'],
   ['href' => 'cart.php', 'icon' => 'ion-ios-cart', 'label' => 'Cart'],
   ['href' => 'timeline.php', 'icon' => 'ion-ios-locked', 'label' => 'Timeline'],
   ['href' => 'settings.php', 'icon' => 'ion-ios-gear', 'label' => 'Settings'],
@@ -677,7 +793,7 @@ window.__MSB_CSRF_TOKEN = <?php echo json_encode(csrfToken(), JSON_UNESCAPED_SLA
 <?php if (function_exists('app_i18n_print_js')) { app_i18n_print_js(); } ?>
 <?php if (function_exists('profile_viewer_prefs_print_js')) { profile_viewer_prefs_print_js($dbh, (int)$meId); } ?>
 <?php if (!defined('MSB_THEME_DARK_CSS')): ?>
-<link rel="stylesheet" href="./css/dark-auto.css?v=55">
+<link rel="stylesheet" href="./css/dark-auto.css?v=57">
 <?php define('MSB_THEME_DARK_CSS', true); endif; ?>
 <?php if (!defined('MSB_APPEARANCE_PALETTE_CSS')): ?>
 <link rel="stylesheet" href="./css/appearance-palette.css?v=131">
@@ -1251,6 +1367,9 @@ iframe{
     box-shadow:none;border-radius:var(--msb-feed-chrome-circle);
   }
   .feed-ig-nav{display:flex;flex-direction:column;gap:8px;width:100%;align-items:center}
+  .feed-create-kind{position:relative;display:flex;justify-content:center;width:100%}
+  .feed-create-kind-menu{position:absolute;left:calc(100% + 10px);top:0;z-index:12050;width:190px;padding:7px;border:1px solid var(--msb-palette-border,#d0d3da);border-radius:12px;background:var(--msb-palette-bg,#fff);box-shadow:0 14px 38px rgba(0,0,0,.22)}
+  .feed-create-kind-menu[hidden]{display:none!important}.feed-create-kind-menu a{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:8px;color:var(--msb-palette-text,#0f172a);font-weight:800;text-decoration:none}.feed-create-kind-menu a:hover{background:var(--msb-palette-action-soft,rgba(37,99,235,.12));color:var(--msb-palette-action,#2563eb)}
   .feed-ig-btn, .feed-ig-link, .feed-ig-rail .ig-link{
     width:var(--msb-feed-chrome-size);height:var(--msb-feed-chrome-size);
     min-width:var(--msb-feed-chrome-size);min-height:var(--msb-feed-chrome-size);
@@ -1420,6 +1539,7 @@ iframe{
       border-radius:var(--msb-feed-chrome-circle);
     }
     .feed-ig-rail .dropdown-menu{left:auto !important; right:8px !important; top:auto !important; bottom:72px !important}
+    .feed-create-kind{flex:1;width:auto}.feed-create-kind .feed-ig-link{width:100%}.feed-create-kind-menu{left:auto;right:0;top:auto;bottom:calc(100% + 10px)}
     body .sh-mainpanel{
       margin-left:0 !important;
       width:100% !important;
@@ -1517,7 +1637,13 @@ iframe{
       <span id="headerNotificationBadge" class="feed-ig-badge"<?php echo $headerNotificationUnread > 0 ? '' : ' style="display:none;"'; ?>><?php echo $headerNotificationUnread > 99 ? '99+' : (string)$headerNotificationUnread; ?></span>
     </button>
 
-    <a class="feed-ig-link" href="dashboard.php?modal=1" id="headerCreatePostTrigger" data-create-post-modal="1" title="<?php echo app_t_attr('Create Post'); ?>" aria-label="<?php echo app_t_attr('Create Post'); ?>"><i class="icon ion-plus-round"></i></a>
+    <div class="feed-create-kind">
+      <button class="feed-ig-link" type="button" id="headerCreatePostTrigger" title="<?php echo app_t_attr('Create Post'); ?>" aria-label="<?php echo app_t_attr('Choose post type'); ?>" aria-haspopup="menu" aria-expanded="false"><i class="icon ion-plus-round"></i></button>
+      <div class="feed-create-kind-menu" id="headerCreatePostMenu" role="menu" hidden>
+        <a href="dashboard.php?modal=1" data-create-post-modal="1" role="menuitem"><i class="fa fa-user"></i> User Post</a>
+        <a href="dashboard.php?modal=1&amp;community=1" data-create-post-modal="1" role="menuitem"><i class="fa fa-users"></i> Community Post</a>
+      </div>
+    </div>
     <?php /* Public/world icon hidden — Discover tab already covers public.php */ ?>
     <?php if ($meId > 0): ?>
     <button type="button" class="feed-ig-link js-open-live-studio-browse<?php echo $railIsStudio ? ' active' : ''; ?>" title="<?php echo app_t_attr('Live'); ?>" aria-label="<?php echo app_t_attr('Live'); ?>"><i class="icon ion-ios-videocam"></i></button>
@@ -1542,6 +1668,9 @@ iframe{
     </a>
     <a class="feed-ig-link feed-ig-explore<?php echo !empty($railIsExplore) ? ' active' : ''; ?>" href="explore.php" title="<?php echo app_t_attr('Explore'); ?>" aria-label="<?php echo app_t_attr('Explore'); ?>">
       <img class="feed-ig-explore-img" src="assets/explore-binoculars.svg" alt="" width="22" height="22">
+    </a>
+    <a class="feed-ig-link<?php echo !empty($railIsCommunity) ? ' active' : ''; ?>" href="community.php" title="<?php echo app_t_attr('Community'); ?>" aria-label="<?php echo app_t_attr('Community'); ?>">
+      <i class="icon ion-ios-people" aria-hidden="true"></i>
     </a>
   </nav>
 
@@ -3609,6 +3738,29 @@ html #createPostModal.create-post-modal:not(.is-open){
   color:var(--msb-dd-text);
   background:var(--msb-dd-surface);
 }
+.dropdown-bestnoti-item.is-community-invite,
+.dropdown-bestnoti-item.is-community-join-request{ cursor:default; }
+.bestnoti-wait-note{
+  margin-top:4px;
+  color:var(--msb-palette-text-muted,#64748b);
+  font-size:12px;
+  font-weight:600;
+}
+.bestnoti-community-link,
+.bestnoti-user-link{
+  color:var(--msb-palette-action,#2563eb);
+  font-weight:800;
+  text-decoration:none;
+}
+.bestnoti-community-link:hover,
+.bestnoti-user-link:hover{ text-decoration:underline; }
+.bestnoti-invite-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.bestnoti-invite-btn{
+  border:0; border-radius:999px; padding:7px 14px; font-size:12px; font-weight:800; cursor:pointer;
+}
+.bestnoti-invite-btn.is-accept{ background:var(--msb-palette-action,#2563eb); color:var(--msb-palette-btn-text,#fff); }
+.bestnoti-invite-btn.is-decline{ background:var(--msb-palette-surface-2,#e5e7eb); color:var(--msb-palette-text,#111827); }
+.bestnoti-invite-btn:disabled{ opacity:.6; cursor:default; }
 .dropdown-bestnoti-item + .dropdown-bestnoti-item{
   border-top:1px solid var(--msb-dd-divider);
 }
@@ -4850,6 +5002,7 @@ span.msb-rx-face svg{
 <script>
 (function () {
   const createPostTrigger = document.getElementById('headerCreatePostTrigger');
+  const createPostMenu = document.getElementById('headerCreatePostMenu');
   const createPostModal = document.getElementById('createPostModal');
   const createPostModalFrame = document.getElementById('createPostModalFrame');
   const createPostModalClose = document.getElementById('createPostModalClose');
@@ -5014,6 +5167,9 @@ span.msb-rx-face svg{
         post_id: parseInt(node.getAttribute('data-post-id') || '0', 10) || 0,
         comment_id: parseInt(node.getAttribute('data-comment-id') || '0', 10) || 0,
         is_story: parseInt(node.getAttribute('data-is-story') || '0', 10) === 1 ? 1 : 0,
+        community_invite_id: parseInt(node.getAttribute('data-community-invite-id') || '0', 10) || 0,
+        community_id: parseInt(node.getAttribute('data-community-id') || '0', 10) || 0,
+        community_member_user_id: parseInt(node.getAttribute('data-community-member-user-id') || '0', 10) || 0,
         url: String(node.getAttribute('data-notification-url') || node.getAttribute('href') || ''),
         created_at: '',
         is_read: 0
@@ -5234,13 +5390,85 @@ span.msb-rx-face svg{
         const url = notificationEsc(item.url || '#');
         const unread = parseInt(item.is_read || 0, 10) === 0;
         const initials = notificationEsc(notificationInitials(item.sender || 'NT'));
-        const kind = isMentionNotificationText(item.text) ? 'mentions' : 'all';
+        const inviteIdRaw = parseInt(item.community_invite_id || 0, 10) || 0;
+        let inviteId = inviteIdRaw;
+        if (!inviteId && item.url) {
+          try {
+            inviteId = parseInt(new URL(String(item.url), window.location.href).searchParams.get('invite') || '0', 10) || 0;
+          } catch (_eInvite) {}
+        }
+        const communityId = parseInt(item.community_id || 0, 10) || 0;
+        const memberUserId = parseInt(item.community_member_user_id || 0, 10) || 0;
+        const isInvite = inviteId > 0 || /invited you to join/i.test(String(item.text || ''));
+        const isJoinRequest = !isInvite && (memberUserId > 0 || /requested to join/i.test(String(item.text || '')));
+        const kind = isInvite ? 'community_invite' : (isJoinRequest ? 'community_join_request' : (isMentionNotificationText(item.text) ? 'mentions' : 'all'));
         const postId = parseInt(item.post_id || 0, 10) || 0;
         const commentId = parseInt(item.comment_id || 0, 10) || 0;
         const isStory = parseInt(item.is_story || 0, 10) === 1 ? 1 : 0;
+        const notiId = parseInt(item.id || 0, 10) || 0;
+        if (isInvite) {
+          const rawText = String(item.text || '');
+          const joinMatch = rawText.match(/^invited you to join\s+(.+)$/i);
+          const communityName = joinMatch ? String(joinMatch[1] || '').trim() : '';
+          const communityUrl = communityId > 0 ? ('community_profile.php?id=' + communityId) : '';
+          let inviteTextHtml = ' ' + text;
+          if (communityName && communityUrl) {
+            inviteTextHtml = ' invited you to join <a class="bestnoti-community-link" href="' + notificationEsc(communityUrl) + '">' + notificationEsc(communityName) + '</a>';
+          }
+          return ''
+            + '<div class="dropdown-bestnoti-item is-community-invite' + (unread ? ' is-unread' : '') + '"'
+            + ' data-notification-id="' + notiId + '"'
+            + ' data-notification-url="' + (url === '#' ? '' : url) + '"'
+            + ' data-live-id="0" data-post-id="0" data-comment-id="0" data-is-story="0"'
+            + ' data-community-invite-id="' + inviteId + '"'
+            + ' data-community-id="' + communityId + '"'
+            + ' data-noti-kind="' + kind + '">'
+            + '<div class="bestnoti-avatar">' + initials + '</div>'
+            + '<div class="bestnoti-mid">'
+            + '<div class="bestnoti-text"><strong>' + sender + '</strong>' + inviteTextHtml + '</div>'
+            + '<div class="bestnoti-time">' + time + '</div>'
+            + '<div class="bestnoti-invite-actions">'
+            + '<button type="button" class="bestnoti-invite-btn is-accept js-community-invite-accept" data-invite-id="' + inviteId + '" data-notification-id="' + notiId + '">Accept</button>'
+            + '<button type="button" class="bestnoti-invite-btn is-decline js-community-invite-decline" data-invite-id="' + inviteId + '" data-notification-id="' + notiId + '">Decline</button>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
+        }
+        if (isJoinRequest) {
+          const rawText = String(item.text || '');
+          const reqMatch = rawText.match(/^requested to join\s+(.+)$/i);
+          const communityName = reqMatch ? String(reqMatch[1] || '').trim() : '';
+          const communityUrl = communityId > 0 ? ('community_profile.php?id=' + communityId) : '';
+          let reqTextHtml = ' ' + text;
+          if (communityName && communityUrl) {
+            reqTextHtml = ' requested to join <a class="bestnoti-community-link" href="' + notificationEsc(communityUrl) + '">' + notificationEsc(communityName) + '</a>';
+          }
+          const senderHtml = memberUserId > 0
+            ? ('<a class="bestnoti-user-link" href="profile.php?tab=about&id=' + memberUserId + '"><strong>' + sender + '</strong></a>')
+            : ('<strong>' + sender + '</strong>');
+          return ''
+            + '<div class="dropdown-bestnoti-item is-community-join-request' + (unread ? ' is-unread' : '') + '"'
+            + ' data-notification-id="' + notiId + '"'
+            + ' data-notification-url="' + (url === '#' ? '' : url) + '"'
+            + ' data-live-id="0" data-post-id="0" data-comment-id="0" data-is-story="0"'
+            + ' data-community-id="' + communityId + '"'
+            + ' data-community-member-user-id="' + memberUserId + '"'
+            + ' data-noti-kind="' + kind + '">'
+            + '<div class="bestnoti-avatar">' + initials + '</div>'
+            + '<div class="bestnoti-mid">'
+            + '<div class="bestnoti-text">' + senderHtml + reqTextHtml + '</div>'
+            + '<div class="bestnoti-time">' + time + '</div>'
+            + '<div class="bestnoti-wait-note">Waiting for your approval.</div>'
+            + '<div class="bestnoti-invite-actions">'
+            + '<button type="button" class="bestnoti-invite-btn is-accept js-community-join-approve" data-community-id="' + communityId + '" data-member-user-id="' + memberUserId + '" data-notification-id="' + notiId + '">Approve</button>'
+            + '<button type="button" class="bestnoti-invite-btn is-decline js-community-join-decline" data-community-id="' + communityId + '" data-member-user-id="' + memberUserId + '" data-notification-id="' + notiId + '">Decline</button>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
+        }
         return ''
           + '<a href="' + url + '" class="dropdown-bestnoti-item' + (unread ? ' is-unread' : '') + '"'
-          + ' data-notification-id="' + (parseInt(item.id || 0, 10) || 0) + '"'
+          + ' data-notification-id="' + notiId + '"'
           + ' data-notification-url="' + (url === '#' ? '' : url) + '"'
           + ' data-live-id="' + (parseInt(item.live_id || 0, 10) || 0) + '"'
           + ' data-post-id="' + postId + '"'
@@ -5850,8 +6078,9 @@ span.msb-rx-face svg{
     var titleEl = createPostModal.querySelector('.create-post-title');
     var dialogEl = getCreatePostAccordion() || createPostModal.querySelector('.create-post-dialog');
     var isEdit = /(?:^|[?&#])edit=\d+/i.test(String(nextSrc)) || /(?:^|[?&#])edit=\d+/i.test(String(src || ''));
+    var isCommunityCreate = /(?:^|[?&#])community=1(?:&|$)/i.test(String(nextSrc));
     if (titleEl) {
-      titleEl.textContent = isEdit ? 'Edit post' : 'Create a post';
+      titleEl.textContent = isEdit ? 'Edit post' : (isCommunityCreate ? 'Create a community post' : 'Create a user post');
       Array.prototype.forEach.call(titleEl.querySelectorAll('i, .icon, .fa'), function(el){
         if (el && el.parentNode) el.parentNode.removeChild(el);
       });
@@ -7073,6 +7302,40 @@ span.msb-rx-face svg{
     `;
   }
 
+  function formatCallEventPreview(text) {
+    const raw = String(text || '').trim();
+    const prefix = '[[MSB_CALL_EVENT:';
+    if (!raw || raw.indexOf(prefix) !== 0) return raw;
+    let payload = null;
+    try {
+      const json = raw.slice(-2) === ']]' ? raw.slice(prefix.length, -2) : raw.slice(prefix.length);
+      payload = JSON.parse(json);
+    } catch (_e) {
+      payload = null;
+    }
+    if (!payload || typeof payload !== 'object') {
+      const actionMatch = raw.match(/"action"\s*:\s*"(end|ended|deny|denied|decline|declined|miss|missed|unavailable)"/i);
+      if (!actionMatch) return 'Call update';
+      let actor = 'They';
+      const actorMatch = raw.match(/"actor"\s*:\s*"((?:\\.|[^"\\])*)"/);
+      if (actorMatch && actorMatch[1]) {
+        try { actor = JSON.parse('"' + actorMatch[1] + '"') || actor; } catch (_e2) { actor = actorMatch[1]; }
+      } else {
+        const truncMatch = raw.match(/"actor"\s*:\s*"([^"]*)/);
+        if (truncMatch && truncMatch[1]) {
+          actor = String(truncMatch[1]).replace(/(\.\.\.|…)+$/u, '').trim() || actor;
+        }
+      }
+      payload = { action: String(actionMatch[1] || '').toLowerCase(), actor: actor };
+    }
+    const action = String(payload.action || '').trim().toLowerCase();
+    const actor = String(payload.actor || '').trim() || 'They';
+    if (['deny', 'denied', 'decline', 'declined'].indexOf(action) !== -1) return actor + ' denied your call';
+    if (['miss', 'missed', 'unavailable'].indexOf(action) !== -1) return actor + ' is not avalible yet. Please call me later';
+    if (['end', 'ended'].indexOf(action) !== -1) return actor + ' ended your call';
+    return 'Call update';
+  }
+
   function renderDropdown(items, unknownCount, totalUnread) {
     const lists = chatLists();
     const named = (items || []).filter(it => String(it.contact_name || '').trim() !== '');
@@ -7092,7 +7355,7 @@ span.msb-rx-face svg{
       const peerCode = esc(it.peer_code);
       const display  = (it.peer_display || it.peer_code || '');
       const name     = esc(display);
-      const msg      = esc(it.last_message || 'Open conversation');
+      const msg      = esc(formatCallEventPreview(it.last_message || '') || 'Open conversation');
       const time     = esc(formatChatTime(it.last_time || ''));
       const unread   = parseInt(it.unread_count || 0, 10);
       const base     = colorFromString(display);
@@ -7145,9 +7408,24 @@ span.msb-rx-face svg{
   setInterval(() => { pollUnreadCount(); pollUnreadThreads(); pollNotificationCount(); pollActiveLiveRooms(); }, 4000);
 
   document.addEventListener('click', function(e){
+    if (createPostTrigger && (e.target === createPostTrigger || createPostTrigger.contains(e.target))) {
+      e.preventDefault();
+      if (createPostMenu) {
+        const opening = createPostMenu.hidden;
+        createPostMenu.hidden = !opening;
+        createPostTrigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      }
+      return;
+    }
+    if (createPostMenu && !createPostMenu.hidden && !createPostMenu.contains(e.target)) {
+      createPostMenu.hidden = true;
+      if (createPostTrigger) createPostTrigger.setAttribute('aria-expanded', 'false');
+    }
     const createTrigger = e.target.closest('[data-create-post-modal]');
     if (createTrigger) {
       e.preventDefault();
+      if (createPostMenu) createPostMenu.hidden = true;
+      if (createPostTrigger) createPostTrigger.setAttribute('aria-expanded', 'false');
       var modalSrc = createTrigger.getAttribute('href') || createTrigger.getAttribute('data-modal-src') || '';
       if (!modalSrc || !/[?&]edit=\d+/i.test(modalSrc)) {
         var card = createTrigger.closest('[data-edit-url], .public-post-card, .mf-card');
@@ -7170,6 +7448,95 @@ span.msb-rx-face svg{
 
     const item = e.target.closest('.dropdown-bestnoti-item[data-notification-id]');
     if (item) {
+      const inviteBtn = e.target.closest && e.target.closest('.js-community-invite-accept, .js-community-invite-decline');
+      if (inviteBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const inviteId = parseInt(inviteBtn.getAttribute('data-invite-id') || item.getAttribute('data-community-invite-id') || '0', 10) || 0;
+        const notiId = parseInt(inviteBtn.getAttribute('data-notification-id') || item.getAttribute('data-notification-id') || '0', 10) || 0;
+        const accept = inviteBtn.classList.contains('js-community-invite-accept');
+        if (!inviteId) return;
+        inviteBtn.disabled = true;
+        item.querySelectorAll('.bestnoti-invite-btn').forEach(function(btn){ btn.disabled = true; });
+        const fd = new FormData();
+        fd.append('action', accept ? 'accept' : 'decline');
+        fd.append('invite_id', String(inviteId));
+        if (notiId > 0) fd.append('notification_id', String(notiId));
+        fetch('ajax/community_invite_respond.php', { method: 'POST', body: fd, credentials: 'same-origin', cache: 'no-store' })
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if (!(res && res.ok)) {
+              item.querySelectorAll('.bestnoti-invite-btn').forEach(function(btn){ btn.disabled = false; });
+              window.alert((res && res.error) ? String(res.error) : 'Unable to update invitation.');
+              return;
+            }
+            if (typeof dismissNotificationFromDoor === 'function') dismissNotificationFromDoor(String(notiId || ''));
+            item.remove();
+            latestNotificationItems = (latestNotificationItems || []).filter(function(n){
+              return parseInt(n.id || 0, 10) !== notiId && parseInt(n.community_invite_id || 0, 10) !== inviteId;
+            });
+            try { renderNotificationList(latestNotificationItems); } catch (_e) {}
+            if (accept && res.redirect) {
+              window.location.href = String(res.redirect);
+            }
+          })
+          .catch(function(){
+            item.querySelectorAll('.bestnoti-invite-btn').forEach(function(btn){ btn.disabled = false; });
+            window.alert('Unable to update invitation.');
+          });
+        return;
+      }
+      const joinBtn = e.target.closest && e.target.closest('.js-community-join-approve, .js-community-join-decline');
+      if (joinBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const communityId = parseInt(joinBtn.getAttribute('data-community-id') || item.getAttribute('data-community-id') || '0', 10) || 0;
+        const memberUserId = parseInt(joinBtn.getAttribute('data-member-user-id') || item.getAttribute('data-community-member-user-id') || '0', 10) || 0;
+        const notiId = parseInt(joinBtn.getAttribute('data-notification-id') || item.getAttribute('data-notification-id') || '0', 10) || 0;
+        const approve = joinBtn.classList.contains('js-community-join-approve');
+        if (!communityId || !memberUserId) return;
+        joinBtn.disabled = true;
+        item.querySelectorAll('.bestnoti-invite-btn').forEach(function(btn){ btn.disabled = true; });
+        const fd = new FormData();
+        fd.append('action', approve ? 'approve' : 'decline');
+        fd.append('community_id', String(communityId));
+        fd.append('member_user_id', String(memberUserId));
+        if (notiId > 0) fd.append('notification_id', String(notiId));
+        fetch('ajax/community_join_respond.php', { method: 'POST', body: fd, credentials: 'same-origin', cache: 'no-store' })
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if (!(res && res.ok)) {
+              item.querySelectorAll('.bestnoti-invite-btn').forEach(function(btn){ btn.disabled = false; });
+              window.alert((res && res.error) ? String(res.error) : 'Unable to update join request.');
+              return;
+            }
+            if (typeof dismissNotificationFromDoor === 'function') dismissNotificationFromDoor(String(notiId || ''));
+            item.remove();
+            latestNotificationItems = (latestNotificationItems || []).filter(function(n){
+              return parseInt(n.id || 0, 10) !== notiId
+                && !(parseInt(n.community_id || 0, 10) === communityId && parseInt(n.community_member_user_id || 0, 10) === memberUserId);
+            });
+            try { renderNotificationList(latestNotificationItems); } catch (_e) {}
+            if (approve && res.redirect) {
+              window.location.href = String(res.redirect);
+            }
+          })
+          .catch(function(){
+            item.querySelectorAll('.bestnoti-invite-btn').forEach(function(btn){ btn.disabled = false; });
+            window.alert('Unable to update join request.');
+          });
+        return;
+      }
+      if (item.classList.contains('is-community-invite') || item.classList.contains('is-community-join-request')) {
+        const allowLink = e.target.closest && e.target.closest('a.bestnoti-community-link, a.bestnoti-user-link');
+        if (allowLink) {
+          // Allow profile / community name links to navigate.
+          return;
+        }
+        // Keep invite/join-request row open for actions; do not navigate away on body click.
+        e.preventDefault();
+        return;
+      }
       const url = String(item.getAttribute('data-notification-url') || '').trim();
       const liveId = parseInt(item.getAttribute('data-live-id') || '0', 10) || 0;
       const id = String(item.getAttribute('data-notification-id') || '').trim();
@@ -7522,10 +7889,16 @@ span.msb-rx-face svg{
     if (!redirectPath && data.surface) {
       redirectPath = String(data.surface);
     }
+    var isCommunityDestination = /community_profile\.php$/i.test(redirectPath)
+      || /(?:^|\/)community_profile\.php(?:\?|$)/i.test(redirect);
     // Rebuild destination if parent/server redirect is missing or on the wrong surface.
     var pathNowEarly = String(window.location.pathname || '');
     var onProfile = /profile\.php$/i.test(pathNowEarly);
-    if (isStory && onProfile) {
+    if (isCommunityDestination) {
+      // Community posts already carry their exact community id and tab in the
+      // server redirect. Do not remap public visibility to Discover.
+      redirectPath = 'community_profile.php';
+    } else if (isStory && onProfile) {
       try {
         var profileUrl = new URL(window.location.href);
         profileUrl.searchParams.set('story_post', String(postId || ''));

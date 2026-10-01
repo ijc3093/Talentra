@@ -52,7 +52,7 @@ try {
     $st = $dbh->prepare("
       SELECT p.*
       FROM public_posts p
-      WHERE p.id = :id AND COALESCE(p.is_deleted, 0) = 0
+      WHERE p.id=:id AND (COALESCE(p.is_deleted,0)=0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id=p.id AND cp.status<>'removed'))
       LIMIT 1
     ");
     $st->execute([':id' => $sourceId]);

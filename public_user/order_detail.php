@@ -52,11 +52,13 @@ function order_detail_delivery_headline(string $status, ?string $deliveredAt, ?s
     $status = strtolower(trim($status));
     if ($status === 'delivered') {
         $when = order_detail_fmt_delivered($deliveredAt);
-        return $when !== '' ? 'Delivered on ' . $when : 'Delivered';
+        return $when !== ''
+            ? 'Your item is now delivered — ' . $when
+            : 'Your item is now delivered';
     }
     if ($status === 'shipped') {
         $when = order_detail_fmt_delivered($shippedAt);
-        return $when !== '' ? 'Shipped on ' . $when : 'Shipped — on the way';
+        return $when !== '' ? 'Shipped on ' . $when . ' — on the way' : 'Shipped — on the way';
     }
     if ($status === 'paid') {
         return 'Paid — preparing shipment';
@@ -179,14 +181,85 @@ if ($detailLabel === '' && !$notFound) {
 }
 $canReturn = !$notFound && in_array($status, ['paid', 'shipped', 'delivered'], true);
 $canReview = !$notFound && $status === 'delivered';
-$canCancel = !$notFound && in_array(strtolower($status), ['pending', 'confirmed', 'paid'], true);
+$canCancel = !$notFound && org_shop_buyer_order_is_cancellable($order ?: []);
 $tracking = $notFound ? '' : trim((string)($order['tracking_number'] ?? ''));
 $carrier = $notFound ? '' : trim((string)($order['carrier'] ?? ''));
 $createdAt = $notFound ? '' : (string)($order['created_at'] ?? '');
 $shippedAt = $notFound ? '' : (string)($order['shipped_at'] ?? '');
 $deliveredAt = $notFound ? '' : (string)($order['delivered_at'] ?? '');
+// Harden cancel: if tracking exists with carrier, treat as shipped for UI.
+if ($canCancel && $tracking !== '' && $carrier !== '') {
+    $canCancel = false;
+}
+if ($canCancel && $shippedAt !== '') {
+    $canCancel = false;
+}
 $deliveryHeadline = $notFound ? '' : order_detail_delivery_headline($status, $deliveredAt, $shippedAt);
 $isDelivered = !$notFound && strtolower($status) === 'delivered';
+$isCancelled = !$notFound && strtolower($status) === 'cancelled';
+$paymentIncomplete = !$notFound && in_array(strtolower($status), ['pending', 'confirmed'], true);
+$paymentProgress = !$notFound && function_exists('org_shop_order_payment_progress')
+    ? org_shop_order_payment_progress($order)
+    : ['due_cents' => 0, 'paid_cents' => 0, 'shortfall_cents' => 0, 'is_incomplete' => $paymentIncomplete, 'currency' => 'USD'];
+$paymentIncompleteMsg = '';
+if ($paymentIncomplete && function_exists('org_shop_order_incomplete_payment_buyer_message')) {
+    $paymentIncompleteMsg = org_shop_order_incomplete_payment_buyer_message($order);
+} elseif ($paymentIncomplete) {
+    $paymentIncompleteMsg = 'Payment is incomplete. The seller cannot start shipping until this order is fully paid.';
+}
+$sellerPaymentRequest = '';
+if ($paymentIncomplete) {
+    $sellerNotesRaw = (string)($order['seller_notes'] ?? '');
+    if (preg_match('/Seller payment request:\s*(.+)$/im', $sellerNotesRaw, $mReq)) {
+        $sellerPaymentRequest = trim((string)$mReq[1]);
+        // Prefer the last request if multiple.
+        if (preg_match_all('/Seller payment request:\s*(.+)$/im', $sellerNotesRaw, $mAll) && !empty($mAll[1])) {
+            $sellerPaymentRequest = trim((string)end($mAll[1]));
+        }
+    }
+}
+$shortfallCentsUi = (int)($paymentProgress['shortfall_cents'] ?? 0);
+$shortfallLabelUi = $shortfallCentsUi > 0
+    ? org_shop_format_price($shortfallCentsUi, (string)($paymentProgress['currency'] ?? 'USD'))
+    : '';
+$paidLabelUi = (int)($paymentProgress['paid_cents'] ?? 0) > 0
+    ? org_shop_format_price((int)$paymentProgress['paid_cents'], (string)($paymentProgress['currency'] ?? 'USD'))
+    : '';
+$dueLabelUi = (int)($paymentProgress['due_cents'] ?? 0) > 0
+    ? org_shop_format_price((int)$paymentProgress['due_cents'], (string)($paymentProgress['currency'] ?? 'USD'))
+    : ($total ?? '');
+$orderCodeUi = !$notFound ? trim((string)($order['order_code'] ?? '')) : '';
+$cancelMeta = $isCancelled
+    ? org_shop_order_cancel_meta(
+        (string)($order['buyer_notes'] ?? ''),
+        (string)($order['seller_notes'] ?? '')
+    )
+    : ['by' => '', 'reason' => ''];
+$cancelWhenRaw = $isCancelled
+    ? (string)($order['updated_at'] ?? $order['created_at'] ?? '')
+    : '';
+$cancelWhenLabel = '';
+if ($cancelWhenRaw !== '') {
+    $cts = strtotime($cancelWhenRaw);
+    $cancelWhenLabel = $cts ? date('M j, Y', $cts) : '';
+}
+$cancelBySeller = $isCancelled && (string)($cancelMeta['by'] ?? '') === 'Seller';
+$cancelNotice = '';
+if ($isCancelled) {
+    if ($cancelBySeller) {
+        $cancelNotice = $cancelWhenLabel !== ''
+            ? ('The seller cancelled this order on ' . $cancelWhenLabel . '.')
+            : 'The seller cancelled this order.';
+    } else {
+        $cancelNotice = $cancelWhenLabel !== ''
+            ? ('You cancelled this order on ' . $cancelWhenLabel . '.')
+            : 'You cancelled this order.';
+    }
+    $reason = trim((string)($cancelMeta['reason'] ?? ''));
+    if ($reason !== '' && strcasecmp($reason, 'Cancelled') !== 0) {
+        $cancelNotice .= ' Reason: ' . $reason . '.';
+    }
+}
 $trackUrl = $tracking !== '' ? order_detail_track_url($carrier, $tracking) : '';
 $returnWindow = $notFound ? null : order_detail_return_window($deliveredAt !== '' ? $deliveredAt : null);
 $contactUrl = $publisherId > 0
@@ -212,16 +285,26 @@ if ($serviceFeeCents <= 0 && function_exists('org_shop_buyer_service_fee_cents')
 if ($taxCents <= 0 && $totalCents > ($subtotalCents + $shippingCents + $serviceFeeCents)) {
     $taxCents = max(0, $totalCents - $subtotalCents - $shippingCents - $serviceFeeCents);
 }
+if ($isCancelled) {
+    $subtotalCents = 0;
+    $taxCents = 0;
+    $shippingCents = 0;
+    $serviceFeeCents = 0;
+    $totalCents = 0;
+}
 $subtotal = $notFound ? '' : org_shop_format_price($subtotalCents, $currency);
 $tax = $notFound ? '' : org_shop_format_price($taxCents, $currency);
 $serviceFee = $notFound ? '' : org_shop_format_price($serviceFeeCents, $currency);
-$shippingPrice = $shippingCents > 0 ? org_shop_format_price($shippingCents, $currency) : 'Free';
+$shippingPrice = $shippingCents > 0 ? org_shop_format_price($shippingCents, $currency) : ($isCancelled ? org_shop_format_price(0, $currency) : 'Free');
 $shippingIsFree = $shippingCents <= 0;
 $total = $notFound ? '' : org_shop_format_price($totalCents, $currency);
 $paymentBrand = $notFound ? ['label' => '', 'icon' => 'pending'] : order_detail_payment_brand($order);
+if ($isCancelled) {
+    $paymentBrand = ['label' => 'No charge', 'icon' => 'manual'];
+}
 $paidAt = $notFound ? '' : (string)($order['paid_at'] ?? '');
 $paymentWhen = $paidAt !== '' ? $paidAt : (in_array(strtolower($status), ['paid', 'shipped', 'delivered'], true) ? $createdAt : '');
-$paymentDateShort = order_detail_fmt_paid_short($paymentWhen);
+$paymentDateShort = $isCancelled ? '' : order_detail_fmt_paid_short($paymentWhen);
 $receiptCode = $notFound ? '' : trim((string)($order['receipt_code'] ?? ''));
 $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
 ?>
@@ -254,6 +337,11 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
     }
     .od-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
     .od-title{font-size:17px;font-weight:800;margin:0;color:var(--shop-text,var(--msb-palette-text,inherit));}
+    .od-back{
+      font-size:13px;font-weight:800;color:var(--shop-link,var(--msb-palette-link,#2563eb));
+      text-decoration:none;white-space:nowrap;flex-shrink:0;
+    }
+    .od-back:hover{text-decoration:underline;}
     .od-close{
       border:1px solid var(--shop-border,var(--msb-palette-border,rgba(177,188,206,.45)));
       background:var(--shop-btn-outline-bg,transparent);
@@ -333,7 +421,157 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
       color:var(--shop-text,var(--msb-palette-text,inherit));
     }
     .od-delivery-headline.is-delivered{color:#15803d;}
+    .od-pay-incomplete{
+      margin:0 0 14px;padding:10px 12px;border-radius:8px;
+      border:1px solid rgba(220,38,38,.35);
+      background:rgba(220,38,38,.08);
+      color:#b91c1c;
+      font-size:13px;font-weight:650;line-height:1.45;
+    }
+    .od-pay-incomplete strong{font-weight:800;}
+    .od-seller-pay-msg{
+      margin:10px 0 0;padding:8px 10px;border-radius:6px;
+      background:rgba(255,255,255,.4);border:1px solid rgba(185,28,28,.2);
+      font-size:12.5px;line-height:1.45;font-weight:550;
+    }
+    .od-seller-pay-msg strong{display:block;margin-bottom:4px;}
+    .od-pay-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+    .od-pay-action-primary{
+      border:0;border-radius:8px;background:#111827;color:#fff;
+      font-size:13px;font-weight:750;padding:9px 14px;cursor:pointer;
+    }
+    .od-pay-action-primary:hover{opacity:.92;}
+    .od-pay-action-secondary{
+      border:1px solid rgba(185,28,28,.45);border-radius:8px;background:transparent;color:#b91c1c;
+      font-size:13px;font-weight:750;padding:9px 14px;cursor:pointer;
+    }
+    .od-pay-action-secondary:hover{background:rgba(254,226,226,.55);}
+    .od-pay-modal{
+      position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;
+      padding:18px;box-sizing:border-box;
+    }
+    .od-pay-modal.is-open{display:flex;}
+    .od-pay-modal-backdrop{
+      position:absolute;inset:0;border:0;padding:0;margin:0;cursor:pointer;
+      background:rgba(2,6,23,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    }
+    .od-pay-modal-card{
+      position:relative;z-index:1;width:100%;max-width:420px;
+      background:#fff;color:#0f172a;
+      border:1px solid #e2e8f0;border-radius:18px;
+      box-shadow:0 24px 64px rgba(2,6,23,.28);
+      padding:22px 22px 18px;text-align:center;
+    }
+    .od-pay-modal-close{
+      position:absolute;top:12px;right:12px;width:32px;height:32px;
+      border:0;border-radius:999px;background:transparent;color:#64748b;
+      font-size:22px;line-height:1;cursor:pointer;
+    }
+    .od-pay-modal-close:hover{background:#f1f5f9;color:#0f172a;}
+    .od-pay-modal-icon{
+      width:52px;height:52px;margin:4px auto 14px;border-radius:999px;
+      display:flex;align-items:center;justify-content:center;
+      background:#eff6ff;color:#2563eb;font-size:22px;
+    }
+    .od-pay-modal-card h3{
+      margin:0 0 6px;font-size:20px;font-weight:800;letter-spacing:-.02em;color:#0f172a;
+    }
+    .od-pay-modal-card .od-pay-modal-desc{
+      margin:0 0 14px;font-size:13px;line-height:1.45;color:#64748b;font-weight:600;
+    }
+    .od-pay-modal-meta{
+      display:grid;gap:6px;text-align:left;margin:0 0 14px;padding:10px 12px;
+      border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;
+      font-size:12px;font-weight:700;color:#334155;
+    }
+    .od-pay-modal-meta div{display:flex;justify-content:space-between;gap:10px;}
+    .od-pay-modal-meta span{color:#64748b;font-weight:650;}
+    .od-pay-modal-meta strong{color:#0f172a;font-weight:800;text-align:right;}
+    .od-pay-modal-meta .is-short strong{color:#b91c1c;}
+    .od-pay-modal-card label{
+      display:block;text-align:left;font-size:12px;font-weight:800;color:#334155;margin:0 0 6px;
+    }
+    .od-pay-modal-card input[type="text"],
+    .od-pay-modal-card input[type="number"]{
+      width:100%;box-sizing:border-box;
+      border:1px solid #cbd5e1;border-radius:12px;padding:12px 12px;
+      font:inherit;font-size:15px;font-weight:700;color:#0f172a;background:#fff;
+      margin:0 0 16px;
+    }
+    .od-pay-modal-card input:focus{
+      outline:0;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.18);
+    }
+    .od-pay-modal-actions{display:flex;gap:10px;}
+    .od-pay-modal-actions button{
+      flex:1 1 0;height:42px;border-radius:12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;
+    }
+    .od-pay-modal-cancel{border:1px solid #cbd5e1;background:#fff;color:#0f172a;}
+    .od-pay-modal-cancel:hover{background:#f8fafc;}
+    .od-pay-modal-submit{border:0;background:#2563eb;color:#fff;}
+    .od-pay-modal-submit:hover{background:#1d4ed8;}
+    .od-pay-modal-submit:disabled{opacity:.55;cursor:not-allowed;}
+    .od-pay-modal-err{
+      display:none;margin:-8px 0 12px;text-align:left;font-size:12px;font-weight:700;color:#b91c1c;
+    }
+    .od-pay-modal-err.is-on{display:block;}
+    html.dark-auto .od-pay-modal-card,
+    html[data-theme="dark"] .od-pay-modal-card,
+    .shop-page.dark .od-pay-modal-card{
+      background:#1a1d21;color:#f8fafc;border-color:rgba(148,163,184,.28);
+      box-shadow:0 24px 64px rgba(0,0,0,.55);
+    }
+    html.dark-auto .od-pay-modal-close,
+    html[data-theme="dark"] .od-pay-modal-close{color:#94a3b8;}
+    html.dark-auto .od-pay-modal-close:hover,
+    html[data-theme="dark"] .od-pay-modal-close:hover{background:rgba(148,163,184,.12);color:#f8fafc;}
+    html.dark-auto .od-pay-modal-icon,
+    html[data-theme="dark"] .od-pay-modal-icon{background:rgba(59,130,246,.18);color:#93c5fd;}
+    html.dark-auto .od-pay-modal-card h3,
+    html[data-theme="dark"] .od-pay-modal-card h3{color:#f8fafc;}
+    html.dark-auto .od-pay-modal-card .od-pay-modal-desc,
+    html[data-theme="dark"] .od-pay-modal-card .od-pay-modal-desc{color:#94a3b8;}
+    html.dark-auto .od-pay-modal-meta,
+    html[data-theme="dark"] .od-pay-modal-meta{
+      background:#12151a;border-color:rgba(148,163,184,.22);color:#e2e8f0;
+    }
+    html.dark-auto .od-pay-modal-meta span,
+    html[data-theme="dark"] .od-pay-modal-meta span{color:#94a3b8;}
+    html.dark-auto .od-pay-modal-meta strong,
+    html[data-theme="dark"] .od-pay-modal-meta strong{color:#f8fafc;}
+    html.dark-auto .od-pay-modal-meta .is-short strong,
+    html[data-theme="dark"] .od-pay-modal-meta .is-short strong{color:#fca5a5;}
+    html.dark-auto .od-pay-modal-card label,
+    html[data-theme="dark"] .od-pay-modal-card label{color:#cbd5e1;}
+    html.dark-auto .od-pay-modal-card input,
+    html[data-theme="dark"] .od-pay-modal-card input{
+      background:#0f1216;border-color:rgba(148,163,184,.28);color:#f1f5f9;
+    }
+    html.dark-auto .od-pay-modal-card input:focus,
+    html[data-theme="dark"] .od-pay-modal-card input:focus{
+      border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.25);
+    }
+    html.dark-auto .od-pay-modal-cancel,
+    html[data-theme="dark"] .od-pay-modal-cancel{
+      background:#12151a;border-color:rgba(148,163,184,.35);color:#f8fafc;
+    }
+    html.dark-auto .od-pay-modal-cancel:hover,
+    html[data-theme="dark"] .od-pay-modal-cancel:hover{background:#0f1216;}
+    html.dark-auto .od-pay-modal-submit,
+    html[data-theme="dark"] .od-pay-modal-submit{background:#3b82f6;color:#fff;}
+    html.dark-auto .od-pay-modal-submit:hover,
+    html[data-theme="dark"] .od-pay-modal-submit:hover{background:#2563eb;}
+    html.dark-auto .od-pay-modal-err,
+    html[data-theme="dark"] .od-pay-modal-err{color:#fca5a5;}
+    .od-cancel-notice{
+      margin:0 0 14px;padding:10px 12px;border-radius:8px;
+      border:1px solid rgba(100,116,139,.28);
+      background:rgba(100,116,139,.08);
+      color:#334155;
+      font-size:13px;font-weight:650;line-height:1.45;
+    }
+    .od-cancel-notice strong{font-weight:800;color:#b91c1c;}
     .od-progress{position:relative;margin:0 0 16px;padding:0 0 4px;}
+    .od-progress.is-complete .od-progress-line-fill{background:#15803d;}
     .od-progress-line{
       position:absolute;top:11px;left:12%;right:12%;height:2px;
       background:var(--shop-border,var(--msb-palette-border,rgba(15,23,42,.12)));
@@ -348,17 +586,25 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
       display:grid;grid-template-columns:repeat(3,1fr);gap:4px;text-align:center;
     }
     .od-step-dot{
-      width:22px;height:22px;border-radius:50%;margin:0 auto 6px;
+      width:24px;height:24px;border-radius:50%;margin:0 auto 6px;
       display:flex;align-items:center;justify-content:center;
-      font-size:10px;border:2px solid var(--shop-border,rgba(15,23,42,.18));
+      font-size:11px;border:2px solid var(--shop-border,rgba(15,23,42,.18));
       background:var(--shop-card-bg,#fff);color:transparent;
     }
     .od-step.is-done .od-step-dot{
       border-color:var(--shop-link,var(--msb-palette-link,#2563eb));
       background:var(--shop-link,var(--msb-palette-link,#2563eb));color:#fff;
     }
+    .od-progress.is-complete .od-step.is-done .od-step-dot{
+      border-color:#15803d;background:#15803d;color:#fff;
+    }
     .od-step-label{display:block;font-size:12px;font-weight:700;line-height:1.25;}
     .od-step-date{display:block;font-size:11px;color:var(--shop-text-muted,#6b7280);margin-top:2px;}
+    .od-progress.is-complete .od-step-label{color:#15803d;}
+    .od-delivery-path-note{
+      margin:0 0 12px;font-size:12px;line-height:1.4;
+      color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));
+    }
     .od-tracking-head{font-size:13px;font-weight:800;margin:0 0 8px;}
     .od-tracking-row{
       display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
@@ -440,6 +686,17 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
   </style>
 </head>
 <body class="shop-page order-detail-door<?= $embed ? ' order-detail-embed' : '' ?>">
+<script>
+(function () {
+  try {
+    if (window.parent && window.parent.document &&
+        (window.parent.document.documentElement.classList.contains('dark-auto')
+          || window.parent.document.documentElement.getAttribute('data-theme') === 'dark')) {
+      document.documentElement.classList.add('dark-auto');
+    }
+  } catch (e) {}
+})();
+</script>
 
 <div class="od-shell" id="odShell" data-screen="0"<?= $notFound ? '' : ' data-order-id="' . (int)$orderId . '"' ?>>
   <div class="od-top">
@@ -447,6 +704,8 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
       <h1 class="od-title">Order details</h1>
       <?php if ($embed): ?>
         <button type="button" class="od-close" id="odCloseBtn" aria-label="Close"><i class="icon ion-close"></i></button>
+      <?php else: ?>
+        <a href="shop.php" class="od-back" target="_top">&larr; Back to shop</a>
       <?php endif; ?>
     </div>
     <?php if (!$notFound): ?>
@@ -464,6 +723,39 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
     <div class="od-viewport">
       <div class="od-track">
         <div class="od-screen od-screen-order" role="tabpanel">
+          <?php if ($paymentIncomplete): ?>
+            <div class="od-pay-incomplete" role="alert">
+              <strong>Payment not complete — shipping on hold.</strong>
+              <?= h($paymentIncompleteMsg) ?>
+              <?php if ($sellerPaymentRequest !== ''): ?>
+                <div class="od-seller-pay-msg">
+                  <strong>Message from seller:</strong>
+                  <?= h($sellerPaymentRequest) ?>
+                </div>
+              <?php endif; ?>
+              <div class="od-pay-actions">
+                <button
+                  type="button"
+                  class="od-pay-action-primary js-order-complete-pay"
+                  data-order-id="<?= (int)$orderId ?>"
+                  data-order-code="<?= h($orderCodeUi) ?>"
+                  data-paid-label="<?= h($paidLabelUi) ?>"
+                  data-due-label="<?= h((string)$dueLabelUi) ?>"
+                  data-shortfall-cents="<?= (int)$shortfallCentsUi ?>"
+                  data-shortfall-label="<?= h($shortfallLabelUi) ?>"
+                >Complete payment<?= $shortfallLabelUi !== '' ? (' (' . h($shortfallLabelUi) . ')') : '' ?></button>
+                <?php if ($canCancel): ?>
+                  <button type="button" class="od-pay-action-secondary js-order-cancel" data-order-id="<?= (int)$orderId ?>">Cancel order</button>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+          <?php if ($isCancelled && $cancelNotice !== ''): ?>
+            <div class="od-cancel-notice" role="status">
+              <strong>Order cancelled.</strong>
+              <?= h($cancelNotice) ?>
+            </div>
+          <?php endif; ?>
           <section class="od-block">
             <h2 class="od-block-label">Order info</h2>
             <div class="od-block-body">
@@ -473,7 +765,13 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
                 <dt>Order number</dt>
                 <dd><?= h((string)($order['order_code'] ?? '')) ?></dd>
                 <dt>Total</dt>
-                <dd><?= h($total) ?> (<?= h($itemLabel) ?>)</dd>
+                <dd><?= $isCancelled ? 'No charge' : (h($total) . ' (' . h($itemLabel) . ')') ?></dd>
+                <?php if ($paymentIncomplete && (int)($paymentProgress['paid_cents'] ?? 0) > 0): ?>
+                <dt>Amount paid</dt>
+                <dd><?= h(org_shop_format_price((int)$paymentProgress['paid_cents'], (string)$paymentProgress['currency'])) ?></dd>
+                <dt>Still due</dt>
+                <dd><?= h(org_shop_format_price((int)$paymentProgress['shortfall_cents'], (string)$paymentProgress['currency'])) ?></dd>
+                <?php endif; ?>
                 <dt>Sold by</dt>
                 <dd>
                   <?php if ($publisherId > 0): ?>
@@ -490,30 +788,36 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
             <h2 class="od-block-label">Delivery info</h2>
             <div class="od-block-body">
               <p class="od-delivery-headline<?= $isDelivered ? ' is-delivered' : '' ?>"><?= h($deliveryHeadline) ?></p>
+              <?php if ($isCancelled): ?>
+                <p class="od-delivery-path-note">Shipping timeline is not available for cancelled orders.</p>
+              <?php elseif ($isDelivered): ?>
+                <p class="od-delivery-path-note">Delivery complete — follow the path from Paid to Delivered below.</p>
+              <?php endif; ?>
+              <?php if (!$isCancelled): ?>
               <?php
                 $paidDone = order_detail_step_done($status, 'paid');
                 $trackDone = order_detail_step_done($status, 'tracking') || $tracking !== '';
                 $delivDone = order_detail_step_done($status, 'delivered');
                 $fillPct = $delivDone ? 100 : ($trackDone ? 55 : ($paidDone ? 12 : 0));
-                $paidDate = order_detail_fmt_short($createdAt);
+                $paidDate = order_detail_fmt_short($paymentWhen !== '' ? $paymentWhen : $createdAt);
                 $trackDate = order_detail_fmt_short($shippedAt !== '' ? $shippedAt : ($trackDone && $tracking !== '' ? $shippedAt : ''));
                 $delivDate = order_detail_fmt_short($deliveredAt);
               ?>
-              <div class="od-progress" aria-hidden="true">
+              <div class="od-progress<?= $delivDone ? ' is-complete' : '' ?>" aria-label="Delivery progress from Paid to Delivered">
                 <div class="od-progress-line"><div class="od-progress-line-fill" style="width:<?= (int)$fillPct ?>%"></div></div>
                 <div class="od-progress-steps">
                   <div class="od-step<?= $paidDone ? ' is-done' : '' ?>">
-                    <span class="od-step-dot"><i class="fa fa-check"></i></span>
+                    <span class="od-step-dot" aria-hidden="true"><i class="fa fa-check"></i></span>
                     <span class="od-step-label">Paid</span>
                     <?php if ($paidDate !== ''): ?><span class="od-step-date"><?= h($paidDate) ?></span><?php endif; ?>
                   </div>
                   <div class="od-step<?= $trackDone ? ' is-done' : '' ?>">
-                    <span class="od-step-dot"><i class="fa fa-check"></i></span>
-                    <span class="od-step-label">Tracking available</span>
+                    <span class="od-step-dot" aria-hidden="true"><i class="fa fa-truck"></i></span>
+                    <span class="od-step-label">Shipping</span>
                     <?php if ($trackDate !== ''): ?><span class="od-step-date"><?= h($trackDate) ?></span><?php endif; ?>
                   </div>
                   <div class="od-step<?= $delivDone ? ' is-done' : '' ?>">
-                    <span class="od-step-dot"><i class="fa fa-check"></i></span>
+                    <span class="od-step-dot" aria-hidden="true"><i class="fa fa-home"></i></span>
                     <span class="od-step-label">Delivered</span>
                     <?php if ($delivDate !== ''): ?><span class="od-step-date"><?= h($delivDate) ?></span><?php endif; ?>
                   </div>
@@ -527,6 +831,7 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
                     <a href="<?= h($trackUrl) ?>" class="od-pill-btn" target="_blank" rel="noopener noreferrer">Track package</a>
                   <?php endif; ?>
                 </div>
+              <?php endif; ?>
               <?php endif; ?>
             </div>
           </section>
@@ -592,7 +897,40 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
         </div>
 
         <div class="od-screen od-screen-payment" role="tabpanel">
-          <?php if ($shippingLines !== []): ?>
+          <?php if ($paymentIncomplete): ?>
+            <div class="od-pay-incomplete" role="alert">
+              <strong>Payment not complete — shipping on hold.</strong>
+              <?= h($paymentIncompleteMsg) ?>
+              <?php if ($sellerPaymentRequest !== ''): ?>
+                <div class="od-seller-pay-msg">
+                  <strong>Message from seller:</strong>
+                  <?= h($sellerPaymentRequest) ?>
+                </div>
+              <?php endif; ?>
+              <div class="od-pay-actions">
+                <button
+                  type="button"
+                  class="od-pay-action-primary js-order-complete-pay"
+                  data-order-id="<?= (int)$orderId ?>"
+                  data-order-code="<?= h($orderCodeUi) ?>"
+                  data-paid-label="<?= h($paidLabelUi) ?>"
+                  data-due-label="<?= h((string)$dueLabelUi) ?>"
+                  data-shortfall-cents="<?= (int)$shortfallCentsUi ?>"
+                  data-shortfall-label="<?= h($shortfallLabelUi) ?>"
+                >Complete payment<?= $shortfallLabelUi !== '' ? (' (' . h($shortfallLabelUi) . ')') : '' ?></button>
+                <?php if ($canCancel): ?>
+                  <button type="button" class="od-pay-action-secondary js-order-cancel" data-order-id="<?= (int)$orderId ?>">Cancel order</button>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+          <?php if ($isCancelled && $cancelNotice !== ''): ?>
+            <div class="od-cancel-notice" role="status">
+              <strong>No charge.</strong>
+              <?= h($cancelNotice) ?> Payment amounts are cleared for this cancelled order.
+            </div>
+          <?php endif; ?>
+          <?php if ($shippingLines !== [] && !$isCancelled): ?>
             <section class="od-pay-section">
               <h2 class="od-pay-heading">Shipping address</h2>
               <div class="od-pay-address">
@@ -608,7 +946,9 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
             <div class="od-pay-method">
               <div class="od-pay-method-left">
                 <span class="od-pay-method-icon" aria-hidden="true">
-                  <?php if ($paymentBrand['icon'] === 'card'): ?>
+                  <?php if ($isCancelled): ?>
+                    <i class="fa fa-ban"></i>
+                  <?php elseif ($paymentBrand['icon'] === 'card'): ?>
                     <i class="fa fa-credit-card"></i>
                   <?php elseif ($paymentBrand['icon'] === 'manual'): ?>
                     <i class="fa fa-money"></i>
@@ -616,16 +956,38 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
                     <i class="fa fa-clock-o"></i>
                   <?php endif; ?>
                 </span>
-                <span class="od-pay-method-label"><?= h($paymentBrand['label']) ?></span>
+                <span class="od-pay-method-label"><?= h((string)$paymentBrand['label']) ?></span>
               </div>
               <div class="od-pay-method-right">
-                <div class="od-pay-method-amt"><?= h($total) ?></div>
-                <?php if ($paymentDateShort !== ''): ?>
+                <div class="od-pay-method-amt"><?= $isCancelled ? 'No charge' : h($total) ?></div>
+                <?php if ($paymentIncomplete && (int)($paymentProgress['paid_cents'] ?? 0) > 0): ?>
+                  <div class="od-pay-method-date">Paid <?= h(org_shop_format_price((int)$paymentProgress['paid_cents'], (string)$paymentProgress['currency'])) ?> · due <?= h(org_shop_format_price((int)$paymentProgress['shortfall_cents'], (string)$paymentProgress['currency'])) ?></div>
+                <?php elseif ($paymentDateShort !== ''): ?>
                   <div class="od-pay-method-date"><?= h($paymentDateShort) ?></div>
                 <?php endif; ?>
               </div>
             </div>
 
+            <?php if ($isCancelled): ?>
+              <div class="od-pay-breakdown">
+                <div class="od-pay-line">
+                  <span><?= h($itemCountLabel) ?></span>
+                  <span><?= h($subtotal) ?></span>
+                </div>
+                <div class="od-pay-line">
+                  <span>Shipping</span>
+                  <span><?= h($shippingPrice) ?></span>
+                </div>
+                <div class="od-pay-line">
+                  <span>Tax*</span>
+                  <span><?= h($tax) ?></span>
+                </div>
+                <div class="od-pay-line is-total">
+                  <span>Order total</span>
+                  <span>No charge</span>
+                </div>
+              </div>
+            <?php else: ?>
             <div class="od-pay-breakdown">
               <div class="od-pay-line">
                 <span><?= h($itemCountLabel) ?></span>
@@ -650,10 +1012,13 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
                 <span><?= h($total) ?></span>
               </div>
             </div>
+            <?php endif; ?>
 
+            <?php if (!$isCancelled): ?>
             <p class="od-pay-footnote">*We're required by law to collect sales tax and applicable fees for certain tax authorities. <a href="#" onclick="return false;">Learn more</a></p>
+            <?php endif; ?>
 
-            <?php if ($receiptCode !== ''): ?>
+            <?php if ($receiptCode !== '' && !$isCancelled): ?>
               <p class="od-pay-footnote" style="margin-top:8px;">Receipt <code><?= h($receiptCode) ?></code></p>
             <?php endif; ?>
           </section>
@@ -691,21 +1056,70 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
   <?php endif; ?>
 </div>
 
+<?php if (!$notFound && $paymentIncomplete): ?>
+<div class="od-pay-modal" id="odPayCompleteModal" aria-hidden="true">
+  <button type="button" class="od-pay-modal-backdrop" id="odPayCompleteBackdrop" aria-label="Close"></button>
+  <div class="od-pay-modal-card" role="dialog" aria-modal="true" aria-labelledby="odPayCompleteTitle">
+    <button type="button" class="od-pay-modal-close" id="odPayCompleteClose" aria-label="Close">&times;</button>
+    <div class="od-pay-modal-icon" aria-hidden="true"><i class="fa fa-credit-card"></i></div>
+    <h3 id="odPayCompleteTitle">Complete payment?</h3>
+    <p class="od-pay-modal-desc">
+      Enter how much to pay now. Shipping stays on hold until the full order total is paid.
+    </p>
+    <div class="od-pay-modal-meta">
+      <div><span>Order</span><strong id="odPayMetaCode"><?= h($orderCodeUi !== '' ? $orderCodeUi : '—') ?></strong></div>
+      <div><span>Already paid</span><strong id="odPayMetaPaid"><?= h($paidLabelUi !== '' ? $paidLabelUi : '—') ?></strong></div>
+      <div><span>Order total</span><strong id="odPayMetaDue"><?= h((string)($dueLabelUi !== '' ? $dueLabelUi : '—')) ?></strong></div>
+      <div class="is-short"><span>Still due</span><strong id="odPayMetaShort"><?= h($shortfallLabelUi !== '' ? $shortfallLabelUi : '—') ?></strong></div>
+    </div>
+    <label for="odPayCompleteAmount">Amount to pay now</label>
+    <input
+      type="text"
+      inputmode="decimal"
+      id="odPayCompleteAmount"
+      value="<?= h($shortfallCentsUi > 0 ? number_format($shortfallCentsUi / 100, 2, '.', '') : '') ?>"
+      placeholder="0.00"
+      autocomplete="off"
+    >
+    <div class="od-pay-modal-err" id="odPayCompleteErr" role="alert"></div>
+    <div class="od-pay-modal-actions">
+      <button type="button" class="od-pay-modal-cancel" id="odPayCompleteCancel">Cancel</button>
+      <button type="button" class="od-pay-modal-submit" id="odPayCompleteSubmit">Pay now</button>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <script>
 (function(){
   var shell = document.getElementById('odShell');
   var tabs = document.querySelectorAll('.od-tab');
+  function setScreen(screen) {
+    screen = String(screen || '0');
+    if (shell) shell.setAttribute('data-screen', screen);
+    tabs.forEach(function(t){
+      var active = String(t.getAttribute('data-screen') || '') === screen;
+      t.classList.toggle('is-active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+  }
   tabs.forEach(function(tab){
     tab.addEventListener('click', function(){
-      var screen = tab.getAttribute('data-screen') || '0';
-      if (shell) shell.setAttribute('data-screen', screen);
-      tabs.forEach(function(t){
-        var active = t === tab;
-        t.classList.toggle('is-active', active);
-        t.setAttribute('aria-selected', active ? 'true' : 'false');
-      });
+      setScreen(tab.getAttribute('data-screen') || '0');
     });
   });
+  (function openDeepLinkTab(){
+    var tab = '';
+    try {
+      tab = String((new URLSearchParams(window.location.search || '')).get('tab') || '').trim().toLowerCase();
+    } catch (e) {}
+    if (!tab) {
+      tab = String((window.location.hash || '').replace(/^#/, '')).trim().toLowerCase();
+    }
+    if (tab === 'payment' || tab === 'pay' || tab === '1') setScreen('1');
+    else if (tab === 'seller' || tab === '2') setScreen('2');
+    else if (tab === 'order' || tab === '0') setScreen('0');
+  })();
 
   var closeBtn = document.getElementById('odCloseBtn');
   if (closeBtn) {
@@ -748,6 +1162,128 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
       window.alert(data.message || (data.ok ? 'Return requested.' : 'Failed.'));
     });
   });
+
+  document.querySelectorAll('.js-order-complete-pay').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (moreMenu) moreMenu.classList.remove('is-open');
+      openPayCompleteModal(btn);
+    });
+  });
+
+  var payModal = document.getElementById('odPayCompleteModal');
+  var payAmount = document.getElementById('odPayCompleteAmount');
+  var payErr = document.getElementById('odPayCompleteErr');
+  var paySubmit = document.getElementById('odPayCompleteSubmit');
+  var activePayBtn = null;
+
+  function setPayErr(msg) {
+    if (!payErr) return;
+    if (msg) {
+      payErr.textContent = msg;
+      payErr.classList.add('is-on');
+    } else {
+      payErr.textContent = '';
+      payErr.classList.remove('is-on');
+    }
+  }
+
+  function closePayCompleteModal() {
+    if (!payModal) return;
+    payModal.classList.remove('is-open');
+    payModal.setAttribute('aria-hidden', 'true');
+    activePayBtn = null;
+    setPayErr('');
+    document.body.style.overflow = '';
+  }
+
+  function openPayCompleteModal(btn) {
+    if (!payModal || !btn) return;
+    activePayBtn = btn;
+    var code = String(btn.getAttribute('data-order-code') || '').trim();
+    var paid = String(btn.getAttribute('data-paid-label') || '').trim();
+    var due = String(btn.getAttribute('data-due-label') || '').trim();
+    var shortfallCents = parseInt(btn.getAttribute('data-shortfall-cents') || '0', 10) || 0;
+    var shortfallLabel = String(btn.getAttribute('data-shortfall-label') || '').trim();
+    var codeEl = document.getElementById('odPayMetaCode');
+    var paidEl = document.getElementById('odPayMetaPaid');
+    var dueEl = document.getElementById('odPayMetaDue');
+    var shortEl = document.getElementById('odPayMetaShort');
+    if (codeEl) codeEl.textContent = code || '—';
+    if (paidEl) paidEl.textContent = paid || '—';
+    if (dueEl) dueEl.textContent = due || '—';
+    if (shortEl) shortEl.textContent = shortfallLabel || '—';
+    if (payAmount) {
+      payAmount.value = shortfallCents > 0 ? (shortfallCents / 100).toFixed(2) : '';
+      setTimeout(function () {
+        payAmount.focus();
+        payAmount.select();
+      }, 30);
+    }
+    setPayErr('');
+    payModal.classList.add('is-open');
+    payModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  async function submitPayCompleteModal() {
+    if (!activePayBtn || !payModal) return;
+    var orderId = activePayBtn.getAttribute('data-order-id');
+    var shortfallCents = parseInt(activePayBtn.getAttribute('data-shortfall-cents') || '0', 10) || 0;
+    var typed = payAmount ? String(payAmount.value || '').trim() : '';
+    if (!typed && shortfallCents <= 0) {
+      setPayErr('Enter an amount to pay.');
+      return;
+    }
+    var body = new URLSearchParams();
+    body.set('order_id', orderId);
+    if (typed) body.set('amount', typed);
+    if (paySubmit) paySubmit.disabled = true;
+    activePayBtn.disabled = true;
+    setPayErr('');
+    try {
+      var res = await fetch('ajax/shop_order_complete_payment.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        credentials: 'same-origin'
+      });
+      var data = await res.json();
+      if (data.ok) {
+        closePayCompleteModal();
+        window.location.reload();
+        return;
+      }
+      setPayErr(data.message || 'Could not update payment.');
+    } catch (e) {
+      setPayErr('Could not update payment.');
+    } finally {
+      if (paySubmit) paySubmit.disabled = false;
+      if (activePayBtn) activePayBtn.disabled = false;
+    }
+  }
+
+  if (payModal) {
+    var payClose = document.getElementById('odPayCompleteClose');
+    var payCancel = document.getElementById('odPayCompleteCancel');
+    var payBackdrop = document.getElementById('odPayCompleteBackdrop');
+    if (payClose) payClose.addEventListener('click', closePayCompleteModal);
+    if (payCancel) payCancel.addEventListener('click', closePayCompleteModal);
+    if (payBackdrop) payBackdrop.addEventListener('click', closePayCompleteModal);
+    if (paySubmit) paySubmit.addEventListener('click', submitPayCompleteModal);
+    if (payAmount) {
+      payAmount.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitPayCompleteModal();
+        }
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && payModal.classList.contains('is-open')) {
+        closePayCompleteModal();
+      }
+    });
+  }
 
   document.querySelectorAll('.js-order-cancel').forEach(function(btn){
     btn.addEventListener('click', async function(){
@@ -796,6 +1332,58 @@ $itemCountLabel = $qty === 1 ? '1 item' : $qty . ' items';
       if (data.ok) form.hidden = true;
     });
   });
+})();
+</script>
+<script>
+/* Live sync with the iOS app: reload quietly when this buyer's orders / returns / reviews change elsewhere. */
+(function () {
+  var SYNC_URL = 'ajax/shop_sync_state.php';
+  var watch = ['orders', 'returns', 'reviews'];
+  var baseline = null, version = '', pending = false, acceptNext = false, lastInteraction = 0, timer = null;
+  ['keydown', 'input', 'pointerdown', 'touchstart'].forEach(function (evt) {
+    document.addEventListener(evt, function () { lastInteraction = Date.now(); }, true);
+  });
+  var nativeFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : ((input && input.url) || '');
+    var method = String((init && init.method) || 'GET').toUpperCase();
+    var p = nativeFetch(input, init);
+    if (method !== 'GET' && url.indexOf('ajax/') !== -1 && url.indexOf(SYNC_URL) === -1) {
+      p.then(function () { acceptNext = true; schedule(250); }, function () {});
+    }
+    return p;
+  };
+  function busy() {
+    if (Date.now() - lastInteraction < 4000) return true;
+    if (document.querySelector('dialog[open], form:not([hidden]) textarea:focus, input:focus')) return true;
+    return false;
+  }
+  function reloadWhenIdle() {
+    if (document.hidden || busy()) { setTimeout(reloadWhenIdle, 1500); return; }
+    location.reload();
+  }
+  function schedule(ms) { if (timer) clearTimeout(timer); timer = setTimeout(sync, ms); }
+  async function sync() {
+    timer = null;
+    try {
+      var res = await nativeFetch(SYNC_URL + (version ? ('?since=' + encodeURIComponent(version)) : ''), { credentials: 'same-origin', cache: 'no-store' });
+      var data = await res.json();
+      if (data && data.ok) {
+        var parts = data.parts || {};
+        if (baseline && !acceptNext && data.changed && !pending) {
+          if (watch.some(function (k) { return (baseline[k] || '') !== (parts[k] || ''); })) {
+            pending = true;
+            reloadWhenIdle();
+          }
+        }
+        if (!pending) { baseline = parts; version = String(data.version || ''); }
+        acceptNext = false;
+      }
+    } catch (e) { /* offline */ }
+    schedule(document.hidden ? 15000 : 3000);
+  }
+  sync();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) schedule(0); });
 })();
 </script>
 </body>

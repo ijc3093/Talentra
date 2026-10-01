@@ -3,7 +3,7 @@
 // (Keep the local MAMP config.php on your computer unchanged.)
 //
 // Hostinger account u825834874:
-//   Database  = u825834874_talsora
+//   Database  = u825834874_talsora_
 //   App files = domains/mystorybook.pro/public_html  (this repo)
 //   Public domain to use: talsora.io (Namecheap). Do not use talsora.pro
 //   (that name is a different live marketing site).
@@ -20,6 +20,7 @@ if (!defined('APP_SIGNING_KEY')) {
 if (!class_exists('Config', false)) {
     class Config
     {
+        private static ?PDO $shared = null;
         private PDO $dbh;
 
         /* =========================
@@ -28,7 +29,7 @@ if (!class_exists('Config', false)) {
         public string $DB_HOST = '127.0.0.1';
         public string $DB_USER = 'u825834874_root';
         public string $DB_PASS = 'u825834874_Pass';
-        public string $DB_NAME = 'u825834874_talsora';
+        public string $DB_NAME = 'u825834874_talsora_';
         public int    $DB_PORT = 3306;
 
         /* =========================
@@ -49,12 +50,39 @@ if (!class_exists('Config', false)) {
 
         public function __construct()
         {
-            // Hostinger often blocks the MySQL unix socket that PHP uses for
-            // host=localhost (SQLSTATE 2002 "Operation not permitted").
-            // Prefer TCP to 127.0.0.1, then fall back to the configured host.
+            if (self::$shared instanceof PDO) {
+                $this->dbh = self::$shared;
+                return;
+            }
+
+            $this->dbh = self::connectPdo(
+                $this->DB_NAME,
+                $this->DB_USER,
+                $this->DB_PASS,
+                $this->DB_PORT,
+                $this->DB_HOST,
+                true
+            );
+            self::$shared = $this->dbh;
+        }
+
+        /**
+         * Hostinger shared hosting:
+         * - unix socket via host=localhost can fail with SQLSTATE 2002
+         *   "Operation not permitted"
+         * - new connections are capped (~20/sec); reuse one PDO and persist it
+         */
+        public static function connectPdo(
+            string $dbName,
+            string $dbUser,
+            string $dbPass,
+            int $dbPort,
+            string $preferredHost,
+            bool $persistent
+        ): PDO {
             $hosts = [];
-            foreach (['127.0.0.1', $this->DB_HOST, 'localhost'] as $host) {
-                $host = trim((string)$host);
+            foreach (['127.0.0.1', $preferredHost, 'localhost'] as $host) {
+                $host = trim($host);
                 if ($host !== '' && !in_array($host, $hosts, true)) {
                     $hosts[] = $host;
                 }
@@ -64,22 +92,30 @@ if (!class_exists('Config', false)) {
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
-                PDO::ATTR_TIMEOUT            => 8,
+                PDO::ATTR_TIMEOUT            => 5,
+                PDO::ATTR_PERSISTENT         => $persistent,
+                PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci',
             ];
 
             $lastError = null;
             foreach ($hosts as $host) {
-                $dsn = "mysql:host={$host};port={$this->DB_PORT};dbname={$this->DB_NAME};charset=utf8mb4";
+                $dsn = "mysql:host={$host};port={$dbPort};dbname={$dbName};charset=utf8mb4";
                 try {
-                    $this->dbh = new PDO($dsn, $this->DB_USER, $this->DB_PASS, $options);
-                    return;
+                    return new PDO($dsn, $dbUser, $dbPass, $options);
                 } catch (PDOException $e) {
                     $lastError = $e;
+                    $sqlState = (string)$e->getCode();
+                    $msg = strtolower($e->getMessage());
+                    // Wrong user/password/database will not succeed on another host.
+                    if ($sqlState === '1045' || $sqlState === '1044' || str_contains($msg, 'access denied')) {
+                        break;
+                    }
                 }
             }
 
-            http_response_code(500);
-            die('Database could not be connected: ' . ($lastError ? $lastError->getMessage() : 'unknown error'));
+            http_response_code(503);
+            $detail = $lastError ? $lastError->getMessage() : 'unknown error';
+            die('Database could not be connected: ' . $detail);
         }
 
         public function pdo(): PDO

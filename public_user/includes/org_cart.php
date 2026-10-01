@@ -57,6 +57,7 @@ function org_cart_list_items(PDO $dbh, int $userId): array
             SELECT c.*,
                    p.title, p.description, p.price_cents, p.currency, p.stock_qty,
                    p.cover_image_path, p.category, p.status AS product_status,
+                   p.delivery_enabled, p.pickup_enabled, p.shipping_fee_cents,
                    o.name AS seller_name,
                    o.publisher_user_id,
                    u.username AS publisher_username,

@@ -129,6 +129,7 @@ if ($feedAlertPostId > 0 && $meId > 0) {
             COALESCE(p.link_description,'') AS link_description,
             COALESCE(p.link_image,'') AS link_image,
             COALESCE(p.link_tags,'') AS link_tags,
+            COALESCE(p.hashtags,'') AS hashtags,
             COALESCE(p.is_archived,0) AS is_archived,
             p.created_at,
             COALESCE(p.updated_at, p.created_at) AS updated_at,
@@ -3947,16 +3948,24 @@ body.feed-insta-ui .ig-insta-card .card-body.full-media{
   transition:background .15s ease,opacity .15s ease;
 }
 .ig-top-act:hover{opacity:.85;}
-.ig-top-mic,
-.ig-top-shop{
+.ig-top-mic{
   width:44px;
   height:44px;
   border-radius:50%;
   background:var(--feed-control-soft, #eef2f7);
   font-size:18px;
 }
-.ig-top-mic:hover,
-.ig-top-shop:hover{background:var(--feed-surface-alt, #e2e8f0);opacity:1;}
+.ig-top-shop{
+  width:auto;
+  min-width:28px;
+  height:44px;
+  border-radius:0;
+  background:transparent;
+  font-size:22px;
+  position:relative;
+}
+.ig-top-mic:hover{background:var(--feed-surface-alt, #e2e8f0);opacity:1;}
+.ig-top-shop:hover{background:transparent;opacity:.85;}
 .ig-top-live{
   gap:8px;
   min-height:44px;
@@ -4851,7 +4860,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
   }
   body.feed-insta-ui .feed-desktop-center > .mf-feed::-webkit-scrollbar,
   body.feed-insta-ui .feed-desktop-layout .mf-feed::-webkit-scrollbar{
-    width:6px;
+    width:2px !important;
   }
   body.feed-insta-ui .feed-desktop-center > .mf-feed::-webkit-scrollbar-thumb,
   body.feed-insta-ui .feed-desktop-layout .mf-feed::-webkit-scrollbar-thumb{
@@ -4934,7 +4943,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 </head>
   <body class="feed-page feed-insta-ui public-suggestions-visible<?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
   <?php $GLOBALS['msb_skip_header_leftbar'] = true; $skipHeaderThemeBootstrap = true; include __DIR__.'/includes/header.php'; ?>
-  <?php $feedLeftRailActive = 'home.php'; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__.'/includes/feed_left_rail.php'; ?>
+  <?php $feedLeftRailActive = 'home.php'; $feedLeftRailCanFollow = $canFollowPublishers; $feedLeftRailLegal = true; include __DIR__.'/includes/feed_left_rail.php'; ?>
     
     <!-- ✅ Leftbar overlay (used on mobile/tablet drawer mode) -->
     <div id="lbOverlay" class="lb-overlay" style="display:none;"></div>
@@ -5099,7 +5108,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                     if(host) host.hidden = false;
                     if(jumpRail) jumpRail.hidden = true;
                     if(postedPill) postedPill.hidden = true;
-                    if(search) search.hidden = true;
+                    if(search) search.hidden = false;
                     if(frame){
                       var next = embedSrc(link);
                       if(frame.getAttribute('src') !== next) frame.src = next;
@@ -5182,7 +5191,39 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
                   });
                 })();
                 </script>
-                <div id="mfFeed" class="mf-feed mobile-only mf-hydrating" aria-label="Mobile/Tablet feed"></div>
+                <style>
+                #mfFeed.mf-hydrating{visibility:visible!important;opacity:1!important;pointer-events:none}
+                #mfFeed.mf-hydrating>.mf-boot-placeholder{display:block!important;visibility:visible!important;opacity:1!important}
+                .mf-boot-placeholder{width:100%;margin:0 0 16px;padding:8px 12px;border:1px solid var(--feed-border-strong,#d8dee8);border-radius:12px;background:var(--msb-palette-surface,var(--msb-palette-bg,#fff));box-sizing:border-box}
+                .mf-boot-placeholder-head{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+                .mf-boot-placeholder-avatar{width:46px;height:46px;flex:0 0 46px;border-radius:50%;background:var(--public-loading-detail-bg,#e5e7eb)}
+                .mf-boot-placeholder-copy{display:grid;gap:7px;flex:1}.mf-boot-placeholder-copy i{display:block;height:10px;border-radius:999px;background:var(--public-loading-detail-bg,#e5e7eb)}.mf-boot-placeholder-copy i:first-child{width:150px}.mf-boot-placeholder-copy i:last-child{width:95px}
+                .mf-boot-placeholder-fries{display:grid;gap:4px;width:22px;flex:0 0 22px;align-self:center}.mf-boot-placeholder-fries i{display:block;height:3px;border-radius:999px;background:var(--public-loading-detail-bg,#e5e7eb)}.mf-boot-placeholder-fries i:nth-child(2){width:16px}.mf-boot-placeholder-fries i:nth-child(3){width:10px}
+                .mf-boot-placeholder-media{width:100%;max-width:100%;box-sizing:border-box;aspect-ratio:4/3;border-radius:7px;background:var(--public-loading-media-bg,#f1f1f1);box-shadow:inset 0 -22px 28px rgba(15,23,42,.025)}
+                .mf-boot-placeholder-actions{display:flex;gap:22px;margin-top:14px;padding-top:12px;border-top:1px solid var(--feed-border-strong,#d8dee8)}.mf-boot-placeholder-actions i{display:block;width:34px;height:12px;border-radius:999px;background:var(--public-loading-detail-bg,#e5e7eb)}.mf-boot-placeholder-actions i:last-child{margin-left:auto}
+                @media(max-width:767px){.mf-boot-placeholder{margin-bottom:0;border-radius:0;border-left:0;border-right:0}.mf-boot-placeholder-media{width:100%;max-width:100%}}
+                </style>
+                <div id="mfFeed" class="mf-feed mobile-only mf-hydrating" aria-label="Mobile/Tablet feed" aria-busy="true">
+                  <article class="mf-boot-placeholder" aria-hidden="true"><div class="mf-boot-placeholder-head"><span class="mf-boot-placeholder-avatar"></span><span class="mf-boot-placeholder-copy"><i></i><i></i></span><span class="mf-boot-placeholder-fries"><i></i><i></i><i></i></span></div><div class="mf-boot-placeholder-media"></div><div class="mf-boot-placeholder-actions"><i></i><i></i><i></i><i></i></div></article>
+                  <article class="mf-boot-placeholder" aria-hidden="true"><div class="mf-boot-placeholder-head"><span class="mf-boot-placeholder-avatar"></span><span class="mf-boot-placeholder-copy"><i></i><i></i></span><span class="mf-boot-placeholder-fries"><i></i><i></i><i></i></span></div><div class="mf-boot-placeholder-media"></div><div class="mf-boot-placeholder-actions"><i></i><i></i><i></i><i></i></div></article>
+                </div>
+                <script>
+                (function(){
+                  try{
+                    var saved=JSON.parse(localStorage.getItem('msbCircleLoadingMedia')||'[]');
+                    document.querySelectorAll('#mfFeed .mf-boot-placeholder-media').forEach(function(box,index){
+                      var dim=saved[index]||{};var w=Number(dim.w||0),h=Number(dim.h||0);if(!w||!h)return;
+                      var card=box.closest('.mf-boot-placeholder');var available=Math.max(1,(card?card.clientWidth:720)-24);
+                      var mediaRatio=window.innerWidth<=767.98 ? .42 : (window.innerWidth<=1024.98 ? .52 : .56);
+                      var mediaOffset=window.innerWidth<=767.98 ? 300 : (window.innerWidth<=1024.98 ? 240 : 220);
+                      var maxW=available;var maxH=Math.max(1,Math.min(window.innerHeight*mediaRatio,window.innerHeight-mediaOffset));
+                      var scale=Math.min(1,maxW/w,maxH/h,available/w);
+                      box.style.setProperty('width',Math.max(1,Math.round(w*scale))+'px','important');
+                      box.style.setProperty('aspect-ratio',w+' / '+h,'important');
+                    });
+                  }catch(_circleLoading){}
+                }());
+                </script>
                 <?php if (empty($tabEmbed)): ?>
                 <div class="home-tab-frame-host" id="homeDiscoverHost" hidden>
                   <iframe class="home-tab-frame" id="homeDiscoverFrame" title="Discover"></iframe>
@@ -6255,6 +6296,23 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           color:#9f1239;
         }
         .mf-link-preview-chip.is-place i{ color:#ef4444; margin-right:5px; }
+        .mf-hashtag-pills{
+          display:flex;
+          flex-wrap:wrap;
+          gap:8px;
+          margin:10px 12px 2px;
+        }
+        .mf-hashtag-pill{
+          display:inline-flex;
+          align-items:center;
+          padding:6px 12px;
+          border-radius:999px;
+          background:#e8f1ff;
+          color:#3b82f6;
+          font-size:13px;
+          font-weight:700;
+          line-height:1.2;
+        }
         .mf-link-preview-cta{
           display:flex;
           align-items:center;
@@ -7948,12 +8006,17 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           if(opts.isPhoneShot && window.matchMedia('(max-width: 767.98px)').matches){
             return Math.max(240, Math.min(availableWidth, Math.round(window.innerWidth * 0.78)));
           }
-          return availableWidth;
+          aspectW=Number(aspectW||0);aspectH=Number(aspectH||0);
+          if(!(aspectW>0&&aspectH>0))return availableWidth;
+          var viewportH=Math.max(window.innerHeight||0,320);
+          var ratio=window.matchMedia('(max-width: 767.98px)').matches ? .42 : (window.matchMedia('(max-width: 1024.98px)').matches ? .52 : .56);
+          var offset=window.matchMedia('(max-width: 767.98px)').matches?300:(window.matchMedia('(max-width: 1024.98px)').matches?240:220);
+          var maxHeight=Math.max(1,Math.min(viewportH*ratio,viewportH-offset));
+          return Math.max(1,Math.min(availableWidth,Math.round((aspectW/aspectH)*maxHeight)));
         }
 
         function mfMediaWidthCss(isPhoneShot, safeWidth){
-          if(isPhoneShot) return String(safeWidth) + 'px';
-          return '100%';
+          return String(safeWidth) + 'px';
         }
 
         function mfInitialMediaCardStyleFromDims(dims, isPhoneShot){
@@ -8004,19 +8067,17 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           card.style.marginLeft = '0';
           card.style.marginRight = '0';
           card.style.setProperty('box-sizing', 'border-box', 'important');
-          if (isHeadOutside || card.querySelector('.mf-head--on-media')) {
-            card.style.setProperty('padding', '8px 12px', 'important');
-          } else {
-            card.style.removeProperty('padding');
-          }
+          // Match Discover: always inset single-media cards so rounded media corners stay visible.
+          card.style.setProperty('padding', '8px 12px', 'important');
           var widthCss = mfMediaWidthCss(isPhoneShot, safeWidth);
           card.style.setProperty('--post-media-card-width', widthCss);
           card.style.setProperty('--post-media-max-height', maxH);
 
           if(media){
             if(isHeadOutside){
-              // Keep stage full-width so fries/save stay on the card right edge.
-              media.style.width = '100%';
+              // Header/menu may span the card, but the media surface itself
+              // must keep the exact portrait/square/landscape width.
+              media.style.width = 'min(100%, ' + widthCss + ')';
               media.style.maxWidth = '100%';
               media.style.marginLeft = '0';
               media.style.marginRight = '0';
@@ -8041,7 +8102,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             }catch(e){}
           }
           if(video){
-            video.style.setProperty('width', (isPhoneShot && !isDescMedia && !isHeadOutside) ? '100%' : 'auto', 'important');
+            // Do not set width:100% — it stretches the box and hides the right border-radius.
+            video.style.setProperty('width', 'auto', 'important');
             video.style.setProperty('max-width', '100%', 'important');
             video.style.setProperty('height', 'auto', 'important');
             video.style.setProperty('max-height', maxH, 'important');
@@ -8058,7 +8120,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             video.style.removeProperty('padding');
           }
           if(image){
-            image.style.setProperty('width', (isPhoneShot && !isDescMedia && !isHeadOutside) ? '100%' : 'auto', 'important');
+            // Do not set width:100% — keep intrinsic width so right-edge radius is visible.
+            image.style.setProperty('width', 'auto', 'important');
             image.style.setProperty('max-width', '100%', 'important');
             image.style.setProperty('height', 'auto', 'important');
             image.style.setProperty('max-height', maxH, 'important');
@@ -8085,6 +8148,16 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               actions.style.setProperty('visibility', 'visible', 'important');
               actions.style.setProperty('opacity', '1', 'important');
             }
+          }
+          if(media && media.classList.contains('mf-media-pending')){
+            media.style.setProperty('width', 'min(100%, var(--post-media-card-width, 100%))', 'important');
+            media.style.setProperty('aspect-ratio', String(aspectW) + ' / ' + String(aspectH), 'important');
+            media.style.setProperty('min-height', '0', 'important');
+            media.style.setProperty('background', 'var(--public-loading-media-bg, #f1f1f1)', 'important');
+            media.style.setProperty('border-radius', '7px', 'important');
+            media.style.setProperty('overflow', 'hidden', 'important');
+            var pendingEl = media.querySelector(':scope > img, :scope > video');
+            if(pendingEl) pendingEl.style.setProperty('opacity', '0', 'important');
           }
         }
 
@@ -8126,6 +8199,14 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         }
 
         function mfInitialMediaAspect(it, deviceDims){
+          var exactW=Number(it&&it.preview_w||0);
+          var exactH=Number(it&&it.preview_h||0);
+          if(exactW>0&&exactH>0)return{w:exactW,h:exactH};
+          try{
+            var cacheKey='talsora:circle-dims:'+String((it&&(it.preview_path||it.id))||'');
+            var cached=JSON.parse(localStorage.getItem(cacheKey)||'null');
+            if(cached&&Number(cached.w)>0&&Number(cached.h)>0)return{w:Number(cached.w),h:Number(cached.h)};
+          }catch(_circleDimRead){}
           if(deviceDims && deviceDims.w > 0 && deviceDims.h > 0) return deviceDims;
           var shape = String((it && it.media_shape) || '').trim();
           if(shape === 'single-portrait') return { w: 9, h: 16 };
@@ -8136,13 +8217,55 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
 
         function mfPreflightSingleMediaCard(card, it){
           if(!card) return;
-          if(card.classList && card.classList.contains('is-single-video-post')) return;
-          var dims = mfGetDeviceDimensions(card) || mfInitialMediaAspect(it, null);
+          var dims = mfInitialMediaAspect(it, mfGetDeviceDimensions(card));
           if(!dims || !dims.w || !dims.h) return;
+          card.setAttribute('data-locked-media-w',String(dims.w));
+          card.setAttribute('data-locked-media-h',String(dims.h));
+          card.setAttribute('data-media-src',String((it&&(it.preview_path||it.id))||''));
           mfApplyPublicVideoCardWidth(card, dims.w, dims.h);
           var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage, .media-stage.has-carousel');
+          if(media && (card.classList.contains('is-single-image-post') || card.classList.contains('is-single-video-post'))){
+            media.classList.add('mf-media-pending');
+            media.style.setProperty('width', 'min(100%, var(--post-media-card-width, 100%))', 'important');
+            media.style.setProperty('aspect-ratio', String(dims.w) + ' / ' + String(dims.h), 'important');
+            media.style.setProperty('min-height', '0', 'important');
+            media.style.setProperty('background', 'var(--public-loading-media-bg, #f1f1f1)', 'important');
+            media.style.setProperty('border-radius', '7px', 'important');
+            media.style.setProperty('overflow', 'hidden', 'important');
+            var pendingElement = media.querySelector(':scope > img, :scope > video');
+            if(pendingElement) pendingElement.style.setProperty('opacity', '0', 'important');
+          }
           if(media && card.classList.contains('is-single-image-post')){
             media.classList.add('mf-media-sized');
+          }
+        }
+
+        function mfClearPendingMediaPlaceholder(card){
+          if(!card) return;
+          var media = card.querySelector('.media-stage.mf-media-pending');
+          if(!media) return;
+          var lockedW=Number(card.getAttribute('data-locked-media-w')||0);
+          var lockedH=Number(card.getAttribute('data-locked-media-h')||0);
+          media.classList.remove('mf-media-pending');
+          if(lockedW>0&&lockedH>0){
+            media.style.setProperty('aspect-ratio',String(lockedW)+' / '+String(lockedH),'important');
+            media.style.setProperty('width','min(100%, var(--post-media-card-width, 100%))','important');
+          }else{
+            media.style.removeProperty('aspect-ratio');
+          }
+          media.style.removeProperty('min-height');
+          media.style.removeProperty('background');
+          media.style.setProperty('border-radius', '6px', 'important');
+          media.style.setProperty('overflow', lockedW>0&&lockedH>0?'hidden':'visible', 'important');
+          var readyElement = media.querySelector(':scope > img, :scope > video');
+          if(readyElement){
+            readyElement.style.removeProperty('opacity');
+            if(lockedW>0&&lockedH>0){
+              readyElement.style.setProperty('width','100%','important');
+              readyElement.style.setProperty('height','100%','important');
+              readyElement.style.setProperty('max-height','none','important');
+              readyElement.style.setProperty('object-fit','contain','important');
+            }
           }
         }
 
@@ -9249,6 +9372,14 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             }
             if(!w || !h) return;
 
+            try{
+              var mediaKey='talsora:circle-dims:'+String(card.getAttribute('data-media-src')||card.getAttribute('data-id')||'');
+              localStorage.setItem(mediaKey,JSON.stringify({w:w,h:h}));
+            }catch(_circleDimWrite){}
+            var lockedW=Number(card.getAttribute('data-locked-media-w')||0);
+            var lockedH=Number(card.getAttribute('data-locked-media-h')||0);
+            if(lockedW>0&&lockedH>0){w=lockedW;h=lockedH;}
+
             var stage = el.closest('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
             if(stage) stage.classList.add('mf-media-sized');
             mfApplyPublicVideoCardWidth(card, w, h);
@@ -9263,6 +9394,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               }
             }else if(el.complete && Number(el.naturalWidth || 0) > 0){
               card.classList.add('mf-image-ready');
+            }
+            if(card.classList.contains('mf-video-ready') || card.classList.contains('mf-image-ready')){
+              mfClearPendingMediaPlaceholder(card);
             }
           }catch(e){}
         }
@@ -9499,7 +9633,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
              * for its real dimensions before painting the tab. Other cards
              * may continue loading below it without moving the top card.
              */
-            if(mfFirstFeedCardIsReady($wrap) || (Date.now() - loadingStartedAt) >= 1500){
+            if(mfFirstFeedCardIsReady($wrap) || $wrap.find('.mf-media-pending').length || (Date.now() - loadingStartedAt) >= 1500){
               $wrap.removeClass('mf-hydrating').attr('aria-busy','false');
               mfRelocateFollowButtons($wrap);
               if(window.MSBPostCardMenu){
@@ -9559,6 +9693,10 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
         function renderMobileFeed(items){
           var $wrap = $('#mfFeed');
           if(!$wrap.length) return;
+          try{
+            var loadingMedia=(items||[]).filter(function(it){return Number(it&&it.preview_w||0)>0&&Number(it&&it.preview_h||0)>0;}).slice(0,2).map(function(it){return{w:Number(it.preview_w),h:Number(it.preview_h)};});
+            if(loadingMedia.length)localStorage.setItem('msbCircleLoadingMedia',JSON.stringify(loadingMedia));
+          }catch(_saveCircleLoading){}
           $wrap.addClass('mf-hydrating').attr('aria-busy','true');
           $wrap.empty();
 
@@ -9974,6 +10112,28 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           return { url: url, host: host, title: title, description: description, image: image, image_fallback: imageFallback, is_logo: isLogo, tags: tags };
         }
 
+        function mfHashtagsHtml(it){
+          var raw = String((it && it.hashtags) || '').trim();
+          if (!raw) {
+            var blob = [String((it && it.body) || ''), String((it && it.description) || ''), String((it && it.title) || '')].join(' ');
+            raw = blob;
+          }
+          var tags = [];
+          String(raw).replace(/#([A-Za-z][A-Za-z0-9_]{0,48})/g, function(_m, tag){
+            var key = String(tag || '').toLowerCase();
+            if (!key || tags.some(function(t){ return t.toLowerCase() === key; })) return '';
+            if (tags.length < 8) tags.push(tag);
+            return '';
+          });
+          if (!tags.length) return '';
+          var html = '<div class="mf-hashtag-pills">';
+          tags.forEach(function(tag){
+            html += '<span class="mf-hashtag-pill">#'+esc(tag)+'</span>';
+          });
+          html += '</div>';
+          return html;
+        }
+
         function mfLinkPreviewHtml(it){
           var linkMeta = mfFirstLinkMeta(it);
           var url = linkMeta.url;
@@ -10329,7 +10489,8 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var isLiveCard = !!(liveMeta && Number(liveMeta.id || 0) > 0);
           if(isLiveCard) return '';
           var linkPreviewHtml = mfLinkPreviewHtml(it);
-          if(!hasMedia && !title && !hasBody && !linkPreviewHtml) return '';
+          var hashtagsHtml = mfHashtagsHtml(it);
+          if(!hasMedia && !title && !hasBody && !linkPreviewHtml && !hashtagsHtml) return '';
           // Same reel rule as public.php: only explicit media_reel_bottom layout.
           var isReelCard = false;
           var isVideoCard = (pkind === 'video' && !isReelCard);
@@ -10340,7 +10501,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
           var mediaHtml = '';
           var actionsHtml = '';
           var cardClass = 'mf-card';
-          var hasMediaDescription = hasMedia && !!(title || hasBody || slideTitle0 || slideBody0);
+          var hasMediaDescription = hasMedia && !!(title || hasBody || slideTitle0 || slideBody0 || hashtagsHtml);
           var useMediaHeadOutside = hasMediaDescription && !isReelCard;
           if(useMediaHeadOutside){
             cardClass += ' mf-card-media-head-outside mf-card-description-media';
@@ -10561,7 +10722,7 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-peer-id="'+esc(String(cardPeerId))+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-visibility="'+esc(String((window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility) ? window.MSBPostCardMenu.normalizeVisibility(it.visibility || 'friends') : (it.visibility || 'friends')))+'" data-account-kind="'+esc(cardAccountKind)+'" data-is-publisher="'+esc(cardIsPublisher)+'" data-is-following="'+cardIsFollowing+'" data-my-saved="'+esc(String(Number(it.my_saved || 0)))+'" data-me-tagged="'+esc(String(Number(it.me_tagged || 0)))+'" data-is-archived="'+esc(String(Number(it.is_archived || 0)))+'" data-peer-code="'+esc(cardPeerCode)+'" data-peer-username="'+esc(cardPeerUsername)+'" data-profile-url="'+esc(cardProfileUrl)+'" data-friend-status="'+esc(cardFriendStatus)+'" data-contact-id="'+esc(String(cardContactId))+'" data-contact-name="'+esc(cardContactName)+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
               (useHeadOnMedia ? '' : mfBuildHeadHtml(it, isOwner, pid, headerFollowHtml, false))+
               titleHtml+
-              (useMediaHeadOutside ? (bodyHtml+slideHtml+mediaHtml) : (mediaHtml+bodyHtml+slideHtml))+
+              (useMediaHeadOutside ? (bodyHtml+slideHtml+mediaHtml+hashtagsHtml) : (mediaHtml+hashtagsHtml+bodyHtml+slideHtml))+
               actionsHtml+
             '</div>';
         }
@@ -11473,10 +11634,9 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
               ? ('<img src="'+esc(thumb)+'" alt="">')
               : ('<span class="ig-story-thumb" style="background:'+gradients[idx % gradients.length]+'"></span>');
             var label = String(story.name || 'Story');
-            if(label.length > 11) label = label.slice(0, 10) + '..';
             html += '<a type="button" class="ig-story-item" data-story-key="'+esc(String(story.key))+'" data-story-index="'+String(idx)+'" aria-label="Open story for '+esc(story.name)+'">'
               + '<div class="ig-story-ring">'+ringInner+'</div>'
-              // + '<span class="ig-story-name">'+esc(label)+'</span>'
+              + '<span class="ig-story-name" title="'+esc(label)+'">'+esc(label)+'</span>'
               + '</a>';
           });
           track.innerHTML = html;
@@ -11977,7 +12137,12 @@ body.feed-insta-ui .feed-desktop-center .mf-feed .mf-card::after{
             }catch(eUrl){}
           }
           try{
-            document.querySelectorAll('[data-post-id="'+String(postId)+'"], .mf-card[data-id="'+String(postId)+'"]').forEach(function(node){
+            document.querySelectorAll(
+              '#mfFeed .mf-card[data-id="'+String(postId)+'"],' +
+              '#mfFeed .mf-card[data-post-id="'+String(postId)+'"],' +
+              '.mf-card[data-id="'+String(postId)+'"],' +
+              '.mf-card[data-post-id="'+String(postId)+'"]'
+            ).forEach(function(node){
               node.remove();
             });
           }catch(e){}
@@ -15902,7 +16067,7 @@ html[data-theme="dark"] .ig-post-progress{
     display:flex !important;
     align-items:center !important;
     gap:12px !important;
-    /* padding:1px 6px 13px !important; */
+    padding:1px 6px 1px !important;
     position:relative !important;
   }
 
@@ -16227,7 +16392,7 @@ html[data-theme="dark"] .ig-post-progress{
   }
 
   body .mf-feed .mf-title{
-    /* padding:15px 0 12px !important; */
+    padding:15px 0 12px !important;
     font-size:14px !important;
     line-height:1.28 !important;
     font-weight:800 !important;
@@ -16378,12 +16543,14 @@ html[data-theme="dark"] .ig-post-progress{
 }
 .mf-feed .mf-media-shell:has(> .mf-head--on-media) > .mf-media,
 .mf-feed .mf-media-shell:has(> .mf-head--on-media) > .media-stage{
-  width:100%!important;
+  width:min(100%, var(--post-media-card-width, 100%))!important;
   max-width:100%!important;
-  margin:0!important;
+  margin:0 auto 0 0!important;
   padding:0!important;
   background:transparent!important;
   background-color:transparent!important;
+  border-radius:var(--post-media-radius, 6px)!important;
+  overflow:hidden!important;
 }
 .mf-feed .mf-card:has(.mf-head--on-media){
   padding:8px 12px!important;
@@ -16858,25 +17025,39 @@ html body .mf-feed .media-stage.standard-video-stage{
 </style>
 
 <style id="feed-post-media-radius-override">
+  /* Match Discover: keep stage radius + transparent bg so black letterbox is narrowed inside rounded media. */
   body .mf-feed{
     --post-media-radius:6px;
   }
   body .mf-feed .media-stage.standard-video-stage,
   body .mf-feed .media-stage.standard-image-stage,
   body .mf-feed .media-stage{
-    overflow:visible !important;
-    border-radius:0 !important;
+    overflow:hidden !important;
+    border-radius:var(--post-media-radius, 6px) !important;
     padding:0 !important;
     max-height:none !important;
+    background:transparent !important;
+    background-color:transparent !important;
     display:flex !important;
     flex-direction:column !important;
     align-items:flex-start !important;
     justify-content:flex-start !important;
   }
+  body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-video-stage,
+  body .mf-feed .mf-card.mf-card-media-head-outside .media-stage.standard-image-stage{
+    overflow:visible !important;
+    border-radius:0 !important;
+  }
   body .mf-feed .media-stage.standard-video-stage > video,
   body .mf-feed .media-stage.standard-image-stage > img,
   body .mf-feed video.ig-smart-feed-video{
-    border-radius:6px !important;
+    width:auto !important;
+    max-width:100% !important;
+    height:auto !important;
+    aspect-ratio:auto !important;
+    object-fit:contain !important;
+    background:transparent !important;
+    border-radius:var(--post-media-radius, 6px) !important;
     overflow:hidden !important;
   }
   body .mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
@@ -16884,6 +17065,45 @@ html body .mf-feed .media-stage.standard-video-stage{
     clip-path:inset(0 round 6px) !important;
     -webkit-clip-path:inset(0 round 6px) !important;
   }
+</style>
+
+<style id="circle-discover-media-parity-css">
+/* Circle parity with Discover: inset cards + no full-bleed black media edges. */
+body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card.is-single-video-post:not(.mf-card-reel),
+body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card.is-single-image-post:not(.mf-card-reel){
+  padding:8px 12px !important;
+  box-sizing:border-box !important;
+}
+body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card.is-single-video-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-video-stage,
+body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card.is-single-image-post:not(.mf-card-reel):not(.mf-card-media-head-outside) .media-stage.standard-image-stage{
+  width:min(100%, var(--post-media-card-width, 100%)) !important;
+  max-width:100% !important;
+  margin-left:0 !important;
+  margin-right:auto !important;
+  background:transparent !important;
+  border-radius:var(--post-media-radius, 6px) !important;
+  overflow:hidden !important;
+}
+body.feed-page.feed-insta-ui #mfFeed.mf-feed .mf-card.is-single-video-post:not(.mf-card-reel) .media-stage.standard-video-stage > video,
+body.feed-page.feed-insta-ui #mfFeed.mf-feed .mf-card.is-single-image-post:not(.mf-card-reel) .media-stage.standard-image-stage > img{
+  width:auto !important;
+  max-width:100% !important;
+  height:auto !important;
+  max-height:var(--post-media-max-height, min(56vh, calc(100dvh - 220px))) !important;
+  aspect-ratio:auto !important;
+  object-fit:contain !important;
+  background:transparent !important;
+  border-radius:var(--post-media-radius, 6px) !important;
+}
+/* Kill older letterbox aspect recipes on Circle standard stages */
+body.feed-page.feed-insta-ui #mfFeed.mf-feed .mf-card.mf-card-video .media-stage.standard-video-stage > video,
+body.feed-page.feed-insta-ui #mfFeed.mf-feed .mf-card.mf-card-device-portrait .media-stage.standard-video-stage > video,
+body.feed-page.feed-insta-ui #mfFeed.mf-feed .mf-card.mf-card-device-square .media-stage.standard-video-stage > video,
+body.feed-page.feed-insta-ui #mfFeed.mf-feed .mf-card.mf-card-device-landscape .media-stage.standard-video-stage > video{
+  aspect-ratio:auto !important;
+  width:auto !important;
+  background:transparent !important;
+}
 </style>
 
 <style id="live-post-card-css-feed">
@@ -19097,12 +19317,17 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
     card.style.setProperty('max-width', '100%', 'important');
     card.style.setProperty('margin-left', '0', 'important');
     card.style.setProperty('margin-right', '0', 'important');
+    // Match Discover: keep media inset so border-radius is visible against card/page bg.
+    card.style.setProperty('padding', '8px 12px', 'important');
+    card.style.setProperty('box-sizing', 'border-box', 'important');
     var stage = card.querySelector(':scope > .mf-media-shell > .media-stage, :scope > .media-stage');
     if (!stage) return;
+    if (stage.classList.contains('mf-media-pending')) return;
     stage.style.removeProperty('transform');
     stage.style.removeProperty('--feed-media-left-shift');
     stage.style.setProperty('aspect-ratio', 'auto', 'important');
     stage.style.setProperty('height', 'auto', 'important');
+    stage.style.setProperty('background', 'transparent', 'important');
     try{ stage.classList.remove('single-portrait', 'single-landscape', 'single-square'); }catch(e){}
     var w = card.style.getPropertyValue('--post-media-card-width') || getComputedStyle(card).getPropertyValue('--post-media-card-width');
     w = String(w || '').trim();
@@ -19137,6 +19362,7 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
       mediaEl.style.setProperty('margin-right', 'auto', 'important');
       mediaEl.style.setProperty('border-radius', '6px', 'important');
       mediaEl.style.setProperty('overflow', 'hidden', 'important');
+      mediaEl.style.setProperty('background', 'transparent', 'important');
       if (mediaEl.tagName === 'VIDEO') {
         mediaEl.style.setProperty('clip-path', 'inset(0 round 6px)', 'important');
         mediaEl.style.setProperty('-webkit-clip-path', 'inset(0 round 6px)', 'important');
@@ -19150,6 +19376,7 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
       stage.style.setProperty('margin-left', '0', 'important');
       stage.style.setProperty('margin-right', '0', 'important');
       stage.style.setProperty('overflow', 'visible', 'important');
+      stage.style.setProperty('border-radius', '0', 'important');
       stage.style.setProperty('display', 'flex', 'important');
       stage.style.setProperty('flex-direction', 'column', 'important');
       stage.style.setProperty('align-items', 'flex-start', 'important');
@@ -19179,7 +19406,9 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
 
     stage.style.setProperty('margin-left', '0', 'important');
     stage.style.setProperty('margin-right', 'auto', 'important');
-    stage.style.setProperty('overflow', 'visible', 'important');
+    stage.style.setProperty('overflow', 'hidden', 'important');
+    stage.style.setProperty('border-radius', '6px', 'important');
+    stage.style.setProperty('background', 'transparent', 'important');
     stage.style.setProperty('display', 'flex', 'important');
     stage.style.setProperty('flex-direction', 'column', 'important');
     stage.style.setProperty('align-items', 'flex-start', 'important');
@@ -19201,6 +19430,8 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
       mediaEl.style.setProperty('align-self', 'flex-start', 'important');
       mediaEl.style.setProperty('border-radius', '6px', 'important');
       mediaEl.style.setProperty('overflow', 'hidden', 'important');
+      mediaEl.style.setProperty('background', 'transparent', 'important');
+      mediaEl.style.setProperty('aspect-ratio', 'auto', 'important');
       if (mediaEl.tagName === 'VIDEO') {
         mediaEl.style.setProperty('clip-path', 'inset(0 round 6px)', 'important');
         mediaEl.style.setProperty('-webkit-clip-path', 'inset(0 round 6px)', 'important');
@@ -19271,25 +19502,84 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
   var deleting = false;
 
   function closeDialog(){
-    if(dialog && dialog.open) dialog.close();
+    if(dialog && dialog.open){
+      try{ dialog.close(); }catch(eClose){ try{ dialog.removeAttribute('open'); }catch(e2){} }
+    }
     pendingPostId = 0;
     pendingDone = null;
     deleting = false;
-    if(confirmBtn) confirmBtn.disabled = false;
+    if(confirmBtn){
+      confirmBtn.disabled = false;
+      try{ confirmBtn.removeAttribute('data-post-id'); }catch(eAttr){}
+    }
   }
 
-  function confirmDeleteNow(){
-    var postId = pendingPostId;
+  function apiDeletePost(postId, done){
+    postId = Number(postId || 0);
+    if(!postId){
+      if(typeof done === 'function') done({ok:false, error:'Missing post id'});
+      return;
+    }
+    if(window.MSBPostCardMenu && typeof window.MSBPostCardMenu.runDelete === 'function'){
+      window.MSBPostCardMenu.runDelete(postId, done);
+      return;
+    }
+    var apiUrl = (window.MSBPostCardMenuOpts && window.MSBPostCardMenuOpts.api_url)
+      || window.API_URL
+      || 'feed_api.php';
+    var body = new URLSearchParams({ ajax:'delete_post', post_id: String(postId) });
+    function finish(res){
+      if(typeof done === 'function') done(res || {ok:false});
+    }
+    if(window.jQuery){
+      window.jQuery.post(apiUrl, { ajax:'delete_post', post_id: postId }, function(res){
+        finish(res);
+      }, 'json').fail(function(){ finish({ok:false, error:'network'}); });
+      return;
+    }
+    fetch(apiUrl, {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: body,
+      credentials:'same-origin'
+    }).then(function(r){ return r.json(); }).then(finish).catch(function(){ finish({ok:false, error:'network'}); });
+  }
+
+  function confirmDeleteNow(ev){
+    if(ev){
+      try{ ev.preventDefault(); }catch(e0){}
+      try{ ev.stopPropagation(); }catch(e1){}
+    }
+    var postId = Number(
+      pendingPostId ||
+      (confirmBtn && confirmBtn.getAttribute('data-post-id')) ||
+      (dialog && dialog.getAttribute('data-pcm-post-id')) ||
+      0
+    );
     var done = pendingDone;
     if(!postId || deleting) return;
-    if(!window.MSBPostCardMenu || typeof window.MSBPostCardMenu.runDelete !== 'function') return;
     deleting = true;
+    if(confirmBtn) confirmBtn.disabled = true;
 
-    // Remove card + close popup immediately; API soft-delete runs in background.
+    // Persist + remove card first so refresh/list races cannot resurrect it.
+    try { if(typeof window.MSBRememberDeletedPost === 'function') window.MSBRememberDeletedPost(postId); } catch(eRem){}
     try { if(typeof window.MSBFeedRemoveDeletedPost === 'function') window.MSBFeedRemoveDeletedPost(postId); } catch(e0){}
-    closeDialog();
 
-    window.MSBPostCardMenu.runDelete(postId, function(res){
+    // Close on next tick so this click cannot "fall through" onto the feed.
+    pendingPostId = 0;
+    pendingDone = null;
+    setTimeout(function(){
+      if(dialog && dialog.open){
+        try{ dialog.close(); }catch(eClose){ try{ dialog.removeAttribute('open'); }catch(e2){} }
+      }
+      if(confirmBtn){
+        confirmBtn.disabled = false;
+        try{ confirmBtn.removeAttribute('data-post-id'); }catch(eAttr){}
+      }
+      deleting = false;
+    }, 0);
+
+    apiDeletePost(postId, function(res){
       if(res && res.ok !== false){
         if(typeof done === 'function') done(res);
         return;
@@ -19306,7 +19596,13 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
       pendingPostId = Number(postId || 0);
       pendingDone = typeof done === 'function' ? done : null;
       deleting = false;
-      if(confirmBtn) confirmBtn.disabled = false;
+      if(confirmBtn){
+        confirmBtn.disabled = false;
+        try{ confirmBtn.setAttribute('data-post-id', String(pendingPostId || 0)); }catch(eBtn){}
+      }
+      if(dialog){
+        try{ dialog.setAttribute('data-pcm-post-id', String(pendingPostId || 0)); }catch(eDlg){}
+      }
       if(!dialog || !pendingPostId) return;
       if(dialog.parentNode !== document.body) document.body.appendChild(dialog);
       // Open on next tick so the fries "Delete" click cannot auto-dismiss this popup.
@@ -19334,18 +19630,13 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
     e.stopPropagation();
     closeDialog();
   });
-  // Do not close on backdrop click from the same gesture that opened the dialog.
-  // Cancel / X / Escape still dismiss; Confirm Delete removes the post immediately.
   if(dialog){
     dialog.addEventListener('cancel', function(e){
-      // Allow Escape to close.
       closeDialog();
     });
   }
   if(confirmBtn) confirmBtn.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    confirmDeleteNow();
+    confirmDeleteNow(e);
   });
 })();
 </script>
@@ -19355,6 +19646,17 @@ body.feed-insta-ui .mf-feed .mf-card.mf-card-description-media.is-single-image-p
 body.feed-page.feed-insta-ui #mfFeed.mf-feed{
   padding:10px 10px 96px !important;
   background:#e5eff6 !important;
+}
+/* Let Gear appearance choices color the space behind and between Circle cards. */
+html.dark-auto:not([data-msb-appearance]) body.feed-page.feed-insta-ui #mfFeed.mf-feed,
+html[data-theme="dark"]:not([data-msb-appearance]) body.feed-page.feed-insta-ui #mfFeed.mf-feed{
+  background:#000000 !important;
+}
+html[data-msb-appearance] body.feed-page.feed-insta-ui #mfFeed.mf-feed{
+  background:var(--msb-palette-hover-bg, var(--msb-palette-bg, #2f3a4a)) !important;
+}
+html[data-msb-appearance][data-theme="dark"] body.feed-page.feed-insta-ui #mfFeed.mf-feed{
+  background:#000000 !important;
 }
 body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card{
   margin:0 0 12px !important;
@@ -19383,5 +19685,6 @@ body.feed-page.feed-insta-ui #mfFeed.mf-feed > .mf-card::after{
 </style>
 
 <?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
+<?php include __DIR__ . '/includes/home_account_gear.php'; ?>
 </body>
 </html>

@@ -18,6 +18,20 @@ body.org-app {
 body.org-app .sh-logopanel,
 body.org-app .sh-headpanel {
   height: var(--org-header-h) !important;
+  max-height: var(--org-header-h) !important;
+}
+
+body.org-app .sh-headpanel {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  overflow: visible !important;
+  z-index: 1100 !important;
+  box-sizing: border-box !important;
 }
 
 body.org-app .sh-sideleft-menu {
@@ -26,6 +40,28 @@ body.org-app .sh-sideleft-menu {
 
 body.org-app .sh-mainpanel {
   padding-top: var(--org-header-h) !important;
+}
+
+/* If nav shield ever sticks, page content must still be recoverable */
+body.org-app .sh-mainpanel,
+body.org-app .sh-pagebody,
+body.org-app:not(.is-navigating) .sh-mainpanel,
+body.org-app:not(.is-navigating) .sh-pagebody {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+body.org-app.is-navigating .sh-mainpanel {
+  pointer-events: none !important;
+}
+body.org-app:not(.is-navigating) #org-nav-shield {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  display: none !important;
+}
+body.org-app.is-navigating #org-nav-shield {
+  display: block !important;
 }
 
 body.org-app .sh-logopanel {
@@ -41,15 +77,43 @@ body.org-app .org-logo-label {
   max-width: 130px !important;
 }
 
+body.org-app .sh-headpanel-left {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Sidebar already has New org / Add staff — keep header clear */
+body.org-app .sh-headpanel-left .sh-icon-link {
+  display: none !important;
+}
+
 body.org-app .sh-headpanel-right {
-  height: var(--org-header-h) !important;
+  height: 100% !important;
+  max-height: 100% !important;
   padding: 0 10px !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+body.org-app .sh-headpanel-right .dropdown-profile {
+  flex: 0 0 auto !important;
 }
 
 body.org-app .sh-headpanel-right .dropdown-profile .dropdown-link img.wd-40 {
-  width: 42px !important;
-  height: 42px !important;
-  border-width: 4px !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-width: 2px !important;
 }
 
 body.org-app .sh-icon-link {
@@ -74,16 +138,80 @@ body.org-app .org-pill {
   padding: 4px 10px !important;
   font-size: var(--org-font-sm) !important;
   gap: 5px !important;
+  max-width: 160px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 body.org-app .org-header-context {
-  gap: 12px !important;
-  margin-right: 10px !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-right: 6px !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  max-width: min(300px, 42vw) !important;
+  height: auto !important;
+  overflow: visible !important;
+  position: relative !important;
+}
+
+body.org-app .org-header-context > .dropdown {
+  position: relative !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
 }
 
 body.org-app .org-header-page-title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
   font-size: 12px !important;
   line-height: 1 !important;
+  max-width: 150px;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  flex: 0 0 auto !important;
+  position: relative !important;
+}
+
+body.org-app .org-header-page-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+body.org-app .org-header-context .org-pill {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Never leave Switch Organization menu stuck open in the page */
+body.org-app .sh-headpanel .dropdown-menu {
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  left: auto !important;
+  right: 0 !important;
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: 1200 !important;
+  min-width: 220px !important;
+  max-height: min(70vh, 420px) !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+  transform: none !important;
+  float: none !important;
+}
+
+body.org-app .sh-headpanel .dropdown.show > .dropdown-menu,
+body.org-app .sh-headpanel .dropdown.open > .dropdown-menu,
+body.org-app .sh-headpanel .dropdown-menu.show {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 body.org-app .org-pill .caret {
@@ -98,11 +226,15 @@ body.org-app .sh-headpanel-right .ig-feed-account-badge {
   min-height: 24px !important;
   padding: 0 8px !important;
   font-size: var(--org-font-xs) !important;
+  flex: 0 0 auto !important;
 }
 
 body.org-app .org-header-actions {
+  display: inline-flex !important;
   gap: 5px !important;
   margin-right: 6px !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
 }
 
 body.org-app .org-header-chip {
@@ -110,6 +242,7 @@ body.org-app .org-header-chip {
   padding: 3px 8px 3px 4px !important;
   font-size: var(--org-font-sm) !important;
   border-radius: 8px !important;
+  flex: 0 0 auto !important;
 }
 
 body.org-app .org-header-chip__icon {
@@ -122,6 +255,122 @@ body.org-app .org-header-chip__count {
   min-width: 15px !important;
   height: 15px !important;
   font-size: 9px !important;
+  position: static !important;
+}
+
+body.org-app .org-header-sales-badge {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  flex-shrink: 0 !important;
+}
+
+@media (max-width: 1100px) {
+  body.org-app .org-header-chip__label {
+    display: none !important;
+  }
+  body.org-app .org-header-page-title > span:first-child {
+    display: none !important;
+  }
+  body.org-app .org-header-context {
+    max-width: min(180px, 40vw) !important;
+  }
+}
+
+/* Light header: chips readable on pale bars */
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-chip,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-chip {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.14) !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-chip__label,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-chip__label {
+  color: #0f172a !important;
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-chip--messages .org-header-chip__icon,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-chip--messages .org-header-chip__icon {
+  background: rgba(37, 99, 235, 0.1) !important;
+  color: #2563eb !important;
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-chip--alerts .org-header-chip__icon,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-chip--alerts .org-header-chip__icon {
+  background: rgba(217, 119, 6, 0.12) !important;
+  color: #d97706 !important;
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-chip--messages.has-unread,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-chip--messages.has-unread {
+  border-color: rgba(37, 99, 235, 0.45) !important;
+  background: #eff6ff !important;
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-chip--messages .org-header-chip__count,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-chip--messages .org-header-chip__count {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-chip--alerts .org-header-chip__count,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-chip--alerts .org-header-chip__count {
+  background: #dc2626 !important;
+  color: #fff !important;
+}
+
+/* Keep header distinct from white page canvas */
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-headpanel,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .sh-headpanel {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1) !important;
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-header-page-title,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-header-page-title {
+  color: #0f172a !important;
+}
+html:not([data-msb-org-light]) body.org-app .org-header-page-title,
+html.dark-auto body.org-app .org-header-page-title {
+  color: #e8edf5 !important;
+}
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-pill,
+html:not(.dark-auto):not([data-msb-appearance]) body.org-app .org-pill {
+  background: #f8fafc !important;
+  border: 1px solid rgba(15, 23, 42, 0.14) !important;
+  color: #0f172a !important;
+}
+
+/* Firefox: keep header dropdowns out of document flow when closed */
+@-moz-document url-prefix() {
+  body.org-app .sh-headpanel .dropdown-menu:not(.show) {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  body.org-app .sh-headpanel {
+    position: fixed !important;
+  }
+  body.org-app .sh-mainpanel,
+  body.org-app .sh-pagebody {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+}
+html:not(.dark-auto) body.org-app .commerce-hero,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-hero {
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 42%, #14b8a6 100%) !important;
+  background-image: linear-gradient(135deg, #0f766e 0%, #0d9488 42%, #14b8a6 100%) !important;
+  color: #ffffff !important;
+}
+html:not(.dark-auto) body.org-app .commerce-hero h1,
+html:not(.dark-auto) body.org-app .commerce-hero p,
+html:not(.dark-auto) body.org-app .commerce-hero .commerce-pill,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-hero h1,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-hero p,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .commerce-hero .commerce-pill {
+  color: #ffffff !important;
 }
 
 body.org-app .msg-badge {

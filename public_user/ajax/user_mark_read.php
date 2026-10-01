@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/session_user.php';
 requireUserLogin();
 
 require_once __DIR__ . '/../controller.php';
+require_once __DIR__ . '/../includes/app_notification_api.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -35,13 +36,11 @@ try {
         SET is_read = 1
         WHERE id = ?
           AND notireceiver IN ($receiverPh)
-          AND notitype NOT LIKE ?
-          AND notitype NOT LIKE ?
-          AND notitype NOT LIKE ?
+          " . app_notification_social_exclude_sql() . "
         LIMIT 1
     ");
 
-    $st->execute(array_merge([$id], $receivers, ['New chat message%', 'Internal Chat%', 'New internal message%']));
+    $st->execute(array_merge([$id], $receivers, app_notification_social_exclude_patterns()));
 
     echo json_encode(['ok'=>true]);
 } catch (Throwable $e) {

@@ -223,7 +223,7 @@ html[data-msb-appearance] body.org-app .org-surface-page form .form-group label 
 
 :is(html.dark-auto, body.dark-auto) .right-active,
 :is(html.dark-auto, body.dark-auto) .active:not(.ig-tab):not(.chat-item):not(.messages-shell-tab):not(.profile-panel){
-    background:#394451 !important;
+    background:#171d24 !important;
   color:#e6edf3;
 }
 
@@ -2738,27 +2738,82 @@ html.dark-auto[data-msb-appearance] #ttLeftbarOverlays .tt-profile-nav a .icon {
   color: var(--msb-palette-text) !important;
 }
 
-/* Shop left rail — brands/filters panel uses Gear appearance (not grey surface-2) */
+/* Shop left rail + storefront cards — Gear dark / auto / appearance / progress */
 html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-head,
 html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav,
 html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
 html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-utility-links,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-side-card,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-service-strip,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-promo-hero,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-promo-slide,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-card,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-category-tile span,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-sort-select,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-page-arrow,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-per-page select,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-head,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-nav,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-utility-links,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-side-card,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-service-strip,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-promo-hero,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-promo-slide,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-market-card,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-category-tile span,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-product-page-arrow,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-product-per-page select,
 html[data-msb-appearance] body.shop-page .feed-left-rail,
+html[data-msb-appearance] body.shop-page .feed-left-rail-page-head,
 html[data-msb-appearance] body.shop-page .feed-left-nav,
 html[data-msb-appearance] body.shop-page .shop-nav-filters,
 html[data-msb-appearance] body.shop-page .shop-brand-nav,
+html[data-msb-appearance] body.shop-page .shop-nav-utility-links,
+html[data-msb-appearance] body.shop-page .shop-side-card,
+html[data-msb-appearance] body.shop-page .shop-service-strip,
+html[data-msb-appearance] body.shop-page .shop-promo-hero,
+html[data-msb-appearance] body.shop-page .shop-promo-slide,
+html[data-msb-appearance] body.shop-page .shop-market-card,
+html[data-msb-appearance] body.shop-page .shop-category-tile span,
+html[data-msb-appearance] body.shop-page .shop-sort-select,
+html[data-msb-appearance] body.shop-page .shop-product-page-arrow,
+html[data-msb-appearance] body.shop-page .shop-product-per-page select,
 html.dark-auto[data-msb-appearance] body.shop-page .feed-left-rail,
+html.dark-auto[data-msb-appearance] body.shop-page .feed-left-rail-page-head,
 html.dark-auto[data-msb-appearance] body.shop-page .feed-left-nav,
 html.dark-auto[data-msb-appearance] body.shop-page .shop-nav-filters,
-html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav {
-  background-color: var(--msb-palette-bg, var(--shop-surface, #171d24)) !important;
+html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-nav-utility-links,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-side-card,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-service-strip,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-promo-hero,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-promo-slide,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-card,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-category-tile span,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-product-page-arrow,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-product-per-page select {
+  background-color: var(--msb-palette-bg, var(--shop-card-bg, var(--shop-surface, #171d24))) !important;
   background-image: none !important;
   color: var(--msb-palette-text, var(--shop-text, #b1bcce)) !important;
   border-color: var(--msb-palette-border, var(--shop-border, rgba(255,255,255,.12))) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-page-num,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-per-page label,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-product-page-num,
+html[data-msb-appearance] body.shop-page .shop-product-page-num,
+html[data-msb-appearance] body.shop-page .shop-product-per-page label {
+  color: var(--msb-palette-text-muted, var(--shop-text-muted, #b1bcce)) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-page-num.is-active,
+html[data-msb-appearance] body.shop-page .shop-product-page-num.is-active {
+  color: var(--msb-palette-text, var(--shop-text, #f3f6fb)) !important;
+  border-bottom-color: var(--msb-palette-text, var(--shop-text, #f3f6fb)) !important;
 }
 
 html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-title,

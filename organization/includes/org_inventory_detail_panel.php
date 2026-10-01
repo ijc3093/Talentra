@@ -69,7 +69,7 @@ if ($formAction === '') {
         ? ('sales_management.php?inv_product=' . (int)$productId)
         : ('inventory_detail.php?id=' . (int)$productId);
 }
-$lowStockAt = 5;
+$lowStockAt = 1; // alert when available stock is less than 2
 
 $title = trim((string)($product['title'] ?? 'Product'));
 $sku = trim((string)($product['sku'] ?? ''));
@@ -135,20 +135,25 @@ if ($variantName === 'Default') {
 
 $stockCls = 'in';
 $stockLabel = 'In Stock';
-if ($status === 'sold_out' || ($tracked && $available <= 0)) {
+if ($tracked && $available <= 0) {
+    $stockCls = 'out';
+    $stockLabel = 'Out of Stock';
+} elseif ($status === 'sold_out' && (!$tracked || $available <= 0)) {
     $stockCls = 'out';
     $stockLabel = 'Out of Stock';
 } elseif ($tracked && $available <= $lowStockAt) {
     $stockCls = 'low';
     $stockLabel = 'Low Stock';
 }
+$stockIcon = $stockCls === 'out' ? 'fa-ban' : ($stockCls === 'low' ? 'fa-exclamation-triangle' : 'fa-check-circle');
 $oosUnits = $stockCls === 'out' ? 1 : 0;
 $variantCount = 1;
 
 $history = [];
+$customerProductOrder = null;
 try {
     $stH = $dbh->prepare("
-        SELECT o.id, o.created_at, o.quantity, o.status, o.order_code, o.updated_at
+        SELECT o.id, o.created_at, o.quantity, o.status, o.order_code, o.updated_at, o.buyer_user_id
         FROM org_orders o
         WHERE o.org_id = :org AND o.product_id = :pid
         ORDER BY o.created_at DESC, o.id DESC
@@ -156,6 +161,50 @@ try {
     ");
     $stH->execute([':org' => (int)$orgId, ':pid' => (int)$productId]);
     $orders = $stH->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $buyerFocusId = (int)($_GET['buyer_msg'] ?? 0);
+    foreach ($orders as $o) {
+        $st = strtolower(trim((string)($o['status'] ?? '')));
+        if (in_array($st, ['cancelled', 'canceled'], true)) {
+            continue;
+        }
+        if ($buyerFocusId > 0 && (int)($o['buyer_user_id'] ?? 0) !== $buyerFocusId) {
+            continue;
+        }
+        $customerProductOrder = $o;
+        break;
+    }
+    if (!$customerProductOrder) {
+        foreach ($orders as $o) {
+            $st = strtolower(trim((string)($o['status'] ?? '')));
+            if (!in_array($st, ['cancelled', 'canceled'], true)) {
+                $customerProductOrder = $o;
+                break;
+            }
+        }
+    }
+    $customerOrderStatus = $customerProductOrder
+        ? ucwords(str_replace('_', ' ', strtolower(trim((string)($customerProductOrder['status'] ?? 'pending')))))
+        : '';
+    $customerOrderCode = $customerProductOrder
+        ? trim((string)($customerProductOrder['order_code'] ?? ''))
+        : '';
+    if ($customerProductOrder && $customerOrderCode === '') {
+        $customerOrderCode = '#' . (int)($customerProductOrder['id'] ?? 0);
+    }
+    $customerInvoiceHref = '';
+    if ($customerProductOrder) {
+        $orderId = (int)($customerProductOrder['id'] ?? 0);
+        if ($orderId > 0) {
+            $invoiceQs = ['id' => $orderId];
+            if ($fromSales) {
+                $invoiceQs['from'] = 'sales';
+            }
+            if ($customerOrderCode !== '' && $customerOrderCode[0] !== '#') {
+                $invoiceQs['code'] = $customerOrderCode;
+            }
+            $customerInvoiceHref = 'order_details.php?' . http_build_query($invoiceQs);
+        }
+    }
     $running = $available;
     foreach ($orders as $o) {
         $st = strtolower(trim((string)($o['status'] ?? '')));
@@ -198,6 +247,10 @@ try {
         ];
     }
 } catch (Throwable $e) {
+    $customerProductOrder = null;
+    $customerOrderStatus = '';
+    $customerOrderCode = '';
+    $customerInvoiceHref = '';
 }
 
 $sellerName = 'Seller';
@@ -248,12 +301,41 @@ $showAlert = $stockCls === 'low' || $stockCls === 'out';
   .invd .invd-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .invd .invd-title strong{font-size:18px;font-weight:800;}
   .invd .invd-meta{font-size:12px;color:var(--m);margin-top:4px;line-height:1.5;}
-  .invd .invd-pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;}
+  .invd .invd-order-status{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;
+    margin-top:12px;padding:10px 12px;
+    border:1px solid var(--b);border-radius:8px;background:#f8fafc;
+  }
+  .invd .invd-order-status-label{
+    font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--m);
+  }
+  .invd .invd-order-status-badge{
+    display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;
+    font-size:11px;font-weight:800;line-height:1.2;
+    background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;
+  }
+  .invd .invd-order-status-badge.is-pending,
+  .invd .invd-order-status-badge.is-confirmed{
+    background:#fff7ed;color:#c2410c;border-color:#fed7aa;
+  }
+  .invd .invd-order-status-badge.is-shipped,
+  .invd .invd-order-status-badge.is-delivered{
+    background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;
+  }
+  .invd .invd-order-status-code{font-size:12px;font-weight:600;color:var(--m);}
+  .invd .invd-order-status-invoice{
+    margin-left:auto;display:inline-flex;align-items:center;
+    padding:6px 11px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;
+    color:#2563eb;font-size:12px;font-weight:800;text-decoration:none;line-height:1.2;
+  }
+  .invd .invd-order-status-invoice:hover{background:#f1f5f9;text-decoration:none;}
+  .invd .invd-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.2;white-space:nowrap;}
+  .invd .invd-pill i{font-size:11px;line-height:1;}
   .invd .invd-pill.active{background:#dcfce7;color:#15803d;}
   .invd .invd-pill.draft{background:#f1f5f9;color:#475569;}
   .invd .invd-pill.in{background:#dcfce7;color:#15803d;}
-  .invd .invd-pill.low{background:#ffedd5;color:#c2410c;}
-  .invd .invd-pill.out{background:#fee2e2;color:#b91c1c;}
+  .invd .invd-pill.low{background:#ffedd5;color:#c2410c;border:1px solid #fdba74;}
+  .invd .invd-pill.out{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;}
   .invd .invd-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;}
   .invd .invd-stat{padding:0 14px;border-left:1px solid var(--b);}
   .invd .invd-stat:first-child{border-left:0;}
@@ -349,6 +431,18 @@ $showAlert = $stockCls === 'low' || $stockCls === 'out';
             Price: <?= h($price) ?>
           </div>
           <a href="<?= h($productViewHref) ?>">View Product <i class="fa fa-external-link"></i></a>
+          <?php if ($customerProductOrder && $customerInvoiceHref !== ''):
+            $invdStatusSlug = strtolower(preg_replace('/\s+/', '-', $customerOrderStatus) ?: 'pending');
+          ?>
+            <div class="invd-order-status" aria-label="Customer order">
+              <span class="invd-order-status-label">Customer order</span>
+              <span class="invd-order-status-badge is-<?= h($invdStatusSlug) ?>"><?= h($customerOrderStatus) ?></span>
+              <?php if ($customerOrderCode !== ''): ?>
+                <span class="invd-order-status-code"><?= h($customerOrderCode) ?></span>
+              <?php endif; ?>
+              <a class="invd-order-status-invoice" href="<?= h($customerInvoiceHref) ?>">Invoice</a>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
       <div class="invd-stats">
@@ -397,7 +491,7 @@ $showAlert = $stockCls === 'low' || $stockCls === 'out';
               <td class="invd-avail"><?= (int)$available ?></td>
               <td class="invd-res"><?= (int)$reserved ?></td>
               <td>—</td>
-              <td><span class="invd-pill <?= h($stockCls) ?>"><?= h($stockLabel) ?></span></td>
+              <td><span class="invd-pill <?= h($stockCls) ?>"><i class="fa <?= h($stockIcon) ?>" aria-hidden="true"></i> <?= h($stockLabel) ?></span></td>
               <td>
                 <div class="invd-more">
                   <button type="button" class="invd-more-btn" aria-label="Variant actions">⋯</button>
@@ -511,7 +605,7 @@ $showAlert = $stockCls === 'low' || $stockCls === 'out';
               <td><span class="invd-swatch" style="background:<?= h(invd_color_css($colorName !== '' ? $colorName : $variantName)) ?>"></span><?= h($variantName) ?></td>
               <td style="font-weight:800;color:<?= $stockCls === 'out' ? '#b91c1c' : '#c2410c' ?>"><?= (int)$available ?> units</td>
               <td><?= (int)$lowStockAt ?> units</td>
-              <td><span class="invd-pill <?= h($stockCls) ?>"><?= h($stockLabel) ?></span></td>
+              <td><span class="invd-pill <?= h($stockCls) ?>"><i class="fa <?= h($stockIcon) ?>" aria-hidden="true"></i> <?= h($stockLabel) ?></span></td>
               <td><button type="button" class="invd-btn invd-open-stock">Update Stock</button></td>
             </tr>
           </tbody>

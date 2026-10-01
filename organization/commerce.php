@@ -49,7 +49,7 @@ $integrationIcons = [
 
 $pageTitle = 'Shop & commerce';
 require_once __DIR__ . '/includes/org_page_shell.php';
-org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=15"><link rel="stylesheet" href="css/org-commerce-theme.css?v=2" id="org-commerce-theme-css">');
+org_page_shell_open($pageTitle, '<link rel="stylesheet" href="css/commerce-hub.css?v=16"><link rel="stylesheet" href="css/org-commerce-theme.css?v=8" id="org-commerce-theme-css">');
 ?>
 <?php org_page_body_open('commerce-page'); ?>
   <section class="commerce-hero">

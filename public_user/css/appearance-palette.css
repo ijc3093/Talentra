@@ -497,10 +497,15 @@ html[data-msb-appearance] .ig-feed-header .ig-top-live span {
 }
 
 html[data-msb-appearance] .ig-feed-header .ig-top-mic,
-html[data-msb-appearance] .ig-feed-header .ig-top-shop,
 html[data-msb-appearance] .ig-feed-header .ig-top-cart,
 html[data-msb-appearance] .ig-feed-header .ig-top-live {
   border: 1px solid var(--msb-palette-border-strong) !important;
+}
+html[data-msb-appearance] .ig-feed-header .ig-top-shop {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
 
 html[data-msb-appearance] .ig-feed-header .ig-story-create .ig-story-ring-create {
@@ -535,7 +540,6 @@ html[data-msb-appearance] .ig-feed-header .ig-story-empty .ig-story-name {
 
 html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover,
 html[data-msb-appearance] .ig-feed-header .ig-top-mic:hover,
-html[data-msb-appearance] .ig-feed-header .ig-top-shop:hover,
 html[data-msb-appearance] .ig-feed-header .ig-top-cart:hover,
 html[data-msb-appearance] .ig-feed-header .ig-top-live:hover,
 html[data-msb-appearance] .ig-feed-header .ig-story-create:hover .ig-story-ring-create,
@@ -544,6 +548,11 @@ html[data-msb-appearance] .ig-feed-header .ig-story-create:focus-visible .ig-sto
   border-color: var(--msb-palette-nav-hover) !important;
   color: var(--msb-palette-text-on-nav-hover) !important;
   opacity: 1 !important;
+}
+html[data-msb-appearance] .ig-feed-header .ig-top-shop:hover {
+  background: transparent !important;
+  border: 0 !important;
+  opacity: .85 !important;
 }
 
 html[data-msb-appearance] .ig-feed-header .ig-stories-menu-btn:hover .fa,
@@ -875,8 +884,18 @@ html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msgText,
 html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msg-edited {
   color: var(--msb-palette-bubble-text) !important;
 }
-html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msg-meta {
+html[data-msb-appearance] .msg-row:not(.me) .msg-meta,
+html[data-msb-appearance] .msg-bubble-stack > .msg-meta:not(.me) {
   color: var(--msb-palette-bubble-meta) !important;
+}
+html[data-msb-appearance] .msg-row.me .msg-meta,
+html[data-msb-appearance] .msg-meta.me {
+  color: #94a3b8 !important;
+}
+html[data-msb-appearance] .bubble.me .msgText,
+html[data-msb-appearance] .bubble.me .msg-edited {
+  color: var(--msb-palette-btn-text, #fff) !important;
+  -webkit-text-fill-color: var(--msb-palette-btn-text, #fff) !important;
 }
 html[data-msb-appearance] .bubble:not(.me) .msg-reply-line {
   background-color: var(--msb-palette-bubble-reply-bg) !important;

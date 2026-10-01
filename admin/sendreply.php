@@ -1,14 +1,13 @@
 <?php
 /**
  * admin/sendreply.php
- * Signed, expiring redirect to mailbox.php?peer=...
+ * Signed, expiring redirect to mailbox.php?peer=...&view=...&lane=...
  */
 declare(strict_types=1);
 require_once __DIR__ . '/includes/session_admin.php';
 requireAdminLogin();
 
-// If you defined APP_SIGNING_KEY in a config, include it here if not already loaded.
-// require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/feedback_lane_helpers.php';
 
 function signing_key(): string {
     if (defined('APP_SIGNING_KEY') && APP_SIGNING_KEY !== '') {
@@ -38,6 +37,11 @@ if ($peer === '') safe_fail_redirect();
 $view = trim((string)($_GET['view'] ?? ''));
 $view = in_array($view, ['public','internal'], true) ? $view : '';
 
+$lane = feedback_normalize_public_lane((string)($_GET['lane'] ?? 'all'));
+if ($view !== 'public') {
+    $lane = 'all';
+}
+
 $exp = (int)($_GET['exp'] ?? 0);
 $sig = (string)($_GET['sig'] ?? '');
 
@@ -56,6 +60,9 @@ $thread = trim((string)($_GET['t'] ?? ''));
 
 $q = 'peer=' . urlencode($peer);
 if ($view !== '') $q .= '&view=' . urlencode($view);
+if ($view === 'public' && $lane !== 'all') {
+    $q .= '&lane=' . urlencode($lane);
+}
 if ($thread !== '') $q .= '&t=' . urlencode($thread);
 
 header('Location: mailbox.php?' . $q);

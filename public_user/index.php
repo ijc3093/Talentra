@@ -172,6 +172,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 $isPublisherLogin = in_array($accountType, ['publisher', 'commerce'], true);
 
                 if ($user && $isPublisherLogin && !login_user_is_publisher($user)) {
+                    $ownedLinked = account_linked_owned_account($controller->pdo(), (int)($user['id'] ?? 0), $accountType);
+                    if (
+                        $ownedLinked
+                        && (int)($ownedLinked['status'] ?? 1) === 1
+                        && !user_is_account_removed($controller->pdo(), (int)($ownedLinked['id'] ?? 0))
+                    ) {
+                        account_switch_link($controller->pdo(), (int)($user['id'] ?? 0), (int)$ownedLinked['id']);
+                        $user = $ownedLinked;
+                    }
+                }
+
+                if ($user && $isPublisherLogin && !login_user_is_publisher($user)) {
                     $error = 'This is a personal account. Switch to Personal User to sign in.';
                 } elseif ($user && !$isPublisherLogin && login_user_is_publisher($user)) {
                     $error = 'This is a publisher account. Switch to Publisher to sign in.';
@@ -184,6 +196,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                             $accountSwitchFromId,
                             (int)($user['id'] ?? 0)
                         );
+                    }
+                    $returnPro = strtolower(trim((string)($_POST['return_to_pro'] ?? '')));
+                    if (in_array($returnPro, ['publisher', 'commerce'], true) && !login_user_is_publisher($user)) {
+                        header('Location: index.php?add_account=1&account_type=' . $returnPro . '&view=register');
+                        exit;
                     }
                     header('Location: entry.php');
                     exit;
@@ -273,6 +290,32 @@ try {
         'other' => 'Other registered entity',
     ];
 }
+
+$linkedOwner = null;
+$linkedIdentities = ['publisher' => null, 'commerce' => null];
+$linkedOwnedSlots = ['publisher' => false, 'commerce' => false];
+if ($addingAccount && $indexLoggedIn && $accountSwitchFromId > 0) {
+    try {
+        $linkDb = (new Controller())->pdo();
+        $linkedOwner = account_linked_personal_owner($linkDb, $accountSwitchFromId, false);
+        if ($linkedOwner) {
+            foreach (['publisher', 'commerce'] as $linkSlot) {
+                $linkedOwnedSlots[$linkSlot] = account_linked_owned_account($linkDb, (int)$linkedOwner['id'], $linkSlot) !== null;
+                if (!$linkedOwnedSlots[$linkSlot]) {
+                    try {
+                        $linkedIdentities[$linkSlot] = account_linked_identity($linkDb, $linkedOwner, $linkSlot);
+                    } catch (Throwable $e) {
+                        $linkedIdentities[$linkSlot] = null;
+                    }
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        $linkedOwner = null;
+    }
+}
+$linkedProSignup = ($linkedOwner !== null);
+$linkedProHideCreds = $accountType !== 'personal';
 ?>
 <!DOCTYPE html>
 <html <?= app_html_lang_attrs() ?>>
@@ -416,6 +459,8 @@ try {
             <input type="hidden" name="add_account" value="1">
             <?php endif; ?>
             <input type="hidden" name="account_type" id="loginAccountType" value="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>">
+            <?php $returnProValue = strtolower(trim((string)($_POST['return_to_pro'] ?? $_GET['return_pro'] ?? ''))); ?>
+            <input type="hidden" name="return_to_pro" id="loginReturnToPro" value="<?= in_array($returnProValue, ['publisher', 'commerce'], true) ? htmlspecialchars($returnProValue, ENT_QUOTES, 'UTF-8') : '' ?>">
             <div class="auth-field">
               <input type="text" name="username" id="loginUsernameInput" value="<?= htmlspecialchars($usernameValue, ENT_QUOTES, 'UTF-8') ?>" placeholder="<?= htmlspecialchars(app_t('Username or email'), ENT_QUOTES, 'UTF-8') ?>" required>
             </div>
@@ -516,15 +561,24 @@ try {
                 <input type="hidden" name="publisher_category" value="commerce" class="js-reg-commerce-cat"<?= $accountType === 'commerce' ? '' : ' disabled' ?>>
               </div>
 
-              <div class="auth-field-row">
+              <?php
+                $linkedInitIdentity = ($linkedProHideCreds && $linkedProSignup) ? ($linkedIdentities[$accountType] ?? null) : null;
+              ?>
+              <div class="auth-field-row" id="regCredRow"<?= $linkedProHideCreds ? ' hidden style="display:none"' : '' ?>>
                 <div class="auth-field">
                   <i class="fa fa-at" aria-hidden="true"></i>
-                  <input type="text" name="username" placeholder="<?= htmlspecialchars(app_t('Username'), ENT_QUOTES, 'UTF-8') ?>" required>
+                  <input type="text" name="username" placeholder="<?= htmlspecialchars(app_t('Username'), ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars((string)($linkedInitIdentity['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"<?= $linkedProHideCreds ? ' readonly' : ' required' ?>>
                 </div>
                 <div class="auth-field">
                   <i class="fa fa-envelope-o" aria-hidden="true"></i>
-                  <input name="email" type="email" placeholder="<?= htmlspecialchars(app_t('Email'), ENT_QUOTES, 'UTF-8') ?>" required>
+                  <input name="email" type="email" placeholder="<?= htmlspecialchars(app_t('Email'), ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars((string)($linkedInitIdentity['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"<?= $linkedProHideCreds ? ' readonly' : ' required' ?>>
                 </div>
+              </div>
+              <div class="auth-add-note" id="regLinkedNote"<?= $linkedProHideCreds ? '' : ' hidden' ?>>
+                <span id="regLinkedNoteText"></span>
+                <?php if (!$linkedProSignup): ?>
+                <button type="button" class="auth-add-name-btn" id="regLinkedLoginBtn" style="margin-top:6px">Log in with your personal account</button>
+                <?php endif; ?>
               </div>
 
               <div class="auth-mode-block" data-reg-mode="personal" id="regPersonalExtra"<?= $accountType !== 'personal' ? ' hidden' : '' ?>>
@@ -575,10 +629,10 @@ try {
                 </label>
               </div>
 
-              <div class="auth-mode-block" data-reg-mode="publisher commerce" id="regProPassword"<?= $accountType === 'personal' ? ' hidden' : '' ?>>
+              <div class="auth-mode-block" data-reg-mode="publisher commerce" id="regProPassword"<?= ($accountType === 'personal' || $linkedProHideCreds) ? ' hidden' : '' ?>>
                 <div class="auth-field">
                   <i class="fa fa-lock" aria-hidden="true"></i>
-                  <input type="password" name="password" class="js-reg-password-pro" placeholder="<?= htmlspecialchars(app_t('Create password'), ENT_QUOTES, 'UTF-8') ?>" autocomplete="new-password"<?= $accountType !== 'personal' ? ' required' : ' disabled' ?>>
+                  <input type="password" name="password" class="js-reg-password-pro" placeholder="<?= htmlspecialchars(app_t('Create password'), ENT_QUOTES, 'UTF-8') ?>" autocomplete="new-password"<?= ($accountType !== 'personal' && !$linkedProHideCreds) ? ' required' : ' disabled' ?>>
                 </div>
               </div>
 
@@ -724,11 +778,55 @@ try {
     </div>
   </div>
 
+  <div class="auth-modal-backdrop" id="authRegisterResultModal" hidden>
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authRegisterResultTitle">
+      <h3 id="authRegisterResultTitle">Create account</h3>
+      <div class="auth-modal-error" id="authRegisterResultMessage"></div>
+      <div class="auth-modal-actions">
+        <button type="button" class="auth-modal-cancel" id="authRegisterResultLogin" hidden>Log in</button>
+        <button type="button" class="auth-modal-save" data-close-modal="authRegisterResultModal">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-modal-backdrop" id="authApprovalWaitModal" hidden>
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authApprovalWaitTitle">
+      <h3 id="authApprovalWaitTitle">Waiting for admin approval</h3>
+      <p id="authApprovalWaitText">Your request was sent to the admin.</p>
+      <div class="auth-approval-wait-status" id="authApprovalWaitStatus" aria-live="polite">
+        <span class="auth-approval-spinner" aria-hidden="true"></span>
+        <span id="authApprovalWaitStatusText">Checking for approval…</span>
+      </div>
+      <p class="auth-add-note">Keep this window open. Your account is created automatically as soon as the admin approves.</p>
+      <div class="auth-modal-actions">
+        <button type="button" class="auth-modal-cancel" id="authApprovalWaitClose">Close</button>
+        <button type="button" class="auth-modal-save" id="authApprovalWaitCheck">Check now</button>
+      </div>
+    </div>
+  </div>
+  <style>
+    .auth-approval-wait-status{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:13px;font-weight:600}
+    .auth-approval-spinner{width:16px;height:16px;border-radius:50%;border:2px solid rgba(37,99,235,.25);border-top-color:#2563eb;animation:authApprovalSpin .8s linear infinite;flex:0 0 auto}
+    .auth-approval-wait-status.is-done .auth-approval-spinner{animation:none;border-color:#16a34a}
+    .auth-approval-wait-status.is-rejected .auth-approval-spinner{animation:none;border-color:#dc2626}
+    @keyframes authApprovalSpin{to{transform:rotate(360deg)}}
+    .auth-custom-chosen.is-approved-state{border-color:#86efac !important;background:#f0fdf4 !important}
+    .auth-custom-chosen.is-approved-state .auth-custom-status{color:#15803d;font-weight:700}
+    #registerSubmitBtn.is-ready-flash{box-shadow:0 0 0 3px rgba(22,163,74,.35)}
+  </style>
+
   <script>
   (function () {
     var mode = <?= $accountTypeJson ?: '"personal"' ?>;
     var view = <?= $authViewJson ?: '"login"' ?>;
     var addingAccount = <?= $addingAccount ? 'true' : 'false' ?>;
+    var linkedPro = <?= json_encode([
+      'enabled' => $linkedProSignup,
+      'loginRequired' => !$linkedProSignup,
+      'owner' => $linkedProSignup ? (string)($linkedOwner['username'] ?? '') : '',
+      'identities' => $linkedIdentities,
+      'owned' => $linkedOwnedSlots,
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     var typeBtns = document.querySelectorAll('.js-auth-type');
     var hint = document.getElementById('authTypeHint');
     var kicker = document.getElementById('authKicker');
@@ -907,7 +1005,75 @@ try {
       registerForm.querySelectorAll('.js-reg-password-pro').forEach(function (el) {
         setEnabled(el, !isPersonal, true);
       });
+      syncLinkedProFields(isPersonal);
     }
+
+    function syncLinkedProFields(isPersonal) {
+      if (!linkedPro || !registerForm) return;
+      var linkedOn = !isPersonal;
+      var credRow = document.getElementById('regCredRow');
+      var note = document.getElementById('regLinkedNote');
+      var proPassword = document.getElementById('regProPassword');
+      var submitBtn = document.getElementById('registerSubmitBtn');
+      var ident = (linkedPro.identities && linkedPro.identities[mode]) || null;
+      var owned = !!(linkedPro.owned && linkedPro.owned[mode]);
+      if (credRow) {
+        credRow.hidden = linkedOn;
+        credRow.style.display = linkedOn ? 'none' : '';
+        credRow.querySelectorAll('input[name="username"], input[name="email"]').forEach(function (el) {
+          var key = el.name;
+          if (linkedOn) {
+            if (el.getAttribute('data-linked-filled') !== '1') {
+              el.setAttribute('data-typed-value', el.value);
+            }
+            el.value = ident ? (ident[key] || '') : '';
+            el.setAttribute('data-linked-filled', '1');
+            el.readOnly = true;
+            el.required = false;
+          } else {
+            if (el.getAttribute('data-linked-filled') === '1') {
+              el.value = el.getAttribute('data-typed-value') || '';
+              el.removeAttribute('data-linked-filled');
+            }
+            el.readOnly = false;
+            el.required = true;
+          }
+        });
+      }
+      if (proPassword && linkedOn) proPassword.hidden = true;
+      registerForm.querySelectorAll('.js-reg-password-pro').forEach(function (el) {
+        setEnabled(el, !isPersonal && !linkedOn, !isPersonal && !linkedOn);
+      });
+      var label = mode === 'commerce' ? 'Commerce' : 'Publisher';
+      var noteText = document.getElementById('regLinkedNoteText');
+      if (note) {
+        note.hidden = !linkedOn;
+        if (linkedOn && noteText) {
+          if (!linkedPro.enabled) {
+            noteText.textContent = label + ' accounts use your personal account username and password. Log in to your personal account to create it.';
+          } else {
+            noteText.textContent = owned
+              ? 'You already created a ' + label + ' account. Use the gear at the bottom of Home to switch to it.'
+              : 'This ' + label + ' account signs in with your personal account (@' + (linkedPro.owner || '') + ') username and password.';
+          }
+        }
+      }
+      if (submitBtn) submitBtn.disabled = linkedPro.enabled && linkedOn && (owned || !ident);
+    }
+
+    function goToPersonalLoginForPro() {
+      var target = mode === 'commerce' ? 'commerce' : 'publisher';
+      var returnInput = document.getElementById('loginReturnToPro');
+      if (returnInput) returnInput.value = target;
+      closeModal(document.getElementById('authRegisterResultModal'));
+      mode = 'personal';
+      setView('login');
+      var loginUser = document.getElementById('loginUsernameInput');
+      if (loginUser) setTimeout(function () { loginUser.focus(); }, 40);
+    }
+
+    var regLinkedLoginBtn = document.getElementById('regLinkedLoginBtn');
+    if (regLinkedLoginBtn) regLinkedLoginBtn.addEventListener('click', goToPersonalLoginForPro);
 
     typeBtns.forEach(function (btn) {
       btn.addEventListener('change', function () {
@@ -931,6 +1097,8 @@ try {
 
     if (loginForm) {
       loginForm.addEventListener('submit', function () {
+        var returnPro = document.getElementById('loginReturnToPro');
+        if (returnPro && returnPro.value && mode === 'personal') return;
         if (typeof window.msbArmEntryBridge === 'function') window.msbArmEntryBridge();
       });
     }
@@ -942,8 +1110,111 @@ try {
           alert('You must agree to the Terms & Policy to create an account.');
           return;
         }
+        if (mode === 'publisher' || mode === 'commerce') {
+          ev.preventDefault();
+          if (linkedPro && !linkedPro.enabled) {
+            showProLoginRequired();
+            return;
+          }
+          submitProRegister();
+          return;
+        }
         if (typeof window.msbArmEntryBridge === 'function') window.msbArmEntryBridge();
       });
+    }
+
+    var registerResultModal = document.getElementById('authRegisterResultModal');
+    var registerResultTitle = document.getElementById('authRegisterResultTitle');
+    var registerResultMessage = document.getElementById('authRegisterResultMessage');
+    if (registerResultModal) {
+      registerResultModal.addEventListener('click', function (ev) {
+        if (ev.target === registerResultModal) closeModal(registerResultModal);
+      });
+    }
+
+    function showProLoginRequired() {
+      var label = mode === 'commerce' ? 'Commerce' : 'Publisher';
+      showRegisterResult(label + ' accounts use your personal account username and password. Log in to your personal account first, then create your ' + label + ' account.');
+      var loginBtn = document.getElementById('authRegisterResultLogin');
+      if (loginBtn) loginBtn.hidden = false;
+    }
+
+    var registerResultLoginBtn = document.getElementById('authRegisterResultLogin');
+    if (registerResultLoginBtn) {
+      registerResultLoginBtn.addEventListener('click', function () {
+        goToPersonalLoginForPro();
+      });
+    }
+
+    function showRegisterResult(message) {
+      var resultLoginBtn = document.getElementById('authRegisterResultLogin');
+      if (resultLoginBtn) resultLoginBtn.hidden = true;
+      if (registerResultTitle) {
+        registerResultTitle.textContent = mode === 'commerce' ? 'Create commerce account' : 'Create publisher account';
+      }
+      if (registerResultMessage) registerResultMessage.textContent = message || 'Unable to complete registration right now. Please try again.';
+      openModal(registerResultModal);
+    }
+
+    function submitProRegister() {
+      var submitBtn = document.getElementById('registerSubmitBtn');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) submitBtn.disabled = true;
+      var body = new FormData(registerForm);
+      body.set('submit', '1');
+      body.set('ajax_register', '1');
+      fetch(registerForm.action, { method: 'POST', body: body, credentials: 'same-origin' })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data && data.ok) {
+            if (typeof window.msbArmEntryBridge === 'function') window.msbArmEntryBridge();
+            window.location.href = data.redirect || 'entry.php';
+            return;
+          }
+          if (submitBtn) submitBtn.disabled = false;
+          syncRegisterFields();
+          if (data && data.action === 'login_required') {
+            stopApprovalWait();
+            closeModal(document.getElementById('authApprovalWaitModal'));
+            showProLoginRequired();
+            return;
+          }
+          if (data && data.action === 'publisher_pending' && mode === 'publisher') {
+            openApprovalWait({ kind: 'publisher', name: currentPublisherName() });
+            return;
+          }
+          if (data && data.action === 'commerce_name_pending' && mode === 'commerce') {
+            openApprovalWait({ kind: 'commerce_name', name: currentCommerceName(), email: data.applicant_email || '' });
+            return;
+          }
+          if (data && data.action === 'commerce_seller_pending' && mode === 'commerce') {
+            openApprovalWait({
+              kind: 'commerce_seller',
+              name: currentCommerceName(),
+              brandId: parseInt(data.commerce_brand_id, 10) || (commerceSelect ? parseInt(commerceSelect.value, 10) || 0 : 0),
+              email: data.applicant_email || ''
+            });
+            return;
+          }
+          stopApprovalWait();
+          closeModal(document.getElementById('authApprovalWaitModal'));
+          if (data && data.action === 'publisher_request' && mode === 'publisher') {
+            openPublisherRequestModal();
+            return;
+          }
+          if (data && data.action === 'commerce_request' && mode === 'commerce') {
+            openCommerceRequestModal(parseInt(data.commerce_brand_id, 10) || 0);
+            return;
+          }
+          showRegisterResult(data && data.error);
+        })
+        .catch(function () {
+          if (submitBtn) submitBtn.disabled = false;
+          syncRegisterFields();
+          stopApprovalWait();
+          closeModal(document.getElementById('authApprovalWaitModal'));
+          showRegisterResult('Unable to complete registration right now. Please try again.');
+        });
     }
 
     /* ---- Add name (publisher / commerce) ---- */
@@ -1080,7 +1351,10 @@ try {
         publisherCustomName.value = name;
         publisherCustomName.disabled = false;
       }
-      if (publisherCustomChosen) publisherCustomChosen.classList.add('is-visible');
+      if (publisherCustomChosen) {
+        publisherCustomChosen.classList.add('is-visible');
+        publisherCustomChosen.classList.toggle('is-approved-state', status === 'approved');
+      }
       if (publisherCustomChosenName) publisherCustomChosenName.textContent = name;
       if (publisherCustomStatus) {
         publisherCustomStatus.textContent = message || '';
@@ -1110,7 +1384,10 @@ try {
         commerceCustomName.value = name;
         commerceCustomName.disabled = false;
       }
-      if (commerceCustomChosen) commerceCustomChosen.classList.add('is-visible');
+      if (commerceCustomChosen) {
+        commerceCustomChosen.classList.add('is-visible');
+        commerceCustomChosen.classList.toggle('is-approved-state', status === 'approved');
+      }
       if (commerceCustomChosenName) commerceCustomChosenName.textContent = name;
       if (commerceCustomStatus) {
         commerceCustomStatus.textContent = message || '';
@@ -1128,6 +1405,11 @@ try {
     }
     if (commerceAddBtn) {
       commerceAddBtn.addEventListener('click', function () {
+        if (linkedPro && !linkedPro.enabled) {
+          showProLoginRequired();
+          return;
+        }
+        setCommerceSellerRequestMode(0);
         if (commerceAddError) commerceAddError.textContent = '';
         var emailField = registerForm ? registerForm.querySelector('input[name="email"]') : null;
         var contactEmail = document.getElementById('authCommerceContactEmail');
@@ -1219,6 +1501,9 @@ try {
               data.message || 'Request submitted. Waiting for admin approval.'
             );
             closeModal(publisherModal);
+            var publisherReq = { kind: 'publisher', name: data.name || name };
+            if (String(data.status || '') === 'approved') onApprovalGranted(publisherReq);
+            else openApprovalWait(publisherReq);
           })
           .catch(function () {
             publisherSaveBtn.disabled = false;
@@ -1257,6 +1542,10 @@ try {
         }
         if (commerceAddError) commerceAddError.textContent = '';
         commerceSaveBtn.disabled = true;
+        if (commerceSellerBrandId > 0) {
+          submitCommerceSellerRequest(username, email, contactName, contactEmail);
+          return;
+        }
         var body = new FormData();
         body.append('name', name);
         body.append('username', username);
@@ -1285,11 +1574,258 @@ try {
               // keep custom name path; brand id may arrive after approval
             }
             closeModal(commerceModal);
+            var commerceNameReq = { kind: 'commerce_name', name: data.name || name, email: email };
+            if (data.approved) onApprovalGranted(commerceNameReq);
+            else openApprovalWait(commerceNameReq);
           })
           .catch(function () {
             commerceSaveBtn.disabled = false;
             if (commerceAddError) commerceAddError.textContent = 'Unable to submit brand request right now.';
           });
+      });
+    }
+
+    var commerceSellerBrandId = 0;
+    var commerceModalTitle = document.getElementById('authCommerceAddTitle');
+    var commerceModalIntro = commerceModal ? commerceModal.querySelector('.auth-modal > p') : null;
+    var commerceModalTitleText = commerceModalTitle ? commerceModalTitle.textContent : '';
+    var commerceModalIntroText = commerceModalIntro ? commerceModalIntro.textContent : '';
+
+    function setCommerceSellerRequestMode(brandId) {
+      commerceSellerBrandId = brandId > 0 ? brandId : 0;
+      var nameInput = document.getElementById('authCommerceAddNameInput');
+      if (nameInput) nameInput.readOnly = commerceSellerBrandId > 0;
+      if (commerceModalTitle) {
+        commerceModalTitle.textContent = commerceSellerBrandId > 0 ? 'Commerce seller request' : commerceModalTitleText;
+      }
+      if (commerceModalIntro) {
+        commerceModalIntro.textContent = commerceSellerBrandId > 0
+          ? 'Request seller access for this brand. Admin must approve it before you can create your commerce account.'
+          : commerceModalIntroText;
+      }
+    }
+
+    function openPublisherRequestModal() {
+      var usingCustom = !!(publisherCustomChosen && publisherCustomChosen.classList.contains('is-visible'));
+      var name = usingCustom && publisherCustomName ? publisherCustomName.value : (publisherSelect ? publisherSelect.value : '');
+      if (name === '__add_new__') name = '';
+      var input = document.getElementById('authPublisherAddNameInput');
+      if (input) input.value = name || '';
+      if (publisherAddError) publisherAddError.textContent = '';
+      openModal(publisherModal);
+      var focusEl = document.getElementById(name ? 'authPublisherContactName' : 'authPublisherAddNameInput');
+      if (focusEl) setTimeout(function () { focusEl.focus(); }, 40);
+    }
+
+    function openCommerceRequestModal(brandId) {
+      var usingCustom = !!(commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible'));
+      var name = '';
+      var listedId = 0;
+      if (usingCustom && commerceCustomName) {
+        name = commerceCustomName.value;
+      } else if (commerceSelect && commerceSelect.value && commerceSelect.value !== '__add_new__') {
+        listedId = parseInt(commerceSelect.value, 10) || 0;
+        var opt = commerceSelect.options[commerceSelect.selectedIndex];
+        name = opt ? opt.textContent : '';
+      }
+      setCommerceSellerRequestMode(usingCustom ? 0 : (listedId || brandId));
+      var input = document.getElementById('authCommerceAddNameInput');
+      if (input) input.value = String(name || '').trim();
+      var emailField = registerForm ? registerForm.querySelector('input[name="email"]') : null;
+      var contactEmail = document.getElementById('authCommerceContactEmail');
+      if (contactEmail && emailField && emailField.value && !contactEmail.value) {
+        contactEmail.value = emailField.value;
+      }
+      if (commerceAddError) commerceAddError.textContent = '';
+      openModal(commerceModal);
+      var focusEl = document.getElementById(name ? 'authCommerceContactName' : 'authCommerceAddNameInput');
+      if (focusEl) setTimeout(function () { focusEl.focus(); }, 40);
+    }
+
+    function submitCommerceSellerRequest(username, email, contactName, contactEmail) {
+      var body = new FormData();
+      body.append('commerce_brand_id', String(commerceSellerBrandId));
+      body.append('username', username);
+      body.append('email', email);
+      body.append('entity_type', (document.getElementById('authCommerceEntityType') || {}).value || 'business');
+      body.append('authorized_contact_name', String(contactName).trim());
+      body.append('authorized_contact_email', String(contactEmail).trim());
+      body.append('request_note', (document.getElementById('authCommerceRequestNote') || {}).value || '');
+      body.append('authority_confirmed', '1');
+      fetch('commerce_seller_request_save.php', { method: 'POST', body: body, credentials: 'same-origin' })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          commerceSaveBtn.disabled = false;
+          if (!data || !data.ok) {
+            if (commerceAddError) commerceAddError.textContent = (data && data.message) ? data.message : 'Unable to submit seller request.';
+            return;
+          }
+          var sellerReq = {
+            kind: 'commerce_seller',
+            name: (document.getElementById('authCommerceAddNameInput') || {}).value || '',
+            brandId: commerceSellerBrandId,
+            email: email
+          };
+          closeModal(commerceModal);
+          setCommerceSellerRequestMode(0);
+          if (data.approved) onApprovalGranted(sellerReq);
+          else openApprovalWait(sellerReq);
+        })
+        .catch(function () {
+          commerceSaveBtn.disabled = false;
+          if (commerceAddError) commerceAddError.textContent = 'Unable to submit seller request right now.';
+        });
+    }
+
+    function currentPublisherName() {
+      var usingCustom = !!(publisherCustomChosen && publisherCustomChosen.classList.contains('is-visible'));
+      var name = usingCustom && publisherCustomName ? publisherCustomName.value : (publisherSelect ? publisherSelect.value : '');
+      return name === '__add_new__' ? '' : String(name || '').trim();
+    }
+
+    function currentCommerceName() {
+      var usingCustom = !!(commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible'));
+      if (usingCustom && commerceCustomName) return String(commerceCustomName.value || '').trim();
+      if (commerceSelect && commerceSelect.value && commerceSelect.value !== '__add_new__') {
+        var opt = commerceSelect.options[commerceSelect.selectedIndex];
+        return opt ? String(opt.textContent || '').trim() : '';
+      }
+      return '';
+    }
+
+    var approvalWaitModal = document.getElementById('authApprovalWaitModal');
+    var approvalWaitText = document.getElementById('authApprovalWaitText');
+    var approvalWaitStatus = document.getElementById('authApprovalWaitStatus');
+    var approvalWaitStatusText = document.getElementById('authApprovalWaitStatusText');
+    var approvalWaitCloseBtn = document.getElementById('authApprovalWaitClose');
+    var approvalWaitCheckBtn = document.getElementById('authApprovalWaitCheck');
+    var approvalWaitTimer = null;
+    var approvalWaitReq = null;
+    var approvalWaitBusy = false;
+
+    function approvalStatusUrl(req) {
+      if (!req) return '';
+      if (req.kind === 'publisher' && req.name) {
+        return 'publisher_request_status.php?name=' + encodeURIComponent(req.name);
+      }
+      if (req.kind === 'commerce_name' && req.name && req.email) {
+        return 'commerce_brand_name_request_status.php?name=' + encodeURIComponent(req.name) + '&email=' + encodeURIComponent(req.email);
+      }
+      if (req.kind === 'commerce_seller' && req.brandId > 0 && req.email) {
+        return 'commerce_seller_request_status.php?commerce_brand_id=' + encodeURIComponent(String(req.brandId)) + '&email=' + encodeURIComponent(req.email);
+      }
+      return '';
+    }
+
+    function setApprovalWaitState(text, state) {
+      if (approvalWaitStatusText) approvalWaitStatusText.textContent = text;
+      if (approvalWaitStatus) {
+        approvalWaitStatus.classList.toggle('is-done', state === 'done');
+        approvalWaitStatus.classList.toggle('is-rejected', state === 'rejected');
+      }
+    }
+
+    function stopApprovalWait() {
+      if (approvalWaitTimer) clearInterval(approvalWaitTimer);
+      approvalWaitTimer = null;
+      approvalWaitReq = null;
+    }
+
+    function openApprovalWait(req) {
+      if (!approvalStatusUrl(req)) {
+        showRegisterResult('Request submitted. Waiting for admin approval.');
+        return;
+      }
+      stopApprovalWait();
+      approvalWaitReq = req;
+      if (approvalWaitText) {
+        approvalWaitText.textContent = 'Your request' + (req.name ? ' for “' + req.name + '”' : '') + ' was sent to the admin.';
+      }
+      setApprovalWaitState('Checking for approval…', '');
+      if (approvalWaitCheckBtn) approvalWaitCheckBtn.disabled = false;
+      openModal(approvalWaitModal);
+      checkApprovalNow();
+      approvalWaitTimer = setInterval(checkApprovalNow, 5000);
+    }
+
+    function checkApprovalNow() {
+      var req = approvalWaitReq;
+      var url = approvalStatusUrl(req);
+      if (!url || approvalWaitBusy) return;
+      approvalWaitBusy = true;
+      fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          approvalWaitBusy = false;
+          if (req !== approvalWaitReq) return;
+          var status = data && data.ok ? String(data.status || '') : '';
+          if (status === 'approved') {
+            onApprovalGranted(req);
+            return;
+          }
+          if (status === 'rejected') {
+            stopApprovalWait();
+            if (approvalWaitCheckBtn) approvalWaitCheckBtn.disabled = true;
+            setApprovalWaitState('The admin rejected this request. Choose another name or submit a new request.', 'rejected');
+            return;
+          }
+          var now = new Date();
+          setApprovalWaitState('Still waiting for the admin… (checked ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }) + ')', '');
+        })
+        .catch(function () {
+          approvalWaitBusy = false;
+          if (req === approvalWaitReq) setApprovalWaitState('Could not check right now. Retrying…', '');
+        });
+    }
+
+    function onApprovalGranted(req) {
+      stopApprovalWait();
+      closeModal(approvalWaitModal);
+      var label = mode === 'commerce' ? 'commerce' : 'publisher';
+      var approvedMsg = 'Admin approved your request! Click Create ' + label + ' account to finish signup.';
+      if (req && req.kind === 'publisher') {
+        setPublisherCustom(req.name, 'approved', approvedMsg);
+      } else if (req && req.kind === 'commerce_name') {
+        setCommerceCustom(req.name, 'approved', approvedMsg);
+      } else if (req && req.kind === 'commerce_seller') {
+        showSellerApprovedCard(req.name, approvedMsg);
+      }
+      var submitBtn = document.getElementById('registerSubmitBtn');
+      if (submitBtn) {
+        submitBtn.classList.add('is-ready-flash');
+        setTimeout(function () { submitBtn.classList.remove('is-ready-flash'); }, 4000);
+      }
+    }
+
+    function showSellerApprovedCard(name, message) {
+      var card = document.getElementById('regCommerceSellerApproved');
+      if (!card && commerceCustomChosen && commerceCustomChosen.parentNode) {
+        card = document.createElement('div');
+        card.id = 'regCommerceSellerApproved';
+        card.className = 'auth-custom-chosen is-visible is-approved-state';
+        card.innerHTML = '<span class="auth-custom-chosen-label">Your commerce brand</span>'
+          + '<div class="auth-custom-chosen-name"></div>'
+          + '<div class="auth-custom-status is-approved"></div>';
+        commerceCustomChosen.parentNode.insertBefore(card, commerceCustomChosen.nextSibling);
+        if (commerceSelect) {
+          commerceSelect.addEventListener('change', function () {
+            var stale = document.getElementById('regCommerceSellerApproved');
+            if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+          });
+        }
+      }
+      if (!card) return;
+      card.querySelector('.auth-custom-chosen-name').textContent = name || '';
+      card.querySelector('.auth-custom-status').textContent = message || '';
+    }
+
+    if (approvalWaitCheckBtn) {
+      approvalWaitCheckBtn.addEventListener('click', checkApprovalNow);
+    }
+    if (approvalWaitCloseBtn) {
+      approvalWaitCloseBtn.addEventListener('click', function () {
+        stopApprovalWait();
+        closeModal(approvalWaitModal);
       });
     }
 

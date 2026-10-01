@@ -82,6 +82,13 @@ $__isActive = function (string $file) use ($__cur): string {
     </li>
 
     <li class="nav-item">
+        <a href="community.php" class="nav-link<?= $__isActive('community.php') ?>">
+        <i class="icon ion-ios-people"></i>
+        <span>Community</span>
+        </a>
+    </li>
+
+    <li class="nav-item">
         <a href="messages.php" class="nav-link<?= $__isActive('messages.php') ?>">
         <i class="icon ion-chatbubble"></i>
         <span>Messager</span>

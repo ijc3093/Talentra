@@ -42,9 +42,9 @@ if (!function_exists('org_layout_head_assets')) {
                 . '</style>' . "\n";
         }
 
-        echo '<link rel="stylesheet" href="css/org-layout.css?v=28">' . "\n";
-        echo '<link rel="stylesheet" href="css/org-compact.css?v=36">' . "\n";
-        echo '<link rel="stylesheet" href="css/org-header-actions.css?v=1">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-layout.css?v=43">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-compact.css?v=39">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-header-actions.css?v=2">' . "\n";
     }
 }
 
@@ -65,8 +65,21 @@ if (!function_exists('org_layout_footer_assets')) {
                 appearance_bridge_print_org_tail_critical($dbh, $orgTailUserId);
             }
         }
-        echo '<link rel="stylesheet" href="css/org-contrast.css?v=27">' . "\n";
+        echo '<link rel="stylesheet" href="css/org-contrast.css?v=41">' . "\n";
         echo '<style id="org-sales-nav-badge-lock">'
+            . 'body.org-app .org-sales-nav-badge,'
+            . 'body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,'
+            . 'body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link .org-sales-nav-badge,'
+            . 'body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover .org-sales-nav-badge,'
+            . 'body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus .org-sales-nav-badge,'
+            . 'body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .org-sales-nav-badge,'
+            . 'body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge,'
+            . 'body.org-app .org-sales-support-center .org-sales-nav-badge{'
+            . 'display:inline-flex!important;align-items:center;justify-content:center;'
+            . 'min-width:18px;height:18px;padding:0 5px;border-radius:999px;'
+            . 'background:#dc3545!important;background-color:#dc3545!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;'
+            . 'font-size:10px!important;font-weight:800!important;font-style:normal!important;line-height:1!important;'
+            . 'border:none!important;box-shadow:none!important;}'
             . 'body.org-app .org-sales-nav-badge rect{fill:#dc3545!important;}'
             . 'body.org-app .org-sales-nav-badge text{fill:#ffffff!important;color:#ffffff!important;}'
             . '@keyframes orgSalesBadgeAlert{'
@@ -97,9 +110,51 @@ if (!function_exists('org_layout_footer_assets')) {
                 'returns_refunds.php', 'discounts_promotions.php', 'commerce_brand_select.php',
                 'recent_orders.php', 'commerce_analytics.php',
             ], true)) {
-            echo '<link rel="stylesheet" href="css/org-commerce-theme.css?v=7" id="org-commerce-theme-css">' . "\n";
+            echo '<link rel="stylesheet" href="css/org-commerce-theme.css?v=8" id="org-commerce-theme-css">' . "\n";
+            echo '<style id="org-sales-nav-blue-lock">'
+                . 'html body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active,'
+                . 'html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active,'
+                . 'html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active,'
+                . 'html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active,'
+                . 'html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active:hover,'
+                . 'html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active:focus{'
+                . 'background:transparent!important;background-color:transparent!important;background-image:none!important;'
+                . 'color:#60a5fa!important;-webkit-text-fill-color:#60a5fa!important;'
+                . 'border:0!important;box-shadow:none!important;outline:none!important;}'
+                . 'html body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active:focus-visible{'
+                . 'outline:2px solid #60a5fa!important;outline-offset:-2px!important;}'
+                . 'html body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active > span,'
+                . 'html body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active i,'
+                . 'html body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active .icon,'
+                . 'html body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active [class*="ion-"],'
+                . 'html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active > span,'
+                . 'html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active i,'
+                . 'html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active .icon,'
+                . 'html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active [class*="ion-"],'
+                . 'html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active > span,'
+                . 'html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active i,'
+                . 'html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active .icon,'
+                . 'html[data-msb-appearance] body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active [class*="ion-"],'
+                . 'html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active > span,'
+                . 'html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active i,'
+                . 'html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active .icon,'
+                . 'html.msb-palette-active body.org-app .sh-sideleft-menu .nav > .nav-item > a.nav-link.sales-management-nav-link.active [class*="ion-"]{'
+                . 'color:#60a5fa!important;-webkit-text-fill-color:#60a5fa!important;'
+                . 'background:transparent!important;background-color:transparent!important;}'
+                . 'html body.org-app .org-sales-support-center.active,'
+                . 'html.dark-auto body.org-app .org-sales-support-center.active,'
+                . 'html body.org-app .org-sales-support-center.active i,'
+                . 'html.dark-auto body.org-app .org-sales-support-center.active i{'
+                . 'color:#60a5fa!important;-webkit-text-fill-color:#60a5fa!important;background:transparent!important;}'
+                . '</style>' . "\n";
+            // Re-assert after appearance palette injects (theme-bootstrap runs async).
+            echo '<script>(function(){function lockSalesNavBlue(){var id="org-sales-nav-blue-lock";var el=document.getElementById(id);if(!el)return;var parent=el.parentNode;if(parent){parent.appendChild(el);}}'
+                . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",lockSalesNavBlue);}else{lockSalesNavBlue();}'
+                . 'window.addEventListener("load",lockSalesNavBlue);'
+                . 'setTimeout(lockSalesNavBlue,0);setTimeout(lockSalesNavBlue,250);setTimeout(lockSalesNavBlue,800);'
+                . '})();</script>' . "\n";
         }
-        echo '<script src="js/org-nav.js?v=26" defer></script>' . "\n";
+        echo '<script src="js/org-nav.js?v=28" defer></script>' . "\n";
     }
 }
 

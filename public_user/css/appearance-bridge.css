@@ -13,6 +13,9 @@ textarea.form-control,
 }
 
 html {
+  --msb-default-font: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  --msb-header-font: var(--msb-default-font);
+  --msb-body-font: var(--msb-default-font);
   --bg-main: var(--msb-palette-bg, #f5f7fb);
   --bg-card: var(--msb-palette-surface, #ffffff);
   --bg-sidebar: var(--msb-palette-sidebar, var(--msb-palette-bg, #f0f2f7));
@@ -26,6 +29,24 @@ html {
   --org-bg: var(--msb-palette-bg, #f5f7fb);
   --blue: var(--msb-palette-action, #2563eb);
   --shadow: var(--msb-palette-shadow, 0 10px 18px rgba(0, 0, 0, 0.04));
+}
+
+/* Calibri is the application default; saved Appearance font choices may override it. */
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--msb-body-font, var(--msb-default-font)) !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--msb-header-font, var(--msb-default-font)) !important;
 }
 
 html[data-msb-appearance] body {
@@ -44,6 +65,21 @@ html[data-msb-appearance] .meta,
 html[data-msb-appearance] .rm-date,
 html[data-msb-appearance] .stat-pill .sub {
   color: var(--msb-palette-text-muted) !important;
+}
+
+/* Meta on solid action / primary chips must stay high-contrast (not slate-on-blue) */
+html[data-msb-appearance] .dd-bubble.me .meta,
+html[data-msb-appearance] .dd-bubble.me .dd-bubble-meta,
+html[data-msb-appearance] .msg-bubble.me .meta,
+html[data-msb-appearance] .chat-bubble.me .meta,
+html[data-msb-appearance] .fb-bubble.me .meta,
+html[data-msb-appearance] .btn-primary .meta,
+html[data-msb-appearance] [class*="bubble"].me .meta,
+html[data-msb-appearance] [class*="bubble"].me .dd-bubble-meta,
+html[data-msb-appearance] .bg-primary .meta,
+html[data-msb-appearance] .badge-primary .meta {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 html[data-msb-appearance] .stat-pill .num,
@@ -2272,4 +2308,3 @@ html[data-msb-text-color] body .post.public-post-card .standard-media-caption .p
 html[data-msb-text-color] body .post.public-post-card .standard-media-summary {
   color: var(--msb-text-color) !important;
 }
-

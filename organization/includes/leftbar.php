@@ -24,10 +24,14 @@ $salesAttention = [
     'orders' => 0,
     'delivery' => 0,
     'products' => 0,
+    'inventory_low' => 0,
+    'inventory_out' => 0,
     'customers' => 0,
     'returns' => 0,
     'notification' => 0,
     'messages' => 0,
+    'support' => 0,
+    'disputes' => 0,
 ];
 if ($isManager && $isCommerceSeller) {
     try {
@@ -36,29 +40,15 @@ if ($isManager && $isCommerceSeller) {
     } catch (Throwable $e) {
         // keep zeros
     }
-    try {
-        require_once __DIR__ . '/../../public_user/includes/commerce_messaging.php';
-        require_once __DIR__ . '/../../public_user/includes/staff_publisher_access.php';
-        $pubId = staff_pub_org_publisher_user_id($leftbarDbh, (int)orgActiveOrgId());
-        if ($pubId <= 0) {
-            $pubId = (int)($_SESSION['org_publisher_user_id'] ?? 0);
-        }
-        if ($pubId > 0) {
-            $salesAttention['messages'] = commerce_seller_buyer_unread_count($leftbarDbh, $pubId);
-            $salesAttention['total'] = (int)($salesAttention['total'] ?? 0) + (int)$salesAttention['messages'];
-        }
-    } catch (Throwable $e) {
-        // keep zero messages
-    }
 }
 $salesManagementNav = [
     ['Dashboard', 'dashboard', 'ion-speedometer', '', ''],
     ['Quotations', 'quotations', 'ion-document-text', '', ''],
     ['Delivery / Shipping', 'delivery-shipping', 'ion-model-s', '', 'delivery'],
     ['Salespersons', 'salespersons', 'ion-person-stalker', '', ''],
-    ['Products', 'product-catalog', 'ion-ios-pricetags', '', 'products'],
+    ['Products', 'product-catalog', 'ion-ios-pricetags', '', 'stock'],
     ['Create New Products', 'products', 'ion-ios-box', '', ''],
-    ['Inventory', 'inventory', 'ion-grid', '', 'products'],
+    ['Inventory', 'inventory', 'ion-grid', '', 'stock'],
     ['Transactions', 'transactions', 'ion-arrow-swap', '', ''],
     ['Overview', 'overview', 'ion-ios-pie', '', ''],
     ['Orders', 'orders', 'ion-ios-list', '', 'orders'],
@@ -68,7 +58,7 @@ $salesManagementNav = [
     ['Invoices', 'invoices', 'ion-card', '', ''],
     ['Discounts & Promotions', 'discounts-promotions', 'ion-pricetag', '', ''],
     ['Employee detail', 'detail_employee', 'ion-ios-person', '', ''],
-    ['Customers', 'customers', 'ion-ios-people', '', 'customers'],
+    ['Customers', 'customers', 'ion-ios-people', '', ''],
     ['Reviews', 'reviews', 'ion-star', '', ''],
     ['Analytics', 'analytics', 'ion-stats-bars', '', ''],
     ['Marketing', 'marketing', 'ion-paper-airplane', '', ''],
@@ -89,56 +79,34 @@ $salesNavBadgeHtml = static function (int $count): string {
     }
     $label = $count > 99 ? '99+' : (string)$count;
     $safe = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
-    // SVG keeps red fill + white digits even when theme forces nav-link greys/blues.
-    $width = (strlen($label) > 1) ? 28 : 22;
-    return '<span class="org-sales-nav-badge-wrap is-alert" aria-hidden="true" title="Needs attention">'
-        . '<svg class="org-sales-nav-badge" width="' . $width . '" height="22" viewBox="0 0 ' . $width . ' 22" focusable="false" style="display:block;overflow:visible;">'
-        . '<rect x="0" y="0" width="' . $width . '" height="22" rx="11" ry="11" fill="#dc3545" style="fill:#dc3545!important;"></rect>'
-        . '<text x="' . ($width / 2) . '" y="15" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="800" font-family="system-ui,-apple-system,Segoe UI,sans-serif" style="fill:#ffffff!important;color:#ffffff!important;">'
-        . $safe
-        . '</text></svg></span>';
+    $wide = strlen($label) > 1 ? ' is-wide' : '';
+    return '<span class="org-sales-nav-badge-wrap' . $wide . '" aria-hidden="true" title="Needs attention">'
+        . '<b class="org-sales-nav-badge">' . $safe . '</b>'
+        . '</span>';
+};
+$salesNavStockBadgeHtml = static function (int $low, int $out): string {
+    if ($low <= 0 && $out <= 0) {
+        return '';
+    }
+    $parts = [];
+    if ($low > 0) {
+        $n = $low > 99 ? '99+' : (string)$low;
+        $parts[] = '<span class="org-sales-nav-stock-badge is-low" title="Low stock — restock soon" aria-hidden="true">'
+            . '<i class="fa fa-exclamation-triangle"></i>'
+            . '<b>' . htmlspecialchars($n, ENT_QUOTES, 'UTF-8') . '</b>'
+            . '</span>';
+    }
+    if ($out > 0) {
+        $n = $out > 99 ? '99+' : (string)$out;
+        $parts[] = '<span class="org-sales-nav-stock-badge is-out" title="Out of stock" aria-hidden="true">'
+            . '<i class="fa fa-ban"></i>'
+            . '<b>' . htmlspecialchars($n, ENT_QUOTES, 'UTF-8') . '</b>'
+            . '</span>';
+    }
+    return '<span class="org-sales-nav-stock-wrap">' . implode('', $parts) . '</span>';
 };
 ?>
 <style>
-  @keyframes orgSalesBadgeAlert {
-    0%, 100% {
-      transform: scale(1) translate(0, 0);
-      filter: drop-shadow(0 0 0 rgba(220, 53, 69, 0));
-    }
-    12% {
-      transform: scale(1.14) translate(0, -1px);
-      filter: drop-shadow(0 0 7px rgba(220, 53, 69, 0.9));
-    }
-    24% {
-      transform: scale(1.06) translate(0, 0);
-      filter: drop-shadow(0 0 3px rgba(220, 53, 69, 0.5));
-    }
-    36% {
-      transform: scale(1.12) translate(0, -1px);
-      filter: drop-shadow(0 0 6px rgba(220, 53, 69, 0.75));
-    }
-    50% {
-      transform: scale(1) translate(0, 0);
-      filter: drop-shadow(0 0 2px rgba(220, 53, 69, 0.35));
-    }
-    78% {
-      transform: scale(1) translate(0, 0);
-      filter: drop-shadow(0 0 2px rgba(220, 53, 69, 0.35));
-    }
-    82% {
-      transform: scale(1.08) translate(-2px, 0);
-      filter: drop-shadow(0 0 5px rgba(220, 53, 69, 0.7));
-    }
-    86% {
-      transform: scale(1.08) translate(2px, 0);
-    }
-    90% {
-      transform: scale(1.05) translate(-1px, 0);
-    }
-    94% {
-      transform: scale(1.03) translate(1px, 0);
-    }
-  }
   .org-sales-nav-badge-wrap{
     display:inline-flex !important;
     align-items:center;
@@ -146,16 +114,6 @@ $salesNavBadgeHtml = static function (int $count): string {
     margin-left:auto !important;
     flex-shrink:0 !important;
     line-height:0;
-    transform-origin:center center;
-  }
-  .org-sales-nav-badge-wrap.is-alert{
-    animation: orgSalesBadgeAlert 2.4s ease-in-out infinite;
-  }
-  @media (prefers-reduced-motion: reduce){
-    .org-sales-nav-badge-wrap.is-alert{
-      animation: none;
-      filter: drop-shadow(0 0 4px rgba(220, 53, 69, 0.65));
-    }
   }
   .org-sales-nav-badge,
   body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
@@ -163,17 +121,79 @@ $salesNavBadgeHtml = static function (int $count): string {
   body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover .org-sales-nav-badge,
   body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus .org-sales-nav-badge,
   body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .org-sales-nav-badge,
-  body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge{
-    flex-shrink:0 !important;
-    display:block !important;
-    overflow:visible !important;
-    color:inherit !important;
-    background:transparent !important;
-    border:0 !important;
+  body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge,
+  body.org-app .org-sales-support-center .org-sales-nav-badge,
+  .org-sales-support-center .org-sales-nav-badge{
+    display:inline-flex !important;
+    align-items:center;
+    justify-content:center;
+    min-width:18px;
+    height:18px;
+    padding:0 5px;
+    border-radius:999px;
+    background:#dc3545 !important;
+    background-color:#dc3545 !important;
+    color:#ffffff !important;
+    -webkit-text-fill-color:#ffffff !important;
+    font-size:10px !important;
+    font-weight:800 !important;
+    font-style:normal !important;
+    line-height:1 !important;
+    border:none !important;
     box-shadow:none !important;
+    flex-shrink:0 !important;
   }
-  .org-sales-nav-badge rect{fill:#dc3545 !important;}
-  .org-sales-nav-badge text{fill:#ffffff !important;color:#ffffff !important;}
+  .org-sales-nav-badge-wrap.is-wide .org-sales-nav-badge{
+    min-width:22px;
+  }
+  .org-sales-nav-stock-wrap{
+    display:inline-flex !important;
+    align-items:center;
+    gap:4px;
+    margin-left:auto !important;
+    flex-shrink:0 !important;
+  }
+  .org-sales-nav-stock-badge{
+    display:inline-flex !important;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    min-height:18px;
+    padding:0 6px;
+    border-radius:999px;
+    font-size:10px !important;
+    font-weight:800 !important;
+    line-height:1 !important;
+    white-space:nowrap;
+  }
+  .org-sales-nav-stock-badge i{
+    font-size:10px !important;
+    line-height:1 !important;
+    width:auto !important;
+    margin:0 !important;
+  }
+  .org-sales-nav-stock-badge b{
+    font-weight:800 !important;
+    font-style:normal !important;
+  }
+  .org-sales-nav-stock-badge.is-low,
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link .org-sales-nav-stock-badge.is-low,
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .org-sales-nav-stock-badge.is-low{
+    background:#ffedd5 !important;
+    background-color:#ffedd5 !important;
+    color:#c2410c !important;
+    -webkit-text-fill-color:#c2410c !important;
+    border:1px solid #fdba74 !important;
+  }
+  .org-sales-nav-stock-badge.is-out,
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link .org-sales-nav-stock-badge.is-out,
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .org-sales-nav-stock-badge.is-out{
+    background:#fee2e2 !important;
+    background-color:#fee2e2 !important;
+    color:#b91c1c !important;
+    -webkit-text-fill-color:#b91c1c !important;
+    border:1px solid #fca5a5 !important;
+  }
   .org-sideleft-nav .nav-link{
     display:flex;
     align-items:center;
@@ -200,48 +220,104 @@ $salesNavBadgeHtml = static function (int $count): string {
     color:inherit;
     background:var(--org-page-bg, var(--msb-palette-bg, #fff));
   }
-  .org-sideleft-nav .nav-link:hover,
-  .org-sideleft-nav .nav-link:focus,
-  body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
-  body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus,
-  body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
-  body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus{
-    background:rgba(37, 99, 235, 0.08) !important;
-    background-color:rgba(37, 99, 235, 0.08) !important;
-    color:#334155 !important;
+  .org-sideleft-nav .nav-link:hover:not(.active),
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active),
+  body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover:not(.active){
+    background:var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(37, 99, 235, 0.10))) !important;
+    background-color:var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(37, 99, 235, 0.10))) !important;
+    color:var(--msb-palette-text, #334155) !important;
     box-shadow:none !important;
   }
-  .org-sideleft-nav .nav-link:hover span,
-  .org-sideleft-nav .nav-link:focus span,
-  .org-sideleft-nav .nav-link:hover i,
-  .org-sideleft-nav .nav-link:focus i,
-  .org-sideleft-nav .nav-link:hover [class*="ion-"],
-  .org-sideleft-nav .nav-link:focus [class*="ion-"]{
-    color:#334155 !important;
+  html.dark-auto .org-sideleft-nav .nav-link:hover:not(.active),
+  html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:hover:not(.active),
+  html.dark-auto body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover:not(.active),
+  html.dark-auto body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:hover:not(.active){
+    background:var(--msb-palette-nav-hover, rgba(148, 163, 184, 0.16)) !important;
+    background-color:var(--msb-palette-nav-hover, rgba(148, 163, 184, 0.16)) !important;
+    color:var(--msb-palette-text, #e8edf5) !important;
+  }
+  .org-sideleft-nav .nav-link:hover:not(.active) > span,
+  .org-sideleft-nav .nav-link:hover:not(.active) i,
+  .org-sideleft-nav .nav-link:hover:not(.active) [class*="ion-"]{
+    color:inherit !important;
     background:transparent !important;
   }
-  .org-sideleft-nav .nav-link.active,
+  html.dark-auto .org-sideleft-nav .nav-link:hover:not(.active) > span,
+  html.dark-auto .org-sideleft-nav .nav-link:hover:not(.active) i,
+  html.dark-auto .org-sideleft-nav .nav-link:hover:not(.active) [class*="ion-"]{
+    color:var(--msb-palette-text, #e8edf5) !important;
+  }
+  .org-sideleft-nav .nav-link:focus,
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus{
+    outline:none !important;
+    box-shadow:none !important;
+  }
+  .org-sideleft-nav .nav-link:focus:not(:focus-visible):not(.active),
+  body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:focus-visible):not(.active){
+    background:transparent !important;
+    background-color:transparent !important;
+  }
+  .org-sideleft-nav .nav-link.active:not(.sales-management-nav-link){
+    background:var(--msb-palette-action-soft, rgba(37, 99, 235, 0.18)) !important;
+    background-color:var(--msb-palette-action-soft, rgba(37, 99, 235, 0.18)) !important;
+  }
   .org-sideleft-nav .sales-management-nav-link.active{
-    background:rgba(37, 99, 235, 0.12) !important;
-    background-color:rgba(37, 99, 235, 0.12) !important;
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    color:var(--msb-palette-action, #60a5fa) !important;
+    box-shadow:none !important;
+  }
+  .org-sideleft-nav .sales-management-nav-link.active i,
+  .org-sideleft-nav .sales-management-nav-link.active [class*="ion-"],
+  .org-sideleft-nav .sales-management-nav-link.active .icon,
+  .org-sideleft-nav .sales-management-nav-link.active > span{
+    color:var(--msb-palette-action, #60a5fa) !important;
+    background:transparent !important;
+  }
+  html.dark-auto .org-sideleft-nav .nav-link.active:not(.sales-management-nav-link){
+    background:var(--msb-palette-action-soft, rgba(37, 99, 235, 0.26)) !important;
+    background-color:var(--msb-palette-action-soft, rgba(37, 99, 235, 0.26)) !important;
+    color:var(--msb-palette-action, #93c5fd) !important;
+  }
+  html.dark-auto .org-sideleft-nav .sales-management-nav-link.active{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    color:var(--msb-palette-action, #60a5fa) !important;
+  }
+  html.dark-auto .org-sideleft-nav .sales-management-nav-link.active i,
+  html.dark-auto .org-sideleft-nav .sales-management-nav-link.active [class*="ion-"],
+  html.dark-auto .org-sideleft-nav .sales-management-nav-link.active .icon,
+  html.dark-auto .org-sideleft-nav .sales-management-nav-link.active > span{
+    color:var(--msb-palette-action, #60a5fa) !important;
+    background:transparent !important;
+  }
+  .org-sideleft-nav .sales-management-nav-link:hover:not(.active),
+  html.dark-auto .org-sideleft-nav .sales-management-nav-link:hover:not(.active){
+    background:rgba(148, 163, 184, 0.14) !important;
+    background-color:rgba(148, 163, 184, 0.14) !important;
+    color:var(--msb-palette-text, #e8edf5) !important;
   }
   .org-sales-support-center{
     flex:0 0 auto;
     display:flex;
     align-items:center;
     gap:8px;
-    margin:8px 14px 10px;
-    padding:8px 10px;
+    margin:4px 8px 8px;
+    padding:9px 12px;
     color:var(--msb-palette-text, var(--org-text, #111827));
-    font-size:14px;
-    font-weight:850;
+    font-size:13px;
+    font-weight:600;
     text-decoration:none;
     line-height:1.2;
+    border-radius:8px;
   }
   .org-sales-support-center:hover,
   .org-sales-support-center:focus,
   .org-sales-support-center.active{
-    color:var(--msb-palette-action, var(--org-accent, #2563eb));
+    color:var(--msb-palette-action, #60a5fa);
+    background:transparent;
     text-decoration:none;
   }
   .org-sales-support-center i{
@@ -271,7 +347,7 @@ $salesNavBadgeHtml = static function (int $count): string {
     <?php if ($isSalesManagementPage): ?>
       <label class="sh-sidebar-label org-sales-workflow-label">Sales workflow modules</label>
     <?php endif; ?>
-    <div class="<?= $isSalesManagementPage ? 'org-sales-workflow-scroll' : '' ?>">
+    <div class="<?= $isSalesManagementPage ? 'org-sales-workflow-scroll' : '' ?>"<?= $isSalesManagementPage ? ' tabindex="0" aria-label="Sales workflow modules list"' : '' ?>>
     <ul class="nav org-sideleft-nav">
       <?php if ($isSalesManagementPage): ?>
         <?php foreach ($salesManagementNav as $item): ?>
@@ -283,7 +359,15 @@ $salesNavBadgeHtml = static function (int $count): string {
             }
             $salesNavHref = trim((string)($item[3] ?? ''));
             $salesNavIsExternal = $salesNavHref !== '';
-            $salesNavLink = $salesNavIsExternal ? $salesNavHref : ('sales_management.php#' . $salesNavSlug);
+            // Hash-only while already on sales hub so clicks switch the right panel
+            // without a full reload / SPA tear-down.
+            if ($salesNavIsExternal) {
+                $salesNavLink = $salesNavHref;
+            } elseif ($isSalesManagementPage) {
+                $salesNavLink = '#' . $salesNavSlug;
+            } else {
+                $salesNavLink = 'sales_management.php#' . $salesNavSlug;
+            }
             $salesStandalone = [
                 'overview.php' => 'overview',
                 'transactions.php' => 'transactions',
@@ -296,21 +380,42 @@ $salesNavBadgeHtml = static function (int $count): string {
                 $salesNavLink = $currentOrgPage;
             }
             $salesNavCountKey = (string)($item[4] ?? '');
-            $salesNavCount = ($salesNavCountKey !== '' && isset($salesAttention[$salesNavCountKey]))
+            $salesNavIsStock = ($salesNavCountKey === 'stock');
+            $salesNavLow = (int)($salesAttention['inventory_low'] ?? 0);
+            $salesNavOut = (int)($salesAttention['inventory_out'] ?? 0);
+            $salesNavCount = (!$salesNavIsStock && $salesNavCountKey !== '' && isset($salesAttention[$salesNavCountKey]))
                 ? (int)$salesAttention[$salesNavCountKey]
                 : 0;
             $salesNavActive = isset($salesStandalone[$currentOrgPage]) && $salesNavSlug === $salesStandalone[$currentOrgPage];
+            $salesNavAria = '';
+            if ($salesNavIsStock && ($salesNavLow > 0 || $salesNavOut > 0)) {
+                $bits = [];
+                if ($salesNavLow > 0) {
+                    $bits[] = ($salesNavLow > 99 ? '99+' : (string)$salesNavLow) . ' low stock';
+                }
+                if ($salesNavOut > 0) {
+                    $bits[] = ($salesNavOut > 99 ? '99+' : (string)$salesNavOut) . ' out of stock';
+                }
+                $salesNavAria = (string)$item[0] . ' — ' . implode(', ', $bits);
+            } elseif ($salesNavCount > 0) {
+                $salesNavAria = (string)$item[0] . ' — ' . ($salesNavCount > 99 ? '99+' : (string)$salesNavCount) . ' need attention';
+            }
           ?>
           <li class="nav-item">
             <a
               href="<?= h($salesNavLink) ?>"
               class="nav-link sales-management-nav-link<?= $salesNavActive ? ' active' : '' ?>"
-              <?php if (!$salesNavIsExternal): ?>data-sales-nav="<?= h($salesNavSlug) ?>"<?php endif; ?>
-              <?php if ($salesNavCount > 0): ?>aria-label="<?= h((string)$item[0] . ' — ' . ($salesNavCount > 99 ? '99+' : (string)$salesNavCount) . ' need attention') ?>"<?php endif; ?>
+              <?php if (!$salesNavIsExternal): ?>data-sales-nav="<?= h($salesNavSlug) ?>" onclick="if(window.__salesSetHash){event.preventDefault();event.stopPropagation();window.__salesSetHash('<?= h($salesNavSlug) ?>',true);return false;}"<?php endif; ?>
+              <?php if ($salesNavIsStock): ?>data-sales-stock-badge="1"<?php elseif ($salesNavCountKey !== ''): ?>data-sales-count-key="<?= h($salesNavCountKey) ?>"<?php endif; ?>
+              <?php if ($salesNavAria !== ''): ?>aria-label="<?= h($salesNavAria) ?>"<?php endif; ?>
             >
               <i class="icon <?= h((string)$item[2]) ?>"></i>
               <span><?= h((string)$item[0]) ?></span>
-              <?= $salesNavBadgeHtml($salesNavCount) ?>
+              <?php if ($salesNavIsStock): ?>
+                <?= $salesNavStockBadgeHtml($salesNavLow, $salesNavOut) ?>
+              <?php else: ?>
+                <?= $salesNavBadgeHtml($salesNavCount) ?>
+              <?php endif; ?>
             </a>
           </li>
         <?php endforeach; ?>
@@ -390,6 +495,7 @@ $salesNavBadgeHtml = static function (int $count): string {
       </li>
       <li class="nav-item">
         <a href="sales_management.php#dashboard" class="nav-link"<?= org_layout_nav_attrs('sales_management.php') ?>
+           data-sales-hub-link="1"
            <?php if ((int)($salesAttention['total'] ?? 0) > 0): ?>aria-label="Sales management — <?= (int)$salesAttention['total'] > 99 ? '99+' : (int)$salesAttention['total'] ?> items need attention"<?php endif; ?>>
           <i class="icon ion-speedometer"></i>
           <span>Sales management</span>
@@ -467,25 +573,132 @@ $salesNavBadgeHtml = static function (int $count): string {
     </ul>
     </div>
     <?php if ($isSalesManagementPage): ?>
+      <?php
+        $supportBadgeCount = (int)($salesAttention['support'] ?? 0) + (int)($salesAttention['disputes'] ?? 0);
+      ?>
       <a
         class="org-sales-support-center"
-        href="sales_management.php#support-center"
+        href="<?= $isSalesManagementPage ? '#support-center' : 'sales_management.php#support-center' ?>"
         data-sales-nav="support-center"
+        data-sales-badge-key="support"
+        onclick="if(window.__salesSetHash){event.preventDefault();event.stopPropagation();window.__salesSetHash('support-center',true);return false;}"
+        <?php if ($supportBadgeCount > 0): ?>aria-label="Support Center — <?= $supportBadgeCount > 99 ? '99+' : $supportBadgeCount ?> unread"<?php endif; ?>
       >
         <i class="icon ion-ios-help"></i>
         <span>Support Center</span>
+        <?= $salesNavBadgeHtml($supportBadgeCount) ?>
       </a>
     <?php endif; ?>
   </div>
-
-  <div class="org-sideleft-bottom">
-    <ul class="nav org-sideleft-nav">
-      <li class="nav-item">
-        <a href="logout.php" class="nav-link org-sideleft-signout">
-          <i class="icon ion-power"></i>
-          <span>Sign out</span>
-        </a>
-      </li>
-    </ul>
-  </div>
 </div>
+<?php if ($isSalesManagementPage): ?>
+<script src="js/sales-hub-nav.js?v=13"></script>
+<?php endif; ?>
+<?php if ($isManager && $isCommerceSeller): ?>
+<script>
+(function () {
+  var endpoint = 'ajax/sales_attention_badge.php';
+  function paintBadge(el, count) {
+    if (!el) return;
+    var wrap = el.querySelector('.org-sales-nav-badge-wrap');
+    if (count <= 0) {
+      if (wrap) wrap.remove();
+      return;
+    }
+    var label = count > 99 ? '99+' : String(count);
+    var wide = label.length > 1 ? ' is-wide' : '';
+    var html = '<span class="org-sales-nav-badge-wrap' + wide + '" aria-hidden="true" title="Needs attention">'
+      + '<b class="org-sales-nav-badge">' + label + '</b></span>';
+    if (wrap) wrap.outerHTML = html;
+    else el.insertAdjacentHTML('beforeend', html);
+  }
+  function paintStockBadges(el, low, out) {
+    if (!el) return;
+    var wrap = el.querySelector('.org-sales-nav-stock-wrap');
+    low = parseInt(low || 0, 10) || 0;
+    out = parseInt(out || 0, 10) || 0;
+    if (low <= 0 && out <= 0) {
+      if (wrap) wrap.remove();
+      el.removeAttribute('aria-label');
+      return;
+    }
+    var parts = [];
+    var ariaBits = [];
+    var label = (el.querySelector('span') && el.querySelector('span').textContent) ? el.querySelector('span').textContent.trim() : 'Items';
+    if (low > 0) {
+      var ln = low > 99 ? '99+' : String(low);
+      parts.push('<span class="org-sales-nav-stock-badge is-low" title="Low stock — restock soon" aria-hidden="true"><i class="fa fa-exclamation-triangle"></i><b>' + ln + '</b></span>');
+      ariaBits.push(ln + ' low stock');
+    }
+    if (out > 0) {
+      var on = out > 99 ? '99+' : String(out);
+      parts.push('<span class="org-sales-nav-stock-badge is-out" title="Out of stock" aria-hidden="true"><i class="fa fa-ban"></i><b>' + on + '</b></span>');
+      ariaBits.push(on + ' out of stock');
+    }
+    var html = '<span class="org-sales-nav-stock-wrap">' + parts.join('') + '</span>';
+    if (wrap) wrap.outerHTML = html;
+    else el.insertAdjacentHTML('beforeend', html);
+    el.setAttribute('aria-label', label + ' — ' + ariaBits.join(', '));
+  }
+  function applyCounts(data) {
+    if (!data || !data.ok) return;
+    var counts = data.counts || {};
+    var total = parseInt(data.total || counts.total || 0, 10) || 0;
+    var low = parseInt(counts.inventory_low || 0, 10) || 0;
+    var out = parseInt(counts.inventory_out || 0, 10) || 0;
+
+    document.querySelectorAll('a[data-sales-hub-link="1"]').forEach(function (a) {
+      paintBadge(a, total);
+      if (total > 0) {
+        a.setAttribute('aria-label', 'Sales management — ' + (total > 99 ? '99+' : total) + ' items need attention');
+      } else {
+        a.removeAttribute('aria-label');
+      }
+    });
+
+    document.querySelectorAll('a[data-sales-count-key]').forEach(function (a) {
+      var key = a.getAttribute('data-sales-count-key') || '';
+      if (!key) return;
+      paintBadge(a, parseInt(counts[key] || 0, 10) || 0);
+    });
+
+    document.querySelectorAll('a[data-sales-stock-badge="1"]').forEach(function (a) {
+      paintStockBadges(a, low, out);
+    });
+
+    document.querySelectorAll('a[data-sales-badge-key="support"]').forEach(function (a) {
+      var n = (parseInt(counts.support || 0, 10) || 0) + (parseInt(counts.disputes || 0, 10) || 0);
+      paintBadge(a, n);
+    });
+
+    var headerTitle = document.querySelector('.org-header-page-title[data-sales-hub-title="1"]');
+    if (headerTitle) {
+      var headerBadge = headerTitle.querySelector('.org-header-sales-badge');
+      if (total > 0) {
+        var label = total > 99 ? '99+' : String(total);
+        if (headerBadge) {
+          headerBadge.textContent = label;
+          headerBadge.classList.add('is-pulse', 'is-alert');
+        } else {
+          headerTitle.insertAdjacentHTML('beforeend', '<span class="org-header-sales-badge is-pulse is-alert" aria-hidden="true">' + label + '</span>');
+        }
+        headerTitle.setAttribute('aria-label', 'Sales Management — ' + label + ' items need attention');
+      } else if (headerBadge) {
+        headerBadge.remove();
+      }
+    }
+  }
+  async function refresh() {
+    try {
+      var res = await fetch(endpoint + '?_=' + Date.now(), { credentials: 'same-origin', cache: 'no-store' });
+      applyCounts(await res.json());
+    } catch (e) { /* ignore */ }
+  }
+  refresh();
+  setInterval(refresh, 20000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) refresh();
+  });
+})();
+</script>
+<?php endif; ?>

@@ -33,7 +33,12 @@ if (!function_exists('home_rail_trending_tags')) {
         $limit = max(1, min(8, $limit));
         try {
             $st = $dbh->query("
-                SELECT CONCAT(COALESCE(title,''), ' ', COALESCE(description,''), ' ', COALESCE(body,'')) AS blob
+                SELECT CONCAT(
+                  COALESCE(title,''), ' ',
+                  COALESCE(description,''), ' ',
+                  COALESCE(body,''), ' ',
+                  COALESCE(hashtags,'')
+                ) AS blob
                 FROM public_posts
                 WHERE LOWER(COALESCE(NULLIF(TRIM(visibility), ''), 'public')) = 'public'
                   AND COALESCE(is_archived, 0) = 0
@@ -362,6 +367,7 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
   <?php endif; ?>
   </div>
 </section>
+<?php if (empty($GLOBALS['msb_feed_left_legal_rendered'])): ?>
 <footer class="home-right-legal" aria-label="<?= h(function_exists('app_t') ? app_t('About Talsora') : 'About Talsora') ?>">
   <nav>
     <a href="index.php?tab=about"><?= h(function_exists('app_t') ? app_t('About') : 'About') ?></a>
@@ -374,6 +380,7 @@ $homeRailSeePublishers = 'suggested_for_you.php?tab=publishers';
   </nav>
   <p><?= h(function_exists('app_i18n_language_display') ? app_i18n_language_display() : 'English') ?> · © <?= (int)date('Y') ?> Talsora</p>
 </footer>
+<?php endif; ?>
 <style>
 dialog.home-bday-dialog:not([open]){
   display:none !important;

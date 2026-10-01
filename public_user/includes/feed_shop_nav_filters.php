@@ -145,11 +145,42 @@ $shopFilterSections = [
     </div>
   <?php endforeach; ?>
 </div>
-<a class="shop-nav-preferences-link" href="Your_Shopping_preferences.php">
+<?php
+$shopNavPrefsBadge = 0;
+try {
+    $badgeDbh = null;
+    if (isset($dbh) && $dbh instanceof PDO) {
+        $badgeDbh = $dbh;
+    } elseif (!empty($GLOBALS['feedTopDbh']) && $GLOBALS['feedTopDbh'] instanceof PDO) {
+        $badgeDbh = $GLOBALS['feedTopDbh'];
+    }
+    $badgeMeId = 0;
+    if (isset($meId)) {
+        $badgeMeId = (int)$meId;
+    } elseif (!empty($GLOBALS['feedTopMeId'])) {
+        $badgeMeId = (int)$GLOBALS['feedTopMeId'];
+    } else {
+        $badgeMeId = (int)($_SESSION['user_id'] ?? $_SESSION['id'] ?? $_SESSION['userid'] ?? 0);
+    }
+    if ($badgeDbh instanceof PDO && $badgeMeId > 0) {
+        if (!function_exists('commerce_buyer_shop_hub_badge_count')) {
+            require_once __DIR__ . '/commerce_messaging.php';
+        }
+        if (function_exists('commerce_buyer_shop_hub_badge_count')) {
+            $shopNavPrefsBadge = (int)commerce_buyer_shop_hub_badge_count($badgeDbh, $badgeMeId);
+        }
+    }
+} catch (Throwable $e) {
+    $shopNavPrefsBadge = 0;
+}
+$shopNavPrefsBadgeLabel = $shopNavPrefsBadge > 99 ? '99+' : (string)$shopNavPrefsBadge;
+?>
+<a class="shop-nav-preferences-link" id="shopNavPrefsLink" href="Your_Shopping_preferences.php" aria-label="<?= h($shopNavPrefsBadge > 0 ? ('Shopping Preferences — ' . $shopNavPrefsBadgeLabel . ' update' . ($shopNavPrefsBadge === 1 ? '' : 's')) : (function_exists('app_t') ? app_t('Shopping Preferences') : 'Shopping Preferences')) ?>">
   <span class="shop-nav-preferences-label"><?= h(function_exists('app_t') ? app_t('Shopping Preferences') : 'Shopping Preferences') ?></span>
+  <span class="shop-nav-preferences-badge<?= $shopNavPrefsBadge > 0 && strlen($shopNavPrefsBadgeLabel) > 1 ? ' is-wide' : '' ?>" id="shopNavPrefsBadge"<?= $shopNavPrefsBadge > 0 ? '' : ' hidden' ?>><?= $shopNavPrefsBadge > 0 ? h($shopNavPrefsBadgeLabel) : '0' ?></span>
 </a>
 <nav class="shop-nav-utility-links" aria-label="Shop help and account links">
-  <a href="Your_Shopping_preferences.php#order-history">
+  <a href="ordering_tracking.php">
     <i class="fa fa-cube" aria-hidden="true"></i>
     <span><?= h(function_exists('app_t') ? app_t('Track Order') : 'Track Order') ?></span>
   </a>

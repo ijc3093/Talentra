@@ -92,7 +92,7 @@ $ovMsgHref = (string)($ovMsgHref ?? ($ovInSalesHub ? '#message' : 'sales_managem
 $ovMsgAttr = (string)($ovMsgAttr ?? ($ovInSalesHub ? ' data-sales-nav="message"' : ''));
 $err = (string)($err ?? '');
 $ok = (string)($ok ?? '');
-$lowStockAt = 5;
+$lowStockAt = 1; // alert when available stock is less than 2
 
 $ovRange = (int)($_GET['ov_range'] ?? 7);
 if (!in_array($ovRange, [7, 14, 30], true)) {
@@ -206,7 +206,9 @@ foreach ($products as $p) {
     $createdTs = strtotime((string)($p['created_at'] ?? '')) ?: 0;
 
     $stockCls = 'in';
-    if ($status === 'sold_out' || ($tracked && $available <= 0)) {
+    if ($tracked && $available <= 0) {
+        $stockCls = 'out';
+    } elseif ($status === 'sold_out' && (!$tracked || $available <= 0)) {
         $stockCls = 'out';
     } elseif ($tracked && $available <= $lowStockAt) {
         $stockCls = 'low';
@@ -395,9 +397,12 @@ $locValue = (int)$kpi['value'];
   .ov-dash{--ov-text:#0f172a;--ov-muted:#64748b;--ov-border:#e2e8f0;--ov-card:#fff;color:var(--ov-text);}
   .ov-dash .ov-crumb{font-size:12px;font-weight:700;color:var(--ov-muted);margin:0 0 6px;}
   .ov-dash .ov-crumb a{color:#2563eb;text-decoration:none;}
-  .ov-dash .ov-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px;}
+  .ov-dash .ov-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;}
+  .ov-dash.ov-dash--hub .ov-head{margin-bottom:6px;align-items:flex-end;}
   .ov-dash .ov-head h1{margin:0;font-size:28px;font-weight:800;letter-spacing:-.03em;}
+  .ov-dash.ov-dash--hub .ov-head h1{font-size:22px;line-height:1.15;}
   .ov-dash .ov-sub{margin:4px 0 0;font-size:13px;color:var(--ov-muted);font-weight:600;}
+  .ov-dash.ov-dash--hub .ov-sub{margin:2px 0 0;font-size:12px;}
   .ov-dash .ov-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .ov-dash .ov-ico-btn{position:relative;width:36px;height:36px;border-radius:10px;border:1px solid var(--ov-border);background:var(--ch-surface,#fff);color:#334155;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;}
   .ov-dash .ov-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;}
@@ -442,6 +447,12 @@ $locValue = (int)$kpi['value'];
   .ov-dash .ov-cat-units{margin-left:auto;font-weight:800;font-size:13px;white-space:nowrap;}
   .ov-dash .ov-cat-total{margin-top:10px;padding-top:10px;border-top:1px solid var(--ov-border);display:flex;justify-content:space-between;font-size:12px;font-weight:800;}
   .ov-dash .ov-table-wrap{overflow:auto;}
+  .ov-dash .ov-bot .ov-bot-scroll{
+    max-height:220px;
+    overflow-x:auto;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
   .ov-dash .ov-table{width:100%;border-collapse:collapse;min-width:520px;}
   .ov-dash .ov-table th{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ov-muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--ov-border);background:var(--ch-surface,#f8fafc);white-space:nowrap;}
   .ov-dash .ov-table td{padding:10px;border-bottom:1px solid var(--ov-border);font-size:13px;}
@@ -461,18 +472,27 @@ $locValue = (int)$kpi['value'];
   .ov-dash .ov-alert-copy i{color:#ea580c;}
   .ov-dash .ov-alert a{height:34px;padding:0 12px;border-radius:8px;background:var(--ch-surface,#fff);border:1px solid #fdba74;color:#9a3412;font-size:12px;font-weight:800;text-decoration:none;display:inline-flex;align-items:center;}
   .ov-dash .ov-empty{margin:0;font-size:13px;color:var(--ov-muted);font-weight:600;}
+  .ov-dash.ov-dash--hub{
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
   html.dark-auto .ov-dash{--ov-text:var(--msb-palette-text,#e2e8f0);--ov-muted:#94a3b8;--ov-border:rgba(148,163,184,.22);--ov-card:var(--msb-palette-bg,#171d24);}
   html.dark-auto .ov-dash .ov-donut:after,html.dark-auto .ov-dash .ov-ico-btn,html.dark-auto .ov-dash .ov-btn,html.dark-auto .ov-dash .ov-range{background:var(--ov-card);color:var(--ov-text);border-color:var(--ov-border);}
   html.dark-auto .ov-dash .ov-table th,html.dark-auto .ov-dash .ov-table tfoot td{background:rgba(148,163,184,.08);}
   @media (max-width:1100px){.ov-dash .ov-kpis,.ov-dash .ov-top,.ov-dash .ov-bot{grid-template-columns:1fr 1fr;}}
   @media (max-width:700px){.ov-dash .ov-kpis,.ov-dash .ov-top,.ov-dash .ov-bot{grid-template-columns:1fr;}.ov-dash .ov-head h1{font-size:22px;}}
 </style>
-<div class="ov-dash" id="ovDashRoot">
-  <?php if ($ovShowPageHead): ?>
+<?php
+$ovShowTitle = $ovShowPageHead || $ovInSalesHub;
+$ovShowCrumb = $ovShowPageHead && !$ovInSalesHub;
+?>
+<div class="ov-dash<?= $ovInSalesHub ? ' ov-dash--hub' : '' ?>" id="ovDashRoot">
+  <?php if ($ovShowCrumb): ?>
     <p class="ov-crumb"><a href="<?= h($ovInventoryHref) ?>"<?= $ovInventoryAttr ?>>Inventory</a> &gt; Overview</p>
   <?php endif; ?>
   <div class="ov-head">
-    <?php if ($ovShowPageHead): ?>
+    <?php if ($ovShowTitle): ?>
       <div>
         <h1>Overview</h1>
         <p class="ov-sub">Real-time overview of your inventory performance and stock status.</p>
@@ -575,7 +595,7 @@ $locValue = (int)$kpi['value'];
         <h3>Stock Status by Location</h3>
         <a class="ov-link" href="<?= h($ovInventoryHref) ?>"<?= $ovInventoryAttr ?>>View All</a>
       </div>
-      <div class="ov-table-wrap">
+      <div class="ov-table-wrap ov-bot-scroll">
         <table class="ov-table">
           <thead>
             <tr>
@@ -618,16 +638,20 @@ $locValue = (int)$kpi['value'];
       </div>
       <?php if (!$feed): ?>
         <p class="ov-empty">No stock movements yet.</p>
-      <?php else: foreach ($feed as $mv): ?>
-        <div class="ov-move">
-          <div class="ov-move-ico <?= !empty($mv['plus']) ? 'plus' : 'minus' ?>"><i class="fa <?= !empty($mv['plus']) ? 'fa-arrow-down' : 'fa-arrow-up' ?>"></i></div>
-          <div>
-            <span class="ov-move-title"><?= h((string)$mv['title']) ?></span>
-            <span class="ov-move-sub"><?= h((string)$mv['when']) ?></span>
-          </div>
-          <div class="ov-qty <?= !empty($mv['plus']) ? 'plus' : 'minus' ?>"><?= !empty($mv['plus']) ? '+' : '−' ?><?= (int)$mv['qty'] ?> units</div>
+      <?php else: ?>
+        <div class="ov-bot-scroll">
+          <?php foreach ($feed as $mv): ?>
+            <div class="ov-move">
+              <div class="ov-move-ico <?= !empty($mv['plus']) ? 'plus' : 'minus' ?>"><i class="fa <?= !empty($mv['plus']) ? 'fa-arrow-down' : 'fa-arrow-up' ?>"></i></div>
+              <div>
+                <span class="ov-move-title"><?= h((string)$mv['title']) ?></span>
+                <span class="ov-move-sub"><?= h((string)$mv['when']) ?></span>
+              </div>
+              <div class="ov-qty <?= !empty($mv['plus']) ? 'plus' : 'minus' ?>"><?= !empty($mv['plus']) ? '+' : '−' ?><?= (int)$mv['qty'] ?> units</div>
+            </div>
+          <?php endforeach; ?>
         </div>
-      <?php endforeach; endif; ?>
+      <?php endif; ?>
     </div>
   </div>
 

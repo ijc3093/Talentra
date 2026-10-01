@@ -48,6 +48,7 @@ body.feed-insta-ui .feed-right-nav-ic svg{
     display:flex;
     flex-direction:column;
     gap:2px;
+    margin-top: 25px;
     flex:1 1 auto;
     min-height:0;
     height:auto;

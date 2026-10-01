@@ -34,6 +34,50 @@ body.shop-page {
   --feed-control-placeholder: var(--shop-text-muted);
 }
 
+
+/* Force shop surfaces to Gear dark / appearance / progress palette */
+html.dark-auto:not([data-msb-appearance]) body.shop-page,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page{
+  --shop-surface: var(--msb-palette-bg, #171d24);
+  --shop-card-bg: var(--msb-palette-bg, #171d24);
+  --shop-card-raised: var(--msb-palette-surface-2, #1e2733);
+  --shop-text: var(--msb-palette-text, #f3f6fb);
+  --shop-text-muted: var(--msb-palette-text-muted, #cbd5e1);
+  --shop-text-soft: var(--msb-palette-text-muted, #cbd5e1);
+  --shop-border: var(--msb-palette-border, rgba(255,255,255,.12));
+  --shop-border-strong: var(--msb-palette-border-strong, rgba(255,255,255,.18));
+  --shop-input-bg: var(--msb-palette-input-bg, var(--msb-palette-surface-2, #1e2733));
+  --shop-hover-bg: var(--msb-palette-hover-bg, rgba(255,255,255,.06));
+  --feed-page-bg: var(--shop-surface);
+  --feed-topbar-bg: var(--shop-surface);
+  --feed-surface: var(--shop-surface);
+  --feed-control-bg: var(--shop-card-raised);
+}
+html[data-msb-appearance] body.shop-page,
+html.dark-auto[data-msb-appearance] body.shop-page,
+html.msb-palette-active body.shop-page{
+  --shop-surface: var(--msb-palette-bg);
+  --shop-card-bg: var(--msb-palette-bg);
+  --shop-card-raised: var(--msb-palette-surface-2, var(--msb-palette-bg));
+  --shop-text: var(--msb-palette-text);
+  --shop-text-muted: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --shop-text-soft: var(--msb-palette-text-muted, var(--msb-palette-text));
+  --shop-border: var(--msb-palette-border);
+  --shop-border-strong: var(--msb-palette-border-strong, var(--msb-palette-border));
+  --shop-input-bg: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg)));
+  --shop-link: var(--msb-palette-link, var(--msb-palette-action));
+  --shop-btn-filled-bg: var(--msb-palette-btn-bg, var(--msb-palette-action));
+  --shop-btn-filled-text: var(--msb-palette-btn-text, #ffffff);
+  --shop-btn-outline-bg: var(--msb-palette-surface-2, var(--msb-palette-bg));
+  --shop-btn-outline-text: var(--msb-palette-text);
+  --shop-btn-outline-border: var(--msb-palette-border-strong, var(--msb-palette-text));
+  --shop-hover-bg: var(--msb-palette-hover-bg, rgba(15,23,42,.05));
+  --feed-page-bg: var(--shop-surface);
+  --feed-topbar-bg: var(--shop-surface);
+  --feed-surface: var(--shop-surface);
+  --feed-control-bg: var(--shop-card-raised);
+}
+
 html.dark-auto:not([data-msb-appearance]) body.shop-page,
 html[data-msb-appearance] body.shop-page,
 html.dark-auto[data-msb-appearance] body.shop-page {
@@ -43,22 +87,30 @@ html.dark-auto[data-msb-appearance] body.shop-page {
 
 /* Left rail panel — brands + filters use appearance surface (not grey surface-2) */
 html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-head,
 html.dark-auto:not([data-msb-appearance]) body.shop-page .feed-left-nav,
 html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
 html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-nav-utility-links,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-rail-page-head,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .feed-left-nav,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-filters,
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-brand-nav,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-nav-utility-links,
 html[data-msb-appearance] body.shop-page .feed-left-rail,
+html[data-msb-appearance] body.shop-page .feed-left-rail-page-head,
 html[data-msb-appearance] body.shop-page .feed-left-nav,
 html[data-msb-appearance] body.shop-page .shop-nav-filters,
 html[data-msb-appearance] body.shop-page .shop-brand-nav,
+html[data-msb-appearance] body.shop-page .shop-nav-utility-links,
 html.dark-auto[data-msb-appearance] body.shop-page .feed-left-rail,
+html.dark-auto[data-msb-appearance] body.shop-page .feed-left-rail-page-head,
 html.dark-auto[data-msb-appearance] body.shop-page .feed-left-nav,
 html.dark-auto[data-msb-appearance] body.shop-page .shop-nav-filters,
-html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav {
-  background-color: var(--shop-surface) !important;
+html.dark-auto[data-msb-appearance] body.shop-page .shop-brand-nav,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-nav-utility-links {
+  background-color: var(--shop-card-bg) !important;
   background-image: none !important;
   color: var(--shop-text) !important;
   border-color: var(--shop-border) !important;
@@ -141,7 +193,7 @@ html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-header-search .fe
 html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-header-search .feed-top-search-input,
 html[data-msb-appearance] body.shop-page .shop-header-search,
 html[data-msb-appearance] body.shop-page .shop-header-search .feed-top-search-input {
-  background-color: var(--shop-input-bg) !important;
+  /* background-color: var(--shop-input-bg) !important; */
   color: var(--shop-text) !important;
   border-color: var(--shop-border-strong) !important;
 }
@@ -762,3 +814,92 @@ html[data-msb-appearance] body.product-detail-page .pd-qty-input {
 }
 .shop-loc-apply:disabled{opacity:.6;cursor:default;}
 .shop-loc-apply:hover:not(:disabled){filter:brightness(1.06);}
+
+
+/* Storefront panels — follow Gear dark / auto / appearance / progress */
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-side-card,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-service-strip,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-promo-hero,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-promo-slide,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-sort-select,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-category-tile span,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-side-card,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-service-strip,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-promo-hero,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-promo-slide,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-sort-select,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-category-tile span,
+html[data-msb-appearance] body.shop-page .shop-side-card,
+html[data-msb-appearance] body.shop-page .shop-service-strip,
+html[data-msb-appearance] body.shop-page .shop-promo-hero,
+html[data-msb-appearance] body.shop-page .shop-promo-slide,
+html[data-msb-appearance] body.shop-page .shop-sort-select,
+html[data-msb-appearance] body.shop-page .shop-category-tile span,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-side-card,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-service-strip,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-promo-hero,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-promo-slide{
+  background-color: var(--shop-card-bg) !important;
+  background-image: none !important;
+  color: var(--shop-text) !important;
+  border-color: var(--shop-border) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-market-media,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-cart-preview-thumb,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-deal-thumb,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-market-media,
+html[data-msb-appearance] body.shop-page .shop-market-media,
+html[data-msb-appearance] body.shop-page .shop-cart-preview-thumb,
+html[data-msb-appearance] body.shop-page .shop-deal-thumb,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-market-media{
+  background-color: var(--shop-card-raised) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-side-card h2,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-section-head h2,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-promo-copy h2,
+html[data-msb-appearance] body.shop-page .shop-side-card h2,
+html[data-msb-appearance] body.shop-page .shop-section-head h2,
+html[data-msb-appearance] body.shop-page .shop-promo-copy h2{
+  color: var(--shop-text) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-service-strip small,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-confidence-card small,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-promo-copy p,
+html[data-msb-appearance] body.shop-page .shop-service-strip small,
+html[data-msb-appearance] body.shop-page .shop-confidence-card small,
+html[data-msb-appearance] body.shop-page .shop-promo-copy p{
+  color: var(--shop-text-muted) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-cart-checkout,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-promo-cta,
+html[data-msb-appearance] body.shop-page .shop-cart-checkout,
+html[data-msb-appearance] body.shop-page .shop-promo-cta{
+  background-color: var(--shop-btn-filled-bg) !important;
+  color: var(--shop-btn-filled-text) !important;
+}
+
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-page-arrow,
+html[data-theme="dark"]:not([data-msb-appearance]) body.shop-page .shop-product-page-arrow,
+html[data-msb-appearance] body.shop-page .shop-product-page-arrow,
+html.dark-auto[data-msb-appearance] body.shop-page .shop-product-page-arrow{
+  background-color: var(--shop-card-bg) !important;
+  color: var(--shop-text) !important;
+  border-color: var(--shop-border) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-page-num,
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-per-page label,
+html[data-msb-appearance] body.shop-page .shop-product-page-num,
+html[data-msb-appearance] body.shop-page .shop-product-per-page label{
+  color: var(--shop-text-muted) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-page-num.is-active,
+html[data-msb-appearance] body.shop-page .shop-product-page-num.is-active{
+  color: var(--shop-text) !important;
+  border-bottom-color: var(--shop-text) !important;
+}
+html.dark-auto:not([data-msb-appearance]) body.shop-page .shop-product-per-page select,
+html[data-msb-appearance] body.shop-page .shop-product-per-page select{
+  background-color: var(--shop-card-bg) !important;
+  color: var(--shop-text) !important;
+  border-color: var(--shop-border) !important;
+}

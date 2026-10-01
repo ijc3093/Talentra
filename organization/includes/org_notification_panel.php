@@ -28,7 +28,7 @@ $lifeStages = [
         'key' => 'pending',
         'label' => 'Pending',
         'count' => (int)$life['pending'],
-        'hint' => 'Waiting for customer payment',
+        'hint' => 'Payment incomplete — do not ship',
         'href' => 'sales_management.php#orders',
         'nav' => 'orders',
     ],

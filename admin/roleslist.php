@@ -332,64 +332,64 @@ foreach ($roles as $r) {
     .sh-mainpanel{height:100vh;display:flex;flex-direction:column;overflow:hidden;}
     .sh-mainpanel > .sh-pagebody{
       overflow:hidden !important;display:flex !important;flex-direction:column !important;min-height:0 !important;
-      padding-top:8px !important;padding-bottom:8px !important;flex:1 1 auto;background:#f4f6fb;
+      padding-top:8px !important;padding-bottom:8px !important;flex:1 1 auto;background:var(--msb-palette-bg,#f4f6fb);
     }
     .rp-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:0 2px;box-sizing:border-box;}
     .rp-cards{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;}
-    .rp-card{background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px rgba(15,23,42,.04);min-width:0;}
+    .rp-card{background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px rgba(15,23,42,.04);min-width:0;}
     .rp-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
-    .rp-card-top .lab{font-size:11px;font-weight:700;color:#64748b;}
-    .rp-card-top .delta{font-size:10px;font-weight:800;color:#94a3b8;}
+    .rp-card-top .lab{font-size:11px;font-weight:700;color:var(--azia-muted,#64748b);}
+    .rp-card-top .delta{font-size:10px;font-weight:800;color:var(--azia-muted,#94a3b8);}
     .rp-ico{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;}
     .rp-ico.blue{background:#dbeafe;color:#2563eb;}
     .rp-ico.green{background:#f0fdf4;color:#16a34a;}
     .rp-ico.purple{background:#f5f3ff;color:#7c3aed;}
     .rp-ico.orange{background:#fff7ed;color:#ea580c;}
     .rp-ico.red{background:#fef2f2;color:#dc2626;}
-    .rp-card .val{font-size:20px;font-weight:800;color:#0f172a;line-height:1;}
-    .rp-card .sub{font-size:10px;color:#94a3b8;font-weight:600;margin-top:4px;}
+    .rp-card .val{font-size:20px;font-weight:800;color:var(--azia-text,#0f172a);line-height:1;}
+    .rp-card .sub{font-size:10px;color:var(--azia-muted,#94a3b8);font-weight:600;margin-top:4px;}
 
     .rp-grid{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:8px;}
     .rp-panel{
-      min-height:0;background:#fff;border:1px solid #eef2f7;border-radius:12px;overflow:hidden;
+      min-height:0;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:12px;overflow:hidden;
       box-shadow:0 1px 2px rgba(15,23,42,.04);display:flex;flex-direction:column;
     }
     .rp-panel-head{
       flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
-      padding:10px 12px;border-bottom:1px solid #eef2f7;background:#fafbfc;
+      padding:10px 12px;border-bottom:1px solid #eef2f7;background:var(--msb-palette-surface-2,var(--azia-card,#fafbfc));
     }
-    .rp-panel-head h3{margin:0;font-size:13px;font-weight:800;color:#0f172a;}
-    .rp-panel-head .muted{font-size:11px;color:#64748b;font-weight:600;}
+    .rp-panel-head h3{margin:0;font-size:13px;font-weight:800;color:var(--azia-text,#0f172a);}
+    .rp-panel-head .muted{font-size:11px;color:var(--azia-muted,#64748b);font-weight:600;}
     .rp-search{position:relative;min-width:160px;max-width:220px;flex:1 1 160px;}
-    .rp-search i{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;}
+    .rp-search i{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--azia-muted,#94a3b8);font-size:12px;}
     .rp-search input,.rp-panel-head select{
-      height:30px;border:1px solid #e2e8f0;border-radius:8px;padding:0 9px;font-size:11px;background:#fff;color:#0f172a;
+      height:30px;border:1px solid #e2e8f0;border-radius:8px;padding:0 9px;font-size:11px;background:var(--azia-card,#fff);color:var(--azia-text,#0f172a);
     }
     .rp-search input{width:100%;padding-left:28px;}
     .rp-btn{
-      height:30px;padding:0 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;
-      font-size:11px;font-weight:700;color:#334155;display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-decoration:none;
+      height:30px;padding:0 10px;border-radius:8px;border:1px solid #e2e8f0;background:var(--azia-card,#fff);
+      font-size:11px;font-weight:700;color:var(--azia-text,#334155);display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-decoration:none;
     }
     .rp-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff;}
     .rp-btn.primary:hover{background:#1d4ed8;color:#fff;text-decoration:none;}
-    .rp-btn:hover{background:#f8fafc;text-decoration:none;color:#0f172a;}
+    .rp-btn:hover{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));text-decoration:none;color:var(--azia-text,#0f172a);}
 
     .rp-tabs{display:flex;gap:0;}
     .rp-tabs a{
-      padding:6px 10px;font-size:11px;font-weight:800;color:#64748b;text-decoration:none;
+      padding:6px 10px;font-size:11px;font-weight:800;color:var(--azia-muted,#64748b);text-decoration:none;
       border-bottom:2px solid transparent;
     }
     .rp-tabs a.is-active{color:#2563eb;border-bottom-color:#2563eb;}
     .rp-role-meta{
       flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
-      padding:10px 12px;border-bottom:1px solid #eef2f7;background:#fff;
+      padding:10px 12px;border-bottom:1px solid #eef2f7;background:var(--azia-card,#fff);
     }
-    .rp-role-meta label{display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+    .rp-role-meta label{display:block;font-size:10px;font-weight:800;color:var(--azia-muted,#64748b);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
     .rp-role-meta select{
-      height:32px;min-width:200px;border:1px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;font-weight:700;background:#fff;color:#0f172a;
+      height:32px;min-width:200px;border:1px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;font-weight:700;background:var(--azia-card,#fff);color:var(--azia-text,#0f172a);
     }
     .rp-role-desc{max-width:280px;}
-    .rp-role-desc .txt{font-size:12px;font-weight:600;color:#334155;line-height:1.35;}
+    .rp-role-desc .txt{font-size:12px;font-weight:600;color:var(--azia-text,#334155);line-height:1.35;}
 
     .rp-access{
       display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:0;background:transparent;
@@ -398,58 +398,58 @@ foreach ($roles as $r) {
     .rp-access:hover{background:#f1f5f9;}
     .rp-access.is-full{color:#2563eb;font-size:16px;}
     .rp-access.is-part{color:#60a5fa;font-size:15px;}
-    .rp-access.is-none{color:#94a3b8;font-size:14px;}
+    .rp-access.is-none{color:var(--azia-muted,#94a3b8);font-size:14px;}
     .rp-access:disabled{opacity:.4;cursor:default;}
     .rp-access input{position:absolute;opacity:0;pointer-events:none;width:0;height:0;}
     .rp-legend .fa{margin-right:4px;}
     .rp-legend .fa-check-circle{color:#2563eb;}
     .rp-legend .fa-circle-o{color:#60a5fa;}
-    .rp-legend .fa-minus{color:#94a3b8;}
+    .rp-legend .fa-minus{color:var(--azia-muted,#94a3b8);}
 
     .rp-body{flex:1 1 auto;min-height:0;overflow:auto;}
     .rp-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;}
     .rp-table th{
       text-align:left;font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
-      color:#64748b;padding:8px 10px;border-bottom:1px solid #eef2f7;background:#fff;position:sticky;top:0;z-index:2;
+      color:var(--azia-muted,#64748b);padding:8px 10px;border-bottom:1px solid #eef2f7;background:var(--azia-card,#fff);position:sticky;top:0;z-index:2;
     }
-    .rp-table td{padding:10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#0f172a;vertical-align:middle;}
-    .rp-table tr:hover td{background:#f8fafc;}
+    .rp-table td{padding:10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:var(--azia-text,#0f172a);vertical-align:middle;}
+    .rp-table tr:hover td{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));}
     .rp-table tr.is-selected td{background:#eff6ff;}
     .rp-table tr{cursor:pointer;}
-    .rp-role-name{font-weight:800;color:#0f172a;}
-    .rp-role-tag{display:inline-block;margin-left:6px;font-size:9px;font-weight:800;color:#64748b;background:#f1f5f9;border-radius:999px;padding:1px 6px;vertical-align:middle;}
-    .rp-desc{font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .rp-role-name{font-weight:800;color:var(--azia-text,#0f172a);}
+    .rp-role-tag{display:inline-block;margin-left:6px;font-size:9px;font-weight:800;color:var(--azia-muted,#64748b);background:#f1f5f9;border-radius:999px;padding:1px 6px;vertical-align:middle;}
+    .rp-desc{font-size:11px;color:var(--azia-muted,#64748b);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .rp-status{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;}
     .rp-status.active{background:#dcfce7;color:#15803d;}
-    .rp-status.inactive{background:#f1f5f9;color:#64748b;}
+    .rp-status.inactive{background:#f1f5f9;color:var(--azia-muted,#64748b);}
     .rp-acts{display:flex;align-items:center;gap:4px;}
     .rp-act{
-      width:28px;height:28px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;
+      width:28px;height:28px;border-radius:8px;border:1px solid #e2e8f0;background:var(--azia-card,#fff);color:var(--azia-muted,#64748b);
       display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;
     }
-    .rp-act:hover{background:#f8fafc;color:#0f172a;text-decoration:none;}
+    .rp-act:hover{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));color:var(--azia-text,#0f172a);text-decoration:none;}
 
     .rp-perm-table th:nth-child(1),.rp-perm-table td:nth-child(1){width:28%;}
     .rp-perm-table th,.rp-perm-table td{text-align:center;}
     .rp-perm-table th:first-child,.rp-perm-table td:first-child{text-align:left;}
-    .rp-mod{font-weight:700;color:#0f172a;font-size:12px;}
+    .rp-mod{font-weight:700;color:var(--azia-text,#0f172a);font-size:12px;}
     .rp-toggle{
       appearance:none;-webkit-appearance:none;width:34px;height:18px;border-radius:999px;border:0;
       background:#cbd5e1;position:relative;cursor:pointer;vertical-align:middle;outline:none;
     }
     .rp-toggle:checked{background:#2563eb;}
     .rp-toggle::after{
-      content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;
+      content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--azia-card,#fff);
       transition:left .15s ease;box-shadow:0 1px 2px rgba(15,23,42,.2);
     }
     .rp-toggle:checked::after{left:18px;}
     .rp-toggle:disabled{opacity:.35;cursor:not-allowed;}
-    .rp-legend{flex:0 0 auto;display:flex;gap:12px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid #eef2f7;font-size:10px;color:#64748b;font-weight:700;}
+    .rp-legend{flex:0 0 auto;display:flex;gap:12px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid #eef2f7;font-size:10px;color:var(--azia-muted,#64748b);font-weight:700;}
     .rp-dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:4px;vertical-align:middle;}
     .rp-dot.full{background:#1d4ed8;}
     .rp-dot.part{background:#60a5fa;}
     .rp-dot.none{background:#cbd5e1;}
-    .rp-foot{flex:0 0 auto;padding:8px 12px;border-top:1px solid #eef2f7;font-size:11px;color:#64748b;font-weight:600;}
+    .rp-foot{flex:0 0 auto;padding:8px 12px;border-top:1px solid #eef2f7;font-size:11px;color:var(--azia-muted,#64748b);font-weight:600;}
     .rp-alert{flex:0 0 auto;padding:7px 9px;border-radius:8px;font-size:12px;font-weight:700;}
     .rp-alert.ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
     .rp-alert.bad{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;}
@@ -672,8 +672,8 @@ include __DIR__ . '/includes/header.php';
               </div>
             <?php else: ?>
               <div class="rp-role-meta">
-                <div class="muted" style="font-size:12px;font-weight:600;color:#64748b;">
-                  Editing module matrix for <b style="color:#0f172a;"><?= h($selectedRoleName) ?></b>
+                <div class="muted" style="font-size:12px;font-weight:600;color:var(--azia-muted,#64748b);">
+                  Editing module matrix for <b style="color:var(--azia-text,#0f172a);"><?= h($selectedRoleName) ?></b>
                   · use <a href="roleslist.php?view=role&amp;role=<?= (int)$selectedRoleId ?>">By Role</a> to switch roles.
                 </div>
               </div>
@@ -758,16 +758,16 @@ include __DIR__ . '/includes/header.php';
         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
       </div>
       <div class="modal-body">
-        <label style="font-size:12px;font-weight:700;color:#64748b;">Role name</label>
+        <label style="font-size:12px;font-weight:700;color:var(--azia-muted,#64748b);">Role name</label>
         <input name="role_name" class="form-control" placeholder="Role name" required>
-        <label class="mg-t-10" style="font-size:12px;font-weight:700;color:#64748b;">Inherits from</label>
+        <label class="mg-t-10" style="font-size:12px;font-weight:700;color:var(--azia-muted,#64748b);">Inherits from</label>
         <select name="inherits_from" class="form-control">
           <option value="0">No inheritance</option>
           <?php foreach ($baseRoles as $b): ?>
             <option value="<?= (int)$b['idrole'] ?>"><?= h((string)$b['name']) ?></option>
           <?php endforeach; ?>
         </select>
-        <label class="mg-t-10" style="font-size:12px;font-weight:700;color:#64748b;">Status</label>
+        <label class="mg-t-10" style="font-size:12px;font-weight:700;color:var(--azia-muted,#64748b);">Status</label>
         <select name="status" class="form-control">
           <option value="1" selected>Active</option>
           <option value="0">Inactive</option>
@@ -790,9 +790,9 @@ include __DIR__ . '/includes/header.php';
       </div>
       <div class="modal-body">
         <input type="hidden" name="idrole" id="editRoleId" value="">
-        <label style="font-size:12px;font-weight:700;color:#64748b;">Role name</label>
+        <label style="font-size:12px;font-weight:700;color:var(--azia-muted,#64748b);">Role name</label>
         <input name="role_name" id="editRoleName" class="form-control" required>
-        <label class="mg-t-10" style="font-size:12px;font-weight:700;color:#64748b;">Status</label>
+        <label class="mg-t-10" style="font-size:12px;font-weight:700;color:var(--azia-muted,#64748b);">Status</label>
         <select name="status" id="editRoleStatus" class="form-control">
           <option value="1">Active</option>
           <option value="0">Inactive</option>

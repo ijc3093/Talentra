@@ -14,10 +14,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     $meId = (int)($_SESSION['user_id'] ?? 0);
     $staffBlocked = account_switch_is_staff_session();
     $accounts = ($staffBlocked || $meId <= 0) ? [] : account_switch_list($dbh, $meId);
+    $preferred = [];
+    if ($accounts) {
+        try {
+            $preferred = account_linked_preferred_targets($dbh, $meId, $accounts);
+        } catch (Throwable $e) {
+            $preferred = [];
+        }
+    }
     echo json_encode([
         'ok' => true,
         'staff_blocked' => $staffBlocked,
         'current_user_id' => $meId,
+        'preferred' => (object)$preferred,
         'accounts' => $accounts,
         'users' => $accounts,
         'csrf_token' => function_exists('csrfToken') ? csrfToken() : (string)($_SESSION['csrf_token'] ?? ''),
@@ -46,6 +55,21 @@ if ($sessionCsrf !== '' && $postedCsrf !== '' && !hash_equals($sessionCsrf, $pos
 }
 
 $fromId = (int)($_SESSION['user_id'] ?? 0);
+if (strtolower(trim((string)($_POST['action'] ?? ''))) === 'remove') {
+    if ($sessionCsrf === '' || $postedCsrf === '' || !hash_equals($sessionCsrf, $postedCsrf)) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'Session expired. Refresh and try again.']);
+        exit;
+    }
+    try {
+        $dbh = (new Controller())->pdo();
+        echo json_encode(account_switch_remove($dbh, $fromId, (int)($_POST['target_user_id'] ?? 0)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => 'Unable to remove that account right now.']);
+    }
+    exit;
+}
 $wantNext = in_array(strtolower(trim((string)($_POST['action'] ?? $_POST['next'] ?? ''))), ['next', '1', 'true', 'yes'], true);
 $toId = (int)($_POST['target_user_id'] ?? 0);
 

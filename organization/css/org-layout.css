@@ -34,33 +34,109 @@
 }
 
 .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:active:not(.active) {
-  background-color: transparent;
+  background-color: var(--msb-palette-nav-hover, rgba(148, 163, 184, 0.12));
 }
 
-body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover,
-body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus,
+/* Soft hover — neutral (no blue) */
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) {
+  background-color: rgba(148, 163, 184, 0.14) !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) {
+  background-color: rgba(148, 163, 184, 0.16) !important;
+  color: var(--msb-palette-text, #e8edf5) !important;
+}
+
+/* Active = blue switch (icon + label), no filled background box */
 body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {
-  background-color: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.12)) !important;
-  color: var(--msb-palette-action, var(--org-accent, #2563eb)) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--msb-palette-action, #60a5fa) !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  outline: none !important;
 }
 
-body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover i,
-body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus i,
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--msb-palette-action, #60a5fa) !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  outline: none !important;
+}
+
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) i,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover:not(.active) > span {
+  color: inherit !important;
+}
+
 body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active i,
-body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover span,
-body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus span,
-body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active span {
-  color: var(--msb-palette-action, var(--org-accent, #2563eb)) !important;
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active [class*="ion-"],
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .icon,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active > span,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .nav-text,
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .nav-sub {
+  color: var(--msb-palette-action, #60a5fa) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Kill sticky mouse-focus ring after click; keyboard still gets :focus-visible */
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus:not(:focus-visible) {
+  background-color: transparent !important;
+}
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(.sales-management-nav-link):focus:not(:focus-visible) {
+  background-color: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.18)) !important;
+}
+body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active:focus:not(:focus-visible) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(.sales-management-nav-link):focus:not(:focus-visible) {
+  background-color: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.26)) !important;
+}
+html.dark-auto body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active:focus:not(:focus-visible) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:focus-visible {
+  outline: 2px solid var(--msb-palette-action, #60a5fa) !important;
+  outline-offset: -2px;
 }
 
 body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link .org-sales-nav-badge,
 body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:hover .org-sales-nav-badge,
 body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link:focus .org-sales-nav-badge,
 body.org-app .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .org-sales-nav-badge,
-body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge {
-  color: inherit !important;
-  background: transparent !important;
-  background-color: transparent !important;
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
+body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge,
+body.org-app .org-sales-support-center .org-sales-nav-badge {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #dc3545 !important;
+  background-color: #dc3545 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-style: normal !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 body.org-app .org-sales-nav-badge rect {
@@ -77,7 +153,7 @@ body.org-app .org-sales-nav-badge text {
   background-color: var(--org-accent-soft, var(--msb-palette-action-soft, rgba(79, 70, 229, 0.06)));
 }
 
-/* Sidebar: fixed Home (top) + Sign out (bottom), scrollable middle in a boxed panel */
+/* Sidebar: fixed Home (top), scrollable modules list */
 body.org-app .sh-sideleft-menu.org-sideleft-shell {
   display: flex;
   flex-direction: column;
@@ -102,14 +178,12 @@ body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:active {
   background-color: transparent !important;
 }
 
-body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover,
-body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:focus {
+body.org-app .org-sideleft-top .nav > .nav-item > .nav-link:hover:not(.active) {
   background-color: var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(37, 99, 235, 0.08))) !important;
   color: var(--msb-palette-text, var(--org-text, #334155)) !important;
 }
 
-body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active):hover,
-body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active):focus {
+body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active):hover {
   background-color: var(--msb-palette-nav-hover, var(--msb-palette-action-soft, rgba(37, 99, 235, 0.08))) !important;
   color: var(--msb-palette-text, var(--org-text, #334155)) !important;
 }
@@ -177,26 +251,57 @@ body.org-app .org-sideleft-scroll:has(.org-sales-workflow-label) {
   overflow: hidden;
 }
 
+/* Native list scroll — always-visible, grab-friendly scrollbar */
 body.org-app .org-sales-workflow-scroll {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
+  max-height: 100%;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: scroll;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.75) rgba(15, 23, 42, 0.35);
+  padding-right: 4px;
 }
 
 body.org-app .org-sales-workflow-scroll::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 body.org-app .org-sales-workflow-scroll::-webkit-scrollbar-thumb {
-  background: var(--msb-palette-action, rgba(7, 101, 199, 0.28));
-  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.7);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 40px;
+}
+
+body.org-app .org-sales-workflow-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(186, 198, 214, 0.95);
+  background-clip: padding-box;
 }
 
 body.org-app .org-sales-workflow-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+/* Kill Perfect Scrollbar chrome on the org shell — it blocks nested wheel scroll.
+   Do NOT set position here; shell must stay position:fixed from shamcey. */
+body.org-app .sh-sideleft-menu.org-sideleft-shell > .ps__rail-x,
+body.org-app .sh-sideleft-menu.org-sideleft-shell > .ps__rail-y {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+body.org-app .org-sales-workflow-scroll .nav > .nav-item > .nav-link {
+  padding-right: 12px !important;
+  box-sizing: border-box;
 }
 
 body.org-app .org-sideleft-nav {
@@ -230,15 +335,18 @@ html.dark-auto:not([data-msb-appearance]) body.org-app .sh-sideleft-menu .nav > 
 
 html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active),
 html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(.active),
-html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active) span,
-html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(.active) span {
+html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active) > span,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link:not(.active) > span {
   color: #334155 !important;
 }
 
 html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link .org-sales-nav-badge,
-html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge {
-  color: inherit !important;
-  background: transparent !important;
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sideleft-scroll .nav > .nav-item > .nav-link .org-sales-nav-badge,
+html[data-msb-org-light]:not(.dark-auto) body.org-app .org-sales-support-center .org-sales-nav-badge {
+  background: #dc3545 !important;
+  background-color: #dc3545 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 html[data-msb-org-light]:not(.dark-auto) body.org-app .sh-sideleft-menu .nav > .nav-item > .nav-link:not(.active) i,
@@ -311,16 +419,21 @@ html[data-theme="dark"] body.org-app.is-navigating #org-nav-shield {
 }
 
 body.org-app .sh-mainpanel {
-  transition: opacity 0.12s ease !important;
+  transition: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
+/* Prefer the solid shield over fading the whole panel (Firefox can leave opacity stuck at 0). */
 body.org-app.is-navigating .sh-mainpanel {
-  opacity: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
   pointer-events: none;
 }
 
 body.org-app .sh-mainpanel.is-nav-ready {
   opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* Kill stray feed/video on every non-feed org page */

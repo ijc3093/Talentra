@@ -178,6 +178,65 @@ if (!function_exists('admin_support_topic_meta')) {
     }
 }
 
+if (!function_exists('admin_support_display_text')) {
+    /**
+     * Normalize stored feedbackdata for Support Center bubbles (plain text, no HTML/XML).
+     */
+    function admin_support_display_text(string $raw): string
+    {
+        $s = trim($raw);
+        if ($s === '') {
+            return '';
+        }
+        $s = preg_replace('/^<\?xml[^>]*\?>/i', '', $s) ?? $s;
+        $s = preg_replace('/^<!DOCTYPE[^>]*>/i', '', $s) ?? $s;
+        $s = trim(html_entity_decode(strip_tags($s), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        // Drop topic prefixes used for Admin lane routing; bubbles already know the topic.
+        $s = preg_replace(
+            '/^\[(?:Seller help|Seller dispute|Help|Personal help|Publisher help|Dispute)\]\s*/i',
+            '',
+            $s
+        ) ?? $s;
+        // Drop card-context lines appended on older sends (shown in the product header card).
+        $lines = preg_split('/\R/u', $s) ?: [];
+        $kept = [];
+        foreach ($lines as $line) {
+            $t = trim((string)$line);
+            if ($t === '' || $t === '—' || $t === '-') {
+                continue;
+            }
+            if (preg_match('/^(Org\s*ID|Order(?:\s*code)?|Product\s*ID\s*#|Product:)\s*:?\s*/i', $t)) {
+                continue;
+            }
+            $t = preg_replace(
+                '/\s*[—\-]\s*(?:Org\s*ID\s*:\s*\d+\s*)?(?:Order\s*:\s*.+?\s*)?(?:Product\s*ID\s*#\s*\d+\s*)?$/iu',
+                '',
+                $t
+            ) ?? $t;
+            $t = trim($t);
+            if ($t === '') {
+                continue;
+            }
+            $kept[] = $t;
+        }
+        $s = implode("\n", $kept);
+        $s = preg_replace("/[ \t]+\n/", "\n", $s) ?? $s;
+        $s = preg_replace("/\n{3,}/", "\n\n", $s) ?? $s;
+        return trim($s);
+    }
+}
+
+if (!function_exists('admin_support_parse_product_id')) {
+    /** Product ID cited in raw feedbackdata (before display stripping). */
+    function admin_support_parse_product_id(string $raw): int
+    {
+        if (preg_match('/Product\s*ID\s*#\s*(\d+)\b/i', $raw, $m)) {
+            return max(0, (int)$m[1]);
+        }
+        return 0;
+    }
+}
+
 if (!function_exists('admin_support_poll')) {
     /**
      * @return array{ok:bool,items?:array<int,array<string,mixed>>,error?:string}
@@ -233,13 +292,15 @@ if (!function_exists('admin_support_poll')) {
             $isMe = strcasecmp($sender, $meEmail) === 0;
             $created = (string)($row['created_at'] ?? '');
             $ts = $created !== '' ? strtotime($created) : false;
+            $raw = (string)($row['feedbackdata'] ?? '');
             $items[] = [
                 'id' => $id,
                 'is_me' => $isMe,
                 'from' => $isMe ? 'You' : 'Admin',
                 'title' => (string)($row['title'] ?? ''),
                 'channel' => (string)($row['channel'] ?? 'user_admin'),
-                'text' => (string)($row['feedbackdata'] ?? ''),
+                'text' => admin_support_display_text($raw),
+                'product_id' => admin_support_parse_product_id($raw),
                 'attachment' => (string)($row['attachment'] ?? ''),
                 'created_at' => $created,
                 'time_label' => $ts ? date('M j, g:i A', $ts) : '',
@@ -247,6 +308,33 @@ if (!function_exists('admin_support_poll')) {
         }
 
         return ['ok' => true, 'items' => $items];
+    }
+}
+
+if (!function_exists('admin_support_unread_count')) {
+    /**
+     * Unread Admin → customer/seller messages in Support Center (feedback_admin).
+     */
+    function admin_support_unread_count(PDO $dbh, string $meEmail): int
+    {
+        $meEmail = trim($meEmail);
+        if ($meEmail === '' || !filter_var($meEmail, FILTER_VALIDATE_EMAIL)) {
+            return 0;
+        }
+        try {
+            $st = $dbh->prepare("
+                SELECT COUNT(*)
+                FROM feedback_admin
+                WHERE channel IN ('user_admin', 'dispute')
+                  AND sender = 'Admin'
+                  AND receiver = :me
+                  AND is_read = 0
+            ");
+            $st->execute([':me' => $meEmail]);
+            return max(0, (int)($st->fetchColumn() ?: 0));
+        } catch (Throwable $e) {
+            return 0;
+        }
     }
 }
 
@@ -278,7 +366,7 @@ if (!function_exists('admin_support_send')) {
         $body = $meta['prefix'] . $text;
         $extraContext = trim((string)$extraContext);
         if ($extraContext !== '') {
-            $body .= "\n\n—\n" . $extraContext;
+            $body .= "\n\n" . $extraContext;
         }
         $scope = (string)($meta['scope'] ?? 'customer');
         $channel = strtolower(trim((string)($meta['channel'] ?? 'user_admin')));
@@ -339,7 +427,7 @@ if (!function_exists('admin_support_send')) {
                 'from' => 'You',
                 'title' => $meta['title'],
                 'channel' => $channel,
-                'text' => $body,
+                'text' => admin_support_display_text($body),
                 'attachment' => '',
                 'created_at' => $now,
                 'time_label' => date('M j, g:i A'),

@@ -10,7 +10,7 @@ require_once __DIR__ . '/includes/stripe_shop.php';
 
 $sessionId = trim((string)($_GET['session_id'] ?? ''));
 if ($sessionId === '') {
-    header('Location: my_orders.php');
+    header('Location: Your_Shopping_preferences.php#order-history');
     exit;
 }
 
@@ -22,7 +22,7 @@ if ($session) {
     org_shop_fulfill_stripe_session($dbh, $session);
 }
 
-$fallback = 'my_orders.php?session_id=' . rawurlencode($sessionId) . '&paid=1';
+$fallback = 'Your_Shopping_preferences.php?session_id=' . rawurlencode($sessionId) . '&paid=1#order-history';
 ?>
 <!doctype html>
 <html <?= app_html_lang_attrs() ?>>

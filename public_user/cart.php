@@ -24,9 +24,6 @@ $items = org_cart_list_items($dbh, $meId);
 $subtotalCents = org_cart_subtotal_cents($items);
 $subtotalLabel = org_shop_format_price($subtotalCents, 'USD');
 $checkoutCancel = (string)($_GET['checkout'] ?? '') === 'cancel';
-$defaultShipText = buyer_shipping_default_text($dbh, $meId);
-$defaultShipPhone = buyer_shipping_default_phone($dbh, $meId);
-$savedAddresses = buyer_shipping_list($dbh, $meId);
 
 if (!function_exists('h')) {
     function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
@@ -61,9 +58,9 @@ if (!function_exists('h')) {
     .cart-page-actions{display:flex;justify-content:space-between;align-items:center;width:100%;gap:16px;}
     .cart-page-footer{flex-shrink:0;padding:8px 0 0;margin-bottom:72px;}
     .cart-checkout-btn{
-      border:1px solid var(--shop-btn-outline-border,var(--shop-border,var(--msb-palette-border,rgba(177,188,206,.45))));
-      background:var(--shop-btn-outline-bg,transparent);
-      color:var(--shop-btn-outline-text,var(--shop-text,var(--msb-palette-text,inherit)));
+      border:1px solid var(--shop-btn-filled-bg,var(--msb-palette-btn-bg,var(--msb-palette-action,#2563eb)));
+      background:var(--shop-btn-filled-bg,var(--msb-palette-btn-bg,var(--msb-palette-action,#2563eb)));
+      color:var(--shop-btn-filled-text,var(--msb-palette-btn-text,#fff));
       font-size:16px;
       font-weight:600;
       padding:8px 18px;
@@ -72,6 +69,15 @@ if (!function_exists('h')) {
       text-align:center;
     }
     .cart-checkout-btn:disabled{opacity:.55;cursor:not-allowed;}
+    .cart-buy-now{
+      display:inline-flex;align-items:center;justify-content:center;gap:6px;
+      height:30px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+      border:1px solid var(--shop-btn-filled-bg,var(--msb-palette-action,#2563eb));
+      background:var(--shop-btn-filled-bg,var(--msb-palette-action,#2563eb));
+      color:var(--shop-btn-filled-text,var(--msb-palette-btn-text,#fff));
+      text-decoration:none;
+    }
+    .cart-buy-now:hover{text-decoration:none;opacity:.92;color:var(--shop-btn-filled-text,#fff);}
     .cart-list{display:grid;gap:12px;}
     .cart-row{
       display:grid;
@@ -202,7 +208,7 @@ if (!function_exists('h')) {
         </div>
         <p class="cart-sub"><?= count($items) ?> item<?= count($items) === 1 ? '' : 's' ?></p>
         <?php if ($items): ?>
-          <p class="cart-select-hint">Check items to buy now. Unchecked items stay in your cart for later.</p>
+          <p class="cart-select-hint">Check items, then Buy now to open checkout. Unchecked items stay in your cart.</p>
         <?php endif; ?>
 
         <?php if ($checkoutCancel): ?>
@@ -231,7 +237,7 @@ if (!function_exists('h')) {
                     $detailLabel = trim((string)($item['title'] ?? 'Item'));
                 }
               ?>
-              <article class="cart-row is-selected" data-product-id="<?= (int)$item['product_id'] ?>" data-unit-cents="<?= (int)($item['price_cents'] ?? 0) ?>" data-currency="<?= h((string)($item['currency'] ?? 'USD')) ?>">
+              <article class="cart-row is-selected" data-product-id="<?= (int)$item['product_id'] ?>" data-profile-id="<?= $publisherId ?>" data-unit-cents="<?= (int)($item['price_cents'] ?? 0) ?>" data-currency="<?= h((string)($item['currency'] ?? 'USD')) ?>">
                 <a href="product_detail.php?id=<?= (int)$item['product_id'] ?>" class="cart-thumb">
                   <?php if ($cover !== ''): ?><img src="<?= h($cover) ?>" alt=""><?php else: ?><i class="icon ion-bag"></i><?php endif; ?>
                 </a>
@@ -242,12 +248,21 @@ if (!function_exists('h')) {
                     <label>Qty</label>
                     <input type="number" class="cart-qty-input" min="1" max="99" value="<?= (int)$item['quantity'] ?>" data-product-id="<?= (int)$item['product_id'] ?>">
                     <button type="button" class="cart-remove" data-remove="<?= (int)$item['product_id'] ?>">Remove</button>
+                    <button
+                      type="button"
+                      class="cart-buy-now js-open-shop-buy-door"
+                      data-shop-buy="<?= (int)$item['product_id'] ?>"
+                      data-product-id="<?= (int)$item['product_id'] ?>"
+                      data-shop-profile="<?= $publisherId ?>"
+                      data-quantity="<?= (int)$item['quantity'] ?>"
+                      data-from-cart="1"
+                    ><i class="fa fa-shopping-bag" aria-hidden="true"></i> Buy now</button>
                     <a href="product_detail.php?id=<?= (int)$item['product_id'] ?>" class="cart-details-link">View details · <?= h($detailLabel) ?></a>
                   </div>
                 </div>
                 <div class="cart-row-aside">
                   <div class="cart-line-total"><?= h($line) ?></div>
-                  <div class="cart-select-wrap" role="button" tabindex="0" title="Buy this item now" aria-pressed="true">
+                  <div class="cart-select-wrap" role="button" tabindex="0" title="Select for checkout" aria-pressed="true">
                     <input type="checkbox" class="cart-select" checked aria-hidden="true" tabindex="-1">
                     <span class="cart-select-mark" aria-hidden="true"><i class="fa fa-check"></i></span>
                   </div>
@@ -261,33 +276,10 @@ if (!function_exists('h')) {
       </div>
 
       <div class="cart-page-footer">
-        <?php if ($items): ?>
-        <div class="cart-page-main" style="padding:12px 0 4px;display:grid;gap:10px;max-width:520px;">
-          <label class="tx-12" style="display:grid;gap:4px;">
-            <span>Promo code (seller coupon)</span>
-            <input type="text" id="cartPromoCode" class="form-control" placeholder="SUMMER10" maxlength="40" style="max-width:240px;">
-          </label>
-          <label class="tx-12" style="display:grid;gap:4px;">
-            <span>Delivery</span>
-            <select id="cartDeliveryOption" class="form-control" style="max-width:240px;">
-              <option value="home_delivery">Home delivery</option>
-              <option value="pickup">Pickup</option>
-            </select>
-          </label>
-          <label class="tx-12" style="display:grid;gap:4px;">
-            <span>Phone</span>
-            <input type="text" id="cartBuyerPhone" class="form-control" value="<?= h($defaultShipPhone) ?>" placeholder="Contact phone" style="max-width:240px;">
-          </label>
-          <label class="tx-12" style="display:grid;gap:4px;">
-            <span>Delivery address <?php if ($savedAddresses): ?><a href="Your_Shopping_preferences.php#addresses" style="font-weight:600;">(manage saved)</a><?php endif; ?></span>
-            <textarea id="cartDeliveryAddress" class="form-control" rows="3" placeholder="Street, city, postal code"><?= h($defaultShipText) ?></textarea>
-          </label>
-        </div>
-        <?php endif; ?>
         <div class="cart-page-main cart-page-actions">
           <a href="shop.php" class="cart-back"><i class="icon ion-ios-arrow-left"></i> Continue shopping</a>
           <?php if ($items): ?>
-            <button type="button" class="cart-checkout-btn" id="cartCheckoutBtn">Checkout</button>
+            <button type="button" class="cart-checkout-btn" id="cartCheckoutBtn">Buy now</button>
           <?php endif; ?>
         </div>
       </div>
@@ -405,47 +397,62 @@ if (!function_exists('h')) {
     });
   });
 
+  function openBuyDoorForRow(row){
+    if (!row) return false;
+    var productId = parseInt(row.getAttribute('data-product-id') || '0', 10);
+    if (!productId) return false;
+    var profileId = parseInt(row.getAttribute('data-profile-id') || '0', 10);
+    var qtyInput = row.querySelector('.cart-qty-input');
+    var qty = Math.max(1, Math.min(99, parseInt((qtyInput && qtyInput.value) || '1', 10) || 1));
+    var url = 'shop_buy_door.php?embed=1&product_id=' + encodeURIComponent(String(productId))
+      + '&quantity=' + encodeURIComponent(String(qty))
+      + '&from_cart=1';
+    if (profileId > 0) url += '&profile_id=' + encodeURIComponent(String(profileId));
+    if (window.TTLiveRight && typeof window.TTLiveRight.open === 'function') {
+      window.TTLiveRight.open(url);
+      return true;
+    }
+    window.location.href = url.replace('embed=1&', '').replace('?embed=1', '?');
+    return true;
+  }
+
+  // Keep Buy now door qty in sync with cart qty input
+  document.querySelectorAll('.cart-row').forEach(function(row){
+    var qtyInput = row.querySelector('.cart-qty-input');
+    var buyBtn = row.querySelector('.js-open-shop-buy-door');
+    if (!qtyInput || !buyBtn) return;
+    function syncBuyQty(){
+      var qty = Math.max(1, Math.min(99, parseInt(qtyInput.value || '1', 10) || 1));
+      buyBtn.setAttribute('data-quantity', String(qty));
+    }
+    qtyInput.addEventListener('input', syncBuyQty);
+    qtyInput.addEventListener('change', syncBuyQty);
+  });
+
   if (checkoutBtn) {
-    checkoutBtn.addEventListener('click', async function(){
-      const selectedIds = getSelectedProductIds();
-      if (!selectedIds.length) {
-        window.alert('Select at least one item to checkout.');
+    checkoutBtn.addEventListener('click', function(){
+      var selected = getSelectedRows();
+      if (!selected.length) {
+        window.alert('Select at least one item to buy.');
         return;
       }
-      checkoutBtn.disabled = true;
-      try {
-        const body = new URLSearchParams();
-        body.set('product_ids', selectedIds.join(','));
-        const promo = document.getElementById('cartPromoCode');
-        const phone = document.getElementById('cartBuyerPhone');
-        const addr = document.getElementById('cartDeliveryAddress');
-        const dopt = document.getElementById('cartDeliveryOption');
-        if (promo && promo.value.trim()) body.set('promo_code', promo.value.trim());
-        if (phone && phone.value.trim()) body.set('buyer_phone', phone.value.trim());
-        if (addr && addr.value.trim()) body.set('delivery_address', addr.value.trim());
-        if (dopt && dopt.value) body.set('delivery_option', dopt.value);
-        const res = await fetch('ajax/cart_checkout.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString(), credentials:'same-origin' });
-        const data = await res.json();
-        if (data.ok && data.checkout_url) {
-          var urls = Array.isArray(data.checkout_urls) ? data.checkout_urls.filter(Boolean) : [];
-          if (!urls.length && data.checkout_url) urls = [data.checkout_url];
-          if (urls.length > 1) {
-            try { sessionStorage.setItem('msb_cart_checkout_queue', JSON.stringify(urls.slice(1))); } catch (e) {}
-          } else {
-            try { sessionStorage.removeItem('msb_cart_checkout_queue'); } catch (e) {}
-          }
-          window.location.href = urls[0] || data.checkout_url;
-          return;
-        }
-        if (data.ok) { window.location.href = 'my_orders.php'; return; }
-        window.alert(data.message || 'Checkout failed.');
-      } catch (e) {
-        window.alert('Checkout failed.');
-      } finally {
-        updateSelectionUi();
-      }
+      // Buy door is per product (same as product detail). Open the first selected item.
+      openBuyDoorForRow(selected[0]);
     });
   }
+
+  // After buy-door success, refresh cart (purchased line is removed server-side).
+  var pendingCartReload = false;
+  window.addEventListener('message', function(e){
+    if (!e || !e.data || typeof e.data !== 'object') return;
+    if (e.data.type === 'msb-shop-buy-success' && e.data.from_cart) {
+      pendingCartReload = true;
+    }
+    if (e.data.type === 'msb-live-right-door-close' && pendingCartReload) {
+      pendingCartReload = false;
+      window.location.reload();
+    }
+  });
 
   updateSelectionUi();
 })();

@@ -404,8 +404,8 @@
   var PALETTE_NAV_ACTIVE_SELECTORS = [
     '#ttNavLeftbar .nav-link.active',
     'body #ttNavLeftbar .nav-link.active',
-    '.sh-sideleft-menu .nav-link.active',
-    '.sh-sideleft-menu .nav > .nav-item > .nav-link.active',
+    '.sh-sideleft-menu .nav-link.active:not(.sales-management-nav-link)',
+    '.sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(.sales-management-nav-link)',
     '.feed-left-nav-item.is-active',
     '.feed-right-nav-item.is-active',
     '.tt-menu-body .feed-left-nav-item.is-active',
@@ -817,6 +817,40 @@
       '  background-color: var(--msb-palette-nav-active-bg) !important;\n' +
       '}\n' +
       paletteNavChildSelectorBlock(PALETTE_NAV_ACTIVE_SELECTORS + ':not(:hover)', 'color', 'var(--msb-palette-nav-active-icon)') +
+      /* Seller sales workflow: blue text/icon switch, no filled active box */
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active:hover,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active:focus,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  border: 0 !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '  outline: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active > span,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active i,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .icon,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active [class*="ion-"],\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active > span,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active i,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .icon,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active [class*="ion-"] {\n' +
+      '  color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  background: transparent !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .org-sales-support-center.active,\n' +
+      'html[data-msb-appearance] .org-sales-support-center.active i,\n' +
+      'html.msb-palette-active .org-sales-support-center.active,\n' +
+      'html.msb-palette-active .org-sales-support-center.active i {\n' +
+      '  color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  background: transparent !important;\n' +
+      '}\n' +
       'html[data-msb-appearance] ' + PALETTE_NAV_REST_SELECTORS + ':not(.active):not(.is-active) {\n' +
       '  color: var(--msb-palette-text-on-nav) !important;\n' +
       '  background-color: transparent !important;\n' +

@@ -569,14 +569,14 @@ if (!function_exists('profile_gear_font_summary')) {
       $headerSize = 'small';
     }
     $headerFont = trim((string)($profileSettings['header_font_family'] ?? 'Arial')) ?: 'Arial';
-    $bodyPt = (int)($profileSettings['body_font_size_pt'] ?? 9);
+    $bodyPt = (int)($profileSettings['body_font_size_pt'] ?? 12);
     if ($bodyPt < 8) {
-      $bodyPt = 9;
+      $bodyPt = 12;
     }
     $bodyFont = trim((string)($profileSettings['body_font_family'] ?? 'Arial')) ?: 'Arial';
     $textColor = function_exists('msb_type_text_color_normalize')
-      ? msb_type_text_color_normalize((string)($profileSettings['text_color'] ?? '#000000'))
-      : '#000000';
+      ? msb_type_text_color_normalize((string)($profileSettings['text_color'] ?? '#ffffff'))
+      : '#ffffff';
     $summary = $sizeMap[$headerSize] . ' · ' . $headerFont . ' / ' . $bodyPt . ' pt · ' . $bodyFont;
     if ($textColor !== 'theme') {
       $summary .= ' · ' . strtoupper($textColor);
@@ -1184,9 +1184,9 @@ $profileSettings = [
   'gallery_grid_size' => 'medium',
   'header_type_size' => 'small',
   'header_font_family' => 'Arial',
-  'body_font_size_pt' => 9,
+  'body_font_size_pt' => 12,
   'body_font_family' => 'Arial',
-  'text_color' => '#000000',
+  'text_color' => '#ffffff',
   'autoplay_videos' => 1,
   'sound_enabled' => 1,
   'app_language' => 'English',
@@ -2516,6 +2516,7 @@ try {
       COALESCE(p.link_description,'') AS link_description,
       COALESCE(p.link_image,'') AS link_image,
       COALESCE(p.link_tags,'') AS link_tags,
+      COALESCE(p.hashtags,'') AS hashtags,
       COALESCE(p.sound_id,0) AS sound_id
     FROM public_posts p
     LEFT JOIN public_post_attachments a
@@ -2572,6 +2573,7 @@ try {
         '' AS link_description,
         '' AS link_image,
         '' AS link_tags,
+        '' AS hashtags,
         0 AS sound_id
       FROM public_posts p
       LEFT JOIN public_post_attachments a
@@ -3098,6 +3100,7 @@ try {
       COALESCE(p.link_description,'') AS link_description,
       COALESCE(p.link_image,'') AS link_image,
       COALESCE(p.link_tags,'') AS link_tags,
+      COALESCE(p.hashtags,'') AS hashtags,
       COALESCE(p.sound_id,0) AS sound_id,
       p.user_id AS author_id,
       t.created_at AS tagged_at,
@@ -3258,6 +3261,7 @@ if ($profileShowSavedTab || ($profileCanGear && !empty($canManageProfilePrivate)
       'link_description' => (string)($savedPost['link_description'] ?? ''),
       'link_image' => (string)($savedPost['link_image'] ?? ''),
       'link_tags' => (string)($savedPost['link_tags'] ?? ''),
+      'hashtags' => (string)($savedPost['hashtags'] ?? ''),
       'sound_id' => (int)($savedPost['sound_id'] ?? 0),
     ];
     $savedGridIds[] = $pid;
@@ -3310,6 +3314,7 @@ foreach ($gearArchivePosts as $archivePost) {
     'link_description' => (string)($archivePost['link_description'] ?? ''),
     'link_image' => (string)($archivePost['link_image'] ?? ''),
     'link_tags' => (string)($archivePost['link_tags'] ?? ''),
+    'hashtags' => (string)($archivePost['hashtags'] ?? ''),
     'sound_id' => (int)($archivePost['sound_id'] ?? 0),
   ];
 }
@@ -3362,8 +3367,9 @@ if (!function_exists('profile_tab_empty_html')) {
 }
 
 if (!function_exists('profile_render_post_grid_items')) {
-  function profile_render_post_grid_items(array $items, bool $isMobile, bool $showTagPill = false, bool $canUnsave = false): void {
+  function profile_render_post_grid_items(array $items, bool $isMobile, bool $showTagPill = false, bool $canUnsave = false, array $tileMenu = []): void {
     $gridIndex = 0;
+    $showTileMenu = !empty($tileMenu);
     foreach ($items as $it) {
       $pid = (int)($it['post_id'] ?? 0);
       if ($pid <= 0) {
@@ -3415,7 +3421,7 @@ if (!function_exists('profile_render_post_grid_items')) {
       $isCarousel = $attachCount > 1;
       ?>
       <?php if ($canUnsave): ?><div class="ig-item-wrap is-saved-tile"><?php endif; ?>
-      <div class="ig-item<?php echo $noMedia ? ' no-media' : ''; ?><?php echo $showVideo ? ' is-video' : ''; ?><?php echo $isCarousel ? ' is-carousel' : ''; ?>"
+      <div class="ig-item<?php echo $noMedia ? ' no-media' : ''; ?><?php echo $showVideo ? ' is-video' : ''; ?><?php echo $isCarousel ? ' is-carousel' : ''; ?><?php echo $showTileMenu ? ' has-tile-menu' : ''; ?>"
          data-post-id="<?php echo $pid; ?>"
          data-index="<?php echo $gridIndex; ?>"
          data-visibility="<?php echo h($vis); ?>"
@@ -3425,7 +3431,8 @@ if (!function_exists('profile_render_post_grid_items')) {
          title="Open post"
          onclick="if(window.msbOpenProfileGridPost){window.msbOpenProfileGridPost(this.getAttribute('data-post-id'),this);}return false;">
         <?php if ($showVideo): ?>
-          <video class="ig-vid" src="<?php echo h($filePath); ?>" muted playsinline preload="metadata"></video>
+          <?php $vidPoster = ($thumb !== '' && !is_video_path($thumb)) ? $imgSrc : ''; ?>
+          <video class="ig-vid" src="<?php echo h($filePath . (strpos($filePath, '#') === false ? '#t=0.1' : '')); ?>" muted playsinline preload="metadata"<?php echo $vidPoster !== '' ? ' poster="' . h($vidPoster) . '"' : ''; ?>></video>
         <?php elseif ($showThumb): ?>
           <div class="ph" style="background-image:url('<?php echo h($imgSrc); ?>');"></div>
         <?php else: ?>
@@ -3452,6 +3459,21 @@ if (!function_exists('profile_render_post_grid_items')) {
         <?php if ($showTagPill && $categoryName !== ''): ?>
           <div class="ig-tag-pill" title="Category"><?php echo h($categoryName); ?></div>
         <?php endif; ?>
+        <?php if ($showTileMenu): ?>
+          <?php $tilePeerId = (int)($it['author_id'] ?? $it['user_id'] ?? ($tileMenu['peer_id'] ?? 0)); ?>
+          <div class="post-card-menu-wrap mf-menu-wrap ig-tile-menu-wrap"
+               data-post-id="<?php echo $pid; ?>"
+               data-peer-id="<?php echo $tilePeerId; ?>"
+               data-is-owner="0"
+               data-menu-surface="profile"
+               data-visibility="<?php echo h($vis); ?>"
+               data-my-saved="<?php echo !empty($it['my_saved']) ? 1 : 0; ?>"
+               data-is-publisher="<?php echo !empty($tileMenu['is_publisher']) ? 1 : 0; ?>"
+               data-account-kind="<?php echo !empty($tileMenu['is_publisher']) ? 'publisher' : 'personal'; ?>">
+            <button type="button" class="post-card-menu-btn ig-tile-menu-btn" aria-label="Post menu" title="Menu" aria-haspopup="true" aria-expanded="false"><?= post_card_menu_fries_icon_html() ?></button>
+            <div class="post-card-menu mf-menu" role="menu"></div>
+          </div>
+        <?php endif; ?>
         <div class="react-overlay" aria-label="Reacts">
           <?php if (!isset($GLOBALS['profileShowTimelineReactions']) || !empty($GLOBALS['profileShowTimelineReactions'])): ?>
           <span class="react-btn" data-act="love" title="Love" aria-label="Love"><i class="icon ion-heart"></i> <span class="n"><?php echo $loveC; ?></span></span>
@@ -3475,10 +3497,10 @@ if (!function_exists('profile_render_post_grid_items')) {
 }
 
 if (!function_exists('profile_render_post_grid')) {
-  function profile_render_post_grid(array $items, bool $showPeerNotFound, bool $isMobile, string $emptyTitle, string $emptyIcon = 'ion-ios-paper-outline', bool $showTagPill = false, string $gridScope = 'all'): void {
+  function profile_render_post_grid(array $items, bool $showPeerNotFound, bool $isMobile, string $emptyTitle, string $emptyIcon = 'ion-ios-paper-outline', bool $showTagPill = false, string $gridScope = 'all', array $tileMenu = []): void {
     if (!empty($items) && !$showPeerNotFound) {
       echo '<div class="ig-grid" data-grid-scope="' . h($gridScope) . '">';
-      profile_render_post_grid_items($items, $isMobile, $showTagPill, $gridScope === 'saved');
+      profile_render_post_grid_items($items, $isMobile, $showTagPill, $gridScope === 'saved', $tileMenu);
       echo '</div>';
       return;
     }
@@ -3624,6 +3646,7 @@ if ($galleryAjaxName === 'gallery' || $galleryAjaxName === 'archive_list') {
       'link_description' => trim((string)($it['link_description'] ?? '')),
       'link_image' => trim((string)($it['link_image'] ?? '')),
       'link_tags' => trim((string)($it['link_tags'] ?? '')),
+      'hashtags' => trim((string)($it['hashtags'] ?? '')),
       'sound_id' => (int)($it['sound_id'] ?? 0),
       'tagged_people' => [],
     ];
@@ -3802,7 +3825,7 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     .ig-wrap{max-width:720px;width:100%;margin:0 auto;overflow:visible;}
     .ig-card{background:var(--msb-palette-bg, #f5f7fb);border:1px solid var(--msb-palette-border, #c0c2c4);overflow:visible;}
     html{
-      --profile-cover-h: 450px;
+      --profile-cover-h: clamp(290px, 35vw, 500px);
     }
     @view-transition{
       navigation:auto;
@@ -3881,19 +3904,19 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
     body.profile-page .sh-pagebody > .profile-cover{
       position:relative !important;
       flex:0 0 var(--profile-cover-h, 450px) !important;
-      align-self:stretch !important;
+      align-self:center !important;
       top:auto !important;
       right:auto !important;
       bottom:auto !important;
-      left:0 !important;
+      left:auto !important;
       z-index:1;
       box-sizing:border-box;
-      width:100% !important;
-      min-width:100% !important;
+      width:calc(100vw - var(--feedRailW, var(--feed-rail-w, 72px)) - 48px) !important;
+      min-width:0 !important;
       max-width:none !important;
       height:var(--profile-cover-h, 450px) !important;
-      margin:0 !important;
-      border-radius:0 !important;
+      margin:0 24px !important;
+      border-radius:0 0 10px 10px !important;
       overflow:hidden;
       transform:translateZ(0);
       -webkit-transform:translateZ(0);
@@ -3907,6 +3930,12 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       height:100%;
       object-fit:cover;
       display:block;
+    }
+    @media (max-width:800px){
+      body.profile-page .sh-pagebody > .profile-cover{
+        width:calc(100% - 20px) !important;
+        margin:0 10px !important;
+      }
     }
     body.profile-page .ig-profile-shell{
       display:flex;
@@ -4003,6 +4032,54 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       font-size:16px;
       line-height:1;
     }
+    body.profile-page #panel-gallery .ig-item.has-tile-menu .ig-kind{
+      right:40px;
+    }
+    body.profile-page #panel-gallery .ig-tile-menu-wrap{
+      position:absolute;
+      top:6px;
+      right:6px;
+      z-index:12;
+      pointer-events:auto !important;
+    }
+    body.profile-page #panel-gallery .ig-tile-menu-wrap .ig-tile-menu-btn{
+      pointer-events:auto !important;
+    }
+    body.profile-page #panel-gallery .ig-tile-menu-btn{
+      width:28px;
+      height:28px;
+      padding:0;
+      border:0;
+      border-radius:999px;
+      background:rgba(0,0,0,.38) !important;
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      box-shadow:none;
+    }
+    body.profile-page #panel-gallery .ig-tile-menu-btn:hover,
+    body.profile-page #panel-gallery .ig-tile-menu-btn:focus-visible{
+      background:rgba(0,0,0,.6) !important;
+    }
+    body.profile-page #panel-gallery .ig-tile-menu-btn .pcm-fries-icon{
+      display:inline-flex;
+      flex-direction:column;
+      align-items:flex-start;
+      justify-content:center;
+      gap:2.5px;
+      width:14px;
+      line-height:0;
+    }
+    body.profile-page #panel-gallery .ig-tile-menu-btn .pcm-fries-bar{
+      display:block;
+      height:2px;
+      width:14px;
+      border-radius:999px;
+      background:#fff !important;
+    }
+    body.profile-page #panel-gallery .ig-tile-menu-btn .pcm-fries-bar--short{width:8px;}
     body.profile-page #panel-gallery .ig-item .react-overlay,
     body.profile-page #panel-gallery .ig-item:hover .react-overlay,
     body.profile-page #panel-gallery .ig-item:focus-within .react-overlay{
@@ -6227,6 +6304,13 @@ $profileIsFlowScroll = empty($msbSettingsPage) && in_array($selectedTab, $profil
       background:#ffe8e8; color:#9f1239;
     }
     #profilePostsFeed .mf-link-preview-chip.is-place i{ color:#ef4444; margin-right:5px; }
+    #profilePostsFeed .mf-hashtag-pills{
+      display:flex; flex-wrap:wrap; gap:8px; margin:10px 12px 2px;
+    }
+    #profilePostsFeed .mf-hashtag-pill{
+      display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px;
+      background:#e8f1ff; color:#3b82f6; font-size:13px; font-weight:700; line-height:1.2;
+    }
     #profilePostsFeed .mf-link-preview-cta{
       display:flex; align-items:center; gap:8px; margin-top:auto; padding:8px 14px;
       background:var(--msb-palette-hover-bg, var(--msb-palette-action-soft, #eff6ff));
@@ -8605,7 +8689,8 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
           'No Gallery Available',
           'ion-images',
           false,
-          'gallery'
+          'gallery',
+          ['peer_id' => (int)$viewId, 'is_publisher' => !empty($profileIsPublisher)]
         );
       ?>
       <?php if (!$showPeerNotFound && !empty($galleryGrid)): ?>
@@ -8713,7 +8798,40 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
     </div>
 
     <div id="panel-posts" class="profile-panel<?php echo $selectedTab === 'posts' ? ' active' : ''; ?>">
-      <div id="profilePostsFeed" class="mf-feed" aria-live="polite"></div>
+      <div id="profilePostsFeed" class="mf-feed profile-posts-hydrating" aria-live="polite" aria-busy="true">
+        <article class="profile-post-boot-card" aria-hidden="true">
+          <div class="profile-post-boot-head"><span class="profile-post-boot-avatar"></span><span class="profile-post-boot-copy"><i></i><i></i></span><span class="profile-post-boot-fries"><i></i><i></i><i></i></span></div>
+          <div class="profile-post-boot-media"></div>
+          <div class="profile-post-boot-actions"><i></i><i></i><i></i><i></i></div>
+        </article>
+        <article class="profile-post-boot-card" aria-hidden="true">
+          <div class="profile-post-boot-head"><span class="profile-post-boot-avatar"></span><span class="profile-post-boot-copy"><i></i><i></i></span><span class="profile-post-boot-fries"><i></i><i></i><i></i></span></div>
+          <div class="profile-post-boot-media"></div>
+          <div class="profile-post-boot-actions"><i></i><i></i><i></i><i></i></div>
+        </article>
+      </div>
+      <script>
+      (function(){
+        try{
+          var saved = JSON.parse(localStorage.getItem('msbProfilePostsLoadingMedia') || '[]');
+          document.querySelectorAll('#profilePostsFeed .profile-post-boot-media').forEach(function(box, index){
+            var dim = saved[index] || {};
+            var w = Number(dim.w || 0), h = Number(dim.h || 0);
+            if(!w || !h) return;
+            var card = box.closest('.profile-post-boot-card');
+            var available = Math.max(1, (card ? card.clientWidth : 614) - 24);
+            var mobile = window.innerWidth <= 767.98;
+            var tablet = !mobile && window.innerWidth <= 1024.98;
+            var ratio = mobile ? .42 : (tablet ? .52 : .56);
+            var offset = mobile ? 300 : (tablet ? 240 : 220);
+            var maxH = Math.max(1, Math.min(window.innerHeight * ratio, window.innerHeight - offset));
+            var width = Math.max(1, Math.min(available, Math.round(maxH * w / h)));
+            box.style.setProperty('width', width + 'px', 'important');
+            box.style.setProperty('aspect-ratio', w + ' / ' + h, 'important');
+          });
+        }catch(_profileLoadingMedia){}
+      }());
+      </script>
       <?php if (trim((string)($profileFirstJoinedLabel ?? '')) !== ''): ?>
         <p class="profile-joined-note" id="profileJoinedNote">Joined Talsora <?php echo h($profileFirstJoinedLabel); ?></p>
       <?php endif; ?>
@@ -10377,7 +10495,11 @@ html[data-theme="dark"] body.profile-page .profile-account-badge{
 })();
 
 // Video thumbnail start
-document.querySelectorAll('video.ig-vid').forEach(v => { try { v.currentTime = 0.1; } catch(e){} });
+document.querySelectorAll('video.ig-vid').forEach(v => {
+  const seek = () => { try { if (v.currentTime < 0.1) v.currentTime = 0.1; } catch(e){} };
+  if (v.readyState >= 1) seek();
+  else v.addEventListener('loadedmetadata', seek, { once: true });
+});
 
 /* Gallery love / comment / views — do not navigate the tile */
 document.addEventListener('click', (e) => {
@@ -11952,6 +12074,18 @@ function pvPreloadNeighbors(){
   }
 }
 
+// Gallery tile fries: open the dropdown only, never the post modal.
+window.addEventListener('click', function(e){
+  const btn = e.target && e.target.closest ? e.target.closest('.ig-tile-menu-btn') : null;
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+  if (window.MSBPostCardMenu && typeof window.MSBPostCardMenu.toggle === 'function') {
+    window.MSBPostCardMenu.toggle(btn);
+  }
+}, true);
+
 // Grid click — delegated so tiles always open the post modal
 document.addEventListener('click', function(e){
   const a = e.target && e.target.closest ? e.target.closest('.ig-grid .ig-item') : null;
@@ -13401,7 +13535,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       var defaults = {
         header_type_size: 'small',
         header_font_family: 'Arial',
-        body_font_size_pt: '9',
+        body_font_size_pt: '12',
         body_font_family: 'Arial'
       };
       Object.keys(defaults).forEach(function(field){
@@ -13413,7 +13547,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       var colorBox = bundle.querySelector('.gear-text-color');
       var swatch = colorBox && colorBox.querySelector('.gear-text-color-swatch');
       if (swatch) {
-        swatch.value = '#000000';
+        swatch.value = '#ffffff';
         swatch.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
@@ -13437,11 +13571,11 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     var headerSize = (prefs.headerSize === 'small' || prefs.headerSize === 'medium' || prefs.headerSize === 'large') ? prefs.headerSize : 'small';
     var headerFont = prefs.headerFont || 'Arial';
     var bodyFont = prefs.bodyFont || 'Arial';
-    var bodyPt = Number(prefs.bodyPt || 9);
+    var bodyPt = Number(prefs.bodyPt || 12);
     if (bodyPt < 8) bodyPt = 8;
     if (bodyPt > 72) bodyPt = 72;
-    var textColor = String(prefs.textColor || '#000000');
-    if (textColor !== 'theme' && !/^#[0-9a-fA-F]{6}$/.test(textColor)) textColor = '#000000';
+    var textColor = String(prefs.textColor || '#ffffff');
+    if (textColor !== 'theme' && !/^#[0-9a-fA-F]{6}$/.test(textColor)) textColor = '#ffffff';
     root.setAttribute('data-msb-type', '1');
     root.setAttribute('data-msb-header-size', headerSize);
     root.style.setProperty('--msb-header-size', headerPx[headerSize] || '16px');
@@ -13462,6 +13596,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       bodyPt: bodyPt,
       textColor: textColor
     };
+    if (typeof window.MSBTypeColorGuard === 'function') window.MSBTypeColorGuard();
     var sizeLabel = headerSize === 'small' ? 'Small' : (headerSize === 'large' ? 'Larger' : 'Normal');
     var fontSummary = sizeLabel + ' · ' + headerFont + ' / ' + bodyPt + ' pt · ' + bodyFont;
     if (textColor !== 'theme') fontSummary += ' · ' + textColor.toUpperCase();
@@ -13496,7 +13631,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       applyTypeLive(typePrefs);
     }
     if (field === 'body_font_size_pt') {
-      typePrefs.bodyPt = Number(value || 9);
+      typePrefs.bodyPt = Number(value || 12);
       applyTypeLive(typePrefs);
     }
     if (field === 'body_font_family') {
@@ -13504,7 +13639,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       applyTypeLive(typePrefs);
     }
     if (field === 'text_color') {
-      typePrefs.textColor = value || '#000000';
+      typePrefs.textColor = value || '#ffffff';
       applyTypeLive(typePrefs);
     }
     if (field === 'autoplay_videos') {
@@ -13668,11 +13803,11 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       } else if (field === 'header_font_family') {
         prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.headerFont) || 'Arial';
       } else if (field === 'body_font_size_pt') {
-        prevValue = String((window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.bodyPt) || 9);
+        prevValue = String((window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.bodyPt) || 12);
       } else if (field === 'body_font_family') {
         prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.bodyFont) || 'Arial';
       } else if (field === 'text_color') {
-        prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.textColor) || '#000000';
+        prevValue = (window.MSB_TYPE_PREFS && window.MSB_TYPE_PREFS.textColor) || '#ffffff';
       } else if (field === 'autoplay_videos') {
         prevValue = document.documentElement.getAttribute('data-msb-autoplay') === '0' ? '0' : '1';
       } else if (field === 'sound_enabled') {
@@ -15904,6 +16039,9 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
   }
   function getDeviceDimensions(card){
     if(!card) return null;
+    var mediaW = Number(card.getAttribute('data-media-w') || 0);
+    var mediaH = Number(card.getAttribute('data-media-h') || 0);
+    if(mediaW > 0 && mediaH > 0) return { w: mediaW, h: mediaH };
     var mediaEl = card.querySelector('.mf-media.media-stage, .mf-media');
     var fromStyle = parseDeviceAspectFromStyle(mediaEl ? mediaEl.getAttribute('style') : '');
     if(fromStyle && fromStyle.w > 0 && fromStyle.h > 0) return fromStyle;
@@ -15948,7 +16086,16 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     if(isPhoneShot && window.matchMedia('(max-width: 767.98px)').matches){
       return Math.max(240, Math.min(availableWidth, Math.round(Math.min(window.innerWidth * 0.78, 340))));
     }
-    return availableWidth;
+    var viewportH = Math.max(window.innerHeight || 0, 320);
+    var maxMediaHeight;
+    if(window.matchMedia('(max-width: 767.98px)').matches){
+      maxMediaHeight = Math.min(Math.round(viewportH * 0.42), Math.max(160, viewportH - 300));
+    }else if(window.matchMedia('(max-width: 1024.98px)').matches){
+      maxMediaHeight = Math.min(Math.round(viewportH * 0.52), Math.max(220, viewportH - 240));
+    }else{
+      maxMediaHeight = Math.min(Math.round(viewportH * 0.56), Math.max(260, viewportH - 220));
+    }
+    return Math.max(1, Math.min(availableWidth, Math.round(maxMediaHeight * aspectW / aspectH)));
   }
   function initialMediaCardStyleFromDims(dims, isPhoneShot){
     if(!dims || !Number(dims.w || 0) || !Number(dims.h || 0)) return '';
@@ -15961,6 +16108,9 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     return '--post-media-card-width:'+(isPhoneShot ? String(safeWidth)+'px' : '100%')+';--post-media-max-height:'+mediaMaxHeightCss()+';width:100%;max-width:100%;margin-left:0;margin-right:0;padding:8px 12px;box-sizing:border-box;';
   }
   function initialMediaAspect(it, deviceDims){
+    var previewW = Number((it && (it.preview_w || it.media_w || it.width)) || 0);
+    var previewH = Number((it && (it.preview_h || it.media_h || it.height)) || 0);
+    if(previewW > 0 && previewH > 0) return { w: previewW, h: previewH };
     if(deviceDims && deviceDims.w > 0 && deviceDims.h > 0) return deviceDims;
     var shape = String((it && it.media_shape) || '').trim();
     if(shape === 'single-portrait') return { w: 9, h: 16 };
@@ -16024,7 +16174,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     if(!safeWidth) return;
 
     var maxH = mediaMaxHeightCss();
-    var widthCss = '100%';
+    var widthCss = String(safeWidth) + 'px';
     card.style.width = '100%';
     card.style.maxWidth = '100%';
     card.style.marginLeft = '0';
@@ -16093,7 +16243,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
       image.style.removeProperty('box-sizing');
     }
   }
-  function syncProfileMediaCard(el){
+  function syncProfileMediaCard(el, revealMedia){
     if(!el) return;
     var card = el.closest('.mf-card.is-single-video-post, .mf-card.is-single-image-post');
     if(!card) return;
@@ -16107,32 +16257,60 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     }
     if(!w || !h) return;
     var stage = el.closest('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
-    if(stage) stage.classList.add('mf-media-sized');
-    if(card.classList.contains('is-single-video-post')) card.classList.add('mf-video-ready');
-    if(card.classList.contains('is-single-image-post')) card.classList.add('mf-image-ready');
     applyPublicMediaCardWidth(card, w, h);
+    card.setAttribute('data-media-w', String(w));
+    card.setAttribute('data-media-h', String(h));
+    if(stage) stage.classList.add('mf-media-sized');
+    if(revealMedia !== false){
+      if(stage){
+        stage.classList.remove('profile-media-pending');
+        stage.style.removeProperty('--profile-pending-w');
+        stage.style.removeProperty('--profile-pending-h');
+        stage.style.removeProperty('aspect-ratio');
+        stage.style.removeProperty('background');
+      }
+      el.style.removeProperty('opacity');
+      el.style.removeProperty('visibility');
+      if(card.classList.contains('is-single-video-post')) card.classList.add('mf-video-ready');
+      if(card.classList.contains('is-single-image-post')) card.classList.add('mf-image-ready');
+    }
   }
   function preflightProfileMediaCard(card, it){
-    if(!card || card.classList.contains('is-single-video-post')) return;
-    var dims = getDeviceDimensions(card) || initialMediaAspect(it, null);
+    if(!card) return;
+    var dims = initialMediaAspect(it, getDeviceDimensions(card));
     if(!dims || !dims.w || !dims.h) return;
+    card.setAttribute('data-media-w', String(dims.w));
+    card.setAttribute('data-media-h', String(dims.h));
     applyPublicMediaCardWidth(card, dims.w, dims.h);
     var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
-    if(media && card.classList.contains('is-single-image-post')){
-      media.classList.add('mf-media-sized');
+    var mediaEl = media ? media.querySelector('video, img') : null;
+    if(media){
+      media.classList.add('mf-media-sized', 'profile-media-pending');
+      media.style.setProperty('--profile-pending-w', String(dims.w));
+      media.style.setProperty('--profile-pending-h', String(dims.h));
+      media.style.setProperty('aspect-ratio', String(dims.w) + ' / ' + String(dims.h), 'important');
+      media.style.setProperty('background', 'var(--profile-loading-media-bg, #f1f1f1)', 'important');
+      media.style.setProperty('border-radius', '7px', 'important');
+      media.style.setProperty('overflow', 'hidden', 'important');
+    }
+    if(mediaEl){
+      mediaEl.style.setProperty('opacity', '0', 'important');
+      mediaEl.style.setProperty('visibility', 'hidden', 'important');
     }
   }
   function bindProfilePostsFeedSizing(scope){
     var root = (scope && scope.jquery) ? scope[0] : (scope || document.getElementById('profilePostsFeed'));
     if(!root || !root.querySelectorAll) return;
     Array.prototype.forEach.call(root.querySelectorAll('.mf-card.is-single-video-post .media-stage.standard-video-stage > video'), function(video){
-      var sync = function(){
-        syncProfileMediaCard(video);
+      var size = function(){
+        syncProfileMediaCard(video, false);
         var stage = video.closest('.media-stage.standard-video-stage');
         if(stage) stage.classList.add('mf-media-sized');
       };
+      var reveal = function(){ syncProfileMediaCard(video, true); };
       if(video.dataset.ppMediaSized === '1'){
-        if(video.readyState >= 1) sync();
+        if(video.readyState >= 2) reveal();
+        else if(video.readyState >= 1) size();
         return;
       }
       video.dataset.ppMediaSized = '1';
@@ -16144,13 +16322,15 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
         var card = video.closest('.mf-card.is-single-video-post');
         if(card) card.classList.add('mf-video-error');
       }, { once:true });
-      video.addEventListener('loadedmetadata', sync);
-      video.addEventListener('loadeddata', sync);
-      video.addEventListener('resize', sync);
-      if(video.readyState >= 1) sync();
+      video.addEventListener('loadedmetadata', size);
+      video.addEventListener('loadeddata', reveal);
+      video.addEventListener('canplay', reveal, { once:true });
+      video.addEventListener('resize', size);
+      if(video.readyState >= 2) reveal();
+      else if(video.readyState >= 1) size();
     });
     Array.prototype.forEach.call(root.querySelectorAll('.mf-card.is-single-image-post .media-stage.standard-image-stage > img'), function(img){
-      var sync = function(){ syncProfileMediaCard(img); };
+      var sync = function(){ syncProfileMediaCard(img, true); };
       if(img.dataset.ppMediaSized === '1'){
         if(img.complete && img.naturalWidth) sync();
         return;
@@ -16765,6 +16945,24 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
     if (linkPreviewHtml) {
       bodyHtml = (bodyHtml || '') + linkPreviewHtml;
     }
+    var hashtagsHtml = '';
+    (function(){
+      var raw = String((it && it.hashtags) || '').trim();
+      if (!raw) {
+        raw = [String(body || ''), String((it && it.description) || ''), String(title || '')].join(' ');
+      }
+      var tags = [];
+      String(raw).replace(/#([A-Za-z][A-Za-z0-9_]{0,48})/g, function(_m, tag){
+        var key = String(tag || '').toLowerCase();
+        if (!key || tags.some(function(t){ return t.toLowerCase() === key; })) return '';
+        if (tags.length < 8) tags.push(tag);
+        return '';
+      });
+      if (!tags.length) return;
+      hashtagsHtml = '<div class="mf-hashtag-pills">';
+      tags.forEach(function(tag){ hashtagsHtml += '<span class="mf-hashtag-pill">#'+esc(tag)+'</span>'; });
+      hashtagsHtml += '</div>';
+    })();
 
     return '<div class="'+cardClass+'" data-id="'+pid+'" data-post-id="'+pid+'" data-post-owner="'+(isOwner ? '1' : '0')+'" data-visibility="'+esc(String((window.MSBPostCardMenu && window.MSBPostCardMenu.normalizeVisibility) ? window.MSBPostCardMenu.normalizeVisibility(it.visibility || 'friends') : (it.visibility || 'friends')))+'" data-peer-id="'+esc(String(it.user_id || ''))+'" data-peer-code="'+esc(PROFILE_HIDE_PRIVATE_CONTACT ? '' : String(it.friend_code || ''))+'" data-account-kind="'+esc(String(it.account_kind || 'personal'))+'" data-is-publisher="'+(profileIsPublisherItem(it) ? '1' : '0')+'" data-is-following="'+(profilePublisherFollowingFromItem(it) ? '1' : '0')+'" data-friend-status="'+esc(profileFriendStatusFromItem(it))+'" data-title="'+esc(title)+'" data-author="'+esc(name)+'" data-date="'+esc(time)+'" data-avatar-url="'+esc(avatarUrl)+'" data-avatar-text="'+esc(avatarText)+'" data-full-desc="'+esc(body)+'"'+deviceDataAttrs+initialCardStyleAttr+'>'+
       profileBuildHeadHtml(it, isOwner, pid, false)+
@@ -16776,7 +16974,7 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
              '<div class="mf-slide-summary"'+(slideBody0 ? '' : ' style="display:none"')+'>'+mfSlideSummaryHtml(slideBody0)+'</div>'+
            '</div>')
         : '') +
-      mediaHtml + normalActions()+
+      mediaHtml + hashtagsHtml + normalActions()+
       '</div>';
   }
   function profileTabEmptyHtml(title, iconClass){
@@ -16787,8 +16985,16 @@ if (pv.text) pv.text.addEventListener('keydown', (e)=>{
   }
   function renderItems(items){
     var $wrap = $('#profilePostsFeed');
-    $wrap.empty();
     items = profileFeedItems(items);
+    try{
+      var loadingMedia = (items || []).filter(function(it){
+        return Number(it && it.preview_w || 0) > 0 && Number(it && it.preview_h || 0) > 0;
+      }).slice(0, 2).map(function(it){
+        return { w:Number(it.preview_w), h:Number(it.preview_h) };
+      });
+      if(loadingMedia.length) localStorage.setItem('msbProfilePostsLoadingMedia', JSON.stringify(loadingMedia));
+    }catch(_saveProfileLoadingMedia){}
+    $wrap.empty().removeClass('profile-posts-hydrating').attr('aria-busy', 'false');
     var pinId = Number(PROFILE_PIN_POST_ID || 0);
     if (pinId > 0 && Array.isArray(items) && items.length) {
       var pinned = null;
@@ -18131,6 +18337,20 @@ html body.profile-page .ig-tabs{
   gap:4px;
   padding:2px 8px 0;
   pointer-events:auto;
+  border-top:0 !important;
+  border-bottom:0 !important;
+}
+html body.profile-page .ig-tabs::before,
+html body.profile-page .ig-tabs::after{
+  content:none !important;
+  display:none !important;
+}
+@media (max-width:800px){
+  html body.profile-page .ig-tabs::before,
+  html body.profile-page .ig-tabs::after{
+    content:none !important;
+    display:none !important;
+  }
 }
 html body.profile-page .ig-tab,
 html body.profile-page a.ig-tab{
@@ -19880,6 +20100,74 @@ html[data-msb-appearance] body.profile-page.settings-page.profile-gear-mode .gea
 </style>
 <style id="profile-post-card-spacing-css">
 /* Profile Posts only: match Circle card separation without changing media sizing/actions. */
+:root{
+  --profile-loading-media-bg:#f1f1f1;
+  --profile-loading-detail-bg:#e5e7eb;
+}
+html.dark-auto,
+html[data-theme="dark"],
+body.dark-auto{
+  --profile-loading-media-bg:#4e4e4e75;
+  --profile-loading-detail-bg:#4e4e4e75;
+}
+html body.profile-page #profilePostsFeed.profile-posts-hydrating{
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:none !important;
+}
+html body.profile-page #profilePostsFeed .profile-post-boot-card{
+  display:block !important;
+  width:100%;
+  margin:0 0 12px;
+  padding:16px 12px 14px;
+  border:1px solid var(--msb-palette-border, rgba(148,163,184,.28));
+  border-radius:8px;
+  background:var(--msb-palette-surface, var(--msb-palette-bg, #fff));
+  box-sizing:border-box;
+}
+html body.profile-page #profilePostsFeed .profile-post-boot-head{display:flex;align-items:center;gap:11px;margin-bottom:16px;}
+html body.profile-page #profilePostsFeed .profile-post-boot-avatar{width:46px;height:46px;flex:0 0 46px;border-radius:50%;background:var(--profile-loading-detail-bg,#e5e7eb);}
+html body.profile-page #profilePostsFeed .profile-post-boot-copy{display:grid;gap:7px;flex:1;}
+html body.profile-page #profilePostsFeed .profile-post-boot-copy i,
+html body.profile-page #profilePostsFeed .profile-post-boot-actions i,
+html body.profile-page #profilePostsFeed .profile-post-boot-fries i{display:block;border-radius:999px;background:var(--profile-loading-detail-bg,#e5e7eb);}
+html body.profile-page #profilePostsFeed .profile-post-boot-copy i{height:10px;}
+html body.profile-page #profilePostsFeed .profile-post-boot-copy i:first-child{width:150px;max-width:70%;}
+html body.profile-page #profilePostsFeed .profile-post-boot-copy i:last-child{width:95px;max-width:45%;}
+html body.profile-page #profilePostsFeed .profile-post-boot-fries{display:grid;gap:4px;width:22px;flex:0 0 22px;}
+html body.profile-page #profilePostsFeed .profile-post-boot-fries i{height:3px;}
+html body.profile-page #profilePostsFeed .profile-post-boot-fries i:nth-child(2){width:16px;}
+html body.profile-page #profilePostsFeed .profile-post-boot-fries i:nth-child(3){width:10px;}
+html body.profile-page #profilePostsFeed .profile-post-boot-media{width:100%;max-width:100%;aspect-ratio:4 / 3;border-radius:7px;background:var(--profile-loading-media-bg,#f1f1f1);box-shadow:inset 0 -22px 28px rgba(15,23,42,.025);box-sizing:border-box;}
+html body.profile-page #profilePostsFeed .profile-post-boot-actions{display:flex;gap:22px;margin-top:14px;padding-top:12px;border-top:1px solid var(--msb-palette-border, rgba(148,163,184,.28));}
+html body.profile-page #profilePostsFeed .profile-post-boot-actions i{width:34px;height:12px;}
+html body.profile-page #profilePostsFeed .profile-post-boot-actions i:last-child{margin-left:auto;}
+html body.profile-page #profilePostsFeed .mf-card.is-single-video-post:not(.mf-media-missing),
+html body.profile-page #profilePostsFeed .mf-card.is-single-image-post:not(.mf-media-missing){
+  display:block !important;
+  visibility:visible !important;
+}
+html body.profile-page #profilePostsFeed .mf-card:not(.mf-media-missing) .media-stage.profile-media-pending{
+  display:block !important;
+  visibility:visible !important;
+  width:min(100%, var(--post-media-card-width, 100%)) !important;
+  max-width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  aspect-ratio:var(--profile-pending-w, 4) / var(--profile-pending-h, 3) !important;
+  background:var(--profile-loading-media-bg,#f1f1f1) !important;
+  border-radius:7px !important;
+  overflow:hidden !important;
+}
+html body.profile-page #profilePostsFeed .media-stage.profile-media-pending > video,
+html body.profile-page #profilePostsFeed .media-stage.profile-media-pending > img{
+  opacity:0 !important;
+  visibility:hidden !important;
+}
+html body.profile-page.profile-posts-mode .ig-profile-shell{
+  background:#e5eff6 !important;
+  background-color:#e5eff6 !important;
+}
 html body.profile-page #panel-posts,
 html body.profile-page #panel-posts.profile-panel.active{
   background:#e5eff6 !important;
@@ -19891,6 +20179,16 @@ html body.profile-page #panel-posts #profilePostsFeed.mf-feed{
   background-color:#e5eff6 !important;
   box-sizing:border-box !important;
 }
+/* Dark appearance: change only the Posts panel/card-gap area, not the profile shell. */
+html.dark-auto body.profile-page #panel-posts,
+html.dark-auto body.profile-page #panel-posts.profile-panel.active,
+html.dark-auto body.profile-page #panel-posts #profilePostsFeed.mf-feed,
+html[data-theme="dark"] body.profile-page #panel-posts,
+html[data-theme="dark"] body.profile-page #panel-posts.profile-panel.active,
+html[data-theme="dark"] body.profile-page #panel-posts #profilePostsFeed.mf-feed{
+  background:#000000 !important;
+  background-color:#000000 !important;
+}
 html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card{
   margin-bottom:12px !important;
   border:1px solid var(--msb-palette-border, rgba(148,163,184,.28)) !important;
@@ -19898,6 +20196,14 @@ html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card{
   background:var(--msb-palette-surface, var(--feed-surface, #fff)) !important;
   box-shadow:0 2px 8px rgba(15,23,42,.06) !important;
   overflow:visible !important;
+}
+/* Keep the outer Posts card shell in sync with Gear's active appearance palette. */
+html.dark-auto:not([data-msb-appearance]) body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card,
+html[data-theme="dark"]:not([data-msb-appearance]) body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card{
+  background:var(--msb-palette-bg, #171d24) !important;
+}
+html[data-msb-appearance] body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card{
+  background:var(--msb-palette-bg, #171d24) !important;
 }
 html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card::after{
   content:none !important;
@@ -19913,6 +20219,20 @@ html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card:last-ch
   html body.profile-page #panel-posts #profilePostsFeed.mf-feed > .mf-card{
     margin-bottom:9px !important;
   }
+}
+</style>
+<style id="profile-display-name-appearance-color">
+/* Profile display name only: use Gear's contrast-safe text for the active background. */
+html.dark-auto body.profile-page .ig-username,
+html.dark-auto body.profile-page .ig-fullname-name,
+html[data-theme="dark"] body.profile-page .ig-username,
+html[data-theme="dark"] body.profile-page .ig-fullname-name,
+html[data-msb-appearance] body.profile-page .ig-username,
+html[data-msb-appearance] body.profile-page .ig-fullname-name,
+html.msb-progress-previewing body.profile-page .ig-username,
+html.msb-progress-previewing body.profile-page .ig-fullname-name{
+  color:var(--msb-palette-text, #f8fafc) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, #f8fafc) !important;
 }
 </style>
 <script src="js/profile_grid_modal.js?v=20260831b"></script>

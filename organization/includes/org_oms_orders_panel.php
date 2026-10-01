@@ -30,6 +30,9 @@ if (!function_exists('h') && function_exists('org_ecommerce_h')) {
 if (!function_exists('oms_panel_cover_url')) {
     function oms_panel_cover_url(?string $path): string
     {
+        if (function_exists('org_shop_cover_url')) {
+            return org_shop_cover_url($path);
+        }
         $path = trim((string)$path);
         if ($path === '') {
             return '';
@@ -37,7 +40,11 @@ if (!function_exists('oms_panel_cover_url')) {
         if (preg_match('#^https?://#i', $path) || str_starts_with($path, '/')) {
             return $path;
         }
-        return '../' . ltrim($path, '/');
+        $rel = ltrim(str_replace('\\', '/', $path), '/');
+        if (stripos($rel, 'organization/') === 0) {
+            $rel = substr($rel, strlen('organization/'));
+        }
+        return $rel;
     }
 }
 
@@ -49,7 +56,9 @@ if (!function_exists('oms_panel_status_ui')) {
             'delivered' => ['Delivered', 'delivered'],
             'shipped' => ['Shipped', 'shipped'],
             'cancelled', 'canceled' => ['Cancelled', 'canceled'],
-            'paid', 'confirmed', 'pending', 'processing' => ['Processing', 'processing'],
+            'paid' => ['Paid — ship now', 'processing'],
+            'confirmed', 'pending' => ['Payment incomplete', 'pay-incomplete'],
+            'processing' => ['Processing', 'processing'],
             default => ['Processing', 'processing'],
         };
     }
@@ -119,6 +128,7 @@ if (!function_exists('oms_panel_group_checkouts')) {
                     'date_ts' => $createdTs,
                     'date_raw' => $createdRaw,
                     'total_cents' => 0,
+                    'amount_paid_cents' => 0,
                     'statuses' => [],
                     'lines' => [],
                     'payment_method' => trim((string)($order['payment_method'] ?? '')),
@@ -135,6 +145,10 @@ if (!function_exists('oms_panel_group_checkouts')) {
             $g = &$groups[$key];
             $g['lines'][] = $order;
             $g['total_cents'] += (int)($order['total_cents'] ?? 0);
+            $linePaid = function_exists('org_shop_order_amount_paid_cents')
+                ? org_shop_order_amount_paid_cents($order)
+                : (int)($order['amount_paid_cents'] ?? 0);
+            $g['amount_paid_cents'] += max(0, $linePaid);
             $st = strtolower(trim((string)($order['status'] ?? '')));
             if ($st !== '') {
                 $g['statuses'][] = $st;
@@ -176,6 +190,7 @@ if (!function_exists('oms_panel_group_checkouts')) {
                     'title' => trim((string)($line['product_title'] ?? '')) ?: 'Product',
                     'qty' => max(1, (int)($line['quantity'] ?? 1)),
                     'cover' => oms_panel_cover_url(isset($line['product_cover']) ? (string)$line['product_cover'] : ''),
+                    'product_id' => (int)($line['product_id'] ?? 0),
                 ];
             }
             $pm = strtolower((string)$g['payment_method']);
@@ -184,12 +199,17 @@ if (!function_exists('oms_panel_group_checkouts')) {
             if (preg_match('/(\d{4})\s*$/', $ref, $m)) {
                 $last4 = $m[1];
             }
-            if (str_contains($pm, 'visa')) {
+            if (str_contains($pm, 'test_cost') || str_contains($pm, 'test')) {
+                $payBrand = 'Cost $ (test)';
+                $last4 = '';
+            } elseif (str_contains($pm, 'visa')) {
                 $payBrand = 'VISA';
             } elseif (str_contains($pm, 'master')) {
                 $payBrand = 'Mastercard';
             } elseif (str_contains($pm, 'paypal')) {
                 $payBrand = 'PayPal';
+            } elseif (str_contains($pm, 'manual')) {
+                $payBrand = 'Manual';
             } elseif (str_contains($pm, 'stripe') || str_contains($pm, 'card') || $pm === '') {
                 $payBrand = $ref !== '' || $status !== 'cancelled' ? 'Card' : '—';
             } else {
@@ -200,9 +220,28 @@ if (!function_exists('oms_panel_group_checkouts')) {
             if (str_contains($otype, 'market')) {
                 $channel = 'Marketplace';
             }
+            $dueCents = (int)$g['total_cents'];
+            $paidCents = (int)($g['amount_paid_cents'] ?? 0);
+            $rawStatus = strtolower(trim((string)($g['primary']['status'] ?? '')));
+            $isPayIncomplete = in_array($rawStatus, ['pending', 'confirmed'], true)
+                || ($dueCents > 0 && $paidCents > 0 && $paidCents < $dueCents);
+            $displayCents = ($isPayIncomplete && $paidCents > 0) ? $paidCents : $dueCents;
             $money = function_exists('org_shop_format_price')
-                ? org_shop_format_price((int)$g['total_cents'], (string)$g['currency'])
-                : ('$' . number_format(max(0, (int)$g['total_cents']) / 100, 2));
+                ? org_shop_format_price($displayCents, (string)$g['currency'])
+                : ('$' . number_format(max(0, $displayCents) / 100, 2));
+            $dueLabel = function_exists('org_shop_format_price')
+                ? org_shop_format_price($dueCents, (string)$g['currency'])
+                : ('$' . number_format(max(0, $dueCents) / 100, 2));
+            $paidLabel = function_exists('org_shop_format_price')
+                ? org_shop_format_price($paidCents, (string)$g['currency'])
+                : ('$' . number_format(max(0, $paidCents) / 100, 2));
+            $shortfallCents = max(0, $dueCents - $paidCents);
+            $shortLabel = function_exists('org_shop_format_price')
+                ? org_shop_format_price($shortfallCents, (string)$g['currency'])
+                : ('$' . number_format($shortfallCents / 100, 2));
+            if ($isPayIncomplete && $paidCents > 0 && $shortfallCents > 0) {
+                $money = $paidLabel . ' received';
+            }
 
             $primary = $g['primary'];
             $out[] = [
@@ -215,8 +254,14 @@ if (!function_exists('oms_panel_group_checkouts')) {
                 'date_iso' => $ts > 0 ? date('Y-m-d', $ts) : '',
                 'date_label' => $dateLabel,
                 'time_label' => $timeLabel,
-                'total_cents' => (int)$g['total_cents'],
+                'total_cents' => $dueCents,
+                'amount_paid_cents' => $paidCents,
+                'shortfall_cents' => $shortfallCents,
                 'total_label' => $money,
+                'due_label' => $dueLabel,
+                'paid_label' => $paidLabel,
+                'shortfall_label' => $shortLabel,
+                'payment_incomplete' => $isPayIncomplete,
                 'status' => $status,
                 'raw_status' => strtolower((string)($primary['status'] ?? $status)),
                 'items' => $items,
@@ -343,6 +388,10 @@ ksort($channels);
 ?>
 <style>
   .store-orders{--so-text:#0f172a;--so-muted:#64748b;--so-border:#eef2f7;--so-card:#fff;--so-blue:#2563eb;color:var(--so-text);}
+  .store-orders .so-hero{
+    display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;
+  }
+  .store-orders .so-hero .sm-hub-actions{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;}
   .store-orders .so-hero .sd-icon-btn{
     position:relative;width:28px;height:28px;border-radius:7px;border:1px solid var(--so-border);
     background:var(--so-card);color:#475569;display:inline-flex;align-items:center;justify-content:center;
@@ -396,7 +445,11 @@ ksort($channels);
   .store-orders .so-status.delivered{background:#dcfce7;color:#15803d;}
   .store-orders .so-status.shipped{background:#f3e8ff;color:#6d28d9;}
   .store-orders .so-status.processing{background:#ffedd5;color:#c2410c;}
+  .store-orders .so-status.pay-incomplete{background:#fee2e2;color:#b91c1c;}
   .store-orders .so-status.canceled{background:#fee2e2;color:#b91c1c;}
+  .store-orders .so-pay-warn{display:block;font-size:10px;font-weight:700;color:#b91c1c;margin-top:3px;line-height:1.3;max-width:140px;}
+  .store-orders tr.so-row.is-product-focus td{background:#eff6ff;}
+  .store-orders tr.so-row.is-product-focus{outline:2px solid #93c5fd;outline-offset:-2px;}
   .store-orders .so-actions{display:flex;align-items:center;gap:6px;justify-content:flex-end;}
   .store-orders .so-view{height:28px;padding:0 10px;border-radius:7px;border:1px solid #cbd5e1;background:var(--ch-surface,#fff);font-size:12px;font-weight:700;color:#0f172a;text-decoration:none;display:inline-flex;align-items:center;}
   .store-orders .so-more{position:relative;}
@@ -408,6 +461,114 @@ ksort($channels);
   }
   .store-orders .so-more-menu a:hover,.store-orders .so-more-menu button:hover{background:var(--ch-surface,#f8fafc);}
   .store-orders .so-more-menu .is-danger{color:#dc2626;}
+  .store-orders .so-more-menu button.is-disabled,
+  .store-orders .so-more-menu button:disabled{
+    opacity:.45;cursor:not-allowed;color:#94a3b8;pointer-events:none;
+  }
+  .store-orders .so-more-menu button.is-disabled:hover,
+  .store-orders .so-more-menu button:disabled:hover{background:transparent;}
+  html.dark-auto .store-orders .so-more-menu button.is-disabled,
+  html.dark-auto .store-orders .so-more-menu button:disabled{
+    opacity:.4;cursor:not-allowed;color:#64748b !important;pointer-events:none;
+  }
+  .oms-pay-modal{
+    position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;
+    padding:18px;box-sizing:border-box;
+  }
+  .oms-pay-modal.is-open{display:flex;}
+  .oms-pay-modal-backdrop{
+    position:absolute;inset:0;border:0;padding:0;margin:0;cursor:pointer;
+    background:rgba(2,6,23,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  }
+  .oms-pay-modal-card{
+    position:relative;z-index:1;width:100%;max-width:420px;
+    background:#fff;color:#0f172a;
+    border:1px solid #e2e8f0;border-radius:18px;
+    box-shadow:0 24px 64px rgba(2,6,23,.28);
+    padding:22px 22px 18px;text-align:center;
+  }
+  .oms-pay-modal-close{
+    position:absolute;top:12px;right:12px;width:32px;height:32px;
+    border:0;border-radius:999px;background:transparent;color:#64748b;
+    font-size:22px;line-height:1;cursor:pointer;
+  }
+  .oms-pay-modal-close:hover{background:#f1f5f9;color:#0f172a;}
+  .oms-pay-modal-icon{
+    width:52px;height:52px;margin:4px auto 14px;border-radius:999px;
+    display:flex;align-items:center;justify-content:center;
+    background:#fff7ed;color:#c2410c;font-size:22px;
+  }
+  .oms-pay-modal-card h3{
+    margin:0 0 6px;font-size:20px;font-weight:800;letter-spacing:-.02em;color:#0f172a;
+  }
+  .oms-pay-modal-card .oms-pay-desc{
+    margin:0 0 14px;font-size:13px;line-height:1.45;color:#64748b;font-weight:600;
+  }
+  .oms-pay-modal-meta{
+    display:grid;gap:6px;text-align:left;margin:0 0 14px;padding:10px 12px;
+    border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;
+    font-size:12px;font-weight:700;color:#334155;
+  }
+  .oms-pay-modal-meta div{display:flex;justify-content:space-between;gap:10px;}
+  .oms-pay-modal-meta span{color:#64748b;font-weight:650;}
+  .oms-pay-modal-meta strong{color:#0f172a;font-weight:800;text-align:right;}
+  .oms-pay-modal-meta .is-short strong{color:#b91c1c;}
+  .oms-pay-modal-card label{
+    display:block;text-align:left;font-size:12px;font-weight:800;color:#334155;margin:0 0 6px;
+  }
+  .oms-pay-modal-card textarea{
+    width:100%;min-height:96px;resize:vertical;box-sizing:border-box;
+    border:1px solid #cbd5e1;border-radius:12px;padding:12px 12px;
+    font:inherit;font-size:13px;font-weight:600;color:#0f172a;background:#fff;
+    margin:0 0 16px;
+  }
+  .oms-pay-modal-card textarea:focus{
+    outline:0;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.18);
+  }
+  .oms-pay-modal-card textarea::placeholder{color:#94a3b8;font-weight:600;}
+  .oms-pay-modal-actions{display:flex;gap:10px;}
+  .oms-pay-modal-actions button{
+    flex:1 1 0;height:42px;border-radius:12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;
+  }
+  .oms-pay-modal-cancel{
+    border:1px solid #cbd5e1;background:#fff;color:#0f172a;
+  }
+  .oms-pay-modal-cancel:hover{background:#f8fafc;}
+  .oms-pay-modal-submit{
+    border:0;background:#2563eb;color:#fff;
+  }
+  .oms-pay-modal-submit:hover{background:#1d4ed8;}
+  html.dark-auto .oms-pay-modal-card{
+    background:#1a1d21;color:#f8fafc;border-color:rgba(148,163,184,.28);
+    box-shadow:0 24px 64px rgba(0,0,0,.55);
+  }
+  html.dark-auto .oms-pay-modal-close{color:#94a3b8;}
+  html.dark-auto .oms-pay-modal-close:hover{background:rgba(148,163,184,.12);color:#f8fafc;}
+  html.dark-auto .oms-pay-modal-icon{
+    background:rgba(249,115,22,.18);color:#fdba74;
+  }
+  html.dark-auto .oms-pay-modal-card h3{color:#f8fafc;}
+  html.dark-auto .oms-pay-modal-card .oms-pay-desc{color:#94a3b8;}
+  html.dark-auto .oms-pay-modal-meta{
+    background:#12151a;border-color:rgba(148,163,184,.22);color:#e2e8f0;
+  }
+  html.dark-auto .oms-pay-modal-meta span{color:#94a3b8;}
+  html.dark-auto .oms-pay-modal-meta strong{color:#f8fafc;}
+  html.dark-auto .oms-pay-modal-meta .is-short strong{color:#fca5a5;}
+  html.dark-auto .oms-pay-modal-card label{color:#cbd5e1;}
+  html.dark-auto .oms-pay-modal-card textarea{
+    background:#0f1216;border-color:rgba(148,163,184,.28);color:#f1f5f9;
+  }
+  html.dark-auto .oms-pay-modal-card textarea:focus{
+    border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.25);
+  }
+  html.dark-auto .oms-pay-modal-card textarea::placeholder{color:#64748b;}
+  html.dark-auto .oms-pay-modal-cancel{
+    background:#12151a;border-color:rgba(148,163,184,.35);color:#f8fafc;
+  }
+  html.dark-auto .oms-pay-modal-cancel:hover{background:#0f1216;}
+  html.dark-auto .oms-pay-modal-submit{background:#3b82f6;color:#fff;}
+  html.dark-auto .oms-pay-modal-submit:hover{background:#2563eb;}
   .store-orders .so-fulfill{background:var(--ch-surface,#f8fafc);}
   .store-orders .so-fulfill td{padding:12px 12px 16px;}
   .store-orders .so-fulfill-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:end;}
@@ -429,6 +590,8 @@ ksort($channels);
 <div class="store-orders" id="storeOrdersRoot">
   <?php if ($omsShowStoreToolbar || $omsShowCommerceHub): ?>
     <div class="so-hero">
+      <?php if (function_exists('org_sales_hub_intro')) { org_sales_hub_intro('orders'); } ?>
+      <div class="sm-hub-actions">
       <?php if ($omsShowStoreToolbar): ?>
         <a class="sd-icon-btn" href="sales_notifications.php" title="Notifications" aria-label="Notifications">
           <i class="fa fa-bell-o"></i>
@@ -446,7 +609,10 @@ ksort($channels);
       <?php elseif ($omsShowCommerceHub): ?>
         <a href="commerce.php" class="so-btn">Commerce hub</a>
       <?php endif; ?>
+      </div>
     </div>
+  <?php elseif (function_exists('org_sales_hub_intro')): ?>
+    <div class="so-hero"><?php org_sales_hub_intro('orders'); ?></div>
   <?php endif; ?>
 
   <div class="so-kpis">
@@ -549,7 +715,7 @@ ksort($channels);
           <?php
             $primaryId = (int)$g['primary_order_id'];
             $primary = $g['primary'];
-            [$stLab, $stCls] = oms_panel_status_ui((string)$g['status']);
+            [$stLab, $stCls] = oms_panel_status_ui((string)($g['raw_status'] ?? $g['status']));
             $firstItem = $g['items'][0] ?? ['title' => 'Product', 'qty' => 1, 'cover' => ''];
             $extraItems = max(0, count($g['items']) - 1);
             $itemLabel = (string)$firstItem['title'] . ' ×' . (int)$firstItem['qty'];
@@ -582,9 +748,18 @@ ksort($channels);
             if ($codeForUrl !== '') {
                 $detailHref .= '&code=' . rawurlencode($codeForUrl);
             }
+            $productIds = [];
+            foreach ($g['items'] as $it) {
+                $pid = (int)($it['product_id'] ?? 0);
+                if ($pid > 0 && !in_array($pid, $productIds, true)) {
+                    $productIds[] = $pid;
+                }
+            }
+            $omsFocusPid = (int)($_GET['about_product'] ?? 0);
+            $isProductFocus = $omsFocusPid > 0 && in_array($omsFocusPid, $productIds, true);
           ?>
           <tr
-            class="so-row"
+            class="so-row<?= $isProductFocus ? ' is-product-focus' : '' ?>"
             data-oms-search="<?= h($searchBlob) ?>"
             data-date="<?= h((string)$g['date_iso']) ?>"
             data-pay="<?= h((string)$g['pay_brand']) ?>"
@@ -593,6 +768,7 @@ ksort($channels);
             data-customer="<?= h((string)$g['buyer_name']) ?>"
             data-amount="<?= h((string)$g['total_label']) ?>"
             data-status="<?= h($stLab) ?>"
+            data-product-ids="<?= h(implode(',', $productIds)) ?>"
           >
             <td><input type="checkbox" class="so-check" aria-label="Select order <?= h((string)$g['order_code']) ?>"></td>
             <td>
@@ -622,12 +798,28 @@ ksort($channels);
                 </div>
               </div>
             </td>
-            <td><strong><?= h((string)$g['total_label']) ?></strong></td>
+            <td>
+              <strong><?= h((string)$g['total_label']) ?></strong>
+              <?php if (!empty($g['payment_incomplete']) && (int)($g['shortfall_cents'] ?? 0) > 0): ?>
+                <span class="so-sub">Due <?= h((string)($g['due_label'] ?? '')) ?> · short <?= h((string)($g['shortfall_label'] ?? '')) ?></span>
+              <?php endif; ?>
+            </td>
             <td>
               <span class="so-id" style="font-weight:700;"><?= h((string)$g['pay_brand']) ?></span>
               <span class="so-sub"><?= $g['pay_last4'] !== '' ? '•••• ' . h((string)$g['pay_last4']) : '—' ?></span>
             </td>
-            <td><span class="so-status <?= h($stCls) ?>"><?= h($stLab) ?></span></td>
+            <td>
+              <span class="so-status <?= h($stCls) ?>"><?= h($stLab) ?></span>
+              <?php if (!empty($g['payment_incomplete'])): ?>
+                <span class="so-pay-warn"><?php
+                  if ((int)($g['shortfall_cents'] ?? 0) > 0) {
+                      echo h('Received ' . (string)($g['paid_label'] ?? '') . ' of ' . (string)($g['due_label'] ?? '') . ' — do not ship');
+                  } else {
+                      echo 'Customer card/payment issue — do not ship';
+                  }
+                ?></span>
+              <?php endif; ?>
+            </td>
             <td>
               <span class="so-id" style="font-weight:700;"><?= h($delivery) ?></span>
             </td>
@@ -651,7 +843,34 @@ ksort($channels);
                         data-door-label="<?= h((string)$g['buyer_name'] . ' · receipt') ?>"
                       >Invoice</a>
                     <?php endif; ?>
-                    <button type="button" class="js-so-fulfill">Update fulfillment</button>
+                    <?php if (!empty($g['payment_incomplete'])): ?>
+                      <button
+                        type="button"
+                        class="js-so-fulfill is-disabled"
+                        disabled
+                        aria-disabled="true"
+                        title="Fulfillment is locked until the customer pays in full"
+                      >Update fulfillment</button>
+                    <?php else: ?>
+                      <button type="button" class="js-so-fulfill">Update fulfillment</button>
+                    <?php endif; ?>
+                    <?php if (!empty($g['payment_incomplete']) && $primaryId > 0): ?>
+                      <form
+                        method="post"
+                        action="<?= h($omsFormAction) ?>"
+                        class="js-oms-request-payment-form"
+                        data-order-code="<?= h((string)$g['order_code']) ?>"
+                        data-buyer="<?= h((string)$g['buyer_name']) ?>"
+                        data-paid="<?= h((string)($g['paid_label'] ?? '')) ?>"
+                        data-due="<?= h((string)($g['due_label'] ?? '')) ?>"
+                        data-short="<?= h((string)($g['shortfall_label'] ?? '')) ?>"
+                      >
+                        <input type="hidden" name="oms_request_payment" value="1">
+                        <input type="hidden" name="order_id" value="<?= $primaryId ?>">
+                        <input type="hidden" name="payment_message" value="" class="js-oms-payment-message">
+                        <button type="submit">Request payment completion</button>
+                      </form>
+                    <?php endif; ?>
                     <form method="post" action="<?= h($omsFormAction) ?>">
                       <input type="hidden" name="oms_action" value="1">
                       <input type="hidden" name="order_id" value="<?= $primaryId ?>">
@@ -672,8 +891,11 @@ ksort($channels);
               </div>
             </td>
           </tr>
-          <tr class="so-fulfill" hidden>
+          <tr class="so-fulfill" hidden<?= !empty($g['payment_incomplete']) ? ' data-fulfill-locked="1"' : '' ?>>
             <td colspan="10">
+              <?php if (!empty($g['payment_incomplete'])): ?>
+                <p class="so-sub" style="margin:0;">Fulfillment is locked until the customer pays in full.</p>
+              <?php else: ?>
               <form method="post" action="<?= h($omsFormAction) ?>" class="so-fulfill-grid">
                 <input type="hidden" name="oms_action" value="1">
                 <input type="hidden" name="order_id" value="<?= $primaryId ?>">
@@ -698,6 +920,7 @@ ksort($channels);
                   <span class="so-sub" style="display:inline;margin-left:8px;">Save with carrier + tracking to mark shipping. Set Delivered when the customer receives the order.</span>
                 </div>
               </form>
+              <?php endif; ?>
             </td>
           </tr>
         <?php endforeach; endif; ?>
@@ -716,6 +939,36 @@ ksort($channels);
     </label>
   </div>
 </div>
+
+<div class="oms-pay-modal" id="omsPayRequestModal" aria-hidden="true">
+  <button type="button" class="oms-pay-modal-backdrop" id="omsPayRequestBackdrop" aria-label="Close"></button>
+  <div class="oms-pay-modal-card" role="dialog" aria-modal="true" aria-labelledby="omsPayRequestTitle">
+    <button type="button" class="oms-pay-modal-close" id="omsPayRequestClose" aria-label="Close">&times;</button>
+    <div class="oms-pay-modal-icon" aria-hidden="true"><i class="fa fa-credit-card"></i></div>
+    <h3 id="omsPayRequestTitle">Request payment completion?</h3>
+    <p class="oms-pay-desc">
+      Send a Pending notification so the customer can open the order to finish payment or cancel.
+    </p>
+    <div class="oms-pay-modal-meta" id="omsPayRequestMeta">
+      <div><span>Order</span><strong id="omsPayMetaCode">—</strong></div>
+      <div><span>Customer</span><strong id="omsPayMetaBuyer">—</strong></div>
+      <div><span>Received</span><strong id="omsPayMetaPaid">—</strong></div>
+      <div><span>Order total</span><strong id="omsPayMetaDue">—</strong></div>
+      <div class="is-short"><span>Still due</span><strong id="omsPayMetaShort">—</strong></div>
+    </div>
+    <label for="omsPayRequestMessage">Message to customer</label>
+    <textarea
+      id="omsPayRequestMessage"
+      maxlength="500"
+      placeholder="Your payment is incomplete. Please complete payment before shipping starts."
+    ></textarea>
+    <div class="oms-pay-modal-actions">
+      <button type="button" class="oms-pay-modal-cancel" id="omsPayRequestCancel">Cancel</button>
+      <button type="button" class="oms-pay-modal-submit" id="omsPayRequestSubmit">Send reminder</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   if (!window.__msbOmsSellerCancelInit) {
@@ -735,6 +988,82 @@ ksort($channels);
       var reasonInput = form.querySelector('.js-oms-cancel-reason');
       if (reasonInput) reasonInput.value = reason;
       form.submit();
+    });
+  }
+
+  if (!window.__msbOmsRequestPaymentInit) {
+    window.__msbOmsRequestPaymentInit = true;
+    var payModal = document.getElementById('omsPayRequestModal');
+    var payMsg = document.getElementById('omsPayRequestMessage');
+    var payMetaCode = document.getElementById('omsPayMetaCode');
+    var payMetaBuyer = document.getElementById('omsPayMetaBuyer');
+    var payMetaPaid = document.getElementById('omsPayMetaPaid');
+    var payMetaDue = document.getElementById('omsPayMetaDue');
+    var payMetaShort = document.getElementById('omsPayMetaShort');
+    var activePayForm = null;
+    var defaultPayMsg = 'Your payment is incomplete. Please complete payment before shipping starts.';
+
+    function closePayModal() {
+      if (!payModal) return;
+      payModal.classList.remove('is-open');
+      payModal.setAttribute('aria-hidden', 'true');
+      activePayForm = null;
+      document.body.style.overflow = '';
+    }
+
+    function openPayModal(form) {
+      if (!payModal || !form) return;
+      activePayForm = form;
+      if (payMetaCode) payMetaCode.textContent = form.getAttribute('data-order-code') || '—';
+      if (payMetaBuyer) payMetaBuyer.textContent = form.getAttribute('data-buyer') || '—';
+      if (payMetaPaid) payMetaPaid.textContent = form.getAttribute('data-paid') || '—';
+      if (payMetaDue) payMetaDue.textContent = form.getAttribute('data-due') || '—';
+      if (payMetaShort) payMetaShort.textContent = form.getAttribute('data-short') || '—';
+      if (payMsg) {
+        payMsg.value = defaultPayMsg;
+        setTimeout(function () {
+          payMsg.focus();
+          payMsg.select();
+        }, 30);
+      }
+      document.querySelectorAll('.so-more.is-open').forEach(function (el) {
+        el.classList.remove('is-open');
+      });
+      payModal.classList.add('is-open');
+      payModal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function submitPayModal() {
+      if (!activePayForm) return;
+      var typed = payMsg ? String(payMsg.value || '').trim() : '';
+      if (!typed) typed = defaultPayMsg;
+      var msgInput = activePayForm.querySelector('.js-oms-payment-message');
+      if (msgInput) msgInput.value = typed;
+      var formToSubmit = activePayForm;
+      closePayModal();
+      formToSubmit.submit();
+    }
+
+    document.addEventListener('submit', function (e) {
+      var form = e.target && e.target.closest ? e.target.closest('.js-oms-request-payment-form') : null;
+      if (!form) return;
+      e.preventDefault();
+      openPayModal(form);
+    });
+
+    var closeBtn = document.getElementById('omsPayRequestClose');
+    var cancelBtn = document.getElementById('omsPayRequestCancel');
+    var backdrop = document.getElementById('omsPayRequestBackdrop');
+    var submitBtn = document.getElementById('omsPayRequestSubmit');
+    if (closeBtn) closeBtn.addEventListener('click', closePayModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closePayModal);
+    if (backdrop) backdrop.addEventListener('click', closePayModal);
+    if (submitBtn) submitBtn.addEventListener('click', submitPayModal);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && payModal && payModal.classList.contains('is-open')) {
+        closePayModal();
+      }
     });
   }
 
@@ -883,6 +1212,10 @@ ksort($channels);
     }
     var fulfillBtn = e.target.closest('.js-so-fulfill');
     if (fulfillBtn) {
+      if (fulfillBtn.disabled || fulfillBtn.classList.contains('is-disabled') || fulfillBtn.getAttribute('aria-disabled') === 'true') {
+        e.preventDefault();
+        return;
+      }
       var row = fulfillBtn.closest('tr.so-row');
       var extra = pair(row);
       if (extra) {
@@ -899,5 +1232,21 @@ ksort($channels);
   });
 
   render();
+
+  // Deep-link: ?about_product=N#orders highlights that product's order row.
+  (function focusOrderFromProduct() {
+    var params = new URLSearchParams(window.location.search || '');
+    var aboutPid = parseInt(params.get('about_product') || '0', 10) || 0;
+    if (aboutPid <= 0) return;
+    var match = rows.find(function (row) {
+      var ids = String(row.getAttribute('data-product-ids') || '')
+        .split(',')
+        .map(function (v) { return parseInt(v, 10) || 0; });
+      return ids.indexOf(aboutPid) !== -1;
+    });
+    if (!match) return;
+    rows.forEach(function (row) { row.classList.toggle('is-product-focus', row === match); });
+    try { match.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { match.scrollIntoView(); }
+  })();
 })();
 </script>

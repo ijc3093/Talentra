@@ -27,7 +27,7 @@ if ($postId <= 0) {
 }
 
 try {
-    $st = $dbh->prepare('SELECT id, user_id, visibility FROM public_posts WHERE id = :id AND is_deleted = 0 LIMIT 1');
+    $st = $dbh->prepare("SELECT id,user_id,visibility FROM public_posts WHERE id=:id AND (is_deleted=0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id=public_posts.id AND cp.status<>'removed')) LIMIT 1");
     $st->execute([':id' => $postId]);
     $post = $st->fetch(PDO::FETCH_ASSOC) ?: null;
 } catch (Throwable $e) {

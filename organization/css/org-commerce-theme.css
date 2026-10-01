@@ -306,7 +306,7 @@ html.dark-auto body.org-app .commerce-page :is(
 }
 
 html.dark-auto body.org-app .commerce-page :is(
-  [class*="status"],
+  [class*="status"]:not([class*="head-status"]),
   .nd-on,.nd-off,.sn-ok,.pb-active,.sp-active,.txs-active,.txs-inactive,
   .stp-active,.stp-role,.pol-status,.rfd-trend,.cus-trend,.rvw-trend
 ) {
@@ -347,7 +347,7 @@ html[data-msb-appearance]:not(.msb-palette-dark-fg) body.org-app .commerce-page 
 }
 
 html[data-msb-appearance]:not(.msb-palette-dark-fg) body.org-app .commerce-page :is(
-  [class*="status"],
+  [class*="status"]:not([class*="head-status"]),
   .nd-on,.nd-off,.sn-ok,.pb-active,.sp-active,.txs-active,.txs-inactive,
   .stp-active,.stp-role,.pol-status,.rfd-trend,.cus-trend,.rvw-trend
 ) {

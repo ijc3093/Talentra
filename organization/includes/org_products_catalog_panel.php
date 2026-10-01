@@ -55,12 +55,21 @@ if (is_array($editProduct) && !empty($editProduct['attributes_json'])) {
     }
 }
 $pimExistingImages = [];
+$pimPhotosMissing = false;
 if (is_array($editProduct) && !empty($editProduct['id']) && isset($dbh) && $dbh instanceof PDO) {
     $editPid = (int)$editProduct['id'];
     $editOrg = (int)($orgId ?? 0);
+    if ($editOrg > 0 && function_exists('org_shop_prune_missing_product_images')) {
+        org_shop_prune_missing_product_images($dbh, $editOrg, $editPid);
+        // Refresh product after prune (cover may have been cleared).
+        $fresh = org_shop_get_product($dbh, $editPid, $editOrg);
+        if (is_array($fresh)) {
+            $editProduct = $fresh;
+        }
+    }
     // Promote legacy cover into gallery so sellers can manage/remove it with other photos.
     $coverRel = trim((string)($editProduct['cover_image_path'] ?? ''));
-    if ($coverRel !== '' && $editOrg > 0) {
+    if ($coverRel !== '' && $editOrg > 0 && function_exists('org_shop_product_image_file_exists') && org_shop_product_image_file_exists($coverRel)) {
         $foundCover = false;
         foreach (org_shop_list_product_images($dbh, $editPid, $editOrg) as $img) {
             if ((string)($img['file_path'] ?? '') === $coverRel) {
@@ -72,13 +81,31 @@ if (is_array($editProduct) && !empty($editProduct['id']) && isset($dbh) && $dbh 
             org_shop_add_product_image_row($dbh, $editOrg, $editPid, $coverRel, 0);
         }
     }
-    $pimExistingImages = org_shop_list_product_images($dbh, $editPid, $editOrg);
+    foreach (org_shop_list_product_images($dbh, $editPid, $editOrg) as $img) {
+        $path = trim((string)($img['file_path'] ?? ''));
+        if ($path === '') {
+            continue;
+        }
+        if (function_exists('org_shop_product_image_file_exists') && !org_shop_product_image_file_exists($path)) {
+            $pimPhotosMissing = true;
+            continue;
+        }
+        if (function_exists('org_shop_cover_url') && org_shop_cover_url($path) === '') {
+            $pimPhotosMissing = true;
+            continue;
+        }
+        $pimExistingImages[] = $img;
+    }
+    if (!$pimExistingImages && ($coverRel !== '' || $pimPhotosMissing)) {
+        $pimPhotosMissing = true;
+    }
 }
 $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_product_images_max() : 12;
 ?>
-  <div class="card bd-0 shadow-base">
-    <div class="card-header d-flex align-items-center justify-content-end flex-wrap">
-      <div class="d-flex" style="gap:8px;">
+  <div class="card bd-0 shadow-base pim-hub-card">
+    <div class="card-header d-flex align-items-end justify-content-between flex-wrap" style="gap:12px;">
+      <?php if (function_exists('org_sales_hub_intro')) { org_sales_hub_intro('products'); } ?>
+      <div class="sm-hub-actions d-flex" style="gap:8px;">
         <a href="<?= h($pimHubHref) ?>" class="btn btn-sm btn-outline-secondary"><?= h($pimHubLabel) ?></a>
         <?php if (!$shopVisible): ?>
           <span class="badge badge-warning align-self-center">Shop hidden — <a href="shop_rent.php" class="tx-white">pay rent (from $1/mo)</a></span>
@@ -87,7 +114,7 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
         <?php endif; ?>
       </div>
     </div>
-    <div class="card-body">
+    <div class="card-body pim-hub-card-body">
       <?php if ($err !== ''): ?><div class="alert alert-danger"><?= h($err) ?></div><?php endif; ?>
       <?php if ($ok !== ''): ?><div class="alert alert-success"><?= h($ok) ?></div><?php endif; ?>
 
@@ -243,6 +270,11 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
               <label for="pimProductImages">Product photos <span class="pim-required-star">*</span></label>
               <input type="file" name="product_images[]" id="pimProductImages" class="form-control" accept="image/*" multiple<?= $pimExistingImages ? '' : ' required' ?>>
               <small class="text-muted">Upload multiple photos (up to <?= (int)$pimImagesMax ?>). The first photo becomes the cover buyers see in the shop.</small>
+              <?php if (!empty($pimPhotosMissing) && !$pimExistingImages): ?>
+                <div class="alert alert-warning mg-t-10 mg-b-0" style="padding:8px 12px;font-size:13px;">
+                  Saved photos for this product are missing on the server. Upload new photos so the catalog and shop can show them.
+                </div>
+              <?php endif; ?>
               <?php if ($pimExistingImages): ?>
                 <div class="pim-photo-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
                   <?php foreach ($pimExistingImages as $imgIdx => $img): ?>
@@ -345,14 +377,14 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
                   $editShipFeeDollars = number_format($editShipFeeCents / 100, 2, '.', '');
                 ?>
                 <div class="mg-t-10" id="pimShippingFeeBox">
-                  <small class="text-muted d-block mg-b-6">Trip / shipping fee for the customer:</small>
+                  <small class="text-muted d-block mg-b-6">Who pays the shipping fee?</small>
                   <label class="rdiobox d-block mg-b-6">
                     <input type="radio" name="shipping_is_free" value="1" <?= $editShipFree ? 'checked' : '' ?> id="pimShipFree">
-                    <span><strong>Free trip</strong> — customer does not pay shipping</span>
+                    <span><strong>Free shipping</strong> — you pay the shipping fee. Shop cards show “Free Shipping”.</span>
                   </label>
                   <label class="rdiobox d-block mg-b-6">
                     <input type="radio" name="shipping_is_free" value="0" <?= !$editShipFree ? 'checked' : '' ?> id="pimShipPaid">
-                    <span><strong>Customer pays</strong> for the trip</span>
+                    <span><strong>Customer pays</strong> the shipping fee. Shop cards show the fee, not “Free Shipping”.</span>
                   </label>
                   <div class="form-inline mg-t-6" id="pimShipFeeAmountWrap" style="<?= $editShipFree ? 'display:none;' : '' ?>">
                     <label class="mg-r-8" for="pimShipFee">Shipping fee ($)</label>
@@ -364,6 +396,7 @@ $pimImagesMax = function_exists('org_shop_product_images_max') ? org_shop_produc
                 <input type="checkbox" name="pickup_enabled" value="1" <?= $editReceive['pickup_enabled'] ? 'checked' : '' ?> id="pimPickupEnabled">
                 <span><strong>Pick up</strong> — customer can collect at your shop</span>
               </label>
+              <small class="text-muted d-block mg-t-4 mg-l-20" id="pimPickupOnlyHint">Pick up only (Delivery off): shop cards show your business Full Address instead of shipping.</small>
               <small class="text-muted d-block mg-t-6">Choose Delivery and/or Pick up before creating a product. Buyers will see these options in the shop Buy now door.</small>
               <p class="tx-danger tx-12 mg-b-0 mg-t-6" id="pimReceiveErr" hidden></p>
             </div>

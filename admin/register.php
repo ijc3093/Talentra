@@ -103,7 +103,7 @@ function h(string $s): string {
       min-height:0;
       overflow:auto; /* ✅ only form area scrolls if needed */
       padding:20px;
-      background:#fff;
+      background:var(--azia-card,#fff);
     }
 
     .note-box{
@@ -118,7 +118,7 @@ function h(string $s): string {
       border:1px dashed rgba(0,0,0,.25);
       border-radius:10px;
       padding:12px;
-      background:#fff;
+      background:var(--azia-card,#fff);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 

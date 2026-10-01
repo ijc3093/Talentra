@@ -1156,6 +1156,40 @@ if ($flrPendingCount < 0 && $flrMeId > 0) {
   <?php endif; ?>
   <?php endif; ?>
 <?php if (!$feedLeftRailEmbed): ?></aside>
+<?php if (!empty($feedLeftRailLegal) && empty($_GET['tab_embed'])): ?>
+<?php $GLOBALS['msb_feed_left_legal_rendered'] = true; ?>
+<footer class="home-right-legal feed-left-legal" aria-label="<?= app_t_attr('About Talsora') ?>">
+  <nav>
+    <a href="index.php?tab=about"><?= htmlspecialchars(app_t('About'), ENT_QUOTES, 'UTF-8') ?></a>
+    <a href="index.php?tab=guidance"><?= htmlspecialchars(app_t('Guidance'), ENT_QUOTES, 'UTF-8') ?></a>
+    <a href="index.php?tab=help"><?= htmlspecialchars(app_t('Help'), ENT_QUOTES, 'UTF-8') ?></a>
+    <a href="index.php?tab=policy"><?= htmlspecialchars(app_t('Policy'), ENT_QUOTES, 'UTF-8') ?></a>
+    <a href="index.php?tab=terms"><?= htmlspecialchars(app_t('Terms'), ENT_QUOTES, 'UTF-8') ?></a>
+    <a href="index.php?tab=locations"><?= htmlspecialchars(app_t('Locations'), ENT_QUOTES, 'UTF-8') ?></a>
+    <a href="shop.php"><?= htmlspecialchars(app_t('Shop'), ENT_QUOTES, 'UTF-8') ?></a>
+  </nav>
+  <p><?= htmlspecialchars(function_exists('app_i18n_language_display') ? app_i18n_language_display() : 'English', ENT_QUOTES, 'UTF-8') ?> · © <?= (int)date('Y') ?> Talsora</p>
+</footer>
+<style>
+.feed-left-legal{display:none;}
+@media (min-width:1025px){
+  body.feed-insta-ui .feed-left-legal{
+    display:block;
+    position:fixed;
+    left:calc(var(--feedRailW, 84px) + 40px);
+    bottom:14px;
+    width:236px;
+    z-index:90;
+    padding:0 2px;
+    box-sizing:border-box;
+  }
+  body.feed-insta-ui .feed-left-legal nav{display:flex;flex-wrap:wrap;gap:4px 10px;margin:0 0 6px;}
+  body.feed-insta-ui .feed-left-legal a{color:var(--msb-palette-text-muted,#8a919c);font-size:11px;line-height:1.4;text-decoration:none;}
+  body.feed-insta-ui .feed-left-legal a:hover{text-decoration:underline;}
+  body.feed-insta-ui .feed-left-legal p{margin:0;color:var(--msb-palette-text-muted,#8a919c);font-size:11px;line-height:1.4;}
+}
+</style>
+<?php endif; ?>
 <script>
 (function () {
   function syncAddProgramToAvatar() {

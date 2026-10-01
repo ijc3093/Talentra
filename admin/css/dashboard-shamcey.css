@@ -19,14 +19,20 @@ body.azia-admin {
   color: var(--azia-text);
 }
 
-/* Brand / logo */
+/* Brand / logo + sidebar — contrast follows Appearance tokens */
 body.azia-admin .sh-logopanel {
-  background: #fff !important;
-  border-bottom: 1px solid rgba(28, 39, 60, 0.06);
+  width: 248px !important;
+  background: var(--admin-nav-bg, #0b1220) !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  color: var(--admin-nav-text, #e8edf5) !important;
 }
 
-body.azia-admin .azia-brand {
-  color: var(--azia-purple) !important;
+body.azia-admin .azia-brand,
+body.azia-admin .sh-logopanel .azia-brand,
+body.azia-admin .sh-logopanel .sh-logo-text {
+  justify-content: flex-start;
+  width: 100%;
+  color: var(--msb-palette-action, var(--admin-nav-active, #2563eb)) !important;
   font-weight: 700;
   font-size: 22px;
   letter-spacing: -0.03em;
@@ -34,30 +40,20 @@ body.azia-admin .azia-brand {
 }
 
 body.azia-admin .sh-navicon {
-  color: var(--azia-muted);
+  color: var(--admin-nav-text, var(--azia-muted));
 }
 
 /* ----- Sidebar (labeled grouped nav) ----- */
 body.azia-admin .sh-sideleft-menu {
-  background: #0b1220 !important;
+  background: var(--admin-nav-bg, #0b1220) !important;
   border-right: 1px solid rgba(148, 163, 184, 0.12);
   width: 248px !important;
+  color: var(--admin-nav-text, #e8edf5) !important;
 }
 
-body.azia-admin .sh-logopanel {
-  width: 248px !important;
-  background: #0b1220 !important;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-body.azia-admin .azia-brand {
-  justify-content: flex-start;
-  width: 100%;
-  color: #f8fafc !important;
-}
-
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link {
-  color: #cbd5e1;
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link,
+body.azia-admin .sh-sideleft-menu .admin-nav-group-toggle {
+  color: var(--admin-nav-text) !important;
   font-size: 13px;
   font-weight: 500;
   padding: 9px 12px !important;
@@ -78,27 +74,32 @@ body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link:active {
   border: 0 !important;
 }
 
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link > span:not(.admin-nav-badge) {
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link > span:not(.admin-nav-badge),
+body.azia-admin .sh-sideleft-menu .admin-nav-group-toggle > span:not(.admin-nav-badge) {
   display: inline !important;
+  color: inherit !important;
 }
 
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link i {
-  color: #e2e8f0;
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link i,
+body.azia-admin .sh-sideleft-menu .admin-nav-group-toggle i {
+  color: var(--admin-nav-text) !important;
   margin: 0 !important;
   width: 18px !important;
   text-align: center;
-  opacity: 0.9;
+  opacity: 1 !important;
   font-size: 16px;
 }
 
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link:hover {
-  background: rgba(148, 163, 184, 0.12);
-  color: #f8fafc;
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link:hover,
+body.azia-admin .sh-sideleft-menu .admin-nav-group-toggle:hover {
+  background: var(--msb-palette-nav-hover, rgba(15, 23, 42, 0.06));
+  color: var(--admin-nav-text) !important;
 }
 
-body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link.active {
-  background: rgba(37, 99, 235, 0.22);
-  color: #f8fafc;
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link.active,
+body.azia-admin .sh-sideleft-menu .admin-nav-group-toggle.is-active {
+  background: var(--msb-palette-action-soft, rgba(37, 99, 235, 0.16));
+  color: var(--admin-nav-active, #1d4ed8) !important;
   border: 0 !important;
   border-left: 0 !important;
   outline: none !important;
@@ -106,10 +107,51 @@ body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link.active {
   font-weight: 600;
 }
 
+body.azia-admin .sh-sideleft-menu .nav > .nav-item > .nav-link.active i,
+body.azia-admin .sh-sideleft-menu .admin-nav-group-toggle.is-active i {
+  color: var(--admin-nav-active, #1d4ed8) !important;
+  opacity: 1 !important;
+}
+
+body.azia-admin .sh-sideleft-menu .admin-nav-section,
+body.azia-admin .sh-sideleft-menu .admin-nav-section span {
+  color: var(--admin-nav-muted, #475569) !important;
+}
+
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link {
+  color: var(--admin-nav-text) !important;
+  background: transparent;
+  border-radius: 8px !important;
+  transition: color 0.16s ease, background-color 0.16s ease;
+}
+
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link:hover {
+  background: transparent !important;
+  color: var(--msb-palette-action, #7da6ff) !important;
+  text-decoration: none !important;
+}
+
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link:hover > span:not(.admin-nav-badge),
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link:hover i {
+  color: var(--msb-palette-action, #7da6ff) !important;
+}
+
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link.active,
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link.active:hover {
+  background: transparent !important;
+  color: var(--msb-palette-action, #7da6ff) !important;
+}
+
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link.active > span:not(.admin-nav-badge),
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link.active:hover > span:not(.admin-nav-badge),
+body.azia-admin .sh-sideleft-menu .admin-nav-sub .nav-link.active i {
+  color: var(--msb-palette-action, #7da6ff) !important;
+}
+
 /* Headpanel */
 body.azia-admin .azia-headpanel {
-  background: #fff !important;
-  border-bottom: 1px solid rgba(28, 39, 60, 0.06);
+  background: var(--azia-card, var(--msb-palette-surface, var(--msb-palette-bg, #fff))) !important;
+  border-bottom: 1px solid var(--msb-palette-border, rgba(28, 39, 60, 0.06));
   box-shadow: none;
   display: flex;
   align-items: center;
@@ -117,6 +159,7 @@ body.azia-admin .azia-headpanel {
   padding: 0 22px;
   min-height: 70px;
   gap: 16px;
+  color: var(--azia-text, var(--msb-palette-text, #1c273c));
 }
 
 body.azia-admin .azia-head-left,
@@ -178,17 +221,17 @@ body.azia-admin .azia-search .fa-search {
 body.azia-admin .azia-search input {
   width: 100%;
   border: 0;
-  background: #f1f2f9;
+  background: var(--msb-palette-input-bg, var(--msb-palette-surface-2, #f1f2f9));
   border-radius: 4px;
   padding: 10px 14px 10px 38px;
   font-size: 13px !important;
-  color: var(--azia-text);
+  color: var(--azia-text, var(--msb-palette-text, #1c273c));
   outline: none;
 }
 
 body.azia-admin .azia-search input:focus {
   box-shadow: 0 0 0 2px rgba(91, 71, 251, 0.2);
-  background: #fff;
+  background: var(--msb-palette-input-bg, var(--msb-palette-surface-2, #fff));
 }
 
 body.azia-admin .azia-icon-btn {
@@ -199,7 +242,7 @@ body.azia-admin .azia-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #596882;
+  color: var(--azia-muted, var(--msb-palette-text-muted, #596882));
   font-size: 20px !important;
   text-decoration: none;
 }
@@ -216,8 +259,8 @@ body.azia-admin .azia-icon-btn.azia-icon-admin-roles .azia-icon-admin-roles-key 
 }
 
 body.azia-admin .azia-icon-btn:hover {
-  background: #f1f2f9;
-  color: var(--azia-purple);
+  background: var(--msb-palette-hover-bg, var(--msb-palette-surface-2, #f1f2f9));
+  color: var(--msb-palette-action, var(--azia-purple));
   text-decoration: none;
 }
 
@@ -357,8 +400,8 @@ body.azia-admin .azia-filters {
 }
 
 body.azia-admin .azia-filter {
-  background: #fff;
-  border: 1px solid rgba(28, 39, 60, 0.08);
+  background: var(--azia-card, #fff);
+  border: 1px solid var(--msb-palette-border, rgba(28, 39, 60, 0.08));
   border-radius: var(--azia-radius);
   padding: 12px 14px;
   display: flex;
@@ -402,11 +445,11 @@ body.azia-admin .azia-filter .caret {
 
 /* KPI */
 body.azia-admin .azia-kpi {
-  background: #fff;
+  background: var(--azia-card, #fff);
   border-radius: var(--azia-radius);
   box-shadow: var(--azia-shadow);
   padding: 16px 16px 14px;
-  border: 1px solid rgba(28, 39, 60, 0.04);
+  border: 1px solid var(--msb-palette-border, rgba(28, 39, 60, 0.04));
   min-height: 110px;
   display: block;
   height: 100%;
@@ -527,11 +570,12 @@ body.azia-admin .azia-spark {
 
 /* Cards */
 body.azia-admin .azia-card {
-  background: #fff;
+  background: var(--azia-card, #fff);
   border-radius: var(--azia-radius);
   box-shadow: var(--azia-shadow);
-  border: 1px solid rgba(28, 39, 60, 0.04);
+  border: 1px solid var(--msb-palette-border, rgba(28, 39, 60, 0.04));
   padding: 20px;
+  color: var(--azia-text, inherit);
 }
 
 body.azia-admin .azia-card-head {
@@ -712,7 +756,7 @@ body.azia-admin .azia-shortcut span {
 body.azia-admin .azia-btn-outline {
   border: 1px solid rgba(91, 71, 251, 0.4);
   color: var(--azia-purple);
-  background: #fff;
+  background: var(--azia-card, #fff);
   border-radius: 4px;
   font-weight: 600;
   font-size: 13px;

@@ -1,9 +1,18 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__.'/includes/session_org.php';require_once __DIR__.'/includes/org_context.php';require_once __DIR__.'/includes/org_manager_guard.php';require_once __DIR__.'/includes/org_crm_lifecycle.php';
-org_require_manager();org_require_commerce_seller();if(!function_exists('h')){function h(string $v):string{return htmlspecialchars($v,ENT_QUOTES,'UTF-8');}}
+$marketingEmbedded=!empty($marketingEmbedded);
+if(!$marketingEmbedded){
+  require_once __DIR__.'/includes/session_org.php';
+  require_once __DIR__.'/includes/org_context.php';
+  require_once __DIR__.'/includes/org_manager_guard.php';
+  require_once __DIR__.'/includes/org_crm_lifecycle.php';
+  org_require_manager();org_require_commerce_seller();
+} else {
+  require_once __DIR__.'/includes/org_crm_lifecycle.php';
+}
+if(!function_exists('h')){function h(string $v):string{return htmlspecialchars($v,ENT_QUOTES,'UTF-8');}}
 $orgId=(int)orgActiveOrgId();org_crm_lifecycle_ensure_schema($dbh);$campaigns=org_crm_list_campaigns($dbh,$orgId,50);$total=count($campaigns);$active=count(array_filter($campaigns,static fn($c)=>in_array(strtolower((string)$c['status']),['draft','scheduled','active','sent'],true)));
-$contacts=[];try{$contacts=org_crm_list_contacts($dbh,$orgId,'customer','',2000);}catch(Throwable $e){}$subscribers=count($contacts);$emails=max($subscribers,$total*250);$impressions=$emails*3+$total*125;$clicks=(int)round($impressions*.0533);$conversions=(int)round($clicks*.0324);$marketingEmbedded=!empty($marketingEmbedded);
+$contacts=[];try{$contacts=org_crm_list_contacts($dbh,$orgId,'customer','',2000);}catch(Throwable $e){}$subscribers=count($contacts);$emails=max($subscribers,$total*250);$impressions=$emails*3+$total*125;$clicks=(int)round($impressions*.0533);$conversions=(int)round($clicks*.0324);
 if(!$marketingEmbedded){$pageTitle='Marketing';require_once __DIR__.'/includes/org_page_shell.php';org_page_shell_open($pageTitle,'<link rel="stylesheet" href="css/commerce-hub.css?v=17">');org_page_body_open('commerce-page');}
 ?>
 <style>

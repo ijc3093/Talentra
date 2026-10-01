@@ -82,21 +82,125 @@ declare(strict_types=1);
 }
 .ig-top-act:hover{opacity:.85;}
 .ig-top-mic,
-.ig-top-shop,
 .ig-top-cart{
   width:44px;
   height:44px;
   border-radius:50%;
   background:var(--feed-control-soft, #eef2f7);
   font-size:18px;
+  position:relative;
+}
+/* Shop bag: icon only (no circular enclosure). */
+.ig-top-shop{
+  width:32px;
+  min-width:32px;
+  height:44px;
+  padding:0 !important;
+  border-radius:0;
+  background:transparent !important;
+  box-shadow:none !important;
+  border:0 !important;
+  font-size:22px;
+  position:relative !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:visible !important;
+  color:var(--feed-text, #1e293b);
+}
+.ig-top-shop i{
+  font-size:22px !important;
+  line-height:1 !important;
+  position:relative;
+  z-index:1;
 }
 .ig-top-mic:hover,
-.ig-top-shop:hover,
 .ig-top-cart:hover{background:var(--feed-surface-alt, #e2e8f0);opacity:1;}
-.ig-top-shop.is-active,
+.ig-top-shop:hover,
+.ig-top-shop.is-active{
+  background:transparent !important;
+  box-shadow:none !important;
+  border:0 !important;
+  opacity:.85;
+}
 .ig-top-cart.is-active{
   background:var(--feed-accent-soft, rgba(37,99,235,.12));
   box-shadow:inset 0 0 0 1px rgba(37,99,235,.25);
+}
+/* Red count sits on the bag corner — same pattern as left-rail friend-request badge. */
+a.ig-top-shop > .ig-top-shop-badge,
+a.ig-top-shop > .feed-ig-badge.ig-top-shop-badge{
+  position:absolute !important;
+  top:2px !important;
+  right:-2px !important;
+  left:auto !important;
+  bottom:auto !important;
+  transform:translate(30%, -35%) !important;
+  width:18px !important;
+  height:18px !important;
+  min-width:18px !important;
+  max-width:18px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:50% !important;
+  box-sizing:border-box !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:#ef4444 !important;
+  color:#fff !important;
+  font-size:10px !important;
+  font-weight:800 !important;
+  line-height:1 !important;
+  letter-spacing:0 !important;
+  border:2px solid #fff !important;
+  box-shadow:0 4px 10px rgba(239,68,68,.3) !important;
+  pointer-events:none !important;
+  z-index:5 !important;
+  overflow:visible !important;
+  flex:none !important;
+  align-self:auto !important;
+}
+a.ig-top-shop > .ig-top-shop-badge.is-wide,
+a.ig-top-shop > .feed-ig-badge.ig-top-shop-badge.is-wide{
+  width:auto !important;
+  max-width:none !important;
+  min-width:22px !important;
+  padding:0 4px !important;
+  border-radius:999px !important;
+}
+a.ig-top-shop > .ig-top-shop-badge[hidden]{
+  display:none !important;
+}
+.ig-top-cart-badge{
+  position:absolute;
+  top:-2px;
+  right:-2px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#ef4444;
+  color:#fff;
+  font-size:11px;
+  font-weight:800;
+  line-height:1;
+  border:2px solid #fff;
+  box-shadow:0 6px 14px rgba(239,68,68,.28);
+  pointer-events:none;
+  z-index:2;
+}
+.ig-top-shop-badge[hidden],
+.ig-top-cart-badge[hidden]{display:none!important;}
+html.dark-auto .ig-top-shop-badge,
+html.dark-auto .ig-top-cart-badge,
+html[data-theme="dark"] .ig-top-shop-badge,
+html[data-theme="dark"] .ig-top-cart-badge{
+  border-color:#fff;
+  box-shadow:0 6px 14px rgba(239,68,68,.35);
 }
 .ig-top-live{
   gap:8px;
@@ -288,7 +392,7 @@ body.shop-page.feed-insta-ui .feed-left-rail-page-sub{
 }
 body.shop-page.feed-insta-ui .shop-page-head-mobile{display:none;}
 body.shop-page.feed-insta-ui .shop-nav-filters{
-  margin-top:8px;
+  margin-top:-25px;
   border-top:0;
   padding-top:4px;
   flex:1 1 auto;
@@ -336,6 +440,13 @@ body.shop-page.feed-insta-ui .shop-nav-filter-toggle{
   text-align:left;
   cursor:pointer;
   box-sizing:border-box;
+}
+body.shop-page.feed-insta-ui .shop-nav-filter-toggle:focus,
+body.shop-page.feed-insta-ui .shop-nav-filter-toggle:focus-visible,
+body.shop-page.feed-insta-ui .shop-nav-filter-toggle:active{
+  outline:none !important;
+  box-shadow:none !important;
+  border:0 !important;
 }
 body.shop-page.feed-insta-ui .shop-nav-filter-toggle:hover{
   background:var(--shop-hover-bg, var(--msb-palette-hover-bg, rgba(15,23,42,.04)));
@@ -398,6 +509,8 @@ body.shop-page.feed-insta-ui .shop-nav-filter-clear{
 body.shop-page.feed-insta-ui .shop-nav-preferences-link{
   display:flex;
   align-items:center;
+  justify-content:space-between;
+  gap:10px;
   min-height:40px;
   padding:12px 12px;
   border-bottom:0;
@@ -406,6 +519,45 @@ body.shop-page.feed-insta-ui .shop-nav-preferences-link{
   font-weight:800;
   text-decoration:none;
   box-sizing:border-box;
+}
+body.shop-page.feed-insta-ui .shop-nav-preferences-label{
+  min-width:0;
+  flex:1 1 auto;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+body.shop-page.feed-insta-ui .shop-nav-preferences-badge,
+body.shop-page.feed-insta-ui #shopNavPrefsBadge{
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  width:18px;
+  height:18px;
+  min-width:18px;
+  padding:0;
+  margin:0;
+  border-radius:50%;
+  box-sizing:border-box;
+  background:#ef4444 !important;
+  color:#fff !important;
+  font-size:10px;
+  font-weight:800;
+  line-height:1;
+  border:2px solid var(--shop-card-bg, var(--msb-palette-bg, #fff));
+  box-shadow:0 4px 10px rgba(239,68,68,.3);
+}
+body.shop-page.feed-insta-ui .shop-nav-preferences-badge.is-wide,
+body.shop-page.feed-insta-ui #shopNavPrefsBadge.is-wide{
+  width:auto;
+  min-width:22px;
+  padding:0 5px;
+  border-radius:999px;
+}
+body.shop-page.feed-insta-ui .shop-nav-preferences-badge[hidden],
+body.shop-page.feed-insta-ui #shopNavPrefsBadge[hidden]{
+  display:none !important;
 }
 body.shop-page.feed-insta-ui .shop-nav-preferences-link:hover{
   background:var(--shop-hover-bg, var(--msb-palette-hover-bg, rgba(15,23,42,.04)));
@@ -668,17 +820,21 @@ body.shop-page.feed-insta-ui .shop-page-scroll{
 }
 @media (min-width:1025px){
   body.shop-page.feed-insta-ui{
-    --shop-left-rail-head-top:96px;
-    --shop-left-rail-head-height:72px;
+    --shop-outer:5px;
+    --shop-gutter:8px;
+    --shop-side:220px;
+    --shop-top:5px;
+    --shop-left-rail-head-top:calc(var(--shop-header-h, 64px) + var(--shop-top));
+    --shop-left-rail-head-height:70px;
     --feed-left-rail-top:calc(var(--shop-left-rail-head-top) + var(--shop-left-rail-head-height));
-    /* sh-mainpanel already clears the icon rail; only offset the left nav */
-    --shop-left-chrome:calc(40px + 236px);
+    /* sh-mainpanel already clears the icon rail; only OUTER + left column */
+    --shop-left-chrome:calc(var(--shop-outer) + var(--shop-side));
   }
   body.shop-page.feed-insta-ui .feed-left-rail-page-head{
     position:fixed;
-    left:calc(var(--feedRailW, 84px) + 40px);
+    left:calc(var(--feedRailW, 84px) + var(--shop-outer));
     top:var(--shop-left-rail-head-top);
-    width:236px;
+    width:var(--shop-side);
     z-index:95;
     box-sizing:border-box;
     background:var(--shop-surface, var(--msb-palette-bg, var(--feed-page-bg, var(--feed-topbar-bg, #f5f7fb))));
@@ -700,13 +856,13 @@ body.shop-page.feed-insta-ui .shop-page-scroll{
     border-top:0;
   }
   body.shop-page.feed-insta-ui .shop-page-shell{
-    padding-left:calc(var(--shop-left-chrome) + 16px);
-    padding-right:0 !important;
+    padding-left:calc(var(--shop-outer) + var(--shop-side) + var(--shop-gutter));
+    padding-right:var(--shop-outer) !important;
     margin-right:0 !important;
+    margin-left:0 !important;
     box-sizing:border-box;
     width:100%;
     max-width:100%;
-    margin-left:-1.5%;
   }
   body.shop-page.feed-insta-ui .shop-page-scroll{
     display:flex !important;
@@ -725,8 +881,8 @@ body.shop-page.feed-insta-ui .shop-page-scroll{
     height:100% !important;
     max-height:100% !important;
     overflow:hidden !important;
-    margin-top:-1.5%;
-    margin-bottom:1%;
+    margin-top:0;
+    margin-bottom:0;
   }
 }
 @media (max-width:1024px){
@@ -918,17 +1074,17 @@ body.cart-page.feed-insta-ui .cart-page-footer{
   }
   body.shop-page.feed-insta-ui .feed-left-rail-page-head,
   body.shop-page.feed-insta-ui .feed-left-rail{
-    left:calc(var(--feedRailW, 84px) + 12px) !important;
-    width:236px !important;
+    left:calc(var(--feedRailW, 84px) + var(--shop-outer, 5px)) !important;
+    width:var(--shop-side, 188px) !important;
     box-sizing:border-box !important;
-    background:var(--shop-card-bg, var(--msb-palette-bg, #fff)) !important;
+    background:var(--shop-card-bg, var(--msb-palette-bg, var(--shop-surface, #fff))) !important;
     border-color:var(--shop-border, var(--msb-palette-border, #e4e7ec)) !important;
     border-style:solid !important;
     border-width:1px !important;
   }
   body.shop-page.feed-insta-ui .feed-left-rail-page-head{
     padding:10px 12px 8px !important;
-    margin-top: 0.3% !important;
+    margin-top:20px !important;
     border-bottom-left-radius:0 !important;
     border-bottom-right-radius:0 !important;
     border-top-left-radius:12px !important;
@@ -959,9 +1115,9 @@ body.cart-page.feed-insta-ui .cart-page-footer{
     border-top:1px solid var(--shop-border, var(--msb-palette-border, #e4e7ec)) !important;
   }
   body.shop-page.feed-insta-ui .shop-page-shell{
-    padding-left:calc(12px + 236px + 12px + 16px) !important;
-    padding-right:0 !important;
-    margin-left:-1.5%;
+    padding-left:calc(var(--shop-outer, 5px) + var(--shop-side, 188px) + var(--shop-gutter, 8px)) !important;
+    padding-right:var(--shop-outer, 5px) !important;
+    margin-left:0 !important;
     margin-right:0 !important;
   }
 }

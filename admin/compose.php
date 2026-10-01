@@ -321,182 +321,244 @@ if (isset($_POST['send'])) {
   <link href="../lib/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="../lib/Ionicons/css/ionicons.css" rel="stylesheet">
   <link href="../lib/perfect-scrollbar/css/perfect-scrollbar.css" rel="stylesheet">
-  <link href="../lib/medium-editor/medium-editor.css" rel="stylesheet">
-  <link href="../lib/medium-editor/default.css" rel="stylesheet">
   <link href="../lib/summernote/summernote-bs4.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/shamcey.css">
 
   <style>
-    /* ✅ FIXED PAGE LIKE settings.php */
-    html,body{height:100%;overflow:hidden;}
-    .sh-mainpanel{height:100vh;display:flex;flex-direction:column;overflow:hidden;}
-    .sh-pagetitle{flex:0 0 auto;}
-    .sh-pagebody{flex:1 1 auto;overflow:hidden;display:flex;flex-direction:column;min-height:0;padding-bottom:0!important;}
+    html, body { height: 100%; overflow: hidden; }
+    body.azia-admin { background: var(--msb-palette-bg, var(--azia-bg, #f4f6fb)); color: var(--azia-text, #0f172a); }
 
-    /* Card fills page body */
+    .sh-mainpanel{
+      height: 100vh; max-height: 100dvh;
+      display: flex; flex-direction: column;
+      overflow: hidden; padding-top: 78px; box-sizing: border-box;
+    }
+    .sh-pagebody{
+      flex: 1 1 auto; min-height: 0; min-width: 0;
+      overflow: hidden; display: flex; flex-direction: column;
+      width: 100% !important; max-width: none !important;
+      margin: 0 12px 12px !important; padding: 0 !important;
+      box-sizing: border-box;
+    }
+
     .compose-card{
-      flex:1 1 auto;
-      min-height:0;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      border:0;
+      flex: 1 1 auto; min-height: 0; min-width: 0; width: 100%;
+      overflow: hidden; display: flex; flex-direction: column;
+      border: 1px solid var(--msb-palette-border, rgba(0,0,0,.08)) !important;
+      border-radius: 12px;
+      background: var(--azia-card, #fff) !important;
+      box-shadow: 0 1px 2px rgba(15,23,42,.04);
     }
     .compose-card .card-body-fixed{
-      flex:1 1 auto;
-      min-height:0;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      padding:12px;
+      flex: 1 1 auto; min-height: 0; min-width: 0;
+      overflow: hidden; display: flex; flex-direction: column;
+      padding: 0 !important;
     }
 
-    /* Only inner section scrolls */
     .compose-scroll{
-      flex:1 1 auto;
-      min-height:0;
-      overflow:auto;
-      padding:12px;
-      border:1px solid rgba(0,0,0,.08);
-      border-radius:12px;
-      background:#fff;
+      flex: 1 1 auto; min-height: 0; min-width: 0;
+      overflow-x: hidden !important; overflow-y: auto;
+      padding: 14px 16px;
+      box-sizing: border-box;
+    }
+
+    .compose-grid{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 900px){
+      .compose-grid{ grid-template-columns: 1fr; }
+    }
+
+    .compose-field label{
+      display: block; margin: 0 0 6px;
+      font-size: 12px; font-weight: 800;
+      color: var(--azia-text, #0f172a);
+    }
+    .compose-field .tx-danger{ color: #ef4444; }
+    .compose-field .form-control{
+      height: 38px; border-radius: 10px;
+      border: 1px solid var(--msb-palette-border, #e2e8f0) !important;
+      background: var(--msb-palette-input-bg, var(--azia-card, #fff)) !important;
+      color: var(--azia-text, #0f172a) !important;
+      font-size: 13px; box-shadow: none !important;
+      width: 100%; max-width: 100%; box-sizing: border-box;
+    }
+    .compose-field .form-control::placeholder{
+      color: var(--azia-muted, #94a3b8) !important; opacity: 1;
+    }
+    .compose-field .form-control:focus{
+      border-color: var(--msb-palette-action, #2563eb) !important;
+      outline: none;
+    }
+
+    .meta-pill{
+      font-size: 12px; font-weight: 600;
+      color: var(--azia-muted, #64748b);
+      margin: 0 0 12px;
     }
 
     .results{
-      position:absolute;
-      z-index:9999;
-      width:100%;
-      display:none;
-      background:#fff;
-      border:1px solid rgba(0,0,0,.12);
-      border-radius:12px;
-      margin-top:6px;
-      overflow:hidden;
-      box-shadow:0 10px 30px rgba(0,0,0,.12);
-      max-height:280px;
-      overflow:auto;
+      position: absolute; z-index: 40; left: 0; right: 0;
+      display: none; margin-top: 6px;
+      background: var(--azia-card, #fff);
+      border: 1px solid var(--msb-palette-border, rgba(0,0,0,.12));
+      border-radius: 12px; overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      max-height: 280px; overflow-y: auto;
     }
     .results .item{
-      padding:10px 12px;
-      cursor:pointer;
-      border-bottom:1px solid rgba(0,0,0,.06);
+      padding: 10px 12px; cursor: pointer;
+      border-bottom: 1px solid var(--msb-palette-border, rgba(0,0,0,.06));
+      color: var(--azia-text, #0f172a);
     }
-    .results .item:hover{ background:rgba(8,97,188,.08); }
-    .results .small{ font-size:12px; opacity:.75; }
+    .results .item:hover{ background: var(--msb-palette-action-soft, rgba(37,99,235,.12)); }
+    .results .small{ font-size: 12px; color: var(--azia-muted, #94a3b8); }
 
     .selected-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      background:rgba(8,97,188,.10);
-      border:1px solid rgba(8,97,188,.18);
-      color:#1b2a3a;
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:12px;
-      margin-top:6px;
-      max-width:100%;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .meta-pill{
-      font-size:12px;
-      opacity:.7;
-      margin:8px 0 10px;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--msb-palette-action-soft, rgba(37,99,235,.12));
+      border: 1px solid var(--msb-palette-border, rgba(37,99,235,.22));
+      color: var(--azia-text, #e8edf5);
+      border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700;
+      margin-top: 8px; max-width: 100%;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* summernote area */
-    .note-editor.note-frame{
-      border-radius:12px;
-      overflow:hidden;
-      border:1px solid rgba(0,0,0,.10);
+    .compose-editor{
+      border: 1px solid var(--msb-palette-border, rgba(0,0,0,.10));
+      border-radius: 12px; overflow: hidden;
+      background: var(--azia-card, #fff);
+      min-width: 0; max-width: 100%;
     }
-    #attachmentList .att-btn{ margin-right:6px; margin-bottom:6px; }
-    #attachmentList .att-rm{ margin-right:10px; margin-bottom:6px; }
+    .compose-editor-hd{
+      padding: 10px 14px;
+      font-size: 13px; font-weight: 800;
+      color: var(--azia-text, #0f172a);
+      border-bottom: 1px solid var(--msb-palette-border, rgba(0,0,0,.08));
+      background: var(--msb-palette-surface-2, var(--azia-card, #fff));
+    }
+    .compose-editor-bd{ padding: 12px; min-width: 0; max-width: 100%; box-sizing: border-box; }
+
+    .note-editor.note-frame{
+      border-radius: 10px !important; overflow: hidden;
+      border: 1px solid var(--msb-palette-border, rgba(0,0,0,.10)) !important;
+      background: var(--azia-card, #fff) !important;
+      width: 100% !important; max-width: 100% !important;
+      box-sizing: border-box;
+    }
+    .note-editor .note-toolbar{
+      background: var(--msb-palette-surface-2, var(--azia-card, #f8fafc)) !important;
+      border-bottom: 1px solid var(--msb-palette-border, rgba(0,0,0,.08)) !important;
+    }
+    .note-editor .note-editing-area,
+    .note-editor .note-editable{
+      background: var(--msb-palette-input-bg, var(--azia-card, #fff)) !important;
+      color: var(--azia-text, #0f172a) !important;
+      max-width: 100% !important;
+    }
+    .note-editor .note-statusbar{
+      background: var(--msb-palette-surface-2, var(--azia-card, #fff)) !important;
+      border-top: 1px solid var(--msb-palette-border, rgba(0,0,0,.08)) !important;
+    }
+    .note-btn{
+      background: transparent !important;
+      color: var(--azia-text, #0f172a) !important;
+      border-color: transparent !important;
+    }
+    .note-btn:hover{ background: var(--msb-palette-hover-bg, rgba(148,163,184,.16)) !important; }
+
+    #attachmentList .att-btn{ margin-right: 6px; margin-bottom: 6px; }
+    #attachmentList .att-rm{ margin-right: 10px; margin-bottom: 6px; }
 
     .compose-actions{
-      flex:0 0 auto;
-      padding:12px;
-      border-top:1px solid rgba(0,0,0,.08);
-      background:#fff;
-      display:flex;
-      justify-content:flex-end;
-      gap:10px;
+      flex: 0 0 auto; min-width: 0;
+      padding: 12px 16px;
+      border-top: 1px solid var(--msb-palette-border, rgba(0,0,0,.08));
+      background: var(--azia-card, #fff);
+      display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+      flex-wrap: wrap;
+    }
+    .compose-actions .btn{
+      height: 38px; border-radius: 10px; font-size: 13px; font-weight: 800;
+      padding: 0 14px; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .compose-actions .btn-default,
+    .compose-actions .btn-secondary{
+      background: var(--msb-palette-surface-2, #1e2733) !important;
+      border: 1px solid var(--msb-palette-border, rgba(148,163,184,.28)) !important;
+      color: var(--azia-text, #e8edf5) !important;
     }
 
-    .search-wrap{ position:relative; }
+    .search-wrap{ position: relative; min-width: 0; }
+    .compose-alert{ margin: 0 12px 8px; }
   </style>
 </head>
 
-<body>
+<body class="azia-admin">
 
-<?php include __DIR__ . '/includes/leftbar.php'; ?>
-<?php include __DIR__ . '/includes/header.php'; ?>
+<?php
+require_once __DIR__ . '/includes/admin_chrome.php';
+admin_chrome_open('Compose', [
+    'title' => 'Compose',
+    'description' => 'Your admin workspace messages.',
+]);
+?>
 
 <div class="sh-mainpanel">
-
   <?php if ($error): ?>
-    <div class="alert alert-danger" style="margin:10px;"><?= h($error) ?></div>
+    <div class="alert alert-danger compose-alert"><?= h($error) ?></div>
   <?php elseif ($msg): ?>
-    <div class="alert alert-success" style="margin:10px;"><?= h($msg) ?></div>
+    <div class="alert alert-success compose-alert"><?= h($msg) ?></div>
   <?php endif; ?>
 
   <div class="sh-pagebody">
-
     <div class="card compose-card">
       <div class="card-body-fixed">
-
-        <form method="post" autocomplete="off" style="display:flex;flex-direction:column;min-height:0;flex:1 1 auto;overflow:hidden;">
+        <form method="post" autocomplete="off" class="compose-form" style="display:flex;flex-direction:column;min-height:0;min-width:0;flex:1 1 auto;overflow:hidden;">
           <input type="hidden" name="friend_admin_id" id="friend_admin_id" value="<?= (int)($prefill['idadmin'] ?? 0); ?>">
           <input type="hidden" name="to_fallback" id="to_fallback" value="<?= h($toParam); ?>">
           <textarea name="message" id="message" hidden></textarea>
           <input type="hidden" name="attachments" id="attachments" value="">
 
           <div class="compose-scroll">
-
-            <div class="row">
-              <div class="col-lg-5">
-                <div class="form-group search-wrap">
-                  <label class="form-control-label">Friend Code:<span class="tx-danger">*</span></label>
-                  <input type="text"
-                         id="toSearch"
-                         class="form-control"
-                         placeholder="Type full name, username, or friend code..."
-                         autocomplete="off"
-                         value="<?= h($prefill['fullname'] ?? $prefill['username'] ?? $toParam); ?>">
-                  <div id="results" class="results"></div>
-
-                  <div id="selectedInfo" class="selected-pill" style="<?= $prefill ? '' : 'display:none;'; ?>">
-                    <?php if ($prefill): ?>
-                      <?php
-                        $dn = trim((string)($prefill['fullname'] ?? ''));
-                        if ($dn === '') $dn = (string)($prefill['username'] ?? '');
-                        $fc = (string)($prefill['friend_code'] ?? '');
-                        echo h($dn . ($fc ? " • " . $fc : ""));
-                      ?>
-                    <?php endif; ?>
-                  </div>
+            <div class="compose-grid">
+              <div class="compose-field search-wrap">
+                <label>Friend Code:<span class="tx-danger">*</span></label>
+                <input type="text"
+                       id="toSearch"
+                       class="form-control"
+                       placeholder="Type full name, username, or friend code..."
+                       autocomplete="off"
+                       value="<?= h($prefill['fullname'] ?? $prefill['username'] ?? $toParam); ?>">
+                <div id="results" class="results"></div>
+                <div id="selectedInfo" class="selected-pill" style="<?= $prefill ? '' : 'display:none;'; ?>">
+                  <?php if ($prefill): ?>
+                    <?php
+                      $dn = trim((string)($prefill['fullname'] ?? ''));
+                      if ($dn === '') $dn = (string)($prefill['username'] ?? '');
+                      $fc = (string)($prefill['friend_code'] ?? '');
+                      echo h($dn . ($fc ? " • " . $fc : ""));
+                    ?>
+                  <?php endif; ?>
                 </div>
               </div>
 
-              <div class="col-lg-7">
-                <div class="form-group mg-b-10-force">
-                  <label class="form-control-label">New Subject: <span class="tx-danger">*</span></label>
-                  <input class="form-control" type="text" name="address" placeholder="Type subject...">
-                </div>
+              <div class="compose-field">
+                <label>New Subject: <span class="tx-danger">*</span></label>
+                <input class="form-control" type="text" name="address" placeholder="Type subject...">
               </div>
             </div>
 
             <div class="meta-pill">Directory search (no contacts needed). Only active accounts appear.</div>
 
-            <div class="card bd-primary">
-              <div class="card-header bg-primary tx-white">Type New Message</div>
-              <div class="card-body pd-sm-30">
+            <div class="compose-editor">
+              <div class="compose-editor-hd">Type New Message</div>
+              <div class="compose-editor-bd">
                 <div id="summernote"></div>
-
                 <div id="attachmentList" class="mg-t-10"></div>
-
                 <div class="mg-t-10">
                   <input type="file" id="attPicker" style="display:none" multiple>
                   <button type="button" class="btn btn-sm btn-outline-primary" id="attPickBtn">
@@ -505,24 +567,16 @@ if (isset($_POST['send'])) {
                 </div>
               </div>
             </div>
-
-          </div><!-- /compose-scroll -->
-
-          <div class="compose-actions">
-            <button class="btn btn-primary" name="send" type="submit"><i class="fa fa-send"></i> Send</button>
-            <a class="btn btn-default" href="feedback.php?view=internal"><i class="fa fa-question-circle"></i> Help</a>
           </div>
 
+          <div class="compose-actions">
+            <a class="btn btn-default" href="mailbox.php"><i class="fa fa-inbox"></i> Inbox</a>
+            <a class="btn btn-default" href="feedback.php?view=internal"><i class="fa fa-question-circle"></i> Help</a>
+            <button class="btn btn-primary" name="send" type="submit"><i class="fa fa-send"></i> Send</button>
+          </div>
         </form>
-
       </div>
     </div>
-
-  </div>
-
-  <div class="sh-footer">
-    <div>Copyright &copy; 2017. All Rights Reserved. Talsora</div>
-    <div class="mg-t-10 mg-md-t-0">Designed by: <a href="http://themepixels.me">ThemePixels</a></div>
   </div>
 </div>
 
@@ -530,7 +584,6 @@ if (isset($_POST['send'])) {
 <script src="../lib/popper.js/popper.js"></script>
 <script src="../lib/bootstrap/bootstrap.js"></script>
 <script src="../lib/perfect-scrollbar/js/perfect-scrollbar.jquery.js"></script>
-<script src="../lib/medium-editor/medium-editor.js"></script>
 <script src="../lib/summernote/summernote-bs4.min.js"></script>
 <script src="../js/shamcey.js"></script>
 
@@ -639,9 +692,10 @@ $(function(){
 
   // Summernote editor
   $('#summernote').summernote({
-    height: 220,
+    height: 240,
     tooltip: false,
     dialogsInBody: true,
+    width: '100%',
     toolbar: [
       ['style', ['style']],
       ['font', ['bold', 'italic', 'underline', 'clear']],
@@ -659,6 +713,7 @@ $(function(){
       }
     }
   });
+  $('.note-editor').css({ width: '100%', maxWidth: '100%' });
 
   // Attach button -> file picker
   $('#attPickBtn').on('click', function(){ $('#attPicker').trigger('click'); });

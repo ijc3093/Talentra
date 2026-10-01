@@ -649,9 +649,9 @@
   var PALETTE_NAV_ACTIVE_SELECTORS = [
     '#ttNavLeftbar .nav-link.active',
     'body #ttNavLeftbar .nav-link.active',
-    '.sh-sideleft-menu .nav-link.active',
-    '.sh-sideleft-menu .nav > .nav-item > .nav-link.active',
-    '.org-sideleft-scroll .nav > .nav-item > .nav-link.active',
+    '.sh-sideleft-menu .nav-link.active:not(.sales-management-nav-link)',
+    '.sh-sideleft-menu .nav > .nav-item > .nav-link.active:not(.sales-management-nav-link)',
+    '.org-sideleft-scroll .nav > .nav-item > .nav-link.active:not(.sales-management-nav-link)',
     '.feed-left-nav-item.is-active',
     '.feed-right-nav-item.is-active',
     '.tt-menu-body .feed-left-nav-item.is-active',
@@ -1332,8 +1332,18 @@
       'html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msg-edited {\n' +
       '  color: var(--msb-palette-bubble-text) !important;\n' +
       '}\n' +
-      'html[data-msb-appearance] .bubble:not(.me):not(.has-media) .msg-meta {\n' +
+      'html[data-msb-appearance] .msg-row:not(.me) .msg-meta,\n' +
+      'html[data-msb-appearance] .msg-bubble-stack > .msg-meta:not(.me) {\n' +
       '  color: var(--msb-palette-bubble-meta) !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .msg-row.me .msg-meta,\n' +
+      'html[data-msb-appearance] .msg-meta.me {\n' +
+      '  color: #94a3b8 !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .bubble.me .msgText,\n' +
+      'html[data-msb-appearance] .bubble.me .msg-edited {\n' +
+      '  color: var(--msb-palette-btn-text, #fff) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-btn-text, #fff) !important;\n' +
       '}\n' +
       'html[data-msb-appearance] .bubble:not(.me) .msg-reply-line {\n' +
       '  background-color: var(--msb-palette-bubble-reply-bg) !important;\n' +
@@ -1479,6 +1489,43 @@
       '  background-color: var(--msb-palette-nav-active-bg) !important;\n' +
       '}\n' +
       paletteNavChildSelectorBlock(PALETTE_NAV_ACTIVE_SELECTORS + ':not(:hover)', 'color', 'var(--msb-palette-nav-active-icon)') +
+      /* Seller sales workflow: blue text/icon switch, no filled active box */
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active:hover,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active:focus,\n' +
+      'html[data-msb-appearance] .org-sideleft-scroll .nav > .nav-item > .sales-management-nav-link.active,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active {\n' +
+      '  background: transparent !important;\n' +
+      '  background-color: transparent !important;\n' +
+      '  background-image: none !important;\n' +
+      '  color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  border: 0 !important;\n' +
+      '  box-shadow: none !important;\n' +
+      '  outline: none !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active > span,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active i,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .icon,\n' +
+      'html[data-msb-appearance] .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active [class*="ion-"],\n' +
+      'html[data-msb-appearance] .org-sideleft-scroll .nav > .nav-item > .sales-management-nav-link.active > span,\n' +
+      'html[data-msb-appearance] .org-sideleft-scroll .nav > .nav-item > .sales-management-nav-link.active i,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active > span,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active i,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active .icon,\n' +
+      'html.msb-palette-active .sh-sideleft-menu .nav > .nav-item > .sales-management-nav-link.active [class*="ion-"] {\n' +
+      '  color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  background: transparent !important;\n' +
+      '}\n' +
+      'html[data-msb-appearance] .org-sales-support-center.active,\n' +
+      'html[data-msb-appearance] .org-sales-support-center.active i,\n' +
+      'html.msb-palette-active .org-sales-support-center.active,\n' +
+      'html.msb-palette-active .org-sales-support-center.active i {\n' +
+      '  color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  -webkit-text-fill-color: var(--msb-palette-action, #60a5fa) !important;\n' +
+      '  background: transparent !important;\n' +
+      '}\n' +
       'html[data-msb-appearance] ' + PALETTE_NAV_REST_SELECTORS + ':not(.active):not(.is-active) {\n' +
       '  color: var(--msb-palette-text-on-nav) !important;\n' +
       '  background-color: transparent !important;\n' +
@@ -2523,11 +2570,11 @@
   ].join(',\n');
 
   var BUILTIN_HREF_TEXT_SELECTORS = [
-    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab)',
-    '.nav-link:not(.active)', '.feed-ig-link:not(.feed-ig-reels)', '.dropdown-item', '.dropdown-link',
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab):not(.shop-pref-nav-link):not(.shop-pref-pref-link):not(.shop-customer-action):not(.sales-management-nav-link)',
+    '.nav-link:not(.active):not(.sales-management-nav-link)', '.feed-ig-link:not(.feed-ig-reels)', '.dropdown-item', '.dropdown-link',
     '.dropdown-menu-link', '.bestchat-menu-item', '.dropdown-bestnoti-item',
-    'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link)',
-    'body.org-app .nav-link:not(.active)', 'body.org-app .sh-icon-link'
+    'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link):not(.sales-management-nav-link)',
+    'body.org-app .nav-link:not(.active):not(.sales-management-nav-link)', 'body.org-app .sh-icon-link'
   ].join(',\n');
 
   var BUILTIN_HREF_BTN_SELECTORS = [
@@ -2541,12 +2588,12 @@
   ].join(',\n');
 
   var BUILTIN_HREF_TEXT_HOVER_SELECTORS = [
-    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab):hover',
-    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab):focus',
-    '.nav-link:hover', '.nav-link:focus', '.feed-ig-link:not(.feed-ig-reels):hover', '.feed-ig-link:not(.feed-ig-reels):focus',
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab):not(.shop-pref-nav-link):not(.shop-pref-pref-link):not(.shop-customer-action):not(.sales-management-nav-link):hover',
+    'a:not(.btn):not(.btn-primary):not(.btn-success):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.gear-detail-open-btn):not(.feed-ig-logo):not(.feed-ig-reels):not(.feed-ig-btn):not(.messages-shell-tab):not(.shop-pref-nav-link):not(.shop-pref-pref-link):not(.shop-customer-action):not(.sales-management-nav-link):focus',
+    '.nav-link:not(.sales-management-nav-link):hover', '.nav-link:not(.sales-management-nav-link):focus', '.feed-ig-link:not(.feed-ig-reels):hover', '.feed-ig-link:not(.feed-ig-reels):focus',
     '.dropdown-item:hover', '.dropdown-link:hover', '.dropdown-menu-link:hover',
-    'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link):hover',
-    'body.org-app .nav-link:hover', 'body.org-app .sh-icon-link:hover'
+    'body.org-app a:not(.btn):not(.btn-primary):not(.btn-success):not(.ch-btn-primary):not(.ch-btn-ghost):not(.feed-tab-link):not(.sales-management-nav-link):hover',
+    'body.org-app .nav-link:not(.sales-management-nav-link):hover', 'body.org-app .sh-icon-link:hover'
   ].join(',\n');
 
   var BUILTIN_HREF_BTN_HOVER_SELECTORS = [

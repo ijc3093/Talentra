@@ -248,23 +248,24 @@ try {
 // -------------------- Pulse stats --------------------
 $pulse = ['posts_7d'=>0,'comments_7d'=>0,'acks_7d'=>0];
 try {
+    // Native prepares (ATTR_EMULATE_PREPARES=false) reject a reused named placeholder.
     $stP = $dbh->prepare("
         SELECT
           (SELECT COUNT(*) FROM org_posts p
-           WHERE p.org_id = :org_id AND p.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+           WHERE p.org_id = :org_p AND p.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
           ) AS posts_7d,
 
           (SELECT COUNT(*) FROM org_post_comments c
            JOIN org_posts p2 ON p2.id = c.post_id
-           WHERE p2.org_id = :org_id AND c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+           WHERE p2.org_id = :org_c AND c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
           ) AS comments_7d,
 
           (SELECT COUNT(*) FROM org_post_acknowledgements a
            JOIN org_posts p3 ON p3.id = a.post_id
-           WHERE p3.org_id = :org_id AND a.acknowledged_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+           WHERE p3.org_id = :org_a AND a.acknowledged_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
           ) AS acks_7d
     ");
-    $stP->execute([':org_id' => $orgId]);
+    $stP->execute([':org_p' => $orgId, ':org_c' => $orgId, ':org_a' => $orgId]);
     $rowPulse = $stP->fetch(PDO::FETCH_ASSOC);
     if (is_array($rowPulse)) {
         $pulse['posts_7d']    = (int)($rowPulse['posts_7d'] ?? 0);
@@ -890,7 +891,7 @@ if ($publisherUserId > 0) {
 
           <!-- ✅ Dashboard should not list posts: tabs go to posts.php -->
           <div class="feed-tabs">
-            <a class="feed-tab-link <?= $tab==='work'?'active':'' ?>" href="posts.php?tab=work">Work Updates</a>
+            <a class="feed-tab-link active" href="posts.php?tab=work">Work Updates</a>
             <a class="feed-tab-link" href="posts.php?tab=culture">Culture & Wins</a>
           </div>
 

@@ -98,7 +98,7 @@ if ($talentraSplashNextJson === false) {
       animation:teRing 1.6s ease-out infinite;
     }
     .te-mark-letter{
-      font-family:Georgia,"Times New Roman",serif;
+      font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;
       font-size:42px;
       font-weight:700;
       line-height:1;
@@ -108,7 +108,7 @@ if ($talentraSplashNextJson === false) {
     }
     .te-brand{
       margin:0;
-      font-family:Georgia,"Times New Roman",serif;
+      font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;
       font-size:clamp(2rem, 5vw, 2.55rem);
       font-weight:700;
       letter-spacing:-.03em;

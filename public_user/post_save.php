@@ -143,6 +143,35 @@ $fastPath = $wantsJson && ($pendingTokens !== [] || !$hasFreshFiles);
 
 $controller = new Controller();
 $dbh = $controller->pdo();
+$meId = (int)($_SESSION['user_id'] ?? 0);
+
+$isCommunityPost = strtolower(trim((string)($_POST['post_kind'] ?? ''))) === 'community';
+$communityPostId = (int)($_POST['community_id'] ?? 0);
+$communityPostConfig = null;
+if ($isCommunityPost) {
+    $_POST['visibility'] = ((string)($_POST['visibility'] ?? 'public')) === 'private' ? 'private' : 'public';
+    try {
+        $stCommunityPost = $dbh->prepare(
+            "SELECT c.id,c.post_permission,c.post_approval,m.role,m.status
+             FROM communities c
+             JOIN community_members m ON m.community_id=c.id AND m.user_id=:uid
+             WHERE c.id=:cid AND c.status=1 AND m.status='active'
+             LIMIT 1"
+        );
+        $stCommunityPost->execute([':uid' => $meId, ':cid' => $communityPostId]);
+        $communityPostConfig = $stCommunityPost->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $eCommunityPost) {
+        $communityPostConfig = null;
+    }
+    if (!$communityPostConfig) {
+        post_save_respond('community.php?tab=joined', $wantsJson, false, 'community_membership');
+    }
+    $communityRole = (string)($communityPostConfig['role'] ?? 'member');
+    if ((string)($communityPostConfig['post_permission'] ?? 'all') === 'staff'
+        && !in_array($communityRole, ['owner', 'admin', 'moderator'], true)) {
+        post_save_respond('community_profile.php?id=' . $communityPostId, $wantsJson, false, 'community_post_permission');
+    }
+}
 
 // Skip heavy schema migrations on the hot publish path (tables already exist in production).
 if (!$fastPath) {
@@ -254,6 +283,15 @@ if (function_exists('post_link_preview_parse_tags')) {
 } else {
     $linkTags = mb_substr(trim((string)($_POST['link_tags'] ?? '')), 0, 280);
 }
+$hashtags = '';
+if (function_exists('post_hashtags_parse') && function_exists('post_hashtags_format')) {
+    $hashtags = post_hashtags_format(post_hashtags_parse((string)($_POST['hashtags'] ?? '')));
+    if ($hashtags === '') {
+        $hashtags = post_hashtags_format(post_hashtags_parse($title . ' ' . $body . ' ' . $description));
+    }
+} else {
+    $hashtags = mb_substr(trim((string)($_POST['hashtags'] ?? '')), 0, 280);
+}
 if ($linkUrl !== '' && !preg_match('#^https?://#i', $linkUrl)) {
     $linkUrl = 'https://' . ltrim($linkUrl, '/');
 }
@@ -313,12 +351,13 @@ if ($formLooksEmpty) {
     $editPostExists = false;
     try {
         $stExist = $dbh->prepare("
-            SELECT id
-            FROM public_posts
-            WHERE id = :id AND user_id = :uid AND is_deleted = 0
+            SELECT p.id FROM public_posts p
+            LEFT JOIN community_posts cp ON cp.public_post_id=p.id AND cp.community_id=:community_id
+            WHERE p.id=:id AND p.user_id=:uid
+              AND (p.is_deleted=0 OR (:is_community=1 AND cp.id IS NOT NULL))
             LIMIT 1
         ");
-        $stExist->execute([':id' => $postId, ':uid' => $meId]);
+        $stExist->execute([':id'=>$postId, ':uid'=>$meId, ':community_id'=>$communityPostId, ':is_community'=>$isCommunityPost?1:0]);
         $editPostExists = (int)($stExist->fetchColumn() ?: 0) > 0;
     } catch (Throwable $e) {
         $editPostExists = false;
@@ -373,8 +412,10 @@ try {
 
     $inserted = false;
     if ($postId > 0) {
-        $st = $dbh->prepare("SELECT id, description FROM public_posts WHERE id = :id AND user_id = :uid AND is_deleted = 0 LIMIT 1");
-        $st->execute([':id' => $postId, ':uid' => $meId]);
+        $st = $dbh->prepare("SELECT p.id,p.description FROM public_posts p
+            LEFT JOIN community_posts cp ON cp.public_post_id=p.id AND cp.community_id=:community_id
+            WHERE p.id=:id AND p.user_id=:uid AND (p.is_deleted=0 OR (:is_community=1 AND cp.id IS NOT NULL)) LIMIT 1");
+        $st->execute([':id'=>$postId, ':uid'=>$meId, ':community_id'=>$communityPostId, ':is_community'=>$isCommunityPost?1:0]);
         $existingEditRow = $st->fetch(PDO::FETCH_ASSOC) ?: null;
         if (!$existingEditRow) {
             post_save_respond('dashboard.php?err=forbidden', $wantsJson, false, 'forbidden');
@@ -430,7 +471,8 @@ try {
             $stMeta = $dbh->prepare(
                 'UPDATE public_posts
                  SET feeling_label = :f, location_label = :l,
-                     link_url = :lu, link_title = :lt, link_description = :ld, link_image = :li, link_tags = :lk
+                     link_url = :lu, link_title = :lt, link_description = :ld, link_image = :li, link_tags = :lk,
+                     hashtags = :ht
                  WHERE id = :id
                  LIMIT 1'
             );
@@ -442,10 +484,32 @@ try {
                 ':ld' => $linkDescription,
                 ':li' => $linkImage,
                 ':lk' => $linkTags,
+                ':ht' => $hashtags,
                 ':id' => $postId,
             ]);
         } catch (Throwable $eMeta) {
             // Columns may be missing on older DBs; non-fatal.
+            try {
+                $stMetaHt = $dbh->prepare(
+                    'UPDATE public_posts
+                     SET feeling_label = :f, location_label = :l,
+                         link_url = :lu, link_title = :lt, link_description = :ld, link_image = :li, link_tags = :lk
+                     WHERE id = :id
+                     LIMIT 1'
+                );
+                $stMetaHt->execute([
+                    ':f' => $feelingLabel,
+                    ':l' => $locationLabel,
+                    ':lu' => $linkUrl,
+                    ':lt' => $linkTitle,
+                    ':ld' => $linkDescription,
+                    ':li' => $linkImage,
+                    ':lk' => $linkTags,
+                    ':id' => $postId,
+                ]);
+            } catch (Throwable $eMetaLegacy) {
+                // fall through to older fallbacks below
+            }
             try {
                 $stMeta2 = $dbh->prepare(
                     'UPDATE public_posts
@@ -598,6 +662,32 @@ try {
         }
     }
 
+    if ($isCommunityPost && $communityPostConfig && $postId > 0) {
+        try {
+            $dbh->exec("CREATE TABLE IF NOT EXISTS community_posts(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,community_id BIGINT UNSIGNED NOT NULL,user_id BIGINT UNSIGNED NOT NULL,public_post_id BIGINT UNSIGNED NULL,title VARCHAR(180) NOT NULL DEFAULT '',body TEXT NULL,media_path VARCHAR(500) NOT NULL DEFAULT '',hashtags VARCHAR(500) NOT NULL DEFAULT '',visibility ENUM('public','private') NOT NULL DEFAULT 'public',status ENUM('published','pending','removed') NOT NULL DEFAULT 'published',created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,KEY community_status(community_id,status,created_at),KEY user_id(user_id),UNIQUE KEY public_post_id(public_post_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $communityVisibilityColumn = $dbh->query("SHOW COLUMNS FROM community_posts LIKE 'visibility'")->fetch(PDO::FETCH_ASSOC);
+            if (!$communityVisibilityColumn) $dbh->exec("ALTER TABLE community_posts ADD visibility ENUM('public','private') NOT NULL DEFAULT 'public' AFTER hashtags");
+            $communityPublicPostColumn = $dbh->query("SHOW COLUMNS FROM community_posts LIKE 'public_post_id'")->fetch(PDO::FETCH_ASSOC);
+            if (!$communityPublicPostColumn) $dbh->exec("ALTER TABLE community_posts ADD public_post_id BIGINT UNSIGNED NULL AFTER user_id, ADD UNIQUE KEY public_post_id(public_post_id)");
+            $mediaPath = '';
+            $stCommunityMedia = $dbh->prepare("SELECT file_path FROM public_post_attachments WHERE post_id=:pid AND type IN('image','video') ORDER BY id LIMIT 1");
+            $stCommunityMedia->execute([':pid' => $postId]);
+            $mediaPath = trim((string)($stCommunityMedia->fetchColumn() ?: ''));
+            $communityRole = (string)($communityPostConfig['role'] ?? 'member');
+            $communityStatus = ((string)($communityPostConfig['post_approval'] ?? 'immediate') === 'approval'
+                && !in_array($communityRole, ['owner', 'admin', 'moderator'], true)) ? 'pending' : 'published';
+            $stCommunityMirror = $dbh->prepare(
+                "INSERT INTO community_posts(community_id,user_id,public_post_id,title,body,media_path,hashtags,visibility,status)
+                 VALUES(:cid,:uid,:pid,:title,:body,:media,:hashtags,:visibility,:status)
+                 ON DUPLICATE KEY UPDATE title=VALUES(title),body=VALUES(body),media_path=VALUES(media_path),hashtags=VALUES(hashtags),visibility=VALUES(visibility),status=VALUES(status)"
+            );
+            $stCommunityMirror->execute([':cid'=>$communityPostId,':uid'=>$meId,':pid'=>$postId,':title'=>mb_substr($title,0,180),':body'=>$body,':media'=>$mediaPath,':hashtags'=>mb_substr($hashtags,0,500),':visibility'=>$visibility==='private'?'private':'public',':status'=>$communityStatus]);
+            $dbh->prepare('UPDATE public_posts SET is_deleted=1 WHERE id=:pid AND user_id=:uid')->execute([':pid'=>$postId,':uid'=>$meId]);
+        } catch (Throwable $eCommunityMirror) {
+            post_save_respond('community_profile.php?id=' . $communityPostId, $wantsJson, false, 'community_save');
+        }
+    }
+
     // Create entry → destination after submit:
     // - Profile story "+" → profile.php story circle (?story_post=)
     // - Story circle "+" + Friends → feed.php story circle (?story_post=)
@@ -608,7 +698,10 @@ try {
     $returnToRaw = trim((string)($_POST['return_to'] ?? ''));
     $returnToBase = strtolower((string)preg_replace('/[?#].*$/', '', $returnToRaw));
     $fromProfileStory = ($isStoryPost && (substr($returnToBase, -11) === 'profile.php' || $returnToBase === 'profile.php'));
-    if ($visibility === 'private') {
+    if ($isCommunityPost) {
+        $dest = 'community_profile.php';
+        $redirect = 'community_profile.php?id=' . $communityPostId . '&tab=posts&post=' . $postId . '&fresh=1';
+    } elseif ($visibility === 'private') {
         $dest = 'profile.php';
         if ($isStoryPost) {
             $redirectParams = [

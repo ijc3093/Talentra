@@ -388,7 +388,7 @@ function org_admin_render_head(string $title): void
     .sh-admin-table-card > .card-header{
       flex:0 0 auto;
       background:transparent!important;
-      color:#1c273c!important;
+      color:var(--azia-text,#1c273c)!important;
       padding:18px 0 10px!important;
       font-size:15px;
       font-weight:700;
@@ -427,7 +427,7 @@ function org_admin_render_head(string $title): void
     .filter-tabs{display:flex;gap:6px;flex-wrap:wrap}
     .filter-tabs a,.btn-link-pill{
       display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:3px;
-      border:1px solid #ced4da; background:#fff; color:#495057; font-size:12px;
+      border:1px solid #ced4da; background:var(--azia-card,#fff); color:#495057; font-size:12px;
       font-weight:600; text-decoration:none;
     }
     .filter-tabs a.is-active,.btn-link-pill.is-active{
@@ -439,7 +439,7 @@ function org_admin_render_head(string $title): void
       overflow-y:auto;
       overflow-x:hidden;
       -webkit-overflow-scrolling:touch;
-      background:#fff;
+      background:var(--azia-card,#fff);
     }
     .admin-table{
       width:100%;
@@ -455,7 +455,7 @@ function org_admin_render_head(string $title): void
       position:sticky;
       top:0;
       z-index:3;
-      background:#fff!important;
+      background:var(--azia-card,#fff)!important;
       font-size:11px;
       text-transform:uppercase;
       letter-spacing:.6px;
@@ -471,7 +471,7 @@ function org_admin_render_head(string $title): void
     }
     .admin-table td{
       vertical-align:middle;
-      background:#fff!important;
+      background:var(--azia-card,#fff)!important;
       color:#4b5565;
       padding:12px 10px;
       border:1px solid #e3e7ed!important;
@@ -481,7 +481,7 @@ function org_admin_render_head(string $title): void
       white-space:nowrap;
       max-width:0;
     }
-    .admin-table tbody tr > td:first-child{ font-weight:700; color:#1c273c; }
+    .admin-table tbody tr > td:first-child{ font-weight:700; color:var(--azia-text,#1c273c); }
     .admin-table tbody tr > td:last-child{
       max-width:none;
       overflow:visible;
@@ -491,7 +491,7 @@ function org_admin_render_head(string $title): void
       white-space:nowrap;
       width:64px;
     }
-    .admin-table.table-hover tbody tr:hover td{ background:#f8fafc!important; }
+    .admin-table.table-hover tbody tr:hover td{ background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc))!important; }
     .pill{
       display:inline-flex; align-items:center; padding:5px 10px; border-radius:3px;
       font-size:11px; font-weight:700; white-space:nowrap;
@@ -506,17 +506,17 @@ function org_admin_render_head(string $title): void
       gap:12px; padding:16px 18px; border-bottom:1px solid #dee2e6;
     }
     .detail-box{
-      border:1px solid #dee2e6; border-radius:.25rem; padding:12px 14px; background:#fff;
+      border:1px solid #dee2e6; border-radius:.25rem; padding:12px 14px; background:var(--azia-card,#fff);
     }
     .detail-box .label{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:700; }
-    .detail-box .value{ margin-top:6px; font-size:14px; font-weight:700; color:#1c273c; word-break:break-word; }
+    .detail-box .value{ margin-top:6px; font-size:14px; font-weight:700; color:var(--azia-text,#1c273c); word-break:break-word; }
     .search-form{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .search-form input[type="text"]{
       min-width:220px; height:34px; border:1px solid #ced4da; border-radius:3px; padding:0 10px;
     }
     .btn-mini{
       display:inline-flex; align-items:center; justify-content:center; min-height:32px;
-      padding:5px 12px; border-radius:3px; border:1px solid #ced4da; background:#fff;
+      padding:5px 12px; border-radius:3px; border:1px solid #ced4da; background:var(--azia-card,#fff);
       font-size:12px; font-weight:600; text-decoration:none; color:#343a40; cursor:pointer;
     }
     .btn-mini.primary{ background:#0866c6; border-color:#0759ad; color:#fff; }

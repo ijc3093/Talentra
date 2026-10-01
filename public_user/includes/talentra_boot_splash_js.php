@@ -33,11 +33,11 @@ declare(strict_types=1);
   }
   .msb-te-boot-mark{
     position:absolute;inset:0;display:grid;place-items:center;
-    font-family:Georgia,"Times New Roman",serif;font-size:42px;font-weight:700;color:#e8c98a;line-height:1;
+    font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;font-size:42px;font-weight:700;color:#e8c98a;line-height:1;
     text-shadow:0 0 18px rgba(232,201,138,.35);
   }
   .msb-te-boot-brand{
-    margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(2.2rem,7vw,2.9rem);font-weight:600;letter-spacing:.02em;
+    margin:0;font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;font-size:clamp(2.2rem,7vw,2.9rem);font-weight:600;letter-spacing:.02em;
     display:flex;justify-content:center;gap:.015em;
   }
   .msb-te-boot-brand span{

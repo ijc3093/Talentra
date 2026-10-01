@@ -596,10 +596,12 @@ function feedBuildNotificationType(string $message, array $meta = []): string {
   $route = trim((string)($meta['route'] ?? ''));
   $postId = (int)($meta['post_id'] ?? 0);
   $commentId = (int)($meta['comment_id'] ?? 0);
+  $communityId = (int)($meta['community_id'] ?? 0);
 
   if ($route !== '') $suffix .= ' [r:' . preg_replace('/[^a-z]/i', '', $route) . ']';
   if ($postId > 0) $suffix .= ' [p:' . $postId . ']';
   if ($commentId > 0) $suffix .= ' [c:' . $commentId . ']';
+  if ($communityId > 0) $suffix .= ' [cc:' . $communityId . ']';
 
   $max = 100;
   $suffixLen = mb_strlen($suffix);
@@ -620,6 +622,26 @@ function feedAddNotification(PDO $dbh, int $senderId, int $receiverId, string $m
   $senderLabel = trim((string)($sender['display_name'] ?? $sender['username'] ?? ''));
   $receiverUsername = trim((string)($receiver['username'] ?? ''));
   if ($senderLabel === '' || $receiverUsername === '') return;
+
+  // Community posts use hidden public-post bridge rows. Attach their community
+  // context here so every engagement notification (reaction, comment, mention,
+  // share, save, etc.) opens the original post inside its community profile.
+  $notificationPostId = (int)($meta['post_id'] ?? 0);
+  if ($notificationPostId > 0 && (int)($meta['community_id'] ?? 0) <= 0) {
+    try {
+      $stCommunity = $dbh->prepare(
+        "SELECT community_id FROM community_posts WHERE public_post_id = :post_id AND status <> 'removed' LIMIT 1"
+      );
+      $stCommunity->execute([':post_id' => $notificationPostId]);
+      $communityId = (int)($stCommunity->fetchColumn() ?: 0);
+      if ($communityId > 0) {
+        $meta['community_id'] = $communityId;
+        $meta['route'] = 'cpost';
+      }
+    } catch (Throwable $e) {
+      // Keep the normal post route if this installation has no community tables.
+    }
+  }
 
   try {
     $st = $dbh->prepare("
@@ -670,8 +692,34 @@ try {
       $order = 'attention';
     }
 
-    $where  = "COALESCE(p.is_deleted, 0) = 0 AND COALESCE(p.is_archived,0) = 0";
+    $communityCircleDeletedScope = "EXISTS (
+      SELECT 1
+      FROM community_posts cp_circle_deleted
+      INNER JOIN community_members cm_circle_deleted
+        ON cm_circle_deleted.community_id = cp_circle_deleted.community_id
+       AND cm_circle_deleted.user_id = :communityCircleDeletedViewer
+       AND cm_circle_deleted.status = 'active'
+      WHERE cp_circle_deleted.public_post_id = p.id
+        AND cp_circle_deleted.status = 'published'
+        AND COALESCE(cp_circle_deleted.visibility, 'public') = 'public'
+    )";
+    $communityCircleAudienceScope = "EXISTS (
+      SELECT 1
+      FROM community_posts cp_circle_audience
+      INNER JOIN community_members cm_circle_audience
+        ON cm_circle_audience.community_id = cp_circle_audience.community_id
+       AND cm_circle_audience.user_id = :communityCircleAudienceViewer
+       AND cm_circle_audience.status = 'active'
+      WHERE cp_circle_audience.public_post_id = p.id
+        AND cp_circle_audience.status = 'published'
+        AND COALESCE(cp_circle_audience.visibility, 'public') = 'public'
+    )";
+    $where = "COALESCE(p.is_deleted, 0) = 0 AND COALESCE(p.is_archived,0) = 0";
     $params = [];
+    if ($pageMode === 'feed') {
+      $where = "(COALESCE(p.is_deleted, 0) = 0 OR {$communityCircleDeletedScope}) AND COALESCE(p.is_archived,0) = 0";
+      $params[':communityCircleDeletedViewer'] = $meId;
+    }
 
     if ($filter === 'author' && $authorId > 0) {
       $where .= " AND p.user_id = :author";
@@ -693,8 +741,9 @@ try {
       $where .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, true);
       $params = array_merge($params, publisher_public_surface_scope_params($dbh, $meId, true));
     } else {
-      $where .= ' AND ' . publisher_feed_list_scope_sql_for($dbh, $meId);
+      $where .= ' AND (' . publisher_feed_list_scope_sql_for($dbh, $meId) . ' OR ' . $communityCircleAudienceScope . ')';
       $params = array_merge($params, publisher_feed_list_scope_params_for($dbh, $meId));
+      $params[':communityCircleAudienceViewer'] = $meId;
     }
 
     // Program / publisher tabs (sports, science, vets, …) — same filter as public.php / home.php?tab=
@@ -852,6 +901,7 @@ try {
         COALESCE(p.link_description,'') AS link_description,
         COALESCE(p.link_image,'') AS link_image,
         COALESCE(p.link_tags,'') AS link_tags,
+        COALESCE(p.hashtags,'') AS hashtags,
         COALESCE(p.sound_id,0) AS sound_id,
         COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
         COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
@@ -943,6 +993,13 @@ try {
         (string)($r['preview_thumb_path'] ?? ''),
         (int)($r['attachment_count'] ?? 0)
       );
+      $previewDimensions = device_profile_media_dimensions(
+        (string)($r['preview_type'] ?? ''),
+        (string)($r['preview_path'] ?? ''),
+        (string)($r['preview_thumb_path'] ?? '')
+      );
+      $r['preview_w'] = (int)($previewDimensions['w'] ?? 0);
+      $r['preview_h'] = (int)($previewDimensions['h'] ?? 0);
       if ($r['media_shape'] === '' && (int)($r['attachment_count'] ?? 0) === 1) {
         $r['media_shape'] = 'single-square';
       }
@@ -1120,9 +1177,8 @@ try {
     // ✅ unread_count for badge (overall)
     $unreadWhere = "p.is_deleted = 0 AND COALESCE(p.is_archived,0) = 0 AND (r.last_seen_at IS NULL OR COALESCE(p.updated_at, p.created_at) > r.last_seen_at)";
     $unreadParams = [':meRead' => $meId];
-    $unreadJoin = '';
+    $unreadJoin = ' JOIN users u ON u.id = p.user_id';
     if ($pageMode === 'public' || $pageMode === 'news') {
-      $unreadJoin = ' JOIN users u ON u.id = p.user_id';
       $unreadWhere .= " AND p.visibility = 'public'";
       $unreadWhere .= ' AND ' . publisher_public_surface_scope_sql($dbh, $meId, $pageMode === 'news');
       $unreadParams = array_merge($unreadParams, publisher_public_surface_scope_params($dbh, $meId, $pageMode === 'news'));
@@ -1130,14 +1186,19 @@ try {
       $unreadWhere .= ' AND ' . publisher_feed_unread_scope_sql_for($dbh, $meId);
       $unreadParams = array_merge($unreadParams, publisher_feed_unread_scope_params_for($dbh, $meId));
     }
-    $stU = $dbh->prepare("
-      SELECT COUNT(*)
-      FROM public_posts p{$unreadJoin}
-      LEFT JOIN public_post_reads r ON r.post_id = p.id AND r.user_id = :meRead
-      WHERE {$unreadWhere}
-    ");
-    $stU->execute($unreadParams);
-    $unreadCount = (int)($stU->fetchColumn() ?: 0);
+    $unreadCount = 0;
+    try {
+      $stU = $dbh->prepare("
+        SELECT COUNT(*)
+        FROM public_posts p{$unreadJoin}
+        LEFT JOIN public_post_reads r ON r.post_id = p.id AND r.user_id = :meRead
+        WHERE {$unreadWhere}
+      ");
+      $stU->execute($unreadParams);
+      $unreadCount = (int)($stU->fetchColumn() ?: 0);
+    } catch (Throwable $eUnread) {
+      $unreadCount = 0;
+    }
 
     jexit([
       'ok' => true,
@@ -1195,7 +1256,7 @@ try {
         EXISTS(SELECT 1 FROM public_follows pf WHERE pf.follower_id = :meFollow AND pf.following_id = p.user_id) AS is_following
       FROM public_posts p
       JOIN users u ON u.id = p.user_id
-      WHERE p.id = :id AND p.is_deleted = 0
+      WHERE p.id = :id AND (p.is_deleted = 0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id = p.id AND cp.status <> 'removed'))
       LIMIT 1
     ");
     $st->execute([':id' => $postId, ':meFollow' => $meId]);
@@ -1530,7 +1591,7 @@ try {
     $postVisibility = 'friends';
     $previousReaction = '';
     try {
-      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND (is_deleted = 0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id = public_posts.id AND cp.status <> 'removed')) LIMIT 1");
       $stPost->execute([':pid' => $postId]);
       $postRow = $stPost->fetch(PDO::FETCH_ASSOC) ?: [];
       $postOwnerId = (int)($postRow['user_id'] ?? 0);
@@ -1633,7 +1694,7 @@ try {
     if ($postId <= 0) jexit(['ok'=>false,'error'=>'Missing post id', 'me_id'=>$meId]);
 
     try {
-      $stAccess = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stAccess = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND (is_deleted = 0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id = public_posts.id AND cp.status <> 'removed')) LIMIT 1");
       $stAccess->execute([':pid' => $postId]);
       $accessRow = $stAccess->fetch(PDO::FETCH_ASSOC) ?: [];
       if (!$accessRow || !publisher_post_interaction_allowed($dbh, $meId, $accessRow)) {
@@ -1724,7 +1785,7 @@ try {
         }
       }
 
-      $stAccess = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stAccess = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND (is_deleted = 0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id = public_posts.id AND cp.status <> 'removed')) LIMIT 1");
       $stAccess->execute([':pid' => $postId]);
       $accessRow = $stAccess->fetch(PDO::FETCH_ASSOC) ?: [];
       if (!$accessRow || !publisher_post_interaction_allowed($dbh, $meId, $accessRow)) {
@@ -1819,7 +1880,7 @@ try {
       $visibility = 'private';
     }
 
-    $stP = $dbh->prepare("SELECT id, user_id, LOWER(COALESCE(NULLIF(TRIM(visibility), ''), 'friends')) AS visibility FROM public_posts WHERE id = :id AND COALESCE(is_deleted,0) = 0 LIMIT 1");
+    $stP = $dbh->prepare("SELECT id,user_id,LOWER(COALESCE(NULLIF(TRIM(visibility),''),'friends')) visibility FROM public_posts WHERE id=:id AND (COALESCE(is_deleted,0)=0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id=public_posts.id AND cp.status<>'removed')) LIMIT 1");
     $stP->execute([':id' => $postId]);
     $p = $stP->fetch(PDO::FETCH_ASSOC);
     if (!$p) jexit(['ok' => false, 'error' => 'Post not found', 'me_id' => $meId]);
@@ -1828,6 +1889,7 @@ try {
     try {
       $stU = $dbh->prepare("UPDATE public_posts SET visibility = :v, updated_at = NOW() WHERE id = :id AND user_id = :uid LIMIT 1");
       $stU->execute([':v' => $visibility, ':id' => $postId, ':uid' => $meId]);
+      $dbh->prepare("UPDATE community_posts SET visibility=:v WHERE public_post_id=:id AND user_id=:uid AND status<>'removed'")->execute([':v'=>$visibility==='private'?'private':'public',':id'=>$postId,':uid'=>$meId]);
     } catch (Throwable $e) {
       jexit(['ok' => false, 'error' => 'Could not update visibility.', 'me_id' => $meId]);
     }
@@ -1872,7 +1934,7 @@ try {
     }
     $fromStory = ((int)($_POST['from_story'] ?? 0) === 1);
 
-    $stP = $dbh->prepare("SELECT id, user_id, COALESCE(is_archived,0) AS is_archived FROM public_posts WHERE id = :id AND is_deleted = 0 LIMIT 1");
+    $stP = $dbh->prepare("SELECT id,user_id,COALESCE(is_archived,0) AS is_archived FROM public_posts WHERE id=:id AND (is_deleted=0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id=public_posts.id AND cp.status<>'removed')) LIMIT 1");
     $stP->execute([':id' => $postId]);
     $p = $stP->fetch(PDO::FETCH_ASSOC);
     if (!$p) jexit(['ok' => false, 'error' => 'Post not found', 'me_id' => $meId]);
@@ -1907,6 +1969,7 @@ try {
         $asStory = 0;
       }
     }
+    try{$dbh->prepare("UPDATE community_posts SET status=:status WHERE public_post_id=:id AND user_id=:uid")->execute([':status'=>$nextArchived?'removed':'published',':id'=>$postId,':uid'=>$meId]);}catch(Throwable $eCommunityArchive){}
 
     jexit([
       'ok' => true,
@@ -1928,14 +1991,21 @@ try {
 
     // Only owner can delete in public_user
     try {
-      $stP = $dbh->prepare("SELECT id, user_id FROM public_posts WHERE id = :id AND is_deleted = 0 LIMIT 1");
+      $stP = $dbh->prepare("SELECT id,user_id FROM public_posts WHERE id=:id AND (is_deleted=0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id=public_posts.id AND cp.status<>'removed')) LIMIT 1");
       $stP->execute([":id"=>$postId]);
       $p = $stP->fetch(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
-      jexit(["ok"=>false,"error"=>"Unable to load post", "me_id"=>$meId]);
+      try {
+        $stP = $dbh->prepare("SELECT id,user_id FROM public_posts WHERE id=:id AND COALESCE(is_deleted,0)=0 LIMIT 1");
+        $stP->execute([":id"=>$postId]);
+        $p = $stP->fetch(PDO::FETCH_ASSOC);
+      } catch (Throwable $e2) {
+        jexit(["ok"=>false,"error"=>"Unable to load post", "me_id"=>$meId]);
+      }
     }
     if (!$p) jexit(["ok"=>false,"error"=>"Post not found", "me_id"=>$meId]);
     if ((int)$p["user_id"] !== $meId) jexit(["ok"=>false,"error"=>"Not allowed", "me_id"=>$meId]);
+    try{$dbh->prepare("UPDATE community_posts SET status='removed' WHERE public_post_id=:id AND user_id=:uid")->execute([':id'=>$postId,':uid'=>$meId]);}catch(Throwable $eCommunityDelete){}
 
     // Soft-delete (same as public.php) so feeds hide the card without fighting FKs/triggers.
     try {
@@ -1991,7 +2061,7 @@ try {
     $postOwnerId = 0;
     $postVisibility = 'friends';
     try {
-      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND (is_deleted = 0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id = public_posts.id AND cp.status <> 'removed')) LIMIT 1");
       $stPost->execute([':pid' => $postId]);
       $postRow = $stPost->fetch(PDO::FETCH_ASSOC) ?: [];
       $postOwnerId = (int)($postRow['user_id'] ?? 0);
@@ -2092,7 +2162,7 @@ try {
     $postVisibility = 'friends';
     $parentOwnerId = 0;
     try {
-      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND is_deleted = 0 LIMIT 1");
+      $stPost = $dbh->prepare("SELECT id, user_id, visibility FROM public_posts WHERE id = :pid AND (is_deleted = 0 OR EXISTS(SELECT 1 FROM community_posts cp WHERE cp.public_post_id = public_posts.id AND cp.status <> 'removed')) LIMIT 1");
       $stPost->execute([':pid' => $postId]);
       $postRow = $stPost->fetch(PDO::FETCH_ASSOC) ?: [];
       $postOwnerId = (int)($postRow['user_id'] ?? 0);

@@ -6,6 +6,7 @@ requireUserLogin();
 
 require_once __DIR__ . '/../controller.php';
 require_once __DIR__ . '/../includes/group_video_call_lib.php';
+require_once __DIR__ . '/../includes/chat_lib.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -221,9 +222,9 @@ try {
         'is_me' => false,
         'text' => (string)($replyBits['text'] ?? ''),
         'created_at' => (string)($item['created_at'] ?? ''),
-        'time_label' => (string)date('M d, Y h:i A', strtotime((string)($item['created_at'] ?? 'now'))),
-        'day_key' => (string)date('Y-m-d', strtotime((string)($item['created_at'] ?? 'now'))),
-        'day_label' => (string)date('M j, Y', strtotime((string)($item['created_at'] ?? 'now'))),
+        'time_label' => chat_fmt_time_full((string)($item['created_at'] ?? '')),
+        'day_key' => (string)date('Y-m-d', strtotime((string)($item['created_at'] ?? 'now')) ?: time()),
+        'day_label' => fmt_day_label((string)($item['created_at'] ?? '')),
         'sender_name' => (string)($item['sender_name'] ?? ''),
         'friend_code' => (string)($item['friend_code'] ?? ''),
         'reply_author' => (string)($replyBits['reply_author'] ?? ''),
@@ -242,9 +243,9 @@ try {
             'is_me' => true,
             'text' => (string)($replyBits['text'] ?? ''),
             'created_at' => (string)($item['created_at'] ?? ''),
-            'time_label' => (string)date('M d, Y h:i A', strtotime((string)($item['created_at'] ?? 'now'))),
-            'day_key' => (string)date('Y-m-d', strtotime((string)($item['created_at'] ?? 'now'))),
-            'day_label' => (string)date('M j, Y', strtotime((string)($item['created_at'] ?? 'now'))),
+            'time_label' => chat_fmt_time_full((string)($item['created_at'] ?? '')),
+            'day_key' => (string)date('Y-m-d', strtotime((string)($item['created_at'] ?? 'now')) ?: time()),
+            'day_label' => fmt_day_label((string)($item['created_at'] ?? '')),
             'sender_name' => (string)($item['sender_name'] ?? ''),
             'friend_code' => (string)($item['friend_code'] ?? ''),
             'reply_author' => (string)($replyBits['reply_author'] ?? ''),

@@ -72,7 +72,7 @@
   margin: 0 0 2px !important;
   font-size: 18px !important;
   font-weight: 700 !important;
-  color: #1c273c !important;
+  color: var(--azia-text, var(--msb-palette-text, #1c273c)) !important;
   letter-spacing: 0 !important;
   line-height: 1.2 !important;
   white-space: nowrap;
@@ -83,28 +83,28 @@
   margin: 0 0 2px !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  color: #8392a5 !important;
+  color: var(--azia-muted, var(--msb-palette-text-muted, #8392a5)) !important;
   line-height: 1.3 !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .azia-page-crumb a {
-  color: #8392a5 !important;
+  color: var(--azia-muted, var(--msb-palette-text-muted, #8392a5)) !important;
   text-decoration: none;
   font-weight: 500 !important;
 }
 .azia-page-crumb a:hover {
-  color: #5b47fb !important;
+  color: var(--msb-palette-action, #5b47fb) !important;
 }
 .azia-page-crumb-sep {
   margin: 0 5px;
-  color: #8392a5;
+  color: var(--azia-muted, var(--msb-palette-text-muted, #8392a5));
 }
 .azia-page-intro p {
   margin: 0 !important;
   font-size: 12px !important;
-  color: #8392a5 !important;
+  color: var(--azia-muted, var(--msb-palette-text-muted, #8392a5)) !important;
   font-weight: 400 !important;
   line-height: 1.3 !important;
   white-space: nowrap;
@@ -191,7 +191,7 @@
 }
 .azia-search input:focus {
   box-shadow: 0 0 0 2px rgba(91, 71, 251, 0.2);
-  background: #fff !important;
+  background: var(--msb-palette-input-bg, var(--msb-palette-surface-2, #fff)) !important;
 }
 .azia-avatar {
   width: 36px !important;

@@ -344,7 +344,7 @@ function org_sales_notifications(PDO $dbh, int $orgId): array
         if ((int)$life['pending'] > 0) {
             $alerts[] = [
                 'type' => 'Pending',
-                'message' => (int)$life['pending'] . ' order(s) awaiting payment or confirmation. Status stays pending until the customer pays — then it moves to Paid automatically.',
+                'message' => (int)$life['pending'] . ' order(s) cannot ship yet — customer payment is incomplete (partial pay, card issue, or insufficient funds). Do not ship until status moves to Paid.',
                 'action' => 'sales_management.php#orders',
                 'count' => (int)$life['pending'],
                 'lifecycle' => true,
@@ -449,7 +449,7 @@ function org_sales_notifications(PDO $dbh, int $orgId): array
             'type' => 'Inventory',
             'message' => (int)$inv['low'] > 0
                 ? ('Products are now low in stock — ' . (int)$inv['low']
-                    . ' product(s) have less than 5 units. Sold-out items leave the public shop automatically. Restock soon.')
+                    . ' product(s) have less than 2 units. Sold-out items leave the public shop automatically. Restock soon.')
                 : ('Inventory needs attention — sold-out items leave the public shop; drafts stay unpublished until activated.'),
             'action' => 'sales_management.php#inventory',
             'count' => max(1, (int)$inv['total']),
@@ -565,8 +565,8 @@ function org_sales_commerce_event_feed(PDO $dbh, int $orgId, int $limit = 40): a
                 $sort = $whenRaw !== '' ? (int)strtotime($whenRaw) : (int)($g['date_sort'] ?? 0);
                 $products = implode(', ', $g['product_titles'] ?? []);
                 $titleMap = [
-                    'pending' => 'Pending — awaiting payment',
-                    'confirmed' => 'Pending — awaiting payment',
+                    'pending' => 'Pending — payment incomplete (do not ship)',
+                    'confirmed' => 'Pending — payment incomplete (do not ship)',
                     'paid' => 'Paid — ready to ship',
                     'shipped' => 'Shipping — in transit',
                     'delivered' => 'Delivery confirmed',
@@ -574,10 +574,19 @@ function org_sales_commerce_event_feed(PDO $dbh, int $orgId, int $limit = 40): a
                 $action = in_array($status, ['shipped', 'delivered'], true)
                     ? 'sales_management.php#delivery-shipping'
                     : 'sales_management.php#orders';
+                $msgExtra = '';
+                if (in_array($status, ['pending', 'confirmed'], true)) {
+                    $line0 = is_array($g['lines'][0] ?? null) ? $g['lines'][0] : [];
+                    $msgExtra = $line0 !== []
+                        ? org_shop_order_incomplete_payment_seller_message($line0)
+                        : 'Customer payment incomplete — wait for Paid before shipping';
+                }
                 $feed[] = [
                     'type' => $type,
                     'title' => ($titleMap[$status] ?? ucfirst($status)) . ' · ' . (string)($g['buyer_name'] ?? 'Customer'),
-                    'message' => ($products !== '' ? $products . ' · ' : '') . (string)($g['total_label'] ?? ''),
+                    'message' => ($products !== '' ? $products . ' · ' : '')
+                        . (string)($g['total_label'] ?? '')
+                        . ($msgExtra !== '' ? ' · ' . $msgExtra : ''),
                     'when' => $whenRaw !== '' ? date('M j, Y g:i A', $sort ?: time()) : (string)($g['date_label'] ?? ''),
                     'action' => $action,
                     'sort' => $sort,
@@ -623,15 +632,21 @@ function org_sales_commerce_event_feed(PDO $dbh, int $orgId, int $limit = 40): a
 
 /**
  * Actionable seller attention counts for header + sales workflow badges.
+ * Includes orders/products/notifications plus customer DMs, Support Center, and disputes.
  *
  * @return array{
  *   total:int,
  *   orders:int,
  *   delivery:int,
  *   products:int,
+ *   inventory_low:int,
+ *   inventory_out:int,
  *   customers:int,
  *   returns:int,
- *   notification:int
+ *   notification:int,
+ *   messages:int,
+ *   support:int,
+ *   disputes:int
  * }
  */
 function org_sales_attention_counts(PDO $dbh, int $orgId): array
@@ -641,9 +656,14 @@ function org_sales_attention_counts(PDO $dbh, int $orgId): array
         'orders' => 0,
         'delivery' => 0,
         'products' => 0,
+        'inventory_low' => 0,
+        'inventory_out' => 0,
         'customers' => 0,
         'returns' => 0,
         'notification' => 0,
+        'messages' => 0,
+        'support' => 0,
+        'disputes' => 0,
     ];
     if ($orgId <= 0) {
         return $out;
@@ -656,16 +676,22 @@ function org_sales_attention_counts(PDO $dbh, int $orgId): array
     }
 
     try {
-        // OMS badge = customer rows needing attention (same grouping as orders.php).
-        // One buyer with bowl+burger = 1, two separate customer purchases = 2.
+        // Orders badge = active OMS inbox rows (pending / confirmed / paid = Processing).
+        // Match All Orders / Processing KPIs: one checkout (order_code) = one badge count.
         if (!function_exists('org_shop_list_orders')) {
             require_once dirname(__DIR__, 2) . '/public_user/includes/org_shop.php';
         }
-        $attentionLines = array_merge(
-            org_shop_list_orders($dbh, $orgId, 'pending', 500),
-            org_shop_list_orders($dbh, $orgId, 'confirmed', 500)
-        );
-        $out['orders'] = count(org_shop_group_seller_customer_orders($attentionLines));
+        $attentionLines = org_shop_list_orders($dbh, $orgId, 'processing', 500);
+        $checkoutKeys = [];
+        foreach ($attentionLines as $line) {
+            $code = trim((string)($line['order_code'] ?? ''));
+            $id = (int)($line['id'] ?? 0);
+            if ($code === '' && $id <= 0) {
+                continue;
+            }
+            $checkoutKeys[$code !== '' ? ('c:' . $code) : ('o:' . $id)] = true;
+        }
+        $out['orders'] = count($checkoutKeys);
     } catch (Throwable $e) {
         $out['orders'] = 0;
     }
@@ -682,36 +708,18 @@ function org_sales_attention_counts(PDO $dbh, int $orgId): array
     }
 
     try {
-        // Product table risks: low stock (< 5 units) + newly created catalog items (7 days).
-        $st = $dbh->prepare("
-            SELECT COUNT(*)
-            FROM org_products
-            WHERE org_id = :org
-              AND is_deleted = 0
-              AND status = 'active'
-              AND (
-                    (stock_qty IS NOT NULL AND stock_qty < 5)
-                 OR created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-              )
-        ");
-        $st->execute([':org' => $orgId]);
-        $out['products'] = (int)($st->fetchColumn() ?: 0);
-    } catch (Throwable $e) {
-        try {
-            $st = $dbh->prepare("
-                SELECT COUNT(*)
-                FROM org_products
-                WHERE org_id = :org
-                  AND is_deleted = 0
-                  AND status = 'active'
-                  AND stock_qty IS NOT NULL
-                  AND stock_qty < 5
-            ");
-            $st->execute([':org' => $orgId]);
-            $out['products'] = (int)($st->fetchColumn() ?: 0);
-        } catch (Throwable $e2) {
-            $out['products'] = 0;
+        // Stock alerts for Products + Inventory nav: low (< 2) and sold out.
+        if (!function_exists('org_shop_inventory_status_counts')) {
+            require_once dirname(__DIR__, 2) . '/public_user/includes/org_shop.php';
         }
+        $invCounts = org_shop_inventory_status_counts($dbh, $orgId);
+        $out['inventory_low'] = (int)($invCounts['low'] ?? 0);
+        $out['inventory_out'] = (int)($invCounts['sold_out'] ?? 0);
+        $out['products'] = (int)$out['inventory_low'] + (int)$out['inventory_out'];
+    } catch (Throwable $e) {
+        $out['inventory_low'] = 0;
+        $out['inventory_out'] = 0;
+        $out['products'] = 0;
     }
 
     try {
@@ -770,10 +778,62 @@ function org_sales_attention_counts(PDO $dbh, int $orgId): array
         $out['notification'] = (int)$out['returns'] + (int)$out['delivery'];
     }
 
+    // Customer DMs + Support Center + open product disputes (seller must not miss).
+    $publisherUserId = 0;
+    try {
+        require_once dirname(__DIR__, 2) . '/public_user/includes/staff_publisher_access.php';
+        if (function_exists('staff_pub_org_publisher_user_id')) {
+            $publisherUserId = (int)staff_pub_org_publisher_user_id($dbh, $orgId);
+        }
+        if ($publisherUserId <= 0) {
+            $stPub = $dbh->prepare('SELECT publisher_user_id FROM organizations WHERE id = :id LIMIT 1');
+            $stPub->execute([':id' => $orgId]);
+            $publisherUserId = (int)($stPub->fetchColumn() ?: 0);
+        }
+    } catch (Throwable $e) {
+        $publisherUserId = 0;
+    }
+
+    if ($publisherUserId > 0) {
+        try {
+            require_once dirname(__DIR__, 2) . '/public_user/includes/commerce_messaging.php';
+            if (function_exists('commerce_seller_buyer_unread_count')) {
+                $out['messages'] = max(0, (int)commerce_seller_buyer_unread_count($dbh, $publisherUserId));
+            }
+        } catch (Throwable $e) {
+            $out['messages'] = 0;
+        }
+
+        try {
+            require_once dirname(__DIR__, 2) . '/public_user/includes/admin_support_chat.php';
+            $email = function_exists('admin_support_user_email')
+                ? admin_support_user_email($dbh, $publisherUserId)
+                : '';
+            if ($email !== '' && function_exists('admin_support_unread_count')) {
+                $out['support'] = max(0, (int)admin_support_unread_count($dbh, $email));
+            }
+        } catch (Throwable $e) {
+            $out['support'] = 0;
+        }
+
+        try {
+            require_once dirname(__DIR__, 2) . '/public_user/includes/commerce_disputes.php';
+            if (function_exists('commerce_dispute_list_for_seller')) {
+                $out['disputes'] = count(commerce_dispute_list_for_seller($dbh, $publisherUserId, 50));
+            }
+        } catch (Throwable $e) {
+            $out['disputes'] = 0;
+        }
+    }
+
+    // Hub total = distinct attention buckets (notification is a panel view of overlapping order states).
     $out['total'] = (int)$out['orders']
         + (int)$out['products']
         + (int)$out['customers']
-        + (int)$out['notification'];
+        + (int)$out['returns']
+        + (int)$out['messages']
+        + (int)$out['support']
+        + (int)$out['disputes'];
 
     return $out;
 }

@@ -11,6 +11,7 @@ requireUserLogin();
 
 require_once __DIR__ . '/../includes/user_identity.php';
 require_once __DIR__ . '/../controller.php';
+require_once __DIR__ . '/../includes/chat_lib.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -188,6 +189,28 @@ if ($mode === 'unread_threads') {
         ]);
         $items = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        require_once __DIR__ . '/../includes/chat_lib.php';
+        require_once __DIR__ . '/../includes/commerce_messaging.php';
+        require_once __DIR__ . '/../includes/friend_system.php';
+        $filtered = [];
+        foreach ($items as $it) {
+            $code = strtoupper(trim((string)($it['peer_code'] ?? '')));
+            $pid = $code !== '' ? commerce_messaging_user_id_by_friend_code($dbh, $code) : 0;
+            if ($pid > 0 && commerce_peer_belongs_in_shop_messages($dbh, $meId, $pid)) {
+                continue;
+            }
+            $filtered[] = $it;
+        }
+        $items = $filtered;
+
+        foreach ($items as &$it) {
+            $raw = trim((string)($it['last_message'] ?? ''));
+            if ($raw !== '') {
+                $it['last_message'] = call_event_display_text($raw, false);
+            }
+        }
+        unset($it);
+
         $total = 0;
         $unknown = 0;
         foreach ($items as $it) {
@@ -329,7 +352,7 @@ try {
                 }
 
                 $dayKey = $ts ? date('Y-m-d', $ts) : '';
-                $dayLbl = $ts ? date('M j, Y', $ts) : '';
+                $dayLbl = $created !== '' ? fmt_day_label($created) : '';
                 $replyBits = parse_reply_payload((string)($r['feedbackdata'] ?? ''));
 
                 $items[] = [
@@ -342,7 +365,7 @@ try {
                     'reply_text' => (string)($replyBits['reply_text'] ?? ''),
                     'reply_message_id' => (int)($replyBits['reply_message_id'] ?? 0),
                     'created_at' => $created,
-                    'time_label' => $ts ? date('M d, Y h:i A', $ts) : '',
+                    'time_label' => $ts ? chat_fmt_time_full($created) : '',
                     'day_key' => $dayKey,
                     'day_label' => $dayLbl,
                     'is_read' => (int)($r['is_read'] ?? 0),

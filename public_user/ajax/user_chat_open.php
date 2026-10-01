@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/user_identity.php';
 require_once __DIR__ . '/../controller.php';
 require_once __DIR__ . '/../includes/friend_system.php';
 require_once __DIR__ . '/../includes/commerce_messaging.php';
+require_once __DIR__ . '/../includes/chat_lib.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -175,6 +176,19 @@ try {
         j(['ok' => false, 'error' => 'Not allowed']);
     }
 
+    // Shop seller chats open in Shopping Preferences Messages, not personal Messages.
+    if (function_exists('commerce_peer_belongs_in_shop_messages')
+        && commerce_peer_belongs_in_shop_messages($dbh, $meId, $peerId)) {
+        $aboutProduct = (int)($_GET['about_product'] ?? 0);
+        $aboutOrder = trim((string)($_GET['about_order'] ?? ''));
+        j([
+            'ok' => false,
+            'error' => 'shop_messages',
+            'shop_redirect' => commerce_message_seller_url($peerId, $aboutProduct, $aboutOrder),
+            'is_commerce' => true,
+        ]);
+    }
+
     $peerDisplay = $peerCode;
     try {
         $ns = $dbh->prepare("SELECT display_name FROM user_contacts WHERE owner_user_id = :me AND friend_user_id = :fid LIMIT 1");
@@ -197,14 +211,7 @@ try {
         if ($ts) {
             $ageSec = max(0, time() - $ts);
             $online = ($ageSec <= 300);
-            if ($online) {
-                $onlineLabel = 'Online';
-            } else {
-                if ($ageSec < 60) $onlineLabel = $ageSec . ' seconds ago';
-                elseif ($ageSec < 3600) $onlineLabel = (int)floor($ageSec / 60) . ' minutes ago';
-                elseif ($ageSec < 86400) $onlineLabel = (int)floor($ageSec / 3600) . ' hours ago';
-                else $onlineLabel = (int)floor($ageSec / 86400) . ' days ago';
-            }
+            $onlineLabel = $online ? 'Online' : chat_seconds_ago_label((int)$ageSec);
         }
     }
 
@@ -288,7 +295,7 @@ try {
             'reply_text' => (string)($replyBits['reply_text'] ?? ''),
             'reply_message_id' => (int)($replyBits['reply_message_id'] ?? 0),
             'created_at' => $created,
-            'time_label' => $ts ? date('M d, Y h:i A', $ts) : '',
+            'time_label' => $ts ? chat_fmt_time_full($created) : '',
             'day_key' => $ts ? date('Y-m-d', $ts) : '',
             'day_label' => open_day_label((int)$ts),
             'is_read' => (int)($r['is_read'] ?? 0),

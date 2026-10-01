@@ -15,6 +15,7 @@ require_once __DIR__ . '/includes/msb_feed_engagement.php';
 require_once __DIR__ . '/includes/missing_media.php';
 require_once __DIR__ . '/includes/post_layout.php';
 require_once __DIR__ . '/includes/friend_system.php';
+require_once __DIR__ . '/includes/device_profile.php';
 requireUserLogin();
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -108,6 +109,13 @@ if ($openPostId > 0) {
                 }
                 $att['type'] = $kind;
                 $att['file_path'] = $file;
+                $attDimensions = device_profile_media_dimensions(
+                    $kind,
+                    $file,
+                    (string)($att['thumb_path'] ?? '')
+                );
+                $att['w'] = (int)($attDimensions['w'] ?? 0);
+                $att['h'] = (int)($attDimensions['h'] ?? 0);
                 $bootAttsNorm[] = $att;
                 if ($kind === 'image' || $kind === 'gif') {
                     $photoCount++;
@@ -121,6 +129,11 @@ if ($openPostId > 0) {
             if ($media && !($photoCount > 1 && $firstKind !== 'video')) {
                 $src = reel_boot_media_src((string)($media['file_path'] ?? ''));
                 $thumb = reel_boot_media_src(trim((string)($media['thumb_path'] ?? '')));
+                $bootDimensions = device_profile_media_dimensions(
+                    $firstKind,
+                    (string)($media['file_path'] ?? ''),
+                    (string)($media['thumb_path'] ?? '')
+                );
                 if ($src !== '') {
                     $reelBootPost = [
                         'id' => (int)$bootRow['id'],
@@ -139,6 +152,8 @@ if ($openPostId > 0) {
                         'preview_type' => $firstKind,
                         'preview_missing' => 0,
                         'preview_thumb_path' => $thumb,
+                        'preview_w' => (int)($bootDimensions['w'] ?? 0),
+                        'preview_h' => (int)($bootDimensions['h'] ?? 0),
                         'attachment_count' => $mediaCount,
                         '_attachments' => $bootAttsNorm,
                     ];
@@ -175,7 +190,7 @@ $iconFries = post_card_menu_fries_icon_html();
       --reel-panel:rgba(255,255,255,.12);
       --reel-panel-hover:rgba(255,255,255,.18);
       --msb-love-color:#7c3aed;
-      --post-media-radius:6px;
+      --post-media-radius:9px;
       --post-media-max:680px;
       --post-phone-max:500px;
       --post-portrait-max:560px;
@@ -289,22 +304,31 @@ $iconFries = post_card_menu_fries_icon_html();
       gap:16px;
       max-width:100%;
     }
-    /* Hide video cards until the first frame paints. Image reels stay visible. */
-    .reel-slide:not(.is-image-reel):not(.reel-media-ready):not(.mf-media-missing):not(:has(.msb-no-image)) .reel-card-row{
-      visibility:hidden;
-      opacity:0;
-      pointer-events:none;
+    :root{--reel-loading-media-bg:#f1f1f1;}
+    html.dark-auto,html[data-theme="dark"],body.dark-auto{--reel-loading-media-bg:#4e4e4e75;}
+    /* Keep every reel card in place while its media loads. The gray stage uses
+       the same measured ratio as the final image/video. */
+    .reel-slide:not(.reel-media-ready):not(.mf-media-missing):not(:has(.msb-no-image)) .reel-stage{
+      background:var(--reel-loading-media-bg,#f1f1f1) !important;
+      border-radius:7px !important;
     }
+    .reel-slide:not(.reel-media-ready):not(.mf-media-missing):not(:has(.msb-no-image)) .reel-video,
+    .reel-slide:not(.reel-media-ready):not(.mf-media-missing):not(:has(.msb-no-image)) .reel-image{
+      opacity:0 !important;
+    }
+    .reel-slide.reel-media-ready .reel-video,
+    .reel-slide.reel-media-ready .reel-image{opacity:1;transition:opacity .14s ease;}
     .reel-stage{
       position:relative;
       width:min(100%, var(--post-media-card-width, var(--post-media-max)));
       max-width:min(100%, var(--feed-center-w));
       height:auto;
       max-height:var(--reel-media-max-h);
-      border-radius:var(--post-media-radius);
+      border-radius:0;
       overflow:hidden;
       background:#111;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
+      border:0;
+      box-shadow:none;
       flex:0 0 auto;
     }
     .reel-video,
@@ -313,9 +337,9 @@ $iconFries = post_card_menu_fries_icon_html();
       width:100%;
       height:auto;
       max-height:var(--reel-media-max-h, 78vh);
-      object-fit:contain;
+      object-fit:cover;
       object-position:center center;
-      background:transparent;
+      background:#000;
       border-radius:var(--post-media-radius);
     }
     .reel-stage.is-phone-shot{
@@ -511,7 +535,8 @@ $iconFries = post_card_menu_fries_icon_html();
       background:rgba(255,255,255,.18);
       z-index:6;
       overflow:hidden;
-      border-radius:0 0 var(--post-media-radius) var(--post-media-radius);
+      border-radius:0;
+      overflow:hidden;
     }
     .reel-progress > span{
       display:block;
@@ -553,7 +578,7 @@ $iconFries = post_card_menu_fries_icon_html();
       text-shadow:0 1px 2px rgba(0,0,0,.55);
     }
     .reel-act:hover{opacity:.82;}
-    /* Match home/profile compact 16px icons — keep love/comment/share/save identical. */
+    /* Side actions — a bit larger than feed compact icons. */
     body.reel-page .reel-act .msb-pact,
     body.reel-page .reel-act .msb-pact-heart,
     body.reel-page .reel-act .msb-pact-comment,
@@ -567,12 +592,12 @@ $iconFries = post_card_menu_fries_icon_html();
     body.reel-page .reel-act.is-like .msb-pact-thumb,
     body.reel-page .reel-act.is-share .msb-pact-share,
     body.reel-page .reel-act.is-save .msb-pact-bookmark{
-      width:16px !important;
-      height:16px !important;
-      min-width:16px !important;
-      min-height:16px !important;
-      flex:0 0 16px !important;
-      flex-basis:16px !important;
+      width:24px !important;
+      height:24px !important;
+      min-width:24px !important;
+      min-height:24px !important;
+      flex:0 0 24px !important;
+      flex-basis:24px !important;
       box-sizing:border-box !important;
     }
     .reel-act .msb-pact{
@@ -582,7 +607,7 @@ $iconFries = post_card_menu_fries_icon_html();
     .reel-act .msb-reaction-glyph{
       display:inline-flex !important;
       align-items:center;justify-content:center;
-      font-size:16px !important;
+      font-size:24px !important;
       line-height:1 !important;
       font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif !important;
       background:transparent !important;
@@ -743,12 +768,12 @@ $iconFries = post_card_menu_fries_icon_html();
         max-width:100%;
         max-height:var(--reel-media-max-h);
         aspect-ratio:var(--reel-ar-w, var(--device-ar-w, 375)) / var(--reel-ar-h, var(--device-ar-h, 667));
-        border-radius:var(--post-media-radius);
+        border-radius:0;
         overflow:hidden;
       }
       .reel-stage.is-phone-shot .reel-video,
       .reel-stage.is-phone-shot .reel-image{
-        width:100%;height:100%;max-height:none;object-fit:contain;border-radius:var(--post-media-radius);
+        width:100%;height:100%;max-height:none;object-fit:cover;border-radius:var(--post-media-radius);
       }
       .reel-jump{right:10px;}
     }
@@ -855,13 +880,13 @@ $iconFries = post_card_menu_fries_icon_html();
     @media (min-width:768px){
       .reel-stage.is-phone-shot{
         aspect-ratio:var(--reel-ar-w, 9) / var(--reel-ar-h, 16);
-        border-radius:var(--post-media-radius);
+        border-radius:0;
         max-height:var(--reel-media-max-h);
       }
       .reel-stage.is-phone-shot .reel-video,
       .reel-stage.is-phone-shot .reel-image{
         width:100%;height:100%;max-height:none;
-        object-fit:contain;border-radius:var(--post-media-radius);
+        object-fit:cover;border-radius:var(--post-media-radius);
       }
     }
   </style>
@@ -1135,7 +1160,8 @@ $iconFries = post_card_menu_fries_icon_html();
     }
     body.reel-page .reel-card-main > .reel-stage:not(:has(> .msb-no-image)){
       overflow:hidden !important;
-      border-radius:var(--post-media-radius) !important;
+      border-radius:0 !important;
+      border:0 !important;
       max-width:100% !important;
       max-height:var(--reel-media-max-h) !important;
     }
@@ -1150,11 +1176,11 @@ $iconFries = post_card_menu_fries_icon_html();
       width:100% !important;
       height:100% !important;
       min-height:240px !important;
-      border-radius:6px !important;
+      border-radius:0 !important;
       overflow:hidden !important;
       background:#fff !important;
-      clip-path:inset(0 round 6px) !important;
-      -webkit-clip-path:inset(0 round 6px) !important;
+      clip-path:none !important;
+      -webkit-clip-path:none !important;
     }
     body.reel-page .reel-card-main > .reel-stage:not(:has(> .msb-no-image)) > .reel-video,
     body.reel-page .reel-card-main > .reel-stage:not(:has(> .msb-no-image)) > img,
@@ -1166,9 +1192,9 @@ $iconFries = post_card_menu_fries_icon_html();
       max-height:var(--reel-media-max-h) !important;
       margin-left:0 !important;
       margin-right:0 !important;
-      object-fit:contain !important;
+      object-fit:cover !important;
       object-position:center center !important;
-      background:transparent !important;
+      background:#000 !important;
       border-radius:var(--post-media-radius) !important;
     }
     body.reel-page .reel-outside-head{
@@ -1514,6 +1540,40 @@ $iconFries = post_card_menu_fries_icon_html();
       if(!w || !h) return null;
       return { w: w, h: h };
     }
+    function reelLoadingDimensions(it){
+      it = it || {};
+      var attachment = Array.isArray(it._attachments) && it._attachments.length ? it._attachments[0] : null;
+      var pairs = [
+        [it.preview_w, it.preview_h],
+        [it.preview_width, it.preview_height],
+        [it.media_width, it.media_height],
+        [it.width, it.height],
+        [attachment && attachment.w, attachment && attachment.h],
+        [attachment && attachment.width, attachment && attachment.height],
+        [attachment && attachment.media_width, attachment && attachment.media_height]
+      ];
+      for(var i=0;i<pairs.length;i+=1){
+        var w=Number(pairs[i][0]||0),h=Number(pairs[i][1]||0);
+        if(w>0&&h>0)return{w:w,h:h};
+      }
+      try{
+        var cacheKey='talsora:reel-dims:'+String(it.preview_path||it.id||'');
+        var cached=JSON.parse(localStorage.getItem(cacheKey)||'null');
+        if(cached&&Number(cached.w)>0&&Number(cached.h)>0)return{w:Number(cached.w),h:Number(cached.h)};
+      }catch(_cacheRead){}
+      var device=parseDeviceAspect(it.device_style||'');
+      if(device)return device;
+      var shape=String(it.preview_shape||it.media_shape||'').toLowerCase();
+      if(shape==='portrait')return{w:9,h:16};
+      if(shape==='square')return{w:1,h:1};
+      return{w:16,h:9};
+    }
+    function rememberReelDimensions(it,w,h){
+      w=Number(w||0);h=Number(h||0);
+      if(!it||!(w>0&&h>0))return;
+      it.preview_w=w;it.preview_h=h;
+      try{localStorage.setItem('talsora:reel-dims:'+String(it.preview_path||it.id||''),JSON.stringify({w:w,h:h}));}catch(_cacheWrite){}
+    }
     function reelFeedWidth(){
       var isMobile = window.matchMedia('(max-width: 767.98px)').matches;
       var isNarrow = window.matchMedia('(max-width: 1024.98px)').matches;
@@ -1558,22 +1618,39 @@ $iconFries = post_card_menu_fries_icon_html();
       stageEl.style.setProperty('max-height', String(maxVideoH) + 'px', 'important');
       stageEl.style.setProperty('aspect-ratio', String(aspectW) + ' / ' + String(aspectH), 'important');
       stageEl.style.setProperty('overflow', 'hidden', 'important');
-      stageEl.style.setProperty('border-radius', '6px', 'important');
+      stageEl.style.setProperty('border-radius', stageEl.classList.contains('reel-loading-media') ? '7px' : '0', 'important');
+      stageEl.style.setProperty('border', '0', 'important');
+      stageEl.style.setProperty('background', stageEl.classList.contains('reel-loading-media') ? 'var(--reel-loading-media-bg,#f1f1f1)' : '#000', 'important');
       var mediaEl = stageEl.querySelector('.reel-video, .reel-image');
       if(mediaEl){
         mediaEl.style.setProperty('width', '100%', 'important');
         mediaEl.style.setProperty('height', '100%', 'important');
         mediaEl.style.setProperty('max-height', 'none', 'important');
-        mediaEl.style.setProperty('object-fit', 'contain', 'important');
+        mediaEl.style.setProperty('object-fit', 'cover', 'important');
         mediaEl.style.setProperty('object-position', 'center center', 'important');
-        mediaEl.style.setProperty('background', 'transparent', 'important');
-        mediaEl.style.setProperty('border-radius', '6px', 'important');
+        mediaEl.style.setProperty('background', '#000', 'important');
+        mediaEl.style.setProperty('border-radius', '9px', 'important');
       }
       var cardMain = stageEl.closest('.reel-card-main');
       if(cardMain){
         cardMain.style.setProperty('--post-media-card-width', String(safeWidth) + 'px');
         cardMain.style.setProperty('width', String(safeWidth) + 'px', 'important');
         cardMain.style.setProperty('max-width', '100%', 'important');
+        cardMain.style.setProperty('height', String(safeHeight) + 'px', 'important');
+        cardMain.style.setProperty('min-height', String(safeHeight) + 'px', 'important');
+        cardMain.style.setProperty('max-height', String(safeHeight) + 'px', 'important');
+        cardMain.style.setProperty('border-radius', stageEl.classList.contains('reel-loading-media') ? '7px' : '9px', 'important');
+        cardMain.style.setProperty('background', stageEl.classList.contains('reel-loading-media') ? 'var(--reel-loading-media-bg,#f1f1f1)' : '#000', 'important');
+        cardMain.style.setProperty('overflow', 'hidden', 'important');
+        cardMain.style.setProperty('border', '0', 'important');
+        cardMain.style.setProperty('clip-path', 'inset(0 round 9px)', 'important');
+        cardMain.style.setProperty('-webkit-clip-path', 'inset(0 round 9px)', 'important');
+      }
+      var cardRow=stageEl.closest('.reel-card-row');
+      if(cardRow){
+        cardRow.style.setProperty('height',String(safeHeight)+'px','important');
+        cardRow.style.setProperty('min-height',String(safeHeight)+'px','important');
+        cardRow.style.setProperty('max-height',String(safeHeight)+'px','important');
       }
       if(phoneShot){
         stageEl.classList.add('is-phone-shot');
@@ -1597,6 +1674,13 @@ $iconFries = post_card_menu_fries_icon_html();
         vh = Number(img.naturalHeight || 0);
       }
       if(vw > 0 && vh > 0){
+        rememberReelDimensions(it,vw,vh);
+        var lockedW=Number(stageEl.dataset.reelLockedW||0);
+        var lockedH=Number(stageEl.dataset.reelLockedH||0);
+        if(lockedW>0&&lockedH>0){
+          applyPublicVideoCardWidth(stageEl,lockedW,lockedH,phoneShot);
+          return;
+        }
         applyPublicVideoCardWidth(stageEl, vw, vh, phoneShot);
         return;
       }
@@ -1865,6 +1949,16 @@ $iconFries = post_card_menu_fries_icon_html();
     function applyReelMediaAttachment(slide, it, att){
       var stage = slide.querySelector('.reel-stage');
       if(!stage || !att) return;
+      var attachmentW=Number(att.w||att.width||att.media_width||0);
+      var attachmentH=Number(att.h||att.height||att.media_height||0);
+      if(attachmentW>0&&attachmentH>0){
+        stage.dataset.reelLockedW=String(attachmentW);
+        stage.dataset.reelLockedH=String(attachmentH);
+        applyPublicVideoCardWidth(stage,attachmentW,attachmentH,Number(it.phone_shot||0)===1);
+      }else{
+        delete stage.dataset.reelLockedW;
+        delete stage.dataset.reelLockedH;
+      }
       var src = reelAbsSrc(att.file_path || att.url || '');
       var kind = String(att.type || '').toLowerCase();
       if(!src){
@@ -2050,6 +2144,15 @@ $iconFries = post_card_menu_fries_icon_html();
           '</div>'+
         '</div>';
 
+      var loadingStage=slide.querySelector('.reel-stage');
+      var loadingDims=reelLoadingDimensions(it);
+      if(loadingStage&&loadingDims){
+        loadingStage.classList.add('reel-loading-media');
+        loadingStage.dataset.reelLockedW=String(loadingDims.w);
+        loadingStage.dataset.reelLockedH=String(loadingDims.h);
+        applyPublicVideoCardWidth(loadingStage,loadingDims.w,loadingDims.h,Number(it.phone_shot||0)===1);
+      }
+
       syncMuteBtn(slide, globalMuted);
       syncSlideActions(slide, it);
       syncSlideMenu(slide, it);
@@ -2057,6 +2160,8 @@ $iconFries = post_card_menu_fries_icon_html();
       if(previewIsImage && img){
         function revealImageReel(){
           if(slide.classList.contains('mf-media-missing')) return;
+          var readyStage=slide.querySelector('.reel-stage');
+          if(readyStage)readyStage.classList.remove('reel-loading-media');
           slide.classList.add('reel-media-ready');
           syncSlideSize(slide, it);
         }
@@ -2084,10 +2189,6 @@ $iconFries = post_card_menu_fries_icon_html();
         } else if(typeof img.decode === 'function'){
           img.decode().then(revealImageReel).catch(function(){});
         }
-        window.setTimeout(function(){
-          if(slide.classList.contains('reel-media-ready') || slide.classList.contains('mf-media-missing')) return;
-          revealImageReel();
-        }, 400);
         return slide;
       }
       var video = slide.querySelector('video.reel-video');
@@ -2105,7 +2206,12 @@ $iconFries = post_card_menu_fries_icon_html();
       function revealPaintedReel(){
         if(slide.classList.contains('reel-media-ready')) return;
         var reveal = function(){
-          requestAnimationFrame(function(){ slide.classList.add('reel-media-ready'); });
+          requestAnimationFrame(function(){
+            var readyStage=slide.querySelector('.reel-stage');
+            if(readyStage)readyStage.classList.remove('reel-loading-media');
+            slide.classList.add('reel-media-ready');
+            syncSlideSize(slide,it);
+          });
         };
         if(typeof video.requestVideoFrameCallback === 'function'){
           try{
@@ -2122,7 +2228,6 @@ $iconFries = post_card_menu_fries_icon_html();
       });
       video.addEventListener('playing', revealPaintedReel);
       if(video.readyState >= 2) revealPaintedReel();
-      window.setTimeout(function(){ revealPaintedReel(); }, 1800);
       video.addEventListener('error', function(){
         showReelNoImage(slide, it);
       });
@@ -2345,10 +2450,6 @@ $iconFries = post_card_menu_fries_icon_html();
       sizeSlides();
       // Always land on newest (or deep-linked) reel — no overflow scroll to restore.
       goTo(startAt, false);
-      window.requestAnimationFrame(function(){
-        sizeSlides();
-        goTo(startAt, false);
-      });
     }
 
     document.getElementById('reelApp').addEventListener('click', function(e){
@@ -2800,6 +2901,12 @@ $iconFries = post_card_menu_fries_icon_html();
         if(mapped && deletedPostIdMap()[String(mapped.id || 0)]) mapped = null;
         var opener = mapped || (bootPost && Number(bootPost.id || 0) > 0 ? bootPost : null);
         if(opener && deletedPostIdMap()[String(opener.id || 0)]) opener = null;
+        var existingBootItem=items.length===1?items[0]:null;
+        var preserveBootSlide=!!(existingBootItem&&opener&&slideEls.length===1&&Number(existingBootItem.id||0)===Number(opener.id||0));
+        if(preserveBootSlide){
+          Object.assign(existingBootItem,opener);
+          opener=existingBootItem;
+        }
         items = opener
           ? dropDeletedItems([opener].concat(videos.filter(function(it){ return Number(it.id || 0) !== Number(opener.id || 0); })))
           : videos;
@@ -2809,7 +2916,23 @@ $iconFries = post_card_menu_fries_icon_html();
           loadingEl.textContent = 'No videos yet';
           return;
         }
-        rebuildSlides(resolveStartIndex());
+        if(preserveBootSlide&&items.length&&track&&slideEls[0]){
+          var preservedSlide=slideEls[0];
+          preservedSlide.setAttribute('data-index','0');
+          syncSlideActions(preservedSlide,items[0]);
+          syncSlideMenu(preservedSlide,items[0]);
+          for(var addIndex=1;addIndex<items.length;addIndex+=1){
+            var addedSlide=buildSlide(items[addIndex],addIndex);
+            if(!addedSlide)continue;
+            track.appendChild(addedSlide);
+            slideEls.push(addedSlide);
+          }
+          sizeSlides();
+          activateIndex(0,true);
+          stampReelUrl(0);
+        }else{
+          rebuildSlides(resolveStartIndex());
+        }
         if(window.MSBResumePost && typeof window.MSBResumePost.clear === 'function'){
           var rec = window.MSBResumePost.read ? window.MSBResumePost.read() : null;
           if(rec && rec.kind === 'reel') window.MSBResumePost.clear();
@@ -3016,6 +3139,217 @@ $iconFries = post_card_menu_fries_icon_html();
     setTimeout(syncReelSideChrome, 400);
   })();
   </script>
+  <style id="reel-immersive-card-layout">
+    /* Immersive reel: media card + action column AFTER the card (not on media). */
+    body.reel-page{
+      --reel-media-max-h:min(calc(100svh - 72px), 1040px);
+    }
+    body.reel-page .reel-slide{
+      padding:18px 40px 18px 24px !important;
+    }
+    body.reel-page .reel-card-row{
+      position:relative !important;
+      display:flex !important;
+      flex-direction:row !important;
+      align-items:center !important;
+      justify-content:center !important;
+      gap:18px !important;
+      width:auto !important;
+      max-width:min(100%, calc(800px + 72px)) !important;
+    }
+    body.reel-page .reel-card-main{
+      position:relative !important;
+      isolation:isolate;
+      width:min(100%, var(--post-media-card-width, 800px)) !important;
+      max-width:min(100%, 800px) !important;
+      margin:0 !important;
+      overflow:hidden !important;
+      border-radius:var(--post-media-radius, 9px) !important;
+      border:0 !important;
+      background:#000 !important;
+      box-shadow:none !important;
+      flex:0 1 auto !important;
+      /* Track uses translate3d; clip-path keeps video corners clean (overflow alone leaves a weird rim). */
+      clip-path:inset(0 round var(--post-media-radius, 9px)) !important;
+      -webkit-clip-path:inset(0 round var(--post-media-radius, 9px)) !important;
+    }
+    body.reel-page .reel-card-main > .reel-stage{
+      position:relative !important;
+      z-index:1 !important;
+      width:100% !important;
+      max-width:100% !important;
+      margin:0 !important;
+      overflow:hidden !important;
+      border-radius:0 !important;
+      border:0 !important;
+      box-shadow:none !important;
+      background:#000 !important;
+    }
+    body.reel-page .reel-card-main > .reel-stage > .reel-video,
+    body.reel-page .reel-card-main > .reel-stage > .reel-image{
+      width:100% !important;
+      height:100% !important;
+      max-height:none !important;
+      object-fit:cover !important;
+      object-position:center !important;
+      /* Same radius on the media layer — required when an ancestor is GPU-transformed. */
+      border-radius:var(--post-media-radius, 9px) !important;
+      background:#000 !important;
+      display:block !important;
+    }
+    body.reel-page .reel-card-main > .reel-outside-head{
+      position:absolute !important;
+      inset:0 !important;
+      z-index:20 !important;
+      width:auto !important;
+      min-height:0 !important;
+      margin:0 !important;
+      padding:0 !important;
+      pointer-events:none !important;
+    }
+    body.reel-page .reel-outside-head .reel-top{
+      position:absolute !important;
+      left:16px !important;
+      right:64px !important;
+      top:auto !important;
+      bottom:58px !important;
+      width:auto !important;
+      z-index:22 !important;
+      pointer-events:none !important;
+    }
+    body.reel-page .reel-outside-head .reel-author{
+      pointer-events:auto !important;
+    }
+    body.reel-page .reel-outside-head .reel-author-name,
+    body.reel-page .reel-outside-head .reel-follow,
+    body.reel-page .reel-outside-head .reel-music,
+    body.reel-page .reel-outside-head .reel-music i,
+    body.reel-page .reel-outside-head .reel-music-text{
+      color:#fff !important;
+      -webkit-text-fill-color:#fff !important;
+      text-shadow:0 1px 4px rgba(0,0,0,.9) !important;
+    }
+    body.reel-page .reel-outside-head .reel-media-topbar{
+      position:absolute !important;
+      top:10px !important;
+      right:10px !important;
+      left:auto !important;
+      bottom:auto !important;
+      width:auto !important;
+      z-index:24 !important;
+      pointer-events:auto !important;
+    }
+    body.reel-page .reel-outside-head .reel-media-topbar .post-card-menu-wrap{
+      transform:none !important;
+    }
+    body.reel-page .reel-outside-head .post-card-menu-btn,
+    body.reel-page .reel-outside-head .pcm-fries-icon{
+      color:#fff !important;
+      -webkit-text-fill-color:#fff !important;
+      filter:drop-shadow(0 1px 3px rgba(0,0,0,.9));
+    }
+    body.reel-page .reel-card-main > .reel-caption{
+      position:absolute !important;
+      left:16px !important;
+      right:58px !important;
+      bottom:16px !important;
+      z-index:21 !important;
+      width:auto !important;
+      max-width:none !important;
+      margin:0 !important;
+      padding:0 !important;
+      color:#fff !important;
+      -webkit-text-fill-color:#fff !important;
+      text-shadow:0 1px 4px rgba(0,0,0,.9) !important;
+    }
+    body.reel-page .reel-card-main > .reel-caption .see-more{
+      color:#fff !important;
+      -webkit-text-fill-color:#fff !important;
+    }
+    body.reel-page .reel-bottom-fade{
+      height:190px !important;
+      background:linear-gradient(180deg, transparent 0%, rgba(0,0,0,.78) 100%) !important;
+    }
+    body.reel-page .reel-mute{
+      right:12px !important;
+      bottom:14px !important;
+      z-index:26 !important;
+    }
+    body.reel-page .reel-right{
+      position:relative !important;
+      right:auto !important;
+      bottom:auto !important;
+      top:auto !important;
+      left:auto !important;
+      z-index:30 !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:center !important;
+      justify-content:center !important;
+      align-self:center !important;
+      gap:18px !important;
+      width:52px !important;
+      min-width:52px !important;
+      min-height:0 !important;
+      padding:8px 0 !important;
+      margin:0 !important;
+      border:0 !important;
+      border-radius:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      pointer-events:auto !important;
+      flex:0 0 auto !important;
+    }
+    body.reel-page .reel-act-wrap{
+      flex:0 0 auto !important;
+      flex-direction:column !important;
+      justify-content:center !important;
+      align-items:center !important;
+      gap:4px !important;
+    }
+    body.reel-page .reel-act,
+    body.reel-page .reel-act-count{
+      color:inherit !important;
+      -webkit-text-fill-color:currentColor !important;
+      text-shadow:none !important;
+    }
+    body.reel-page .reel-act .msb-pact,
+    body.reel-page .reel-act .msb-pact-heart,
+    body.reel-page .reel-act .msb-pact-comment,
+    body.reel-page .reel-act .msb-pact-share,
+    body.reel-page .reel-act .msb-pact-bookmark{
+      filter:none;
+    }
+    @media (max-width:767.98px){
+      body.reel-page{
+        --reel-media-max-h:calc(100svh - 120px);
+      }
+      body.reel-page .reel-app{
+        bottom:66px;
+      }
+      body.reel-page .reel-slide{
+        padding:50px 8px 8px !important;
+      }
+      body.reel-page .reel-card-row{
+        width:min(100%, 560px) !important;
+        max-width:min(100%, 560px) !important;
+        gap:12px !important;
+      }
+      body.reel-page .reel-card-main,
+      body.reel-page .reel-card-main > .reel-stage{
+        max-height:var(--reel-media-max-h) !important;
+      }
+      body.reel-page .reel-jump{
+        right:8px;
+        opacity:.76;
+      }
+      body.reel-page .reel-right{
+        width:44px !important;
+        min-width:44px !important;
+        gap:14px !important;
+      }
+    }
+  </style>
   <?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
   <script>
   (function(){

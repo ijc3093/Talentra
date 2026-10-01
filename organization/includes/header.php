@@ -83,6 +83,9 @@ $salesAttentionBreakdown = [
     'customers' => 0,
     'returns' => 0,
     'notification' => 0,
+    'messages' => 0,
+    'support' => 0,
+    'disputes' => 0,
 ];
 try {
     if (function_exists('orgMemberId')) {
@@ -256,37 +259,16 @@ if ($isManager) {
 
   @keyframes orgHeaderSalesBadgeAlert {
     0%, 100% {
-      transform: scale(1) translate(0, 0);
+      transform: scale(1);
       box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.55);
     }
-    12% {
-      transform: scale(1.18) translate(0, -1px);
-      box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
+    40% {
+      transform: scale(1.12);
+      box-shadow: 0 0 0 4px rgba(220, 53, 69, 0);
     }
-    24% {
-      transform: scale(1.08) translate(0, 0);
-      box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
-    }
-    36% {
-      transform: scale(1.14) translate(0, -1px);
-      box-shadow: 0 0 0 5px rgba(220, 53, 69, 0);
-    }
-    50%, 78% {
-      transform: scale(1) translate(0, 0);
+    70% {
+      transform: scale(1);
       box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.35);
-    }
-    82% {
-      transform: scale(1.1) translate(-2px, 0);
-      box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.15);
-    }
-    86% {
-      transform: scale(1.1) translate(2px, 0);
-    }
-    90% {
-      transform: scale(1.06) translate(-1px, 0);
-    }
-    94% {
-      transform: scale(1.04) translate(1px, 0);
     }
   }
 
@@ -327,7 +309,7 @@ if ($isManager) {
   }
   .org-header-page-title{
     position:relative;
-    color:var(--msb-palette-text, #111827);
+    color:var(--msb-palette-text-on-nav, #e8edf5);
     font-size:13px;
     font-weight:800;
     line-height:1;
@@ -337,6 +319,7 @@ if ($isManager) {
     display:inline-flex;
     align-items:center;
     gap:6px;
+    overflow:visible;
   }
   .org-header-page-title:hover,
   .org-header-page-title:focus{
@@ -359,6 +342,8 @@ if ($isManager) {
     border:2px solid var(--msb-palette-nav-bg, #171d24);
     box-shadow:0 0 0 1px rgba(220,53,69,.25);
     transform-origin:center center;
+    position:static;
+    flex-shrink:0;
   }
   .org-header-sales-badge.is-pulse,
   .org-header-sales-badge.is-alert{
@@ -373,7 +358,7 @@ if ($isManager) {
   }
   html[data-msb-appearance] body.org-app .org-header-page-title,
   html.msb-palette-active body.org-app .org-header-page-title{
-    color:var(--msb-palette-text) !important;
+    color:var(--msb-palette-text-on-nav, var(--msb-palette-text)) !important;
   }
 
   /* 7-day feed stats in blue header (feed page) */
@@ -729,6 +714,15 @@ if ($isManager) {
           if ((int)($salesAttentionBreakdown['notification'] ?? 0) > 0) {
               $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['notification'] . ' notification(s)';
           }
+          if ((int)($salesAttentionBreakdown['messages'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['messages'] . ' customer message(s)';
+          }
+          if ((int)($salesAttentionBreakdown['support'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['support'] . ' support message(s)';
+          }
+          if ((int)($salesAttentionBreakdown['disputes'] ?? 0) > 0) {
+              $salesBadgeTitleParts[] = (int)$salesAttentionBreakdown['disputes'] . ' open dispute(s)';
+          }
           $salesBadgeTitle = $salesBadgeTitleParts
               ? ('Attention: ' . implode(', ', $salesBadgeTitleParts))
               : 'Sales management';
@@ -736,6 +730,7 @@ if ($isManager) {
         <a
           class="org-header-page-title"
           href="<?= h($headerPageHref) ?>"
+          data-sales-hub-title="1"
           title="<?= h($salesBadgeTitle) ?>"
           aria-label="<?= h($headerPageTitle . ($salesAttentionCount > 0 ? (' — ' . $salesBadgeLabel . ' items need attention') : '')) ?>"
         >

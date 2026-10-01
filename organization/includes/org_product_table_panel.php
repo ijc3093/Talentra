@@ -24,12 +24,18 @@ if (!function_exists('product_table_cover_url')) {
         if ($path === '') {
             return '';
         }
+        if (function_exists('org_shop_cover_url')) {
+            return org_shop_cover_url($path);
+        }
         if (preg_match('#^https?://#i', $path)) {
             return $path;
         }
         $path = ltrim(str_replace('\\', '/', $path), '/');
         if (str_starts_with($path, 'organization/')) {
             $path = substr($path, strlen('organization/'));
+        }
+        if (str_starts_with($path, '../organization/')) {
+            $path = substr($path, strlen('../organization/'));
         }
         return $path;
     }
@@ -65,6 +71,7 @@ $ptDetailBase = (string)($ptDetailBase ?? 'product_table.php?id=');
 $ptDetailSuffix = (string)($ptDetailSuffix ?? '');
 $ptPreviewBase = (string)($ptPreviewBase ?? '../public_user/product_detail.php?id=');
 $ptShowStoreToolbar = !empty($ptShowStoreToolbar);
+$ptInSalesHub = !empty($ptInSalesHub);
 $ptNotiCount = (int)($ptNotiCount ?? 0);
 $ptMsgCount = (int)($ptMsgCount ?? 0);
 $ptBaseUrl = (string)($ptBaseUrl ?? 'product_table.php');
@@ -72,7 +79,10 @@ $ptHash = (string)($ptHash ?? '');
 $ptAlertsHref = (string)($ptAlertsHref ?? '');
 $err = (string)($err ?? '');
 $ok = (string)($ok ?? '');
-$lowStockAt = 5;
+if (!$ptInSalesHub && $ptHash === '#inventory') {
+    $ptInSalesHub = true;
+}
+$lowStockAt = 1; // alert when available stock is less than 2
 
 $invTab = strtolower(trim((string)($invTab ?? $_GET['inv'] ?? 'all')));
 if (!in_array($invTab, ['all', 'low', 'out'], true)) {
@@ -148,7 +158,10 @@ foreach ($products as $p) {
 
     $stockCls = 'in';
     $stockLabel = 'In Stock';
-    if ($status === 'sold_out' || ($tracked && $available !== null && $available <= 0)) {
+    if ($tracked && $available !== null && $available <= 0) {
+        $stockCls = 'out';
+        $stockLabel = 'Out of Stock';
+    } elseif ($status === 'sold_out' && (!$tracked || $available === null || $available <= 0)) {
         $stockCls = 'out';
         $stockLabel = 'Out of Stock';
     } elseif ($tracked && $available !== null && $available <= $lowStockAt) {
@@ -274,7 +287,42 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
 ?>
 <style>
   .inv-dash{--inv-text:#0f172a;--inv-muted:#64748b;--inv-border:#e2e8f0;--inv-card:#fff;color:var(--inv-text);}
-  .inv-dash .inv-hero{display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+  .inv-dash .inv-hero{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:8px;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    flex:0 0 auto;
+  }
+  .inv-dash .inv-hero .sm-hub-actions{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;}
+  /* Hub: pin title row; scroll everything below it. */
+  .inv-dash.inv-dash--hub{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    height:calc(100vh - var(--org-header-h, 48px) - 20px);
+    max-height:calc(100vh - var(--org-header-h, 48px) - 20px);
+    overflow:hidden;
+    box-sizing:border-box;
+  }
+  .inv-dash.inv-dash--hub > .inv-hero{
+    margin-bottom:6px;
+    padding-bottom:4px;
+  }
+  .inv-dash.inv-dash--hub > .inv-body-scroll{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-x:hidden;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:12px;
+  }
+  @media (max-width:700px){
+    .inv-dash.inv-dash--hub{height:auto;max-height:none;overflow:visible;}
+    .inv-dash.inv-dash--hub > .inv-body-scroll{overflow:visible;flex:none;}
+  }
   .inv-dash .inv-btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:var(--ch-surface,#fff);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;color:#0f172a;text-decoration:none;cursor:pointer;}
   .inv-dash .inv-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:10px;}
   .inv-dash .inv-kpi{background:var(--inv-card);border:1px solid var(--inv-border);border-radius:12px;padding:12px;}
@@ -298,7 +346,10 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
   .inv-dash .inv-tabs{display:flex;gap:18px;padding:0 14px;border-bottom:1px solid var(--inv-border);overflow:auto;}
   .inv-dash .inv-tab{flex:0 0 auto;padding:12px 0 10px;font-size:13px;font-weight:700;color:var(--inv-muted);text-decoration:none;border-bottom:2px solid transparent;}
   .inv-dash .inv-tab.is-on{color:#2563eb;border-bottom-color:#2563eb;}
-  .inv-dash .inv-table-wrap{overflow:auto;}
+  .inv-dash .inv-table-wrap{
+    overflow:auto;
+    min-height:200px;
+  }
   .inv-dash .inv-table{width:100%;min-width:1180px;border-collapse:collapse;}
   .inv-dash .inv-table th{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--inv-muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--inv-border);background:var(--ch-surface,#f8fafc);white-space:nowrap;}
   .inv-dash .inv-table td{padding:12px;border-bottom:1px solid var(--inv-border);vertical-align:middle;font-size:13px;}
@@ -307,10 +358,11 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
   .inv-dash .inv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;}
   .inv-dash .inv-name{display:block;font-weight:800;}
   .inv-dash .inv-sub{display:block;font-size:11px;color:var(--inv-muted);font-weight:600;margin-top:2px;}
-  .inv-dash .inv-pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;}
+  .inv-dash .inv-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.2;white-space:nowrap;}
+  .inv-dash .inv-pill i{font-size:11px;line-height:1;}
   .inv-dash .inv-pill.in{background:#dcfce7;color:#15803d;}
-  .inv-dash .inv-pill.low{background:#ffedd5;color:#c2410c;}
-  .inv-dash .inv-pill.out{background:#fee2e2;color:#b91c1c;}
+  .inv-dash .inv-pill.low{background:#ffedd5;color:#c2410c;border:1px solid #fdba74;}
+  .inv-dash .inv-pill.out{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;}
   .inv-dash .inv-avail{color:#15803d;font-weight:800;}
   .inv-dash .inv-res{color:#c2410c;font-weight:800;}
   .inv-dash .inv-more{position:relative;}
@@ -325,46 +377,75 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
   .inv-dash .inv-more-form{margin:0;}
   .inv-dash .inv-more-menu .is-danger,.inv-dash .inv-more-menu .is-danger i{color:#dc2626;}
   .inv-dash .inv-more-menu .is-danger:hover{background:#fef2f2;}
-  .inv-dash .inv-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;font-size:12px;color:var(--inv-muted);}
-  .inv-dash .inv-pages{display:flex;gap:4px;align-items:center;}
-  .inv-dash .inv-pages button{min-width:28px;height:28px;border:1px solid #e2e8f0;background:var(--ch-surface,#fff);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;}
+  .inv-dash .inv-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;font-size:12px;color:var(--inv-muted);border-top:1px solid var(--inv-border);background:var(--inv-card);}
+  .inv-dash .inv-pages{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+  .inv-dash .inv-pages button{min-width:30px;height:30px;border:1px solid #e2e8f0;background:var(--ch-surface,#fff);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;color:#0f172a;}
+  .inv-dash .inv-pages button:hover{background:#f8fafc;}
   .inv-dash .inv-pages button.is-on{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .inv-dash .inv-pages button:disabled{opacity:.45;cursor:default;}
+  .inv-dash .inv-foot select{height:30px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;padding:0 8px;font-size:12px;font-weight:700;color:#0f172a;}
   .inv-dash .inv-empty{text-align:center;padding:28px 12px;color:var(--inv-muted);}
-  .inv-dash .inv-widgets{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;margin-top:12px;}
-  .inv-dash .inv-widget{background:var(--inv-card);border:1px solid var(--inv-border);border-radius:12px;padding:14px;}
-  .inv-dash .inv-widget h3{margin:0 0 12px;font-size:14px;font-weight:800;}
-  .inv-dash .inv-donut-row{display:flex;align-items:center;gap:16px;}
-  .inv-dash .inv-donut{width:132px;height:132px;border-radius:50%;position:relative;flex:0 0 auto;}
-  .inv-dash .inv-donut:after{content:'';position:absolute;inset:28px;background:var(--ch-surface,#fff);border-radius:50%;}
+  .inv-dash .inv-widgets{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;margin-top:12px;align-items:stretch;}
+  .inv-dash .inv-widget{
+    background:var(--inv-card);
+    border:1px solid var(--inv-border);
+    border-radius:12px;
+    padding:12px 14px;
+    min-height:0;
+    max-height:160px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .inv-dash .inv-widget h3{margin:0 0 8px;font-size:14px;font-weight:800;flex:0 0 auto;}
+  .inv-dash .inv-widget-scroll{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:none;
+    overflow-x:auto;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .inv-dash .inv-widget > .inv-sub{flex:0 0 auto;margin:0;}
+  .inv-dash .inv-donut-row{display:flex;align-items:center;gap:14px;}
+  .inv-dash .inv-donut{width:96px;height:96px;border-radius:50%;position:relative;flex:0 0 auto;}
+  .inv-dash .inv-donut:after{content:'';position:absolute;inset:22px;background:var(--ch-surface,#fff);border-radius:50%;}
   .inv-dash .inv-donut-center{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
-  .inv-dash .inv-donut-center strong{font-size:18px;font-weight:800;line-height:1;}
-  .inv-dash .inv-donut-center span{font-size:10px;font-weight:700;color:var(--inv-muted);margin-top:4px;}
+  .inv-dash .inv-donut-center strong{font-size:16px;font-weight:800;line-height:1;}
+  .inv-dash .inv-donut-center span{font-size:9px;font-weight:700;color:var(--inv-muted);margin-top:2px;}
   .inv-dash .inv-legend{list-style:none;margin:0;padding:0;font-size:12px;}
-  .inv-dash .inv-legend li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;}
+  .inv-dash .inv-legend li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 0;}
   .inv-dash .inv-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;}
-  .inv-dash .inv-low-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--inv-border);}
+  .inv-dash .inv-low-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--inv-border);}
   .inv-dash .inv-low-row:last-child{border-bottom:0;}
   .inv-dash .inv-reorder{height:28px;padding:0 10px;border-radius:8px;border:1px solid #fdba74;background:#fff7ed;color:#c2410c;font-size:11px;font-weight:800;text-decoration:none;display:inline-flex;align-items:center;margin-left:auto;}
-  .inv-dash .inv-move{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--inv-border);}
+  .inv-dash .inv-move{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--inv-border);}
   .inv-dash .inv-move:last-child{border-bottom:0;}
-  .inv-dash .inv-move-ico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:12px;}
+  .inv-dash .inv-move-ico{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:11px;}
   .inv-dash .inv-move-ico.plus{background:#dcfce7;color:#16a34a;}
   .inv-dash .inv-move-ico.minus{background:#fee2e2;color:#dc2626;}
   html.dark-auto .inv-dash{--inv-text:var(--msb-palette-text,#e2e8f0);--inv-muted:#94a3b8;--inv-border:rgba(148,163,184,.22);--inv-card:var(--msb-palette-bg,#171d24);}
   html.dark-auto .inv-dash .inv-donut:after{background:var(--inv-card);}
+  html.dark-auto .inv-dash .inv-pages button{background:var(--inv-card);color:var(--inv-text);border-color:var(--inv-border);}
+  html.dark-auto .inv-dash .inv-pages button.is-on{background:#2563eb;border-color:#2563eb;color:#fff;}
+  html.dark-auto .inv-dash .inv-foot{background:var(--inv-card);border-top-color:var(--inv-border);}
   @media (max-width:1100px){.inv-dash .inv-kpis,.inv-dash .inv-widgets{grid-template-columns:1fr 1fr;}}
   @media (max-width:700px){.inv-dash .inv-kpis,.inv-dash .inv-widgets{grid-template-columns:1fr;}}
 </style>
-<div class="inv-dash" id="invDashRoot">
+<div class="inv-dash<?= $ptInSalesHub ? ' inv-dash--hub' : '' ?>" id="invDashRoot">
   <div class="inv-hero">
+    <?php if (function_exists('org_sales_hub_intro')) { org_sales_hub_intro('inventory'); } ?>
+    <div class="sm-hub-actions">
     <?php if ($ptShowStoreToolbar): ?>
       <a class="sd-icon-btn" href="sales_notifications.php" title="Notifications"><i class="fa fa-bell-o"></i><?php if ($ptNotiCount > 0): ?><span class="sd-badge"><?= (int)min(99, $ptNotiCount) ?></span><?php endif; ?></a>
       <a class="sd-icon-btn" href="#message" data-sales-nav="message" title="Messages"><i class="fa fa-commenting-o"></i><?php if ($ptMsgCount > 0): ?><span class="sd-badge"><?= (int)min(99, $ptMsgCount) ?></span><?php endif; ?></a>
     <?php endif; ?>
     <button type="button" class="inv-btn" id="invExportBtn"><i class="fa fa-download"></i> Export</button>
     <a class="inv-btn" href="<?= h($alertsHref) ?>"><i class="fa fa-bell-o"></i> View Stock Alerts</a>
+    </div>
   </div>
 
+  <div class="inv-body-scroll">
   <?php if ($err !== ''): ?><div class="alert alert-danger"><?= h($err) ?></div><?php endif; ?>
   <?php if ($ok !== ''): ?><div class="alert alert-success"><?= h($ok) ?></div><?php endif; ?>
 
@@ -465,7 +546,10 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
               </td>
               <td><strong><?= h((string)$row['sku']) ?></strong></td>
               <td><?= h((string)$row['category']) ?></td>
-              <td><span class="inv-pill <?= h((string)$row['stock_cls']) ?>"><?= h((string)$row['stock_label']) ?></span></td>
+              <td><?php
+                $invStockCls = (string)$row['stock_cls'];
+                $invStockIcon = $invStockCls === 'out' ? 'fa-ban' : ($invStockCls === 'low' ? 'fa-exclamation-triangle' : 'fa-check-circle');
+              ?><span class="inv-pill <?= h($invStockCls) ?>"><i class="fa <?= h($invStockIcon) ?>" aria-hidden="true"></i> <?= h((string)$row['stock_label']) ?></span></td>
               <td><strong><?= (int)$row['total_stock'] ?></strong></td>
               <td class="inv-avail"><?= $row['available'] === null ? '—' : (int)$row['available'] ?></td>
               <td class="inv-res"><?= (int)$row['reserved'] ?></td>
@@ -533,7 +617,8 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
       <div class="inv-pages" id="invPages"></div>
       <label>
         <select id="invPageSize">
-          <option value="10" selected>10 / page</option>
+          <option value="5" selected>5 / page</option>
+          <option value="10">10 / page</option>
           <option value="25">25 / page</option>
           <option value="50">50 / page</option>
         </select>
@@ -544,55 +629,66 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
   <div class="inv-widgets">
     <div class="inv-widget">
       <h3>Stock Status Summary</h3>
-      <div class="inv-donut-row">
-        <div class="inv-donut" style="background:conic-gradient(#16a34a 0% <?= h((string)$g1) ?>%, #f59e0b <?= h((string)$g1) ?>% <?= h((string)$g2) ?>%, #ef4444 <?= h((string)$g2) ?>% <?= h((string)$g3) ?>%, #94a3b8 <?= h((string)$g3) ?>% 100%);">
-          <div class="inv-donut-center"><strong><?= (int)$kpi['total'] ?></strong><span>Products</span></div>
+      <div class="inv-widget-scroll">
+        <div class="inv-donut-row">
+          <div class="inv-donut" style="background:conic-gradient(#16a34a 0% <?= h((string)$g1) ?>%, #f59e0b <?= h((string)$g1) ?>% <?= h((string)$g2) ?>%, #ef4444 <?= h((string)$g2) ?>% <?= h((string)$g3) ?>%, #94a3b8 <?= h((string)$g3) ?>% 100%);">
+            <div class="inv-donut-center"><strong><?= (int)$kpi['total'] ?></strong><span>Products</span></div>
+          </div>
+          <ul class="inv-legend">
+            <li><span><span class="inv-dot" style="background:#16a34a"></span>In Stock</span><strong><?= number_format($donutIn, 1) ?>%</strong></li>
+            <li><span><span class="inv-dot" style="background:#f59e0b"></span>Low Stock</span><strong><?= number_format($donutLow, 1) ?>%</strong></li>
+            <li><span><span class="inv-dot" style="background:#ef4444"></span>Out of Stock</span><strong><?= number_format($donutOut, 1) ?>%</strong></li>
+            <li><span><span class="inv-dot" style="background:#94a3b8"></span>Draft / Inactive</span><strong><?= number_format($donutDraft, 1) ?>%</strong></li>
+          </ul>
         </div>
-        <ul class="inv-legend">
-          <li><span><span class="inv-dot" style="background:#16a34a"></span>In Stock</span><strong><?= number_format($donutIn, 1) ?>%</strong></li>
-          <li><span><span class="inv-dot" style="background:#f59e0b"></span>Low Stock</span><strong><?= number_format($donutLow, 1) ?>%</strong></li>
-          <li><span><span class="inv-dot" style="background:#ef4444"></span>Out of Stock</span><strong><?= number_format($donutOut, 1) ?>%</strong></li>
-          <li><span><span class="inv-dot" style="background:#94a3b8"></span>Draft / Inactive</span><strong><?= number_format($donutDraft, 1) ?>%</strong></li>
-        </ul>
       </div>
     </div>
     <div class="inv-widget">
       <h3>Top Low Stock Products</h3>
       <?php if (!$lowList): ?>
         <p class="inv-sub">No low-stock products right now.</p>
-      <?php else: foreach ($lowList as $low): ?>
-        <div class="inv-low-row">
-          <div class="inv-thumb"><?php if ($low['cover'] !== ''): ?><img src="<?= h((string)$low['cover']) ?>" alt="" onerror="this.remove()"><i class="fa fa-cube"></i><?php else: ?><i class="fa fa-cube"></i><?php endif; ?></div>
-          <div>
-            <span class="inv-name"><a href="<?= h($ptDetailBase . (int)$low['id'] . $ptDetailSuffix) ?>"><?= h((string)$low['title']) ?></a></span>
-            <span class="inv-sub"><?= h((string)$low['sku']) ?> · Available <?= (int)($low['available'] ?? 0) ?></span>
-          </div>
-          <a class="inv-reorder" href="<?= h($ptDetailBase . (int)$low['id'] . $ptDetailSuffix) ?>">Reorder</a>
+      <?php else: ?>
+        <div class="inv-widget-scroll">
+          <?php foreach ($lowList as $low): ?>
+            <div class="inv-low-row">
+              <div class="inv-thumb"><?php if ($low['cover'] !== ''): ?><img src="<?= h((string)$low['cover']) ?>" alt="" onerror="this.remove()"><i class="fa fa-cube"></i><?php else: ?><i class="fa fa-cube"></i><?php endif; ?></div>
+              <div>
+                <span class="inv-name"><a href="<?= h($ptDetailBase . (int)$low['id'] . $ptDetailSuffix) ?>"><?= h((string)$low['title']) ?></a></span>
+                <span class="inv-sub"><?= h((string)$low['sku']) ?> · Available <?= (int)($low['available'] ?? 0) ?></span>
+              </div>
+              <a class="inv-reorder" href="<?= h($ptDetailBase . (int)$low['id'] . $ptDetailSuffix) ?>">Reorder</a>
+            </div>
+          <?php endforeach; ?>
         </div>
-      <?php endforeach; endif; ?>
+      <?php endif; ?>
     </div>
     <div class="inv-widget">
       <h3>Recent Stock Movements</h3>
       <?php if (!$movements): ?>
         <p class="inv-sub">No stock movements yet.</p>
-      <?php else: foreach ($movements as $mv):
-        $st = strtolower(trim((string)($mv['status'] ?? '')));
-        $qty = max(1, (int)($mv['quantity'] ?? 1));
-        $isReturn = in_array($st, ['cancelled', 'canceled'], true);
-        $label = $isReturn ? 'Stock returned' : (in_array($st, ['shipped', 'delivered'], true) ? 'Stock sold' : 'Stock reserved');
-        $title = trim((string)($mv['title'] ?? $mv['product_title'] ?? 'Product'));
-        $when = strtotime((string)($mv['created_at'] ?? ''));
-        $cover = product_table_cover_url((string)($mv['cover_image_path'] ?? ''));
-      ?>
-        <div class="inv-move">
-          <div class="inv-move-ico <?= $isReturn ? 'plus' : 'minus' ?>"><i class="fa <?= $isReturn ? 'fa-arrow-down' : 'fa-arrow-up' ?>"></i></div>
-          <div>
-            <span class="inv-name"><?= h($label) ?></span>
-            <span class="inv-sub"><?= h($title) ?> · <?= $isReturn ? '+' : '−' ?><?= $qty ?> units<?= $when ? ' · ' . date('M j, g:i A', $when) : '' ?></span>
-          </div>
+      <?php else: ?>
+        <div class="inv-widget-scroll">
+          <?php foreach ($movements as $mv):
+            $st = strtolower(trim((string)($mv['status'] ?? '')));
+            $qty = max(1, (int)($mv['quantity'] ?? 1));
+            $isReturn = in_array($st, ['cancelled', 'canceled'], true);
+            $label = $isReturn ? 'Stock returned' : (in_array($st, ['shipped', 'delivered'], true) ? 'Stock sold' : 'Stock reserved');
+            $title = trim((string)($mv['title'] ?? $mv['product_title'] ?? 'Product'));
+            $when = strtotime((string)($mv['created_at'] ?? ''));
+            $cover = product_table_cover_url((string)($mv['cover_image_path'] ?? ''));
+          ?>
+            <div class="inv-move">
+              <div class="inv-move-ico <?= $isReturn ? 'plus' : 'minus' ?>"><i class="fa <?= $isReturn ? 'fa-arrow-down' : 'fa-arrow-up' ?>"></i></div>
+              <div>
+                <span class="inv-name"><?= h($label) ?></span>
+                <span class="inv-sub"><?= h($title) ?> · <?= $isReturn ? '+' : '−' ?><?= $qty ?> units<?= $when ? ' · ' . date('M j, g:i A', $when) : '' ?></span>
+              </div>
+            </div>
+          <?php endforeach; ?>
         </div>
-      <?php endforeach; endif; ?>
+      <?php endif; ?>
     </div>
+  </div>
   </div>
 </div>
 <script>
@@ -629,7 +725,7 @@ $alertsHref = $ptAlertsHref !== '' ? $ptAlertsHref : $tabHref('low');
 
   function render() {
     var vis = visibleRows();
-    var size = Math.max(1, parseInt(pageSizeEl && pageSizeEl.value, 10) || 10);
+    var size = Math.max(1, parseInt(pageSizeEl && pageSizeEl.value, 10) || 5);
     var total = vis.length;
     var pages = Math.max(1, Math.ceil(total / size) || 1);
     if (page > pages) page = pages;

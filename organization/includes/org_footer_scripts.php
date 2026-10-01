@@ -15,5 +15,5 @@ if (!org_shell_scripts_emitted()):
   <script src="../lib/popper.js/popper.js"></script>
   <script src="../lib/bootstrap/bootstrap.js"></script>
   <script src="../lib/perfect-scrollbar/js/perfect-scrollbar.jquery.js"></script>
-  <script src="../js/shamcey.js"></script>
+  <script src="../js/shamcey.js?v=2"></script>
 <?php endif; ?>

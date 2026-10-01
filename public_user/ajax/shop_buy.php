@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/session_user.php';
 require_once __DIR__ . '/../controller.php';
 require_once __DIR__ . '/../includes/org_shop.php';
+require_once __DIR__ . '/../includes/org_cart.php';
 require_once __DIR__ . '/../includes/stripe_shop.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -56,12 +57,6 @@ if ($isTestCostPay && $testCostCents <= 0) {
     exit;
 }
 
-if ($isTestCostPay) {
-    $testNote = 'Test payment Cost $: ' . org_shop_format_price($testCostCents, 'USD')
-        . ' (no real card charged). Seller: confirm and ship.';
-    $buyerNotes = $buyerNotes !== '' ? ($buyerNotes . "\n" . $testNote) : $testNote;
-}
-
 $result = org_shop_create_order(
     $dbh,
     $productId,
@@ -82,55 +77,165 @@ if (empty($result['ok'])) {
     exit;
 }
 
+// Clear purchased line from cart when buying from cart / buy door.
+try {
+    org_cart_remove_item($dbh, $meId, $productId);
+} catch (Throwable $e) {
+    // non-fatal
+}
+
 $orderId = (int)($result['order_id'] ?? 0);
 $orderCode = (string)($result['order_code'] ?? '');
 $totalCents = (int)($result['total_cents'] ?? 0);
 $currency = (string)($result['currency'] ?? 'USD');
 $orgId = (int)($result['org_id'] ?? 0);
 
-// Test Cost $: override order total and mark paid so Revenue MTD updates
-// without a real card. Marketplace fees (~15%) are seller-paid via apply_order_fees.
+// Test Cost $: record what the customer entered. Keep the real order total.
+// Full amount → Paid (seller can ship). Short amount → Pending (shipping held).
 if ($isTestCostPay && $orderId > 0 && $testCostCents > 0) {
+    $requiredCents = max(0, $totalCents);
+    $amountPaidCents = max(0, $testCostCents);
+    $paymentComplete = $requiredCents <= 0 || $amountPaidCents >= $requiredCents;
+    $shortfallCents = max(0, $requiredCents - $amountPaidCents);
+    $paidLabel = org_shop_format_price($amountPaidCents, $currency);
+    $dueLabel = org_shop_format_price($requiredCents, $currency);
+    $shortLabel = org_shop_format_price($shortfallCents, $currency);
+
+    if ($paymentComplete) {
+        $testNote = 'Test payment Cost $: ' . $paidLabel
+            . ' (full order total ' . $dueLabel . '; no real card charged). Seller: confirm and ship.';
+    } else {
+        $testNote = 'Payment incomplete: paid ' . $paidLabel
+            . ' of ' . $dueLabel
+            . ' (short ' . $shortLabel
+            . '). Shipping will not start until the full amount is paid. Test Cost $ — no real card charged.';
+    }
+    $notesWithPay = $buyerNotes !== '' ? ($buyerNotes . "\n" . $testNote) : $testNote;
+    $payRef = 'TEST-' . $orderCode . '|paid:' . $amountPaidCents . '|due:' . $requiredCents;
+
+    // Persist paid amount first (core columns). Optional payment_* columns added separately
+    // so a missing column cannot wipe the incomplete-payment record.
     try {
-        $st = $dbh->prepare("
-            UPDATE org_orders
-            SET total_cents = :total,
-                status = 'paid',
-                paid_at = COALESCE(paid_at, NOW()),
-                payment_method = 'test_cost',
-                payment_reference = :pref,
-                updated_at = NOW()
-            WHERE id = :id
-            LIMIT 1
-        ");
-        $st->execute([
-            ':total' => $testCostCents,
-            ':pref' => 'TEST-' . $orderCode,
-            ':id' => $orderId,
-        ]);
+        if ($paymentComplete) {
+            $dbh->prepare("
+                UPDATE org_orders
+                SET status = 'paid',
+                    paid_at = COALESCE(paid_at, NOW()),
+                    amount_paid_cents = :paid,
+                    buyer_notes = :notes,
+                    updated_at = NOW()
+                WHERE id = :id
+                LIMIT 1
+            ")->execute([
+                ':paid' => $amountPaidCents,
+                ':notes' => $notesWithPay,
+                ':id' => $orderId,
+            ]);
+        } else {
+            $dbh->prepare("
+                UPDATE org_orders
+                SET status = 'pending',
+                    paid_at = NULL,
+                    amount_paid_cents = :paid,
+                    buyer_notes = :notes,
+                    updated_at = NOW()
+                WHERE id = :id
+                LIMIT 1
+            ")->execute([
+                ':paid' => $amountPaidCents,
+                ':notes' => $notesWithPay,
+                ':id' => $orderId,
+            ]);
+        }
     } catch (Throwable $e) {
         try {
             $dbh->prepare("
                 UPDATE org_orders
-                SET total_cents = :total,
-                    status = 'paid',
+                SET status = :st,
+                    buyer_notes = :notes,
                     updated_at = NOW()
                 WHERE id = :id
                 LIMIT 1
-            ")->execute([':total' => $testCostCents, ':id' => $orderId]);
+            ")->execute([
+                ':st' => $paymentComplete ? 'paid' : 'pending',
+                ':notes' => $notesWithPay,
+                ':id' => $orderId,
+            ]);
         } catch (Throwable $e2) {
             // ignore
         }
     }
-    $totalCents = $testCostCents;
-    org_shop_apply_order_fees($dbh, $orderId);
-    if ($orgId > 0) {
-        org_shop_issue_receipt($dbh, $orgId, $orderId, 'test_cost', 'TEST-' . $orderCode);
+    try {
+        $dbh->prepare("
+            UPDATE org_orders
+            SET payment_method = 'test_cost',
+                payment_reference = :pref,
+                updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ")->execute([
+            ':pref' => $payRef,
+            ':id' => $orderId,
+        ]);
+    } catch (Throwable $e) {
+        // payment_* columns may still be missing on older DBs
+    }
+
+    if ($paymentComplete) {
+        org_shop_apply_order_fees($dbh, $orderId);
+        if ($orgId > 0) {
+            org_shop_issue_receipt($dbh, $orgId, $orderId, 'test_cost', 'TEST-' . $orderCode);
+        }
+        if ($orgId > 0 && function_exists('org_shop_notify_seller_order_status')) {
+            try {
+                org_shop_notify_seller_order_status($dbh, $orgId, $meId, 'paid', [$orderCode]);
+            } catch (Throwable $e) {
+                // ignore
+            }
+        }
+        if ($orgId > 0 && function_exists('org_ecommerce_sync_buyer_to_crm')) {
+            try {
+                org_ecommerce_sync_buyer_to_crm($dbh, $orgId, $orderId, 0);
+            } catch (Throwable $e) {
+                // ignore
+            }
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'stripe' => false,
+            'test_cost' => true,
+            'payment_complete' => true,
+            'message' => 'Test order placed and fully paid. Seller can ship from Orders.',
+            'order_id' => $orderId,
+            'order_code' => $orderCode,
+            'total_cents' => $requiredCents,
+            'amount_paid_cents' => $amountPaidCents,
+            'shortfall_cents' => 0,
+            'currency' => $currency,
+        ]);
+        exit;
     }
 
     if ($orgId > 0 && function_exists('org_shop_notify_seller_order_status')) {
         try {
-            org_shop_notify_seller_order_status($dbh, $orgId, $meId, 'paid', [$orderCode]);
+            $extra = 'Paid ' . $paidLabel . ' of ' . $dueLabel . ' (short ' . $shortLabel . ')';
+            org_shop_notify_seller_order_status($dbh, $orgId, $meId, 'pending', [$orderCode], $extra);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+    if ($orgId > 0 && function_exists('org_shop_notify_buyer_payment_incomplete')) {
+        try {
+            org_shop_notify_buyer_payment_incomplete(
+                $dbh,
+                $orgId,
+                $meId,
+                $orderCode,
+                $amountPaidCents,
+                $requiredCents,
+                $currency
+            );
         } catch (Throwable $e) {
             // ignore
         }
@@ -143,21 +248,39 @@ if ($isTestCostPay && $orderId > 0 && $testCostCents > 0) {
         }
     }
 
-    $totalLabel = org_shop_format_price($totalCents, $currency);
     echo json_encode([
         'ok' => true,
         'stripe' => false,
         'test_cost' => true,
-        'message' => 'Test order placed. Seller can ship from Orders.',
+        'payment_complete' => false,
+        'message' => 'Order placed, but payment is incomplete. You paid '
+            . $paidLabel . ' of ' . $dueLabel
+            . '. Shipping will not start until the remaining ' . $shortLabel . ' is paid.',
         'order_id' => $orderId,
         'order_code' => $orderCode,
-        'total_cents' => $totalCents,
+        'total_cents' => $requiredCents,
+        'amount_paid_cents' => $amountPaidCents,
+        'shortfall_cents' => $shortfallCents,
         'currency' => $currency,
     ]);
     exit;
 }
 
 $totalLabel = org_shop_format_price($totalCents, $currency);
+
+if ($paymentMethod === 'manual' && $orderId > 0) {
+    try {
+        $dbh->prepare("
+            UPDATE org_orders
+            SET payment_method = 'manual',
+                updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ")->execute([':id' => $orderId]);
+    } catch (Throwable $e) {
+        // ignore
+    }
+}
 
 $product = org_shop_get_product($dbh, $productId);
 $productTitle = (string)($product['title'] ?? 'Product');

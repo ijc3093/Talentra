@@ -500,11 +500,23 @@ function appearance_bridge_shell_palette_shop_selectors(): string
         . 'html[data-msb-appearance] body.shop-page .shop-nav-filters,'
         . 'html[data-msb-appearance] body.shop-page .shop-brand-nav,'
         . 'html[data-msb-appearance] body.shop-page .feed-left-rail-page-head,'
+        . 'html[data-msb-appearance] body.shop-page .shop-nav-utility-links,'
         . 'html[data-msb-appearance] body.shop-page .ig-feed-header,'
         . 'html[data-msb-appearance] body.shop-page .shop-market-card,'
         . 'html[data-msb-appearance] body.shop-page .shop-market-cover,'
+        . 'html[data-msb-appearance] body.shop-page .shop-market-media,'
         . 'html[data-msb-appearance] body.shop-page .shop-buy-card,'
         . 'html[data-msb-appearance] body.shop-page .shop-brand-banner,'
+        . 'html[data-msb-appearance] body.shop-page .shop-side-card,'
+        . 'html[data-msb-appearance] body.shop-page .shop-service-strip,'
+        . 'html[data-msb-appearance] body.shop-page .shop-promo-hero,'
+        . 'html[data-msb-appearance] body.shop-page .shop-promo-slide,'
+        . 'html[data-msb-appearance] body.shop-page .shop-category-tile span,'
+        . 'html[data-msb-appearance] body.shop-page .shop-sort-select,'
+        . 'html[data-msb-appearance] body.shop-page .shop-product-page-arrow,'
+        . 'html[data-msb-appearance] body.shop-page .shop-product-per-page select,'
+        . 'html[data-msb-appearance] body.shop-page .shop-cart-preview-thumb,'
+        . 'html[data-msb-appearance] body.shop-page .shop-deal-thumb,'
         . 'html[data-msb-appearance] body.shop-page .cart-row,'
         . 'html[data-msb-appearance] body.shop-page .orders-row,'
         . 'html[data-msb-appearance] body.shop-page .cart-thumb,'
@@ -789,6 +801,12 @@ function appearance_bridge_print_shell_critical(PDO $dbh, int $userId, bool $org
             . $lightScope . ' .commerce-action-tile,' . $lightScope . ' .commerce-panel-head{'
             . 'background-color:' . $orgBgAttr . '!important;background-image:none!important;'
             . 'color:' . $orgTextAttr . '!important;}'
+            . $lightScope . ' .commerce-hero{'
+            . 'background:linear-gradient(135deg,#0f766e 0%,#0d9488 42%,#14b8a6 100%)!important;'
+            . 'background-image:linear-gradient(135deg,#0f766e 0%,#0d9488 42%,#14b8a6 100%)!important;'
+            . 'color:#ffffff!important;}'
+            . $lightScope . ' .commerce-hero h1,' . $lightScope . ' .commerce-hero p,'
+            . $lightScope . ' .commerce-hero .commerce-pill{color:#ffffff!important;}'
             . $lightScope . '{--org-page-bg:' . $orgBgAttr . ';--org-bg:' . $orgBgAttr . ';'
             . '--bg-main:' . $orgBgAttr . ';--bg-card:' . $orgBgAttr . ';--bg-sidebar:' . $orgBgAttr . ';'
             . ($autoEnabled ? '--org-btn-filled-text:#ffffff;--org-btn-on-accent:#ffffff;' : '')
@@ -977,7 +995,7 @@ function appearance_bridge_print_css_link(string $assetPrefix = './'): void
     }
     $GLOBALS['__MSB_APPEARANCE_BRIDGE_CSS'] = true;
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
-    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=68', ENT_QUOTES, 'UTF-8');
+    $href = htmlspecialchars($prefix . 'css/appearance-bridge.css?v=71', ENT_QUOTES, 'UTF-8');
     echo '<link rel="stylesheet" href="' . $href . '">' . "\n";
 }
 
@@ -1405,7 +1423,7 @@ function appearance_bridge_print_guest_index_theme(string $mode, string $assetPr
         appearance_bridge_print_index_daylight_critical();
         if (!defined('MSB_THEME_DARK_CSS')) {
             define('MSB_THEME_DARK_CSS', true);
-            echo '<link rel="stylesheet" href="./css/dark-auto.css?v=55">' . "\n";
+            echo '<link rel="stylesheet" href="./css/dark-auto.css?v=57">' . "\n";
         }
         return;
     }
@@ -1427,7 +1445,7 @@ function appearance_bridge_print_guest_index_theme(string $mode, string $assetPr
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
     if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
         $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
-        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=141', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=143', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
@@ -1440,7 +1458,7 @@ function appearance_bridge_print_guest_index_theme(string $mode, string $assetPr
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=55', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=57', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
 }
 
@@ -1497,7 +1515,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     $prefix = appearance_bridge_normalize_asset_prefix($assetPrefix);
     if (empty($GLOBALS['__MSB_THEME_BOOTSTRAP_JS'])) {
         $GLOBALS['__MSB_THEME_BOOTSTRAP_JS'] = true;
-        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=141', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
+        echo '<script src="' . htmlspecialchars($prefix . 'js/theme-bootstrap.js?v=143', ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
     }
     if (!defined('MSB_APPEARANCE_PALETTE_CSS')) {
         define('MSB_APPEARANCE_PALETTE_CSS', true);
@@ -1510,7 +1528,7 @@ function appearance_bridge_print_theme_stack(PDO $dbh, int $userId, string $asse
     appearance_bridge_print_css_link($assetPrefix);
     if (!defined('MSB_THEME_DARK_CSS')) {
         define('MSB_THEME_DARK_CSS', true);
-        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=55', ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($prefix . 'css/dark-auto.css?v=57', ENT_QUOTES, 'UTF-8') . '">' . "\n";
     }
     if (!defined('MSB_THEME_DARK_JS')) {
         define('MSB_THEME_DARK_JS', true);
@@ -1592,8 +1610,11 @@ function appearance_bridge_print_org_tail_critical(PDO $dbh, int $userId): void
             . 'color:var(--msb-palette-icon,var(--msb-palette-text,' . $textAttr . '))!important;}'
             . 'html[data-msb-appearance] body.org-app .org-sales-nav-badge rect,'
             . 'html.msb-palette-active body.org-app .org-sales-nav-badge rect{fill:#dc3545!important;}'
+            . 'html[data-msb-appearance] body.org-app .org-sales-nav-badge,'
+            . 'html.msb-palette-active body.org-app .org-sales-nav-badge,'
             . 'html[data-msb-appearance] body.org-app .org-sales-nav-badge text,'
-            . 'html.msb-palette-active body.org-app .org-sales-nav-badge text{fill:#ffffff!important;color:#ffffff!important;}'
+            . 'html.msb-palette-active body.org-app .org-sales-nav-badge text{'
+            . 'color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;fill:#ffffff!important;}'
             . 'html[data-msb-appearance] body.org-app .commerce-page{'
             . '--ch-bg:var(--msb-palette-bg,' . $pageBgAttr . ');'
             . '--ch-surface:var(--msb-palette-surface,var(--msb-palette-bg,' . $pageBgAttr . '));}'

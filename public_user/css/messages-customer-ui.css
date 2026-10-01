@@ -848,49 +848,80 @@
   max-width: 72% !important;
 }
 
+.messages-shell.customer-msg-ui .msg-bubble-stack > .bubble {
+  order: 1 !important;
+}
+
+.messages-shell.customer-msg-ui .msg-bubble-stack > .msg-meta {
+  order: 2 !important;
+}
+
+.messages-shell.customer-msg-ui .msg-bubble-stack > .msg-reactions {
+  order: 3 !important;
+}
+
 .messages-shell.customer-msg-ui .bubble {
   max-width: 100% !important;
-  width: auto !important;
+  width: fit-content !important;
   padding: 10px 12px !important;
-  border-radius: 16px !important;
+  border-radius: 14px !important;
   border: 0 !important;
   box-shadow: none !important;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-align: left !important;
 }
 
 .messages-shell.customer-msg-ui .msg-row:not(.me) .bubble {
   background: var(--cm-them) !important;
   color: var(--cm-text) !important;
   border: 1px solid var(--cm-border) !important;
-  border-bottom-left-radius: 6px !important;
+  border-bottom-left-radius: 5px !important;
 }
 
 .messages-shell.customer-msg-ui .bubble.me {
-  background: var(--cm-me) !important;
+  background: #2563eb !important;
   color: #fff !important;
-  border-bottom-right-radius: 6px !important;
+  -webkit-text-fill-color: #fff !important;
+  border-bottom-right-radius: 5px !important;
+}
+
+.messages-shell.customer-msg-ui .bubble.me .msgText {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
 .messages-shell.customer-msg-ui .msgText {
-  font-size: 14px !important;
-  line-height: 1.4 !important;
+  font-size: 13.5px !important;
+  line-height: 1.45 !important;
   white-space: pre-wrap !important;
+  text-align: left !important;
 }
 
 .messages-shell.customer-msg-ui .msg-meta {
-  display: block !important;
-  font-size: 10px !important;
-  opacity: 0.75;
-  margin-top: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+  margin: 4px 2px 0 !important;
+  padding: 0 !important;
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
+  line-height: 1.2 !important;
 }
 
-.messages-shell.customer-msg-ui .bubble.me .msg-meta {
-  color: rgba(255, 255, 255, 0.85) !important;
+.messages-shell.customer-msg-ui .msg-row.me .msg-meta,
+.messages-shell.customer-msg-ui .msg-meta.me {
+  justify-content: flex-end !important;
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
 }
 
 .messages-shell.customer-msg-ui .msg-row:not(.me) .msg-meta {
-  color: var(--cm-muted) !important;
+  justify-content: flex-start !important;
+  color: #94a3b8 !important;
 }
 
 .messages-shell.customer-msg-ui .composer,
@@ -899,76 +930,223 @@
   position: relative !important;
   bottom: auto !important;
   margin-top: auto !important;
-  padding: 12px 14px !important;
+  padding: 10px 14px 14px !important;
   border-top: 1px solid var(--cm-border) !important;
   background: var(--cm-panel) !important;
   background-color: var(--cm-panel) !important;
   color: var(--cm-text) !important;
 }
 
+/* Unified dock: attach + field + send as one composition */
 .messages-shell.customer-msg-ui .composer-bar,
+.messages-shell.customer-msg-ui .composer-bar--dock,
 .messages-shell.customer-msg-ui .group-chat-composer .composer-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 10px !important;
   background: transparent !important;
   border: 0 !important;
   border-radius: 0 !important;
   padding: 0 !important;
+  min-height: 0 !important;
+}
+
+.messages-shell.customer-msg-ui .composer-left,
+.messages-shell.customer-msg-ui .composer-right {
+  display: none !important;
+}
+
+.messages-shell.customer-msg-ui .composer-tool,
+.messages-shell.customer-msg-ui .composer-field-actions .composer-tool,
+.messages-shell.customer-msg-ui .composer-bar > .composer-tool {
+  flex: 0 0 auto;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px;
+  min-height: 40px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: var(--cm-muted) !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none !important;
+  transition: background-color .15s ease, color .15s ease, transform .12s ease;
+  box-shadow: none !important;
+  line-height: 1 !important;
+}
+
+.messages-shell.customer-msg-ui .composer-tool i,
+.messages-shell.customer-msg-ui .composer-field-actions .composer-tool i {
+  font-size: 16px !important;
+  color: inherit !important;
+  line-height: 1 !important;
+}
+
+.messages-shell.customer-msg-ui .composer-tool:hover,
+.messages-shell.customer-msg-ui .composer-tool:focus-visible {
+  background: var(--cm-hover) !important;
+  color: var(--cm-text) !important;
+  outline: none;
+}
+
+.messages-shell.customer-msg-ui .composer-tool:active {
+  transform: scale(0.96);
+}
+
+.messages-shell.customer-msg-ui .composer-bar > .composer-tool {
+  background: var(--cm-chip) !important;
+  border-radius: 14px !important;
+  color: var(--cm-text) !important;
+}
+
+.messages-shell.customer-msg-ui .composer-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 4px 6px 4px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: 22px;
+  background: var(--cm-input) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.messages-shell.customer-msg-ui .composer-field:focus-within {
+  border-color: color-mix(in srgb, var(--cm-me) 55%, var(--cm-border));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 3px color-mix(in srgb, var(--cm-me) 18%, transparent);
+}
+
+.messages-shell.customer-msg-ui .composer-input-wrap {
+  display: contents;
 }
 
 .messages-shell.customer-msg-ui #messageInput,
-.messages-shell.customer-msg-ui .group-chat-composer textarea {
-  width: 100% !important;
-  min-height: 44px !important;
-  max-height: 120px !important;
+.messages-shell.customer-msg-ui .group-chat-composer textarea,
+.messages-shell.customer-msg-ui .group-message-input {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 36px !important;
+  max-height: 132px !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 8px 4px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
   resize: none;
-  border: 1px solid var(--cm-border) !important;
-  border-radius: 999px !important;
-  padding: 11px 16px !important;
-  font-size: 14px !important;
-  background: var(--cm-input) !important;
+  background: transparent !important;
   color: var(--cm-text) !important;
+  font-size: 14.5px !important;
+  line-height: 1.4 !important;
   box-shadow: none !important;
+  outline: none !important;
+  overflow-y: auto !important;
 }
 
 .messages-shell.customer-msg-ui #messageInput::placeholder,
-.messages-shell.customer-msg-ui .group-chat-composer textarea::placeholder {
+.messages-shell.customer-msg-ui .group-chat-composer textarea::placeholder,
+.messages-shell.customer-msg-ui .group-message-input::placeholder {
   color: var(--cm-muted) !important;
+  opacity: 0.9;
 }
 
-.messages-shell.customer-msg-ui .composer-right a,
-.messages-shell.customer-msg-ui .composer-left button,
-.messages-shell.customer-msg-ui .composer-right button:not([type="submit"]) {
-  width: 38px;
-  height: 38px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.1);
-  color: var(--cm-text);
-  display: inline-flex;
+.messages-shell.customer-msg-ui .composer-field-actions {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
+  gap: 0;
+  flex: 0 0 auto;
+  padding-bottom: 0;
 }
 
+.messages-shell.customer-msg-ui .composer-field-actions .composer-tool {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px !important;
+}
+
+.messages-shell.customer-msg-ui .composer-field-actions .composer-tool i {
+  font-size: 15px !important;
+}
+
+.messages-shell.customer-msg-ui .composer-send,
 .messages-shell.customer-msg-ui .composer-right .btn-primary,
+.messages-shell.customer-msg-ui #sendForm button[type="submit"],
 .messages-shell.customer-msg-ui .group-send-form button[type="submit"] {
+  flex: 0 0 auto !important;
   width: 42px !important;
-  min-width: 42px;
-  min-height: 42px;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  margin: 0 !important;
   padding: 0 !important;
-  border-radius: 999px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
   background: var(--cm-me) !important;
   border-color: var(--cm-me) !important;
-  color: #fff !important;
-  font-size: 0;
+  color: var(--cm-me-text, #fff) !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--cm-me) 28%, transparent);
+  transition: transform .12s ease, filter .15s ease, box-shadow .15s ease;
+  font-size: 0 !important;
+  line-height: 1 !important;
 }
 
+.messages-shell.customer-msg-ui .composer-send i,
 .messages-shell.customer-msg-ui .composer-right .btn-primary i,
+.messages-shell.customer-msg-ui #sendForm button[type="submit"] i,
 .messages-shell.customer-msg-ui .group-send-form button[type="submit"] i {
-  font-size: 15px;
-  color: #fff;
+  font-size: 15px !important;
+  color: var(--cm-me-text, #fff) !important;
+  margin: 0 0 0 1px;
+  transform: translateX(0.5px);
+}
+
+.messages-shell.customer-msg-ui .composer-send:hover,
+.messages-shell.customer-msg-ui #sendForm button[type="submit"]:hover,
+.messages-shell.customer-msg-ui .group-send-form button[type="submit"]:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--cm-me) 34%, transparent);
+}
+
+.messages-shell.customer-msg-ui .composer-send:active,
+.messages-shell.customer-msg-ui #sendForm button[type="submit"]:active,
+.messages-shell.customer-msg-ui .group-send-form button[type="submit"]:active {
+  transform: scale(0.96);
+}
+
+@media (max-width: 640px) {
+  .messages-shell.customer-msg-ui .composer,
+  .messages-shell.customer-msg-ui .group-chat-composer {
+    padding: 8px 10px 12px !important;
+  }
+  .messages-shell.customer-msg-ui .composer-bar--dock {
+    gap: 8px !important;
+  }
+  .messages-shell.customer-msg-ui .composer-bar > .composer-tool,
+  .messages-shell.customer-msg-ui .composer-send {
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+  .messages-shell.customer-msg-ui .composer-field {
+    padding-left: 12px;
+  }
 }
 
 /* Info panel */

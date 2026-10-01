@@ -12,8 +12,7 @@ function msb_type_fonts(): array
         'Arial' => ['stack' => 'Arial, Helvetica, sans-serif', 'google' => ''],
         'Calibri' => ['stack' => 'Calibri, Carlito, "Segoe UI", sans-serif', 'google' => ''],
         'Helvetica' => ['stack' => 'Helvetica, "Helvetica Neue", Arial, sans-serif', 'google' => ''],
-        'Georgia' => ['stack' => 'Georgia, "Times New Roman", serif', 'google' => ''],
-        'Times New Roman' => ['stack' => '"Times New Roman", Times, serif', 'google' => ''],
+        'Georgia' => ['stack' => 'Georgia, Calibri, serif', 'google' => ''],
         'Courier New' => ['stack' => '"Courier New", Courier, monospace', 'google' => ''],
         'Comic Sans MS' => ['stack' => '"Comic Sans MS", "Comic Sans", cursive', 'google' => ''],
         'Impact' => ['stack' => 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif', 'google' => ''],
@@ -83,9 +82,9 @@ function msb_type_prefs_defaults(): array
     return [
         'headerSize' => 'small',
         'headerFont' => 'Arial',
-        'bodyPt' => 9,
+        'bodyPt' => 12,
         'bodyFont' => 'Arial',
-        'textColor' => '#000000',
+        'textColor' => '#ffffff',
     ];
 }
 
@@ -128,7 +127,7 @@ function msb_type_text_color_normalize(string $value): string
         return 'theme';
     }
     if ($value === '' || $value === 'default' || $value === 'system') {
-        return '#000000';
+        return '#ffffff';
     }
     if (function_exists('appearance_palette_parse_custom_hex')) {
         $hex = appearance_palette_parse_custom_hex($value);
@@ -139,7 +138,7 @@ function msb_type_text_color_normalize(string $value): string
     if (preg_match('/^#?([0-9a-f]{6})$/', $value, $m)) {
         return '#' . $m[1];
     }
-    return '#000000';
+    return '#ffffff';
 }
 
 function msb_type_text_color_presets(): array
@@ -156,9 +155,9 @@ function msb_type_prefs_from_settings(array $row): array
     return [
         'headerSize' => msb_type_header_size_normalize((string)($row['header_type_size'] ?? 'small')),
         'headerFont' => msb_type_font_normalize((string)($row['header_font_family'] ?? 'Arial')),
-        'bodyPt' => msb_type_body_pt_normalize($row['body_font_size_pt'] ?? 9),
+        'bodyPt' => msb_type_body_pt_normalize($row['body_font_size_pt'] ?? 12),
         'bodyFont' => msb_type_font_normalize((string)($row['body_font_family'] ?? 'Arial')),
-        'textColor' => msb_type_text_color_normalize((string)($row['text_color'] ?? '#000000')),
+        'textColor' => msb_type_text_color_normalize((string)($row['text_color'] ?? '#ffffff')),
     ];
 }
 
@@ -297,9 +296,19 @@ function msb_type_prefs_print(PDO $dbh, int $userId): void
         . 'r.style.setProperty("--msb-header-font",fonts[p.headerFont]||"Arial, Helvetica, sans-serif");'
         . 'r.style.setProperty("--msb-body-font",fonts[p.bodyFont]||"Arial, Helvetica, sans-serif");'
         . 'r.style.setProperty("--msb-header-size",px);'
-        . 'r.style.setProperty("--msb-body-size",String(p.bodyPt||9)+"pt");'
+        . 'r.style.setProperty("--msb-body-size",String(p.bodyPt||12)+"pt");'
         . 'if(p.textColor&&p.textColor!=="theme"){r.setAttribute("data-msb-text-color","1");r.style.setProperty("--msb-text-color",String(p.textColor));}'
         . 'else{r.removeAttribute("data-msb-text-color");r.style.removeProperty("--msb-text-color");}'
+        // Keep the saved text color only when it stays readable on the page background.
+        . 'function lum(c){var m=String(c||"").match(/rgba?\\(([^)]+)\\)/);var v;if(m){v=m[1].split(",").map(function(x){return parseFloat(x)/255;});}'
+        . 'else{var h=String(c||"").replace("#","");if(h.length!==6)return null;v=[0,2,4].map(function(i){return parseInt(h.substr(i,2),16)/255;});}'
+        . 'if(m&&m[1].split(",").length>3&&parseFloat(m[1].split(",")[3])===0)return null;'
+        . 'v=v.slice(0,3).map(function(x){return x<=0.03928?x/12.92:Math.pow((x+0.055)/1.055,2.4);});return 0.2126*v[0]+0.7152*v[1]+0.0722*v[2];}'
+        . 'window.MSBTypeColorGuard=function(){var tc=(window.MSB_TYPE_PREFS||{}).textColor;if(!tc||tc==="theme"||!document.body)return;'
+        . 'var bg=getComputedStyle(document.body).backgroundColor;var lb=lum(bg);if(lb===null)lb=lum(getComputedStyle(r).backgroundColor);var lt=lum(tc);if(lb===null||lt===null)return;'
+        . 'var ratio=(Math.max(lb,lt)+0.05)/(Math.min(lb,lt)+0.05);'
+        . 'if(ratio<3){r.removeAttribute("data-msb-text-color");}else{r.setAttribute("data-msb-text-color","1");r.style.setProperty("--msb-text-color",String(tc));}};'
+        . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",window.MSBTypeColorGuard);}else{window.MSBTypeColorGuard();}'
         . '})();</script>' . "\n";
 
     if (empty($GLOBALS['msb_type_prefs_shutdown'])) {
@@ -371,6 +380,23 @@ function msb_type_prefs_body_selectors(): string
         'html[data-msb-type] body #profilePostsFeed .mf-card > .mf-body',
         'html[data-msb-type] body #profilePostsFeed .mf-body .mf-body-formatted',
         'html[data-msb-type] body #profilePostsFeed .mf-body .post-card-paragraph',
+        // Discover (public.php) cards: appearance-bridge.css pins these to 12px with
+        // .post.public-post-card specificity, so match that prefix to let the setting win.
+        'html[data-msb-type] body .post.public-post-card .standard-text-caption',
+        'html[data-msb-type] body .post.public-post-card .standard-media-caption',
+        'html[data-msb-type] body .post.public-post-card .standard-text-caption .post-card-paragraph',
+        'html[data-msb-type] body .post.public-post-card .standard-media-caption .post-card-paragraph',
+        'html[data-msb-type] body .post.public-post-card .standard-text-caption .post-card-caption-formatted',
+        'html[data-msb-type] body .post.public-post-card .standard-media-caption .post-card-caption-formatted',
+        'html[data-msb-type] body .post.public-post-card .standard-media-summary',
+        'html[data-msb-type] body .post.public-post-card .reel-caption',
+        'html[data-msb-type] body .post.public-post-card .reel-caption-text',
+        'html[data-msb-type] body .post.public-post-card .reel-caption-text .post-card-paragraph',
+        'html[data-msb-type] body .post.public-post-card .reel-caption-text .post-card-caption-formatted',
+        'html[data-msb-type] body #ttLeftbarOverlays .tt-rm-body',
+        'html[data-msb-type] body #ttLeftbarOverlays .tt-rm-body .tt-richtext',
+        'html[data-msb-type] body #ttLeftbarOverlays .tt-rm-body .tt-rich-p',
+        'html[data-msb-type] body #ttLeftbarOverlays .tt-rm-body .tt-rich-li',
     ]);
 }
 

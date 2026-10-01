@@ -105,9 +105,9 @@ function profile_settings_ensure_tab_privacy_columns(PDO $dbh): void
             'gallery_grid_size' => "VARCHAR(16) NOT NULL DEFAULT 'medium'",
             'header_type_size' => "VARCHAR(16) NOT NULL DEFAULT 'small'",
             'header_font_family' => "VARCHAR(64) NOT NULL DEFAULT 'Arial'",
-            'body_font_size_pt' => 'SMALLINT NOT NULL DEFAULT 9',
+            'body_font_size_pt' => 'SMALLINT NOT NULL DEFAULT 12',
             'body_font_family' => "VARCHAR(64) NOT NULL DEFAULT 'Arial'",
-            'text_color' => "VARCHAR(16) NOT NULL DEFAULT '#000000'",
+            'text_color' => "VARCHAR(16) NOT NULL DEFAULT '#ffffff'",
             'autoplay_videos' => 'TINYINT(1) NOT NULL DEFAULT 1',
             'sound_enabled' => 'TINYINT(1) NOT NULL DEFAULT 1',
             'post_visibility' => "VARCHAR(32) NOT NULL DEFAULT 'friends'",
@@ -125,18 +125,31 @@ function profile_settings_ensure_tab_privacy_columns(PDO $dbh): void
             $dbh->exec('ALTER TABLE user_profile_settings ADD COLUMN `' . $name . '` ' . $ddl);
         }
         try {
+            // Type defaults: Small header, Arial / Arial, 12 pt body, #ffffff text.
+            // Rows still on an older untouched default move over once, while the
+            // column default has not been switched yet (so later choices stick).
+            $bodyCol = $dbh->query("SHOW COLUMNS FROM user_profile_settings LIKE 'body_font_size_pt'");
+            $bodyColRow = $bodyCol ? $bodyCol->fetch(PDO::FETCH_ASSOC) : false;
+            $bodyDefault = is_array($bodyColRow) ? (string)($bodyColRow['Default'] ?? '') : '';
+            if ($bodyDefault !== '12') {
+                $dbh->exec(
+                    "UPDATE user_profile_settings
+                     SET header_type_size = 'small', header_font_family = 'Arial', body_font_size_pt = 12,
+                         body_font_family = 'Arial', text_color = '#ffffff'
+                     WHERE (
+                             (header_type_size = 'small' AND CAST(body_font_size_pt AS SIGNED) = 9)
+                          OR (header_type_size = 'medium' AND CAST(body_font_size_pt AS SIGNED) = 14)
+                           )
+                       AND (text_color IN ('#000000', '#ffffff', 'theme', '') OR text_color IS NULL)
+                       AND header_font_family IN ('Arial', 'Calibri', '')
+                       AND body_font_family IN ('Arial', 'Calibri', '')"
+                );
+            }
             $dbh->exec("ALTER TABLE user_profile_settings MODIFY `header_type_size` VARCHAR(16) NOT NULL DEFAULT 'small'");
-            $dbh->exec("ALTER TABLE user_profile_settings MODIFY `body_font_size_pt` SMALLINT NOT NULL DEFAULT 9");
-            $dbh->exec("ALTER TABLE user_profile_settings MODIFY `text_color` VARCHAR(16) NOT NULL DEFAULT '#000000'");
-            $dbh->exec(
-                "UPDATE user_profile_settings
-                 SET header_type_size = 'small', body_font_size_pt = 9, text_color = '#000000'
-                 WHERE header_type_size = 'medium'
-                   AND CAST(body_font_size_pt AS SIGNED) = 14
-                   AND (text_color = 'theme' OR text_color = '' OR text_color IS NULL)
-                   AND header_font_family = 'Arial'
-                   AND body_font_family = 'Arial'"
-            );
+            $dbh->exec("ALTER TABLE user_profile_settings MODIFY `header_font_family` VARCHAR(64) NOT NULL DEFAULT 'Arial'");
+            $dbh->exec("ALTER TABLE user_profile_settings MODIFY `body_font_size_pt` SMALLINT NOT NULL DEFAULT 12");
+            $dbh->exec("ALTER TABLE user_profile_settings MODIFY `body_font_family` VARCHAR(64) NOT NULL DEFAULT 'Arial'");
+            $dbh->exec("ALTER TABLE user_profile_settings MODIFY `text_color` VARCHAR(16) NOT NULL DEFAULT '#ffffff'");
         } catch (Throwable $eTypeDefault) {
         }
         $enumCols = [
@@ -484,6 +497,9 @@ function profile_notification_kind_from_text(string $type): string
     if (strpos($t, 'friend request') !== false || strpos($t, 'wants to connect') !== false) {
         return 'friend_request';
     }
+    if (strpos($t, 'invited you to join') !== false || strpos($t, 'community invitation') !== false) {
+        return 'community_invite';
+    }
     if (strpos($t, 'follow') !== false) {
         return 'follow';
     }
@@ -593,13 +609,13 @@ function profile_viewer_prefs_js(PDO $dbh, int $userId): array
             ? msb_type_font_normalize((string)($row['header_font_family'] ?? 'Arial'))
             : 'Arial',
         'bodyPt' => function_exists('msb_type_body_pt_normalize')
-            ? msb_type_body_pt_normalize($row['body_font_size_pt'] ?? 9)
-            : 9,
+            ? msb_type_body_pt_normalize($row['body_font_size_pt'] ?? 12)
+            : 12,
         'bodyFont' => function_exists('msb_type_font_normalize')
             ? msb_type_font_normalize((string)($row['body_font_family'] ?? 'Arial'))
             : 'Arial',
         'textColor' => function_exists('msb_type_text_color_normalize')
-            ? msb_type_text_color_normalize((string)($row['text_color'] ?? '#000000'))
+            ? msb_type_text_color_normalize((string)($row['text_color'] ?? '#ffffff'))
             : '#ffffff',
         'inapp' => profile_setting_is_on($row, 'inapp_notifications', 1),
         'dateFormat' => profile_setting_text($dbh, $userId, 'date_format', 'F j, Y') ?: 'F j, Y',

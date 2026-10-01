@@ -427,6 +427,26 @@ function public_caption_card_html(string $caption, int $maxSentences = 3, int $m
     return post_caption_card_html($caption, $maxSentences, $maxChars);
 }
 
+function public_hashtags_html(array $post): string
+{
+    if (!function_exists('post_hashtags_parse')) {
+        return '';
+    }
+    $raw = trim((string)($post['hashtags'] ?? ''));
+    if ($raw === '') {
+        $raw = (string)($post['title'] ?? '') . ' ' . (string)($post['body'] ?? '') . ' ' . (string)($post['description'] ?? '');
+    }
+    $tags = array_slice(post_hashtags_parse($raw), 0, 4);
+    if (!$tags) {
+        return '';
+    }
+    $html = '<div class="public-hashtag-pills" aria-label="Post hashtags">';
+    foreach ($tags as $tag) {
+        $html .= '<span class="public-hashtag-pill">#' . h((string)$tag) . '</span>';
+    }
+    return $html . '</div>';
+}
+
 $isForYouTab = ($discoverTab === 'for-you');
 $params = [];
 if ($isForYouTab) {
@@ -465,10 +485,11 @@ if ($isForYouTab) {
     }
 }
 if ($q !== '') {
-    $where .= " AND (COALESCE(p.title,'') LIKE :qTitle OR COALESCE(p.body,'') LIKE :qBody OR COALESCE(u.name,u.username,'') LIKE :qName OR COALESCE(u.username,'') LIKE :qUser)";
+    $where .= " AND (COALESCE(p.title,'') LIKE :qTitle OR COALESCE(p.body,'') LIKE :qBody OR COALESCE(p.hashtags,'') LIKE :qHash OR COALESCE(u.name,u.username,'') LIKE :qName OR COALESCE(u.username,'') LIKE :qUser)";
     $qLike = '%' . $q . '%';
     $params[':qTitle'] = $qLike;
     $params[':qBody'] = $qLike;
+    $params[':qHash'] = $qLike;
     $params[':qName'] = $qLike;
     $params[':qUser'] = $qLike;
 }
@@ -541,7 +562,7 @@ SELECT
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
   COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
   COALESCE(p.feeling_label,'') AS feeling_label, COALESCE(p.location_label,'') AS location_label,
-  COALESCE(p.link_url,'') AS link_url, COALESCE(p.link_title,'') AS link_title, COALESCE(p.link_description,'') AS link_description, COALESCE(p.link_image,'') AS link_image, COALESCE(p.link_tags,'') AS link_tags,
+  COALESCE(p.link_url,'') AS link_url, COALESCE(p.link_title,'') AS link_title, COALESCE(p.link_description,'') AS link_description, COALESCE(p.link_image,'') AS link_image, COALESCE(p.link_tags,'') AS link_tags, COALESCE(p.hashtags,'') AS hashtags,
   COALESCE(p.sound_id,0) AS sound_id,
   COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
   COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
@@ -601,7 +622,7 @@ SELECT
   COALESCE(p.device_label,'') AS device_label, COALESCE(p.device_viewport,'') AS device_viewport,
   COALESCE(p.music_title,'') AS music_title, COALESCE(p.music_artist,'') AS music_artist,
   COALESCE(p.feeling_label,'') AS feeling_label, COALESCE(p.location_label,'') AS location_label,
-  COALESCE(p.link_url,'') AS link_url, COALESCE(p.link_title,'') AS link_title, COALESCE(p.link_description,'') AS link_description, COALESCE(p.link_image,'') AS link_image, COALESCE(p.link_tags,'') AS link_tags,
+  COALESCE(p.link_url,'') AS link_url, COALESCE(p.link_title,'') AS link_title, COALESCE(p.link_description,'') AS link_description, COALESCE(p.link_image,'') AS link_image, COALESCE(p.link_tags,'') AS link_tags, COALESCE(p.hashtags,'') AS hashtags,
   COALESCE(p.sound_id,0) AS sound_id,
   COALESCE(p.stitch_of_post_id,0) AS stitch_of_post_id,
   COALESCE(p.duet_of_post_id,0) AS duet_of_post_id,
@@ -1219,6 +1240,25 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     .standard-text-copy{
       color:var(--public-text);
     }
+    .public-hashtag-pills{
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+      margin:9px 0 2px;
+    }
+    .public-hashtag-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:24px;
+      padding:3px 10px;
+      border-radius:999px;
+      background:var(--msb-palette-action-soft, #e8f1ff);
+      color:var(--msb-palette-link, var(--msb-palette-action, #3b82f6));
+      font-size:12px;
+      font-weight:700;
+      line-height:1.2;
+      text-shadow:none;
+    }
     .standard-text-title{
       margin:0 0 6px;
       color:var(--public-text);
@@ -1460,7 +1500,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
     @media (max-width:767.98px){
       .media-stage.phone-shot{
         width:min(calc(100% - 44px), 300px);
-        margin-inline:auto;
+        margin-inline:0;
+        margin-left:0;
+        margin-right:auto;
         overflow:hidden;
         max-height:460px;
         background:transparent;
@@ -3791,7 +3833,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
 
       body .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot > :first-child{
         width:min(calc(100% - 12px), 430px);
-        margin:0 auto;
+        margin:0 auto 0 0;
+        margin-left:0;
+        margin-right:auto;
         border-radius:28px;
       }
 
@@ -3799,7 +3843,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
       body .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-image-stage > :first-child{
         width:100%;
         max-width:100%;
-        margin:0 auto;
+        margin:0 auto 0 0;
+        margin-left:0;
+        margin-right:auto;
         border-radius:0;
       }
 
@@ -3809,7 +3855,9 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
         body .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-image-stage > :first-child{
           width:100%;
           max-width:100%;
-          margin:0 auto;
+          margin:0 auto 0 0;
+          margin-left:0;
+          margin-right:auto;
           border-radius:var(--post-media-radius, 18px);
         }
       }
@@ -3972,16 +4020,24 @@ $publicStoryCatalog = story_catalog_build_from_posts($storyPosts, 'public_story_
   transition:background .15s ease,opacity .15s ease;
 }
 .ig-top-act:hover{opacity:.85;}
-.ig-top-mic,
-.ig-top-shop{
+.ig-top-mic{
   width:44px;
   height:44px;
   border-radius:50%;
   background:var(--public-control-soft, #eef2f7);
   font-size:18px;
 }
-.ig-top-mic:hover,
-.ig-top-shop:hover{background:var(--public-surface-alt, #e2e8f0);opacity:1;}
+.ig-top-shop{
+  width:auto;
+  min-width:28px;
+  height:44px;
+  border-radius:0;
+  background:transparent;
+  font-size:22px;
+  position:relative;
+}
+.ig-top-mic:hover{background:var(--public-surface-alt, #e2e8f0);opacity:1;}
+.ig-top-shop:hover{background:transparent;opacity:.85;}
 .ig-top-live{
   gap:8px;
   min-height:44px;
@@ -4984,7 +5040,10 @@ body.feed-insta-ui .avatar-thumb img{
       height:auto !important;
       max-height:var(--post-media-max-height, min(56vh, calc(100dvh - 220px))) !important;
       object-fit:contain !important;
-      object-position:center center !important;
+      object-position:left center !important;
+      margin-left:0 !important;
+      margin-right:auto !important;
+      justify-self:start !important;
       border:0 !important;
       border-radius:var(--post-media-radius) !important;
       background:transparent !important;
@@ -5026,7 +5085,9 @@ body.feed-insta-ui .avatar-thumb img{
         width:min(72vw,var(--post-phone-max)) !important;
         max-width:100% !important;
         max-height:var(--post-media-max-height, min(46vh, calc(100dvh - 270px))) !important;
-        margin-inline:auto !important;
+        margin-inline:0 !important;
+        margin-left:0 !important;
+        margin-right:auto !important;
         aspect-ratio:var(--device-ar-w,375)/var(--device-ar-h,667) !important;
         border-radius:28px !important;
         overflow:hidden !important;
@@ -5334,6 +5395,14 @@ body.dark-auto.news-page #createPostModal:not(.is-open){
   visibility:hidden;
   opacity:0;
 }
+.post.public-post-card .media-stage.public-media-pending{
+  width:min(100%, var(--post-media-card-width, 100%)) !important;
+  aspect-ratio:var(--device-ar-w, 4) / var(--device-ar-h, 3) !important;
+  min-height:0 !important;
+  background:var(--public-loading-media-bg,#f1f1f1) !important;
+  border-radius:7px !important;
+  overflow:hidden !important;
+}
 body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-card.is-single-video-post{
   visibility:visible !important;
 }
@@ -5342,7 +5411,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
 <body class="public-page feed-insta-ui public-suggestions-visible<?= $isNewsSurface ? ' news-page' : '' ?><?= $discoverTab === 'public' ? ' home-tab-discover' : '' ?><?= defined('MSB_HOME_PAGE') ? ' home-page' : '' ?>">
 <?php require __DIR__ . '/includes/register_welcome_modal.php'; ?>
 <?php $GLOBALS['msb_skip_header_leftbar'] = true; $forceFeedRail = true; $skipHeaderThemeBootstrap = true; include __DIR__ . '/includes/header.php'; ?>
-<?php $feedLeftRailActive = isset($publicNavTabs[$discoverTab]) ? $discoverTab : $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; include __DIR__ . '/includes/feed_left_rail.php'; ?>
+<?php $feedLeftRailActive = isset($publicNavTabs[$discoverTab]) ? $discoverTab : $selfPage; $feedLeftRailCanFollow = $canFollowPublishers; $feedLeftRailLegal = true; include __DIR__ . '/includes/feed_left_rail.php'; ?>
   <div class="sh-mainpanel">
   <?php include __DIR__ . '/includes/leftbar.php'; ?>
   <?php include __DIR__ . '/includes/stories_right_door.php'; ?>
@@ -5628,7 +5697,6 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
               var previousScrollBehavior = currentFeed.style.scrollBehavior;
               currentFeed.style.scrollBehavior = 'auto';
               currentFeed.scrollTop = 0;
-              currentFeed.classList.add('public-media-hydrating');
               currentFeed.innerHTML = nextFeed.innerHTML;
               if(typeof window.msbBootPublicMediaCards === 'function'){
                 window.msbBootPublicMediaCards();
@@ -5730,8 +5798,8 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
             include __DIR__ . '/includes/publisher_search_panel.php';
           ?>
         <?php endif; ?>
-        <?php ob_start(); ?>
-        <section class="ig-feed public-media-hydrating">
+        <?php if ($discoverFragmentRequest) ob_start(); ?>
+        <section class="ig-feed">
       <?php if (!$posts): ?>
         <?php
           $publicEmptyTitles = [
@@ -5843,6 +5911,34 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                       }
                   }
               }
+          }
+
+          /* Discover needs the real media ratio before the file loads so its
+             gray placeholder has the same landscape, portrait, or square box. */
+          if ($first && count($attachments) === 1) {
+              $loadingMediaDims = device_profile_media_dimensions(
+                  (string)($first['type'] ?? ''),
+                  (string)($first['file_path'] ?? ''),
+                  (string)($first['thumb_path'] ?? '')
+              );
+              $loadingMediaW = (int)($loadingMediaDims['w'] ?? 0);
+              $loadingMediaH = (int)($loadingMediaDims['h'] ?? 0);
+              if ($loadingMediaW <= 0 || $loadingMediaH <= 0) {
+                  if ($shapeClass === 'single-portrait') {
+                      [$loadingMediaW, $loadingMediaH] = [9, 16];
+                  } elseif ($shapeClass === 'single-landscape') {
+                      [$loadingMediaW, $loadingMediaH] = [16, 9];
+                  } else {
+                      [$loadingMediaW, $loadingMediaH] = [1, 1];
+                  }
+              }
+              $deviceStageStyle = rtrim($deviceStageStyle, '; ')
+                  . ($deviceStageStyle !== '' ? ';' : '')
+                  . '--device-ar-w:' . $loadingMediaW . ';--device-ar-h:' . $loadingMediaH . ';';
+              $mediaRatio = $loadingMediaW / max(1, $loadingMediaH);
+              $shapeClass = $mediaRatio > 1.15
+                  ? 'single-landscape'
+                  : ($mediaRatio < (1 / 1.1) ? 'single-portrait' : 'single-square');
           }
 
           $captionSource = (string)($post['body'] !== '' ? $post['body'] : $post['description']);
@@ -5985,6 +6081,17 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
           data-my-reaction="<?= h((string)($post['my_reaction'] ?? "")) ?>"
           <?= $singleMediaCardStyle !== '' ? 'style="' . h($singleMediaCardStyle) . '"' : '' ?>
         >
+          <?php if (($isSingleStandardVideo || $isSingleStandardImage) && empty($mediaMissing)): ?>
+            <div class="public-loading-card-skeleton" aria-hidden="true">
+              <div class="public-loading-card-head">
+                <span class="public-loading-card-avatar"></span>
+                <span class="public-loading-card-copy"><i></i><i></i></span>
+                <span class="public-loading-card-fries"><i></i><i></i><i></i></span>
+              </div>
+              <div class="public-loading-card-media" style="--loading-media-w:<?= max(1, (int)$loadingMediaW) ?>;--loading-media-h:<?= max(1, (int)$loadingMediaH) ?>"></div>
+              <div class="public-loading-card-actions"><i></i><i></i><i></i><i></i></div>
+            </div>
+          <?php endif; ?>
           <?php if (!$isStandardMediaPost): ?>
           <div class="public-auto-progress" aria-hidden="true">
             <div class="public-auto-progress-bar"></div>
@@ -6135,6 +6242,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                     <?php endif; ?>
                   </div>
                 <?php endif; ?>
+                <?= public_hashtags_html($post) ?>
                 <?= post_link_preview_html($post, 'mf-link-preview') ?>
                 <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
               </div>
@@ -6388,7 +6496,7 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
           <?php elseif (!empty($attachments)): ?>
             <?php $hasMultiMedia = count($attachments) > 1; ?>
             <?php $mediaStageShape = ($isSingleStandardVideo || $isSingleStandardImage) ? '' : $shapeClass; ?>
-            <div class="media-stage <?= h($mediaStageShape) ?><?= !empty($isPhoneShot) ? ' phone-shot' : '' ?><?= $isSingleStandardVideo ? ' standard-video-stage' : '' ?><?= $isSingleStandardImage ? ' standard-image-stage' : '' ?><?= $hasMultiMedia ? ' has-carousel js-media-carousel' : '' ?><?= !empty($mediaMissing) ? ' mf-media-sized' : '' ?>"<?= $deviceStageStyle !== '' ? ' style="' . h($deviceStageStyle) . '"' : '' ?><?= $hasMultiMedia ? ' data-count="' . (int)count($attachments) . '" data-index="0" data-legacy-title="' . h($legacyTitle) . '" data-legacy-body="' . h($legacyCaption) . '" data-slide-presentation="' . ($slidePresentation ? '1' : '0') . '"' : '' ?>>
+            <div class="media-stage <?= h($mediaStageShape) ?><?= !empty($isPhoneShot) ? ' phone-shot' : '' ?><?= $isSingleStandardVideo ? ' standard-video-stage' : '' ?><?= $isSingleStandardImage ? ' standard-image-stage' : '' ?><?= (($isSingleStandardVideo || $isSingleStandardImage) && empty($mediaMissing)) ? ' public-media-pending' : '' ?><?= $hasMultiMedia ? ' has-carousel js-media-carousel' : '' ?><?= !empty($mediaMissing) ? ' mf-media-sized' : '' ?>"<?= $deviceStageStyle !== '' ? ' style="' . h($deviceStageStyle) . '"' : '' ?><?= $hasMultiMedia ? ' data-count="' . (int)count($attachments) . '" data-index="0" data-legacy-title="' . h($legacyTitle) . '" data-legacy-body="' . h($legacyCaption) . '" data-slide-presentation="' . ($slidePresentation ? '1' : '0') . '"' : '' ?>>
               <?php if (!$hasMultiMedia): ?>
                 <?php $a = $attachments[0]; ?>
                 <?= msb_post_attachment_html($a, [
@@ -6501,11 +6609,13 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
                         <h4 class="standard-media-subtitle"<?= $slide0Title === '' ? ' style="display:none"' : '' ?>><?= h($slide0Title) ?></h4>
                         <div class="standard-media-summary"<?= $slide0Body === '' ? ' style="display:none"' : '' ?>><?= post_slide_summary_html($slide0Body) ?></div>
                       <?php endif; ?>
+                      <?= public_hashtags_html($post) ?>
                       <?= post_link_preview_html($post, 'mf-link-preview') ?>
                       <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
                     </div>
                   <?php endif; ?>
                   <?php if (empty($displayTitle) && $caption === '' && !$slidePresentation): ?>
+                    <?= public_hashtags_html($post) ?>
                     <?= post_link_preview_html($post, 'mf-link-preview') ?>
                     <?= function_exists('msb_post_products_row_html') ? msb_post_products_row_html($post['products'] ?? []) : '' ?>
                   <?php endif; ?>
@@ -6597,8 +6707,8 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
       <?php endforeach; ?>
         </section>
         <?php
-          $discoverFeedFragment = (string)ob_get_clean();
           if ($discoverFragmentRequest) {
+              $discoverFeedFragment = (string)ob_get_clean();
               while (ob_get_level() > $discoverFragmentBaseObLevel) {
                   ob_end_clean();
               }
@@ -6606,7 +6716,6 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
               echo $discoverFeedFragment;
               exit;
           }
-          echo $discoverFeedFragment;
         ?>
         <?php if (empty($tabEmbed)): ?>
         <div class="home-tab-frame-host" id="homeCircleHost" hidden>
@@ -8374,15 +8483,22 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
   function publicComputeMediaCardWidth(aspectW, aspectH, opts){
     opts = opts || {};
     var availableWidth = publicFeedAvailableMediaWidth(opts);
-    if(opts.isPhoneShot && window.matchMedia('(max-width: 767.98px)').matches){
-      return Math.max(220, Math.min(availableWidth, Math.round(window.innerWidth * 0.72)));
-    }
-    return availableWidth;
+    var viewportH = Math.max(window.innerHeight || 0, 480);
+    var mobile = window.matchMedia('(max-width: 767.98px)').matches;
+    var tablet = !mobile && window.matchMedia('(max-width: 1024.98px)').matches;
+    var mediaRatio = mobile ? .42 : (tablet ? .52 : .56);
+    var mediaOffset = mobile ? 300 : (tablet ? 240 : 220);
+    var maxHeight = Math.max(1, Math.min(viewportH * mediaRatio, viewportH - mediaOffset));
+    var ratioWidth = Math.max(1, Math.round(maxHeight * (aspectW / aspectH)));
+    return Math.max(1, Math.min(availableWidth, ratioWidth));
   }
 
   function publicMediaWidthCss(isPhoneShot, safeWidth){
-    if(isPhoneShot) return String(safeWidth) + 'px';
-    return '100%';
+    return String(safeWidth) + 'px';
+  }
+
+  function clearPublicDiscoverBoot(card){
+    return;
   }
 
   function applyPublicVideoCardWidth(card, aspectW, aspectH){
@@ -8411,6 +8527,11 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     var widthCss = publicMediaWidthCss(isPhoneShot, safeWidth);
     card.style.setProperty('--post-media-card-width', widthCss);
     card.style.setProperty('--post-media-max-height', maxH);
+    var loadingMedia = card.querySelector(':scope > .public-loading-card-skeleton .public-loading-card-media');
+    if(loadingMedia){
+      loadingMedia.style.setProperty('width', 'min(100%, ' + widthCss + ')', 'important');
+      loadingMedia.style.setProperty('aspect-ratio', String(aspectW) + ' / ' + String(aspectH), 'important');
+    }
 
     var media = card.querySelector('.media-stage.standard-video-stage, .media-stage.standard-image-stage');
     var video = card.querySelector('.media-stage.standard-video-stage > video');
@@ -8423,6 +8544,12 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
         media.style.marginLeft = '0';
         media.style.marginRight = '0';
       }else{
+        media.style.width = 'min(100%, ' + widthCss + ')';
+        media.style.maxWidth = '100%';
+        media.style.marginLeft = '0';
+        media.style.marginRight = 'auto';
+      }
+      if(isPhoneShot){
         media.style.width = 'min(100%, ' + widthCss + ')';
         media.style.maxWidth = '100%';
         media.style.marginLeft = '0';
@@ -8444,14 +8571,20 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
       try{
         media.classList.remove('single-portrait', 'single-landscape', 'single-square');
       }catch(e){}
+      if(media.classList.contains('public-media-pending')){
+        media.style.setProperty('aspect-ratio', String(aspectW) + ' / ' + String(aspectH), 'important');
+        media.style.setProperty('background', 'var(--public-loading-media-bg, #f1f1f1)', 'important');
+        media.style.setProperty('border-radius', '7px', 'important');
+        media.style.setProperty('overflow', 'hidden', 'important');
+      }
     }
     if(video){
-      video.style.setProperty('width', isPhoneShot ? '100%' : 'auto', 'important');
+      video.style.setProperty('width', (isPhoneShot && !isHeadOutside) ? '100%' : 'auto', 'important');
       video.style.setProperty('max-width', '100%', 'important');
       video.style.setProperty('height', 'auto', 'important');
       video.style.setProperty('max-height', maxH, 'important');
       video.style.setProperty('object-fit', 'contain', 'important');
-      video.style.setProperty('object-position', 'center center', 'important');
+      video.style.setProperty('object-position', 'left center', 'important');
       video.style.setProperty('margin-left', '0', 'important');
       video.style.setProperty('margin-right', 'auto', 'important');
       video.style.setProperty('justify-self', 'start', 'important');
@@ -8462,12 +8595,12 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
       video.style.removeProperty('padding');
     }
     if(image){
-      image.style.setProperty('width', isPhoneShot ? '100%' : 'auto', 'important');
+      image.style.setProperty('width', (isPhoneShot && !isHeadOutside) ? '100%' : 'auto', 'important');
       image.style.setProperty('max-width', '100%', 'important');
       image.style.setProperty('height', 'auto', 'important');
       image.style.setProperty('max-height', maxH, 'important');
       image.style.setProperty('object-fit', 'contain', 'important');
-      image.style.setProperty('object-position', 'center center', 'important');
+      image.style.setProperty('object-position', 'left center', 'important');
       image.style.setProperty('margin-left', '0', 'important');
       image.style.setProperty('margin-right', 'auto', 'important');
       image.style.setProperty('justify-self', 'start', 'important');
@@ -8487,6 +8620,13 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     var dims = parseDeviceAspectFromStyle(media.getAttribute('style') || '');
     if(!dims || !dims.w || !dims.h) return;
     applyPublicVideoCardWidth(card, dims.w, dims.h);
+    media.classList.add('public-media-pending');
+    media.style.setProperty('width', 'min(100%, var(--post-media-card-width, 100%))', 'important');
+    media.style.setProperty('aspect-ratio', String(dims.w) + ' / ' + String(dims.h), 'important');
+    media.style.setProperty('min-height', '0', 'important');
+    media.style.setProperty('background', 'var(--public-loading-media-bg, #f1f1f1)', 'important');
+    media.style.setProperty('border-radius', '7px', 'important');
+    media.style.setProperty('overflow', 'hidden', 'important');
   }
 
   function preflightAllSingleMediaCards(){
@@ -8496,10 +8636,18 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
   }
 
   function markPublicMediaReady(card, stage){
-    if(stage) stage.classList.add('mf-media-sized');
+    if(stage){
+      stage.classList.add('mf-media-sized');
+      stage.classList.remove('public-media-pending');
+      stage.style.removeProperty('aspect-ratio');
+      stage.style.removeProperty('min-height');
+      stage.style.removeProperty('background');
+      stage.style.setProperty('border-radius', '6px', 'important');
+    }
     if(!card) return;
     if(card.classList.contains('is-single-video-post')) card.classList.add('mf-video-ready');
     if(card.classList.contains('is-single-image-post')) card.classList.add('mf-image-ready');
+    clearPublicDiscoverBoot(card);
   }
 
   function syncStandardMediaCard(el){
@@ -8526,13 +8674,23 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     try{ video.classList.add('mf-frame-painted'); }catch(e){}
     try{
       var card = video.closest('.public-post-card.is-single-video-post');
-      if(card) card.classList.add('mf-frame-painted');
+      if(card){
+        card.classList.add('mf-frame-painted');
+        markPublicMediaReady(card, video.closest('.media-stage.standard-video-stage'));
+      }
     }catch(e){}
   }
 
   function waitForPublicPaintedFrame(video){
     if(!video) return;
-    window.setTimeout(function(){ markPublicPaintedFrame(video); }, 700);
+    if(Number(video.readyState || 0) >= 2){
+      window.requestAnimationFrame(function(){
+        window.requestAnimationFrame(function(){ markPublicPaintedFrame(video); });
+      });
+    }
+    window.setTimeout(function(){
+      if(Number(video.readyState || 0) >= 2) markPublicPaintedFrame(video);
+    }, 250);
     if(video.dataset && video.dataset.publicFramePaintPending === '1') return;
     try{ video.dataset.publicFramePaintPending = '1'; }catch(e){}
     if(typeof video.requestVideoFrameCallback === 'function'){
@@ -8557,9 +8715,9 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     if(!video) return;
     if(Number(video.readyState || 0) < 1) return;
     var card = video.closest('.is-single-video-post');
-    var stage = video.closest('.media-stage.standard-video-stage');
     syncStandardMediaCard(video);
-    markPublicMediaReady(card, stage);
+    /* Metadata only supplies dimensions; keep the exact-ratio gray stage
+       until requestVideoFrameCallback (or its fallback) confirms paint. */
     // Kick muted playback so the first frame paints after create-post redirects.
     try{
       video.muted = true;
@@ -8730,7 +8888,9 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
     function tick(){
       attempts += 1;
       syncAllStandardMediaCards();
-      if(publicFirstCardIsReady() || (Date.now() - loadingStartedAt) >= maxWaitMs){
+      var firstCardReady = publicFirstCardIsReady();
+      if(firstCardReady || (Date.now() - loadingStartedAt) >= maxWaitMs){
+        if(firstCardReady) clearPublicDiscoverBoot();
         feed.classList.remove('public-media-hydrating');
         feed.setAttribute('aria-busy','false');
         if(freshCreate){
@@ -8776,7 +8936,6 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
   function bootPublicMediaCards(){
     var feed = document.querySelector('.feed-desktop-center > .ig-feed') || document.querySelector('.ig-feed');
     if(feed){
-      feed.classList.add('public-media-hydrating');
       feed.setAttribute('aria-busy','true');
     }
     resetPublicMediaReadyState();
@@ -8942,10 +9101,9 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-ca
         ? ('<img src="'+escStory(thumb)+'" alt="">')
         : ('<span class="ig-story-thumb" style="background:'+gradients[idx % gradients.length]+'"></span>');
       var label = String(story.name || 'Story');
-      if(label.length > 11) label = label.slice(0, 10) + '..';
       html += '<a type="button" class="ig-story-item" data-story-key="'+escStory(String(story.key))+'" data-story-index="'+String(idx)+'" aria-label="Open story for '+escStory(story.name)+'">'
         + '<div class="ig-story-ring">'+ringInner+'</div>'
-        // + '<span class="ig-story-name">'+escStory(label)+'</span>'
+        + '<span class="ig-story-name" title="'+escStory(label)+'">'+escStory(label)+'</span>'
         + '</a>';
     });
     track.innerHTML = html;
@@ -9358,11 +9516,20 @@ html:not([data-theme="dark"]):not(.dark-auto) body.news-page.feed-insta-ui .stan
     right:16px!important;
     gap:10px!important;
   }
-  body.public-page.feed-insta-ui .ig-top-mic,
-  body.public-page.feed-insta-ui .ig-top-shop{
+  body.public-page.feed-insta-ui .ig-top-mic{
     width:44px!important;
     height:44px!important;
     font-size:18px!important;
+  }
+  body.public-page.feed-insta-ui .ig-top-shop{
+    width:auto!important;
+    min-width:28px!important;
+    height:44px!important;
+    font-size:22px!important;
+    border-radius:0!important;
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
   }
   body.public-page.feed-insta-ui .ig-top-live{
     min-height:44px!important;
@@ -9795,6 +9962,26 @@ body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside.
   margin-left:0 !important;
   margin-right:auto !important;
   justify-self:start !important;
+  object-position:left center !important;
+}
+/* Friend mobile / phone-shot: keep media left-aligned (never centered). */
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot,
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-video-stage,
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot.standard-image-stage{
+  margin-left:0 !important;
+  margin-right:auto !important;
+  margin-inline:0 auto !important;
+  justify-self:start !important;
+}
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot > :first-child,
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot > video,
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.phone-shot > img,
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-video-stage > video,
+body.public-page.feed-insta-ui .post.public-post-card:not(.is-reel-post) .media-stage.standard-image-stage > img{
+  margin-left:0 !important;
+  margin-right:auto !important;
+  justify-self:start !important;
+  object-position:left center !important;
 }
 body.public-page.feed-insta-ui .post.public-post-card.public-media-head-outside:not(.is-reel-post) .standard-media-topbar{
   position:relative !important;
@@ -10099,6 +10286,17 @@ body.public-page.feed-insta-ui .ig-feed{
   background:#e5eff6 !important;
   box-sizing:border-box !important;
 }
+/* Let Gear appearance choices color the space behind and between Discover cards. */
+html.dark-auto:not([data-msb-appearance]) body.public-page.feed-insta-ui .ig-feed,
+html[data-theme="dark"]:not([data-msb-appearance]) body.public-page.feed-insta-ui .ig-feed{
+  background:#000000 !important;
+}
+html[data-msb-appearance] body.public-page.feed-insta-ui .ig-feed{
+  background:var(--msb-palette-hover-bg, var(--msb-palette-bg, #2f3a4a)) !important;
+}
+html[data-msb-appearance][data-theme="dark"] body.public-page.feed-insta-ui .ig-feed{
+  background:#000000 !important;
+}
 body.public-page.feed-insta-ui .ig-feed > .post.public-post-card:not(.is-reel-post){
   width:calc(100% - 24px) !important;
   max-width:calc(100% - 24px) !important;
@@ -10321,5 +10519,6 @@ include __DIR__ . '/includes/post_viewer_modal.js.php';
 </script>
 <?php include __DIR__ . '/includes/post_reactors_modal.php'; ?>
 <?php include __DIR__ . '/includes/watch_beacon.js.php'; ?>
+<?php include __DIR__ . '/includes/home_account_gear.php'; ?>
 </body>
 </html>

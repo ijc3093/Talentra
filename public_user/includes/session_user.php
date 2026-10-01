@@ -585,6 +585,7 @@ function setUserSession(array $user, bool $regenerateId = true): void
         }
         $_SESSION['session_user_id'] = $userId;
         $_SESSION['user_account_kind'] = 'personal';
+        $_SESSION['account_home_personal_id'] = $userId;
     }
 
     $_SESSION['csrf_token']       = bin2hex(random_bytes(32));

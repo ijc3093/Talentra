@@ -126,7 +126,7 @@ if (!function_exists('admin_kind_blurbs')) {
                 'commerce' => 'Login and device activity for seller accounts.',
             ],
             'requests' => [
-                'personal' => 'Personal accounts do not submit publisher/seller name requests.',
+                'personal' => 'Publisher and Commerce requests submitted by personal users creating linked accounts.',
                 'publisher' => 'Publisher name and authority requests waiting for admin review.',
                 'commerce' => 'Seller / commerce brand requests waiting for admin review.',
             ],
@@ -149,17 +149,17 @@ if (!function_exists('admin_kind_tabs_css')) {
   .{$p}-kind-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .{$p}-kind-tabs a{
     display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;
-    font-size:11px;font-weight:800;color:#64748b;background:#fff;border:1px solid #e2e8f0;text-decoration:none;
+    font-size:11px;font-weight:800;color:var(--azia-muted,#64748b);background:var(--azia-card,#fff);border:1px solid #e2e8f0;text-decoration:none;
   }
   .{$p}-kind-tabs a:hover{border-color:#93c5fd;color:#1e40af;text-decoration:none;}
   .{$p}-kind-tabs a.is-active{background:#2563eb;border-color:#2563eb;color:#fff;}
   .{$p}-kind-tabs a .cnt{
     display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:16px;padding:0 5px;
-    border-radius:999px;font-size:9px;font-weight:800;background:#f1f5f9;color:#475569;
+    border-radius:999px;font-size:9px;font-weight:800;background:#f1f5f9;color:var(--azia-muted,#475569);
   }
   .{$p}-kind-tabs a.is-active .cnt{background:rgba(255,255,255,.22);color:#fff;}
-  .{$p}-kind-note{font-size:11px;font-weight:600;color:#64748b;line-height:1.35;padding:0 2px;}
-  .{$p}-kind-note strong{color:#0f172a;font-weight:800;}
+  .{$p}-kind-note{font-size:11px;font-weight:600;color:var(--azia-muted,#64748b);line-height:1.35;padding:0 2px;}
+  .{$p}-kind-note strong{color:var(--azia-text,#0f172a);font-weight:800;}
 CSS;
     }
 }

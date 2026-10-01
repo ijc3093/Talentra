@@ -1,0 +1,651 @@
+/* Admin Appearance contrast — site-wide
+   Dark auto / Progress color / Appearance color:
+   white panels → selected surface; text stays contrasted. */
+
+html.dark-auto,
+html[data-msb-appearance],
+html.msb-palette-active {
+  --admin-dd-surface: var(--msb-palette-surface, var(--msb-palette-surface-2, var(--msb-palette-bg, #171d24)));
+  --admin-dd-raised: var(--msb-palette-surface-2, var(--msb-palette-hover-bg, var(--msb-palette-bg, #1e2733)));
+  --admin-dd-input: var(--msb-palette-input-bg, var(--msb-palette-surface-2, var(--msb-palette-bg, #1e1f1f)));
+  --admin-dd-text: var(--msb-palette-text, #e2e8f0);
+  --admin-dd-muted: var(--msb-palette-text-muted, #94a3b8);
+  --admin-dd-border: var(--msb-palette-border, rgba(148, 163, 184, 0.28));
+  --admin-dd-action: var(--msb-palette-action, #2563eb);
+  --azia-card: var(--admin-dd-surface);
+  --azia-bg: var(--msb-palette-bg, var(--admin-dd-surface));
+  --azia-text: var(--admin-dd-text);
+  --azia-muted: var(--admin-dd-muted);
+}
+
+/* Dark auto wins: always light ink on dark admin surfaces (avoid dark text from light palettes) */
+html.dark-auto {
+  --admin-dd-surface: var(--msb-palette-surface-2, var(--msb-palette-bg, #171d24));
+  --admin-dd-raised: #1e2733;
+  --admin-dd-input: var(--msb-palette-input-bg, #1e1f1f);
+  --admin-dd-text: #e8edf5;
+  --admin-dd-muted: #b1bcce;
+  --admin-dd-border: rgba(177, 188, 206, 0.28);
+  --azia-card: var(--admin-dd-surface);
+  --azia-bg: var(--msb-palette-bg, #171d24);
+  --azia-text: #e8edf5;
+  --azia-muted: #b1bcce;
+}
+
+/* ---------- Page canvas ---------- */
+html.dark-auto body.azia-admin .sh-pagebody,
+html.dark-auto body.azia-admin .sh-mainpanel > .sh-pagebody,
+html.dark-auto body.azia-admin .azia-pagebody,
+html[data-msb-appearance] body.azia-admin .sh-pagebody,
+html[data-msb-appearance] body.azia-admin .sh-mainpanel > .sh-pagebody,
+html[data-msb-appearance] body.azia-admin .azia-pagebody,
+html.msb-palette-active body.azia-admin .sh-pagebody,
+html.msb-palette-active body.azia-admin .sh-mainpanel > .sh-pagebody,
+html.msb-palette-active body.azia-admin .azia-pagebody {
+  background: var(--msb-palette-bg, var(--admin-dd-surface)) !important;
+  color: var(--admin-dd-text) !important;
+}
+
+/* ---------- Top header ---------- */
+html.dark-auto body.azia-admin .azia-headpanel,
+html.dark-auto body.azia-admin .sh-headpanel.azia-headpanel,
+html[data-msb-appearance] body.azia-admin .azia-headpanel,
+html[data-msb-appearance] body.azia-admin .sh-headpanel.azia-headpanel,
+html.msb-palette-active body.azia-admin .azia-headpanel,
+html.msb-palette-active body.azia-admin .sh-headpanel.azia-headpanel {
+  background: var(--admin-dd-surface) !important;
+  border-bottom-color: var(--admin-dd-border) !important;
+  color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin .azia-page-intro h1,
+html.dark-auto body.azia-admin .azia-welcome-in-header h2,
+html[data-msb-appearance] body.azia-admin .azia-page-intro h1,
+html[data-msb-appearance] body.azia-admin .azia-welcome-in-header h2,
+html.msb-palette-active body.azia-admin .azia-page-intro h1,
+html.msb-palette-active body.azia-admin .azia-welcome-in-header h2 {
+  color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin .azia-page-intro p,
+html.dark-auto body.azia-admin .azia-page-crumb,
+html.dark-auto body.azia-admin .azia-page-crumb a,
+html.dark-auto body.azia-admin .azia-welcome-in-header p,
+html.dark-auto body.azia-admin .azia-icon-btn,
+html[data-msb-appearance] body.azia-admin .azia-page-intro p,
+html[data-msb-appearance] body.azia-admin .azia-page-crumb,
+html[data-msb-appearance] body.azia-admin .azia-page-crumb a,
+html[data-msb-appearance] body.azia-admin .azia-welcome-in-header p,
+html[data-msb-appearance] body.azia-admin .azia-icon-btn,
+html.msb-palette-active body.azia-admin .azia-page-intro p,
+html.msb-palette-active body.azia-admin .azia-page-crumb,
+html.msb-palette-active body.azia-admin .azia-page-crumb a,
+html.msb-palette-active body.azia-admin .azia-welcome-in-header p,
+html.msb-palette-active body.azia-admin .azia-icon-btn {
+  color: var(--admin-dd-muted) !important;
+}
+
+html.dark-auto body.azia-admin .azia-search input,
+html[data-msb-appearance] body.azia-admin .azia-search input,
+html.msb-palette-active body.azia-admin .azia-search input {
+  background: var(--admin-dd-input) !important;
+  color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin .azia-icon-btn:hover,
+html[data-msb-appearance] body.azia-admin .azia-icon-btn:hover,
+html.msb-palette-active body.azia-admin .azia-icon-btn:hover {
+  background: var(--msb-palette-hover-bg, var(--admin-dd-raised)) !important;
+  color: var(--admin-dd-action) !important;
+}
+
+/* ---------- All white cards / panels / boxes ---------- */
+html.dark-auto body.azia-admin .card,
+html.dark-auto body.azia-admin .admin-card,
+html.dark-auto body.azia-admin .azia-card,
+html.dark-auto body.azia-admin .azia-filter,
+html.dark-auto body.azia-admin .sh-admin-table-card,
+html.dark-auto body.azia-admin .accounts-card,
+html.dark-auto body.azia-admin .users-card,
+html.dark-auto body.azia-admin .requests-card,
+html.dark-auto body.azia-admin .modal-content,
+html.dark-auto body.azia-admin .dropdown-menu,
+html.dark-auto body.azia-admin .fries-dropdown,
+html.dark-auto body.azia-admin .fries-menu,
+html.dark-auto body.azia-admin .table-scroll,
+html.dark-auto body.azia-admin .table-responsive,
+html.dark-auto body.azia-admin .detail-box,
+html.dark-auto body.azia-admin .nt-panel,
+html.dark-auto body.azia-admin .api-panel,
+html.dark-auto body.azia-admin .api-form-card,
+html.dark-auto body.azia-admin .ps-wrap,
+html.dark-auto body.azia-admin .sh-pagebody [class*="-card"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-panel"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-main"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-side"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-kinds"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-metric"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-filters"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-toolbar"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-board"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-foot"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-table"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-pane"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-shell"],
+html.dark-auto body.azia-admin .sh-pagebody [class*="-content"],
+html.dark-auto body.azia-admin .sh-pagebody [class$="-box"],
+html[data-msb-appearance] body.azia-admin .card,
+html[data-msb-appearance] body.azia-admin .admin-card,
+html[data-msb-appearance] body.azia-admin .azia-card,
+html[data-msb-appearance] body.azia-admin .azia-filter,
+html[data-msb-appearance] body.azia-admin .azia-kpi,
+html[data-msb-appearance] body.azia-admin .sh-admin-table-card,
+html[data-msb-appearance] body.azia-admin .accounts-card,
+html[data-msb-appearance] body.azia-admin .users-card,
+html[data-msb-appearance] body.azia-admin .requests-card,
+html[data-msb-appearance] body.azia-admin .modal-content,
+html[data-msb-appearance] body.azia-admin .dropdown-menu,
+html[data-msb-appearance] body.azia-admin .fries-dropdown,
+html[data-msb-appearance] body.azia-admin .fries-menu,
+html[data-msb-appearance] body.azia-admin .table-scroll,
+html[data-msb-appearance] body.azia-admin .table-responsive,
+html[data-msb-appearance] body.azia-admin .detail-box,
+html[data-msb-appearance] body.azia-admin .nt-panel,
+html[data-msb-appearance] body.azia-admin .api-panel,
+html[data-msb-appearance] body.azia-admin .api-form-card,
+html[data-msb-appearance] body.azia-admin .ps-wrap,
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-card"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-panel"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-main"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-side"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-kinds"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-metric"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-filters"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-toolbar"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-board"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-foot"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-table"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-pane"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-shell"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-content"],
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class$="-box"],
+html.msb-palette-active body.azia-admin .card,
+html.msb-palette-active body.azia-admin .admin-card,
+html.msb-palette-active body.azia-admin .azia-card,
+html.msb-palette-active body.azia-admin .azia-filter,
+html.msb-palette-active body.azia-admin .azia-kpi,
+html.msb-palette-active body.azia-admin .sh-admin-table-card,
+html.msb-palette-active body.azia-admin .accounts-card,
+html.msb-palette-active body.azia-admin .users-card,
+html.msb-palette-active body.azia-admin .requests-card,
+html.msb-palette-active body.azia-admin .modal-content,
+html.msb-palette-active body.azia-admin .dropdown-menu,
+html.msb-palette-active body.azia-admin .fries-dropdown,
+html.msb-palette-active body.azia-admin .fries-menu,
+html.msb-palette-active body.azia-admin .table-scroll,
+html.msb-palette-active body.azia-admin .table-responsive,
+html.msb-palette-active body.azia-admin .detail-box,
+html.msb-palette-active body.azia-admin .nt-panel,
+html.msb-palette-active body.azia-admin .api-panel,
+html.msb-palette-active body.azia-admin .api-form-card,
+html.msb-palette-active body.azia-admin .ps-wrap,
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-card"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-panel"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-main"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-side"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-kinds"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-metric"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-filters"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-toolbar"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-board"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-foot"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-table"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-pane"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-shell"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-content"],
+html.msb-palette-active body.azia-admin .sh-pagebody [class$="-box"] {
+  background: var(--admin-dd-surface) !important;
+  background-color: var(--admin-dd-surface) !important;
+  border-color: var(--admin-dd-border) !important;
+  color: var(--admin-dd-text) !important;
+  box-shadow: none !important;
+}
+
+/* Card headers / tops */
+html.dark-auto body.azia-admin .card-header,
+html.dark-auto body.azia-admin [class*="card-hd"],
+html.dark-auto body.azia-admin [class*="card-top"],
+html.dark-auto body.azia-admin [class*="-card-hd"],
+html.dark-auto body.azia-admin [class*="-card-top"],
+html[data-msb-appearance] body.azia-admin .card-header,
+html[data-msb-appearance] body.azia-admin [class*="card-hd"],
+html[data-msb-appearance] body.azia-admin [class*="card-top"],
+html[data-msb-appearance] body.azia-admin [class*="-card-hd"],
+html[data-msb-appearance] body.azia-admin [class*="-card-top"],
+html.msb-palette-active body.azia-admin .card-header,
+html.msb-palette-active body.azia-admin [class*="card-hd"],
+html.msb-palette-active body.azia-admin [class*="card-top"],
+html.msb-palette-active body.azia-admin [class*="-card-hd"],
+html.msb-palette-active body.azia-admin [class*="-card-top"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: var(--admin-dd-border) !important;
+  color: var(--admin-dd-text) !important;
+}
+
+/* Primary ink */
+html.dark-auto body.azia-admin .sh-pagebody,
+html.dark-auto body.azia-admin .sh-pagebody h1,
+html.dark-auto body.azia-admin .sh-pagebody h2,
+html.dark-auto body.azia-admin .sh-pagebody h3,
+html.dark-auto body.azia-admin .sh-pagebody h4,
+html.dark-auto body.azia-admin .sh-pagebody h5,
+html.dark-auto body.azia-admin .sh-pagebody strong,
+html.dark-auto body.azia-admin .sh-pagebody b,
+html.dark-auto body.azia-admin .sh-pagebody th,
+html.dark-auto body.azia-admin .sh-pagebody label,
+html[data-msb-appearance] body.azia-admin .sh-pagebody,
+html[data-msb-appearance] body.azia-admin .sh-pagebody h1,
+html[data-msb-appearance] body.azia-admin .sh-pagebody h2,
+html[data-msb-appearance] body.azia-admin .sh-pagebody h3,
+html[data-msb-appearance] body.azia-admin .sh-pagebody h4,
+html[data-msb-appearance] body.azia-admin .sh-pagebody h5,
+html[data-msb-appearance] body.azia-admin .sh-pagebody strong,
+html[data-msb-appearance] body.azia-admin .sh-pagebody b,
+html[data-msb-appearance] body.azia-admin .sh-pagebody th,
+html[data-msb-appearance] body.azia-admin .sh-pagebody label,
+html.msb-palette-active body.azia-admin .sh-pagebody,
+html.msb-palette-active body.azia-admin .sh-pagebody h1,
+html.msb-palette-active body.azia-admin .sh-pagebody h2,
+html.msb-palette-active body.azia-admin .sh-pagebody h3,
+html.msb-palette-active body.azia-admin .sh-pagebody h4,
+html.msb-palette-active body.azia-admin .sh-pagebody h5,
+html.msb-palette-active body.azia-admin .sh-pagebody strong,
+html.msb-palette-active body.azia-admin .sh-pagebody b,
+html.msb-palette-active body.azia-admin .sh-pagebody th,
+html.msb-palette-active body.azia-admin .sh-pagebody label {
+  color: var(--admin-dd-text) !important;
+}
+
+/* Muted text */
+html.dark-auto body.azia-admin .muted,
+html.dark-auto body.azia-admin .text-muted,
+html.dark-auto body.azia-admin .tx-color-03,
+html.dark-auto body.azia-admin .sub,
+html.dark-auto body.azia-admin [class*="-sub"],
+html.dark-auto body.azia-admin [class*="-muted"],
+html.dark-auto body.azia-admin .small,
+html[data-msb-appearance] body.azia-admin .muted,
+html[data-msb-appearance] body.azia-admin .text-muted,
+html[data-msb-appearance] body.azia-admin .tx-color-03,
+html[data-msb-appearance] body.azia-admin .sub,
+html[data-msb-appearance] body.azia-admin [class*="-sub"],
+html[data-msb-appearance] body.azia-admin [class*="-muted"],
+html[data-msb-appearance] body.azia-admin .small,
+html.msb-palette-active body.azia-admin .muted,
+html.msb-palette-active body.azia-admin .text-muted,
+html.msb-palette-active body.azia-admin .tx-color-03,
+html.msb-palette-active body.azia-admin .sub,
+html.msb-palette-active body.azia-admin [class*="-sub"],
+html.msb-palette-active body.azia-admin [class*="-muted"],
+html.msb-palette-active body.azia-admin .small {
+  color: var(--admin-dd-muted) !important;
+}
+
+/* Tables */
+html.dark-auto body.azia-admin .table,
+html.dark-auto body.azia-admin table.admin-table,
+html.dark-auto body.azia-admin table.dataTable,
+html.dark-auto body.azia-admin .table thead > tr > th,
+html.dark-auto body.azia-admin .table tbody > tr > td,
+html.dark-auto body.azia-admin table tbody > tr > td,
+html.dark-auto body.azia-admin .dataTables_wrapper,
+html.dark-auto body.azia-admin .dataTables_scrollHead,
+html.dark-auto body.azia-admin .dataTables_scrollBody,
+html[data-msb-appearance] body.azia-admin .table,
+html[data-msb-appearance] body.azia-admin table.admin-table,
+html[data-msb-appearance] body.azia-admin table.dataTable,
+html[data-msb-appearance] body.azia-admin .table thead > tr > th,
+html[data-msb-appearance] body.azia-admin .table tbody > tr > td,
+html[data-msb-appearance] body.azia-admin table tbody > tr > td,
+html[data-msb-appearance] body.azia-admin .dataTables_wrapper,
+html[data-msb-appearance] body.azia-admin .dataTables_scrollHead,
+html[data-msb-appearance] body.azia-admin .dataTables_scrollBody,
+html.msb-palette-active body.azia-admin .table,
+html.msb-palette-active body.azia-admin table.admin-table,
+html.msb-palette-active body.azia-admin table.dataTable,
+html.msb-palette-active body.azia-admin .table thead > tr > th,
+html.msb-palette-active body.azia-admin .table tbody > tr > td,
+html.msb-palette-active body.azia-admin table tbody > tr > td,
+html.msb-palette-active body.azia-admin .dataTables_wrapper,
+html.msb-palette-active body.azia-admin .dataTables_scrollHead,
+html.msb-palette-active body.azia-admin .dataTables_scrollBody {
+  background: var(--admin-dd-surface) !important;
+  background-color: var(--admin-dd-surface) !important;
+  color: var(--admin-dd-text) !important;
+  border-color: var(--admin-dd-border) !important;
+}
+
+html.dark-auto body.azia-admin .table thead > tr > th,
+html[data-msb-appearance] body.azia-admin .table thead > tr > th,
+html.msb-palette-active body.azia-admin .table thead > tr > th {
+  color: var(--admin-dd-muted) !important;
+}
+
+html.dark-auto body.azia-admin .table-hover tbody tr:hover > td,
+html.dark-auto body.azia-admin .table tbody tr:hover > td,
+html[data-msb-appearance] body.azia-admin .table-hover tbody tr:hover > td,
+html[data-msb-appearance] body.azia-admin .table tbody tr:hover > td,
+html.msb-palette-active body.azia-admin .table-hover tbody tr:hover > td,
+html.msb-palette-active body.azia-admin .table tbody tr:hover > td {
+  background: var(--msb-palette-hover-bg, var(--admin-dd-raised)) !important;
+}
+
+/* Form controls */
+html.dark-auto body.azia-admin input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="file"]),
+html.dark-auto body.azia-admin select,
+html.dark-auto body.azia-admin textarea,
+html.dark-auto body.azia-admin .form-control,
+html[data-msb-appearance] body.azia-admin input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="file"]),
+html[data-msb-appearance] body.azia-admin select,
+html[data-msb-appearance] body.azia-admin textarea,
+html[data-msb-appearance] body.azia-admin .form-control,
+html.msb-palette-active body.azia-admin input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="file"]),
+html.msb-palette-active body.azia-admin select,
+html.msb-palette-active body.azia-admin textarea,
+html.msb-palette-active body.azia-admin .form-control {
+  background: var(--admin-dd-input) !important;
+  background-color: var(--admin-dd-input) !important;
+  border-color: var(--admin-dd-border) !important;
+  color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin input::placeholder,
+html.dark-auto body.azia-admin textarea::placeholder,
+html[data-msb-appearance] body.azia-admin input::placeholder,
+html[data-msb-appearance] body.azia-admin textarea::placeholder,
+html.msb-palette-active body.azia-admin input::placeholder,
+html.msb-palette-active body.azia-admin textarea::placeholder {
+  color: var(--admin-dd-muted) !important;
+  opacity: 0.85;
+}
+
+/* Ghost / secondary buttons & pills */
+html.dark-auto body.azia-admin .btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info),
+html.dark-auto body.azia-admin .btn-mini:not(.primary):not(.btn-primary):not(.danger):not(.warn),
+html.dark-auto body.azia-admin .btn-link-pill,
+html.dark-auto body.azia-admin .filter-tabs a,
+html.dark-auto body.azia-admin .account-kind-btn,
+html.dark-auto body.azia-admin .dd-btn:not(.primary),
+html[data-msb-appearance] body.azia-admin .btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info),
+html[data-msb-appearance] body.azia-admin .btn-mini:not(.primary):not(.btn-primary):not(.danger):not(.warn),
+html[data-msb-appearance] body.azia-admin .btn-link-pill,
+html[data-msb-appearance] body.azia-admin .filter-tabs a,
+html[data-msb-appearance] body.azia-admin .account-kind-btn,
+html[data-msb-appearance] body.azia-admin .dd-btn:not(.primary),
+html.msb-palette-active body.azia-admin .btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info),
+html.msb-palette-active body.azia-admin .btn-mini:not(.primary):not(.btn-primary):not(.danger):not(.warn),
+html.msb-palette-active body.azia-admin .btn-link-pill,
+html.msb-palette-active body.azia-admin .filter-tabs a,
+html.msb-palette-active body.azia-admin .account-kind-btn,
+html.msb-palette-active body.azia-admin .dd-btn:not(.primary) {
+  background: var(--admin-dd-raised) !important;
+  border-color: var(--admin-dd-border) !important;
+  color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin .filter-tabs a.is-active,
+html.dark-auto body.azia-admin .btn-link-pill.is-active,
+html.dark-auto body.azia-admin .account-kind-btn.is-active,
+html.dark-auto body.azia-admin .dd-tabs a.is-active,
+html[data-msb-appearance] body.azia-admin .filter-tabs a.is-active,
+html[data-msb-appearance] body.azia-admin .btn-link-pill.is-active,
+html[data-msb-appearance] body.azia-admin .account-kind-btn.is-active,
+html[data-msb-appearance] body.azia-admin .dd-tabs a.is-active,
+html.msb-palette-active body.azia-admin .filter-tabs a.is-active,
+html.msb-palette-active body.azia-admin .btn-link-pill.is-active,
+html.msb-palette-active body.azia-admin .account-kind-btn.is-active,
+html.msb-palette-active body.azia-admin .dd-tabs a.is-active {
+  color: var(--admin-dd-action) !important;
+  border-color: var(--admin-dd-action) !important;
+}
+
+/* Primary / action buttons — white label on accent */
+html.dark-auto body.azia-admin .btn-primary,
+html.dark-auto body.azia-admin .btn-success,
+html.dark-auto body.azia-admin .dd-btn.primary,
+html.dark-auto body.azia-admin .btn-mini.primary,
+html.dark-auto body.azia-admin .btn-mini.btn-primary,
+html[data-msb-appearance] body.azia-admin .btn-primary,
+html[data-msb-appearance] body.azia-admin .btn-success,
+html[data-msb-appearance] body.azia-admin .dd-btn.primary,
+html[data-msb-appearance] body.azia-admin .btn-mini.primary,
+html[data-msb-appearance] body.azia-admin .btn-mini.btn-primary,
+html.msb-palette-active body.azia-admin .btn-primary,
+html.msb-palette-active body.azia-admin .btn-success,
+html.msb-palette-active body.azia-admin .dd-btn.primary,
+html.msb-palette-active body.azia-admin .btn-mini.primary,
+html.msb-palette-active body.azia-admin .btn-mini.btn-primary {
+  background: var(--admin-dd-action) !important;
+  border-color: var(--admin-dd-action) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Links */
+html.dark-auto body.azia-admin .sh-pagebody a:not(.btn):not(.btn-mini):not(.dd-btn):not(.azia-icon-btn):not(.nav-link),
+html[data-msb-appearance] body.azia-admin .sh-pagebody a:not(.btn):not(.btn-mini):not(.dd-btn):not(.azia-icon-btn):not(.nav-link),
+html.msb-palette-active body.azia-admin .sh-pagebody a:not(.btn):not(.btn-mini):not(.dd-btn):not(.azia-icon-btn):not(.nav-link) {
+  color: var(--msb-palette-link, var(--admin-dd-action));
+}
+
+/* Chat / dispute bubbles */
+html.dark-auto .dd-bubble.me,
+html[data-msb-appearance] .dd-bubble.me,
+html.msb-palette-active .dd-bubble.me {
+  background: var(--admin-dd-action) !important;
+  border-color: var(--admin-dd-action) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+html.dark-auto .dd-bubble.them,
+html[data-msb-appearance] .dd-bubble.them,
+html.msb-palette-active .dd-bubble.them {
+  background: var(--admin-dd-raised) !important;
+  border-color: var(--admin-dd-border) !important;
+  color: var(--admin-dd-text) !important;
+  -webkit-text-fill-color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin .dd-card .dd-bubble.me,
+html.dark-auto body.azia-admin .dd-card .dd-bubble.me .dd-bubble-body,
+html.dark-auto body.azia-admin .dd-card .dd-bubble.me .meta,
+html[data-msb-appearance] body.azia-admin .dd-card .dd-bubble.me,
+html[data-msb-appearance] body.azia-admin .dd-card .dd-bubble.me .dd-bubble-body,
+html[data-msb-appearance] body.azia-admin .dd-card .dd-bubble.me .meta,
+html.msb-palette-active body.azia-admin .dd-card .dd-bubble.me,
+html.msb-palette-active body.azia-admin .dd-card .dd-bubble.me .dd-bubble-body,
+html.msb-palette-active body.azia-admin .dd-card .dd-bubble.me .meta {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+html.dark-auto body.azia-admin .dd-card .dd-bubble.them,
+html.dark-auto body.azia-admin .dd-card .dd-bubble.them .dd-bubble-body,
+html[data-msb-appearance] body.azia-admin .dd-card .dd-bubble.them,
+html[data-msb-appearance] body.azia-admin .dd-card .dd-bubble.them .dd-bubble-body,
+html.msb-palette-active body.azia-admin .dd-card .dd-bubble.them,
+html.msb-palette-active body.azia-admin .dd-card .dd-bubble.them .dd-bubble-body {
+  color: var(--admin-dd-text) !important;
+  -webkit-text-fill-color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin .dd-msg-time,
+html.dark-auto body.azia-admin .dd-tabs a,
+html.dark-auto body.azia-admin .dd-tabs a .cnt,
+html.dark-auto body.azia-admin .dd-sub,
+html.dark-auto body.azia-admin .dd-k,
+html.dark-auto body.azia-admin .dd-kv .k,
+html.dark-auto body.azia-admin .dd-field label,
+html.dark-auto body.azia-admin .dd-back,
+html.dark-auto body.azia-admin .dd-hero-meta,
+html[data-msb-appearance] body.azia-admin .dd-msg-time,
+html[data-msb-appearance] body.azia-admin .dd-tabs a,
+html[data-msb-appearance] body.azia-admin .dd-tabs a .cnt,
+html[data-msb-appearance] body.azia-admin .dd-sub,
+html[data-msb-appearance] body.azia-admin .dd-k,
+html[data-msb-appearance] body.azia-admin .dd-kv .k,
+html[data-msb-appearance] body.azia-admin .dd-field label,
+html[data-msb-appearance] body.azia-admin .dd-back,
+html[data-msb-appearance] body.azia-admin .dd-hero-meta,
+html.msb-palette-active body.azia-admin .dd-msg-time,
+html.msb-palette-active body.azia-admin .dd-tabs a,
+html.msb-palette-active body.azia-admin .dd-tabs a .cnt,
+html.msb-palette-active body.azia-admin .dd-sub,
+html.msb-palette-active body.azia-admin .dd-k,
+html.msb-palette-active body.azia-admin .dd-kv .k,
+html.msb-palette-active body.azia-admin .dd-field label,
+html.msb-palette-active body.azia-admin .dd-back,
+html.msb-palette-active body.azia-admin .dd-hero-meta {
+  color: var(--admin-dd-muted) !important;
+  -webkit-text-fill-color: var(--admin-dd-muted) !important;
+}
+
+html.dark-auto body.azia-admin .dd-hero h1,
+html.dark-auto body.azia-admin .dd-name,
+html.dark-auto body.azia-admin .dd-v,
+html.dark-auto body.azia-admin .dd-ttitle,
+html.dark-auto body.azia-admin .dd-kv .v,
+html[data-msb-appearance] body.azia-admin .dd-hero h1,
+html[data-msb-appearance] body.azia-admin .dd-name,
+html[data-msb-appearance] body.azia-admin .dd-v,
+html[data-msb-appearance] body.azia-admin .dd-ttitle,
+html[data-msb-appearance] body.azia-admin .dd-kv .v,
+html.msb-palette-active body.azia-admin .dd-hero h1,
+html.msb-palette-active body.azia-admin .dd-name,
+html.msb-palette-active body.azia-admin .dd-v,
+html.msb-palette-active body.azia-admin .dd-ttitle,
+html.msb-palette-active body.azia-admin .dd-kv .v {
+  color: var(--admin-dd-text) !important;
+}
+
+html.dark-auto body.azia-admin i.icon,
+html.dark-auto body.azia-admin i.fa,
+html.dark-auto body.azia-admin [class*="ion-"],
+html[data-msb-appearance] body.azia-admin i.icon,
+html[data-msb-appearance] body.azia-admin i.fa,
+html[data-msb-appearance] body.azia-admin [class*="ion-"],
+html.msb-palette-active body.azia-admin i.icon,
+html.msb-palette-active body.azia-admin i.fa,
+html.msb-palette-active body.azia-admin [class*="ion-"] {
+  color: inherit;
+}
+
+/* Fries menus */
+html.dark-auto body.azia-admin .fries-item,
+html[data-msb-appearance] body.azia-admin .fries-item,
+html.msb-palette-active body.azia-admin .fries-item {
+  color: var(--admin-dd-text) !important;
+  background: transparent !important;
+}
+html.dark-auto body.azia-admin .fries-item:hover,
+html[data-msb-appearance] body.azia-admin .fries-item:hover,
+html.msb-palette-active body.azia-admin .fries-item:hover {
+  background: var(--msb-palette-hover-bg, var(--admin-dd-raised)) !important;
+}
+
+/* Sticky table headers + metric labels */
+html.dark-auto body.azia-admin .sh-pagebody th,
+html.dark-auto body.azia-admin .sh-pagebody [class*="-table"] th,
+html[data-msb-appearance] body.azia-admin .sh-pagebody th,
+html[data-msb-appearance] body.azia-admin .sh-pagebody [class*="-table"] th,
+html.msb-palette-active body.azia-admin .sh-pagebody th,
+html.msb-palette-active body.azia-admin .sh-pagebody [class*="-table"] th {
+  background: var(--admin-dd-surface) !important;
+  color: var(--admin-dd-muted) !important;
+  border-color: var(--admin-dd-border) !important;
+}
+html.dark-auto body.azia-admin .sh-pagebody .val,
+html.dark-auto body.azia-admin .sh-pagebody .lab,
+html.dark-auto body.azia-admin .sh-pagebody .k,
+html.dark-auto body.azia-admin .sh-pagebody .v,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .val,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .lab,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .k,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .v,
+html.msb-palette-active body.azia-admin .sh-pagebody .val,
+html.msb-palette-active body.azia-admin .sh-pagebody .lab,
+html.msb-palette-active body.azia-admin .sh-pagebody .k,
+html.msb-palette-active body.azia-admin .sh-pagebody .v {
+  color: var(--admin-dd-text) !important;
+}
+html.dark-auto body.azia-admin .sh-pagebody .lab,
+html.dark-auto body.azia-admin .sh-pagebody .k,
+html.dark-auto body.azia-admin .sh-pagebody .sub,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .lab,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .k,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .sub,
+html.msb-palette-active body.azia-admin .sh-pagebody .lab,
+html.msb-palette-active body.azia-admin .sh-pagebody .k,
+html.msb-palette-active body.azia-admin .sh-pagebody .sub {
+  color: var(--admin-dd-muted) !important;
+}
+
+/* Audience segments — separate cards (no tray), readable ink */
+html.dark-auto body.azia-admin .aud-seg-wrap,
+html.dark-auto body.azia-admin .aud-segs,
+html.dark-auto body.azia-admin .aud-seg-hd,
+html.dark-auto body.azia-admin .aud-seg-more,
+html[data-msb-appearance] body.azia-admin .aud-seg-wrap,
+html[data-msb-appearance] body.azia-admin .aud-segs,
+html[data-msb-appearance] body.azia-admin .aud-seg-hd,
+html[data-msb-appearance] body.azia-admin .aud-seg-more,
+html.msb-palette-active body.azia-admin .aud-seg-wrap,
+html.msb-palette-active body.azia-admin .aud-segs,
+html.msb-palette-active body.azia-admin .aud-seg-hd,
+html.msb-palette-active body.azia-admin .aud-seg-more {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html.dark-auto body.azia-admin .aud-seg,
+html.dark-auto body.azia-admin .sh-pagebody .aud-seg,
+html.dark-auto body.azia-admin .sh-pagebody .aud-segs > .aud-seg,
+html.dark-auto body.azia-admin .sh-pagebody .aud-seg .aud-seg-top,
+html[data-msb-appearance] body.azia-admin .aud-seg,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .aud-seg,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .aud-segs > .aud-seg,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .aud-seg .aud-seg-top,
+html.msb-palette-active body.azia-admin .aud-seg,
+html.msb-palette-active body.azia-admin .sh-pagebody .aud-seg,
+html.msb-palette-active body.azia-admin .sh-pagebody .aud-segs > .aud-seg,
+html.msb-palette-active body.azia-admin .sh-pagebody .aud-seg .aud-seg-top {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+html.dark-auto body.azia-admin .sh-pagebody .aud-segs > .aud-seg,
+html[data-msb-appearance] body.azia-admin .sh-pagebody .aud-segs > .aud-seg,
+html.msb-palette-active body.azia-admin .sh-pagebody .aud-segs > .aud-seg {
+  border: 1px solid var(--admin-dd-border, rgba(177, 188, 206, 0.35)) !important;
+  border-radius: 12px !important;
+}
+html.dark-auto body.azia-admin .aud-seg .lab,
+html.dark-auto body.azia-admin .aud-seg .val,
+html[data-msb-appearance] body.azia-admin .aud-seg .lab,
+html[data-msb-appearance] body.azia-admin .aud-seg .val,
+html.msb-palette-active body.azia-admin .aud-seg .lab,
+html.msb-palette-active body.azia-admin .aud-seg .val {
+  color: var(--admin-dd-text, #e8edf5) !important;
+}
+html.dark-auto body.azia-admin .aud-seg .desc,
+html.dark-auto body.azia-admin .aud-seg .delta.flat,
+html[data-msb-appearance] body.azia-admin .aud-seg .desc,
+html[data-msb-appearance] body.azia-admin .aud-seg .delta.flat,
+html.msb-palette-active body.azia-admin .aud-seg .desc,
+html.msb-palette-active body.azia-admin .aud-seg .delta.flat {
+  color: var(--admin-dd-muted, #b1bcce) !important;
+}

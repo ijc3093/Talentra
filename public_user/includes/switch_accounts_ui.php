@@ -84,6 +84,16 @@ if (!function_exists('msb_switch_accounts_assets')) {
   text-decoration:none;cursor:pointer;
 }
 .as-btn:hover{background:#1d4ed8;color:#fff;}
+.as-actions{display:inline-flex;align-items:center;gap:6px;}
+.as-remove{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;padding:0;border-radius:10px;
+  border:1px solid var(--msb-palette-border, rgba(148,163,184,.35));
+  background:transparent;color:#dc2626;cursor:pointer;
+}
+.as-remove:hover,.as-remove:focus-visible{background:rgba(220,38,38,.1);outline:none;}
+.as-remove:disabled{opacity:.5;cursor:default;}
+.as-remove svg{display:block;}
 .as-btn.as-btn-ghost{
   width:100%;height:42px;border-radius:12px;border:1px solid var(--msb-palette-border,#c0c2c4);
   color:var(--msb-palette-text,#0b1220);background:var(--msb-palette-surface, var(--msb-palette-hover-bg, #f3f4f6));
@@ -220,6 +230,84 @@ if (!function_exists('msb_switch_accounts_js')) {
     return parts.length ? parts.join(' · ') : uniqueHandle(row);
   }
 
+  function removeButtonHtml(id, kind, title, csrf){
+    return '<button type="button" class="as-remove js-account-remove" data-user-id="' + id + '" data-kind="' + esc(kind) + '" data-handle="' + esc(title) + '" data-csrf="' + esc(csrf || '') + '" aria-label="Remove ' + esc(title) + '" title="Remove">'
+      + '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>'
+      + '</button>';
+  }
+
+  function removeDialog(){
+    var d = document.getElementById('asRemoveDialog');
+    if (d) return d;
+    d = document.createElement('dialog');
+    d.id = 'asRemoveDialog';
+    d.className = 'as-logout-dialog';
+    d.setAttribute('aria-labelledby', 'asRemoveTitle');
+    d.innerHTML = '<h2 id="asRemoveTitle">Remove account switch from list?</h2>'
+      + '<p id="asRemoveCopy"></p>'
+      + '<div class="as-logout-actions">'
+      + '<button type="button" class="as-btn as-btn-ghost" id="asRemoveNo">No</button>'
+      + '<button type="button" class="as-btn as-logout-confirm" id="asRemoveYes">Yes</button>'
+      + '</div>';
+    document.body.appendChild(d);
+    return d;
+  }
+
+  var pendingRemoveBtn = null;
+
+  function openRemoveConfirm(btn){
+    var d = removeDialog();
+    var kind = String(btn.getAttribute('data-kind') || 'Personal');
+    var handle = String(btn.getAttribute('data-handle') || 'this account');
+    var copy = d.querySelector('#asRemoveCopy');
+    if (copy) {
+      copy.textContent = kind === 'Personal'
+        ? (handle + ' will no longer be an account you can switch to. The account is not deleted, so you can add it again later with Add personal.')
+        : (handle + ' (' + kind + ') will be permanently deleted from Talsora. You can create a new ' + kind + ' account later if you need one.');
+    }
+    var yes = d.querySelector('#asRemoveYes');
+    if (yes) yes.disabled = false;
+    pendingRemoveBtn = btn;
+    if (d.showModal && !d.open) d.showModal();
+  }
+
+  function closeRemoveConfirm(){
+    var d = document.getElementById('asRemoveDialog');
+    if (d && d.open) d.close();
+    pendingRemoveBtn = null;
+  }
+
+  function confirmRemove(){
+    var btn = pendingRemoveBtn;
+    var d = document.getElementById('asRemoveDialog');
+    var yes = d ? d.querySelector('#asRemoveYes') : null;
+    var uid = btn ? parseInt(btn.getAttribute('data-user-id') || '0', 10) : 0;
+    if (!uid) { closeRemoveConfirm(); return; }
+    if (yes) yes.disabled = true;
+    var body = new FormData();
+    body.append('action', 'remove');
+    body.append('target_user_id', String(uid));
+    body.append('csrf_token', btn.getAttribute('data-csrf') || window.__MSB_CSRF_TOKEN || '');
+    fetch('ajax/account_switch.php', {
+      method: 'POST',
+      body: body,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    }).then(function(res){ return res.json(); }).then(function(data){
+      if (!data || !data.ok) throw new Error((data && data.error) || 'Could not remove that account.');
+      closeRemoveConfirm();
+      var row = btn.closest ? btn.closest('.as-row') : null;
+      var list = row ? row.parentNode : null;
+      if (row && list) list.removeChild(row);
+      var wrap = list && list.closest ? list.closest('.as-wrap') : null;
+      var emptyEl = wrap ? wrap.querySelector('.as-empty') : null;
+      if (emptyEl && list && !list.querySelector('.as-row')) emptyEl.hidden = false;
+    }).catch(function(err){
+      if (yes) yes.disabled = false;
+      window.alert(err && err.message ? err.message : 'Could not remove that account.');
+    });
+  }
+
   function renderSwitchRows(list, accounts, csrf, currentId){
     var counts = {};
     (accounts || []).forEach(function(row){
@@ -236,7 +324,10 @@ if (!function_exists('msb_switch_accounts_js')) {
       var av = String(row.avatar_url || row.image || ('avatar.php?u=' + id + '&name=' + encodeURIComponent(title)));
       var action = current
         ? '<span class="as-using">Using now</span>'
-        : '<button type="button" class="as-btn js-account-switch" data-user-id="' + id + '" data-csrf="' + esc(csrf || '') + '" aria-label="Switch to ' + esc(title) + '">Switch</button>';
+        : '<div class="as-actions">'
+          + '<button type="button" class="as-btn js-account-switch" data-user-id="' + id + '" data-csrf="' + esc(csrf || '') + '" aria-label="Switch to ' + esc(title) + '">Switch</button>'
+          + (row.can_remove ? removeButtonHtml(id, String(row.kind || 'Personal'), title, csrf) : '')
+          + '</div>';
       return '<li class="as-row' + (current ? ' is-current' : '') + '">'
         + '<img class="as-avatar" src="' + esc(av) + '" alt="" width="44" height="44" data-name="' + esc(title) + '" onerror="this.onerror=null;this.src=\'avatar.php?name=\'+encodeURIComponent(this.getAttribute(\'data-name\')||\'U\')+\'&amp;s=96\';">'
         + '<div class="as-copy"><div class="as-name">' + esc(title) + '</div><div class="as-meta">' + esc(detail) + '</div></div>'
@@ -352,6 +443,21 @@ if (!function_exists('msb_switch_accounts_js')) {
       var url = 'logout.php?account_type=' + encodeURIComponent(type2);
       if (view2 === 'register') url += '&view=register';
       window.location.replace(url);
+      return;
+    }
+    if (e.target && e.target.id === 'asRemoveNo') {
+      closeRemoveConfirm();
+      return;
+    }
+    if (e.target && e.target.id === 'asRemoveYes') {
+      confirmRemove();
+      return;
+    }
+    var removeBtn = e.target.closest('.js-account-remove');
+    if (removeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      openRemoveConfirm(removeBtn);
       return;
     }
     var btn = e.target.closest('.js-account-switch');
@@ -487,7 +593,14 @@ if (!function_exists('msb_render_switch_accounts_picker')) {
       if ($current) {
         echo '<span class="as-using">Using now</span>';
       } else {
+        echo '<div class="as-actions">';
         echo '<button type="button" class="as-btn js-account-switch" data-user-id="' . (int)$aid . '" data-csrf="' . $h($csrf) . '" aria-label="Switch to ' . $h($uniqueTitle) . '">Switch</button>';
+        if (!empty($acc['can_remove'])) {
+          echo '<button type="button" class="as-remove js-account-remove" data-user-id="' . (int)$aid . '" data-kind="' . $h($akind) . '" data-handle="' . $h($uniqueTitle) . '" data-csrf="' . $h($csrf) . '" aria-label="Remove ' . $h($uniqueTitle) . '" title="Remove">';
+          echo '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>';
+          echo '</button>';
+        }
+        echo '</div>';
       }
       echo '</li>';
     }
@@ -497,9 +610,6 @@ if (!function_exists('msb_render_switch_accounts_picker')) {
     echo '<p class="as-add-copy">Sign in or create a second unique username. It stays linked so you can switch to it later.</p>';
     echo '<div class="as-add-row">';
     echo '<a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=personal" data-account-type="personal">Add personal</a>';
-    echo '<a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=publisher" data-account-type="publisher">Add publisher</a>';
-    echo '<a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=commerce" data-account-type="commerce">Add commerce</a>';
-    echo '<a class="as-btn as-btn-ghost js-as-add-logout" href="logout.php?account_type=personal&amp;view=register" data-account-type="personal" data-auth-view="register">Create new</a>';
     echo '</div></div>';
     echo '</div>';
     if ($skipAddDialog) {

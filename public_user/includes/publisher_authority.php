@@ -56,6 +56,7 @@ function publisher_authority_ensure_schema(PDO $dbh): void
             'commerce_brand_id' => 'ALTER TABLE publisher_name_authority ADD COLUMN commerce_brand_id INT UNSIGNED NULL DEFAULT NULL AFTER publisher_category',
             'applicant_username' => "ALTER TABLE publisher_name_authority ADD COLUMN applicant_username VARCHAR(120) NOT NULL DEFAULT '' AFTER commerce_brand_id",
             'applicant_email' => "ALTER TABLE publisher_name_authority ADD COLUMN applicant_email VARCHAR(120) NOT NULL DEFAULT '' AFTER applicant_username",
+            'requested_by_user_id' => 'ALTER TABLE publisher_name_authority ADD COLUMN requested_by_user_id INT NULL DEFAULT NULL AFTER applicant_email',
             'registration_id' => "ALTER TABLE publisher_name_authority ADD COLUMN registration_id VARCHAR(40) NOT NULL DEFAULT '' AFTER legal_entity_name",
             'registration_country' => "ALTER TABLE publisher_name_authority ADD COLUMN registration_country VARCHAR(80) NOT NULL DEFAULT 'US' AFTER registration_id",
             'request_note' => 'ALTER TABLE publisher_name_authority ADD COLUMN request_note VARCHAR(500) NOT NULL DEFAULT \'\' AFTER authorized_contact_email',
@@ -681,6 +682,24 @@ function publisher_authority_fetch_request(PDO $dbh, int $requestId): ?array
         return $row ?: null;
     } catch (Throwable $e) {
         return null;
+    }
+}
+
+/** Remember which signed-in user submitted a request (personal users creating Publisher/Commerce accounts). */
+function publisher_authority_mark_requester(PDO $dbh, int $requestId): void
+{
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+    if ($requestId <= 0 || $userId <= 0
+        || !empty($_SESSION['staff_publisher_mode'])
+        || !empty($_SESSION['publisher_session_staff_id'])) {
+        return;
+    }
+    publisher_authority_ensure_schema($dbh);
+    try {
+        $st = $dbh->prepare('UPDATE publisher_name_authority SET requested_by_user_id = :u WHERE id = :id');
+        $st->execute([':u' => $userId, ':id' => $requestId]);
+    } catch (Throwable $e) {
+        // optional metadata
     }
 }
 

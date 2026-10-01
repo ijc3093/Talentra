@@ -58,6 +58,9 @@ function device_profile_ensure_post_columns(PDO $dbh): void
         if (!device_profile_table_has_column($dbh, 'public_posts', 'link_tags')) {
             $dbh->exec("ALTER TABLE public_posts ADD COLUMN link_tags VARCHAR(280) NOT NULL DEFAULT '' AFTER link_image");
         }
+        if (!device_profile_table_has_column($dbh, 'public_posts', 'hashtags')) {
+            $dbh->exec("ALTER TABLE public_posts ADD COLUMN hashtags VARCHAR(280) NOT NULL DEFAULT '' AFTER link_tags");
+        }
         if (!device_profile_table_has_column($dbh, 'public_posts', 'is_archived')) {
             $dbh->exec("ALTER TABLE public_posts ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0 AFTER is_deleted");
         }
@@ -469,4 +472,69 @@ function device_profile_media_shape(string $type, string $filePath, string $thum
     }
 
     return $shapeClass;
+}
+
+function device_profile_media_dimensions(string $type, string $filePath, string $thumbPath = ''): array
+{
+    static $dimensionCache = [];
+    $cacheKey = strtolower(trim($type)) . '|' . $filePath . '|' . $thumbPath;
+    if (isset($dimensionCache[$cacheKey])) return $dimensionCache[$cacheKey];
+    $baseDir = dirname(__DIR__);
+    $type = strtolower(trim($type));
+    /* Images can be measured directly. For video, read the track first: a
+       generated thumbnail may be landscape even when the video is portrait. */
+    $source = $type === 'video' ? '' : $filePath;
+    $abs = trim($source) !== '' ? ($baseDir . '/' . ltrim((string)preg_replace('~^\./~', '', $source), '/')) : '';
+    if ($abs !== '' && is_file($abs)) {
+        $size = @getimagesize($abs);
+        if (is_array($size) && !empty($size[0]) && !empty($size[1])) {
+            return $dimensionCache[$cacheKey] = ['w' => (int)$size[0], 'h' => (int)$size[1]];
+        }
+    }
+    if ($type !== 'video' || trim($filePath) === '') return $dimensionCache[$cacheKey] = ['w' => 0, 'h' => 0];
+
+    $video = $baseDir . '/' . ltrim((string)preg_replace('~^\./~', '', $filePath), '/');
+    $length = is_file($video) ? (int)@filesize($video) : 0;
+    $handle = $length > 0 ? @fopen($video, 'rb') : false;
+    if (!$handle) {
+        $poster = trim($thumbPath) !== ''
+            ? ($baseDir . '/' . ltrim((string)preg_replace('~^\./~', '', $thumbPath), '/'))
+            : '';
+        $posterSize = $poster !== '' && is_file($poster) ? @getimagesize($poster) : false;
+        if (is_array($posterSize) && !empty($posterSize[0]) && !empty($posterSize[1])) {
+            return $dimensionCache[$cacheKey] = ['w' => (int)$posterSize[0], 'h' => (int)$posterSize[1]];
+        }
+        return $dimensionCache[$cacheKey] = ['w' => 0, 'h' => 0];
+    }
+    /* tkhd is normally near the beginning or end of the MP4. Keep this scan
+       small because Discover may inspect several posts during one refresh. */
+    $chunkSize = 1024 * 1024;
+    $starts = [0];
+    if ($length > $chunkSize) $starts[] = max(0, $length - $chunkSize);
+    foreach (array_unique($starts) as $start) {
+        @fseek($handle, $start);
+        $data = (string)@fread($handle, min($chunkSize, $length - $start));
+        $offset = 0;
+        while (($at = strpos($data, 'tkhd', $offset)) !== false) {
+            $atomStart = $at - 4;
+            $atomSize = $atomStart >= 0 ? (int)(unpack('N', substr($data, $atomStart, 4))[1] ?? 0) : 0;
+            if ($atomSize >= 20 && $atomStart + $atomSize <= strlen($data)) {
+                $w = (int)round(((int)(unpack('N', substr($data, $atomStart + $atomSize - 8, 4))[1] ?? 0)) / 65536);
+                $h = (int)round(((int)(unpack('N', substr($data, $atomStart + $atomSize - 4, 4))[1] ?? 0)) / 65536);
+                if ($w > 0 && $h > 0) { fclose($handle); return $dimensionCache[$cacheKey] = ['w' => $w, 'h' => $h]; }
+            }
+            $offset = $at + 4;
+        }
+    }
+    fclose($handle);
+    $poster = trim($thumbPath) !== ''
+        ? ($baseDir . '/' . ltrim((string)preg_replace('~^\./~', '', $thumbPath), '/'))
+        : '';
+    if ($poster !== '' && is_file($poster)) {
+        $posterSize = @getimagesize($poster);
+        if (is_array($posterSize) && !empty($posterSize[0]) && !empty($posterSize[1])) {
+            return $dimensionCache[$cacheKey] = ['w' => (int)$posterSize[0], 'h' => (int)$posterSize[1]];
+        }
+    }
+    return $dimensionCache[$cacheKey] = ['w' => 0, 'h' => 0];
 }

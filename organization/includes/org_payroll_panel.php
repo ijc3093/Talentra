@@ -270,8 +270,9 @@ $payrollLineDataAttrs = static function (int $mid) use ($payrollEmpById, $payrol
 </style>
 
 <div class="org-payroll-panel">
-  <div class="sales-management-detail-head" style="justify-content:flex-end;">
-    <div>
+  <div class="sales-management-detail-head sm-hub-hero">
+    <?php if (function_exists('org_sales_hub_intro')) { org_sales_hub_intro('payroll'); } ?>
+    <div class="sm-hub-actions">
       <a class="btn btn-outline-primary btn-sm" href="payroll.php"><i class="icon ion-cash"></i> View pay rates</a>
     </div>
   </div>

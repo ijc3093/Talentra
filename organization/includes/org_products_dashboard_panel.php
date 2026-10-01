@@ -32,14 +32,20 @@ if (!function_exists('pd_cover_url')) {
         if ($path === '') {
             return '';
         }
+        // Prefer the shared resolver (verifies file exists + web-absolute org URL).
+        if (function_exists('org_shop_cover_url')) {
+            return org_shop_cover_url($path);
+        }
         if (preg_match('#^https?://#i', $path)) {
             return $path;
         }
         $path = str_replace('\\', '/', $path);
         $path = ltrim($path, '/');
-        // Files are stored as uploads/shop/... under /organization (same as Inventory).
         if (str_starts_with($path, 'organization/')) {
             $path = substr($path, strlen('organization/'));
+        }
+        if (str_starts_with($path, '../organization/')) {
+            $path = substr($path, strlen('../organization/'));
         }
         return $path;
     }
@@ -85,7 +91,11 @@ $pdTab = strtolower(trim((string)($pdTab ?? $_GET['tab'] ?? 'all')));
 if (!in_array($pdTab, ['all', 'active', 'out', 'low', 'draft'], true)) {
     $pdTab = 'all';
 }
-$lowStockAt = 5;
+$lowStockAt = 1; // alert when available stock is less than 2
+
+if (function_exists('org_shop_sync_org_sold_out_stock')) {
+    org_shop_sync_org_sold_out_stock($dbh, (int)$orgId);
+}
 
 $products = function_exists('org_shop_list_products')
     ? org_shop_list_products($dbh, (int)$orgId, false)
@@ -138,9 +148,14 @@ try {
     foreach ($stG->fetchAll(PDO::FETCH_ASSOC) ?: [] as $img) {
         $gid = (int)($img['product_id'] ?? 0);
         $gpath = trim((string)($img['file_path'] ?? ''));
-        if ($gid > 0 && $gpath !== '' && !isset($galleryCover[$gid])) {
-            $galleryCover[$gid] = $gpath;
+        if ($gid <= 0 || $gpath === '' || isset($galleryCover[$gid])) {
+            continue;
         }
+        // Skip orphan DB rows whose files are gone.
+        if (function_exists('org_shop_product_image_file_exists') && !org_shop_product_image_file_exists($gpath)) {
+            continue;
+        }
+        $galleryCover[$gid] = $gpath;
     }
 } catch (Throwable $e) {
 }
@@ -158,7 +173,9 @@ foreach ($products as $p) {
     $bucket = 'active';
     if ($status === 'draft') {
         $bucket = 'draft';
-    } elseif ($status === 'sold_out' || ($tracked && $stock !== null && $stock <= 0)) {
+    } elseif ($tracked && $stock !== null && $stock <= 0) {
+        $bucket = 'out';
+    } elseif ($status === 'sold_out' && (!$tracked || $stock === null || $stock <= 0)) {
         $bucket = 'out';
     } elseif ($tracked && $stock !== null && $stock <= $lowStockAt) {
         $bucket = 'low';
@@ -236,6 +253,12 @@ foreach ($products as $p) {
         $listStatus = 'Active';
     }
 
+    $coverPath = trim((string)($p['cover_image_path'] ?? ''));
+    $coverUrl = $coverPath !== '' ? pd_cover_url($coverPath) : '';
+    if ($coverUrl === '' && !empty($galleryCover[$pid])) {
+        $coverUrl = pd_cover_url((string)$galleryCover[$pid]);
+    }
+
     $rows[] = [
         'id' => $pid,
         'title' => trim((string)($p['title'] ?? '')) ?: 'Untitled',
@@ -256,11 +279,7 @@ foreach ($products as $p) {
         'views_pct' => $viewsPct,
         'views_up' => $viewsUp,
         'updated' => $updatedTs ? date('M j, Y g:i A', $updatedTs) : '—',
-        'cover' => pd_cover_url(
-            trim((string)($p['cover_image_path'] ?? '')) !== ''
-                ? (string)$p['cover_image_path']
-                : (string)($galleryCover[$pid] ?? '')
-        ),
+        'cover' => $coverUrl,
         'channel' => 'Direct Store',
         'search' => mb_strtolower(trim(implode(' ', array_filter([
             (string)($p['title'] ?? ''),
@@ -309,9 +328,37 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
 ?>
 <style>
   .store-products{--sp-text:#0f172a;--sp-muted:#64748b;--sp-border:#eef2f7;--sp-card:#fff;color:var(--sp-text);}
-  .store-products .sp-hero{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;}
-  .store-products .sp-btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:var(--ch-surface,#fff);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;color:#0f172a;text-decoration:none;cursor:pointer;}
-  .store-products .sp-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .store-products .sp-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap;}
+  .store-products .sp-hero .sm-hub-actions{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;}
+  .store-products .sp-btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:var(--ch-surface,#fff);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;color:#0f172a !important;-webkit-text-fill-color:#0f172a !important;text-decoration:none;cursor:pointer;}
+  .store-products .sp-btn i,
+  .store-products .sp-btn .fa{color:inherit !important;-webkit-text-fill-color:inherit !important;}
+  .store-products a.sp-add-product,
+  .store-products .sp-add-product{
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:6px !important;
+    height:32px !important;
+    padding:0 12px !important;
+    border-radius:8px !important;
+    font-size:12px !important;
+    font-weight:700 !important;
+    line-height:1 !important;
+    text-decoration:none !important;
+    white-space:nowrap !important;
+    background:#2563eb !important;
+    background-color:#2563eb !important;
+    border:1px solid #2563eb !important;
+    color:#ffffff !important;
+    -webkit-text-fill-color:#ffffff !important;
+  }
+  .store-products a.sp-add-product i,
+  .store-products a.sp-add-product .fa,
+  .store-products .sp-add-product i,
+  .store-products .sp-add-product .fa{
+    color:#ffffff !important;
+    -webkit-text-fill-color:#ffffff !important;
+  }
   .store-products .sp-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:10px;}
   .store-products .sp-kpi{background:var(--sp-card);border:1px solid var(--sp-border);border-radius:12px;padding:12px;}
   .store-products .sp-kpi-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
@@ -334,18 +381,20 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
   .store-products .sp-tabs{display:flex;align-items:center;justify-content:flex-start;gap:28px;width:100%;min-width:0;border-bottom:1px solid var(--sp-border);overflow:hidden;flex-wrap:nowrap;}
   .store-products .sp-tabs > .sp-tab{display:inline-flex!important;align-items:center;flex:0 0 auto!important;width:auto!important;min-width:0!important;max-width:max-content!important;margin:0!important;padding:10px 0 8px!important;font-size:13px;font-weight:700;line-height:1.2;white-space:nowrap;color:var(--sp-muted);text-decoration:none;border-bottom:2px solid transparent;}
   .store-products .sp-tab.is-on{color:#2563eb;border-bottom-color:#2563eb;}
-  .store-products .sp-table-wrap{overflow-x:hidden;overflow-y:visible;background:var(--sp-card);border:1px solid var(--sp-border);border-top:0;border-radius:0 0 12px 12px;}
+  .store-products .sp-table-wrap{overflow:auto;background:var(--sp-card);border:1px solid var(--sp-border);border-top:0;border-radius:0 0 12px 12px;}
   .store-products .sp-table{width:100%;min-width:0;border-collapse:collapse;table-layout:fixed;}
-  .store-products .sp-table th{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--sp-muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--sp-border);background:var(--ch-surface,#f8fafc);white-space:nowrap;}
+  .store-products .sp-table th{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--sp-muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--sp-border);background:var(--ch-surface,#f8fafc);white-space:nowrap;position:sticky;top:0;z-index:1;}
   .store-products .sp-table td{padding:12px;border-bottom:1px solid var(--sp-border);vertical-align:middle;font-size:13px;}
   .store-products .sp-prod{display:flex;align-items:center;gap:10px;min-width:0;}
   .store-products .sp-thumb{width:40px;height:40px;border-radius:8px;background:#f1f5f9;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#94a3b8;flex:0 0 auto;position:relative;}
   .store-products .sp-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;}
   .store-products .sp-name{display:block;font-weight:800;}
   .store-products .sp-sub{display:block;font-size:11px;color:var(--sp-muted);font-weight:600;margin-top:2px;}
-  .store-products .sp-stock.in{color:#15803d;font-weight:700;}
-  .store-products .sp-stock.low{color:#c2410c;font-weight:700;}
-  .store-products .sp-stock.out{color:#b91c1c;font-weight:700;}
+  .store-products .sp-stock{display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.2;white-space:nowrap;}
+  .store-products .sp-stock i{font-size:11px;line-height:1;}
+  .store-products .sp-stock.in{background:#dcfce7;color:#15803d;}
+  .store-products .sp-stock.low{background:#ffedd5;color:#c2410c;border:1px solid #fdba74;}
+  .store-products .sp-stock.out{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;}
   .store-products .sp-pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;}
   .store-products .sp-pill.active{background:#dcfce7;color:#15803d;}
   .store-products .sp-pill.draft{background:#f1f5f9;color:#475569;}
@@ -361,28 +410,72 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
   .store-products .sp-more-form{margin:0;}
   .store-products .sp-more-menu .is-danger,.store-products .sp-more-menu .is-danger i{color:#dc2626;}
   .store-products .sp-more-menu .is-danger:hover{background:#fef2f2;}
-  .store-products .sp-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 4px 0;font-size:12px;color:var(--sp-muted);}
-  .store-products .sp-pages{display:flex;gap:4px;align-items:center;}
-  .store-products .sp-pages button{min-width:28px;height:28px;border:1px solid #e2e8f0;background:var(--ch-surface,#fff);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;}
+  .store-products .sp-main{display:flex;flex-direction:column;min-height:0;background:var(--sp-card);border:1px solid var(--sp-border);border-radius:12px;overflow:hidden;}
+  .store-products .sp-main .sp-tabs{padding:0 14px;border-bottom:1px solid var(--sp-border);}
+  .store-products .sp-main .sp-table-wrap{border:0;border-radius:0;flex:1 1 auto;min-height:0;}
+  .store-products .sp-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;font-size:12px;color:var(--sp-muted);border-top:1px solid var(--sp-border);background:var(--sp-card);flex:0 0 auto;margin-top:auto;}
+  .store-products .sp-pages{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+  .store-products .sp-pages button{min-width:30px;height:30px;border:1px solid #e2e8f0;background:var(--ch-surface,#fff);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;color:#0f172a;}
+  .store-products .sp-pages button:hover{background:#f8fafc;}
   .store-products .sp-pages button.is-on{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .store-products .sp-pages button:disabled{opacity:.45;cursor:default;}
+  .store-products .sp-pages .sp-page-gap{padding:0 4px;font-weight:700;color:var(--sp-muted);}
+  .store-products .sp-foot select{height:30px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;padding:0 8px;font-size:12px;font-weight:700;color:#0f172a;}
   .store-products .sp-empty{text-align:center;padding:28px 12px;color:var(--sp-muted);}
+  /* Hub: fill viewport and pin pagination to the bottom edge. */
+  html[data-sales-active-view="product-catalog"] .store-products,
+  html[data-sales-initial-view="product-catalog"] .store-products,
+  .sales-management-view[data-sales-view="product-catalog"] .store-products{
+    display:flex;flex-direction:column;min-height:0;
+    height:calc(100vh - var(--org-header-h, 48px) - 20px);
+    max-height:calc(100vh - var(--org-header-h, 48px) - 20px);
+    overflow:hidden;box-sizing:border-box;
+  }
+  html[data-sales-active-view="product-catalog"] .store-products > .sp-hero,
+  html[data-sales-active-view="product-catalog"] .store-products > .sp-kpis,
+  html[data-sales-active-view="product-catalog"] .store-products > .sp-filters,
+  html[data-sales-active-view="product-catalog"] .store-products > .alert,
+  html[data-sales-initial-view="product-catalog"] .store-products > .sp-hero,
+  html[data-sales-initial-view="product-catalog"] .store-products > .sp-kpis,
+  html[data-sales-initial-view="product-catalog"] .store-products > .sp-filters,
+  html[data-sales-initial-view="product-catalog"] .store-products > .alert{flex:0 0 auto;}
+  html[data-sales-active-view="product-catalog"] .store-products > .sp-main,
+  html[data-sales-initial-view="product-catalog"] .store-products > .sp-main,
+  .sales-management-view[data-sales-view="product-catalog"] .store-products > .sp-main{
+    flex:1 1 auto;min-height:0;
+  }
   html.dark-auto .store-products{--sp-text:var(--msb-palette-text,#e2e8f0);--sp-muted:#94a3b8;--sp-border:rgba(148,163,184,.22);--sp-card:var(--msb-palette-bg,#171d24);}
   html.dark-auto .store-products .sp-more-menu{background:var(--sp-card);border-color:var(--sp-border);}
   html.dark-auto .store-products .sp-more-menu a,html.dark-auto .store-products .sp-more-menu button{color:var(--sp-text);}
   html.dark-auto .store-products .sp-more-menu a:hover,html.dark-auto .store-products .sp-more-menu button:hover{background:rgba(148,163,184,.12);}
   html.dark-auto .store-products .sp-more-sep{background:var(--sp-border);}
+  html.dark-auto .store-products .sp-pages button{background:var(--sp-card);color:var(--sp-text);border-color:var(--sp-border);}
+  html.dark-auto .store-products .sp-pages button.is-on{background:#2563eb;border-color:#2563eb;color:#fff;}
+  html.dark-auto .store-products .sp-foot{background:var(--sp-card);border-top-color:var(--sp-border);}
   @media (max-width:1100px){.store-products .sp-kpis{grid-template-columns:repeat(3,minmax(0,1fr));}}
-  @media (max-width:700px){.store-products .sp-kpis{grid-template-columns:1fr 1fr;}}
+  @media (max-width:700px){
+    .store-products .sp-kpis{grid-template-columns:1fr 1fr;}
+    html[data-sales-active-view="product-catalog"] .store-products,
+    html[data-sales-initial-view="product-catalog"] .store-products{height:auto;max-height:none;overflow:visible;}
+  }
 </style>
 <div class="store-products" id="storeProductsRoot">
   <div class="sp-hero">
+    <?php if (function_exists('org_sales_hub_intro')) { org_sales_hub_intro('product-catalog'); } ?>
+    <div class="sm-hub-actions">
     <?php if ($pdShowStoreToolbar): ?>
       <a class="sd-icon-btn" href="sales_notifications.php" title="Notifications"><i class="fa fa-bell-o"></i><?php if ($pdNotiCount > 0): ?><span class="sd-badge"><?= (int)min(99, $pdNotiCount) ?></span><?php endif; ?></a>
       <a class="sd-icon-btn" href="#message" data-sales-nav="message" title="Messages"><i class="fa fa-commenting-o"></i><?php if ($pdMsgCount > 0): ?><span class="sd-badge"><?= (int)min(99, $pdMsgCount) ?></span><?php endif; ?></a>
     <?php endif; ?>
     <button type="button" class="sp-btn" id="spImportBtn"><i class="fa fa-upload"></i> Import</button>
     <input type="file" id="spImportFile" accept=".csv,text/csv" hidden>
-    <a class="sp-btn primary" href="<?= h($pdAddHref) ?>"<?= $pdAddAttr ?>><i class="fa fa-plus"></i> Add Product</a>
+    <a
+      class="sp-btn sp-add-product"
+      href="<?= h($pdAddHref) ?>"
+      <?= $pdAddAttr ?>
+      style="background:#2563eb!important;background-color:#2563eb!important;border:1px solid #2563eb!important;color:#fff!important;-webkit-text-fill-color:#fff!important;"
+    ><i class="fa fa-plus" style="color:#fff!important;-webkit-text-fill-color:#fff!important;" aria-hidden="true"></i> Add Product</a>
+    </div>
   </div>
 
   <?php if (($err ?? '') !== ''): ?><div class="alert alert-danger"><?= h((string)$err) ?></div><?php endif; ?>
@@ -426,6 +519,7 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
     <button type="button" class="sp-btn" id="spExportBtn"><i class="fa fa-download"></i> Export</button>
   </div>
 
+  <div class="sp-main">
   <div class="sp-tabs">
     <a class="sp-tab<?= $pdTab === 'all' ? ' is-on' : '' ?>" href="<?= h($tabHref('all')) ?>">All Products (<?= (int)$kpi['total'] ?>)</a>
     <a class="sp-tab<?= $pdTab === 'active' ? ' is-on' : '' ?>" href="<?= h($tabHref('active')) ?>">Active (<?= (int)$kpi['active'] ?>)</a>
@@ -474,7 +568,7 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
             <td><input type="checkbox" class="sp-check"></td>
             <td>
               <div class="sp-prod">
-                <div class="sp-thumb"><?php if ($row['cover'] !== ''): ?><img src="<?= h((string)$row['cover']) ?>" alt="" onerror="this.remove()"><i class="fa fa-cube"></i><?php else: ?><i class="fa fa-cube"></i><?php endif; ?></div>
+                <div class="sp-thumb"><?php if ($row['cover'] !== ''): ?><img src="<?= h((string)$row['cover']) ?>" alt="" loading="lazy" onerror="this.style.display='none'"><i class="fa fa-cube" aria-hidden="true"></i><?php else: ?><i class="fa fa-cube" aria-hidden="true"></i><?php endif; ?></div>
                 <div>
                   <a class="sp-name" href="<?= h($detailHref) ?>"><?= h((string)$row['title']) ?></a>
                   <span class="sp-sub"><?= h((string)$row['category']) ?></span>
@@ -488,7 +582,11 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
             <td><strong><?= h((string)$row['price']) ?></strong></td>
             <td>
               <strong><?= $row['stock'] === null ? '—' : (int)$row['stock'] ?></strong>
-              <div class="sp-stock <?= h((string)$row['stock_cls']) ?>"><?= h((string)$row['stock_label']) ?></div>
+              <?php
+                $spStockCls = (string)$row['stock_cls'];
+                $spStockIcon = $spStockCls === 'out' ? 'fa-ban' : ($spStockCls === 'low' ? 'fa-exclamation-triangle' : 'fa-check-circle');
+              ?>
+              <div class="sp-stock <?= h($spStockCls) ?>"><i class="fa <?= h($spStockIcon) ?>" aria-hidden="true"></i> <?= h((string)$row['stock_label']) ?></div>
             </td>
             <td><span class="sp-pill <?= $row['status'] === 'Draft' ? 'draft' : 'active' ?>"><?= h((string)$row['status']) ?></span></td>
             <td>
@@ -550,14 +648,16 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
   </div>
   <div class="sp-foot" id="spFoot" <?= !$visible ? 'hidden' : '' ?>>
     <div id="spFootLabel">Showing 0 of 0 products</div>
-    <div class="sp-pages" id="spPages"></div>
+    <div class="sp-pages" id="spPages" aria-label="Pagination"></div>
     <label>
-      <select id="spPageSize">
-        <option value="10" selected>10 / page</option>
+      <select id="spPageSize" aria-label="Rows per page">
+        <option value="5" selected>5 / page</option>
+        <option value="10">10 / page</option>
         <option value="25">25 / page</option>
         <option value="50">50 / page</option>
       </select>
     </label>
+  </div>
   </div>
 </div>
 <script>
@@ -596,31 +696,54 @@ $tabHref = static function (string $tab) use ($pdBaseUrl, $pdHash): string {
 
   function render() {
     var vis = visibleRows();
-    var size = Math.max(1, parseInt(pageSizeEl && pageSizeEl.value, 10) || 10);
+    var size = Math.max(1, parseInt(pageSizeEl && pageSizeEl.value, 10) || 5);
     var total = vis.length;
     var pages = Math.max(1, Math.ceil(total / size) || 1);
     if (page > pages) page = pages;
+    if (page < 1) page = 1;
     var start = (page - 1) * size;
     var end = Math.min(total, start + size);
     rows.forEach(function (row) { row.hidden = true; });
     vis.forEach(function (row, i) { row.hidden = !(i >= start && i < end); });
     if (foot) foot.hidden = total === 0;
     if (footLabel) {
-      footLabel.textContent = total === 0 ? 'No matching products' : ('Showing ' + (total ? (start + 1) : 0) + ' to ' + end + ' of ' + total + ' products');
+      footLabel.textContent = total === 0
+        ? 'No matching products'
+        : ('Showing ' + (total ? (start + 1) : 0) + '–' + end + ' of ' + total + ' products');
     }
     if (pagesEl) {
       pagesEl.innerHTML = '';
-      function addBtn(label, to, on) {
+      function addBtn(label, to, on, disabled) {
         var b = document.createElement('button');
         b.type = 'button';
         b.textContent = label;
         if (on) b.className = 'is-on';
-        b.addEventListener('click', function () { page = to; render(); });
+        if (disabled) b.disabled = true;
+        b.addEventListener('click', function () {
+          if (disabled || to === page) return;
+          page = to;
+          render();
+        });
         pagesEl.appendChild(b);
       }
-      addBtn('‹', Math.max(1, page - 1), false);
-      for (var i = 1; i <= pages && i <= 8; i++) addBtn(String(i), i, i === page);
-      addBtn('›', Math.min(pages, page + 1), false);
+      function addGap() {
+        var s = document.createElement('span');
+        s.className = 'sp-page-gap';
+        s.textContent = '…';
+        pagesEl.appendChild(s);
+      }
+      addBtn('‹', Math.max(1, page - 1), false, page <= 1);
+      var nums = [];
+      for (var i = 1; i <= pages; i++) {
+        if (i === 1 || i === pages || (i >= page - 2 && i <= page + 2)) nums.push(i);
+      }
+      var prev = 0;
+      nums.forEach(function (n) {
+        if (prev && n - prev > 1) addGap();
+        addBtn(String(n), n, n === page, false);
+        prev = n;
+      });
+      addBtn('›', Math.min(pages, page + 1), false, page >= pages);
     }
   }
 

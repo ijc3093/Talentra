@@ -725,7 +725,7 @@ function org_ecommerce_dashboard_stats(PDO $dbh, int $orgId): array
         $st = $dbh->prepare("
             SELECT COUNT(*) FROM org_products
             WHERE org_id = :org AND is_deleted = 0 AND status = 'active'
-              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 5
+              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 2
         ");
         $st->execute([':org' => $orgId]);
         $stats['products_low_stock'] = (int)($st->fetchColumn() ?: 0);
@@ -793,7 +793,7 @@ function org_ecommerce_low_stock_products(PDO $dbh, int $orgId, int $limit = 10)
             SELECT id, title, sku, stock_qty, status
             FROM org_products
             WHERE org_id = :org AND is_deleted = 0 AND status = 'active'
-              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 5
+              AND stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty < 2
             ORDER BY stock_qty ASC, title ASC
             LIMIT {$limit}
         ");
@@ -811,7 +811,8 @@ function org_ecommerce_update_fulfillment(
     string $status,
     string $sellerNotes = '',
     string $trackingNumber = '',
-    string $carrier = ''
+    string $carrier = '',
+    bool $notifyBuyer = true
 ): bool {
     $allowed = ['pending', 'confirmed', 'paid', 'shipped', 'delivered', 'cancelled'];
     if ($orgId <= 0 || $orderId <= 0 || !in_array($status, $allowed, true)) {
@@ -833,7 +834,7 @@ function org_ecommerce_update_fulfillment(
 
     try {
         $prevSt = $dbh->prepare('
-            SELECT status, buyer_user_id, order_code, carrier, tracking_number, seller_notes
+            SELECT *
             FROM org_orders
             WHERE id = :id AND org_id = :org
             LIMIT 1
@@ -846,6 +847,15 @@ function org_ecommerce_update_fulfillment(
         $prevStatus = strtolower(trim((string)($prev['status'] ?? '')));
         $buyerUserId = (int)($prev['buyer_user_id'] ?? 0);
         $orderCode = (string)($prev['order_code'] ?? '');
+
+        // Incomplete payment: block fulfillment / shipping (cancel still allowed).
+        if (
+            $status !== 'cancelled'
+            && function_exists('org_shop_order_fulfillment_locked')
+            && org_shop_order_fulfillment_locked($prev)
+        ) {
+            return false;
+        }
 
         // Keep existing values when the form field is left blank (avoid wiping on status-only saves).
         if ($carrier === '') {
@@ -900,7 +910,7 @@ function org_ecommerce_update_fulfillment(
             org_shop_apply_order_fees($dbh, $orderId);
             $fbaShipped = org_shop_auto_fulfill_fba_order($dbh, $orderId);
             org_shop_issue_receipt($dbh, $orgId, $orderId);
-            if ($fbaShipped && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+            if ($fbaShipped && $notifyBuyer && function_exists('org_shop_notify_buyer_order_fulfillment')) {
                 org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, 'shipped');
             }
             if ($status !== $prevStatus && function_exists('org_shop_notify_seller_order_status')) {
@@ -924,7 +934,7 @@ function org_ecommerce_update_fulfillment(
         ) {
             org_shop_issue_receipt($dbh, $orgId, $orderId);
         }
-        if (in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+        if ($notifyBuyer && in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
             org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
         }
 
@@ -967,7 +977,7 @@ function org_ecommerce_update_fulfillment(
                 ':org' => $orgId,
             ]);
             if ($up->rowCount() > 0) {
-                if (in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+                if ($notifyBuyer && in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
                     org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
                 }
                 return true;
@@ -995,11 +1005,79 @@ function org_ecommerce_update_fulfillment(
                 // ignore
             }
         }
-        if ($ok && in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+        if ($ok && $notifyBuyer && in_array($status, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
             org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $status, $trackingNumber, $carrier);
         }
         return $ok;
     }
+}
+
+/**
+ * Apply fulfillment to every open line in the same customer purchase batch.
+ * Keeps multi-item buyer invoices in sync so cancel is blocked after ship.
+ */
+function org_ecommerce_update_fulfillment_customer_batch(
+    PDO $dbh,
+    int $orgId,
+    int $orderId,
+    string $status,
+    string $sellerNotes = '',
+    string $trackingNumber = '',
+    string $carrier = ''
+): bool {
+    if ($orgId <= 0 || $orderId <= 0) {
+        return false;
+    }
+    $primary = null;
+    try {
+        $st = $dbh->prepare('SELECT * FROM org_orders WHERE id = :id AND org_id = :org LIMIT 1');
+        $st->execute([':id' => $orderId, ':org' => $orgId]);
+        $primary = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) {
+        $primary = null;
+    }
+    if (!$primary) {
+        return false;
+    }
+
+    $batch = [$primary];
+    if (function_exists('org_shop_seller_order_batch')) {
+        $batch = org_shop_seller_order_batch($dbh, $orgId, $primary) ?: [$primary];
+    }
+
+    $statusNorm = strtolower(trim($status));
+    if (
+        trim($carrier) !== ''
+        && trim($trackingNumber) !== ''
+        && in_array($statusNorm, ['pending', 'confirmed', 'paid'], true)
+    ) {
+        $statusNorm = 'shipped';
+    }
+
+    $okAny = false;
+    $seen = [];
+    foreach ($batch as $line) {
+        $lineId = (int)($line['id'] ?? 0);
+        if ($lineId <= 0 || isset($seen[$lineId])) {
+            continue;
+        }
+        $seen[$lineId] = true;
+        $lineStatus = strtolower(trim((string)($line['status'] ?? '')));
+        // Don't pull cancelled / already-delivered lines backward when batch-shipping.
+        if ($lineStatus === 'cancelled') {
+            continue;
+        }
+        if ($statusNorm === 'shipped' && $lineStatus === 'delivered') {
+            continue;
+        }
+        if (org_ecommerce_update_fulfillment($dbh, $orgId, $lineId, $statusNorm, $sellerNotes, $trackingNumber, $carrier, false)) {
+            $okAny = true;
+        }
+    }
+    if ($okAny && in_array($statusNorm, ['shipped', 'delivered'], true) && function_exists('org_shop_notify_buyer_order_fulfillment')) {
+        org_shop_notify_buyer_order_fulfillment($dbh, $orgId, $orderId, $statusNorm, $trackingNumber, $carrier);
+    }
+    return $okAny;
 }
 
 function org_ecommerce_slugify(string $title): string

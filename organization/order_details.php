@@ -42,15 +42,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['od_fulfill_action']))
         $carrier = trim((string)($_POST['carrier'] ?? ''));
         $redirEmbed = ((string)($_POST['embed'] ?? '') === '1') || $embed;
 
-        if ($postOrderId > 0 && org_ecommerce_update_fulfillment($dbh, $orgId, $postOrderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
-            $qs = 'id=' . $postOrderId . ($redirEmbed ? '&embed=1' : '');
-            $_SESSION['od_fulfill_flash_ok'] = 'Carrier and tracking saved.';
-            header('Location: order_details.php?' . $qs);
-            exit;
+        if ($postOrderId > 0) {
+            $lockOrder = null;
+            try {
+                $stLock = $dbh->prepare('SELECT * FROM org_orders WHERE id = :id AND org_id = :org LIMIT 1');
+                $stLock->execute([':id' => $postOrderId, ':org' => $orgId]);
+                $lockOrder = $stLock->fetch(PDO::FETCH_ASSOC) ?: null;
+            } catch (Throwable $e) {
+                $lockOrder = null;
+            }
+            if ($lockOrder && function_exists('org_shop_order_fulfillment_locked') && org_shop_order_fulfillment_locked($lockOrder) && $newStatus !== 'cancelled') {
+                $fulfillFlashErr = 'Fulfillment is locked until the customer pays in full.';
+                $orderId = $postOrderId;
+                $embed = $redirEmbed;
+            } elseif (org_ecommerce_update_fulfillment($dbh, $orgId, $postOrderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
+                $qs = 'id=' . $postOrderId . ($redirEmbed ? '&embed=1' : '');
+                $_SESSION['od_fulfill_flash_ok'] = 'Carrier and tracking saved.';
+                header('Location: order_details.php?' . $qs);
+                exit;
+            } else {
+                $fulfillFlashErr = 'Could not update carrier / tracking.';
+                $orderId = $postOrderId > 0 ? $postOrderId : $orderId;
+                $embed = $redirEmbed;
+            }
+        } else {
+            $fulfillFlashErr = 'Could not update carrier / tracking.';
         }
-        $fulfillFlashErr = 'Could not update carrier / tracking.';
-        $orderId = $postOrderId > 0 ? $postOrderId : $orderId;
-        $embed = $redirEmbed;
     }
 }
 
@@ -192,6 +209,31 @@ $totalLabel = org_sales_money($totalCents, $currency);
 $subtotalLabel = org_sales_money($subtotalCents > 0 ? $subtotalCents : max(0, $totalCents - $shippingCents - $taxCents), $currency);
 $shippingLabel = $shippingCents <= 0 ? 'Free' : org_sales_money($shippingCents, $currency);
 $taxLabel = org_sales_money($taxCents, $currency);
+
+$payProgress = function_exists('org_shop_order_payment_progress')
+    ? org_shop_order_payment_progress($order)
+    : [
+        'due_cents' => $totalCents,
+        'paid_cents' => 0,
+        'shortfall_cents' => $totalCents,
+        'is_incomplete' => in_array(strtolower((string)($order['status'] ?? '')), ['pending', 'confirmed'], true),
+        'currency' => $currency,
+    ];
+$amountPaidCents = (int)($payProgress['paid_cents'] ?? 0);
+$shortfallCents = (int)($payProgress['shortfall_cents'] ?? 0);
+$paymentIncomplete = !empty($payProgress['is_incomplete']);
+$fulfillmentLocked = function_exists('org_shop_order_fulfillment_locked')
+    ? org_shop_order_fulfillment_locked($order)
+    : $paymentIncomplete;
+$amountPaidLabel = org_sales_money($amountPaidCents, $currency);
+$shortfallLabel = org_sales_money($shortfallCents, $currency);
+$sellerPayMsg = '';
+if ($paymentIncomplete && function_exists('org_shop_order_incomplete_payment_seller_message')) {
+    $sellerPayMsg = org_shop_order_incomplete_payment_seller_message($order);
+}
+$heroAmountLabel = ($paymentIncomplete && $amountPaidCents > 0) ? $amountPaidLabel : $totalLabel;
+$heroAmountCaption = ($paymentIncomplete && $amountPaidCents > 0) ? 'Received' : 'Total';
+
 $products = $batch['products'] ?? [[
     'title' => (string)($order['product_title'] ?? 'Product'),
     'qty' => max(1, (int)($order['quantity'] ?? 1)),
@@ -270,24 +312,34 @@ if ($statusBucket === 'cancelled') {
 $pm = strtolower(trim((string)($order['payment_method'] ?? '')));
 $pref = trim((string)($order['payment_reference'] ?? ''));
 $payLast4 = preg_match('/(\d{4})\s*$/', $pref, $pmatch) ? $pmatch[1] : '';
-if (str_contains($pm, 'visa')) {
+if (str_contains($pm, 'test_cost') || str_contains($pm, 'test')) {
+    $payBrand = 'Cost $ (test)';
+    $payLast4 = '';
+} elseif (str_contains($pm, 'visa')) {
     $payBrand = 'VISA';
 } elseif (str_contains($pm, 'master')) {
     $payBrand = 'Mastercard';
 } elseif (str_contains($pm, 'paypal')) {
     $payBrand = 'PayPal';
+} elseif (str_contains($pm, 'manual')) {
+    $payBrand = 'Manual';
 } elseif ($pm !== '') {
     $payBrand = ucfirst($pm);
 } else {
     $payBrand = 'Card';
 }
 $payStatus = in_array($statusRaw, ['paid', 'shipped', 'delivered'], true) ? 'Paid'
-    : ($statusBucket === 'cancelled' ? 'Cancelled' : 'Unpaid');
+    : ($statusBucket === 'cancelled' ? 'Cancelled'
+        : ($paymentIncomplete ? 'Payment incomplete' : 'Unpaid'));
+$statusLab = $paymentIncomplete ? 'Payment incomplete' : $statusLab;
 $channelLabel = str_contains(strtolower((string)($order['order_type'] ?? '')), 'market') ? 'Marketplace' : 'Direct Store';
 $fm = strtolower((string)($order['fulfillment_method'] ?? 'fbm'));
 $fulfillLabel = $fm === 'fba' ? 'Platform fulfilled' : 'Seller Fulfilled';
 $deliveryMethod = $carrier !== '' ? $carrier : ucwords($deliveryOption);
 $coverUrl = static function (?string $path): string {
+    if (function_exists('org_shop_cover_url')) {
+        return org_shop_cover_url($path);
+    }
     $path = trim((string)$path);
     if ($path === '') {
         return '';
@@ -295,7 +347,11 @@ $coverUrl = static function (?string $path): string {
     if (preg_match('#^https?://#i', $path) || strpos($path, '/') === 0) {
         return $path;
     }
-    return '../' . ltrim($path, '/');
+    $rel = ltrim(str_replace('\\', '/', $path), '/');
+    if (stripos($rel, 'organization/') === 0) {
+        $rel = substr($rel, strlen('organization/'));
+    }
+    return $rel;
 };
 $backHref = $fromSales ? 'sales_management.php#orders' : 'orders.php';
 $invoiceHref = 'order_invoice.php?id=' . $orderId;
@@ -338,7 +394,12 @@ if ($download) {
     <tr><th>Address</th><td><?= $shipTo !== '' ? nl2br($h($shipTo)) : 'Not provided' ?></td></tr>
     <tr><th>Products</th><td><?= (int)$orderNum ?></td></tr>
     <tr><th>Units</th><td><?= (int)$quantityNum ?></td></tr>
-    <tr><th>Total</th><td class="total"><?= $h($totalLabel) ?></td></tr>
+    <tr><th>Order total</th><td class="total"><?= $h($totalLabel) ?></td></tr>
+    <?php if ($paymentIncomplete && $amountPaidCents > 0): ?>
+    <tr><th>Amount received</th><td class="total"><?= $h($amountPaidLabel) ?></td></tr>
+    <tr><th>Still due</th><td><?= $h($shortfallLabel) ?></td></tr>
+    <tr><th>Payment</th><td>Incomplete — do not ship</td></tr>
+    <?php endif; ?>
     <tr><th>Fulfillment</th><td><?= $h(strtoupper((string)($order['fulfillment_method'] ?? 'fbm'))) ?> · <?= $h($deliveryOption) ?></td></tr>
   </table>
   <h2 style="font-size:16px;margin:0 0 8px;">Ordered products</h2>
@@ -689,6 +750,19 @@ if ($embed) {
     }
     .od-fulfill-form .od-btn{width:100%;margin-top:8px;}
     .od-hint{margin:8px 0 0;font-size:11px;font-weight:600;color:var(--od-muted);}
+    .od-pay-warn{
+      margin:0 0 14px;padding:10px 12px;border-radius:8px;
+      border:1px solid rgba(185,28,28,.35);
+      background:rgba(254,226,226,.45);
+      color:var(--od-danger);
+      font-size:13px;font-weight:650;line-height:1.45;
+    }
+    .od-pay-warn strong{display:block;margin-bottom:4px;font-weight:850;}
+    html.dark-auto .od-pay-warn{
+      background:rgba(127,29,29,.28);
+      border-color:rgba(248,113,113,.35);
+      color:#fecaca;
+    }
   </style>
   <script>
     (function () {
@@ -721,10 +795,17 @@ if ($embed) {
         <span>Units</span>
       </div>
       <div class="od-stat">
-        <strong><?= $h($totalLabel) ?></strong>
-        <span>Total</span>
+        <strong><?= $h($heroAmountLabel) ?></strong>
+        <span><?= $h($heroAmountCaption) ?></span>
       </div>
     </div>
+
+    <?php if ($paymentIncomplete): ?>
+      <div class="od-pay-warn" role="alert">
+        <strong>Payment incomplete — do not ship</strong>
+        <?= $h($sellerPayMsg !== '' ? $sellerPayMsg : ('Customer paid ' . $amountPaidLabel . ' of ' . $totalLabel . '. Wait for Paid before shipping.')) ?>
+      </div>
+    <?php endif; ?>
 
     <section class="od-section">
       <h2>Customer</h2>
@@ -788,6 +869,16 @@ if ($embed) {
         <span>Order total</span>
         <span><?= $h($totalLabel) ?></span>
       </div>
+      <?php if ($paymentIncomplete && $amountPaidCents > 0): ?>
+        <div class="od-total" style="border-top:0;padding-top:4px;">
+          <span>Amount received</span>
+          <span><?= $h($amountPaidLabel) ?></span>
+        </div>
+        <div class="od-total" style="border-top:0;padding-top:4px;">
+          <span>Still due</span>
+          <span><?= $h($shortfallLabel) ?></span>
+        </div>
+      <?php endif; ?>
     </section>
 
     <section class="od-section">
@@ -813,11 +904,11 @@ if ($embed) {
         <dl class="od-kv">
           <div class="od-row">
             <dt>Carrier</dt>
-            <dd><input type="text" name="carrier" value="<?= $h($carrier) ?>" placeholder="e.g. UPS, FedEx, USPS" autocomplete="off"></dd>
+            <dd><input type="text" name="carrier" value="<?= $h($carrier) ?>" placeholder="e.g. UPS, FedEx, USPS" autocomplete="off"<?= !empty($fulfillmentLocked) ? ' disabled' : '' ?>></dd>
           </div>
           <div class="od-row">
             <dt>Tracking</dt>
-            <dd><input type="text" name="tracking_number" value="<?= $h($tracking) ?>" placeholder="Tracking #" autocomplete="off"></dd>
+            <dd><input type="text" name="tracking_number" value="<?= $h($tracking) ?>" placeholder="Tracking #" autocomplete="off"<?= !empty($fulfillmentLocked) ? ' disabled' : '' ?>></dd>
           </div>
           <div class="od-row">
             <dt>Buyer service fee</dt>
@@ -832,8 +923,13 @@ if ($embed) {
             <dd><?= $h($payoutLabel) ?> · <?= $h($payoutStatus) ?></dd>
           </div>
         </dl>
-        <button type="submit" class="od-btn od-btn-primary">Save carrier &amp; tracking</button>
-        <p class="od-hint">Enter both to mark the order shipping and notify the customer.</p>
+        <?php if (!empty($fulfillmentLocked)): ?>
+          <button type="button" class="od-btn od-btn-primary" disabled title="Fulfillment is locked until the customer pays in full">Save carrier &amp; tracking</button>
+          <p class="od-hint" style="color:#b91c1c;">Payment incomplete — fulfillment stays locked until the customer pays in full.</p>
+        <?php else: ?>
+          <button type="submit" class="od-btn od-btn-primary">Save carrier &amp; tracking</button>
+          <p class="od-hint">Enter both to mark the order shipping and notify the customer.</p>
+        <?php endif; ?>
       </form>
     </section>
 
@@ -952,6 +1048,14 @@ $fromQs = $fromSales ? '&from=sales' : '';
   .od-page .od-item-main span{display:block;font-size:12px;color:#64748b;margin-top:2px;}
   .od-page .od-sum{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:4px 0;color:#475569;}
   .od-page .od-sum.is-total{font-weight:800;color:#0f172a;border-top:1px solid #eef2f7;margin-top:8px;padding-top:10px;font-size:15px;}
+  .od-page .od-sum.is-pay-short{color:#b91c1c;font-weight:800;}
+  .od-page .od-sum.is-pay-due{color:#b91c1c;font-weight:700;}
+  .od-page .od-pay-banner{
+    border:1px solid rgba(185,28,28,.35);
+    background:rgba(254,226,226,.55);
+  }
+  .od-page .od-pay-banner h2{color:#b91c1c;}
+  .od-page .od-pay-banner p{margin:0;font-size:13px;line-height:1.45;color:#7f1d1d;font-weight:650;}
   .od-page .od-tl{display:flex;flex-direction:column;gap:14px;}
   .od-page .od-tl-item{padding-left:18px;border-left:2px solid #bbf7d0;position:relative;}
   .od-page .od-tl-item:before{content:"";width:10px;height:10px;border-radius:50%;background:#16a34a;position:absolute;left:-6px;top:4px;}
@@ -960,10 +1064,65 @@ $fromQs = $fromSales ? '&from=sales' : '';
   .od-page .od-track{margin-top:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;}
   .od-page .od-kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:8px 10px;font-size:13px;align-items:start;}
   .od-page .od-kv dt{margin:0;color:#64748b;font-weight:700;}
-  .od-page .od-kv dd{margin:0;font-weight:600;word-break:break-word;}
+  .od-page .od-kv dd{margin:0;font-weight:600;word-break:break-word;color:#0f172a;}
+  .od-page .od-kv dd.is-pay-short{color:#b91c1c;font-weight:800;}
   .od-page .od-copy{border:0;background:none;color:#2563eb;cursor:pointer;font-weight:800;padding:0 0 0 6px;}
-  html.dark-auto .od-page{color:var(--msb-palette-text,#e2e8f0);}
-  html.dark-auto .od-page .od-card,html.dark-auto .od-page .od-steps{background:var(--msb-palette-bg,#171d24);border-color:rgba(148,163,184,.22);}
+  html.dark-auto .od-page{
+    color:#f1f5f9;
+    --od-page-muted:#cbd5e1;
+    --od-page-soft:#94a3b8;
+    --od-page-line:rgba(148,163,184,.28);
+  }
+  html.dark-auto .od-page .od-back{color:#93c5fd;}
+  html.dark-auto .od-page .od-head h1,
+  html.dark-auto .od-page .od-code,
+  html.dark-auto .od-page .od-card h2,
+  html.dark-auto .od-page .od-step strong,
+  html.dark-auto .od-page .od-item-main strong,
+  html.dark-auto .od-page .od-tl-item strong{color:#f8fafc;}
+  html.dark-auto .od-page .od-placed,
+  html.dark-auto .od-page .od-step span,
+  html.dark-auto .od-page .od-item-main span,
+  html.dark-auto .od-page .od-tl-item span,
+  html.dark-auto .od-page .od-tl-item p,
+  html.dark-auto .od-page .od-kv dt{color:var(--od-page-muted);}
+  html.dark-auto .od-page .od-card,
+  html.dark-auto .od-page .od-steps{
+    background:var(--msb-palette-bg,#1e2530);
+    border-color:var(--od-page-line);
+  }
+  html.dark-auto .od-page .od-btn{
+    background:#0f172a;
+    border-color:rgba(148,163,184,.35);
+    color:#f1f5f9;
+  }
+  html.dark-auto .od-page .od-item{border-bottom-color:var(--od-page-line);}
+  html.dark-auto .od-page .od-thumb{background:#0f172a;color:#94a3b8;}
+  html.dark-auto .od-page .od-sum{color:#e2e8f0;}
+  html.dark-auto .od-page .od-sum.is-total{
+    color:#ffffff;
+    border-top-color:var(--od-page-line);
+  }
+  html.dark-auto .od-page .od-sum.is-pay-short,
+  html.dark-auto .od-page .od-sum.is-pay-due{color:#fca5a5;}
+  html.dark-auto .od-page .od-kv dd{color:#f1f5f9;}
+  html.dark-auto .od-page .od-kv dd.is-pay-short{color:#fca5a5;}
+  html.dark-auto .od-page .od-copy{color:#93c5fd;}
+  html.dark-auto .od-page .od-track{
+    background:#0f172a;
+    border-color:var(--od-page-line);
+    color:#e2e8f0;
+  }
+  html.dark-auto .od-page .od-pay-banner{
+    background:rgba(127,29,29,.42);
+    border-color:rgba(252,165,165,.45);
+  }
+  html.dark-auto .od-page .od-pay-banner h2{color:#fecaca;}
+  html.dark-auto .od-page .od-pay-banner p{color:#fee2e2;}
+  html.dark-auto .od-page .od-badge.processing{background:rgba(249,115,22,.22);color:#fdba74;}
+  html.dark-auto .od-page .od-badge.delivered{background:rgba(34,197,94,.2);color:#86efac;}
+  html.dark-auto .od-page .od-badge.shipped{background:rgba(168,85,247,.22);color:#d8b4fe;}
+  html.dark-auto .od-page .od-badge.cancelled{background:rgba(239,68,68,.22);color:#fca5a5;}
   @media (max-width:980px){.od-page .od-grid,.od-page .od-steps{grid-template-columns:1fr;}}
   @media print{.sh-header,.sh-sideleft-menu,.od-head-actions,.od-back{display:none !important;}}
 </style>
@@ -1044,7 +1203,20 @@ $fromQs = $fromSales ? '&from=sales' : '';
         <div class="od-sum"><span>Shipping</span><span><?= $h($shippingLabel) ?></span></div>
         <div class="od-sum"><span>Tax</span><span><?= $h($taxLabel) ?></span></div>
         <div class="od-sum is-total"><span>Order Total</span><span><?= $h($totalLabel) ?></span></div>
+        <?php if ($paymentIncomplete && $amountPaidCents > 0): ?>
+          <div class="od-sum is-pay-short"><span>Amount received</span><span><?= $h($amountPaidLabel) ?></span></div>
+          <div class="od-sum is-pay-due"><span>Still due</span><span><?= $h($shortfallLabel) ?></span></div>
+        <?php endif; ?>
       </div>
+
+      <?php if ($paymentIncomplete): ?>
+        <div class="od-card od-pay-banner">
+          <h2>Payment incomplete — do not ship</h2>
+          <p>
+            <?= $h($sellerPayMsg !== '' ? $sellerPayMsg : ('Customer paid ' . $amountPaidLabel . ' of ' . $totalLabel . '. Wait for Paid before shipping.')) ?>
+          </p>
+        </div>
+      <?php endif; ?>
 
       <div class="od-card">
         <h2>Order Timeline</h2>
@@ -1137,6 +1309,14 @@ $fromQs = $fromSales ? '&from=sales' : '';
           <dd><?= $h($payBrand) ?><?= $payLast4 !== '' ? ' · **** ' . $h($payLast4) : '' ?></dd>
           <dt>Payment Status</dt>
           <dd><span class="od-badge <?= $payStatus === 'Paid' ? 'delivered' : ($payStatus === 'Cancelled' ? 'cancelled' : 'processing') ?>"><?= $h($payStatus) ?></span></dd>
+          <?php if ($paymentIncomplete && $amountPaidCents > 0): ?>
+            <dt>Amount received</dt>
+            <dd class="is-pay-short"><?= $h($amountPaidLabel) ?></dd>
+            <dt>Order total</dt>
+            <dd><?= $h($totalLabel) ?></dd>
+            <dt>Still due</dt>
+            <dd class="is-pay-short"><?= $h($shortfallLabel) ?></dd>
+          <?php endif; ?>
           <dt>Fulfillment Method</dt>
           <dd><?= $h($fulfillLabel) ?></dd>
           <dt>Delivery Method</dt>

@@ -45,6 +45,177 @@ if (!function_exists('fmt_day_label')) {
     }
 }
 
+/** Plural-safe relative age for presence / last-seen ("1 day ago", not "1 days ago"). */
+if (!function_exists('chat_seconds_ago_label')) {
+    function chat_seconds_ago_label(int $sec): string {
+        if ($sec < 0) {
+            $sec = 0;
+        }
+        if ($sec < 10) {
+            return 'just now';
+        }
+        if ($sec < 60) {
+            return $sec . ' second' . ($sec === 1 ? '' : 's') . ' ago';
+        }
+        $m = (int)floor($sec / 60);
+        if ($m < 60) {
+            return $m . ' minute' . ($m === 1 ? '' : 's') . ' ago';
+        }
+        $h = (int)floor($sec / 3600);
+        if ($h < 24) {
+            return $h . ' hour' . ($h === 1 ? '' : 's') . ' ago';
+        }
+        $d = (int)floor($sec / 86400);
+        if ($d < 7) {
+            return $d . ' day' . ($d === 1 ? '' : 's') . ' ago';
+        }
+        $w = (int)floor($d / 7);
+        if ($w < 5) {
+            return $w . ' week' . ($w === 1 ? '' : 's') . ' ago';
+        }
+        $mo = (int)floor($d / 30);
+        if ($mo < 12) {
+            return $mo . ' month' . ($mo === 1 ? '' : 's') . ' ago';
+        }
+        $y = (int)floor($d / 365);
+        return max(1, $y) . ' year' . ($y === 1 ? '' : 's') . ' ago';
+    }
+}
+
+/** Message bubble timestamp: "Sep 6, 2026 7:39 PM" */
+if (!function_exists('chat_fmt_time_full')) {
+    function chat_fmt_time_full(string $dt): string {
+        $dt = trim($dt);
+        if ($dt === '') {
+            return '';
+        }
+        $ts = strtotime($dt);
+        return $ts ? date('M j, Y g:i A', $ts) : '';
+    }
+}
+
+/** Compact clock time: "7:39 PM" */
+if (!function_exists('chat_fmt_time_short')) {
+    function chat_fmt_time_short(string $dt): string {
+        $dt = trim($dt);
+        if ($dt === '') {
+            return '';
+        }
+        $ts = strtotime($dt);
+        return $ts ? date('g:i A', $ts) : '';
+    }
+}
+
+/** Thread list relative stamp: "5h", "2w" */
+if (!function_exists('chat_fmt_thread_time')) {
+    function chat_fmt_thread_time(string $dt): string {
+        $dt = trim($dt);
+        if ($dt === '') {
+            return '';
+        }
+        $ts = strtotime($dt);
+        if (!$ts) {
+            return '';
+        }
+        $diff = max(0, time() - $ts);
+        if ($diff < 60) {
+            return 'now';
+        }
+        if ($diff < 3600) {
+            return (string)max(1, (int)floor($diff / 60)) . 'm';
+        }
+        if ($diff < 86400) {
+            return (string)max(1, (int)floor($diff / 3600)) . 'h';
+        }
+        if ($diff < 604800) {
+            return (string)max(1, (int)floor($diff / 86400)) . 'd';
+        }
+        if ($diff < 2592000) {
+            return (string)max(1, (int)floor($diff / 604800)) . 'w';
+        }
+        if ($diff < 31536000) {
+            return (string)max(1, (int)floor($diff / 2592000)) . 'mo';
+        }
+        return (string)max(1, (int)floor($diff / 31536000)) . 'y';
+    }
+}
+
+if (!function_exists('call_event_possessive_name')) {
+    function call_event_possessive_name(string $name): string {
+        $clean = trim($name);
+        if ($clean === '') return 'their';
+        return preg_match('/s$/i', $clean) ? $clean . "'" : $clean . "'s";
+    }
+}
+
+/**
+ * Turn [[MSB_CALL_EVENT:{...}]] markers into human-readable previews.
+ * Tolerates truncated markers (e.g. inbox/door previews).
+ */
+if (!function_exists('call_event_display_text')) {
+    function call_event_display_text(string $text, bool $isMe, bool $isGroup = false): string {
+        $trimmed = trim($text);
+        $prefix = '[[MSB_CALL_EVENT:';
+        if ($trimmed === '' || strncmp($trimmed, $prefix, strlen($prefix)) !== 0) {
+            return $text;
+        }
+
+        $json = (substr($trimmed, -2) === ']]')
+            ? substr($trimmed, strlen($prefix), -2)
+            : substr($trimmed, strlen($prefix));
+        $payload = json_decode((string)$json, true);
+        if (!is_array($payload)) {
+            if (preg_match('/"action"\s*:\s*"(end|ended|deny|denied|decline|declined|miss|missed|unavailable)"/i', $trimmed, $m)) {
+                $actor = '';
+                if (preg_match('/"actor"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/', $trimmed, $am)) {
+                    $actor = stripcslashes((string)$am[1]);
+                } elseif (preg_match('/"actor"\s*:\s*"([^"]*)/', $trimmed, $am)) {
+                    // Truncated preview (no closing quote)
+                    $actor = rtrim((string)$am[1], ".\xE2\x80\xA6");
+                    $actor = trim($actor);
+                }
+                $payload = [
+                    'action' => strtolower((string)$m[1]),
+                    'actor' => $actor,
+                    'target' => '',
+                ];
+            } else {
+                return 'Call update';
+            }
+        }
+
+        $action = strtolower(trim((string)($payload['action'] ?? '')));
+        $actor = trim((string)($payload['actor'] ?? ''));
+        $target = call_event_possessive_name((string)($payload['target'] ?? ''));
+        if ($actor === '') $actor = 'They';
+
+        if ($isGroup) {
+            if (in_array($action, ['deny', 'denied', 'decline', 'declined'], true)) {
+                return $actor . ' declined the group call';
+            }
+            if (in_array($action, ['miss', 'missed', 'unavailable'], true)) {
+                return $actor . ' missed the group call';
+            }
+            if (in_array($action, ['end', 'ended'], true)) {
+                return $actor . ' ended the group call';
+            }
+            return 'Group call update';
+        }
+
+        if (in_array($action, ['deny', 'denied', 'decline', 'declined'], true)) {
+            return $isMe ? ('You denied ' . $target . ' call') : ($actor . ' denied your call');
+        }
+        if (in_array($action, ['miss', 'missed', 'unavailable'], true)) {
+            return $isMe ? ('You missed ' . $target . ' call') : ($actor . ' is not avalible yet. Please call me later');
+        }
+        if (in_array($action, ['end', 'ended'], true)) {
+            return $isMe ? ('You ended ' . $target . ' call') : ($actor . ' ended your call');
+        }
+
+        return 'Call update';
+    }
+}
+
 /**
  * Resolve a peer by friend code.
  */

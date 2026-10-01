@@ -290,6 +290,8 @@ function index_feature_nav_topics(): array
       'icon' => 'cart',
       'items' => [
         ['tab' => 'shop', 'label' => 'Shop'],
+        ['tab' => 'ordering-tracking', 'label' => 'Ordering & Tracking'],
+        ['tab' => 'order-status', 'label' => 'Order status meanings'],
         ['tab' => 'purchase-protection', 'label' => 'Shop purchase protection'],
       ],
     ],
@@ -1637,6 +1639,42 @@ function index_feature_articles(): array
       'paras' => [
         'Keep the order screen and messages. Talsora is not a bank. Chargebacks follow your card or wallet issuer.',
         'Sellers who do not fulfill orders can lose commerce access.',
+      ],
+    ],
+    'ordering-tracking' => [
+      'title' => 'Ordering & Tracking',
+      'lead' => 'Track a purchase with your order number, or open My Orders after you sign in.',
+      'guides' => [
+        [
+          'title' => 'How do I track my order?',
+          'heading' => 'Track Your Order',
+          'steps' => [
+            'Sign in and open Shop → Track Order.',
+            'Enter your order number (for example ORD-1-A1B2C3D4), or open My Orders.',
+            'Open the order to see status, shipping, and tracking when the seller adds it.',
+          ],
+          'note' => 'Signed-in buyers can also open Ordering & Tracking from the Shop left rail.',
+        ],
+        [
+          'title' => 'What if I need more help?',
+          'heading' => 'Support',
+          'steps' => [
+            'Message the seller from the order screen first.',
+            'If that fails, open Support Center from Shopping Preferences.',
+            'Keep your order code and screenshots for Admin help.',
+          ],
+        ],
+      ],
+    ],
+    'order-status' => [
+      'title' => 'Order status meanings',
+      'lead' => 'Statuses update as the seller prepares, ships, and completes your order.',
+      'paras' => [
+        'Pending — order received; payment or seller confirmation may still be in progress.',
+        'Processing — seller is preparing your item for shipment or pickup.',
+        'Shipped — package is on the way. Tracking appears when the seller adds a number.',
+        'Delivered — marked complete. Confirm the item, then leave a review if you like.',
+        'Canceled or Returned — the order stopped before delivery, or a return was opened.',
       ],
     ],
     'pub-create' => [

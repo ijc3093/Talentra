@@ -377,8 +377,10 @@ body.tt-live-right-open{ overflow:hidden; }
         var productId = buyDoorBtn.getAttribute('data-shop-buy') || buyDoorBtn.getAttribute('data-product-id') || '';
         var profileId = buyDoorBtn.getAttribute('data-shop-profile') || buyDoorBtn.getAttribute('data-profile-id') || '';
         var qty = buyDoorBtn.getAttribute('data-quantity') || '1';
+        var fromCart = buyDoorBtn.getAttribute('data-from-cart') === '1';
         buyUrl = 'shop_buy_door.php?embed=1&product_id=' + encodeURIComponent(productId) + '&quantity=' + encodeURIComponent(qty);
         if (profileId) buyUrl += '&profile_id=' + encodeURIComponent(profileId);
+        if (fromCart) buyUrl += '&from_cart=1';
       }
       openLiveRightPanel(buyUrl);
       return;

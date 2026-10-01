@@ -22,6 +22,51 @@ require_once __DIR__ . '/../public_user/includes/staff_publisher_access.php';
 $orgId = (int)orgActiveOrgId();
 $memberId = (int)orgMemberId();
 $isManager = isOrgManager();
+
+// Soft-heal missing org_member_id so Account / Payroll / Employee detail work
+// for manager/staff logins that lost the session membership row.
+if ($memberId <= 0 && $orgId > 0 && $isManager) {
+    $accountType = (string)(function_exists('orgAccountType') ? orgAccountType() : 'manager');
+    $accountId = (int)(function_exists('orgAccountId') ? orgAccountId() : 0);
+    if ($accountId > 0 && in_array($accountType, ['manager', 'staff'], true)) {
+        try {
+            $stHeal = $dbh->prepare("
+                SELECT id, role_id, status
+                FROM org_members
+                WHERE org_id = :org AND member_type = :mt AND member_id = :mid
+                LIMIT 1
+            ");
+            $stHeal->execute([':org' => $orgId, ':mt' => $accountType, ':mid' => $accountId]);
+            $heal = $stHeal->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (!$heal && $accountType === 'manager') {
+                $stRole = $dbh->prepare("SELECT id FROM org_roles WHERE org_id = :org AND name = 'Manager' LIMIT 1");
+                $stRole->execute([':org' => $orgId]);
+                $roleId = (int)($stRole->fetchColumn() ?: 0);
+                if ($roleId > 0) {
+                    $ins = $dbh->prepare("
+                        INSERT IGNORE INTO org_members
+                          (org_id, member_type, member_id, role_id, relationship_label, status, joined_at, created_at)
+                        VALUES
+                          (:org, 'manager', :mid, :role, NULL, 1, NOW(), NOW())
+                    ");
+                    $ins->execute([':org' => $orgId, ':mid' => $accountId, ':role' => $roleId]);
+                    $stHeal->execute([':org' => $orgId, ':mt' => $accountType, ':mid' => $accountId]);
+                    $heal = $stHeal->fetch(PDO::FETCH_ASSOC) ?: null;
+                }
+            }
+            if ($heal && (int)($heal['status'] ?? 0) === 1) {
+                $memberId = (int)$heal['id'];
+                $_SESSION['org_member_id'] = $memberId;
+                if ((int)($heal['role_id'] ?? 0) > 0) {
+                    $_SESSION['org_role_id'] = (int)$heal['role_id'];
+                }
+            }
+        } catch (Throwable $eHeal) {
+            // keep going
+        }
+    }
+}
+
 org_ecommerce_ensure_schema($dbh);
 org_crm_lifecycle_ensure_schema($dbh);
 org_payroll_ensure_schema($dbh);
@@ -45,7 +90,7 @@ $sellerBuyerMsgUnread = $sellerMsgPublisherId > 0
 $sellerBuyerMsgPeerId = (int)($_GET['buyer_msg'] ?? 0);
 $sellerBuyerMsgAboutProduct = (int)($_GET['about_product'] ?? 0);
 $sellerBuyerMsgAboutOrder = trim((string)($_GET['about_order'] ?? ''));
-$sellerBuyerMsgDraft = commerce_messaging_compose_draft($dbh, $sellerBuyerMsgAboutProduct, $sellerBuyerMsgAboutOrder);
+$sellerBuyerMsgDraft = '';
 $sellerBuyerMsgActive = null;
 if ($sellerBuyerMsgPeerId > 0 && $sellerMsgPublisherId > 0
     && commerce_can_dm_pair($dbh, $sellerMsgPublisherId, $sellerBuyerMsgPeerId)
@@ -74,6 +119,7 @@ if ($sellerBuyerMsgPeerId > 0 && $sellerMsgPublisherId > 0
                     'last_at' => '',
                     'unread' => 0,
                     'order_code' => $sellerBuyerMsgAboutOrder,
+                    'about_product_id' => $sellerBuyerMsgAboutProduct,
                 ];
                 array_unshift($sellerBuyerMsgContacts, $sellerBuyerMsgActive);
             }
@@ -84,6 +130,15 @@ if ($sellerBuyerMsgPeerId > 0 && $sellerMsgPublisherId > 0
 } elseif ($sellerBuyerMsgContacts) {
     $sellerBuyerMsgActive = $sellerBuyerMsgContacts[0];
     $sellerBuyerMsgPeerId = (int)($sellerBuyerMsgActive['buyer_user_id'] ?? 0);
+}
+
+if ($sellerBuyerMsgAboutProduct <= 0 && is_array($sellerBuyerMsgActive)) {
+    $sellerBuyerMsgAboutProduct = (int)($sellerBuyerMsgActive['about_product_id'] ?? 0);
+}
+$sellerBuyerMsgDraft = commerce_messaging_compose_draft($dbh, $sellerBuyerMsgAboutProduct, $sellerBuyerMsgAboutOrder);
+$sellerBuyerMsgProductFocus = null;
+if ($sellerBuyerMsgAboutProduct > 0 && function_exists('commerce_messaging_product_focus')) {
+    $sellerBuyerMsgProductFocus = commerce_messaging_product_focus($dbh, $sellerBuyerMsgAboutProduct, (int)$orgId);
 }
 
 $omsErr = '';
@@ -115,6 +170,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oms_cancel_action']))
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oms_request_payment'])) {
+    $orderId = (int)($_POST['order_id'] ?? 0);
+    $payMsg = trim((string)($_POST['payment_message'] ?? ''));
+    $reqRes = org_shop_seller_request_payment_completion($dbh, $orgId, $orderId, $payMsg);
+    if (!empty($reqRes['ok'])) {
+        $omsOk = 'Customer notified in Pending — payment incomplete. They can complete payment or cancel from the order.';
+    } else {
+        $omsErr = (string)($reqRes['error'] ?? 'Could not notify the customer.');
+    }
+    $_SESSION['oms_flash_ok'] = $omsOk;
+    $_SESSION['oms_flash_err'] = $omsErr;
+    $redirQs = $statusFilter !== 'all' ? ('?status=' . rawurlencode($statusFilter)) : '';
+    header('Location: sales_management.php' . $redirQs . '#orders');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oms_action'])) {
     $orderId = (int)($_POST['order_id'] ?? 0);
     $newStatus = strtolower(trim((string)($_POST['status'] ?? '')));
@@ -128,27 +199,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['oms_action'])) {
         } else {
             $omsErr = 'Could not sync buyer to CRM.';
         }
-    } elseif (org_ecommerce_update_fulfillment($dbh, $orgId, $orderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
-        if (
-            $carrier !== ''
-            && $tracking !== ''
-            && in_array($newStatus, ['pending', 'confirmed', 'paid'], true)
-        ) {
-            $omsOk = 'Order marked shipping — moved to History Order. Customer notified.';
-            $newStatus = 'shipped';
-        } elseif ($newStatus === 'delivered') {
-            $omsOk = 'Order marked delivered — moved to History Order.';
-        } elseif ($newStatus === 'shipped') {
-            $omsOk = 'Order marked shipped — moved to History Order.';
-        } elseif ($newStatus === 'paid') {
-            $omsOk = 'Order marked paid — ready to ship.';
-        } elseif ($newStatus === 'cancelled') {
-            $omsOk = 'Order cancelled.';
-        } else {
-            $omsOk = 'Order updated.';
-        }
     } else {
-        $omsErr = 'Could not update order.';
+        $blockFulfill = false;
+        if ($orderId > 0 && $newStatus !== 'cancelled') {
+            try {
+                $stPay = $dbh->prepare('SELECT * FROM org_orders WHERE id = :id AND org_id = :org LIMIT 1');
+                $stPay->execute([':id' => $orderId, ':org' => $orgId]);
+                $payOrder = $stPay->fetch(PDO::FETCH_ASSOC) ?: null;
+                if ($payOrder && function_exists('org_shop_order_fulfillment_locked') && org_shop_order_fulfillment_locked($payOrder)) {
+                    $blockFulfill = true;
+                    $omsErr = 'Fulfillment is locked until the customer pays in full.';
+                }
+            } catch (Throwable $e) {
+                // continue
+            }
+        }
+        if (!$blockFulfill && org_ecommerce_update_fulfillment_customer_batch($dbh, $orgId, $orderId, $newStatus, $sellerNotes, $tracking, $carrier)) {
+            if (
+                $carrier !== ''
+                && $tracking !== ''
+                && in_array($newStatus, ['pending', 'confirmed', 'paid'], true)
+            ) {
+                $omsOk = 'Order marked shipping — moved to History Order. Customer notified.';
+                $newStatus = 'shipped';
+            } elseif ($newStatus === 'delivered') {
+                $omsOk = 'Order marked delivered — moved to History Order.';
+            } elseif ($newStatus === 'shipped') {
+                $omsOk = 'Order marked shipped — moved to History Order.';
+            } elseif ($newStatus === 'paid') {
+                $omsOk = 'Order marked paid — ready to ship.';
+            } elseif ($newStatus === 'cancelled') {
+                $omsOk = 'Order cancelled.';
+            } else {
+                $omsOk = 'Order updated.';
+            }
+        } elseif (!$blockFulfill) {
+            $omsErr = 'Could not update order.';
+        }
     }
 
     $_SESSION['oms_flash_ok'] = $omsOk;
@@ -893,6 +980,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pim_action'])) {
         $savedId = (int)($result['product_id'] ?? 0);
         if ($savedId > 0) {
             org_shop_save_product_images_from_request($dbh, $orgId, $savedId);
+            if (function_exists('org_shop_sync_product_cover_from_gallery')) {
+                org_shop_sync_product_cover_from_gallery($dbh, $orgId, $savedId);
+            }
         }
         $savedCode = trim((string)($result['product_code'] ?? ''));
         if ($savedCode === '' && $savedId > 0) {
@@ -912,9 +1002,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pim_action'])) {
     if ($savedPid <= 0 && !empty($result['product_id'])) {
         $savedPid = (int)$result['product_id'];
     }
-    // After create, return to products form (clear edit). After failed update, keep edit id.
-    $redirEdit = ($pimErr !== '' && $pid > 0) ? ('?edit=' . $pid) : '';
-    header('Location: sales_management.php' . $redirEdit . '#products');
+    // After create/update, show catalog so cover photos are visible. Keep edit form on failure.
+    if ($pimErr !== '' && $pid > 0) {
+        header('Location: sales_management.php?edit=' . $pid . '#products');
+    } else {
+        header('Location: sales_management.php#product-catalog');
+    }
     exit;
 }
 
@@ -926,6 +1019,13 @@ if (!empty($_SESSION['pim_flash_ok']) || !empty($_SESSION['pim_flash_err'])) {
 
 $editId = (int)($_GET['edit'] ?? 0);
 $editProduct = ($editId > 0) ? org_shop_get_product($dbh, $editId, $orgId) : null;
+if ($orgId > 0 && function_exists('org_shop_prune_missing_product_images')) {
+    // Drop DB image rows whose files were deleted so catalog stops showing empty thumbs.
+    org_shop_prune_missing_product_images($dbh, $orgId, $editId > 0 ? $editId : 0);
+    if ($editId > 0) {
+        $editProduct = org_shop_get_product($dbh, $editId, $orgId);
+    }
+}
 $productCount = org_shop_product_count($dbh, $orgId);
 
 $modules = [
@@ -973,8 +1073,8 @@ $salesPanels = [
     ],
     'refunds' => [
         'kicker' => 'Returns & Refunds',
-        'title' => 'Refunds',
-        'summary' => 'Track and manage all refunds issued to buyers.',
+        'title' => 'Returns & Refunds',
+        'summary' => 'Track and manage all returns and refunds issued to buyers.',
         'metrics' => [], 'columns' => [], 'rows' => [],
         'is_refunds_panel' => true,
     ],
@@ -1077,15 +1177,6 @@ $salesPanels = [
         'metrics' => [], 'columns' => [], 'rows' => [],
         'is_payments_panel' => true,
     ],
-    'payroll' => [
-        'kicker' => 'Payroll',
-        'title' => 'Pay employees',
-        'summary' => 'Pay hired staff with Gross Pay, Deductions, Net Pay, and Employer Taxes.',
-        'metrics' => [],
-        'columns' => [],
-        'rows' => [],
-        'is_payroll_panel' => true,
-    ],
     'sales-reports' => [
         'kicker' => 'Sales reports',
         'title' => 'Sales analytics',
@@ -1098,17 +1189,18 @@ $salesPanels = [
 
 // Staff can use Sales Management but must not see Payroll or Payments.
 if (!$isManager) {
-    unset($salesPanels['payroll'], $salesPanels['payments'], $salesPanels['settings'], $salesPanels['payment-billing'], $salesPanels['shipping-settings'], $salesPanels['tax-settings'], $salesPanels['settings-notifications'], $salesPanels['staff-permissions'], $salesPanels['policies'], $salesPanels['danger-zone']);
+    unset($salesPanels['payments'], $salesPanels['settings'], $salesPanels['payment-billing'], $salesPanels['shipping-settings'], $salesPanels['tax-settings'], $salesPanels['settings-notifications'], $salesPanels['staff-permissions'], $salesPanels['policies'], $salesPanels['danger-zone']);
 }
 
 $salesViewSlugs = array_values(array_unique(array_merge(
-    ['dashboard', 'orders', 'notification', 'message', 'support-center', 'table_cancel_orders', 'inventory', 'inventory-detail', 'overview', 'transactions', 'products', 'product-catalog', 'timecard'],
+    ['dashboard', 'orders', 'notification', 'message', 'support-center', 'table_cancel_orders', 'inventory', 'inventory-detail', 'overview', 'transactions', 'products', 'product-catalog', 'timecard', 'payroll'],
     array_keys($salesPanels)
 )));
 
+$salesHeaderFirst = trim(explode(' ', (string)($displayName ?? 'there'))[0] ?: 'there');
 $salesHeaderCopy = [
     'dashboard' => [
-        'title' => 'Welcome back!',
+        'title' => 'Welcome back' . ($salesHeaderFirst !== '' && strtolower($salesHeaderFirst) !== 'there' ? ', ' . $salesHeaderFirst : '') . '!',
         'sub' => "Here's what's happening with your store today.",
     ],
     'orders' => [
@@ -1140,8 +1232,8 @@ $salesHeaderCopy = [
         'sub' => 'Overview of your inventory across all products and variants.',
     ],
     'overview' => [
-        'title' => 'Overview',
-        'sub' => 'Real-time overview of your inventory performance and stock status.',
+        'title' => '',
+        'sub' => '',
     ],
     'transactions' => [
         'title' => 'Transactions',
@@ -1152,12 +1244,18 @@ $salesHeaderCopy = [
         'sub' => 'Track and manage your stock across all products and variants.',
     ],
     'products' => [
-        'title' => 'Create new products',
-        'sub' => 'Add listings, photos, and selling details for your catalog.',
+        'title' => ($editProduct ? 'Edit product' : 'Create new products'),
+        'sub' => ($editProduct
+            ? ('Update listing details for “' . (string)($editProduct['title'] ?? 'product') . '”.')
+            : 'Add listings, photos, and selling details for your catalog.'),
     ],
     'timecard' => [
         'title' => 'Track your hours',
         'sub' => 'Clock in and submit hours so payroll can pay you.',
+    ],
+    'payroll' => [
+        'title' => 'Pay employees',
+        'sub' => 'Pay hired staff with Gross Pay, Deductions, Net Pay, and Employer Taxes.',
     ],
 ];
 foreach ($salesPanels as $slug => $panel) {
@@ -1167,6 +1265,33 @@ foreach ($salesPanels as $slug => $panel) {
     ];
 }
 $GLOBALS['salesHeaderCopy'] = $salesHeaderCopy;
+
+if (!function_exists('org_sales_hub_intro')) {
+    /**
+     * Title/sub that sits on the panel (above KPI cards), not in the sticky header.
+     */
+    function org_sales_hub_intro(string $slug, ?string $title = null, ?string $sub = null): void
+    {
+        $copy = is_array($GLOBALS['salesHeaderCopy'] ?? null) ? $GLOBALS['salesHeaderCopy'] : [];
+        $row = is_array($copy[$slug] ?? null) ? $copy[$slug] : [];
+        $title = trim((string)($title ?? ($row['title'] ?? '')));
+        $sub = trim((string)($sub ?? ($row['sub'] ?? '')));
+        if ($title === '' && $sub === '') {
+            return;
+        }
+        $h = static function (string $s): string {
+            return function_exists('org_ecommerce_h') ? org_ecommerce_h($s) : htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+        };
+        echo '<div class="sm-hub-intro">';
+        if ($title !== '') {
+            echo '<h1 class="sm-hub-intro-title">' . $h($title) . '</h1>';
+        }
+        if ($sub !== '') {
+            echo '<p class="sm-hub-intro-sub">' . $h($sub) . '</p>';
+        }
+        echo '</div>';
+    }
+}
 
 $pageTitle = 'Sales Management';
 
@@ -1364,6 +1489,9 @@ $dashStatusUi = static function (string $st): array {
 };
 
 $dashCoverUrl = static function (?string $path): string {
+    if (function_exists('org_shop_cover_url')) {
+        return org_shop_cover_url($path);
+    }
     $path = trim((string)$path);
     if ($path === '') {
         return '';
@@ -1371,7 +1499,11 @@ $dashCoverUrl = static function (?string $path): string {
     if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0 || strpos($path, '/') === 0) {
         return $path;
     }
-    return '../' . ltrim($path, '/');
+    $rel = ltrim(str_replace('\\', '/', $path), '/');
+    if (stripos($rel, 'organization/') === 0) {
+        $rel = substr($rel, strlen('organization/'));
+    }
+    return $rel;
 };
 
 $dashViews = max(120, $dashOrders7 * 28 + (int)($stats['products_active'] ?? 0) * 12);
@@ -1392,6 +1524,7 @@ $salesViewBootScript = '<script>(function(){'
     . 'if(h==="payouts")h="payments";'
     . 'if(h==="returns-refunds")h="refunds";'
     . 'var v=' . json_encode($salesViewSlugs, JSON_UNESCAPED_SLASHES) . ';'
+    . 'document.documentElement.setAttribute("data-sales-views",v.join(","));'
     . 'document.documentElement.setAttribute("data-sales-initial-view",h&&v.indexOf(h)!==-1?h:d);'
     . 'document.documentElement.setAttribute("data-sales-active-view",h&&v.indexOf(h)!==-1?h:d);'
     . '})();</script>';
@@ -1442,6 +1575,114 @@ org_page_shell_open(
       overflow:hidden;
       padding-bottom:0;
     }
+    /* Titles sit on each panel (above cards), not in the sticky header */
+    body.org-app.org-page-sales_management #salesHeaderWelcome{
+      display:none !important;
+    }
+    .sm-hub-intro{
+      min-width:0;
+      max-width:min(100%,560px);
+      flex:1 1 auto;
+    }
+    .sm-hub-intro-title{
+      margin:0;
+      font-size:22px;
+      font-weight:800;
+      letter-spacing:-.02em;
+      line-height:1.15;
+      color:var(--msb-palette-text, var(--ch-text, #e8edf5));
+    }
+    .sm-hub-intro-sub{
+      margin:2px 0 0;
+      font-size:12px;
+      font-weight:600;
+      line-height:1.35;
+      color:var(--msb-palette-muted, var(--ch-muted, #94a3b8));
+    }
+    .sm-hub-hero,
+    .store-dash .sd-hero,
+    .store-orders .so-hero,
+    .store-products .sp-hero,
+    .cus .cus-top,
+    .pyo .pyo-top,
+    .org-payroll-panel .sales-management-detail-head{
+      display:flex !important;
+      align-items:flex-end !important;
+      justify-content:space-between !important;
+      gap:12px !important;
+      flex-wrap:wrap !important;
+      margin-bottom:8px !important;
+      position:relative !important;
+      top:auto !important;
+      right:auto !important;
+    }
+    /* Inventory title row stays pinned (scroll is .inv-body-scroll). */
+    html[data-sales-active-view="inventory"] .inv-dash .inv-hero,
+    html[data-sales-initial-view="inventory"] .inv-dash .inv-hero,
+    .sales-management-view[data-sales-view="inventory"] .inv-dash .inv-hero{
+      display:flex !important;
+      align-items:flex-end !important;
+      justify-content:space-between !important;
+      gap:12px !important;
+      flex-wrap:wrap !important;
+      margin-bottom:6px !important;
+      position:relative !important;
+      top:auto !important;
+      right:auto !important;
+      flex:0 0 auto !important;
+    }
+    .sm-hub-actions{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-left:auto;
+    }
+    .sales-management-view.is-active{
+      padding-top:8px;
+    }
+    .sales-management-view[data-sales-view="message"].is-active,
+    html[data-sales-initial-view="message"] .sales-management-view[data-sales-view="message"],
+    html[data-sales-active-view="message"] .sales-management-view[data-sales-view="message"]{
+      display:flex !important;
+      flex-direction:column;
+      gap:12px;
+      min-height:0;
+      height:auto;
+      max-height:none;
+      overflow:visible;
+      padding-top:12px;
+      padding-bottom:16px;
+    }
+    .sales-management-view[data-sales-view="support-center"].is-active,
+    html[data-sales-initial-view="support-center"] .sales-management-view[data-sales-view="support-center"],
+    html[data-sales-active-view="support-center"] .sales-management-view[data-sales-view="support-center"]{
+      display:flex !important;
+      flex-direction:column;
+      gap:8px;
+      min-height:0;
+      height:calc(100vh - var(--org-header-h, 48px) - 20px);
+      max-height:calc(100vh - var(--org-header-h, 48px) - 20px);
+      overflow:hidden;
+      padding-top:4px;
+      padding-bottom:8px;
+      box-sizing:border-box;
+    }
+    html[data-sales-initial-view="support-center"] body.org-app,
+    html[data-sales-active-view="support-center"] body.org-app,
+    html[data-sales-initial-view="support-center"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="support-center"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="support-center"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="support-center"] body.org-app .sh-pagebody{
+      overflow:hidden !important;
+    }
+    html[data-sales-initial-view="support-center"] .sales-management-view[data-sales-view="support-center"] .sas-wrap,
+    html[data-sales-active-view="support-center"] .sales-management-view[data-sales-view="support-center"] .sas-wrap,
+    .sales-management-view[data-sales-view="support-center"].is-active .sas-wrap{
+      flex:1 1 auto;
+      min-height:0;
+      height:100%;
+    }
     .sales-management-view[data-sales-view="detail_employee"] .de-panel-wrap{
       height:100%;
       max-height:100%;
@@ -1480,35 +1721,298 @@ org_page_shell_open(
       overflow: hidden;
     }
     /* Non-dashboard hash panels must win once active */
-    .sales-management-view.is-active:not([data-sales-view="dashboard"]){
+    .sales-management-view.is-active:not([data-sales-view="dashboard"]):not([data-sales-view="support-center"]):not([data-sales-view="message"]):not([data-sales-view="orders"]):not([data-sales-view="detail_employee"]):not([data-sales-view="transactions"]):not([data-sales-view="payments"]):not([data-sales-view="product-catalog"]):not([data-sales-view="products"]):not([data-sales-view="inventory"]){
       display: block !important;
     }
-    html[data-sales-active-view]:not([data-sales-active-view="dashboard"]) .sales-management-view[data-sales-view="dashboard"]{
+    html[data-sales-active-view]:not([data-sales-active-view="dashboard"]) .sales-management-view[data-sales-view="dashboard"],
+    .sales-management-view[data-sales-view="dashboard"]:not(.is-active){
       display: none !important;
     }
-    /* Create Products is a long form: let the document and content panel scroll. */
-    html[data-sales-initial-view="products"],
-    html[data-sales-active-view="products"],
+    /* Inventory: lock viewport; title stays put; body scrolls under it. */
+    html[data-sales-initial-view="inventory"] body.org-app,
+    html[data-sales-active-view="inventory"] body.org-app,
+    html[data-sales-initial-view="inventory"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="inventory"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="inventory"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="inventory"] body.org-app .sh-pagebody{
+      height:100vh !important;
+      max-height:100vh !important;
+      overflow:hidden !important;
+      box-sizing:border-box !important;
+    }
+    html[data-sales-initial-view="inventory"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="inventory"] body.org-app .sh-pagebody{
+      display:flex !important;
+      flex-direction:column !important;
+      min-height:0 !important;
+    }
+    .sales-management-view[data-sales-view="inventory"].is-active,
+    html[data-sales-initial-view="inventory"] .sales-management-view[data-sales-view="inventory"],
+    html[data-sales-active-view="inventory"] .sales-management-view[data-sales-view="inventory"]{
+      display:flex !important;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:0;
+      height:auto !important;
+      max-height:none !important;
+      overflow:hidden !important;
+      padding:0 !important;
+      margin:0 !important;
+      box-sizing:border-box;
+    }
+    .sales-management-view[data-sales-view="inventory"] .inv-dash{
+      flex:1 1 auto;
+      min-height:0;
+    }
+    /* Create Products: lock viewport; scroll inside the form card. */
     html[data-sales-initial-view="products"] body.org-app,
-    html[data-sales-active-view="products"] body.org-app{
+    html[data-sales-active-view="products"] body.org-app,
+    html[data-sales-initial-view="products"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="products"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="products"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="products"] body.org-app .sh-pagebody,
+    html[data-sales-initial-view="products"] body.org-app .sh-pagebody.commerce-page,
+    html[data-sales-active-view="products"] body.org-app .sh-pagebody.commerce-page{
+      height:100vh !important;
+      max-height:100vh !important;
+      overflow:hidden !important;
+      box-sizing:border-box !important;
+    }
+    html[data-sales-initial-view="products"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="products"] body.org-app .sh-pagebody{
+      display:flex !important;
+      flex-direction:column !important;
+      min-height:0 !important;
+    }
+    .sales-management-view[data-sales-view="products"].is-active,
+    html[data-sales-active-view="products"] .sales-management-view[data-sales-view="products"],
+    html[data-sales-initial-view="products"] .sales-management-view[data-sales-view="products"]{
+      display:flex !important;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:0;
+      height:auto !important;
+      max-height:none !important;
+      overflow:hidden !important;
+      padding:0 0 8px !important;
+      margin:0 !important;
+      box-sizing:border-box;
+    }
+    html[data-sales-active-view="products"] .sales-management-view[data-sales-view="products"] > .card,
+    html[data-sales-initial-view="products"] .sales-management-view[data-sales-view="products"] > .card,
+    .sales-management-view[data-sales-view="products"].is-active > .card{
+      flex:1 1 auto;
+      min-height:0;
+      height:100%;
+      max-height:none;
+      display:flex !important;
+      flex-direction:column;
+      overflow:hidden !important;
+      margin-bottom:0 !important;
+    }
+    html[data-sales-active-view="products"] .sales-management-view[data-sales-view="products"] > .card > .card-header,
+    html[data-sales-initial-view="products"] .sales-management-view[data-sales-view="products"] > .card > .card-header,
+    .sales-management-view[data-sales-view="products"].is-active > .card > .card-header{
+      flex:0 0 auto;
+    }
+    html[data-sales-active-view="products"] .sales-management-view[data-sales-view="products"] > .card > .card-body,
+    html[data-sales-initial-view="products"] .sales-management-view[data-sales-view="products"] > .card > .card-body,
+    .sales-management-view[data-sales-view="products"].is-active > .card > .card-body{
+      flex:1 1 auto;
+      min-height:0;
+      height:auto !important;
+      max-height:none !important;
+      overflow-x:hidden !important;
+      overflow-y:auto !important;
+      -webkit-overflow-scrolling:touch;
+    }
+    html[data-sales-active-view="products"] .pim-product-form,
+    html[data-sales-initial-view="products"] .pim-product-form{
+      height:auto !important;
+      max-height:none !important;
+      overflow:visible !important;
+    }
+    /* Overview: tall dashboard — document scroll. */
+    html[data-sales-initial-view="overview"],
+    html[data-sales-active-view="overview"],
+    html[data-sales-initial-view="overview"] body.org-app,
+    html[data-sales-active-view="overview"] body.org-app{
       height:auto !important;
       min-height:100% !important;
       max-height:none !important;
       overflow-x:hidden !important;
       overflow-y:auto !important;
     }
-    html[data-sales-initial-view="products"] body.org-app .sh-mainpanel,
-    html[data-sales-active-view="products"] body.org-app .sh-mainpanel,
-    html[data-sales-initial-view="products"] body.org-app .sh-pagebody,
-    html[data-sales-active-view="products"] body.org-app .sh-pagebody,
-    .sales-management-view[data-sales-view="products"].is-active{
+    html[data-sales-initial-view="overview"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="overview"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="overview"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="overview"] body.org-app .sh-pagebody,
+    .sales-management-view[data-sales-view="overview"].is-active{
       height:auto !important;
       min-height:0 !important;
       max-height:none !important;
       overflow:visible !important;
     }
-    .sales-management-view[data-sales-view="products"]{
-      padding-bottom:36px;
+    .sales-management-view[data-sales-view="overview"]{
+      padding-bottom:28px;
+    }
+    /* Transactions: lock viewport so pagination sits at the bottom. */
+    html[data-sales-initial-view="transactions"] body.org-app,
+    html[data-sales-active-view="transactions"] body.org-app,
+    html[data-sales-initial-view="transactions"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="transactions"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="transactions"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="transactions"] body.org-app .sh-pagebody{
+      height:100vh !important;
+      max-height:100vh !important;
+      overflow:hidden !important;
+      box-sizing:border-box !important;
+    }
+    html[data-sales-initial-view="transactions"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="transactions"] body.org-app .sh-pagebody{
+      display:flex !important;
+      flex-direction:column !important;
+      min-height:0 !important;
+    }
+    .sales-management-view[data-sales-view="transactions"].is-active,
+    html[data-sales-initial-view="transactions"] .sales-management-view[data-sales-view="transactions"],
+    html[data-sales-active-view="transactions"] .sales-management-view[data-sales-view="transactions"]{
+      display:flex !important;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:0;
+      height:auto !important;
+      max-height:none !important;
+      overflow:hidden !important;
+      padding:0 !important;
+      margin:0 !important;
+      box-sizing:border-box;
+    }
+    .sales-management-view[data-sales-view="transactions"] .txn-dash--hub{
+      flex:1 1 auto;
+      min-height:0;
+    }
+    /* Products catalog: lock viewport so pagination sits at the bottom. */
+    html[data-sales-initial-view="product-catalog"] body.org-app,
+    html[data-sales-active-view="product-catalog"] body.org-app,
+    html[data-sales-initial-view="product-catalog"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="product-catalog"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="product-catalog"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="product-catalog"] body.org-app .sh-pagebody{
+      height:100vh !important;
+      max-height:100vh !important;
+      overflow:hidden !important;
+      box-sizing:border-box !important;
+    }
+    html[data-sales-initial-view="product-catalog"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="product-catalog"] body.org-app .sh-pagebody{
+      display:flex !important;
+      flex-direction:column !important;
+      min-height:0 !important;
+    }
+    .sales-management-view[data-sales-view="product-catalog"].is-active,
+    html[data-sales-initial-view="product-catalog"] .sales-management-view[data-sales-view="product-catalog"],
+    html[data-sales-active-view="product-catalog"] .sales-management-view[data-sales-view="product-catalog"]{
+      display:flex !important;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:0;
+      height:auto !important;
+      max-height:none !important;
+      overflow:hidden !important;
+      padding:0 !important;
+      margin:0 !important;
+      box-sizing:border-box;
+    }
+    .sales-management-view[data-sales-view="product-catalog"] .store-products{
+      flex:1 1 auto;
+      min-height:0;
+    }
+    /* Orders: fill viewport so #soFoot sits at the bottom edge. */
+    html[data-sales-initial-view="orders"] body.org-app,
+    html[data-sales-active-view="orders"] body.org-app,
+    html[data-sales-initial-view="orders"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="orders"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="orders"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="orders"] body.org-app .sh-pagebody{
+      height:100vh !important;
+      max-height:100vh !important;
+      overflow:hidden !important;
+      box-sizing:border-box !important;
+    }
+    html[data-sales-initial-view="orders"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="orders"] body.org-app .sh-pagebody{
+      display:flex !important;
+      flex-direction:column !important;
+      padding-top:4px !important;
+      padding-bottom:0 !important;
+      padding-left:10px !important;
+      padding-right:10px !important;
+      min-height:0 !important;
+    }
+    .sales-management-view[data-sales-view="orders"].is-active,
+    html[data-sales-initial-view="orders"] .sales-management-view[data-sales-view="orders"],
+    html[data-sales-active-view="orders"] .sales-management-view[data-sales-view="orders"]{
+      display:flex !important;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:0;
+      height:auto !important;
+      max-height:none !important;
+      overflow:hidden;
+      box-sizing:border-box;
+      padding:0 !important;
+      margin:0 !important;
+    }
+    .sales-management-view[data-sales-view="payroll"].is-active,
+    html[data-sales-initial-view="payroll"] .sales-management-view[data-sales-view="payroll"],
+    html[data-sales-active-view="payroll"] .sales-management-view[data-sales-view="payroll"]{
+      display:block !important;
+      visibility:visible !important;
+      opacity:1 !important;
+      height:auto !important;
+      max-height:none !important;
+      overflow:visible !important;
+    }
+    html[data-sales-initial-view="payroll"] body.org-app,
+    html[data-sales-active-view="payroll"] body.org-app,
+    html[data-sales-initial-view="payroll"] body.org-app .sh-mainpanel,
+    html[data-sales-active-view="payroll"] body.org-app .sh-mainpanel,
+    html[data-sales-initial-view="payroll"] body.org-app .sh-pagebody,
+    html[data-sales-active-view="payroll"] body.org-app .sh-pagebody{
+      height:auto !important;
+      max-height:none !important;
+      overflow-x:hidden !important;
+      overflow-y:auto !important;
+    }
+    .sales-management-view[data-sales-view="orders"] .store-orders{
+      flex:1 1 auto;
+      min-height:0;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      margin:0;
+    }
+    .sales-management-view[data-sales-view="orders"] .store-orders .so-kpis,
+    .sales-management-view[data-sales-view="orders"] .store-orders .so-filters,
+    .sales-management-view[data-sales-view="orders"] .store-orders .so-hero,
+    .sales-management-view[data-sales-view="orders"] .store-orders .so-tabs{
+      flex:0 0 auto;
+    }
+    .sales-management-view[data-sales-view="orders"] .store-orders .so-table-wrap{
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+    }
+    .sales-management-view[data-sales-view="orders"] .store-orders .so-foot{
+      flex:0 0 auto;
+      margin-top:auto;
+      margin-bottom:0;
+      padding:8px 4px 2px;
+    }
+    html[data-sales-initial-view="orders"] body.org-app .sh-footer,
+    html[data-sales-active-view="orders"] body.org-app .sh-footer{
+      display:none !important;
     }
     .sales-management-detail-head{
       display:flex;
@@ -1617,109 +2121,13 @@ org_page_shell_open(
       --ch-border: #334155;
     }
 
-    .seller-admin-support{
-      display:grid;
-      grid-template-columns:minmax(220px,280px) minmax(0,1fr);
-      gap:14px;
-      margin-top:18px;
-      min-height:420px;
-    }
-    .seller-admin-support-guide{
-      border:1px solid rgba(148,163,184,.35);
-      border-radius:8px;
-      padding:14px;
-      background:var(--card-bg,transparent);
-    }
-    .seller-admin-support-guide h3{margin:0 0 8px;font-size:14px;font-weight:850;}
-    .seller-admin-support-guide ol{margin:0;padding-left:18px;font-size:13px;line-height:1.55;}
-    .seller-admin-support-guide li{margin:0 0 6px;}
-    .seller-admin-support-guide p{margin:12px 0 0;font-size:12px;opacity:.8;}
-    .seller-admin-support-chat{
-      border:1px solid rgba(148,163,184,.35);
-      border-radius:8px;
-      display:flex;
-      flex-direction:column;
-      min-height:420px;
-      max-height:560px;
-      background:var(--card-bg,transparent);
-    }
-    .seller-admin-support-head{
-      padding:10px 12px;
-      border-bottom:1px solid rgba(148,163,184,.25);
-      font-weight:800;
-      font-size:14px;
-    }
-    .seller-admin-support-topics{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      padding:8px 10px;
-      border-bottom:1px solid rgba(148,163,184,.25);
-    }
-    .seller-admin-topic{
-      border:1px solid rgba(148,163,184,.4);
-      border-radius:4px;
-      background:transparent;
-      color:inherit;
-      font-size:11px;
-      font-weight:800;
-      padding:5px 9px;
-      cursor:pointer;
-    }
-    .seller-admin-topic.is-active{
-      border-color:var(--org-accent,#2563eb);
-      color:var(--org-accent,#2563eb);
-      background:rgba(37,99,235,.08);
-    }
-    .seller-admin-support-thread{
-      flex:1 1 auto;
-      overflow:auto;
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .seller-admin-support-bubble{
-      max-width:85%;
-      padding:8px 10px;
-      border-radius:10px;
-      font-size:13px;
-      line-height:1.4;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-    .seller-admin-support-bubble.me{align-self:flex-end;background:#2563eb;color:#fff;}
-    .seller-admin-support-bubble.them{align-self:flex-start;background:rgba(148,163,184,.18);}
-    .seller-admin-support-meta{font-size:10px;opacity:.7;margin-top:4px;}
-    .seller-admin-support-empty{padding:24px 12px;text-align:center;opacity:.8;font-size:13px;}
-    .seller-admin-support-compose{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      padding:10px;
-      border-top:1px solid rgba(148,163,184,.25);
-    }
-    .seller-admin-support-compose-row{display:flex;gap:8px;align-items:flex-end;}
-    .seller-admin-support-compose-row textarea{flex:1 1 auto;min-height:64px;max-height:140px;resize:none;}
-    .seller-admin-support-compose #sellerAdminSupportSend,
-    body.org-app .commerce-page .seller-admin-support-compose #sellerAdminSupportSend.btn.btn-primary{
-      flex:0 0 auto;
-      align-self:stretch;
-      min-width:72px;
-      background-color:var(--org-btn-filled-bg, var(--org-accent, #2563eb)) !important;
-      border:1px solid var(--org-btn-filled-bg, var(--org-accent-strong, #1d4ed8)) !important;
-      color:var(--org-btn-filled-text, #ffffff) !important;
-      -webkit-text-fill-color:var(--org-btn-filled-text, #ffffff) !important;
-      font-weight:800;
-    }
-    @media (max-width:900px){
-      .seller-admin-support{grid-template-columns:1fr;}
-    }
+    .seller-admin-support:not(.sas-shell){ display:contents; }
   </style>
   <section class="sales-management-view" data-sales-view="dashboard">
   <div class="store-dash">
     <div class="sd-hero">
-      <div class="sd-hero-actions">
+      <?php org_sales_hub_intro('dashboard'); ?>
+      <div class="sm-hub-actions sd-hero-actions">
         <a class="sd-icon-btn" href="sales_notifications.php" title="Notifications" aria-label="Notifications">
           <i class="fa fa-bell-o"></i>
           <?php if ($dashNotiCount > 0): ?><span class="sd-badge"><?= (int)min(99, $dashNotiCount) ?></span><?php endif; ?>
@@ -1773,7 +2181,7 @@ org_page_shell_open(
           <div class="sd-ico red"><i class="fa fa-bullseye"></i></div>
           <div class="sd-delta <?= $dashRefundUp ? 'down' : 'up' ?>"><?= $dashRefundUp ? '+' : '−' ?><?= number_format(abs($dashRefundPct), 1) ?>% vs last 7 days</div>
         </div>
-        <div class="sd-lab">Refunds</div>
+        <div class="sd-lab">Returns &amp; Refunds</div>
         <div class="sd-val"><?= org_ecommerce_h($aziaMoney($dashRefunds7)) ?></div>
       </div>
     </div>
@@ -1968,35 +2376,7 @@ org_page_shell_open(
   </section>
 
   <section class="sales-management-view" data-sales-view="support-center">
-    <div class="seller-admin-support" id="sellerAdminSupportRoot" data-endpoint="ajax/admin_support_chat.php">
-      <div class="seller-admin-support-guide">
-        <h3>How to get Admin help</h3>
-        <ol>
-          <li>Use <strong>Customer chat</strong> for buyer questions about products and orders.</li>
-          <li>Choose a topic below for what you need from Admin.</li>
-          <li>Add an order code when the issue is about a specific sale.</li>
-          <li>Send your message — Admin replies appear in this same thread.</li>
-        </ol>
-        <p>Use this chat for seller help only. Do not escalate customer DMs here unless Admin must intervene.</p>
-      </div>
-      <div class="seller-admin-support-chat">
-        <div class="seller-admin-support-head">Admin support chat</div>
-        <div class="seller-admin-support-topics" role="group" aria-label="Support topic">
-          <button type="button" class="seller-admin-topic is-active" data-topic="seller_help">Seller help</button>
-          <button type="button" class="seller-admin-topic" data-topic="orders">Order dispute</button>
-          <button type="button" class="seller-admin-topic" data-topic="account">Store &amp; account</button>
-        </div>
-        <div class="seller-admin-support-thread" id="sellerAdminSupportThread" aria-live="polite"></div>
-        <div class="seller-admin-support-compose">
-          <input type="text" class="form-control form-control-sm" id="sellerAdminSupportOrder" placeholder="Order code (optional)" maxlength="80">
-          <div class="seller-admin-support-compose-row">
-            <textarea id="sellerAdminSupportInput" class="form-control" rows="2" placeholder="Describe what you need Admin help with…"></textarea>
-            <button type="button" class="btn btn-primary btn-sm" id="sellerAdminSupportSend">Send</button>
-          </div>
-          <p class="tx-danger tx-12 mg-b-0" id="sellerAdminSupportErr" hidden></p>
-        </div>
-      </div>
-    </div>
+    <?php require __DIR__ . '/includes/org_seller_admin_support_panel.php'; ?>
   </section>
 
   <section class="sales-management-view" data-sales-view="table_cancel_orders">
@@ -2038,6 +2418,7 @@ org_page_shell_open(
       $ptDetailBase = 'sales_management.php?inv_product=';
       $ptDetailSuffix = '#inventory-detail';
       $ptShowStoreToolbar = true;
+      $ptInSalesHub = true;
       $ptNotiCount = (int)($dashNotiCount ?? 0);
       $ptMsgCount = (int)($dashMsgCount ?? 0);
       $ptBaseUrl = 'sales_management.php';
@@ -2138,8 +2519,52 @@ org_page_shell_open(
     <?php require __DIR__ . '/includes/org_timecard_panel.php'; ?>
   </section>
 
+  <?php /* Always emit the payroll view node so hash nav never falls back to dashboard. */ ?>
+  <section class="sales-management-view" data-sales-view="payroll">
+    <?php if ($isManager): ?>
+      <?php
+        try {
+          $payrollFormAction = 'sales_management.php';
+          require __DIR__ . '/includes/org_payroll_panel.php';
+        } catch (Throwable $ePay) {
+          echo '<div class="org-payroll-panel"><p class="tx-color-03" style="padding:16px 4px;">Payroll could not load. Refresh and try again.</p></div>';
+        }
+      ?>
+    <?php else: ?>
+      <div class="org-payroll-panel">
+        <p class="tx-color-03" style="padding:16px 4px;">Payroll is available to organization managers only.</p>
+      </div>
+    <?php endif; ?>
+  </section>
+
   <?php foreach ($salesPanels as $slug => $panel): ?>
     <section class="sales-management-view" data-sales-view="<?= org_ecommerce_h($slug) ?>">
+      <?php
+        // Panels that already render their own page title/head in-panel.
+        $hubHasOwnTitle = !empty($panel['is_refunds_panel'])
+          || !empty($panel['is_reviews_panel'])
+          || !empty($panel['is_analytics_panel'])
+          || !empty($panel['is_marketing_panel'])
+          || !empty($panel['is_settings_panel'])
+          || !empty($panel['is_payment_billing_panel'])
+          || !empty($panel['is_shipping_settings_panel'])
+          || !empty($panel['is_tax_settings_panel'])
+          || !empty($panel['is_settings_notifications_panel'])
+          || !empty($panel['is_staff_permissions_panel'])
+          || !empty($panel['is_policies_panel'])
+          || !empty($panel['is_danger_zone_panel'])
+          || !empty($panel['is_account_panel'])
+          || !empty($panel['is_detail_employee_panel'])
+          || !empty($panel['is_customers_panel'])
+          || !empty($panel['is_payments_panel']);
+        if (!$hubHasOwnTitle) {
+            org_sales_hub_intro(
+                (string)$slug,
+                (string)($panel['title'] ?? $panel['kicker'] ?? $slug),
+                (string)($panel['summary'] ?? '')
+            );
+        }
+      ?>
       <?php if (!empty($panel['is_detail_employee_panel'])): ?>
         <?php
           $dePanelFormAction = 'sales_management.php#detail_employee';
@@ -2151,11 +2576,6 @@ org_page_shell_open(
           $sellerProfileFormAction = 'sales_management.php';
           $sellerProfileHash = '#detail_employee';
           require __DIR__ . '/includes/org_seller_profile_panel.php';
-        ?>
-      <?php elseif (!empty($panel['is_payroll_panel'])): ?>
-        <?php
-          $payrollFormAction = 'sales_management.php';
-          require __DIR__ . '/includes/org_payroll_panel.php';
         ?>
       <?php elseif (!empty($panel['is_payments_panel'])): ?>
         <?php require __DIR__ . '/includes/org_sales_payouts_panel.php'; ?>
@@ -2223,228 +2643,13 @@ org_page_shell_open(
 
   <?php require_once __DIR__ . '/includes/org_order_details_door.php'; ?>
 
+  <!-- Panel switching: organization/js/sales-hub-nav.js (loaded from leftbar). -->
+  <script src="js/sales-hub-nav.js?v=13"></script>
   <script>
-    (function(){
-      var defaultView = 'dashboard';
-      var views = Array.prototype.slice.call(document.querySelectorAll('[data-sales-view]'));
-      var links = Array.prototype.slice.call(document.querySelectorAll('[data-sales-nav]'));
-      var knownSlugs = {};
-      views.forEach(function(view){
-        var key = String(view.getAttribute('data-sales-view') || '').trim();
-        if (key) knownSlugs[key] = true;
-      });
-
-      function normalize(hash) {
-        var slug = String(hash || '').replace(/^#/, '').trim();
-        try { slug = decodeURIComponent(slug); } catch (e) {}
-        if (slug === 'order-cancel-table') slug = 'notification';
-        if (slug === 'product-table') slug = 'inventory';
-        if (slug === 'Products' || slug === 'products-list') slug = 'product-catalog';
-        if (slug === 'messages') slug = 'message';
-        if (slug === 'payouts') slug = 'payments';
-        if (slug === 'returns-refunds') slug = 'refunds';
-        if (!slug) return defaultView;
-        return knownSlugs[slug] ? slug : defaultView;
+    (function () {
+      if (typeof window.__salesShowView === 'function') {
+        window.__salesShowView(window.location.hash || 'dashboard');
       }
-
-      function syncNavActive(slug) {
-        links = Array.prototype.slice.call(document.querySelectorAll('[data-sales-nav]'));
-        links.forEach(function(link){
-          var linkSlug = String(link.getAttribute('data-sales-nav') || '').trim();
-          link.classList.toggle('active', linkSlug === slug || (slug === 'inventory-detail' && linkSlug === 'inventory'));
-        });
-      }
-
-      function showSalesView(hash) {
-        views = Array.prototype.slice.call(document.querySelectorAll('[data-sales-view]'));
-        var slug = normalize(hash);
-        views.forEach(function(view){
-          var key = String(view.getAttribute('data-sales-view') || '').trim();
-          var match = key === slug;
-          view.classList.toggle('is-active', match);
-          // Force paint with !important so dashboard flex CSS cannot stick open
-          if (match) {
-            var flex = (key === 'dashboard' || key === 'detail_employee');
-            view.style.setProperty('display', flex ? 'flex' : 'block', 'important');
-          } else {
-            view.style.setProperty('display', 'none', 'important');
-          }
-        });
-        document.documentElement.removeAttribute('data-sales-initial-view');
-        document.documentElement.setAttribute('data-sales-active-view', slug);
-        syncNavActive(slug);
-        if (typeof window.__salesSyncHeader === 'function') {
-          window.__salesSyncHeader(slug);
-        }
-        try {
-          window.dispatchEvent(new CustomEvent('sales-view-change', { detail: { slug: slug } }));
-        } catch (e) {}
-      }
-
-      function setHash(slug, push) {
-        slug = normalize(slug);
-        var next;
-        try {
-          next = new URL('#' + slug, window.location.href.split('#')[0]).href;
-        } catch (e) {
-          next = window.location.pathname + window.location.search + '#' + slug;
-        }
-        if (push !== false && window.history && window.history.pushState) {
-          window.history.pushState({ salesView: slug }, '', next);
-        } else if (window.history && window.history.replaceState) {
-          window.history.replaceState({ salesView: slug }, '', next);
-        } else {
-          window.location.hash = slug;
-        }
-        showSalesView(slug);
-      }
-
-      window.addEventListener('hashchange', function(){
-        showSalesView(window.location.hash);
-      });
-      window.addEventListener('popstate', function(){
-        showSalesView(window.location.hash);
-      });
-
-      document.addEventListener('click', function(event){
-        var link = event.target.closest('[data-sales-nav]');
-        if (!link) return;
-        if (event.defaultPrevented) return;
-        if (event.button !== 0) return;
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        event.stopPropagation();
-        setHash(link.getAttribute('data-sales-nav') || defaultView, true);
-      }, true);
-
-      window.__salesShowView = showSalesView;
-      window.__salesSetHash = setHash;
-
-      showSalesView(window.location.hash);
-    })();
-
-    (function(){
-      var root = document.getElementById('sellerAdminSupportRoot');
-      if (!root) return;
-      var endpoint = String(root.getAttribute('data-endpoint') || 'ajax/admin_support_chat.php');
-      var thread = document.getElementById('sellerAdminSupportThread');
-      var input = document.getElementById('sellerAdminSupportInput');
-      var sendBtn = document.getElementById('sellerAdminSupportSend');
-      var errEl = document.getElementById('sellerAdminSupportErr');
-      var orderEl = document.getElementById('sellerAdminSupportOrder');
-      var topicBtns = Array.prototype.slice.call(root.querySelectorAll('.seller-admin-topic'));
-      var topic = 'seller_help';
-      var lastId = 0;
-      var polling = false;
-      var placeholders = {
-        seller_help: 'Describe what you need Admin help with…',
-        orders: 'Describe the order dispute for Admin…',
-        account: 'Describe the store or account issue…',
-        account: 'Describe the store or account issue…'
-      };
-
-      function setErr(msg) {
-        if (!errEl) return;
-        if (!msg) { errEl.hidden = true; errEl.textContent = ''; return; }
-        errEl.hidden = false;
-        errEl.textContent = msg;
-      }
-      function esc(s) {
-        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      }
-      function appendItems(items, replace) {
-        if (!thread) return;
-        if (replace) thread.innerHTML = '';
-        (items || []).forEach(function (item) {
-          var id = parseInt(item.id || 0, 10);
-          if (id > lastId) lastId = id;
-          var div = document.createElement('div');
-          div.className = 'seller-admin-support-bubble ' + (item.is_me ? 'me' : 'them');
-          div.innerHTML = esc(item.text || '') + '<div class="seller-admin-support-meta">' + esc(item.from || '') + ' · ' + esc(item.time_label || '') + '</div>';
-          thread.appendChild(div);
-        });
-        thread.scrollTop = thread.scrollHeight;
-      }
-      async function loadHistory() {
-        try {
-          var res = await fetch(endpoint + '?mode=history&after=0&mark=1', { credentials: 'same-origin' });
-          var data = await res.json();
-          if (data && data.ok) {
-            lastId = 0;
-            appendItems(data.items || [], true);
-            if (!(data.items || []).length) {
-              thread.innerHTML = '<div class="seller-admin-support-empty">No Admin messages yet. Choose a topic and ask for seller help.</div>';
-            }
-          }
-        } catch (e) { /* ignore */ }
-      }
-      async function pollNew() {
-        if (polling) return;
-        polling = true;
-        try {
-          var res = await fetch(endpoint + '?mode=history&after=' + lastId + '&mark=1', { credentials: 'same-origin' });
-          var data = await res.json();
-          if (data && data.ok && (data.items || []).length) {
-            if (thread && thread.querySelector('.seller-admin-support-empty')) thread.innerHTML = '';
-            appendItems(data.items, false);
-          }
-        } catch (e) { /* ignore */ }
-        polling = false;
-      }
-      async function sendMessage() {
-        setErr('');
-        var text = input ? String(input.value || '').trim() : '';
-        if (!text) { setErr('Type a message for Admin.'); return; }
-        if (sendBtn) sendBtn.disabled = true;
-        try {
-          var body = new URLSearchParams();
-          body.set('mode', 'send');
-          body.set('topic', topic);
-          body.set('message', text);
-          if (orderEl) body.set('order_code', String(orderEl.value || '').trim());
-          var res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
-            credentials: 'same-origin'
-          });
-          var data = await res.json();
-          if (!data || !data.ok) {
-            setErr((data && (data.error || data.message)) || 'Could not send.');
-            return;
-          }
-          if (input) input.value = '';
-          if (data.item) {
-            if (thread && thread.querySelector('.seller-admin-support-empty')) thread.innerHTML = '';
-            appendItems([data.item], false);
-          } else {
-            await pollNew();
-          }
-        } catch (e) {
-          setErr('Could not send message.');
-        } finally {
-          if (sendBtn) sendBtn.disabled = false;
-        }
-      }
-
-      topicBtns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          topic = String(btn.getAttribute('data-topic') || 'seller_help');
-          topicBtns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
-          if (input) input.placeholder = placeholders[topic] || placeholders.seller_help;
-        });
-      });
-      if (sendBtn) sendBtn.addEventListener('click', sendMessage);
-      if (input) {
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-          }
-        });
-      }
-      loadHistory();
-      setInterval(pollNew, 5000);
     })();
   </script>
 </div>

@@ -843,8 +843,10 @@ if ($hasPostState) {
 $searchSql = '';
 $paramsSearch = [];
 if ($q !== '') {
-    $searchSql = " AND (p.title LIKE :q OR p.body LIKE :q) ";
-    $paramsSearch[':q'] = '%' . $q . '%';
+    // Native prepares (ATTR_EMULATE_PREPARES=false) reject a reused named placeholder.
+    $searchSql = " AND (p.title LIKE :q1 OR p.body LIKE :q2) ";
+    $paramsSearch[':q1'] = '%' . $q . '%';
+    $paramsSearch[':q2'] = '%' . $q . '%';
 }
 
 // -------------------- Fetch list --------------------
@@ -905,7 +907,10 @@ try {
     if ($hasPostState && $state !== 'deleted') {
         $st->bindValue(':pst', $state, PDO::PARAM_STR);
     }
-    if ($q !== '') $st->bindValue(':q', '%' . $q . '%', PDO::PARAM_STR);
+    if ($q !== '') {
+        $st->bindValue(':q1', '%' . $q . '%', PDO::PARAM_STR);
+        $st->bindValue(':q2', '%' . $q . '%', PDO::PARAM_STR);
+    }
     $st->bindValue(':limit',  $limit, PDO::PARAM_INT);
     $st->bindValue(':offset', $offset, PDO::PARAM_INT);
     $st->execute();
@@ -925,6 +930,10 @@ function url_with(array $add): string {
     $qs = http_build_query($cur);
     return 'posts.php' . ($qs ? ('?' . $qs) : '');
 }
+
+$postsFlashOk  = (string)($_SESSION['posts_flash_ok'] ?? '');
+$postsFlashErr = (string)($_SESSION['posts_flash_err'] ?? '');
+unset($_SESSION['posts_flash_ok'], $_SESSION['posts_flash_err']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1157,6 +1166,13 @@ function url_with(array $add): string {
             <span class="mini-muted">(<?= h($meRole) ?>)</span>
             · Org Code: <strong><?= h((string)($ORG['org_code'] ?? '')) ?></strong>
           </p>
+
+          <?php if ($postsFlashOk !== ''): ?>
+            <div class="alert alert-success posts-flash" style="margin-top:12px;"><?= h($postsFlashOk) ?></div>
+          <?php endif; ?>
+          <?php if ($postsFlashErr !== ''): ?>
+            <div class="alert alert-danger posts-flash" style="margin-top:12px;"><?= h($postsFlashErr) ?></div>
+          <?php endif; ?>
 
           <div class="dash-toprow">
             <div class="left-actions">
@@ -1538,14 +1554,14 @@ function url_with(array $add): string {
         form.submit();
       });
 
-      var btnFinalAll = document.getElementById('btnFinalDeleteAll');
-      if (btnFinalAll) btnFinalAll.addEventListener('click', function(){
-        if (!confirm('FINAL DELETE ALL DELETED posts permanently? This cannot be undone.')) return;
+      var btnDelAll = document.getElementById('btnDeleteAll');
+      if (btnDelAll) btnDelAll.addEventListener('click', function(){
+        if (!confirm('Delete ALL posts? They move to Deleted, where you can restore them.')) return;
         var form = document.getElementById('bulkForm');
         var act  = document.getElementById('bulkAction');
         var box  = document.getElementById('bulkIds');
         if (!form || !act || !box) return;
-        act.value = 'final_delete_all'; // ✅ correct
+        act.value = 'soft_delete_all';
         box.innerHTML = '';
         form.submit();
       });

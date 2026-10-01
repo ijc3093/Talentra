@@ -82,7 +82,7 @@ $error = '';
       flex:0 0 auto;
       padding: 15px;
       border-bottom:1px solid rgba(0,0,0,.08);
-      background:#fff;
+      background:var(--azia-card,#fff);
     }
 
     /* ✅ Only the table area scrolls */
@@ -100,7 +100,7 @@ $error = '';
       flex-direction:column;
       min-height:0;
       overflow:hidden;
-      background:#fff;
+      background:var(--azia-card,#fff);
       border:1px solid rgba(0,0,0,.08);
       border-radius:10px;
     }

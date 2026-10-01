@@ -180,10 +180,8 @@ body.public-page.feed-insta-ui .feed-side-search{
     z-index:1 !important;
   }
 }
-body.feed-page.feed-insta-ui .ig-top-shop,
 body.feed-page.feed-insta-ui .ig-top-cart,
 body.feed-page.feed-insta-ui .ig-top-mic,
-body.public-page.feed-insta-ui .ig-top-shop,
 body.public-page.feed-insta-ui .ig-top-cart,
 body.public-page.feed-insta-ui .ig-top-mic{
   width:44px !important;
@@ -192,9 +190,23 @@ body.public-page.feed-insta-ui .ig-top-mic{
   min-height:44px !important;
   padding:0 !important;
 }
+body.feed-page.feed-insta-ui .ig-top-shop,
+body.public-page.feed-insta-ui .ig-top-shop{
+  width:auto !important;
+  min-width:28px !important;
+  height:44px !important;
+  min-height:44px !important;
+  padding:0 2px !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
 body.feed-page.feed-insta-ui .ig-top-shop i,
+body.public-page.feed-insta-ui .ig-top-shop i{
+  font-size:22px !important;
+  line-height:1 !important;
+}
 body.feed-page.feed-insta-ui .ig-top-cart i,
-body.public-page.feed-insta-ui .ig-top-shop i,
 body.public-page.feed-insta-ui .ig-top-cart i{
   font-size:18px !important;
   line-height:1 !important;
@@ -249,7 +261,7 @@ body.public-page.feed-insta-ui .feed-top-search-form{
   width:auto !important;
   min-width:0 !important;
   max-width:none !important;
-  margin:0 !important;
+  margin:5px -15px 10px 10px !important;
 }
 body.feed-page.feed-insta-ui .feed-top-search-input,
 body.public-page.feed-insta-ui .feed-top-search-input{
@@ -429,6 +441,126 @@ body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .empty-state{
   pointer-events:none !important;
 }
 
+/* Discover keeps its server-rendered cards in place during hydration. Only
+   the real media is concealed; the exact-ratio gray stage reserves its space. */
+body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-card{
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+/* Text-only, multi-media, live, and missing-media cards do not have a
+   single-media skeleton. Keep their real contents visible during hydration;
+   otherwise only their empty rounded card shells appear as thin bars. */
+body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-card:not(.is-single-video-post):not(.is-single-image-post),
+body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-card.mf-media-missing,
+body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-card:not(.is-single-video-post):not(.is-single-image-post) *,
+body.public-page.feed-insta-ui .ig-feed.public-media-hydrating > .public-post-card.mf-media-missing *{
+  visibility:visible !important;
+  opacity:1 !important;
+}
+:root{
+  --public-loading-media-bg:#f1f1f1;
+  --public-loading-detail-bg:#e5e7eb;
+}
+html.dark-auto,
+html[data-theme="dark"],
+body.dark-auto{
+  --public-loading-media-bg:#4e4e4e75;
+  --public-loading-detail-bg:#4e4e4e75;
+}
+body.public-page.feed-insta-ui .public-post-card .media-stage.public-media-pending{
+  display:block !important;
+  width:min(100%,var(--post-media-card-width,100%)) !important;
+  height:auto !important;
+  min-height:0 !important;
+  aspect-ratio:var(--device-ar-w,4) / var(--device-ar-h,3) !important;
+  background:var(--public-loading-media-bg,#f1f1f1) !important;
+  border-radius:7px !important;
+  overflow:hidden !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+body.public-page.feed-insta-ui .public-post-card .media-stage.public-media-pending > video,
+body.public-page.feed-insta-ui .public-post-card .media-stage.public-media-pending > img{
+  visibility:hidden !important;
+  opacity:0 !important;
+}
+.public-loading-card-skeleton{
+  display:none;
+  width:100%;
+  box-sizing:border-box;
+}
+.public-loading-card-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:6px 10px 18px;
+}
+.public-loading-card-avatar{
+  width:46px;
+  height:46px;
+  flex:0 0 46px;
+  border-radius:50%;
+  background:var(--public-loading-detail-bg,#e5e7eb);
+}
+.public-loading-card-copy{
+  display:grid;
+  gap:8px;
+  flex:1;
+}
+.public-loading-card-copy i{
+  display:block;
+  height:10px;
+  border-radius:999px;
+  background:var(--public-loading-detail-bg,#e5e7eb);
+}
+.public-loading-card-copy i:first-child{width:150px;max-width:55%;}
+.public-loading-card-copy i:last-child{width:96px;max-width:38%;}
+.public-loading-card-fries{
+  display:grid;
+  gap:4px;
+  width:22px;
+  flex:0 0 22px;
+}
+.public-loading-card-fries i{display:block;height:3px;border-radius:999px;background:var(--public-loading-detail-bg,#e5e7eb);}
+.public-loading-card-fries i:nth-child(2){width:16px;}
+.public-loading-card-fries i:nth-child(3){width:10px;}
+.public-loading-card-media{
+  width:100%;
+  max-width:100%;
+  aspect-ratio:var(--loading-media-w,4) / var(--loading-media-h,3);
+  border-radius:7px;
+  background:var(--public-loading-media-bg,#f1f1f1);
+  box-shadow:inset 0 -22px 28px rgba(15,23,42,.025);
+}
+.public-loading-card-actions{
+  display:flex;
+  gap:22px;
+  margin-top:14px;
+  padding:14px 0 2px;
+  border-top:1px solid var(--feed-border-strong,#d8dee8);
+}
+.public-loading-card-actions i{display:block;width:34px;height:12px;border-radius:999px;background:var(--public-loading-detail-bg,#e5e7eb);}
+.public-loading-card-actions i:last-child{margin-left:auto;}
+body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-frame-painted):not(.mf-video-error):not(.mf-media-missing) > .public-loading-card-skeleton,
+body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error):not(.mf-media-missing) > .public-loading-card-skeleton{
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+body.public-page.feed-insta-ui .public-post-card:has(> .public-loading-card-skeleton){
+  position:relative !important;
+}
+body.public-page.feed-insta-ui .public-post-card:has(> .public-loading-card-skeleton) > .media-stage.public-media-pending{
+  position:absolute !important;
+  left:12px !important;
+  top:8px !important;
+  width:calc(100% - 24px) !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
 /* Public tab: while a standard image/video is still pending, do not expose
    the real author row, overflow menu, follow control, or reaction toolbar
    over the empty media surface. The media itself remains available to load. */
@@ -487,18 +619,21 @@ body.feed-page.feed-insta-ui .mf-card:has(.msb-no-image) > .mf-actions{
   pointer-events:auto !important;
 }
 
-/* Circle must not reserve bordered rows for posts whose media is not ready.
-   The card returns to normal document flow as soon as its ready class lands. */
+/* Circle keeps every card in document flow while media is pending. Its exact-
+   ratio gray stage must remain visible until the real image/frame paints. */
 body.feed-page.feed-insta-ui .mf-card.is-single-video-post:not(.mf-video-ready):not(.mf-video-error),
 body.feed-page.feed-insta-ui .mf-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error){
-  display:none !important;
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
 }
 
-/* Discover / public.php: same rule — never leave empty dark media shells after
-   create-post redirect while the first frame is still loading. */
+/* Discover must keep every server-rendered card visible while its media loads.
+   The card's exact-ratio gray skeleton covers the real content until ready. */
 body.public-page.feed-insta-ui .public-post-card.is-single-video-post:not(.mf-video-ready):not(.mf-video-error),
 body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-image-ready):not(.mf-image-error){
-  display:none !important;
+  display:block !important;
+  visibility:visible !important;
 }
 
 @media (max-width:1024px){
@@ -666,7 +801,6 @@ body.public-page.feed-insta-ui .public-post-card.is-single-image-post:not(.mf-im
     transform:none !important;
   }
 }
-body.public-page.home-tab-discover .feed-side-search,
 body.feed-page.feed-insta-ui .feed-side-search[hidden]{
   display:none !important;
 }
@@ -690,4 +824,90 @@ body.public-page.feed-insta-ui .jump-rail button:not(.jump-rail-video):hover,
 body.public-page.feed-insta-ui .jump-rail button:not(.jump-rail-video):focus{
   background-color:var(--msb-palette-bg, var(--feed-page-bg, #f5f7fb)) !important;
   color:var(--msb-palette-text, var(--feed-topbar-text, #0b1220)) !important;
+}
+
+/* Story name under each circle, clipped to the circle width. */
+body.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name,
+body.feed-page.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name,
+body.public-page.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name{
+  display:block !important;
+  width:var(--msb-top-story-ring, 44px) !important;
+  max-width:var(--msb-top-story-ring, 44px) !important;
+  min-height:calc(var(--msb-top-story-name-size, 11px) * 1.2) !important;
+  margin:0 auto !important;
+  font-size:var(--msb-top-story-name-size, 11px) !important;
+  line-height:1.2 !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+/* Story name under each circle, clipped to the circle width. */
+body.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name,
+body.feed-page.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name,
+body.public-page.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name{
+  display:block !important;
+  width:var(--msb-top-story-ring, 44px) !important;
+  max-width:var(--msb-top-story-ring, 44px) !important;
+  min-height:calc(var(--msb-top-story-name-size, 11px) * 1.2) !important;
+  margin:0 auto !important;
+  font-size:var(--msb-top-story-name-size, 11px) !important;
+  line-height:1.2 !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+/* Story name under each circle, clipped to the circle width. */
+body.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name,
+body.feed-page.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name,
+body.public-page.feed-insta-ui .ig-feed-header .ig-story-item .ig-story-name{
+  display:block !important;
+  width:var(--msb-top-story-ring, 44px) !important;
+  max-width:var(--msb-top-story-ring, 44px) !important;
+  min-height:calc(var(--msb-top-story-name-size, 11px) * 1.2) !important;
+  margin:0 auto !important;
+  font-size:var(--msb-top-story-name-size, 11px) !important;
+  line-height:1.2 !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+/* Home header: story strip joins the post column (side borders, no bottom line). */
+@media (min-width:1025px){
+  body.home-page.feed-insta-ui .ig-feed-header .ig-stories-wrap,
+  body.home-page.feed-insta-ui .ig-feed-header .ig-stories-bar{
+    background-color:inherit !important;
+  }
+  body.home-page.feed-insta-ui .ig-feed-header .ig-stories-bar{
+    position:relative !important;
+    box-sizing:border-box !important;
+    padding-left:12px !important;
+    padding-right:12px !important;
+  }
+  body.home-page.feed-insta-ui .ig-feed-header .ig-stories-bar::before,
+  body.home-page.feed-insta-ui .ig-feed-header .ig-stories-bar::after{
+    content:"";
+    position:absolute;
+    top:calc(-1 * var(--msb-top-header-pad-top, 16px));
+    bottom:calc(-1 * (var(--msb-top-header-pad-bottom, 14px) + 1px));
+    left:1px;
+    right:-1px;
+    box-sizing:border-box;
+    pointer-events:none;
+  }
+  body.home-page.feed-insta-ui .ig-feed-header .ig-stories-bar::before{
+    background-color:inherit;
+    z-index:-1;
+  }
+  body.home-page.feed-insta-ui .ig-feed-header .ig-stories-bar::after{
+    border-left:1px solid var(--msb-palette-border-strong, var(--feed-post-column-border, #d0d3da));
+    border-right:1px solid var(--msb-palette-border-strong, var(--feed-post-column-border, #d0d3da));
+    background:transparent;
+    z-index:5;
+  }
 }

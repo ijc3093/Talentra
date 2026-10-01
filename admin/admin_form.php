@@ -189,40 +189,40 @@ $renderAdminFields = static function (array $form, array $roles, bool $isActive,
     display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:0 2px;box-sizing:border-box;
   }
   .af-btn{
-    height:24px;padding:0 8px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;
-    font-size:10px;font-weight:700;color:#334155;display:inline-flex;align-items:center;gap:4px;
+    height:24px;padding:0 8px;border-radius:6px;border:1px solid #e2e8f0;background:var(--azia-card,#fff);
+    font-size:10px;font-weight:700;color:var(--azia-text,#334155);display:inline-flex;align-items:center;gap:4px;
     text-decoration:none;cursor:pointer;white-space:nowrap;
   }
-  .af-btn:hover{background:#f8fafc;text-decoration:none;color:#0f172a;}
+  .af-btn:hover{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));text-decoration:none;color:var(--azia-text,#0f172a);}
   .af-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff;}
   .af-btn.primary:hover{background:#1d4ed8;color:#fff;}
   .af-btn.danger{border-color:#fecaca;color:#b91c1c;}
   .af-btn.sm{height:20px;padding:0 6px;font-size:9px;}
 
   .af-hero{
-    flex:0 0 auto;background:#fff;border:1px solid #eef2f7;border-radius:8px;padding:6px 10px;
+    flex:0 0 auto;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;padding:6px 10px;
     display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;
   }
   .af-hero-left{display:flex;gap:8px;min-width:0;align-items:flex-start;flex:1 1 auto;}
   .af-av{width:40px;height:40px;border-radius:999px;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 40px;}
-  .af-hero h1{margin:0;font-size:14px;font-weight:800;color:#0f172a;line-height:1.15;display:inline-flex;align-items:center;gap:5px;}
-  .af-hero .name{font-size:11px;color:#64748b;font-weight:600;margin-top:1px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .af-hero h1{margin:0;font-size:14px;font-weight:800;color:var(--azia-text,#0f172a);line-height:1.15;display:inline-flex;align-items:center;gap:5px;}
+  .af-hero .name{font-size:11px;color:var(--azia-muted,#64748b);font-weight:600;margin-top:1px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .af-meta{margin-top:3px;display:grid;grid-template-columns:1fr 1fr;gap:1px 12px;}
-  .af-meta-row{display:flex;align-items:center;gap:5px;font-size:10px;color:#475569;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .af-meta-row i{width:12px;color:#94a3b8;text-align:center;font-size:10px;flex:0 0 auto;}
+  .af-meta-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--azia-muted,#475569);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .af-meta-row i{width:12px;color:var(--azia-muted,#94a3b8);text-align:center;font-size:10px;flex:0 0 auto;}
   .af-hero-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center;justify-content:flex-end;}
 
   .af-badge{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;font-size:9px;font-weight:800;}
   .af-badge.ok,.af-badge.green{background:#dcfce7;color:#15803d;}
   .af-badge.bad{background:#fee2e2;color:#b91c1c;}
   .af-badge.blue{background:#dbeafe;color:#1d4ed8;}
-  .af-badge.gray{background:#f1f5f9;color:#475569;}
+  .af-badge.gray{background:#f1f5f9;color:var(--azia-muted,#475569);}
 
   .af-metrics{flex:0 0 auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;min-width:0;}
-  .af-metric{background:#fff;border:1px solid #eef2f7;border-radius:8px;padding:5px 8px;min-width:0;overflow:hidden;}
+  .af-metric{background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;padding:5px 8px;min-width:0;overflow:hidden;}
   .af-metric-top{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:1px;}
-  .af-metric .lab{font-size:9px;font-weight:700;color:#64748b;}
-  .af-metric .val{font-size:14px;font-weight:800;color:#0f172a;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .af-metric .lab{font-size:9px;font-weight:700;color:var(--azia-muted,#64748b);}
+  .af-metric .val{font-size:14px;font-weight:800;color:var(--azia-text,#0f172a);line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .af-mico{width:16px;height:16px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:8px;flex:0 0 auto;}
   .af-mico.purple{background:#f5f3ff;color:#7c3aed;}
   .af-mico.blue{background:#dbeafe;color:#2563eb;}
@@ -232,23 +232,23 @@ $renderAdminFields = static function (array $form, array $roles, bool $isActive,
   .af-mico.red{background:#fee2e2;color:#dc2626;}
 
   .af-summary{
-    flex:0 0 auto;background:#fff;border:1px solid #eef2f7;border-radius:8px;padding:5px 10px;
+    flex:0 0 auto;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;padding:5px 10px;
     display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;min-width:0;
   }
   .af-sum-item{min-width:0;overflow:hidden;}
-  .af-sum-item .k{font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;}
-  .af-sum-item .v{font-size:10px;font-weight:700;color:#0f172a;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .af-sum-item .k{font-size:8px;font-weight:800;color:var(--azia-muted,#94a3b8);text-transform:uppercase;}
+  .af-sum-item .v{font-size:10px;font-weight:700;color:var(--azia-text,#0f172a);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
   .af-tabs{
-    flex:0 0 auto;display:flex;gap:0;background:#fff;border:1px solid #eef2f7;border-radius:8px;
+    flex:0 0 auto;display:flex;gap:0;background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;
     padding:0 4px;overflow:hidden;min-width:0;
   }
   .af-tabs a{
-    flex:0 0 auto;padding:5px 8px;font-size:10px;font-weight:700;color:#64748b;text-decoration:none;
+    flex:0 0 auto;padding:5px 8px;font-size:10px;font-weight:700;color:var(--azia-muted,#64748b);text-decoration:none;
     border-bottom:2px solid transparent;white-space:nowrap;
   }
   .af-tabs a.is-active{color:#2563eb;border-bottom-color:#2563eb;}
-  .af-tabs a:hover{color:#0f172a;text-decoration:none;}
+  .af-tabs a:hover{color:var(--azia-text,#0f172a);text-decoration:none;}
 
   .af-board{
     flex:1 1 auto;min-height:0;min-width:0;
@@ -257,7 +257,7 @@ $renderAdminFields = static function (array $form, array $roles, bool $isActive,
   }
   .af-col{min-height:0;min-width:0;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
   .af-card{
-    background:#fff;border:1px solid #eef2f7;border-radius:8px;overflow:hidden;min-width:0;min-height:0;
+    background:var(--azia-card,#fff);border:1px solid #eef2f7;border-radius:8px;overflow:hidden;min-width:0;min-height:0;
     display:flex;flex-direction:column;
   }
   .af-card.flex{flex:1 1 auto;}
@@ -265,25 +265,25 @@ $renderAdminFields = static function (array $form, array $roles, bool $isActive,
     flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:6px;
     padding:4px 8px;border-bottom:1px solid #f1f5f9;
   }
-  .af-card-hd h2{margin:0;font-size:11px;font-weight:800;color:#0f172a;}
+  .af-card-hd h2{margin:0;font-size:11px;font-weight:800;color:var(--azia-text,#0f172a);}
   .af-card-bd{flex:1 1 auto;min-height:0;padding:6px 8px;overflow:hidden;}
   .af-card-bd.scroll{overflow:auto;overscroll-behavior:contain;}
 
   .af-form{display:flex;flex-direction:column;gap:6px;min-height:0;}
   .af-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;}
-  .af-field label{display:block;font-size:9px;font-weight:800;color:#64748b;margin:0 0 2px;}
+  .af-field label{display:block;font-size:9px;font-weight:800;color:var(--azia-muted,#64748b);margin:0 0 2px;}
   .af-field .req{color:#dc2626;}
-  .af-field .hint{font-weight:600;color:#94a3b8;}
+  .af-field .hint{font-weight:600;color:var(--azia-muted,#94a3b8);}
   .af-field input,.af-field select{
     width:100%;max-width:100%;height:28px;border:1px solid #e2e8f0;border-radius:6px;padding:0 7px;
-    font-size:11px;color:#0f172a;background:#fff;box-sizing:border-box;
+    font-size:11px;color:var(--azia-text,#0f172a);background:var(--azia-card,#fff);box-sizing:border-box;
   }
   .af-actions{display:flex;justify-content:flex-end;gap:5px;margin-top:8px;}
 
   .af-kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #f8fafc;font-size:10px;}
   .af-kv:last-child{border-bottom:0;}
-  .af-kv .k{color:#64748b;font-weight:700;}
-  .af-kv .v{color:#0f172a;font-weight:800;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;}
+  .af-kv .k{color:var(--azia-muted,#64748b);font-weight:700;}
+  .af-kv .v{color:var(--azia-text,#0f172a);font-weight:800;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;}
 
   .af-note{
     background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 7px;margin-bottom:5px;
@@ -294,11 +294,11 @@ $renderAdminFields = static function (array $form, array $roles, bool $isActive,
 
   .af-quick{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
   .af-qbtn{
-    border:1px solid #e2e8f0;border-radius:6px;padding:7px 4px;background:#fff;text-align:center;
-    font-size:9px;font-weight:800;color:#334155;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+    border:1px solid #e2e8f0;border-radius:6px;padding:7px 4px;background:var(--azia-card,#fff);text-align:center;
+    font-size:9px;font-weight:800;color:var(--azia-text,#334155);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px;
   }
   .af-qbtn i{font-size:11px;}
-  .af-qbtn:hover{text-decoration:none;background:#f8fafc;}
+  .af-qbtn:hover{text-decoration:none;background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));}
   .af-qbtn.green{border-color:#bbf7d0;background:#f0fdf4;color:#166534;}
   .af-qbtn.orange{border-color:#fed7aa;background:#fff7ed;color:#c2410c;}
   .af-qbtn.red{border-color:#fecaca;background:#fef2f2;color:#b91c1c;}
@@ -311,15 +311,15 @@ $renderAdminFields = static function (array $form, array $roles, bool $isActive,
   .af-drop{position:relative;}
   .af-drop-menu{
     display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:150px;
-    background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.12);padding:4px;
+    background:var(--azia-card,#fff);border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.12);padding:4px;
   }
   .af-drop.open .af-drop-menu{display:block;}
   .af-drop-menu a,.af-drop-menu button{
     display:block;width:100%;text-align:left;padding:6px 8px;border-radius:6px;font-size:11px;font-weight:700;
-    color:#334155;text-decoration:none;border:0;background:transparent;cursor:pointer;
+    color:var(--azia-text,#334155);text-decoration:none;border:0;background:transparent;cursor:pointer;
   }
-  .af-drop-menu a:hover,.af-drop-menu button:hover{background:#f8fafc;}
-  .af-empty{padding:6px 4px;text-align:center;color:#64748b;font-size:10px;}
+  .af-drop-menu a:hover,.af-drop-menu button:hover{background:var(--msb-palette-surface-2,var(--azia-card,#f8fafc));}
+  .af-empty{padding:6px 4px;text-align:center;color:var(--azia-muted,#64748b);font-size:10px;}
 
   .af-modal{
     display:none;position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.4);
@@ -327,7 +327,7 @@ $renderAdminFields = static function (array $form, array $roles, bool $isActive,
   }
   .af-modal.open{display:flex;}
   .af-modal-panel{
-    width:min(560px,100%);max-height:min(86vh,640px);background:#fff;border-radius:10px;
+    width:min(560px,100%);max-height:min(86vh,640px);background:var(--azia-card,#fff);border-radius:10px;
     border:1px solid #e2e8f0;box-shadow:0 20px 40px rgba(15,23,42,.2);
     display:flex;flex-direction:column;overflow:hidden;
   }

@@ -57,6 +57,25 @@ $composerAvatarParams[] = 's=84';
 $composerAvatarUrl = 'avatar.php?' . implode('&', $composerAvatarParams);
 $isModalCreate = (string)($_GET['modal'] ?? '') === '1';
 $isStoryCreate = ((string)($_GET['story'] ?? '') === '1');
+$communityEditId = (int)($_GET['community_post'] ?? 0);
+$communityEditCommunityId = 0;
+$isCommunityCreate = ((string)($_GET['community'] ?? '') === '1') || $communityEditId > 0;
+$composerCommunities = [];
+if ($isCommunityCreate && $meId > 0) {
+    try {
+        $stCommunities = $dbh->prepare(
+            "SELECT c.id,c.name,c.location_name,m.role
+             FROM community_members m
+             JOIN communities c ON c.id=m.community_id AND c.status=1
+             WHERE m.user_id=:uid AND m.status='active'
+             ORDER BY c.name"
+        );
+        $stCommunities->execute([':uid' => $meId]);
+        $composerCommunities = $stCommunities->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $eCommunityList) {
+        $composerCommunities = [];
+    }
+}
 
 /* Modal create-post: resolve Gear Appearance color (parent may pass live selection) */
 $modalAppearanceMode = appearance_palette_normalize_mode((string)($_GET['appearance'] ?? ''));
@@ -103,10 +122,17 @@ if (preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $parentPaletteBg)) {
         $modalInputBg = $modalPageBg;
     }
 }
+$parentPaletteAction = trim((string)($_GET['palette_action'] ?? ''));
+if (!preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $parentPaletteAction)) {
+    $parentPaletteAction = '';
+} elseif (strlen($parentPaletteAction) === 4) {
+    $parentPaletteAction = '#' . $parentPaletteAction[1] . $parentPaletteAction[1] . $parentPaletteAction[2] . $parentPaletteAction[2] . $parentPaletteAction[3] . $parentPaletteAction[3];
+}
 $modalPageBgCss = htmlspecialchars($modalPageBg, ENT_QUOTES, 'UTF-8');
 $modalPageTextCss = htmlspecialchars($modalPageText, ENT_QUOTES, 'UTF-8');
 $modalPageMutedCss = htmlspecialchars($modalPageMuted, ENT_QUOTES, 'UTF-8');
 $modalInputBgCss = htmlspecialchars($modalInputBg, ENT_QUOTES, 'UTF-8');
+$modalActionCss = htmlspecialchars(strtolower($parentPaletteAction), ENT_QUOTES, 'UTF-8');
 $modalAppearanceAttr = $modalAppearanceIsNamed
     ? ' data-msb-appearance="' . htmlspecialchars($modalAppearanceMode, ENT_QUOTES, 'UTF-8') . '"'
     : (($modalAppearanceMode === 'light' || ($modalAppearanceMode === 'system' && (!$modalAutoEnabled || !appearance_bridge_is_night_now())))
@@ -195,16 +221,57 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string)($_POST['action'
 
 $postCategories = fetchUserPostCategories($dbh, $meId);
 
-// edit mode
+// Community cards reuse this dashboard composer. Older community-only posts are
+// linked to a hidden public post once so the complete editor remains available.
 $editId = (int)($_GET['edit'] ?? 0);
+if ($communityEditId > 0 && $meId > 0) {
+    try {
+        $stCommunityEdit = $dbh->prepare(
+            "SELECT cp.* FROM community_posts cp
+             JOIN community_members cm ON cm.community_id=cp.community_id AND cm.user_id=:uid AND cm.status='active'
+             WHERE cp.id=:pid AND cp.user_id=:uid2 AND cp.status<>'removed' LIMIT 1"
+        );
+        $stCommunityEdit->execute([':uid'=>$meId, ':uid2'=>$meId, ':pid'=>$communityEditId]);
+        $communityEditRow = $stCommunityEdit->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($communityEditRow) {
+            $communityEditCommunityId = (int)$communityEditRow['community_id'];
+            $editId = (int)($communityEditRow['public_post_id'] ?? 0);
+            if ($editId <= 0) {
+                $stCreateEdit = $dbh->prepare(
+                    "INSERT INTO public_posts(user_id,title,description,body,visibility,created_at,updated_at,is_deleted)
+                     VALUES(:uid,:title,NULL,:body,:visibility,:created,:updated,1)"
+                );
+                $stCreateEdit->execute([
+                    ':uid'=>$meId, ':title'=>(string)$communityEditRow['title'] ?: null,
+                    ':body'=>(string)$communityEditRow['body'] ?: null,
+                    ':visibility'=>((string)$communityEditRow['visibility']==='private'?'private':'public'),
+                    ':created'=>(string)$communityEditRow['created_at'], ':updated'=>(string)$communityEditRow['updated_at'],
+                ]);
+                $editId = (int)$dbh->lastInsertId();
+                $dbh->prepare('UPDATE community_posts SET public_post_id=:public_id WHERE id=:id AND user_id=:uid')
+                    ->execute([':public_id'=>$editId, ':id'=>$communityEditId, ':uid'=>$meId]);
+                $mediaPath = trim((string)($communityEditRow['media_path'] ?? ''));
+                if ($mediaPath !== '') {
+                    $mediaExt = strtolower((string)pathinfo((string)(parse_url($mediaPath, PHP_URL_PATH) ?? $mediaPath), PATHINFO_EXTENSION));
+                    $mediaType = in_array($mediaExt, ['mp4','webm','mov','m4v','ogv','ogg'], true) ? 'video' : 'image';
+                    $dbh->prepare("INSERT INTO public_post_attachments(post_id,type,file_path,thumb_path,created_at) VALUES(:pid,:type,:path,NULL,NOW())")
+                        ->execute([':pid'=>$editId, ':type'=>$mediaType, ':path'=>$mediaPath]);
+                }
+            }
+        }
+    } catch (Throwable $eCommunityEdit) {
+        $editId = 0;
+        $communityEditCommunityId = 0;
+    }
+}
 $editPost = null;
 $editAttachmentCount = 0;
 $editAttachments = [];
 $editBodyText = '';
 if ($editId > 0 && $meId > 0) {
     try {
-        $stE = $dbh->prepare("SELECT * FROM public_posts WHERE id = :id AND user_id = :uid AND is_deleted = 0 LIMIT 1");
-        $stE->execute([':id' => $editId, ':uid' => $meId]);
+        $stE = $dbh->prepare("SELECT * FROM public_posts WHERE id=:id AND user_id=:uid AND (is_deleted=0 OR :community_id>0) LIMIT 1");
+        $stE->execute([':id'=>$editId, ':uid'=>$meId, ':community_id'=>$communityEditCommunityId]);
         $editPost = $stE->fetch(PDO::FETCH_ASSOC) ?: null;
     } catch (Throwable $e) { $editPost = null; }
 }
@@ -1041,6 +1108,12 @@ html[data-msb-org-light] {
   --msb-palette-text: <?php echo $modalPageTextCss; ?>;
   --msb-palette-text-muted: <?php echo $modalPageMutedCss; ?>;
   --msb-palette-input-bg: <?php echo $modalInputBgCss; ?>;
+<?php if ($modalActionCss !== ''): ?>
+  --msb-palette-action: <?php echo $modalActionCss; ?>;
+  --msb-palette-action-strong: <?php echo $modalActionCss; ?>;
+  --msb-palette-accent: <?php echo $modalActionCss; ?>;
+  --msb-palette-btn-bg: <?php echo $modalActionCss; ?>;
+<?php endif; ?>
 }
 html body.dashboard-page.dashboard-modal-page,
 html[data-theme="light"] body.dashboard-page.dashboard-modal-page,
@@ -2421,6 +2494,71 @@ body.dashboard-page.dashboard-modal-page .msb-composer-slide-caption-shell .msb-
   height:auto !important;
   padding-bottom:28px !important;
 }
+body.dashboard-page .msb-hashtag-under-media,
+body.dashboard-page.dashboard-modal-page .msb-hashtag-under-media{
+  margin:10px 0 4px;
+  padding:0;
+}
+body.dashboard-page .msb-hashtag-under-media[hidden]{
+  display:none !important;
+}
+body.dashboard-page .msb-hashtag-label{
+  display:block;
+  margin:0 0 6px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--msb-palette-text-muted, #64748b);
+}
+body.dashboard-page .msb-hashtag-pills{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:0 0 8px;
+  min-height:0;
+}
+body.dashboard-page .msb-hashtag-pills:empty{ display:none; }
+body.dashboard-page .msb-hashtag-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 12px;
+  border-radius:999px;
+  background:#e8f1ff;
+  color:#3b82f6;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.2;
+  border:0;
+}
+body.dashboard-page .msb-hashtag-pill button{
+  width:16px;
+  height:16px;
+  border:0;
+  border-radius:999px;
+  background:rgba(59,130,246,.15);
+  color:#2563eb;
+  font-size:12px;
+  line-height:1;
+  padding:0;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+body.dashboard-page .msb-hashtag-input{
+  border-radius:999px !important;
+  border:1px solid rgba(59,130,246,.28) !important;
+  background:#f8fbff !important;
+  color:#1e3a8a !important;
+  font-size:13px !important;
+  padding:8px 14px !important;
+}
+body.dashboard-page .msb-hashtag-hint{
+  display:block;
+  margin-top:6px;
+  font-size:11px;
+  color:var(--msb-palette-text-muted, #94a3b8);
+}
 body.dashboard-page.dashboard-modal-page .msb-composer-panel[data-panel="media"] .msb-composer-panel-head{ display:none !important; }
 body.dashboard-page.dashboard-modal-page .msb-composer-panel[data-panel="media"]{
   border:0 !important;
@@ -2879,6 +3017,12 @@ body.dashboard-page .progress{
                   <input type="hidden" name="stitch_of_post_id" id="createPostStitchOf" value="<?= (int)$composerStitchOf ?>">
                   <input type="hidden" name="duet_of_post_id" id="createPostDuetOf" value="<?= (int)$composerDuetOf ?>">
                   <input type="hidden" name="commerce_org_id" value="<?= (int)$composerCommerceOrgId ?>">
+                  <?php if ($isCommunityCreate): ?>
+                  <input type="hidden" name="post_kind" value="community">
+                  <?php if (!$isModalCreate && $communityEditCommunityId > 0): ?>
+                  <input type="hidden" name="community_id" value="<?= (int)$communityEditCommunityId ?>">
+                  <?php endif; ?>
+                  <?php endif; ?>
                   <div id="pendingUploadTokens"></div>
                   <div id="removedAttachmentIds"></div>
                   <?php if ($isPublisherAccount): ?>
@@ -2900,6 +3044,18 @@ body.dashboard-page .progress{
                   <?php endif; ?>
 
                   <?php if ($isModalCreate): ?>
+                  <?php if ($isCommunityCreate): ?>
+                  <div class="form-group msb-community-destination">
+                    <label for="createPostCommunity"><strong>Post to community</strong></label>
+                    <select name="community_id" id="createPostCommunity" class="form-control" required>
+                      <option value="">Select a community</option>
+                      <?php foreach ($composerCommunities as $composerCommunity): ?>
+                      <option value="<?= (int)$composerCommunity['id'] ?>"<?= $communityEditCommunityId === (int)$composerCommunity['id'] ? ' selected' : '' ?>><?= h((string)$composerCommunity['name']) ?><?= trim((string)($composerCommunity['location_name'] ?? '')) !== '' ? ' — ' . h((string)$composerCommunity['location_name']) : '' ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                    <?php if (!$composerCommunities): ?><small class="text-muted">Join or create a community before publishing a community post.</small><?php endif; ?>
+                  </div>
+                  <?php endif; ?>
                   <div class="msb-composer-identity">
                     <div class="msb-composer-identity-left">
                       <div class="msb-composer-avatar" aria-hidden="true">
@@ -2910,12 +3066,14 @@ body.dashboard-page .progress{
                         <div class="msb-composer-name"><?= h($composerName) ?></div>
                       </div>
                     </div>
-                    <?php $vis = (string)($editPost['visibility'] ?? ($isPublisherAccount ? 'public' : 'friends')); ?>
+                    <?php $vis = (string)($editPost['visibility'] ?? ($isCommunityCreate ? 'public' : ($isPublisherAccount ? 'public' : 'friends'))); ?>
                     <label class="msb-composer-audience-pill" for="createPostVisibility">
                       <i class="fa <?= $vis === 'public' ? 'fa-globe' : ($vis === 'private' ? 'fa-lock' : 'fa-users') ?>" aria-hidden="true"></i>
                       <select name="visibility" id="createPostVisibility" class="msb-composer-audience-select" aria-label="<?= $isStoryCreate ? 'Story audience' : 'Post destination' ?>">
                         <option value="private" <?= $vis==='private'?'selected':'' ?>><?= $isPublisherAccount ? 'Private room' : 'Private' ?></option>
+                        <?php if (!$isCommunityCreate): ?>
                         <option value="friends" <?= $vis==='friends'?'selected':'' ?>><?= $isPublisherAccount ? 'Friends' : 'Friends' ?></option>
+                        <?php endif; ?>
                         <option value="public" <?= $vis==='public'?'selected':'' ?>><?= $isPublisherAccount ? 'Public' : 'Public' ?></option>
                       </select>
                       <i class="fa fa-caret-down" aria-hidden="true"></i>
@@ -3173,6 +3331,32 @@ body.dashboard-page .progress{
                         </div>
                       </div>
                       <?php endif; ?>
+                      <?php
+                        $editHashtagsRaw = '';
+                        $editHashtagsList = [];
+                        if ($editPost) {
+                          $editHashtagsRaw = trim((string)($editPost['hashtags'] ?? ''));
+                          if ($editHashtagsRaw === '' && function_exists('post_hashtags_parse')) {
+                            $fromBody = post_hashtags_parse((string)($editPost['body'] ?? '') . ' ' . (string)($editPost['description'] ?? '') . ' ' . (string)($editPost['title'] ?? ''));
+                            $editHashtagsList = $fromBody;
+                            $editHashtagsRaw = function_exists('post_hashtags_format') ? post_hashtags_format($fromBody) : $editHashtagsRaw;
+                          } elseif (function_exists('post_hashtags_parse')) {
+                            $editHashtagsList = post_hashtags_parse($editHashtagsRaw);
+                            $editHashtagsRaw = function_exists('post_hashtags_format') ? post_hashtags_format($editHashtagsList) : $editHashtagsRaw;
+                          }
+                        }
+                      ?>
+                      <div class="msb-hashtag-under-media" id="createPostHashtagsWrap">
+                        <label class="msb-hashtag-label" for="createPostHashtagInput">Hashtags under media</label>
+                        <div class="msb-hashtag-pills" id="createPostHashtagPills" aria-live="polite">
+                          <?php foreach ($editHashtagsList as $htag): ?>
+                            <span class="msb-hashtag-pill" data-tag="<?= h($htag) ?>">#<?= h($htag) ?><button type="button" aria-label="Remove #<?= h($htag) ?>">&times;</button></span>
+                          <?php endforeach; ?>
+                        </div>
+                        <input type="text" id="createPostHashtagInput" class="form-control msb-hashtag-input" maxlength="60" placeholder="Add #City #Night #Photography" autocomplete="off">
+                        <input type="hidden" name="hashtags" id="createPostHashtags" value="<?= h($editHashtagsRaw) ?>">
+                        <span class="msb-hashtag-hint">Shown under your photo/video so people notice your post. Press Enter or space after each tag.</span>
+                      </div>
                     </div>
                   </div>
 
@@ -4365,7 +4549,7 @@ document.addEventListener('DOMContentLoaded', function(){
           }
         }
         // Private posts always land on Profile → Posts (never Gallery grid).
-        if (visOut === 'private' && !data.story) {
+        if (visOut === 'private' && !data.story && <?= $isCommunityCreate ? 'false' : 'true' ?>) {
           target = 'profile.php?tab=posts&post=' + String(postId || '') + '&fresh=1';
         }
         /* Prefer unified home tabs when server still returns legacy feed/public. */
@@ -4542,15 +4726,22 @@ document.addEventListener('DOMContentLoaded', function(){
   openPanel('media', {});
 
   var editIdEl = document.getElementById('createPostId');
-  if (editIdEl && Number(editIdEl.value || 0) > 0) {
+  var isEditingPost = !!(editIdEl && Number(editIdEl.value || 0) > 0);
+  if (isEditingPost) {
     openPanel('media', {});
   }
   var feelingPrefill = document.getElementById('createPostFeeling');
-  if (feelingPrefill && String(feelingPrefill.value || '').trim()) openPanel('feeling', {});
+  if (!isEditingPost && feelingPrefill && String(feelingPrefill.value || '').trim()) openPanel('feeling', {});
   var locationLabelPrefill = document.getElementById('createPostLocationLabel');
-  if (locationLabelPrefill && String(locationLabelPrefill.value || '').trim()) openPanel('location', {});
+  if (!isEditingPost && locationLabelPrefill && String(locationLabelPrefill.value || '').trim()) openPanel('location', {});
   var linkUrlPrefill = document.getElementById('createPostLinkUrl');
-  if (linkUrlPrefill && String(linkUrlPrefill.value || '').trim()) openPanel('link', {});
+  if (!isEditingPost && linkUrlPrefill && String(linkUrlPrefill.value || '').trim()) openPanel('link', {});
+  if (isEditingPost) {
+    ['feeling', 'location', 'link', 'tag', 'music', 'product'].forEach(function(key){
+      closePanel(key);
+    });
+    syncTools();
+  }
 
   /* Feeling / Activity picker */
   (function wireCreatePostFeeling(){
@@ -5611,6 +5802,83 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 
 
+  /* Hashtag pills under media (#City #Night #Photography) */
+  (function(){
+    var pills = document.getElementById('createPostHashtagPills');
+    var input = document.getElementById('createPostHashtagInput');
+    var hidden = document.getElementById('createPostHashtags');
+    if (!pills || !hidden) return;
+    var tags = [];
+
+    function normalizeTag(raw){
+      var t = String(raw || '').replace(/^#+/, '').replace(/[^A-Za-z0-9_]/g, '');
+      if (!t || !/^[A-Za-z]/.test(t)) return '';
+      return t.slice(0, 48);
+    }
+
+    function syncHidden(){
+      hidden.value = tags.map(function(t){ return '#' + t; }).join(' ');
+    }
+
+    function render(){
+      pills.innerHTML = '';
+      tags.forEach(function(tag){
+        var span = document.createElement('span');
+        span.className = 'msb-hashtag-pill';
+        span.setAttribute('data-tag', tag);
+        span.appendChild(document.createTextNode('#' + tag));
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Remove #' + tag);
+        btn.innerHTML = '&times;';
+        btn.addEventListener('click', function(){
+          tags = tags.filter(function(x){ return x.toLowerCase() !== tag.toLowerCase(); });
+          render();
+        });
+        span.appendChild(btn);
+        pills.appendChild(span);
+      });
+      syncHidden();
+    }
+
+    function addFromRaw(raw){
+      String(raw || '').split(/[\s,]+/).forEach(function(piece){
+        var tag = normalizeTag(piece);
+        if (!tag) return;
+        var key = tag.toLowerCase();
+        if (tags.some(function(t){ return t.toLowerCase() === key; })) return;
+        if (tags.length >= 8) return;
+        tags.push(tag);
+      });
+      render();
+    }
+
+    Array.prototype.slice.call(pills.querySelectorAll('.msb-hashtag-pill[data-tag]')).forEach(function(el){
+      var tag = normalizeTag(el.getAttribute('data-tag') || el.textContent || '');
+      if (tag && !tags.some(function(t){ return t.toLowerCase() === tag.toLowerCase(); })) tags.push(tag);
+    });
+    render();
+
+    if (input) {
+      input.addEventListener('keydown', function(ev){
+        if (ev.key === 'Enter' || ev.key === ' ' || ev.key === ',') {
+          ev.preventDefault();
+          addFromRaw(input.value);
+          input.value = '';
+        } else if (ev.key === 'Backspace' && !input.value && tags.length) {
+          tags.pop();
+          render();
+        }
+      });
+      input.addEventListener('blur', function(){
+        if (input.value.trim()) {
+          addFromRaw(input.value);
+          input.value = '';
+        }
+      });
+    }
+  })();
+
   syncTools();
   setTimeout(fitParent, 80);
 
@@ -5692,6 +5960,39 @@ document.addEventListener('DOMContentLoaded', function(){
   setTimeout(scrubWaste, 400);
 })();
 </script>
+<style id="dashboard-modal-appearance-surfaces">
+/* Final modal paint: remove fixed white cards and use Gear's active palette. */
+body.dashboard-page.dashboard-modal-page .msb-composer-body-shell,
+body.dashboard-page.dashboard-modal-page .msb-feeling-tab,
+body.dashboard-page.dashboard-modal-page .msb-feeling-list{
+  background:var(--msb-palette-bg, #171d24) !important;
+  background-color:var(--msb-palette-bg, #171d24) !important;
+  border-color:var(--msb-palette-border-strong, var(--msb-palette-border, rgba(177,188,206,.28))) !important;
+  color:var(--msb-palette-text, #f8fafc) !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-tab.is-active,
+body.dashboard-page.dashboard-modal-page .msb-feeling-item:hover,
+body.dashboard-page.dashboard-modal-page .msb-feeling-item.is-selected{
+  background:var(--msb-palette-surface-2, var(--msb-palette-hover-bg, #2f3a4a)) !important;
+  color:var(--msb-palette-text, #f8fafc) !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-feeling-item,
+body.dashboard-page.dashboard-modal-page .msb-feeling-text,
+body.dashboard-page.dashboard-modal-page .msb-composer-name,
+body.dashboard-page.dashboard-modal-page .msb-composer-panel-head,
+body.dashboard-page.dashboard-modal-page .msb-composer-tool{
+  color:var(--msb-palette-text, #f8fafc) !important;
+  -webkit-text-fill-color:var(--msb-palette-text, #f8fafc) !important;
+}
+body.dashboard-page.dashboard-modal-page .msb-composer-title-label,
+body.dashboard-page.dashboard-modal-page .msb-composer-body-count,
+body.dashboard-page.dashboard-modal-page .msb-composer-title-count,
+body.dashboard-page.dashboard-modal-page .msb-composer-body::placeholder{
+  color:var(--msb-palette-text-muted, #b1bcce) !important;
+  -webkit-text-fill-color:var(--msb-palette-text-muted, #b1bcce) !important;
+  opacity:1 !important;
+}
+</style>
 <?php endif; ?>
 
 </body>

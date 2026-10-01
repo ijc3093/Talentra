@@ -4,13 +4,21 @@ declare(strict_types=1);
 /**
  * Member earnings account — balance credited when a time card is approved.
  * Staff and managers each see only their own account.
+ *
+ * Standalone: account.php
+ * Embedded: sales_management.php#accounts (set $accountEmbedded = true before require)
  */
 
-error_reporting(E_ALL);
-ini_set('display_errors', '1');
+$accountEmbedded = !empty($accountEmbedded);
 
-require_once __DIR__ . '/includes/session_org.php';
-require_once __DIR__ . '/includes/org_context.php';
+if (!$accountEmbedded) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', '1');
+
+    require_once __DIR__ . '/includes/session_org.php';
+    require_once __DIR__ . '/includes/org_context.php';
+}
+
 require_once __DIR__ . '/includes/org_timecard.php';
 require_once __DIR__ . '/includes/org_payroll.php';
 require_once __DIR__ . '/includes/org_member_address.php';
@@ -23,14 +31,79 @@ if (!function_exists('h')) {
     }
 }
 
-$orgId = (int)orgActiveOrgId();
-$memberId = (int)orgMemberId();
-$accountType = (string)orgAccountType();
-$accountId = (int)orgAccountId();
-$isManager = isOrgManager();
+$orgId = (int)(function_exists('orgActiveOrgId') ? orgActiveOrgId() : ($orgId ?? 0));
+$memberId = (int)(function_exists('orgMemberId') ? orgMemberId() : ($memberId ?? 0));
+$accountType = (string)(function_exists('orgAccountType') ? orgAccountType() : '');
+$accountId = (int)(function_exists('orgAccountId') ? orgAccountId() : 0);
+$isManager = function_exists('isOrgManager') ? isOrgManager() : ($accountType === 'manager');
+
+// Soft-heal missing org_member_id (common after publisher/manager handoff) without redirecting.
+if ($memberId <= 0 && $orgId > 0 && $accountId > 0 && in_array($accountType, ['manager', 'staff'], true) && isset($dbh) && $dbh instanceof PDO) {
+    try {
+        $stHeal = $dbh->prepare("
+            SELECT id, role_id, status
+            FROM org_members
+            WHERE org_id = :org AND member_type = :mt AND member_id = :mid
+            LIMIT 1
+        ");
+        $stHeal->execute([
+            ':org' => $orgId,
+            ':mt' => $accountType,
+            ':mid' => $accountId,
+        ]);
+        $heal = $stHeal->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$heal && $accountType === 'manager') {
+            $roleId = 0;
+            try {
+                $stRole = $dbh->prepare("SELECT id FROM org_roles WHERE org_id = :org AND name = 'Manager' LIMIT 1");
+                $stRole->execute([':org' => $orgId]);
+                $roleId = (int)($stRole->fetchColumn() ?: 0);
+            } catch (Throwable $eRole) {
+                $roleId = 0;
+            }
+            if ($roleId > 0) {
+                $ins = $dbh->prepare("
+                    INSERT IGNORE INTO org_members
+                      (org_id, member_type, member_id, role_id, relationship_label, status, joined_at, created_at)
+                    VALUES
+                      (:org, 'manager', :mid, :role, NULL, 1, NOW(), NOW())
+                ");
+                $ins->execute([
+                    ':org' => $orgId,
+                    ':mid' => $accountId,
+                    ':role' => $roleId,
+                ]);
+                $stHeal->execute([
+                    ':org' => $orgId,
+                    ':mt' => $accountType,
+                    ':mid' => $accountId,
+                ]);
+                $heal = $stHeal->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+        }
+        if ($heal && (int)($heal['status'] ?? 0) === 1) {
+            $memberId = (int)$heal['id'];
+            $_SESSION['org_member_id'] = $memberId;
+            if ((int)($heal['role_id'] ?? 0) > 0) {
+                $_SESSION['org_role_id'] = (int)$heal['role_id'];
+            }
+        }
+    } catch (Throwable $eHeal) {
+        // keep going — empty-state message below if still unresolved
+    }
+}
 
 if ($orgId <= 0 || $memberId <= 0) {
-    header('Location: select_org.php');
+    if ($accountEmbedded) {
+        echo '<div class="acct-wrap"><p class="acct-empty" style="padding:24px 8px;">'
+            . 'Your earnings account is not available for this login. '
+            . 'Open Account from a staff or manager membership in this organization.'
+            . '</p></div>';
+        return;
+    }
+    if (!headers_sent()) {
+        header('Location: select_org.php');
+    }
     exit;
 }
 
@@ -79,7 +152,6 @@ $balanceLabel = org_payroll_format_cents($balanceCents);
 $addr = org_member_address_get($dbh, $orgId, $memberId) ?: [];
 $addrText = $addr ? org_member_address_format($addr) : '';
 
-$accountEmbedded = !empty($accountEmbedded);
 if (!$accountEmbedded) {
     $pageTitle = 'Account';
     require_once __DIR__ . '/includes/org_page_shell.php';
@@ -202,12 +274,11 @@ if (!$accountEmbedded) {
       <div><span>Home address</span><strong><?= $addrText !== '' ? h(str_replace("\n", ', ', $addrText)) : '—' ?></strong></div>
     </div>
     <div class="acct-actions" style="margin-top:12px;">
-      <a class="btn btn-primary btn-sm" href="sales_management.php#timecard">Time card</a>
-      <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#detail_employee"><?= $isManager ? 'My detail' : 'Employee detail' ?></a>
+      <a class="btn btn-primary btn-sm" href="sales_management.php#timecard"<?= $accountEmbedded ? ' data-sales-nav="timecard"' : '' ?>>Time card</a>
+      <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#detail_employee"<?= $accountEmbedded ? ' data-sales-nav="detail_employee"' : '' ?>><?= $isManager ? 'My detail' : 'Employee detail' ?></a>
       <?php if ($isManager): ?>
-        <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#payroll">Payroll</a>
+        <a class="btn btn-outline-secondary btn-sm" href="sales_management.php#payroll"<?= $accountEmbedded ? ' data-sales-nav="payroll"' : '' ?>>Payroll</a>
       <?php endif; ?>
-      <a class="btn btn-outline-secondary btn-sm" href="logout.php">Sign out</a>
     </div>
   </div>
 </div>

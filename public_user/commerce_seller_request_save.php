@@ -41,6 +41,8 @@ if (empty($result['ok'])) {
     exit;
 }
 
+publisher_authority_mark_requester($dbh, (int)($result['request_id'] ?? 0));
+
 echo json_encode([
     'ok' => true,
     'name' => (string)($result['name'] ?? ''),

@@ -219,6 +219,57 @@ function post_link_preview_parse_tags(string $raw): array
 }
 
 /**
+ * Normalize content hashtags for media posts (#City, #Night).
+ *
+ * @return list<string> tags without leading #
+ */
+function post_hashtags_parse(string $raw): array
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return [];
+    }
+    $parts = [];
+    if (preg_match_all('/#([A-Za-z][A-Za-z0-9_]{0,48})/u', $raw, $m)) {
+        $parts = $m[1];
+    }
+    foreach (preg_split('/[\s,|;]+/u', $raw) ?: [] as $piece) {
+        $piece = trim((string)$piece);
+        $piece = ltrim($piece, '#');
+        if ($piece !== '' && preg_match('/^[A-Za-z][A-Za-z0-9_]{0,48}$/', $piece)) {
+            $parts[] = $piece;
+        }
+    }
+    $out = [];
+    foreach ($parts as $part) {
+        $part = trim((string)$part);
+        if ($part === '') continue;
+        $key = strtolower($part);
+        if (isset($out[$key])) continue;
+        $out[$key] = $part;
+        if (count($out) >= 8) break;
+    }
+    return array_values($out);
+}
+
+/**
+ * Store form: "#City #Night #Photography"
+ */
+function post_hashtags_format(array $tags): string
+{
+    $clean = [];
+    foreach ($tags as $tag) {
+        $tag = ltrim(trim((string)$tag), '#');
+        if ($tag === '' || !preg_match('/^[A-Za-z][A-Za-z0-9_]{0,48}$/', $tag)) continue;
+        $key = strtolower($tag);
+        if (isset($clean[$key])) continue;
+        $clean[$key] = '#' . $tag;
+        if (count($clean) >= 8) break;
+    }
+    return implode(' ', array_values($clean));
+}
+
+/**
  * Build topic chips from description text (e.g. "… hotels, and more.").
  *
  * @return list<string>

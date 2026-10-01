@@ -280,9 +280,12 @@ $typeMeta = [
   .txn-dash{--txn-text:#0f172a;--txn-muted:#64748b;--txn-border:#e2e8f0;--txn-card:#fff;color:var(--txn-text);}
   .txn-dash .txn-crumb{font-size:12px;font-weight:700;color:var(--txn-muted);margin:0 0 6px;}
   .txn-dash .txn-crumb a{color:#2563eb;text-decoration:none;}
-  .txn-dash .txn-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px;}
+  .txn-dash .txn-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;}
+  .txn-dash.txn-dash--hub .txn-head{margin-bottom:6px;}
   .txn-dash .txn-head h1{margin:0;font-size:28px;font-weight:800;letter-spacing:-.03em;}
+  .txn-dash.txn-dash--hub .txn-head h1{font-size:22px;line-height:1.15;}
   .txn-dash .txn-sub{margin:4px 0 0;font-size:13px;color:var(--txn-muted);font-weight:600;}
+  .txn-dash.txn-dash--hub .txn-sub{margin:2px 0 0;font-size:12px;}
   .txn-dash .txn-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .txn-dash .txn-ico-btn{position:relative;width:36px;height:36px;border-radius:10px;border:1px solid var(--txn-border);background:#fff;color:#334155;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;}
   .txn-dash .txn-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;}
@@ -335,24 +338,68 @@ $typeMeta = [
   .txn-dash .txn-more-menu i{width:16px;text-align:center;font-size:14px;}
   .txn-dash .txn-menu-sep{height:1px;background:#e2e8f0;margin:6px -6px;}
   .txn-dash .txn-more-menu .txn-danger{color:#dc2626;}
-  .txn-dash .txn-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;font-size:12px;color:var(--txn-muted);}
+  .txn-dash .txn-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;font-size:12px;color:var(--txn-muted);border-top:1px solid var(--txn-border);background:var(--txn-card,#fff);}
   .txn-dash .txn-pages{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
-  .txn-dash .txn-pages button{min-width:28px;height:28px;border:1px solid #e2e8f0;background:#fff;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;}
+  .txn-dash .txn-pages button{min-width:30px;height:30px;border:1px solid #e2e8f0;background:#fff;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;color:#0f172a;}
+  .txn-dash .txn-pages button:hover{background:#f8fafc;}
   .txn-dash .txn-pages button.is-on{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .txn-dash .txn-pages button:disabled{opacity:.45;cursor:default;}
+  .txn-dash .txn-pages .txn-page-gap{padding:0 4px;font-weight:700;color:var(--txn-muted);}
   .txn-dash .txn-empty{text-align:center;padding:28px 12px;color:var(--txn-muted);}
+  /* Hub: fill viewport and pin pagination to the bottom edge. */
+  .txn-dash.txn-dash--hub{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    height:calc(100vh - var(--org-header-h, 48px) - 24px);
+    max-height:calc(100vh - var(--org-header-h, 48px) - 24px);
+    overflow:hidden;
+    box-sizing:border-box;
+  }
+  .txn-dash.txn-dash--hub > .txn-head,
+  .txn-dash.txn-dash--hub > .txn-kpis,
+  .txn-dash.txn-dash--hub > .txn-filters{flex:0 0 auto;}
+  .txn-dash.txn-dash--hub > .txn-card{
+    flex:1 1 auto;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .txn-dash.txn-dash--hub .txn-table-wrap{
+    flex:1 1 auto;
+    min-height:0;
+    overflow:auto;
+  }
+  .txn-dash.txn-dash--hub .txn-foot{
+    flex:0 0 auto;
+    margin-top:auto;
+  }
   html.dark-auto .txn-dash{--txn-text:var(--msb-palette-text,#e2e8f0);--txn-muted:#94a3b8;--txn-border:rgba(148,163,184,.22);--txn-card:var(--msb-palette-bg,#171d24);}
   html.dark-auto .txn-dash .txn-ico-btn,html.dark-auto .txn-dash .txn-btn,html.dark-auto .txn-dash .txn-range,html.dark-auto .txn-dash .txn-search,html.dark-auto .txn-dash .txn-filters select,html.dark-auto .txn-dash .txn-filters button{background:var(--txn-card);color:var(--txn-text);border-color:var(--txn-border);}
   html.dark-auto .txn-dash .txn-table th,html.dark-auto .txn-dash .txn-detail td{background:rgba(148,163,184,.08);}
   html.dark-auto .txn-dash .txn-more-menu{background:var(--txn-card);border-color:var(--txn-border);}
+  html.dark-auto .txn-dash .txn-pages button{background:var(--txn-card);color:var(--txn-text);border-color:var(--txn-border);}
+  html.dark-auto .txn-dash .txn-pages button.is-on{background:#2563eb;border-color:#2563eb;color:#fff;}
+  html.dark-auto .txn-dash .txn-foot{background:var(--txn-card);border-top-color:var(--txn-border);}
   @media (max-width:1100px){.txn-dash .txn-kpis{grid-template-columns:1fr 1fr;}}
-  @media (max-width:700px){.txn-dash .txn-kpis{grid-template-columns:1fr;}.txn-dash .txn-head h1{font-size:22px;}}
+  @media (max-width:700px){
+    .txn-dash .txn-kpis{grid-template-columns:1fr;}
+    .txn-dash .txn-head h1{font-size:22px;}
+    .txn-dash.txn-dash--hub{height:auto;max-height:none;overflow:visible;}
+    .txn-dash.txn-dash--hub > .txn-card{display:block;}
+    .txn-dash.txn-dash--hub .txn-table-wrap{overflow:auto;}
+  }
 </style>
-<div class="txn-dash" id="txnDashRoot">
-  <?php if ($txnShowPageHead): ?>
+<?php
+$txnShowTitle = $txnShowPageHead || $txnInSalesHub;
+$txnShowCrumb = $txnShowPageHead && !$txnInSalesHub;
+?>
+<div class="txn-dash<?= $txnInSalesHub ? ' txn-dash--hub' : '' ?>" id="txnDashRoot">
+  <?php if ($txnShowCrumb): ?>
     <p class="txn-crumb"><a href="<?= h($txnInventoryHref) ?>"<?= $txnInventoryAttr ?>>Inventory</a> &gt; Transactions</p>
   <?php endif; ?>
   <div class="txn-head">
-    <?php if ($txnShowPageHead): ?>
+    <?php if ($txnShowTitle): ?>
       <div>
         <h1>Transactions</h1>
         <p class="txn-sub">Track all inventory transactions and stock movements.</p>
@@ -502,10 +549,11 @@ $typeMeta = [
     </div>
     <div class="txn-foot" id="txnFoot" <?= !$events ? 'hidden' : '' ?>>
       <div id="txnFootLabel">Showing 0 of 0 transactions</div>
-      <div class="txn-pages" id="txnPages"></div>
+      <div class="txn-pages" id="txnPages" aria-label="Pagination"></div>
       <label>
-        <select id="txnPageSize">
-          <option value="10" selected>10 / page</option>
+        <select id="txnPageSize" aria-label="Rows per page">
+          <option value="5" selected>5 / page</option>
+          <option value="10">10 / page</option>
           <option value="25">25 / page</option>
           <option value="50">50 / page</option>
         </select>
@@ -546,10 +594,11 @@ $typeMeta = [
   }
   function render() {
     var vis = visibleRows();
-    var size = Math.max(1, parseInt(pageSizeEl && pageSizeEl.value, 10) || 10);
+    var size = Math.max(1, parseInt(pageSizeEl && pageSizeEl.value, 10) || 5);
     var total = vis.length;
     var pages = Math.max(1, Math.ceil(total / size) || 1);
     if (page > pages) page = pages;
+    if (page < 1) page = 1;
     var start = (page - 1) * size;
     var end = Math.min(total, start + size);
     rows.forEach(function (row) {
@@ -563,27 +612,49 @@ $typeMeta = [
     });
     if (foot) foot.hidden = total === 0;
     if (footLabel) {
-      footLabel.textContent = total === 0 ? 'No matching transactions' : ('Showing ' + (total ? (start + 1) : 0) + ' to ' + end + ' of ' + total + ' transactions');
+      footLabel.textContent = total === 0
+        ? 'No matching transactions'
+        : ('Showing ' + (total ? (start + 1) : 0) + '–' + end + ' of ' + total + ' transactions');
     }
     if (pagesEl) {
       pagesEl.innerHTML = '';
-      function addBtn(label, to, on) {
+      function addBtn(label, to, on, disabled) {
         var b = document.createElement('button');
         b.type = 'button';
         b.textContent = label;
         if (on) b.className = 'is-on';
-        b.addEventListener('click', function () { page = to; render(); });
+        if (disabled) b.disabled = true;
+        b.addEventListener('click', function () {
+          if (disabled || to === page) return;
+          page = to;
+          render();
+        });
         pagesEl.appendChild(b);
       }
-      addBtn('‹', Math.max(1, page - 1), false);
-      var maxBtn = Math.min(pages, 8);
-      for (var i = 1; i <= maxBtn; i++) addBtn(String(i), i, i === page);
-      if (pages > 8) {
-        var last = document.createElement('span');
-        last.textContent = '… ' + pages;
-        pagesEl.appendChild(last);
+      function addGap() {
+        var s = document.createElement('span');
+        s.className = 'txn-page-gap';
+        s.textContent = '…';
+        pagesEl.appendChild(s);
       }
-      addBtn('›', Math.min(pages, page + 1), false);
+      addBtn('‹', Math.max(1, page - 1), false, page <= 1);
+
+      // Page number window: always show first/last + neighbors around current.
+      var nums = [];
+      var i;
+      for (i = 1; i <= pages; i++) {
+        if (i === 1 || i === pages || (i >= page - 2 && i <= page + 2)) {
+          nums.push(i);
+        }
+      }
+      var prev = 0;
+      nums.forEach(function (n) {
+        if (prev && n - prev > 1) addGap();
+        addBtn(String(n), n, n === page, false);
+        prev = n;
+      });
+
+      addBtn('›', Math.min(pages, page + 1), false, page >= pages);
     }
   }
   [search, typeEl, locEl, prodEl, pageSizeEl].forEach(function (el) {

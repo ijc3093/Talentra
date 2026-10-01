@@ -80,14 +80,26 @@ if (!function_exists('admin_chrome_profile')) {
                 }
 
                 try {
-                    $st = $dbh->prepare("SELECT COUNT(*) FROM feedback_admin WHERE receiver = :r");
-                    $st->execute([':r' => 'Admin']);
-                    $feedbackCount = (int)$st->fetchColumn();
+                    require_once __DIR__ . '/admin_layout.php';
+                    if (function_exists('admin_nav_attention_counts')) {
+                        $nav = admin_nav_attention_counts($dbh);
+                        $feedbackCount = (int)($nav['help_total'] ?? 0);
+                    } else {
+                        $st = $dbh->prepare("
+                            SELECT COUNT(*)
+                            FROM feedback_admin
+                            WHERE receiver = :r
+                              AND is_read = 0
+                              AND channel IN ('user_admin', 'dispute')
+                        ");
+                        $st->execute([':r' => 'Admin']);
+                        $feedbackCount = (int)$st->fetchColumn();
+                    }
                 } catch (Throwable $e) {
                     $feedbackCount = 0;
                 }
                 try {
-                    $st = $dbh->prepare("SELECT COUNT(*) FROM notification WHERE notireceiver = :r");
+                    $st = $dbh->prepare("SELECT COUNT(*) FROM notification WHERE notireceiver = :r AND is_read = 0");
                     $st->execute([':r' => 'Admin']);
                     $notiCount = (int)$st->fetchColumn();
                 } catch (Throwable $e) {

@@ -44,6 +44,8 @@ if (empty($result['ok'])) {
     exit;
 }
 
+publisher_authority_mark_requester($dbh, (int)($result['request_id'] ?? 0));
+
 $status = (string)($result['status'] ?? 'pending');
 $userMessage = $status === 'approved'
     ? 'Publisher name is approved — you can create your account.'

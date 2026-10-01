@@ -22,8 +22,11 @@ $cancelCount = count($cancelGroups);
 $cancelCountLabel = $cancelCount === 1 ? '1 cancelled purchase' : $cancelCount . ' cancelled purchases';
 ?>
   <div class="card bd-0 shadow-base mg-b-0">
-    <div class="card-header d-flex align-items-center justify-content-end flex-wrap" style="gap:10px;">
-      <a href="sales_management.php#notification" class="tx-12" data-sales-nav="notification">&larr; Back to Notification</a>
+    <div class="card-header d-flex align-items-end justify-content-between flex-wrap" style="gap:12px;">
+      <?php if (function_exists('org_sales_hub_intro')) { org_sales_hub_intro('table_cancel_orders'); } ?>
+      <div class="sm-hub-actions">
+        <a href="sales_management.php#notification" class="tx-12" data-sales-nav="notification">&larr; Back to Notification</a>
+      </div>
     </div>
     <div class="card-body">
       <div class="table-responsive">

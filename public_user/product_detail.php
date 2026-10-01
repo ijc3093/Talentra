@@ -110,6 +110,41 @@ if (!$notFound) {
     $messageSellerUrl = $publisherId > 0
         ? commerce_message_seller_url($publisherId, $productId)
         : '';
+    // Buyer's purchase for this product (invoice + status → order detail).
+    $buyerProductOrder = null;
+    if ($meId > 0 && $productId > 0) {
+        foreach (org_shop_list_buyer_orders($dbh, $meId, 100) as $buyerOrderRow) {
+            if ((int)($buyerOrderRow['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            $buyerOrderStatus = strtolower(trim((string)($buyerOrderRow['status'] ?? '')));
+            if ($buyerOrderStatus === 'cancelled') {
+                continue;
+            }
+            $buyerProductOrder = $buyerOrderRow;
+            break;
+        }
+    }
+    $buyerProductOrderStatus = $buyerProductOrder
+        ? ucwords(str_replace('_', ' ', strtolower(trim((string)($buyerProductOrder['status'] ?? 'pending')))))
+        : '';
+    $buyerProductOrderCode = $buyerProductOrder
+        ? trim((string)($buyerProductOrder['order_code'] ?? ''))
+        : '';
+    if ($buyerProductOrder && $buyerProductOrderCode === '') {
+        $buyerProductOrderCode = '#' . (int)($buyerProductOrder['id'] ?? 0);
+    }
+    $buyerInvoiceHref = '';
+    if ($buyerProductOrder) {
+        $buyerOrderId = (int)($buyerProductOrder['id'] ?? 0);
+        if ($buyerOrderId > 0) {
+            $invoiceQs = ['order_id' => $buyerOrderId];
+            if ($buyerProductOrderCode !== '' && $buyerProductOrderCode[0] !== '#') {
+                $invoiceQs['code'] = $buyerProductOrderCode;
+            }
+            $buyerInvoiceHref = 'order_detail.php?' . http_build_query($invoiceQs);
+        }
+    }
     $sellerOrgId = (int)($product['org_id'] ?? 0);
     $sellerPublicInfo = $sellerOrgId > 0
         ? org_shop_seller_pickup_display($dbh, $sellerOrgId)
@@ -125,6 +160,10 @@ if (!$notFound) {
     $outOfStock = true;
     $pageTitle = 'Product not found';
     $messageSellerUrl = '';
+    $buyerProductOrder = null;
+    $buyerProductOrderStatus = '';
+    $buyerProductOrderCode = '';
+    $buyerInvoiceHref = '';
     $sellerPublicInfo = ['store_name' => '', 'full_name' => '', 'tagline' => '', 'address' => '', 'phone' => '', 'email' => '', 'has_address' => false, 'text' => ''];
 }
 
@@ -667,6 +706,39 @@ if (!$notFound && !$galleryImages && $cover !== '') {
       text-transform:uppercase;
       color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));
     }
+    .pd-purchase-status{
+      display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
+      margin:0 0 16px;padding:12px 14px;
+      border:1px solid var(--shop-border,var(--msb-palette-border,#e5e7eb));
+      background:var(--shop-card-raised,var(--msb-palette-surface-2,#f8fafc));
+      color:var(--shop-text,var(--msb-palette-text,#111827));
+    }
+    .pd-purchase-status-label{
+      font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+      color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));
+    }
+    .pd-purchase-status-badge{
+      display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;
+      font-size:12px;font-weight:800;line-height:1.2;
+      background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;
+    }
+    .pd-purchase-status-badge.is-pending,
+    .pd-purchase-status-badge.is-confirmed{
+      background:#fff7ed;color:#c2410c;border-color:#fed7aa;
+    }
+    .pd-purchase-status-badge.is-shipped,
+    .pd-purchase-status-badge.is-delivered{
+      background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;
+    }
+    .pd-purchase-status-invoice{
+      margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+      padding:7px 12px;border:1px solid var(--shop-border,var(--msb-palette-border,#d1d5db));
+      background:var(--shop-card-bg,var(--msb-palette-bg,#fff));
+      color:var(--shop-link,var(--msb-palette-action,#2563eb));
+      font-size:13px;font-weight:800;text-decoration:none;line-height:1.2;
+    }
+    .pd-purchase-status-invoice:hover{text-decoration:none;background:var(--shop-hover-bg,var(--msb-palette-hover-bg,#f3f4f6));}
+    .pd-purchase-status-code{font-size:12px;font-weight:600;color:var(--shop-text-muted,var(--msb-palette-text-muted,#64748b));}
     .pd-type-meta{
       display:flex;flex-wrap:wrap;align-items:center;gap:8px;
       margin:0 0 12px;
@@ -712,8 +784,22 @@ if (!$notFound && !$galleryImages && $cover !== '') {
     }
     .pd-seller-table tr:last-child th,.pd-seller-table tr:last-child td{border-bottom:0;}
     .pd-seller-address{white-space:pre-line;margin:0;}
-    .pd-seller-actions{margin:0;padding:0;list-style:none;}
-    .pd-seller-actions li{margin:0 0 8px;}
+    .pd-seller-actions{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+    .pd-seller-actions li{margin:0;}
+    .pd-seller-msg-btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      width:100%;max-width:320px;min-height:44px;padding:11px 16px;box-sizing:border-box;
+      border:0;border-radius:10px;cursor:pointer;text-decoration:none;text-align:center;
+      background:var(--shop-btn-filled-bg,var(--msb-palette-action,#2563eb));
+      color:var(--shop-btn-filled-text,#fff);font-size:14px;font-weight:800;line-height:1.2;
+    }
+    .pd-seller-msg-btn:hover{filter:brightness(1.06);color:#fff;text-decoration:none;}
+    .pd-seller-msg-btn .fa{font-size:15px;}
+    .pd-seller-shop-link{
+      display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;
+      color:var(--shop-link,var(--msb-palette-link,#2563eb));text-decoration:none;
+    }
+    .pd-seller-shop-link:hover{text-decoration:underline;}
     .pd-badges{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -896,9 +982,29 @@ if (!$notFound && !$galleryImages && $cover !== '') {
                 </div>
               <?php endif; ?>
 
+              <?php if ($buyerProductOrder && $buyerInvoiceHref !== ''):
+                $statusSlug = strtolower(preg_replace('/\s+/', '-', $buyerProductOrderStatus) ?: 'pending');
+              ?>
+                <div class="pd-purchase-status" aria-label="Your purchase">
+                  <span class="pd-purchase-status-label">Your order</span>
+                  <span class="pd-purchase-status-badge is-<?= h($statusSlug) ?>"><?= h($buyerProductOrderStatus) ?></span>
+                  <?php if ($buyerProductOrderCode !== ''): ?>
+                    <span class="pd-purchase-status-code"><?= h($buyerProductOrderCode) ?></span>
+                  <?php endif; ?>
+                  <a class="pd-purchase-status-invoice" href="<?= h($buyerInvoiceHref) ?>">Invoice</a>
+                </div>
+              <?php endif; ?>
+
               <?php if ($inStock): ?>
+                <?php $pdShipping = org_shop_product_shipping_badge($dbh, $product); ?>
                 <p class="pd-stock-note">
-                  Free delivery by <?= h($deliveryByLong) ?>
+                  <?php if ($pdShipping['mode'] === 'free'): ?>
+                    Free delivery by <?= h($deliveryByLong) ?>
+                  <?php elseif ($pdShipping['mode'] === 'pickup'): ?>
+                    <?= h($pdShipping['pickup_address'] !== '' ? 'Pick up at ' . $pdShipping['pickup_address'] : 'Pick up only') ?>
+                  <?php else: ?>
+                    <?= h($pdShipping['shipping_fee_label'] !== '' ? $pdShipping['shipping_fee_label'] . ' shipping' : 'Shipping at checkout') ?> · delivery by <?= h($deliveryByLong) ?>
+                  <?php endif; ?>
                   <?php if ($stockCount !== null): ?> · <?= (int)$stockCount ?> in stock<?php endif; ?>
                 </p>
                 <div class="pd-purchase">
@@ -1046,12 +1152,15 @@ if (!$notFound && !$galleryImages && $cover !== '') {
                 <?php else: ?>
                   <p>Seller contact details are not listed yet.</p>
                 <?php endif; ?>
-                <ul class="pd-seller-actions">
+                <div class="pd-seller-actions">
                   <?php if ($messageSellerUrl !== ''): ?>
-                    <li><a href="<?= h($messageSellerUrl) ?>">Message seller about this product</a></li>
+                    <a class="pd-seller-msg-btn" href="<?= h($messageSellerUrl) ?>">
+                      <i class="fa fa-commenting-o" aria-hidden="true"></i>
+                      Message seller about this product
+                    </a>
                   <?php endif; ?>
-                  <li><a href="<?= h($brandShopUrl) ?>">Shop all <?= h($sellerDisplayName) ?> products</a></li>
-                </ul>
+                  <a class="pd-seller-shop-link" href="<?= h($brandShopUrl) ?>">Shop all <?= h($sellerDisplayName) ?> products</a>
+                </div>
               </div>
             </div>
 
@@ -1069,8 +1178,15 @@ if (!$notFound && !$galleryImages && $cover !== '') {
             <div class="pd-info-foot">
               <div class="pd-badges">
                 <div class="pd-badge">
-                  <div class="pd-badge-ic"><i class="fa fa-truck" aria-hidden="true"></i></div>
-                  Free delivery
+                  <?php $pdShipping = $pdShipping ?? org_shop_product_shipping_badge($dbh, $product); ?>
+                  <div class="pd-badge-ic"><i class="fa <?= $pdShipping['mode'] === 'pickup' ? 'fa-map-marker' : 'fa-truck' ?>" aria-hidden="true"></i></div>
+                  <?php if ($pdShipping['mode'] === 'free'): ?>
+                    Free delivery
+                  <?php elseif ($pdShipping['mode'] === 'pickup'): ?>
+                    Pick up only
+                  <?php else: ?>
+                    <?= h($pdShipping['shipping_fee_label'] !== '' ? $pdShipping['shipping_fee_label'] . ' shipping' : 'Paid shipping') ?>
+                  <?php endif; ?>
                 </div>
                 <div class="pd-badge">
                   <div class="pd-badge-ic"><i class="fa fa-lock" aria-hidden="true"></i></div>
@@ -1425,7 +1541,25 @@ if (!$notFound && !$galleryImages && $cover !== '') {
 
 <script src="./lib/jquery/jquery.js"></script>
 <script src="./js/shamcey.js"></script>
-<?php if (!$notFound && $meId > 0): ?>
+<?php if (!$notFound && $meId > 0 && $publisherId > 0 && $productId > 0): ?>
+<script>
+(function(){
+  var reportBtn = document.getElementById('pdReportBtn');
+  if (!reportBtn) return;
+  reportBtn.addEventListener('click', function(){
+    var productId = parseInt(reportBtn.getAttribute('data-product-id') || '0', 10);
+    var publisherId = <?= (int)$publisherId ?>;
+    if (!productId) return;
+    var q = new URLSearchParams();
+    q.set('topic', 'dispute');
+    q.set('support_report', '1');
+    q.set('about_product', String(productId));
+    if (publisherId > 0) q.set('about_seller', String(publisherId));
+    window.location.href = 'Your_Shopping_preferences.php?' + q.toString() + '#support-center';
+  });
+})();
+</script>
+<?php elseif (!$notFound && $meId > 0): ?>
 <?php require_once __DIR__ . '/includes/msb_report_client.js.php'; ?>
 <script>
 (function(){

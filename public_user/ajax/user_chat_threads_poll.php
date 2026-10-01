@@ -3,6 +3,9 @@ require_once __DIR__ . '/../includes/session_user.php';
 requireUserLogin();
 
 require_once __DIR__ . '/../controller.php';
+require_once __DIR__ . '/../includes/chat_lib.php';
+require_once __DIR__ . '/../includes/friend_system.php';
+require_once __DIR__ . '/../includes/commerce_messaging.php';
 
 header('Content-Type: application/json');
 sendNoCacheHeadersUser();
@@ -26,14 +29,10 @@ if ($meId <= 0 || ($meCode === '' && $meEmail === '')) {
 
 // Helpers (same formatting as messages.php)
 function fmt_time_short_php(string $dt): string {
-    if ($dt === '') return '';
-    $ts = strtotime($dt);
-    return $ts ? date('h:i A', $ts) : '';
+    return chat_fmt_time_short($dt);
 }
 function fmt_time_full_php(string $dt): string {
-    if ($dt === '') return '';
-    $ts = strtotime($dt);
-    return $ts ? date('M d, Y h:i A', $ts) : '';
+    return chat_fmt_time_full($dt);
 }
 
 /**
@@ -111,11 +110,17 @@ $st = $dbh->prepare($sql);
 $st->execute($params);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
+require_once __DIR__ . '/../includes/commerce_messaging.php';
+$rows = commerce_filter_out_shop_message_threads($dbh, $meId, $rows ?: [], 'peer_id');
+
 $out = [];
 foreach ($rows as $r) {
     $key = (string)($r['peer_key'] ?? '');
     $display = (string)($r['peer_display'] ?? $key);
-    $lastMsg = (string)($r['last_message'] ?? '');
+    $lastMsg = trim((string)($r['last_message'] ?? ''));
+    if ($lastMsg !== '') {
+        $lastMsg = call_event_display_text($lastMsg, false);
+    }
     $lastTime = (string)($r['last_time'] ?? '');
     $lastTs = $lastTime !== '' ? (int)strtotime($lastTime) : 0;
 

@@ -104,6 +104,27 @@ if (!in_array($postedPublisherMode, ['media', 'commerce'], true)) {
 register_ensure_user_birthday_columns($dbh);
 register_ensure_user_consent_columns($dbh);
 
+$linkedSlot = account_linked_slot_for_track($signupTrack);
+$linkedOwner = null;
+if ($linkedSlot !== '' && (account_switch_is_add_request() || (int)($_SESSION['user_id'] ?? 0) > 0)) {
+    $linkedPendingOwnerId = account_switch_pending_owner_id();
+    if ($linkedPendingOwnerId > 0) {
+        $linkedOwner = account_linked_personal_owner($dbh, $linkedPendingOwnerId, false);
+    }
+}
+$linkedProSignup = ($linkedOwner !== null);
+$linkedOwnedAccount = $linkedProSignup
+    ? account_linked_owned_account($dbh, (int)$linkedOwner['id'], $linkedSlot)
+    : null;
+$linkedIdentity = null;
+if ($linkedProSignup && !$linkedOwnedAccount) {
+    try {
+        $linkedIdentity = account_linked_identity($dbh, $linkedOwner, $linkedSlot);
+    } catch (Throwable $e) {
+        $linkedIdentity = null;
+    }
+}
+
 function register_policy_sections(): array
 {
     return [
@@ -588,8 +609,22 @@ function generateUniqueFriendCode(PDO $dbh, string $prefix = 'USR', int $maxTrie
     throw new RuntimeException('Unable to generate unique friend code. Try again.');
 }
 
+function register_finish_success(bool $ajax): void
+{
+    if ($ajax) {
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode(['ok' => true, 'redirect' => 'entry.php']);
+        exit;
+    }
+    header('Location: entry.php');
+    exit;
+}
+
+$registerAjax = (string)($_POST['ajax_register'] ?? '') === '1';
+$registerErrorAction = '';
+
 if (isset($_POST['submit'])) {
-    $accountSwitchFromId = account_switch_is_add_request() ? account_switch_pending_owner_id() : 0;
+    $accountSwitchFromId = (account_switch_is_add_request() || $linkedProSignup) ? account_switch_pending_owner_id() : 0;
     $lockedTrack = register_signup_track_from_request();
     $accountType = strtolower(trim((string)($_POST['account_type'] ?? 'personal')));
     if (!in_array($accountType, ['personal', 'publisher'], true)) {
@@ -615,6 +650,11 @@ if (isset($_POST['submit'])) {
     $username = trim((string)($_POST['username'] ?? ''));
     $email = trim((string)($_POST['email'] ?? ''));
     $passwordRaw = (string)($_POST['password'] ?? '');
+    if ($linkedProSignup) {
+        $username = (string)($linkedIdentity['username'] ?? '');
+        $email = (string)($linkedIdentity['email'] ?? '');
+        $passwordRaw = '';
+    }
     $gender = trim((string)($_POST['gender'] ?? ''));
     $mobileno = trim((string)($_POST['mobile'] ?? $_POST['mobileno'] ?? ''));
     $birthMonth = trim((string)($_POST['birth_month'] ?? ''));
@@ -658,7 +698,12 @@ if (isset($_POST['submit'])) {
 
     if ($policyAgreement !== 'agree') {
         $error = 'You must agree to the Terms and Policy to create an account.';
-    } elseif ($username === '' || $email === '' || $passwordRaw === '') {
+    } elseif ($isPublisher && !$linkedProSignup) {
+        $error = ($publisherMode === 'commerce' ? 'Commerce' : 'Publisher') . ' accounts use your personal account username and password. Log in to your personal account first, then create it.';
+        $registerErrorAction = 'login_required';
+    } elseif ($linkedProSignup && $linkedOwnedAccount) {
+        $error = 'You already created a ' . ($linkedSlot === 'commerce' ? 'Commerce' : 'Publisher') . ' account. Use the gear at the bottom of Home to switch to it.';
+    } elseif ($username === '' || $email === '' || ($passwordRaw === '' && !$linkedProSignup)) {
         $error = 'Please fill all required fields.';
     } elseif (!$isPublisher && $name === '') {
         $error = 'Please fill all required fields.';
@@ -675,10 +720,13 @@ if (isset($_POST['submit'])) {
     } elseif ($isPublisher && $publisherMode === 'commerce' && $commerceBrandId <= 0) {
         if ($postedCommerceBrandName !== '' && publisher_authority_commerce_brand_name_request_status($dbh, $postedCommerceBrandName, $email) === 'pending') {
             $error = 'Your commerce brand request is waiting for admin approval. Stay on this page until it is approved.';
+            $registerErrorAction = 'commerce_name_pending';
         } elseif ($postedCommerceBrandName !== '') {
             $error = 'Submit your commerce brand request with Add name and wait for admin approval before creating your account.';
+            $registerErrorAction = 'commerce_request';
         } else {
             $error = 'Please choose a commerce brand system or click Add name to request a new one.';
+            $registerErrorAction = 'commerce_request';
         }
     } elseif ($isPublisher && $publisherMode === 'commerce' && !org_commerce_brands_get($dbh, $commerceBrandId)) {
         $error = 'Please choose a valid commerce brand system.';
@@ -688,10 +736,13 @@ if (isset($_POST['submit'])) {
         $reqStatus = publisher_authority_commerce_request_status($dbh, $commerceBrandId, $email);
         if ($reqStatus === 'pending') {
             $error = 'Your commerce seller request is waiting for admin approval. Submit the request below and check back once approved.';
+            $registerErrorAction = 'commerce_seller_pending';
         } elseif ($reqStatus === 'rejected') {
             $error = 'Your commerce seller request was rejected. Submit a new request or contact support.';
+            $registerErrorAction = 'commerce_request';
         } else {
             $error = 'Submit a commerce seller request and wait for admin approval before creating your account.';
+            $registerErrorAction = 'commerce_request';
         }
     } elseif ($isPublisher && $publisherMode === 'commerce' && $name === '') {
         $error = 'Could not resolve a display name from the selected commerce brand.';
@@ -703,10 +754,13 @@ if (isset($_POST['submit'])) {
         $reqStatus = publisher_authority_request_status($dbh, $name);
         if ($reqStatus === 'pending') {
             $error = 'This publisher name is waiting for admin approval. You can sign up once it is approved.';
+            $registerErrorAction = 'publisher_pending';
         } elseif ($reqStatus === 'rejected') {
             $error = 'This publisher name request was rejected. Choose another name or submit a new request.';
+            $registerErrorAction = 'publisher_request';
         } else {
             $error = 'Submit a publisher name request and wait for admin approval before signing up.';
+            $registerErrorAction = 'publisher_request';
         }
     } elseif ($isPublisher && !isset(publisher_categories($dbh)[$publisherCategory])) {
         $error = 'Please choose a publisher category.';
@@ -724,7 +778,14 @@ if (isset($_POST['submit'])) {
                 $friendCode = $isPublisher
                     ? publisher_make_friend_code($dbh)
                     : generateUniqueFriendCode($dbh, 'USR');
-                $password = password_hash($passwordRaw, PASSWORD_DEFAULT);
+                if ($linkedProSignup) {
+                    $password = trim((string)($linkedOwner['password'] ?? ''));
+                    if ($password === '') {
+                        $password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+                    }
+                } else {
+                    $password = password_hash($passwordRaw, PASSWORD_DEFAULT);
+                }
                 $designation = $isPublisher
                     ? ($publisherTagline !== '' ? $publisherTagline : ('Official ' . $name . ' on Talsora'))
                     : '';
@@ -759,6 +820,11 @@ if (isset($_POST['submit'])) {
 
                 if ($newUserId <= 0) {
                     throw new RuntimeException('User account was not created.');
+                }
+
+                if ($linkedProSignup) {
+                    $ownSt = $dbh->prepare('UPDATE users SET owner_user_id = :o, owner_slot = :s WHERE id = :id');
+                    $ownSt->execute([':o' => (int)$linkedOwner['id'], ':s' => $linkedSlot, ':id' => $newUserId]);
                 }
 
                 register_notify_admin($dbh, $email, $isPublisher);
@@ -827,8 +893,7 @@ if (isset($_POST['submit'])) {
                         'account_kind' => 'publisher',
                     ]);
                     account_switch_complete_after_auth($dbh, $accountSwitchFromId, $newUserId);
-                    header('Location: entry.php');
-                    exit;
+                    register_finish_success($registerAjax);
                 }
 
                 setUserSession([
@@ -848,8 +913,7 @@ if (isset($_POST['submit'])) {
                     'name' => $name,
                     'username' => $username,
                 ];
-                header('Location: entry.php');
-                exit;
+                register_finish_success($registerAjax);
             }
         } catch (Throwable $e) {
             if ($dbh->inTransaction()) {
@@ -863,6 +927,18 @@ if (isset($_POST['submit'])) {
     }
 
     $postedPublisherMode = $publisherMode;
+
+    if ($registerAjax) {
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'ok' => false,
+            'error' => $error !== '' ? $error : 'Unable to complete registration right now. Please try again.',
+            'action' => $registerErrorAction,
+            'commerce_brand_id' => $publisherMode === 'commerce' ? (int)$commerceBrandId : 0,
+            'applicant_email' => $publisherMode === 'commerce' ? (string)$email : '',
+        ]);
+        exit;
+    }
 }
 ?>
 <?php
@@ -1261,7 +1337,7 @@ if ($isPublisherReg) {
   <body class="<?= htmlspecialchars($registerBodyClasses, ENT_QUOTES, 'UTF-8') ?>" data-signup-track="<?= htmlspecialchars($signupTrack, ENT_QUOTES, 'UTF-8') ?>">
     <div class="signpanel-wrapper">
       <div class="signbox signup">
-          <?php if ($error): ?>
+          <?php if ($error && $signupTrack === 'personal'): ?>
           <div class="errorWrap"><strong>ERROR</strong>: <?php echo htmlentities($error); ?></div>
           <?php elseif ($msg): ?>
           <div class="succWrap"><strong>SUCCESS</strong>: <?php echo htmlentities($msg); ?></div>
@@ -1269,7 +1345,7 @@ if ($isPublisherReg) {
         <div class="signbox-body">
           <form method="post" autocomplete="off" id="registerForm" action="register.php<?= htmlspecialchars(register_signup_query_string($signupTrack), ENT_QUOTES, 'UTF-8') ?>">
               <?php echo csrfInput(); ?>
-              <?php if (account_switch_is_add_request()): ?>
+              <?php if (account_switch_is_add_request() || $linkedProSignup): ?>
               <input type="hidden" name="add_account" value="1">
               <?php endif; ?>
               <?php if ($signupTrack === 'commerce'): ?>
@@ -1323,6 +1399,22 @@ if ($isPublisherReg) {
                 <input type="hidden" id="publisherNameHidden" class="publisher-name-hidden" value="<?= htmlspecialchars($selectedPublisherName, ENT_QUOTES, 'UTF-8') ?>" disabled>
                 <div class="tx-12 mg-t-5 publisher-media-note">Choose a name from the list or click <strong>Add name</strong>. Both open the same request form and require admin approval before you can create your account.</div>
               </div>
+              <?php if ($linkedProSignup): ?>
+              <input type="hidden" name="username" value="<?= htmlspecialchars((string)($linkedIdentity['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              <input type="hidden" name="email" value="<?= htmlspecialchars((string)($linkedIdentity['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              <div class="tx-12 mg-b-10 linked-account-note">
+                <?php if ($linkedOwnedAccount): ?>
+                You already created a <?= $linkedSlot === 'commerce' ? 'Commerce' : 'Publisher' ?> account. Use the gear at the bottom of Home to switch to it.
+                <?php else: ?>
+                This <?= $linkedSlot === 'commerce' ? 'Commerce' : 'Publisher' ?> account signs in with your personal account (@<?= htmlspecialchars((string)($linkedOwner['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>) username and password.
+                <?php endif; ?>
+              </div>
+              <?php elseif ($signupTrack !== 'personal'): ?>
+              <div class="tx-12 mg-b-10 linked-account-note">
+                <?= $signupTrack === 'commerce' ? 'Commerce' : 'Publisher' ?> accounts use your personal account username and password.
+                <a href="index.php?account_type=personal&amp;return_pro=<?= $signupTrack === 'commerce' ? 'commerce' : 'publisher' ?>"><strong>Log in with your personal account</strong></a> to create it.
+              </div>
+              <?php else: ?>
               <div class="row row-xs">
                 <div class="col-sm">
                   <div class="form-group">
@@ -1337,6 +1429,7 @@ if ($isPublisherReg) {
                   </div>
                 </div>
               </div>
+              <?php endif; ?>
               <div class="row row-xs personal-only">
                 <div class="col-sm">
                   <div class="form-group">
@@ -1355,10 +1448,12 @@ if ($isPublisherReg) {
                   </div>
                 </div>
               </div>
+              <?php if (!$linkedProSignup && $signupTrack === 'personal'): ?>
               <div class="form-group">
                 <!-- <label class="form-control-label">Password</label> -->
                 <input type="password" name="password" class="form-control" placeholder="Password" autocomplete="new-password" required>
               </div>
+              <?php endif; ?>
               <div class="form-group personal-only">
                 <label class="form-control-label register-birthday-label">Birthday</label>
                 <div class="register-birthday-row">
@@ -1552,7 +1647,7 @@ if ($isPublisherReg) {
           </div>
           <div class="modal-body">
             <input type="text" id="commerceBrandAddNameInput" class="form-control" placeholder="e.g. Chipotle, Target, Nike" maxlength="120" autocomplete="off">
-            <div class="row row-xs mg-t-10">
+            <div class="row row-xs mg-t-10" style="display:none">
               <div class="col-sm">
                 <label class="form-control-label" for="commerceBrandAccountUsername">Account username</label>
                 <input type="text" id="commerceBrandAccountUsername" class="form-control" placeholder="Username for signup" maxlength="120" autocomplete="username">
@@ -1562,7 +1657,7 @@ if ($isPublisherReg) {
                 <input type="email" id="commerceBrandAccountEmail" class="form-control" placeholder="Email for signup" maxlength="120" autocomplete="email">
               </div>
             </div>
-            <div class="tx-12 mg-t-5">Use the username and email you will use to create your seller account.</div>
+            <div class="tx-12 mg-t-5">Your seller account uses your personal account username and password.</div>
             <div class="publisher-authority-box">
               <div class="publisher-authority-title">Commerce brand request</div>
               <div class="publisher-authority-note">New brand systems are reviewed by an admin before you can create your seller account.</div>
@@ -1618,7 +1713,7 @@ if ($isPublisherReg) {
           </div>
           <div class="modal-body">
             <div id="commerceSellerBrandName" class="publisher-custom-chosen-name mg-b-10"></div>
-            <div class="row row-xs mg-b-10">
+            <div class="row row-xs mg-b-10" style="display:none">
               <div class="col-sm">
                 <label class="form-control-label" for="commerceSellerAccountUsername">Account username</label>
                 <input type="text" id="commerceSellerAccountUsername" class="form-control" placeholder="Username for signup" maxlength="120" autocomplete="username">
@@ -1690,6 +1785,55 @@ if ($isPublisherReg) {
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
             <button type="button" class="btn btn-primary" id="publisherCategoryAddSaveBtn">Add category</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade publisher-add-modal" id="approvalWaitModal" tabindex="-1" role="dialog" aria-labelledby="approvalWaitModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="approvalWaitModalLabel">Waiting for admin approval</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="approval-wait-row">
+              <span class="approval-wait-spinner" aria-hidden="true"></span>
+              <span id="approvalWaitModalText">Your request was sent to the admin.</span>
+            </div>
+            <div class="tx-12 mg-t-10">Stay on this page. We check automatically every few seconds — when the admin approves, this window closes, the card turns green, and you can click <strong>Create account</strong>.</div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="approvalWaitCheckBtn">Check now</button>
+            <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <style>
+      .approval-wait-row{display:flex;align-items:center;gap:10px;font-weight:700;color:#0f172a}
+      .approval-wait-spinner{width:18px;height:18px;border-radius:50%;border:2px solid rgba(37,99,235,.25);border-top-color:#2563eb;animation:approvalWaitSpin .8s linear infinite;flex:0 0 auto}
+      @keyframes approvalWaitSpin{to{transform:rotate(360deg)}}
+    </style>
+
+    <div class="modal fade publisher-add-modal" id="registerResultModal" tabindex="-1" role="dialog" aria-labelledby="registerResultModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="registerResultModalLabel"><?= $signupTrack === 'commerce' ? 'Create commerce account' : 'Create publisher account' ?></h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="publisher-add-error" id="registerResultMessage" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <a class="btn btn-secondary" id="registerResultLogin" href="index.php?account_type=personal&amp;return_pro=<?= $signupTrack === 'commerce' ? 'commerce' : 'publisher' ?>" style="display:none">Log in</a>
+            <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
           </div>
         </div>
       </div>
@@ -1809,6 +1953,12 @@ if ($isPublisherReg) {
         var email = registerEmailInput ? registerEmailInput.value.trim() : '';
         var passwordInput = document.querySelector('#registerForm input[name="password"]');
         var password = passwordInput ? passwordInput.value : '';
+        if (<?= $linkedProSignup ? 'true' : 'false' ?>) {
+          return username !== '' && email !== '';
+        }
+        if (<?= $signupTrack !== 'personal' ? 'true' : 'false' ?>) {
+          return true;
+        }
         return username !== '' && email !== '' && password !== '';
       }
 
@@ -1866,6 +2016,66 @@ if ($isPublisherReg) {
         }
       }
 
+      var approvalWaitKind = '';
+      var approvalWaitDismissed = false;
+      var approvalWaitShown = false;
+
+      function syncApprovalWaitModal(kind, status, name){
+        var $modal = (window.jQuery && window.jQuery.fn && window.jQuery.fn.modal) ? window.jQuery('#approvalWaitModal') : null;
+        if (!$modal || !$modal.length) return;
+        if (status === 'pending') {
+          approvalWaitKind = kind;
+          var textEl = document.getElementById('approvalWaitModalText');
+          if (textEl) {
+            textEl.textContent = 'Your request' + (name ? ' for “' + name + '”' : '') + ' was sent to the admin. Waiting for approval…';
+          }
+          if (!approvalWaitDismissed && !approvalWaitShown) {
+            approvalWaitShown = true;
+            var showWait = function(){
+              if (!approvalWaitShown) return;
+              var $open = window.jQuery('.modal.show').not('#approvalWaitModal');
+              if ($open.length) {
+                $open.one('hidden.bs.modal', function(){ setTimeout(showWait, 50); });
+                return;
+              }
+              $modal.modal('show');
+            };
+            setTimeout(showWait, 50);
+          }
+          return;
+        }
+        if ((status === 'approved' || status === 'rejected') && kind === approvalWaitKind) {
+          approvalWaitKind = '';
+          approvalWaitDismissed = false;
+          if (approvalWaitShown) {
+            approvalWaitShown = false;
+            $modal.modal('hide');
+          }
+        }
+      }
+
+      if (window.jQuery) {
+        window.jQuery('#approvalWaitModal').on('hidden.bs.modal', function(){
+          if (approvalWaitShown) {
+            approvalWaitShown = false;
+            approvalWaitDismissed = true;
+          }
+        });
+      }
+
+      var approvalWaitCheckBtn = document.getElementById('approvalWaitCheckBtn');
+      if (approvalWaitCheckBtn) {
+        approvalWaitCheckBtn.addEventListener('click', function(){
+          if (approvalWaitKind === 'publisher') {
+            refreshCustomPublisherStatus(publisherStatusPollName || (publisherHidden ? publisherHidden.value.trim() : ''), true);
+          } else if (approvalWaitKind === 'commerce_brand') {
+            refreshCustomCommerceBrandStatus(commerceBrandStatusPollName || (commerceBrandNameHidden ? commerceBrandNameHidden.value.trim() : ''), true);
+          } else if (approvalWaitKind === 'commerce_seller') {
+            refreshCommerceSellerStatus(true);
+          }
+        });
+      }
+
       function stopPublisherStatusPoll(){
         if (publisherStatusPollTimer) {
           clearInterval(publisherStatusPollTimer);
@@ -1921,6 +2131,7 @@ if ($isPublisherReg) {
           customChosenStatusActions.hidden = status !== 'pending';
         }
         setPublisherWaitNoteVisible(status === 'pending');
+        syncApprovalWaitModal('publisher', status, publisherHidden ? publisherHidden.value.trim() : '');
       }
 
       function applyPublisherRequestResult(data){
@@ -2137,6 +2348,7 @@ if ($isPublisherReg) {
           commerceBrandCustomStatusActions.hidden = status !== 'pending';
         }
         setCommerceBrandWaitNoteVisible(status === 'pending');
+        syncApprovalWaitModal('commerce_brand', status, commerceBrandNameHidden ? commerceBrandNameHidden.value.trim() : '');
       }
 
       function setCustomCommerceBrandApproved(approved){
@@ -2339,7 +2551,14 @@ if ($isPublisherReg) {
         return { username: username, email: email };
       }
 
+      var proLoginRequired = <?= ($signupTrack !== 'personal' && !$linkedProSignup) ? 'true' : 'false' ?>;
+      var proLoginMessage = 'Commerce accounts use your personal account username and password. Log in to your personal account first, then create it.';
+
       function openCommerceBrandAddModal(){
+        if (proLoginRequired) {
+          showRegisterResult(proLoginMessage, true);
+          return;
+        }
         showCommerceBrandAddError('');
         if (commerceBrandAuthorityEntityType) commerceBrandAuthorityEntityType.selectedIndex = 0;
         if (commerceBrandAuthorityLegalName) commerceBrandAuthorityLegalName.value = '';
@@ -2397,6 +2616,10 @@ if ($isPublisherReg) {
       }
 
       function openCommerceSellerRequestModal(brandId){
+        if (proLoginRequired) {
+          showRegisterResult(proLoginMessage, true);
+          return;
+        }
         pendingCommerceBrandId = brandId > 0 ? brandId : 0;
         showCommerceSellerModalError('');
         clearCommerceSellerAuthorityForm();
@@ -2440,6 +2663,7 @@ if ($isPublisherReg) {
           commerceSellerStatusActions.hidden = status !== 'pending';
         }
         setCommerceWaitNoteVisible(status === 'pending');
+        syncApprovalWaitModal('commerce_seller', status, commerceSellerBrandName ? (commerceSellerBrandName.textContent || '').trim() : '');
       }
 
       function setCommerceApprovedState(approved){
@@ -3107,6 +3331,45 @@ if ($isPublisherReg) {
       });
       syncPolicyChoice();
 
+      function showRegisterResult(message, needsLogin){
+        var loginLink = document.getElementById('registerResultLogin');
+        if (loginLink) loginLink.style.display = needsLogin ? '' : 'none';
+        var msgEl = document.getElementById('registerResultMessage');
+        if (msgEl) {
+          msgEl.textContent = message || 'Unable to complete registration right now. Please try again.';
+          msgEl.classList.add('is-visible');
+        }
+        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.modal) {
+          window.jQuery('#registerResultModal').modal('show');
+        } else {
+          alert(message);
+        }
+      }
+
+      function submitProRegisterAjax(){
+        if (registerSubmitBtn) registerSubmitBtn.disabled = true;
+        var body = new FormData(registerForm);
+        body.set('submit', '1');
+        body.set('ajax_register', '1');
+        fetch(registerForm.getAttribute('action') || window.location.href, { method: 'POST', body: body, credentials: 'same-origin' })
+          .then(function(res){ return res.json(); })
+          .then(function(data){
+            if (data && data.ok) {
+              if (typeof window.msbArmEntryBridge === 'function') {
+                window.msbArmEntryBridge();
+              }
+              window.location.href = data.redirect || 'entry.php';
+              return;
+            }
+            syncSubmitButtonState();
+            showRegisterResult(data && data.error, !!(data && data.action === 'login_required'));
+          })
+          .catch(function(){
+            syncSubmitButtonState();
+            showRegisterResult('Unable to complete registration right now. Please try again.');
+          });
+      }
+
       if (registerForm) {
         registerForm.addEventListener('submit', function(ev){
           var selectedPolicy = document.querySelector('input[name="policy_agreement"]:checked');
@@ -3143,44 +3406,42 @@ if ($isPublisherReg) {
             if (isCommerceSubmit) {
               var usingCustomCommerceBrand = commerceCustomChosen && commerceCustomChosen.classList.contains('is-visible');
               if (usingCustomCommerceBrand) {
+                ev.preventDefault();
                 if (!customCommerceBrandApproved) {
-                  ev.preventDefault();
-                  alert('Your commerce brand request must be approved by admin before you can create your account.');
+                  showRegisterResult('Your commerce brand request must be approved by admin before you can create your account.');
                   return;
                 }
-                if (typeof window.msbArmEntryBridge === 'function') {
-                  window.msbArmEntryBridge();
-                }
+                submitProRegisterAjax();
                 return;
               }
               if (commerceBrandSelect && !commerceBrandSelect.value) {
                 ev.preventDefault();
-                commerceBrandSelect.focus();
-                alert('Please choose a commerce brand system or click Add name to request a new one.');
+                showRegisterResult('Please choose a commerce brand system or click Add name to request a new one.');
                 return;
               }
               if (!commerceSellerApproved) {
                 ev.preventDefault();
-                alert('Your commerce seller request must be approved by admin before you can create your account.');
+                showRegisterResult('Your commerce seller request must be approved by admin before you can create your account.');
                 return;
               }
-              if (typeof window.msbArmEntryBridge === 'function') {
-                window.msbArmEntryBridge();
-              }
+              ev.preventDefault();
+              submitProRegisterAjax();
               return;
             }
             if (publisherHidden && !publisherHidden.value.trim()) {
               ev.preventDefault();
-              if (publisherSelect) publisherSelect.focus();
-              alert('Please select or add a publisher name.');
+              showRegisterResult('Please select or add a publisher name.');
               return;
             }
 
             if (publisherHidden && publisherHidden.value.trim() && !customPublisherApproved) {
               ev.preventDefault();
-              alert('This publisher name is not approved yet. Wait for admin approval before signing up.');
+              showRegisterResult('This publisher name is not approved yet. Wait for admin approval before signing up.');
               return;
             }
+            ev.preventDefault();
+            submitProRegisterAjax();
+            return;
           }
 
           if (typeof window.msbArmEntryBridge === 'function') {
@@ -3189,6 +3450,9 @@ if ($isPublisherReg) {
         });
       }
 
+      <?php if ($error !== '' && $signupTrack !== 'personal'): ?>
+      showRegisterResult(<?= json_encode($error, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>, <?= $registerErrorAction === 'login_required' ? 'true' : 'false' ?>);
+      <?php endif; ?>
       syncType();
       syncPublisherMode();
       syncPublisherSelectFromHidden();
